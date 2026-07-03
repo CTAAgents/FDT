@@ -9,7 +9,7 @@
 输出：JSON + HTML报表
 v2.18.1: 新增 --symbols 参数支持自定义品种扫描，消除胶水脚本
 """
-import sys, os, json, numpy as np, pandas as pd
+import sys, os, json, re, numpy as np, pandas as pd
 from datetime import date
 
 # ── 路径自举（quant-daily scripts/ 目录） ──
@@ -57,12 +57,27 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
 def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
              symbols: list = None) -> dict:
     """执行品种信号扫描，返回结果字典。
-
-    参数:
-        output_dir: 输出目录（可选）
-        output_prefix: 文件名前缀
-        symbols: 指定品种列表，格式 [(sym, name), ...]。None=全品种
+    
+    参数校验：
+    - symbols必须为[(sym, name), ...]格式
+    - 每个sym为2-6位字母代码
+    - 空symbols列表触发全品种扫描
     """
+    # ── 参数合法性校验 ──
+    import re
+    valid_sym_pattern = re.compile(r'^[A-Za-z]{2,6}$')
+    if symbols is not None:
+        if not isinstance(symbols, list):
+            raise TypeError("symbols必须是列表，格式 [(sym, name), ...]")
+        for item in symbols:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                raise ValueError(f"symbols元素必须是二元组 (sym, name)，收到: {item}")
+            sym, name = item
+            if not isinstance(sym, str) or not valid_sym_pattern.match(sym):
+                raise ValueError(f"品种代码格式非法: '{sym}'，必须是2-6位字母")
+            if not isinstance(name, str) or len(name) == 0:
+                raise ValueError(f"品种名称为空: sym={sym}")
+
     today = date.today()
     today_str = today.strftime('%Y%m%d')
 
