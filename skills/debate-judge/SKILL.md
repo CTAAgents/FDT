@@ -170,7 +170,7 @@ class JudgeVerdict(BaseModel):
       "direction": "BUY/SELL/HOLD",
       "confidence": "高/中/低",
       "reasoning": "裁决理由（100-200字）",
-      "key_tension": "牛势研最强点 vs 熊谋略最强点",
+      "key_tension": "证真最强点 vs 慎思最强点",
       "lean": "偏向哪方论据",
       "risk_note": "需关注的风险"
     }
