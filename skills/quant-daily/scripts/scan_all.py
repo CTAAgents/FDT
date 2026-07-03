@@ -114,6 +114,7 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             results.append(dict(
                 symbol=sym, name=name, price=round(price, 1),
                 change_pct=round(tech.get('change_pct', 0), 2),
+                volume=int(round(float(df['volume'].iloc[-1]))) if not df['volume'].empty else 0,
                 total=sc['total'] * s, abs=sc['total'],
                 l1=sc['L1_score'] * s, l2=sc['L2_score'] * s,
                 l3=sc['L3_score'] * s, l4=sc['L4_score'] * s,

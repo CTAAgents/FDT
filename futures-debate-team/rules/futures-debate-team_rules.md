@@ -94,6 +94,33 @@ Phase 3【拍板】──── 明鉴秋汇总 → debate_results.json → HTML
 - 闫判官必须**等待两份快照到位**后才能启动辩论期
 - 证真和慎思**不得自行搜索数据**——所有论据必须从研究员快照中提取
 
+### 🔧 工程规范
+
+**Agent命名规范**：spawn Agent时使用英文名（name参数），避免中文名导致的跨平台编码异常：
+| 角色 | 英文名（name参数） | 显示用中文名（prompt中） |
+|:----|:------------------|:-----------------------|
+| 明鉴秋 | team-lead | 🎯 明鉴秋 |
+| 探源 | tanyuan | 🧑‍🔬 探源 |
+| 观澜 | guanlan | 🧑‍🔬 观澜 |
+| 链证源 | lianzhengyuan | 🔗 链证源 |
+| 证真 | zhengzhen | 🔵 证真 |
+| 慎思 | shensi | 🔴 慎思 |
+| 闫判官 | judge | ⚪ 闫判官 |
+| 风控明 | risk-manager | 🟡 风控明 |
+| 策执远 | strategist | 📋 策执远 |
+
+**研究员spawn模板**（使用general-purpose）：
+```
+Agent(name=英文名, subagent_type="general-purpose", prompt="你是【中文名】— 角色定义...")
+```
+
+**辩手spawn模板**（使用general-purpose，嵌入三份快照路径）：
+```
+Agent(name=英文名, subagent_type="general-purpose", prompt="你是【中文名】— 角色定义...
+🚫 禁止WebSearch自行搜索
+✅ 读取研究员快照文件：fundamental/technical/chain三份JSON")
+```
+
 **并行执行原则**：
 - Phase 3 多空研究员立场独立，**必须使用 TeamCreate 并行执行**
 - Phase 1、Phase 2、Phase 4、Phase 5 存在上下游依赖，**必须顺序执行**
