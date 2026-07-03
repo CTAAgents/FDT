@@ -1,6 +1,6 @@
 ---
 name: debate-argument-builder
-version: 2.1.0
+version: 2.1.1
 description: >
   通用期货多头/空头论点构建器。支持双模式：独立模式（LLM推理+WebSearch主动搜索）和辩论专家团模式（基于研究员快照提炼论据）。
   6维度分析框架：趋势结构、量价关系、期限结构、产业链验证、基本面/市场情绪、风险点。
