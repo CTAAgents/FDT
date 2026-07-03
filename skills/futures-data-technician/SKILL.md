@@ -11,6 +11,16 @@ disable: false
 
 # futures-data-technician — 数技师（数据管道）
 
+## 🔒 Data Pipeline Circuit Breaker（新增·全局强制）
+
+| 防呆机制 | 规则 | 触发后果 |
+|:---------|:----|:---------|
+| 输出中禁止分析性语言 | 输出JSON和日志中**不得出现**"看多/看空/趋势强/弱/应该/建议/多空/震荡上行"等词汇 | 违反即输出不合格，需重新生成不带分析的纯数据输出 |
+| 字段范围限制 | `all_ranked`每个条目只能包含：`symbol, name, price, change_pct, volume, adx, rsi, cci, ma_slope, macd_cross, dc20_break, ma_align, stage, total, l1, l2, l3, l4, veto, direction, grade, z_score, cons` + `_meta`溯源字段 | 出现未定义字段标注"非法字段" |
+| `_meta`溯源强制 | 每次输出必须包含`_meta.date, _meta.source, _meta.indicators, _meta.symbols_count` | 缺失则标注"缺少数据溯源信息" |
+| 数据包大小 | **≤5MB** | 超限裁剪 |
+| 运行超时 | **≤120秒**全品种扫描 | 超限输出已采集部分 |
+
 ## 定位
 
 辩论专家团的**数据管道**角色。基于 `quant-daily` skill 的数据采集+指标计算能力，包装为"只做数据不做分析"的数技师专用接口。

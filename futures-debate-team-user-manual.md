@@ -1,6 +1,6 @@
 # 期货交易辩论专家团 — 用户手册
 
-> **版本**: v3.1.0 | **最后更新**: 2026-07-03 | **维护地址**: [github.com/CTAAgents/experts](https://github.com/CTAAgents/experts)
+> **版本**: v3.2.0 | **最后更新**: 2026-07-03 | **维护地址**: [github.com/CTAAgents/experts](https://github.com/CTAAgents/experts)
 
 ---
 
