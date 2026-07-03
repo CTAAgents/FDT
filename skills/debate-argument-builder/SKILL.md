@@ -141,9 +141,9 @@ class DimensionItem(BaseModel):
     evidence: str                 # 可核验证据（必含具体数字，格式：`"数值（来源：XXX，截至X月X日）"`）
     confidence: float             # 该维度置信度 0-1
 
-class BullSchema(BaseModel):
-    """牛势研多头论点（BearSchema 同理，variant="bear"）"""
-    variant: Literal["bull", "bear"]
+class AffirmativeSchema(BaseModel):
+    """证真（正方辩手）论点。variant="affirmative"：论证数技师方向的正确性"""
+    variant: Literal["affirmative", "opposition"]
     dimensions: list[DimensionItem]
     summary_4_risk: str           # ≤100字，给风控的精简摘要
     full_text: str                # "见上方正文"
@@ -160,7 +160,7 @@ class BullSchema(BaseModel):
 
 ## 辩论专家团集成模式
 
-当被 `futures-trading-analysis` 辩论系统的 **牛势研** 或 **熊谋略** Agent 加载时：
+当被 `futures-trading-analysis` 辩论系统的 **正方辩手（证真）** 或 **反方辩手（慎思）** Agent 加载时：
 
 **输入**：由 明鉴秋 传入辩论候选品种的 typed 结构化数据（`DebateState` 的 `data`/`tech`/`chain` 字段）
 **产出**：正文（人类可读）+ 末尾 ```json fence 结构化摘要 → SendMessage → main
@@ -177,24 +177,24 @@ class BullSchema(BaseModel):
      ```
      示例：`"五大钢材总库存1601.99万吨（来源：Mysteel周度数据，截至6月30日）"`
    - 违反此格式的 evidence 算作不合格，风控明必须将其标注为"糊弄"
-3. **角色锚定**：牛势研为"激进多头（怕踏空不怕回撤）"，熊谋略为"风控空头（信库存/利润表不信叙事）"。双方角色不同时，辩论方向自然发散而非趋同
+3. **角色锚定**：正方辩手（证真）为"信号捍卫者——数技师说多就论证多，说空就论证空"，反方辩手（慎思）为"信号挑战者——站在数技师方向的对立面找漏洞"。双方立场由数据决定，不是预设的多/空。
 4. **场景分离**：必须将"基准情景（baseline）"和"乐观/悲观情景（bull/bear case）"分开标注，不得混为一谈
    - `scenarios.baseline`: 最可能的情景（概率>50%）
    - `scenarios.bull_case` / `scenarios.bear_case`: 有利/不利的尾部情景
 5. **认错信号（key_validation）**：每个 final proposal 必须附带一个"什么条件下我认错"的触发条件，如"厂库环比连升3周且back翻contango → 多单离场"
 
 **重要 — 全品种覆盖规则**：
-- 牛势研必须对 **辩论候选列表中的每一个品种**（无论原信号方向是BUY还是SELL），都从多头角度寻找做多理由
-- 熊谋略必须对 **辩论候选列表中的每一个品种**（无论原信号方向是BUY还是SELL），都从空头角度寻找做空理由
-- 即使原信号是SELL，牛势研也要找出潜在转多因素（超跌反弹、基本面改善、成本支撑等）
-- 即使原信号是BUY，熊谋略也要找出潜在转空因素（超买风险、需求放缓、政策利空等）
+- 正方辩手必须对**每个品种**都站在数技师指示的方向上论证
+- 反方辩手必须对**每个品种**都站在数技师指示的对立面上质疑
+- 正方辩手论证"这个方向为什么对"
+- 反方辩手论证"这个方向哪里可能错"
 
-**交叉质询模式（v2.4 新增）**：
-- 步1：牛势研首轮产出 `bull_v1`（含正文 + JSON fence）
-- 步2：熊谋略读 `bull_v1.dimensions` 后产 `bear_v1`（必须回应牛的核心多头论据）
-- 步3：牛势研读 `bear_v1.dimensions` 后产 `bull_v2`（rebuttal，max=1）
-- 终止条件：如果 bull_v2 对 bear_v1 的 rebuttal 里 ≥3/5 维度承认"熊这点成立，但…" → 可提前结束
-- 非对称性：熊只产一次（bear_v1），第二回合是牛 rebuttal（bull_v2）
+**交叉质询模式**：
+- 步1：正方辩手首轮产出 `affirmative_v1`（立论：方向是正确的）
+- 步2：反方辩手读 `affirmative_v1` 后产 `opposition_v1`（质疑：方向哪里不对）
+- 步3：正方辩手读 `opposition_v1` 后产 `affirmative_v2`（rebuttal，max=1）
+- 终止条件：如果正方v2对反方v1的rebuttal里 ≥3/5 维度承认"这点质疑成立，但…" → 可提前结束
+- 非对称性：反方只产一次（opposition_v1），第二回合是正方rebuttal（affirmative_v2）
 
 **基本面搜索**：必须在分析过程中主动使用 WebSearch/WebFetch 搜索以下基本面信息：
 - 品种最新新闻（政策变化、行业事件）

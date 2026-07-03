@@ -1,12 +1,12 @@
 ---
 name: futures-trading-analysis
-version: 3.0.0
-description: 期货交易辩论专家团 v3.0 — 九角色五阶段。团队主管选题→数技师数据→研究员供弹→辩手开火→裁判主持→策略师合成→风控叫停→主管拍板。新增futures-data-technician(数技师管道)、commodity-chain-analysis(基本面研究员接口)、debate-trading-planner(策略师8工具)、debate-argument-builder(场景分离+认错信号)。
+version: 3.1.0
+description: 期货交易辩论专家团 v3.1 — 正反方架构+正确流程。数技师定方向→研究员供证据→正方捍卫方向→反方挑战方向→闫判官判胜负→策执远出策略→风控审方案。Phase4/5流程修正(策执远→风控而非风控→策执远)。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
-  v3.0.0 (2026-07-03): 九角色五阶段重构 — 团队主管选题→数技师数据→研究员供弹→辩手开火→裁判主持→策略师合成→风控叫停→主管拍板。新增futures-data-technician(数技师管道)、commodity-chain-analysis v2.13(基本面研究员接口)、debate-argument-builder v2(场景分离+认错信号)、debate-trading-planner v2(策略师8工具+回退机制)。去掉了旧版9Agent spawn表
-  v2.7.0 (2026-07-03): 无胶水代码协议 — P1改为直接调用quant-daily scan_all.py(代替spawn 数聚石+技研锋)；新增Agent输出文件持久化协议(双写SendMessage+文件)；协调员回退机制(Agent失败时直接调库而非写胶水脚本)；data_manifest字段正式纳入intermediate_data.json
+  v3.1.0 (2026-07-03): 流程修正 — Phase4/5互换(策执远出策略→风控审核)；正反方辩手替换多空辩手；描述更新
+  v3.0.0 (2026-07-03): 九角色五阶段重构 — 团队主管选题→数技师数据→研究员供弹→辩手开火→裁判主持→策略师合成→风控叫停→主管拍板
   v2.5.1 (2026-07-01): 团队上下文恢复机制 — 新增Team Resilience SOP(会话边界切换导致团队失联的5步恢复流程)；
   v2.5.0 (2026-07-01): 四层架构升级 — ①格式层：Pydantic契约替换###END_XXX哨兵 ②传输层：DebateState typed state按需传参 ③拓扑微调：P3交叉质询1轮+Supervisor/Handoff混合模式 ④可观测：PhaseMeta+confidence+repair_phase回退机制
   v2.4.0 (2026-06-30): 新增裁决权重铁律 + 闫判官Prompt嵌入裁决权重规则 — 价格是唯一客观现实最高原则，期限结构权重上限15%，禁止用左侧信号推翻右侧价格方向
@@ -132,8 +132,8 @@ Agent的SendMessage路由不可靠（历史教训：2026-07-03团队消息未送
 | futures-datatech（数技师） | Read, Bash, SendMessage | 运行scan_all.py（库函数模式） |
 | futures-fundamental-researcher（基本面研究员） | Read, Write, WebSearch, WebFetch, SendMessage | 搜索基本面事实+出快照 |
 | futures-technical-researcher（技术面研究员） | Read, Write, WebSearch, SendMessage | 分析量价+出快照 |
-| futures-bull-researcher（多头辩手） | Read, WebSearch, WebFetch, SendMessage | 构建多头论点+反驳空方 |
-| futures-bear-researcher（空头辩手） | Read, WebSearch, WebFetch, SendMessage | 构建空头论点+反驳多方 |
+| futures-affirmative-debater（正方辩手） | Read, WebSearch, WebFetch, SendMessage | 论证数技师方向的正确性+反驳反方质疑 |
+| futures-opposition-debater（反方辩手） | Read, WebSearch, WebFetch, SendMessage | 质疑数技师方向的漏洞+反驳正方论证 |
 | futures-judge（裁判/主持） | Read, SendMessage, WebSearch, WebFetch | 控场+评分+判胜负+核实论据 |
 | futures-risk-manager（风控） | Read, SendMessage | 仓位沙盘推演+逻辑质检 |
 | futures-trading-strategist（策略师） | Read, SendMessage | 接收判决+合成方案+过风控 |

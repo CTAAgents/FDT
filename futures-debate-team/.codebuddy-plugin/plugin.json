@@ -1,7 +1,8 @@
 {
   "name": "futures-debate-team",
   "version": "3.0.0",
-  "description": "Multi-role futures trading debate team v3.0 — 五大角色全景：研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），多头/空头辩手（基于研究员证据立论），风控v3（仓位沙盘+叙事质检）。",
+  "deprecated": true,
+  "description": "⚠️ 已停止更新。最新版本托管于 https://github.com/CTAAgents/experts 。旧版保留仅为本地引用兼容，不再维护。Multi-role futures trading debate team v3.0 — 五大角色全景：研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），多头/空头辩手（基于研究员证据立论），风控v3（仓位沙盘+叙事质检）。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -12,8 +13,8 @@
     "./agents/futures-technical-researcher.md",
     "./agents/futures-datatech.md",
     "./agents/futures-chain-analyst.md",
-    "./agents/futures-bull-researcher.md",
-    "./agents/futures-bear-researcher.md",
+    "./agents/futures-affirmative-debater.md",
+    "./agents/futures-opposition-debater.md",
     "./agents/futures-judge.md",
     "./agents/futures-risk-manager.md",
     "./agents/futures-trading-strategist.md"
@@ -31,8 +32,8 @@
       "futures-technical-researcher",
       "futures-datatech",
       "futures-chain-analyst",
-      "futures-bull-researcher",
-      "futures-bear-researcher",
+      "futures-affirmative-debater",
+      "futures-opposition-debater",
       "futures-judge",
       "futures-risk-manager",
       "futures-trading-strategist"
@@ -48,8 +49,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-agent futures debate team v3.0 — Five roles: Fundamental Researcher (neutral), Technical Researcher (neutral), Long/Short Debaters (evidence-based), Risk Controller (position audit). Researchers supply evidence; debaters fire; risk controller stops.",
-    "zh": "9位专家五大角色：基本面研究员+技术面研究员中立供弹，多头/空头辩手取料交锋，风控仓位沙盘。研究员不站队，辩手不造假，风控不改方向。"
+    "en": "10-agent futures debate team v3.1 — Five roles: DataTech (direction), Researchers (evidence), Affirmative/Opposition Debaters (signal validation), Risk Controller (audit). Direction comes from data; debate verifies the signal.",
+    "zh": "9位专家五大角色：数技师定方向→研究员供证据→正反方辩手验证信号→风控控风险。方向来自数据，辩论验证信号。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
@@ -105,16 +106,16 @@
       "role": "member"
     },
     {
-      "id": "futures-bull-researcher",
-      "displayName": { "en": "Niu Shiyan", "zh": "牛势研" },
-      "profession": { "en": "Bull Strategy Researcher", "zh": "多头策略研究员" },
+      "id": "futures-affirmative-debater",
+      "displayName": { "en": "Zheng Zhen", "zh": "证真" },
+      "profession": { "en": "Affirmative Debater", "zh": "正方辩手（信号捍卫者）" },
       "avatar": "avatars/futures-bull-researcher.png",
       "role": "member"
     },
     {
-      "id": "futures-bear-researcher",
-      "displayName": { "en": "Xiong Moulue", "zh": "熊谋略" },
-      "profession": { "en": "Bear Strategy Researcher", "zh": "空头策略研究员" },
+      "id": "futures-opposition-debater",
+      "displayName": { "en": "Shen Si", "zh": "慎思" },
+      "profession": { "en": "Opposition Debater", "zh": "反方辩手（信号挑战者）" },
       "avatar": "avatars/futures-bear-researcher.png",
       "role": "member"
     },

@@ -1,12 +1,13 @@
 ---
 name: debate-risk-manager
-version: 3.0.0
+version: 3.1.0
 description: >
-  风控明 v3 — 期货辩论风控官（三合一：擂台裁判+资金管家+逻辑质检）。
-  辩论逻辑审查(5维度rebuttal) + 仓位沙盘推演(杠杆/保证金/追保) + 叙事质检(尾部当基准检查)。
-  输出RiskSchema双轨（正文+```json fence）。
+  风控明 v3.1 — 期货辩论风控官（三合一：擂台裁判+资金管家+逻辑质检）。
+  审核策执远方案，跑杠杆/回撤/叙事质检，输出green/yellow/red verdict。
+  输入包含策执远方案 + 正反方辩论维度。
 agent_created: true
 changelog: |
+  v3.1.0 (2026-07-03): 流程修正 — 输入由bull/bear对象改为"策执远方案+正反方辩论维度"；集成模式更新
   v3.0.0 (2026-07-03): 掌柜完整重定义 — 三合一角色(擂台裁判+资金管家+逻辑质检)；新增仓位沙盘推演(calc_position/calc_leverage/simulate_gap)；新增叙事概率质检(flag_logic)；新增green/yellow/red三级verdict；新增6步内部决策链；新增期货特有红线checklist
   v2.0.0 (2026-07-01): 重构为结构化输入+rebuttal审查 — 输入从全文改bull/bear结构化对象，新增维度级裁定(include/watch/exclude)和rebuttal_quality审查，4条红线
   v1.2.0 (2026-06-30): 同链冗余检查升级为相关性驱动排除
@@ -206,6 +207,6 @@ bear:
 
 当被 `futures-trading-analysis` 辩论系统的 **风控明** Agent 加载时：
 
-**输入**：由明鉴秋传入结构化 bull/bear 对象 + 账户/合约信息（见上方"输入"章节）
+**输入**：由明鉴秋传入策执远方案 + 正反方辩论维度 + 账户/合约信息（见上方"输入"章节）
 **产出**：正文 + 末尾 ```json fence 按 RiskOutput schema → SendMessage + 文件双写
 **产出字段**：`variant`, `verdict`, `leverage_actual`, `margin_usage`, `flags[]`, `position_adj`, `logic_audit`

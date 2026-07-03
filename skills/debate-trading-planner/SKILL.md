@@ -1,10 +1,11 @@
 ---
 name: debate-trading-planner
-version: 2.0.0
+version: 2.1.0
 description: >
-  通用期货交易策略制定器（策略师专用）。接收裁判判决->合成可执行方案->过风控审核。8工具(select_contract/size_position/design_hedge/plan_entries/plan_stop/plan_take/plan_roll/exit_triggers)，不改方向不改目标价。
+  通用期货交易策略制定器（策略师专用）。接收闫判官判决->合成可执行方案->传风控审核。8工具(select_contract/size_position/design_hedge/plan_entries/plan_stop/plan_take/plan_roll/exit_triggers)，不改方向不改目标价。
 agent_created: true
 changelog: |
+  v2.1.0 (2026-07-03): 流程修正 — 输入由裁判改为"闫判官判决"；产出传给风控审核而非最终交付；履职链路更新
   v2.0.0 (2026-07-03): 升级为策略师专用 — 新增8工具清单、策略师履职链路、对话风控的red回退机制；不改方向不改目标价约束
   v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式，输入输出格式去辩论化
   v1.0.0 (2026-07-01): 初始版本 — 从 futures-trading-analysis 剥离
@@ -167,21 +168,21 @@ class TradingPlan(BaseModel):
 
 当被 `futures-trading-analysis` 辩论系统的 **策略师（策执远）** Agent 加载时：
 
-**输入**：由裁判传入 `judgment_to_strategist` 结构化对象（含胜方提案+败方提案+评分）
-**产出**：按 `TradingPlan` schema 产出 typed 对象 → SendMessage + 文件双写
+**输入**：由闫判官传入 `judgment_to_strategist` 结构化对象（含胜方提案+败方提案+评分）
+**产出**：按 `TradingPlan` schema 产出 typed 对象 → SendMessage + 文件双写 → 传风控审核
 **约束**：禁止祈使句命令用户操作，禁止改方向/改目标价
 
 ### 策略师履职链路
 
 ```
-① 接裁判判决（winner + 胜方提案 + 败方提案参考）
+① 接闫判官判决（winner + 胜方提案 + 败方提案参考）
 ② select_contract: 合约选型（主力→次主→交割月检查）
 ③ plan_entries: 建仓方案（一次性/分批，含价位区间）
 ④ plan_stop + plan_take: 止损止盈（ATR倍数/技术位，附验证参数）
 ⑤ design_hedge: 对冲检查（跨期/跨品种）
 ⑥ plan_roll: 移仓计划（交割月前换月时间点+预期成本）
 ⑦ exit_triggers: 动态退出条件
-⑧ size_position: 按凯利公式算仓位 → 打包 → 传风控
+⑧ size_position: 按凯利公式算仓位 → 打包 → 传风控审核
 ⑨ 若风控red → 修改 → 再审（最多1轮）
 ```
 
