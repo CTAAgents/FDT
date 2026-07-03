@@ -1,10 +1,11 @@
 ---
 name: futures-trading-analysis
 version: 2.6.0
-description: 期货交易辩论专家团 v2.6 — 明鉴秋协调9Agent。contracts/ Pydantic schema 版本化契约，Shared State按需传参，P3交叉质询，混合Supervisor/Handoff模式，PhaseMeta可观测+repair_phase容错+PhaseGuard自动团队恢复+产物双写。
+description: 期货交易辩论专家团 v2.7 — 明鉴秋协调9Agent。contracts/ Pydantic schema 版本化契约，Shared State按需传参，P3交叉质询（研究员数据驱动、辩手不做独立搜索），混合Supervisor/Handoff模式，PhaseMeta可观测+repair_phase容错+PhaseGuard自动团队恢复+产物双写。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v2.7.0 (2026-07-03): 流程修正 — 研究员先产出快照（探源WebSearch+观澜量价分析），辩手基于研究员数据提炼论据（不做独立搜索）。Phase 2新增研究员并行产出阶段，Phase 3改为研究员数据驱动模式。修正所有辩手"必须使用WebSearch/WebFetch"的错误指引。
   v2.6.0 (2026-07-01): PhaseGuard自动团队恢复协议 — 每次spawn前自动检测团队连通性+静默恢复；产物双写(SendMessage+文件)；固定团队命名(无随机后缀)；恢复透明性(后续Agent无感知)
   v2.5.1 (2026-07-01): 团队上下文恢复机制 — 新增Team Resilience SOP(会话边界切换导致团队失联的5步恢复流程)；
   v2.5.0 (2026-07-01): 四层架构升级 — ①格式层：Pydantic契约替换###END_XXX哨兵 ②传输层：DebateState typed state按需传参 ③拓扑微调：P3交叉质询1轮+Supervisor/Handoff混合模式 ④可观测：PhaseMeta+confidence+repair_phase回退机制
@@ -667,53 +668,101 @@ P1完成后，明鉴秋必须将数聚石和技研锋的产出保存为 intermed
 产出 schema: ChainAnalysisOutput（contracts/chain_analysis.py）
 ```
 
+**Phase 2b 并行** — spawn 探源（基本面研究员） + 观澜（技术面研究员）并行产出快照
+
+**步 1 — spawn 探源**（基本面研究员）:
+```
+角色: 基本面研究员（供弹者）。你的工作方法由 commodity-chain-analysis 的"辩论专家团·基本面研究员接口"定义，请加载并执行。
+角色锚定: 你只回答"当前基本面事实是什么、边际在怎么变"，不下多空结论。
+边界: 不做行情数据采集（那是数技师的活），不做指标计算（那是观澜的活），不做交易计划（那是策执远的活）。
+      ✅ 必须使用 WebSearch/WebFetch 搜集供需/库存/利润/政策数据。
+      ❌ output.verdict = null 强制（出现verdict即不合格）。
+前序数据: 数技师scan_all.py输出的数据包 + 链证源产业链快照
+任务: 对辩论候选品种（full_scan模式下为Top10，custom模式下为指定品种）逐品种产出基本面快照。
+      每品种至少覆盖：供给（产量/开工率）、需求（下游开工/订单）、库存（社库/厂库/仓单）、利润（各环节毛利）、基差/月差、外盘联动。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 fundamental_snapshot schema
+产出 schema: 见 commodity-chain-analysis 的"辩论专家团·基本面研究员接口"章节
+```
+
+**步 2 — spawn 观澜**（技术面研究员）:
+```
+角色: 技术面研究员（供弹者）。你的工作方法由 quant-daily 的 scan_all.py 输出定义。
+角色锚定: 你只回答"价格/持仓/资金在说什么"，不下多空结论。你的特别价值是戳穿"假突破叙事"。
+边界: 不做行情数据采集（那是数技师的活），不做基本面分析（那是探源的活），不做交易计划。
+      基于数技师提供的数据包做技术面解读，不使用 WebSearch。
+前序数据: 数技师scan_all.py输出的数据包（含ADX/RSI/CCI/MA排列/持仓变化等）
+任务: 对辩论候选品种逐品种产出技术面快照。
+      每品种至少覆盖：趋势（ADX/MA排列/波段高低点）、关键位（支撑/阻力）、量价（仓价配合）、资金（前20席位）。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 technical_snapshot schema
+产出 schema: technical_snapshot
+```
+
+**并发执行**：探源和观澜并行执行，闫判官等待两份快照到位后广播给辩手。辩手在收到研究员快照前不得开始立论。
+
 → state["chain"] = ChainOutput
 → 明鉴秋控：进入 P3
 
-**Phase 3 交叉质询（v2.4 新增·3 跳）**
+**Phase 3 交叉质询（研究员数据驱动，辩手不做独立搜索）**
 
-**步 1 — spawn 牛势研**（牛写 v1 + 注入熊论点=空）:
+**重要前置条件**：探源（基本面研究员）和观澜（技术面研究员）的快照必须已就位并广播给辩手。辩手**不自行使用WebSearch/WebFetch**收集数据——所有数据从研究员快照中提取。
+
+**步 1 — spawn 证真（正方辩手）**（证真写 v1）:
 ```
-角色: 多头研究员。你的工作方法由 debate-argument-builder 的"牛势研"角色定义，请加载并执行。
-角色锚定: 你是激进多头（怕踏空不怕回撤）。关注 3 个月后供需缺口，不相信"超买"那类静态估值。
-边界: 不做行情数据采集，不做指标计算，不做交易计划。必须使用 WebSearch/WebFetch。
-前序数据（按需可见）: state["data"].key_prices + state["tech"].trend_stages + state["chain"].chain_results
-对手论点: 暂无（首轮无熊论点可读）
-任务: 对辩论候选列表中每一个品种，都从多头角度构建论据。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bull) schema
-红线: 禁止附和语；每个维度≥1个可核验数字；禁止重复 v1 已写内容
+角色: 正方辩手（证真）— 信号捍卫者。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义，请加载并执行。
+角色锚定: 数技师给出方向，你论证该方向的正确性。不是预设多头/空头。
+边界: 不做数据采集（那是探源/观澜的活），不做交易计划（那是策执远的活）。
+      ❌ 禁止使用 WebSearch/WebFetch 自行搜索数据。
+      ✅ 所有论据必须从研究员快照（探源+观澜的产出）中提取。
+前序数据（按需可见）: 
+  - state["data"].key_prices + state["tech"].trend_stages（数技师方向）
+  - state["research_snapshots"].fundamental（探源快照）
+  - state["research_snapshots"].technical（观澜快照）
+  - state["chain"].chain_results（链证源产业链数据）
+对手论点: 暂无（首轮无反方论点可读）
+任务: 对辩论候选列表中每一个品种，从数技师指示的方向出发构建论证。
+      🚫 不要自己搜索数据！所有数据必须从研究员快照中提取。
+      如果研究员快照中缺少某品种某维度的数据，标注"研究员未覆盖"并降置信度。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
+红线: 禁止附和语；每个维度≥1个可核验数字（来自研究员快照）；禁止编造
 产出 schema: BullOutput（contracts/debate.py）
 ```
 
-**步 2 — Handoff: 熊谋略读牛 v1 后写 bear v1**（牛 v1 产出后直接 goto 熊，明鉴秋不中转）:
+**步 2 — Handoff: 慎思（反方辩手）读证真 v1 后写 opposition v1**:
 ```
-角色: 空头研究员。你的工作方法由 debate-argument-builder 的"熊谋略"角色定义，请加载并执行。
-角色锚定: 你是风控出身的保守空头（信库存/利润表，不信叙事）。对"仓单累库""月差走弱"这类信号见了就要行动。
-边界: 不做行情数据采集，不做指标计算，不做交易计划。必须使用 WebSearch/WebFetch。
-前序数据（按需可见）: state["data"].key_prices + state["tech"].trend_stages + state["chain"].chain_results
-对手论点: 你收到了牛势研的 bull v1 论点。请阅读 dimenstions 和 summary_4_risk，回应牛的核心多头论据。
-任务: 对辩论候选列表中每一个品种，都从空头角度构建论据。
-       特别关注：你的空头论点必须参考并回应当牛的核心多头论据。
-       每条 evidence 要足够具体，让牛能在下一轮逐条回应——不要写"库存偏高"，写"社会库存同比+15%×4周"。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bear) schema
-红线: 禁止"多方说得有道理"开头；禁止重复 bull_v1 已经引用的相同数据；每个维度≥1个可核验数字
+角色: 反方辩手（慎思）— 信号挑战者。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义，请加载并执行。
+角色锚定: 数技师给出方向，你论证该方向哪里可能错了。
+边界: 不做数据采集（那是探源/观澜的活），不做交易计划（那是策执远的活）。
+      ❌ 禁止使用 WebSearch/WebFetch 自行搜索数据。
+      ✅ 所有论据必须从研究员快照（探源+观澜的产出）中提取。
+前序数据（按需可见）: 
+  - state["data"].key_prices（数技师方向）
+  - state["research_snapshots"].fundamental（探源快照）
+  - state["research_snapshots"].technical（观澜快照）
+  - state["chain"].chain_results（链证源产业链数据）
+对手论点: 你收到了证真的 affirmative v1 论点。请阅读 dimensions 和 summary_4_risk，回应证真的核心论据。
+任务: 对辩论候选列表中每一个品种，从数技师指示方向的对立面出发构建质疑论证。
+      🚫 不要自己搜索数据！所有数据必须从研究员快照中提取。
+      如果研究员快照中缺少某品种某维度的数据，标注"研究员未覆盖"并降置信度。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
+红线: 禁止"多方说得有道理"开头；禁止重复 v1 已经引用的相同数据；每个维度≥1个可核验数字
 产出 schema: BearOutput（contracts/debate.py）
 ```
 
 → state["bear"] = ArgumentOutput(variant="bear")
-→ 熊写完后，Handoff: 熊 → goto 牛
+→ 写完后，Handoff: 慎思 → goto 证真
 
-**步 3 — Handoff: 牛势研读熊 v1 后写 bull v2（rebuttal, max=1）**:
+**步 3 — Handoff: 证真读慎思 v1 后写 affirmative v2（rebuttal, max=1）**:
 ```
-角色: 多头研究员（第2轮 rebuttal）。你的工作方法由 debate-argument-builder 定义。
-角色锚定: 激进多头。
-对手论点: 你收到了熊谋略的 bear v1 论点。请阅读 dimensions 和 summary_4_risk。
-任务: 基于熊的论点写 rebuttal（bull v2），结构：
-  1. Rebuttal 段：对熊至少 2 个维度逐条拆解，格式"熊曰[X维度：证据] → 牛驳：反证（附数字）"
-  2. 己方 5 维度更新版：被熊打掉的维度补数据，没被打的就保留
+角色: 正方辩手（证真，第2轮 rebuttal）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义。
+角色锚定: 信号捍卫者。
+边界: ❌ 禁止自行搜索数据。所有数据必须从研究员快照中提取。
+对手论点: 你收到了慎思的 opposition v1 论点。请阅读 dimensions 和 summary_4_risk。
+任务: 基于慎思的论点写 rebuttal（affirmative v2），结构：
+  1. Rebuttal 段：对慎思至少 2 个维度逐条拆解，格式"慎思曰[X维度：证据] → 证真驳：反证（附数字）"
+  2. 己方 5 维度更新版：被慎思打掉的维度补数据，没被打的就保留
   3. Confidence 重估：0-1，比 v1 调高/调低/持平，写理由
 红线: 禁止 self-weaken；禁止"但是反过来"开头；重复率 >30% 本轮作废。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bull) schema
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
 终止条件: max_rebuttal=1，这是最终轮
 产出 schema: BullOutput（contracts/debate.py）
 ```
@@ -743,29 +792,18 @@ P1完成后，明鉴秋必须将数聚石和技研锋的产出保存为 intermed
 ```text
 ## ⚖️ 裁决权重规则（全局强制，所有裁决必须遵守）
 
-### 第0条：价格是唯一客观现实（最高原则·不可违反）
-价格是各种要素（供需、政策、情绪、期限结构、资金流向等）作用的最终合力。
-所有其他分析维度都是对价格的解释，不是独立的投票成员。
-
-1. 价格行为是裁决的唯一核心依据。期限结构、基本面、产业链验证等只能辅助
-   理解价格行为，不得替代或推翻价格行为。
-2. 任何单一非价格维度独立说明力上限为15%。不得以期限结构（Back/Contango）
-   作为方向裁决的独立或主要依据。
-3. 各维度的正确用法：方向判断由价格信号做出后，其他维度用于验证一致性和标注风险，
-   而非决定方向。
+**根本前设（隐含于所有规则之中）**：价格是各种要素（供需、政策、情绪、期限结构、资金流向等）作用的最终合力，所有其他分析维度均为对价格的解释，非独立的投票成员。价格行为是裁决的唯一核心依据——方向判断必须由价格信号做出，其他维度仅用于验证一致性和标注风险，不得替代或推翻价格行为。非价格维度不得作为方向裁决的独立或主要依据。此前设不单独成条，而是贯穿以下所有规则的隐含条件。
 
 ### 第1条：右侧交易优先
-方向裁决必须以已确认的右侧价格行为信号为核心依据。当右侧价格信号与其他
-分析性信号（Back/Contango/期限结构/供需预期等）矛盾时：
+方向裁决必须以已确认的右侧价格行为信号为核心依据。当右侧价格信号与左侧/分析性信号（Back/Contango/期限结构/供需预期等）矛盾时：
 - ❌ 不得因任何非价格因素推翻价格走势的当前方向
 - ❌ 不得将Back结构、产需缺口、政策预期等作为转向多空的独立裁决依据
 - ✅ 非价格信号标注为"值得关注的潜在风险/机会"，不改变裁决方向
 - ✅ 裁决方向仅在出现右侧确认信号（止跌K线、放量突破、均线拐头等）后才可转向
 - ✅ 若价格行为信号不清晰（ADX<15震荡、量价不一致），裁决为"搁置观察"
 
-### 第3条：置信度评估顺序
-置信度评估的参考顺序：①价格信号的清晰度 ②量价关系的配合程度 ③其他维度的
-方向一致性（不一致则降级，但不反转方向）。
+### 第2条：置信度评估顺序
+置信度评估的参考顺序：①价格信号的清晰度 ②量价关系的配合程度 ③其他维度的方向一致性（不一致则降级，但不反转方向）。
 ```
 
 → P3b闫判官裁决完成（含最终方向 + 置信度） → 明鉴秋控：进入 P4

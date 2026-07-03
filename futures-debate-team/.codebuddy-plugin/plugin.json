@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "3.0.0",
-  "deprecated": true,
-  "description": "⚠️ 已停止更新。最新版本托管于 https://github.com/CTAAgents/experts 。旧版保留仅为本地引用兼容，不再维护。Multi-role futures trading debate team v3.0 — 五大角色全景：研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），多头/空头辩手（基于研究员证据立论），风控v3（仓位沙盘+叙事质检）。",
+  "version": "3.1.0",
+  "deprecated": false,
+  "description": "Multi-role futures trading debate team v3.0 — 十大角色全景：数技源(数据管道)→研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），正反方辩手（基于证据立论），风控v3（仓位沙盘+叙事质检）。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -49,8 +49,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-agent futures debate team v3.1 — Five roles: DataTech (direction), Researchers (evidence), Affirmative/Opposition Debaters (signal validation), Risk Controller (audit). Direction comes from data; debate verifies the signal.",
-    "zh": "9位专家五大角色：数技师定方向→研究员供证据→正反方辩手验证信号→风控控风险。方向来自数据，辩论验证信号。"
+    "en": "10-agent futures debate team v3.1 — Five roles: DataTech (direction), Researchers (evidence), Affirmative/Opposition Debaters (signal validation), Chain Analyst (risk evidence), Risk Controller (audit). Direction comes from data; debate verifies the signal.",
+    "zh": "10位专家五大角色：数技师定方向→研究员供证据→正反方辩手验证信号→链证源供风控佐证→风控控风险。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
@@ -101,7 +101,7 @@
     {
       "id": "futures-chain-analyst",
       "displayName": { "en": "Lian Zhengyuan", "zh": "链证源" },
-      "profession": { "en": "Chain Verification Analyst", "zh": "产业链验证分析师" },
+      "profession": { "en": "Chain Risk Evidence Analyst", "zh": "产业链风控分析师" },
       "avatar": "avatars/futures-chain-analyst.png",
       "role": "member"
     },
