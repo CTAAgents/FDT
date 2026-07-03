@@ -161,7 +161,7 @@
         "en": "Affirmative Debater",
         "zh": "正方辩手（信号捍卫者）"
       },
-      "avatar": "avatars/futures-bull-researcher.png",
+      "avatar": "avatars/futures-affirmative-debater.png",
       "role": "member"
     },
     {
@@ -174,7 +174,7 @@
         "en": "Opposition Debater",
         "zh": "反方辩手（信号挑战者）"
       },
-      "avatar": "avatars/futures-bear-researcher.png",
+      "avatar": "avatars/futures-opposition-debater.png",
       "role": "member"
     },
     {
