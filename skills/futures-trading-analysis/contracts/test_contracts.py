@@ -11,7 +11,7 @@ from datetime import datetime
 def make_meta():
     return PhaseMeta(
         phase="P3",
-        agent_name="牛势研",
+        agent_name="证真",
         variant="CU.SHF",
         trace_id="test-001",
         depends_on=["P1_data", "P1_tech", "P2_chain"],

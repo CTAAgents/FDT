@@ -9,7 +9,7 @@ class JudgementItem(BaseModel):
     direction: Literal["BUY", "SELL", "HOLD"]
     confidence: Literal["高", "中", "低"]
     reasoning: str                          # 裁决理由（100-200字）
-    key_tension: str                        # 牛势研最强点 vs 熊谋略最强点
+    key_tension: str                        # 证真最强点 vs 慎思最强点
     lean: str                               # 偏向方
     risk_note: str                          # 风险备注
 

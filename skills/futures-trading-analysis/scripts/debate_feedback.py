@@ -496,7 +496,7 @@ if __name__ == '__main__':
             with open(debate_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             # 提取所有agent产出的日志（如果存在）
-            for agent_name in ['数聚石', '技研锋', '链证源', '牛势研', '熊谋略', '风控明', '策执远']:
+            for agent_name in ['数技源', '探源', '观澜', '链证源', '证真', '慎思', '闫判官', '风控明', '策执远']:
                 # 尝试从debate_results中提取agent_output
                 pass  # 实际由自动化协调器调用路由
             print("请使用 submit_feedback() 函数逐条路由")

@@ -609,7 +609,7 @@ th, td.num {{ white-space:nowrap; }}
 
 <div class="section">
     <h2>⚖️ 专家团辩论裁决</h2>
-    <div class="sub-title">由 数聚石+技研锋(P1)→链证源(P2)→牛势研+熊谋略(P3)→闫判官(P3b)→风控明(P4)→策执远(P5) 8Agent联合产出</div>
+    <div class="sub-title">由 数技源(P1)→探源+观澜+链证源(P2a)→证真+慎思(P2b)→闫判官(P2d)→风控明+策执远(P2c) 9Agent联合产出</div>
 """
 
     if debate_rows:
@@ -649,7 +649,7 @@ th, td.num {{ white-space:nowrap; }}
     2. 右侧交易铁律：所有信号需等待价格突破关键位置确认后方可执行，禁止提前布局。<br>
     3. 期货交易具有高风险性，可能导致本金全部亏损，请谨慎参与。<br>
     4. 报告基于{intermediate.get('data_benchmark','')}收盘数据生成，市场情况可能已发生变化。<br>
-    5. 辩论裁决由专家团（数聚石+技研锋→链证源→牛势研+熊谋略→闫判官→风控明→策执远）8Agent联合产出。
+    5. 辩论裁决由专家团（数技源→探源+观澜+链证源→证真+慎思→闫判官→风控明+策执远）9Agent联合产出。
     </p>
 </div>
 

@@ -12,7 +12,7 @@ class DimensionItem(BaseModel):
 
 
 class BullOutput(BaseSkillOutput):
-    """牛势研的输出"""
+    """证真（正方辩手）的输出"""
     variant: Literal["bull"]
     dimensions: list[DimensionItem] = Field(min_length=5, max_length=5)
     summary_4_risk: str                     # 给风控的精简版摘要
@@ -22,7 +22,7 @@ class BullOutput(BaseSkillOutput):
 
 
 class BearOutput(BaseSkillOutput):
-    """熊谋略的输出"""
+    """慎思（反方辩手）的输出"""
     variant: Literal["bear"]
     dimensions: list[DimensionItem] = Field(min_length=5, max_length=5)
     summary_4_risk: str
