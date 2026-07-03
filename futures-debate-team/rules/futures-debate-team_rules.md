@@ -27,11 +27,11 @@ Please make full use of this plugin's abilities whenever possible.**
 | 🟢探源（基本面） | **WebSearch, Read, Write, SendMessage** | `general-purpose`+prompt | 需要WebSearch搜集数据，写入快照文件 |
 | 🟢观澜（技术面） | **Read, Write, SendMessage** | `general-purpose`+prompt | 需要读取数据包，写入快照文件 |
 | 🔗链证源 | **Read, Write, SendMessage** | `general-purpose`+prompt | 需要读取数据，分析产业链 |
-| 🔵证真（正方） | **Read, SendMessage** | `general-purpose`+prompt | 读取研究员快照，**不做WebSearch** |
-| 🔴慎思（反方） | **Read, SendMessage** | `general-purpose`+prompt | 读取研究员快照，**不做WebSearch** |
-| ⚪闫判官 | **Read, SendMessage** | `general-purpose`+prompt | 读取快照，裁决 |
-| 🟡风控明 | Read, SendMessage | `general-purpose`+prompt | 读取方案，做风控审核 |
-| 📋策执远 | Read, SendMessage | `general-purpose`+prompt | 读取裁决，出方案 |
+| 🔵证真（正方） | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取研究员快照，写入论据文件。**禁止WebSearch** |
+| 🔴慎思（反方） | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取研究员快照，写入论据文件。**禁止WebSearch** |
+| ⚪闫判官 | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取快照和论据，写入裁决文件 |
+| 🟡风控明 | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取方案和论据，写入风控审核文件 |
+| 📋策执远 | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取裁决和快照，写入交易方案文件 |
 
 **spawn原则**：研究员（探源/观澜/链证源）使用 `subagent_type="general-purpose"`，在prompt中加载对应的skill和角色定义。辩手和裁判同理。
 
@@ -81,7 +81,11 @@ Phase 2b【串行】── 证真立论（基于研究员快照）
                     慎思立论（基于研究员快照）
                     证真rebuttal
         ↓ 双方最终提案
-Phase 2c【串行】── 策执远出方案 → 链证源出风控证据包 → 风控明审核
+Phase 2c【串行】── 策执远出方案（+风控明审核）
+        │  策执远读取：p3_affirmative, p3_opposition, p2_fundamental
+        │  策执远写入：p4_trading_plan
+        │  风控明读取：p4_trading_plan + p2_chain + p3_affirmative + p3_opposition
+        │  风控明写入：p4_risk_verdict
         ↓ 风控verdict
 Phase 2d【串行】── 闫判官5维评分 → 最终判决
         ↓
@@ -95,6 +99,19 @@ Phase 3【拍板】──── 明鉴秋汇总 → debate_results.json → HTML
 - 证真和慎思**不得自行搜索数据**——所有论据必须从研究员快照中提取
 
 ### 🔧 工程规范
+
+**文件路径标准化**：所有Agent产出统一写入 `research_snapshots/` 目录，命名规则：
+```
+p2_fundamental_{symbol}.json    ← 探源
+p2_technical_{symbol}.json      ← 观澜
+p2_chain_{symbol}.json          ← 链证源
+p3_affirmative_{symbol}.json    ← 证真
+p3_opposition_{symbol}.json     ← 慎思
+p4_trading_plan_{symbol}.json   ← 策执远
+p4_risk_verdict_{symbol}.json   ← 风控明
+p5_final_verdict.json           ← 明鉴秋汇总
+```
+输出目录：`{workspace}/Commodities/Reports/期货深度分析/{date}/research_snapshots/`
 
 **Agent命名规范**：spawn Agent时使用英文名（name参数），避免中文名导致的跨平台编码异常：
 | 角色 | 英文名（name参数） | 显示用中文名（prompt中） |
