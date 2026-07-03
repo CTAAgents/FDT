@@ -1,0 +1,143 @@
+{
+  "name": "futures-debate-team",
+  "version": "3.0.0",
+  "description": "Multi-role futures trading debate team v3.0 — 五大角色全景：研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），多头/空头辩手（基于研究员证据立论），风控v3（仓位沙盘+叙事质检）。",
+  "author": {
+    "name": "WorkBuddy",
+    "email": "support@workbuddy.cn"
+  },
+  "agents": [
+    "./agents/futures-debate-team-team-lead.md",
+    "./agents/futures-fundamental-researcher.md",
+    "./agents/futures-technical-researcher.md",
+    "./agents/futures-datatech.md",
+    "./agents/futures-chain-analyst.md",
+    "./agents/futures-bull-researcher.md",
+    "./agents/futures-bear-researcher.md",
+    "./agents/futures-judge.md",
+    "./agents/futures-risk-manager.md",
+    "./agents/futures-trading-strategist.md"
+  ],
+  "skills": [
+    "./skills/futures-trading-analysis"
+  ],
+
+  "expertType": "team",
+  "agentName": "futures-debate-team-team-lead",
+  "teamInfo": {
+    "leadAgent": "futures-debate-team-team-lead",
+    "memberAgents": [
+      "futures-fundamental-researcher",
+      "futures-technical-researcher",
+      "futures-datatech",
+      "futures-chain-analyst",
+      "futures-bull-researcher",
+      "futures-bear-researcher",
+      "futures-judge",
+      "futures-risk-manager",
+      "futures-trading-strategist"
+    ]
+  },
+
+  "displayName": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "profession": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "displayDescription": {
+    "en": "10-agent futures debate team v3.0 — Five roles: Fundamental Researcher (neutral), Technical Researcher (neutral), Long/Short Debaters (evidence-based), Risk Controller (position audit). Researchers supply evidence; debaters fire; risk controller stops.",
+    "zh": "9位专家五大角色：基本面研究员+技术面研究员中立供弹，多头/空头辩手取料交锋，风控仓位沙盘。研究员不站队，辩手不造假，风控不改方向。"
+  },
+  "avatar": "avatars/team.png",
+  "categoryId": "08-FinanceInvestment",
+  "defaultInitPrompt": {
+    "zh": "分析螺纹钢期货的多空博弈情况",
+    "en": "Analyze the bull/bear dynamics of rebar futures"
+  },
+  "plugin": "futures-debate-team",
+  "tags": [
+    { "en": "Futures Trading", "zh": "期货交易" },
+    { "en": "Data-Driven Debate", "zh": "数据驱动辩论" },
+    { "en": "Risk Management", "zh": "风险管理" }
+  ],
+  "quickPrompts": [
+    { "en": "Analyze the bull/bear dynamics of rebar futures", "zh": "分析螺纹钢期货的多空博弈情况" },
+    { "en": "Run full analysis for crude oil futures", "zh": "运行完整分析流程分析原油期货" },
+    { "en": "Compare bullish and bearish arguments for copper futures", "zh": "对比铜期货的多空论点" }
+  ],
+  "members": [
+    {
+      "id": "futures-debate-team-team-lead",
+      "displayName": { "en": "Ming Jianqiu", "zh": "明鉴秋" },
+      "profession": { "en": "Debate Coordinator", "zh": "辩论独立协调员" },
+      "avatar": "avatars/futures-debate-team-team-lead.png",
+      "role": "lead"
+    },
+    {
+      "id": "futures-fundamental-researcher",
+      "displayName": { "en": "Tan Yuan", "zh": "探源" },
+      "profession": { "en": "Fundamental Analyst", "zh": "基本面分析师（供弹者）" },
+      "avatar": "avatars/futures-fundamental-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-technical-researcher",
+      "displayName": { "en": "Guan Lan", "zh": "观澜" },
+      "profession": { "en": "Technical Analyst", "zh": "技术面分析师（供弹者）" },
+      "avatar": "avatars/futures-technical-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-datatech",
+      "displayName": { "en": "Shu Ji Yuan", "zh": "数技源" },
+      "profession": { "en": "Data & Technical Analyst", "zh": "数据与技术信号分析师（库函数模式）" },
+      "avatar": "avatars/futures-datatech.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-chain-analyst",
+      "displayName": { "en": "Lian Zhengyuan", "zh": "链证源" },
+      "profession": { "en": "Chain Verification Analyst", "zh": "产业链验证分析师" },
+      "avatar": "avatars/futures-chain-analyst.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-bull-researcher",
+      "displayName": { "en": "Niu Shiyan", "zh": "牛势研" },
+      "profession": { "en": "Bull Strategy Researcher", "zh": "多头策略研究员" },
+      "avatar": "avatars/futures-bull-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-bear-researcher",
+      "displayName": { "en": "Xiong Moulue", "zh": "熊谋略" },
+      "profession": { "en": "Bear Strategy Researcher", "zh": "空头策略研究员" },
+      "avatar": "avatars/futures-bear-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-judge",
+      "displayName": { "en": "Yan Panguan", "zh": "闫判官" },
+      "profession": { "en": "Debate Judge", "zh": "辩论裁决官" },
+      "avatar": "avatars/futures-judge.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-risk-manager",
+      "displayName": { "en": "Feng Kongming", "zh": "风控明" },
+      "profession": { "en": "Risk Management Director", "zh": "风险管理总监" },
+      "avatar": "avatars/futures-risk-manager.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-trading-strategist",
+      "displayName": { "en": "Ce Zhiyuan", "zh": "策执远" },
+      "profession": { "en": "Trading Strategist", "zh": "交易策略师" },
+      "avatar": "avatars/futures-trading-strategist.png",
+      "role": "member"
+    }
+  ]
+}
