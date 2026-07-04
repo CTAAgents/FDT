@@ -525,7 +525,7 @@ def run_scan(output_dir: str = None, symbols: list = None,
             f.write(html)
         print(f'[OK] HTML: {html_path}')
 
-    return result
+    return result, output if output_dir else (result, None)
 
 
 def _gen_html(result: dict, validity: dict, date_str: str, oi_ct: int, cmf_ct: int) -> str:
@@ -682,6 +682,8 @@ if __name__ == '__main__':
     parser.add_argument('--symbols', '-s', help='指定品种')
     parser.add_argument('--reverse', '-r', action='store_true', default=False,
                         help='反向模式：做空高排名品种（回测显示IC为负，反向有效）')
+    parser.add_argument('--report', type=str, default=None,
+                        help='扫描后生成报告: debate（辩论报告）')
     args = parser.parse_args()
 
     custom_symbols = None
@@ -696,4 +698,22 @@ if __name__ == '__main__':
         output_dir = os.path.join(workspace, 'Documents', 'WorkBuddy', 'Commodities',
                                   'Reports', '商品期货深度分析', date.today().strftime('%Y-%m-%d'))
 
-    run_scan(output_dir=output_dir, symbols=custom_symbols, reverse=args.reverse)
+    _result = run_scan(output_dir=output_dir, symbols=custom_symbols, reverse=args.reverse)
+    if output_dir:
+        result, output = _result
+    else:
+        result, output = _result[0], None
+
+    # 报告生成（不干扰主流程）
+    if args.report == 'debate' and output:
+        try:
+            from signals.report import generate_debate_html_report
+            html = generate_debate_html_report(output)
+            path = os.path.join(output_dir, f'debate_{output["meta"]["date"]}.html')
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(html)
+            print(f'[OK] 辩论报告: {path}')
+        except Exception as e:
+            import traceback
+            print(f'[!] 辩论报告生成失败: {e}')
+            traceback.print_exc()
