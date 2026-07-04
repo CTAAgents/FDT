@@ -51,8 +51,8 @@ futures-trading-analysis/
 4. **futures-sentiment-analyst**：期货情绪，CFTC持仓、仓单变化、虚实比
 
 **Phase 2 - 投资辩论（3个辩论角色）**
-5. **futures-bull-researcher**：期货多头研究员，攻击维度：供应收紧、需求复苏、库存利多
-6. **futures-bear-researcher**：期货空头研究员，攻击维度：供应宽松、需求走弱、库存利空
+5. **futures-affirmative-debater(证真)**：辩护方，从研究员快照中拣选支持证据
+6. **futures-opposition-debater(慎思)**：质疑方，从研究员快照中挑出矛盾漏洞
 7. **futures-research-manager**：期货研究主管，裁决维度：供需平衡表、库存周期、期限结构
 
 **Phase 3 - 交易决策（1个交易员）**

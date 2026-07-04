@@ -104,7 +104,7 @@ profession:
 
 ## 产出格式
 
-按 `contracts/debate.py` 的 `BearOutput` schema 产出（双轨：正文 + ```json fence）。
+按 `contracts/debate.py` 的 `ArgumentOutput(role="慎思")` schema 产出（双轨：正文 + ```json fence）。
 工作方法由 `debate-argument-builder` skill 的"**辩论专家团集成模式·角色:慎思**"定义。**注意加载的是"辩论专家团集成模式"的慎思角色，不是独立使用模式**——集成模式下辩手不做独立数据搜索，所有数据从研究员快照提取。
 
 ## 边界
