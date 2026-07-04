@@ -345,11 +345,27 @@ def generate_debate_html_report(truth: dict) -> str:
     n_bull = truth['meta'].get('bull', 0)
     n_bear = truth['meta'].get('bear', 0)
     ranked = truth['ranked']
+
+    # 建立品种→dims/rank 查找表（qualified_signals 不含 dims 字段）
+    sym_dims = {r['symbol']: r.get('dims', {}) for r in ranked}
+    sym_rank = {r['symbol']: r['rank'] for r in ranked}
+
     qs = truth.get('qualified_signals', {})
     shorts = qs.get('short', [])
     longs = qs.get('long', [])
-    s_qualified = [s for s in shorts if not s.get('filtered')]
-    l_qualified = [s for s in longs if not s.get('filtered')]
+
+    def _enrich(sig: dict) -> dict:
+        """从 ranked 补充 dims 和 rank"""
+        sym = sig['symbol']
+        sig['dims'] = sym_dims.get(sym, {})
+        if 'rank' not in sig or sig.get('rank', 0) == 0:
+            sig['rank'] = sym_rank.get(sym, 0)
+        return sig
+
+    s_qualified = [_enrich(s) for s in shorts if not s.get('filtered')]
+    l_qualified = [_enrich(s) for s in longs if not s.get('filtered')]
+    # 做多按rank升序排列（截面排名最低的排前面）
+    l_qualified.sort(key=lambda x: x.get('rank', 99))
 
     factor_names = ['D1趋势','D2回归','D3回归','D4资金','D5资金','D6量价','D7期限']
 
