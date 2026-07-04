@@ -1,12 +1,12 @@
 ---
 name: futures-trading-analysis
-version: 2.6.0
-description: 期货交易辩论专家团 v2.7 — 明鉴秋协调9Agent。contracts/ Pydantic schema 版本化契约，Shared State按需传参，P3交叉质询（研究员数据驱动、辩手不做独立搜索），混合Supervisor/Handoff模式，PhaseMeta可观测+repair_phase容错+PhaseGuard自动团队恢复+产物双写。
+version: 3.1.0
+description: 期货交易辩论专家团 v3.1 — 正反方架构+正确流程。数技师定方向→研究员供证据→正方捍卫方向→反方挑战方向→闫判官判胜负→策执远出策略→风控审方案。Phase4/5流程修正(策执远→风控而非风控→策执远)。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
-  v2.7.0 (2026-07-03): 流程修正 — 研究员先产出快照（探源WebSearch+观澜量价分析），辩手基于研究员数据提炼论据（不做独立搜索）。Phase 2新增研究员并行产出阶段，Phase 3改为研究员数据驱动模式。修正所有辩手"必须使用WebSearch/WebFetch"的错误指引。
-  v2.6.0 (2026-07-01): PhaseGuard自动团队恢复协议 — 每次spawn前自动检测团队连通性+静默恢复；产物双写(SendMessage+文件)；固定团队命名(无随机后缀)；恢复透明性(后续Agent无感知)
+  v3.1.0 (2026-07-03): 流程修正 — Phase4/5互换(策执远出策略→风控审核)；正反方辩手替换多空辩手；描述更新
+  v3.0.0 (2026-07-03): 九角色五阶段重构 — 团队主管选题→数技师数据→研究员供弹→辩手开火→裁判主持→策略师合成→风控叫停→主管拍板
   v2.5.1 (2026-07-01): 团队上下文恢复机制 — 新增Team Resilience SOP(会话边界切换导致团队失联的5步恢复流程)；
   v2.5.0 (2026-07-01): 四层架构升级 — ①格式层：Pydantic契约替换###END_XXX哨兵 ②传输层：DebateState typed state按需传参 ③拓扑微调：P3交叉质询1轮+Supervisor/Handoff混合模式 ④可观测：PhaseMeta+confidence+repair_phase回退机制
   v2.4.0 (2026-06-30): 新增裁决权重铁律 + 闫判官Prompt嵌入裁决权重规则 — 价格是唯一客观现实最高原则，期限结构权重上限15%，禁止用左侧信号推翻右侧价格方向
@@ -27,7 +27,14 @@ disable: false
 
 ## 依赖
 - **编排层输出**：所有 Phase 的 schema 定义在 `contracts/` 目录下（`data_collection.py`, `technical.py`, `chain_analysis.py`, `debate.py`, `risk.py`, `trading_plan.py`）
-- **下游子 skill**：`debate-argument-builder`（P3）、`debate-risk-manager`（P4）、`debate-trading-planner`（P5）、`debate-judge`（P3b）、`futures-data-search`（P1）、`commodity-trend-signal`（P1）、`commodity-chain-analysis`（P2）
+- **下游子 skill**：
+  - `quant-daily`（数技师数据管道）
+  - `futures-data-technician`（数技师专用封装）
+  - `commodity-chain-analysis` v2.13+（基本面研究员接口）
+  - `debate-argument-builder`（多/空辩手论点构建）
+  - `debate-judge` v2+（裁判主持）
+  - `debate-risk-manager` v3+（风控三合一）
+  - `debate-trading-planner` v2+（策略师方案合成）
 - **版本**：全部 `2.0`（前端按 version 字段路由）
 - **解析方式**：`parse_and_migrate()`（见调度协议章节）
 - **通信协议**：正文（HTML 报告）+ 末尾 ```json fence 结构化摘要 → `parse_and_migrate` → state
@@ -37,31 +44,119 @@ disable: false
 ```
 用户/定时任务 触发辩论
     ↓ (传参 mode + targets)
-WorkBuddy 自动化协调器 → spawn 明鉴秋(独立协调员 Agent)
+WorkBuddy 自动化协调器 → spawn 明鉴秋(团队主管)
     ↓
-明鉴秋: 根据 mode 选择 Phase 1 扫描范围
-    ├─ mode=full_scan → 全67品种（定时任务）
-    └─ mode=custom    → 指定品种列表（独立调用）
+[阶段一] 选题与准备:
+  明鉴秋 选定品种+周期+权益 → 通知全员
     ↓
-明鉴秋: TeamCreate → 6阶段调度9专家（各Agent的工作方法由对应skill定义）
+  数技师 scan_all.py --symbols PK,RB → 数据包
     ↓
-明鉴秋: 汇总 → debate_results.json → phase3_generate_report.py → HTML报告
+[阶段二] 辩论全流程（闫判官主持）:
+  闫判官 spawn 基本面研究员 + 技术面研究员 → 快照广播
+    ↓
+  闫判官主持 → 多/空辩手立论→互rebuttal→自由交锋→final
+    ↓
+  闫判官 判胜负 → 传给策略师
+    ↓
+[阶段三] 策略合成:
+  策略师 合成可执行方案 → 传给风控
+    ↓
+[阶段四] 风控审核:
+  风控 跑杠杆/回撤/叙事质检 → verdict
+    ↓ (若red则打回策略师修改，最多1轮)
+[阶段五] 决策与归档:
+  闫判官 出最终判决
+    ↓
+  明鉴秋 拍板 execute/hold/rematch
+    ↓
+  全员 → 归档 → debate_results.json → HTML报告
     ↓
 明鉴秋: SendMessage → WorkBuddy → present_files 交付
 ```
 
 **关键设计**：
-- 明鉴秋是独立协调员，不参与分析，只做流程调度
-- 7专家为 general-purpose Agent，独立分析，SendMessage 产出给协调员
-- WorkBuddy 自动化协调器不参与辩论内容，仅触发和接收报告
-- **各Agent的工作方法定义在对应skill中，修改Agent方法只改对应skill即可**
-- **Phase 1 内嵌全品种扫描**：定时任务不再需要外部 phase1_collect_signals.py，数聚石+技研锋直接在 Phase 1 完成数据采集和信号计算
+- 明鉴秋（团队主管）只做选题和拍板，辩论期不插手
+- P2-P4（研究员→辩手→策略→风控）由闫判官全权主持
+- 9角色分工：数技师不做分析、研究员不下结论、策略师不改方向、风控不改多空、裁判不站队
+
+---
+
+## 🚫 无胶水代码协议（2026-07-03 掌柜确立·不可违反）
+
+**胶水代码定义**：在业务执行流程中临时编写的、仅用一次的脚本/函数/胶合逻辑。包括但不限于：`phase1_custom_scan.py`、临时数据提取脚本、手工拼接的Agent输出读取代码。
+
+### 根本原则
+
+**零胶水。** 任何需要在执行流程中完成的操作，必须通过已有skill的CLI接口、库函数调用、或Agent spawning来完成。**禁止在运行过程中编写一次性脚本。**
+
+### 三条铁律
+
+#### 铁律1：P1 数据采集必须使用 quant-daily 的 CLI
+
+当 `mode=custom` 需要扫描指定品种时，明鉴秋必须执行以下命令，**不得**自行编写数据采集脚本：
+
+```bash
+python scripts/scan_all.py --symbols PK,RB,B,UR
+```
+
+`scan_all.py` 已内置 `--symbols` 参数（v1.0.1+），支持任意品种组合的自定义扫描。输出为结构化JSON文件，明鉴秋直接读取即可。
+
+**禁止行为**：编写 `phase1_custom_scan.py`、`custom_collect.py` 等一次性数据采集脚本。
+
+#### 铁律2：Agent 输出必须通过文件持久化读取，不依赖消息路由
+
+Agent的SendMessage路由不可靠（历史教训：2026-07-03团队消息未送达导致手动读收件箱+写胶水脚本）。因此：
+
+1. **产物双写**：每个Agent完成后，必须同时：
+   - `SendMessage` 通知协调员（主通道）
+   - 写入文件 `Commodities/Reports/商品期货深度分析/{date}/p{N}_{agent}.json`（备用通道）
+2. **协调员读取逻辑**（按优先级）：
+   ```
+   1. 尝试接收 SendMessage → 如有，直接用
+   2. 如无消息 → 从 inbox 文件或产物文件中读取
+   3. 如都读不到 → 重新 spawn Agent（retry=1）
+   4. retry 仍失败 → 直接调用下游 skill 的 Python 库函数，不写胶水脚本
+   ```
+3. **禁止行为**：编写 `read_agent_output.py`、`parse_inbox.py` 等一次性读取脚本。Agent的产出始终通过双写通道获取。
+
+#### 铁律3：数据溯源纳入自动化流程，不临时写脚本
+
+所有数据溯源信息必须在 P1 阶段由 `scan_all.py` 的输出来记录（已内置 data_manifest 字段），**禁止**事后编写 `data_audit.py` 之类的核查脚本来追补。
+
+如果 `scan_all.py` 的 data_manifest 信息不完整 → 应修改 `scan_all.py` 本身，而不是写一个新脚本。
+
+### Agent工具权限保障
+
+| Agent | 所需工具 | 用途 |
+|:------|:---------|:-----|
+| futures-datatech（数技师） | Read, Bash, SendMessage | 运行scan_all.py（库函数模式） |
+| futures-fundamental-researcher（基本面研究员） | Read, Write, WebSearch, WebFetch, SendMessage | 搜索基本面事实+出快照 |
+| futures-technical-researcher（技术面研究员） | Read, Write, WebSearch, SendMessage | 分析量价+出快照 |
+| futures-affirmative-debater（正方辩手） | Read, WebSearch, WebFetch, SendMessage | 论证数技师方向的正确性+反驳反方质疑 |
+| futures-opposition-debater（反方辩手） | Read, WebSearch, WebFetch, SendMessage | 质疑数技师方向的漏洞+反驳正方论证 |
+| futures-judge（裁判/主持） | Read, SendMessage, WebSearch, WebFetch | 控场+评分+判胜负+核实论据 |
+| futures-risk-manager（风控） | Read, SendMessage | 仓位沙盘推演+逻辑质检 |
+| futures-trading-strategist（策略师） | Read, SendMessage | 接收判决+合成方案+过风控 |
+| futures-judge | Read, SendMessage, WebSearch, WebFetch | 核实论据、输出裁决 |
+| futures-risk-manager | Read, SendMessage | 读取结构化数据、输出风控 |
+| futures-trading-strategist | Read, SendMessage | 读取裁决、输出交易计划 |
+
+> 如发现某Agent工具为空或缺失 → **修复Agent定义**，不要为绕过工具限制而写胶水代码。
+
+### 违反后果
+
+一旦在执行中产生胶水代码，必须：
+1. 立即冻结工作流
+2. 追溯根因（缺少CLI参数？Agent工具不全？路由不可靠？）
+3. 修复对应的 skill 或 Agent 定义
+4. 恢复执行（从当前 phase 继续，不重跑）
+5. 将胶水脚本从产出目录中清理
 
 ---
 
 ## 📐 接口契约（Pydantic Schema v2.5）
 
-本系统所有 phase 间的通信通过 `contracts/` 模块中的 typed Pydantic schema 进行。以下 schema 定义在 `futures-trading-analysis/contracts/` 目录下（编排层管接口），各子 skill 按对应 schema 产出。
+本系统所有 phase 间的通信通过 `contracts/` 模块中的 typed Pydantic schema 进行。以下 schema 定义在 `quant-skills/futures-trading-analysis/contracts/` 目录下（编排层管接口），各子 skill 按对应 schema 产出。
 
 ### PhaseMeta（每条输出的元数据）
 
@@ -609,49 +704,57 @@ targets: [...]  # custom 模式下指定品种列表，如 ["rb", "FG", "cs"]
 
 ---
 
-**Phase 1 并行** — TeamCreate → spawn 数聚石 + 技研锋
+**Phase 1 统一执行** — 使用 quant-daily scan_all.py（无Agent胶水代码模式）
 
-**spawn 数聚石**:
-```
-角色: 数据工程师。你的工作方法由 futures-data-search 的"辩论专家团数据采集接口"定义，请加载并执行。
-边界: 只做数据采集和校验，不做技术分析、不做交易判断。
-工作模式: {mode}
-品种列表: 
-  full_scan: 全67品种（标准商品期货列表）
-  custom:    用户指定品种列表
-产出格式: 正文（Markdown 数据报告）+ 末尾 ```json fence 按 DataOutput schema
-产出 schema: DataCollectionOutput（contracts/data_collection.py）
+根据 **无胶水代码协议（铁律1）**，P1 不再 spawn 数聚石+技研锋两个独立 Agent，而是直接调用 quant-daily 的 CLI：
+
+```bash
+# full_scan 模式
+python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> -p full_scan
+
+# custom 模式（指定品种）
+python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> -p custom_scan --symbols PK,RB,B,UR
 ```
 
-**spawn 技研锋**（注意：只传 `state["data"].key_prices + state["data"].raw_data`，不传数聚石全文）:
+`scan_all.py` 一次性完成：数据采集 + 指标计算 + L1-L4信号评分，输出结构化JSON。
+
+**回退**：如果 `scan_all.py` 因模块导入问题失败，直接通过 Python 调用 `run_scan()` 函数（传 `symbols` 参数），而非写新脚本：
+
+```python
+sys.path.insert(0, "~/.workbuddy/skills/quant-daily/scripts")
+from scan_all import run_scan
+from config.symbols import ALL_SYMBOLS
+
+# 构造目标品种列表
+codes = ["PK", "RB", "B", "UR"]
+sym_map = {s: n for s, n in ALL_SYMBOLS}
+targets = [(s, sym_map[s]) for s in codes]
+result = run_scan(output_dir=<dir>, symbols=targets)
 ```
-角色: 趋势信号分析师。你的工作方法由 commodity-trend-signal 的"辩论专家团信号核验接口"定义，请加载并执行。
-边界: 不做数据采集（那是数聚石的事），不做产业链分析（那是链证源的事），不做交易计划（那是策执远的事）。
-工作模式: {mode}
-品种列表: 
-  full_scan: 数聚石返回的全67品种数据 → 计算L1-L4 → 选Top10
-  custom:    数聚石返回的指定品种数据 → 计算L1-L4 → 全部进入辩论
-前序数据（按需可见）: key_prices (各品种最新价) + raw_data (全量)
-产出格式: 正文（Markdown 信号分析报告）+ 末尾 ```json fence 按 TechOutput schema
-产出 schema: TechnicalOutput（contracts/technical.py）
-```
+
+**禁止行为**：编写 `phase1_custom_scan.py` 或其他一次性数据采集脚本。
+
+**输出文件**：`scan_all.py` 的输出JSON已包含 `_meta` 字段（含数据来源、日期、指标计算方法等溯源信息），明鉴秋直接读取即可满足数据溯源要求。
 
 → P1全完成后：`state["data"]` = DataOutput, `state["tech"]` = TechOutput
 → **保存 intermediate_data.json**（见下方说明）
 → 明鉴秋控：进入 P2
 
 **⚠️ 重要：保存 intermediate_data.json（供 phase3_generate_report.py 使用）**
-P1完成后，明鉴秋必须将数聚石和技研锋的产出保存为 intermediate_data.json，写入 `Commodities/Reports/商品期货深度分析/{date}/` 目录。
+P1完成后，明鉴秋必须将 `scan_all.py` 的产出保存为 intermediate_data.json，写入 `Commodities/Reports/商品期货深度分析/{date}/` 目录。
 
 必要字段：
 ```python
 {
   "report_date": "YYYY-MM-DD",
-  "data_source": "expert_phase1",
-  "data_source_used": state["data"].quality  # 从数聚石产出获取
+  "data_source": "quant-daily scan_all.py",
+  "data_manifest": {
+    "kline": {"source": "通达信TQ-Local", "capture_time": "HH:MM", "latest_bar_date": "YYYYMMDD", "gap_days": 0, "freshness": "正常"},
+    "indicators": {"method": "numpy向量化(通达信公式对齐)", "base_on": "基于上述K线数据"}
+  },
   "generated_at": "ISO时间戳",
-  "symbols_count": state["data"].collected_count,
-  "all_actionable": state["tech"].all_actionable,  # 技研锋的L1-L4输出
+  "symbols_count": scan_result["_meta"]["total"],
+  "all_actionable": scan_result["all_ranked"],
   "BUY_top5": [...],
   "SELL_top5": [...],
   "chain_results": {...}
@@ -668,101 +771,53 @@ P1完成后，明鉴秋必须将数聚石和技研锋的产出保存为 intermed
 产出 schema: ChainAnalysisOutput（contracts/chain_analysis.py）
 ```
 
-**Phase 2b 并行** — spawn 探源（基本面研究员） + 观澜（技术面研究员）并行产出快照
-
-**步 1 — spawn 探源**（基本面研究员）:
-```
-角色: 基本面研究员（供弹者）。你的工作方法由 commodity-chain-analysis 的"辩论专家团·基本面研究员接口"定义，请加载并执行。
-角色锚定: 你只回答"当前基本面事实是什么、边际在怎么变"，不下多空结论。
-边界: 不做行情数据采集（那是数技师的活），不做指标计算（那是观澜的活），不做交易计划（那是策执远的活）。
-      ✅ 必须使用 WebSearch/WebFetch 搜集供需/库存/利润/政策数据。
-      ❌ output.verdict = null 强制（出现verdict即不合格）。
-前序数据: 数技师scan_all.py输出的数据包 + 链证源产业链快照
-任务: 对辩论候选品种（full_scan模式下为Top10，custom模式下为指定品种）逐品种产出基本面快照。
-      每品种至少覆盖：供给（产量/开工率）、需求（下游开工/订单）、库存（社库/厂库/仓单）、利润（各环节毛利）、基差/月差、外盘联动。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 fundamental_snapshot schema
-产出 schema: 见 commodity-chain-analysis 的"辩论专家团·基本面研究员接口"章节
-```
-
-**步 2 — spawn 观澜**（技术面研究员）:
-```
-角色: 技术面研究员（供弹者）。你的工作方法由 quant-daily 的 scan_all.py 输出定义。
-角色锚定: 你只回答"价格/持仓/资金在说什么"，不下多空结论。你的特别价值是戳穿"假突破叙事"。
-边界: 不做行情数据采集（那是数技师的活），不做基本面分析（那是探源的活），不做交易计划。
-      基于数技师提供的数据包做技术面解读，不使用 WebSearch。
-前序数据: 数技师scan_all.py输出的数据包（含ADX/RSI/CCI/MA排列/持仓变化等）
-任务: 对辩论候选品种逐品种产出技术面快照。
-      每品种至少覆盖：趋势（ADX/MA排列/波段高低点）、关键位（支撑/阻力）、量价（仓价配合）、资金（前20席位）。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 technical_snapshot schema
-产出 schema: technical_snapshot
-```
-
-**并发执行**：探源和观澜并行执行，闫判官等待两份快照到位后广播给辩手。辩手在收到研究员快照前不得开始立论。
-
 → state["chain"] = ChainOutput
 → 明鉴秋控：进入 P3
 
-**Phase 3 交叉质询（研究员数据驱动，辩手不做独立搜索）**
+**Phase 3 交叉质询（v2.4 新增·3 跳）**
 
-**重要前置条件**：探源（基本面研究员）和观澜（技术面研究员）的快照必须已就位并广播给辩手。辩手**不自行使用WebSearch/WebFetch**收集数据——所有数据从研究员快照中提取。
-
-**步 1 — spawn 证真（正方辩手）**（证真写 v1）:
+**步 1 — spawn 牛势研**（牛写 v1 + 注入熊论点=空）:
 ```
-角色: 正方辩手（证真）— 信号捍卫者。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义，请加载并执行。
-角色锚定: 数技师给出方向，你论证该方向的正确性。不是预设多头/空头。
-边界: 不做数据采集（那是探源/观澜的活），不做交易计划（那是策执远的活）。
-      ❌ 禁止使用 WebSearch/WebFetch 自行搜索数据。
-      ✅ 所有论据必须从研究员快照（探源+观澜的产出）中提取。
-前序数据（按需可见）: 
-  - state["data"].key_prices + state["tech"].trend_stages（数技师方向）
-  - state["research_snapshots"].fundamental（探源快照）
-  - state["research_snapshots"].technical（观澜快照）
-  - state["chain"].chain_results（链证源产业链数据）
-对手论点: 暂无（首轮无反方论点可读）
-任务: 对辩论候选列表中每一个品种，从数技师指示的方向出发构建论证。
-      🚫 不要自己搜索数据！所有数据必须从研究员快照中提取。
-      如果研究员快照中缺少某品种某维度的数据，标注"研究员未覆盖"并降置信度。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
-红线: 禁止附和语；每个维度≥1个可核验数字（来自研究员快照）；禁止编造
+角色: 多头研究员。你的工作方法由 debate-argument-builder 的"牛势研"角色定义，请加载并执行。
+角色锚定: 你是激进多头（怕踏空不怕回撤）。关注 3 个月后供需缺口，不相信"超买"那类静态估值。
+边界: 不做行情数据采集，不做指标计算，不做交易计划。必须使用 WebSearch/WebFetch。
+前序数据（按需可见）: state["data"].key_prices + state["tech"].trend_stages + state["chain"].chain_results
+对手论点: 暂无（首轮无熊论点可读）
+任务: 对辩论候选列表中每一个品种，都从多头角度构建论据。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bull) schema
+红线: 禁止附和语；每个维度≥1个可核验数字；禁止重复 v1 已写内容
 产出 schema: BullOutput（contracts/debate.py）
 ```
 
-**步 2 — Handoff: 慎思（反方辩手）读证真 v1 后写 opposition v1**:
+**步 2 — Handoff: 熊谋略读牛 v1 后写 bear v1**（牛 v1 产出后直接 goto 熊，明鉴秋不中转）:
 ```
-角色: 反方辩手（慎思）— 信号挑战者。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义，请加载并执行。
-角色锚定: 数技师给出方向，你论证该方向哪里可能错了。
-边界: 不做数据采集（那是探源/观澜的活），不做交易计划（那是策执远的活）。
-      ❌ 禁止使用 WebSearch/WebFetch 自行搜索数据。
-      ✅ 所有论据必须从研究员快照（探源+观澜的产出）中提取。
-前序数据（按需可见）: 
-  - state["data"].key_prices（数技师方向）
-  - state["research_snapshots"].fundamental（探源快照）
-  - state["research_snapshots"].technical（观澜快照）
-  - state["chain"].chain_results（链证源产业链数据）
-对手论点: 你收到了证真的 affirmative v1 论点。请阅读 dimensions 和 summary_4_risk，回应证真的核心论据。
-任务: 对辩论候选列表中每一个品种，从数技师指示方向的对立面出发构建质疑论证。
-      🚫 不要自己搜索数据！所有数据必须从研究员快照中提取。
-      如果研究员快照中缺少某品种某维度的数据，标注"研究员未覆盖"并降置信度。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
-红线: 禁止"多方说得有道理"开头；禁止重复 v1 已经引用的相同数据；每个维度≥1个可核验数字
+角色: 空头研究员。你的工作方法由 debate-argument-builder 的"熊谋略"角色定义，请加载并执行。
+角色锚定: 你是风控出身的保守空头（信库存/利润表，不信叙事）。对"仓单累库""月差走弱"这类信号见了就要行动。
+边界: 不做行情数据采集，不做指标计算，不做交易计划。必须使用 WebSearch/WebFetch。
+前序数据（按需可见）: state["data"].key_prices + state["tech"].trend_stages + state["chain"].chain_results
+对手论点: 你收到了牛势研的 bull v1 论点。请阅读 dimenstions 和 summary_4_risk，回应牛的核心多头论据。
+任务: 对辩论候选列表中每一个品种，都从空头角度构建论据。
+       特别关注：你的空头论点必须参考并回应当牛的核心多头论据。
+       每条 evidence 要足够具体，让牛能在下一轮逐条回应——不要写"库存偏高"，写"社会库存同比+15%×4周"。
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bear) schema
+红线: 禁止"多方说得有道理"开头；禁止重复 bull_v1 已经引用的相同数据；每个维度≥1个可核验数字
 产出 schema: BearOutput（contracts/debate.py）
 ```
 
 → state["bear"] = ArgumentOutput(variant="bear")
-→ 写完后，Handoff: 慎思 → goto 证真
+→ 熊写完后，Handoff: 熊 → goto 牛
 
-**步 3 — Handoff: 证真读慎思 v1 后写 affirmative v2（rebuttal, max=1）**:
+**步 3 — Handoff: 牛势研读熊 v1 后写 bull v2（rebuttal, max=1）**:
 ```
-角色: 正方辩手（证真，第2轮 rebuttal）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式"定义。
-角色锚定: 信号捍卫者。
-边界: ❌ 禁止自行搜索数据。所有数据必须从研究员快照中提取。
-对手论点: 你收到了慎思的 opposition v1 论点。请阅读 dimensions 和 summary_4_risk。
-任务: 基于慎思的论点写 rebuttal（affirmative v2），结构：
-  1. Rebuttal 段：对慎思至少 2 个维度逐条拆解，格式"慎思曰[X维度：证据] → 证真驳：反证（附数字）"
-  2. 己方 5 维度更新版：被慎思打掉的维度补数据，没被打的就保留
+角色: 多头研究员（第2轮 rebuttal）。你的工作方法由 debate-argument-builder 定义。
+角色锚定: 激进多头。
+对手论点: 你收到了熊谋略的 bear v1 论点。请阅读 dimensions 和 summary_4_risk。
+任务: 基于熊的论点写 rebuttal（bull v2），结构：
+  1. Rebuttal 段：对熊至少 2 个维度逐条拆解，格式"熊曰[X维度：证据] → 牛驳：反证（附数字）"
+  2. 己方 5 维度更新版：被熊打掉的维度补数据，没被打的就保留
   3. Confidence 重估：0-1，比 v1 调高/调低/持平，写理由
 红线: 禁止 self-weaken；禁止"但是反过来"开头；重复率 >30% 本轮作废。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput schema
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(bull) schema
 终止条件: max_rebuttal=1，这是最终轮
 产出 schema: BullOutput（contracts/debate.py）
 ```
@@ -847,9 +902,31 @@ P1完成后，明鉴秋必须将数聚石和技研锋的产出保存为 intermed
 ### 产出
 
 1. 从 `DebateState` 提取全部 Agent 产出 → 汇总为 debate_results.json（写两套字段保证向后兼容）：
+   
+   **数据溯源义务（2026-07-03 掌柜确认）**：debate_results.json 必须包含顶层 `data_manifest` 字段，记录每次辩论所用全部数据的来源、日期、时效性。该字段在汇总输出时由明鉴秋补齐。
+   
    ```python
    # 写两套：新 contracts/ schema 字段 + 旧平铺字段
-   debate_results[pid] = {
+   debate_results = {
+       # ...原有字段...
+       "data_manifest": {
+           "kline": {
+               "source": "通达信TQ-Local",
+               "capture_time": "采集时间",
+               "latest_bar_date": "YYYYMMDD",
+               "gap_days": 0,
+               "freshness": "正常/延迟/过期"
+           },
+           "indicators": {
+               "method": "numpy向量化(通达信公式对齐)",
+               "base_on": "基于上述K线数据"
+           },
+           "fundamental": [
+               {"fact": "数据内容", "source": "来源机构名", "date": "数据日期", "url": "WebSearch查询关键词/URL"}
+           ]
+       }
+   }
+   ```
        # 新格式（供未来消费）
        "bull_output": state["bull_v2_obj"],
        "bear_output": state["bear_obj"],

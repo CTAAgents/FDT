@@ -1,0 +1,270 @@
+{
+  "cs": {
+    "chain": "谷物软商品",
+    "chain_members": [
+      "c",
+      "cs",
+      "SR",
+      "CF",
+      "CY",
+      "jd",
+      "lh",
+      "AP",
+      "CJ",
+      "rr"
+    ],
+    "term_structure": null,
+    "chain_trend": "震荡",
+    "chain_avg_score": 22.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": 1.6,
+    "z_status": "偏极端",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与震荡一致",
+      "共振2/3"
+    ]
+  },
+  "hc": {
+    "chain": "黑色系",
+    "chain_members": [
+      "i",
+      "j",
+      "jm",
+      "rb",
+      "hc",
+      "SF",
+      "SM"
+    ],
+    "term_structure": null,
+    "chain_trend": "偏空震荡",
+    "chain_avg_score": -54.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.7,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "主品种(同名['rb']冗余)",
+      "与偏空震荡一致",
+      "共振3/3"
+    ]
+  },
+  "sp": {
+    "chain": "纸浆造纸",
+    "chain_members": [
+      "sp",
+      "op"
+    ],
+    "term_structure": null,
+    "chain_trend": "偏空震荡",
+    "chain_avg_score": -57.0,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.7,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与偏空震荡一致",
+      "共振1/1"
+    ]
+  },
+  "rb": {
+    "chain": "黑色系",
+    "chain_members": [
+      "i",
+      "j",
+      "jm",
+      "rb",
+      "hc",
+      "SF",
+      "SM"
+    ],
+    "term_structure": null,
+    "chain_trend": "偏空震荡",
+    "chain_avg_score": -54.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.5,
+    "z_status": "正常",
+    "redundant": true,
+    "redundant_with": "hc",
+    "fundamental_notes": [],
+    "notes": [
+      "同链冗余→取hc",
+      "与偏空震荡一致",
+      "共振3/3"
+    ]
+  },
+  "lh": {
+    "chain": "谷物软商品",
+    "chain_members": [
+      "c",
+      "cs",
+      "SR",
+      "CF",
+      "CY",
+      "jd",
+      "lh",
+      "AP",
+      "CJ",
+      "rr"
+    ],
+    "term_structure": null,
+    "chain_trend": "震荡",
+    "chain_avg_score": 22.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": 0.4,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与震荡一致",
+      "共振2/3"
+    ]
+  },
+  "rr": {
+    "chain": "谷物软商品",
+    "chain_members": [
+      "c",
+      "cs",
+      "SR",
+      "CF",
+      "CY",
+      "jd",
+      "lh",
+      "AP",
+      "CJ",
+      "rr"
+    ],
+    "term_structure": null,
+    "chain_trend": "震荡",
+    "chain_avg_score": 22.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.3,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与震荡一致"
+    ]
+  },
+  "SM": {
+    "chain": "黑色系",
+    "chain_members": [
+      "i",
+      "j",
+      "jm",
+      "rb",
+      "hc",
+      "SF",
+      "SM"
+    ],
+    "term_structure": null,
+    "chain_trend": "偏空震荡",
+    "chain_avg_score": -54.3,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.1,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与偏空震荡一致",
+      "共振3/3"
+    ]
+  },
+  "a": {
+    "chain": "油脂油料",
+    "chain_members": [
+      "a",
+      "b",
+      "m",
+      "y",
+      "p",
+      "OI",
+      "RM",
+      "PK"
+    ],
+    "term_structure": null,
+    "chain_trend": "强势多头",
+    "chain_avg_score": 43.0,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.3,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与强势多头一致",
+      "共振3/3"
+    ]
+  },
+  "m": {
+    "chain": "油脂油料",
+    "chain_members": [
+      "a",
+      "b",
+      "m",
+      "y",
+      "p",
+      "OI",
+      "RM",
+      "PK"
+    ],
+    "term_structure": null,
+    "chain_trend": "强势多头",
+    "chain_avg_score": 43.0,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -0.8,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与强势多头一致",
+      "共振3/3"
+    ]
+  },
+  "y": {
+    "chain": "油脂油料",
+    "chain_members": [
+      "a",
+      "b",
+      "m",
+      "y",
+      "p",
+      "OI",
+      "RM",
+      "PK"
+    ],
+    "term_structure": null,
+    "chain_trend": "强势多头",
+    "chain_avg_score": 43.0,
+    "chain_consistency": 100,
+    "aligned": true,
+    "z_score": -1.0,
+    "z_status": "正常",
+    "redundant": false,
+    "redundant_with": null,
+    "fundamental_notes": [],
+    "notes": [
+      "与强势多头一致",
+      "共振3/3"
+    ]
+  }
+}
