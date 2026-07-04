@@ -1,22 +1,25 @@
 ---
 name: quant-daily
-version: 2.0.0
+version: 2.1.0
 agent_created: true
-description: 商品期货量化分析一体化skill — 真分层打分(True Layered Portfolio Sort) + 反向交易信号。融合futures-data-search、commodity-trend-signal、technical-indicator-calc三skill能力。默认使用AKShare OI数据+通达信TDX指标补丁。
+description: 商品期货量化分析一体化skill — 真分层打分(True Layered Portfolio Sort) + 九宫格左右侧分类 + 反向交易信号。融合futures-data-search、commodity-trend-signal、technical-indicator-calc三skill能力。
 ---
 
 # quant-daily — 商品期货量化分析一体化
 
-## 默认扫描：真分层打分（2026-07-04 设为默认）
+## 默认扫描：真分层打分 + 九宫格分类（2026-07-04 设为默认）
 
 **默认模式**：`true_layered`（取代原有L1-L4阶段打分）
 
 ```bash
-# 全品种真分层扫描 + 反向交易信号（默认）
+# 全品种真分层扫描 + 反向交易信号 + 九宫格左右侧分类（默认）
 python scripts/scan_true_layered.py --reverse
 
 # 扫描并输出JSON/HTML
 python scripts/scan_true_layered.py --reverse -o ./reports
+
+# 正常模式（做多排名高品种）
+python scripts/scan_true_layered.py
 ```
 
 **数据源方案**（回测AKShare vs 实盘TDX 双轨制）：
@@ -33,16 +36,18 @@ python scripts/scan_true_layered.py --reverse -o ./reports
 - 排名低的品种 = 最超卖 → 做多（预期上涨）
 - 持仓5-10个交易日，等权分配，±3%止损
 
-**因子法官席**（7独立裁判·全部全场景活跃）：
-| # | 风格 | 因子 | 原始指标 |
-|:-:|:---|:---|:--------|
-| D1 | 趋势 | ROC10 | 最近10日变化率 |
-| D2 | 回归 | -BIAS乖离率 | 价格偏离MA20的负值 |
-| D3 | 回归 | -(RSI14-50) | RSI以50为中点的反向 |
-| D4 | 资金 | OI_CHANGE_PCT | 持仓量变化率 |
-| D5 | 资金 | CMF21 | 21日资金流量 |
-| D6 | 确认 | 放量×方向 | 量比乘以价格变动方向 |
-| D7 | **期限** | **term_signal** | **期限结构方向(contango~/backwardation~)** |
+**因子法官席**（7独立裁判·全部全场景活跃 + 九宫格左右侧分类器）：
+| # | 风格 | 因子 | 原始指标 | 九宫格归属 |
+|:-:|:---|:---|:--------|:----------|
+| D1 | 趋势 | ROC10 | 最近10日变化率 | TrendScore |
+| D2 | 回归 | -BIAS乖离率 | 价格偏离MA20的负值 | RegScore |
+| D3 | 回归 | -(RSI14-50) | RSI以50为中点的反向 | RegScore |
+| D4 | 资金 | OI_CHANGE_PCT | 持仓量变化率 | — |
+| D5 | 资金 | CMF21 | 21日资金流量 | — |
+| D6 | 确认 | 放量×方向 | 量比乘以价格变动方向 | — |
+| D7 | **期限** | **term_signal** | **期限结构方向(contango~/backwardation~)** | RegScore |
+
+九宫格通过高斯隶属函数将 RegScore/TrendScore 映射到强多区/左侧多/趋势多/混沌区/强空区/右侧空/过渡空。输出 `side`（左侧/右侧/中心）区分信号是否已获趋势确认。
 
 **回测绩效**（107截面×59品种，AKShare数据，2026-07-04修正）：
 | 持有期 | IC均值 | IC胜率 | t值 | Top10多空价差 |
@@ -62,7 +67,7 @@ WL3 = 20  # L3 价格结构
 WL4 = 10  # L4 确认
 ```
 
-**注意**：真分层打分不使用此权重配置。真分层使用`signals/true_layered_scoring.py`中的6因子等权投票。
+**注意**：真分层打分不使用此权重配置。真分层使用`signals/true_layered_scoring.py`中的7因子等权投票 + 九宫格分类。
 
 ---
 
@@ -127,7 +132,7 @@ scripts/
 │   ├── calc_core.py               # numpy向量化（通达信100%对齐，45字段）
 │   └── core.py                    # 统一指标引擎（待合并）
 ├── signals/                       # 信号评分层（依赖indicators）
-│   ├── true_layered_scoring.py    # 真分层打分核心引擎（6因子截面排序）
+│   ├── true_layered_scoring.py    # 真分层打分核心引擎（7因子截面排序+九宫格分类）
 │   ├── scoring_system.py          # L1-L4四层打分（遗留）
 │   ├── early_signal.py            # 早期信号检测
 │   ├── signal_screener.py         # 信号筛选
@@ -170,12 +175,15 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 ## 版本历史
 
 - **v2.0.0** (2026-07-04): 真分层打分设为默认
-  - 新增 true_layered_scoring 模块（6因子等权投票、ADX风格感知、否决降权）
+  - 新增 true_layered_scoring 模块（7因子等权投票、否决降权、趋势成熟度）
+  - 新增九宫格模糊分类器（高斯隶属度、左右侧识别）
+  - 新增 D7 期限结构因子（term_signal）
   - 新增 scan_true_layered.py（通达信TDX实盘 + AKShare OI注入）
-  - 新增 backtest/backtest_true_layered.py 回测框架（AKShare 27截面）
+  - 新增 backtest/backtest_true_layered.py 回测框架（107截面×59品种）
   - 新增 `--reverse` 反向信号模式（IC为负，反向有效）
-  - 新增合格信号筛选 + Agent JSON输出
+  - 新增合格信号筛选 + Agent JSON输出 + 九宫格side字段
   - SKILL.md 默认命令改为 `scan_true_layered.py --reverse`
+  - 代码审计17轮（死代码清理、命名规范、编码兼容、bare except修复）
 - **v1.0.1** (2026-07-03): [关键] 新增 `--symbols` 参数支持自定义品种扫描
   - 设计目的：消灭为特定品种集编写胶水脚本的需求
   - 辩论场景下：直接 `scan_all.py --symbols PK,RB`，禁止写自定义扫描脚本
