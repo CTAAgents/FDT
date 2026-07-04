@@ -3,7 +3,7 @@
 import sys, os, json
 from datetime import datetime
 
-SKILL_DIR = r"C:\Users\yangd\.workbuddy\skills\commodity-chain-analysis"
+SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 

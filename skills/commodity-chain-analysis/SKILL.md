@@ -389,6 +389,16 @@ class ChainOutput(BaseModel):
 
 ## 版本历史
 
+### v2.14.0 (2026-07-04)
+- 新增 CROSS_CHAIN_VARIETIES 跨链品种清单（MA/SA/UR/EG/LC/SI/AL）
+- 新增 get_dominant_chain() 主导链动态判断（支持4种市场状态）
+- 新增 get_secondary_chain() / is_cross_chain_variety() / get_all_chains_for_symbol()
+- 品种映射100%覆盖 futures-data-search 的 ALL_VARIETIES（66个品种交叉验证）
+- 新增32个测试，总测试100/100通过
+- cluster_chains() 新增 cross_chain_info 输出字段
+- **目录结构标准化**：全部 .py/.json/.md 文件移至 scripts/，清除缓存的 __pycache__，修复硬编码路径
+- 对照版：files/commodity-chain-analysis-v2.13-to-v2.14.diff
+
 ### v2.11.1 (2026-06-29)
 - term_basis.py exchange-futures-data→futures-data-search 引用更新
 

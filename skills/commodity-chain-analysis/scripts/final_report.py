@@ -2,7 +2,7 @@
 """链证源 — 最终报告合成（含基本面验证）"""
 import sys, os, json
 
-SKILL_DIR = r"C:\Users\yangd\.workbuddy\skills\commodity-chain-analysis"
+SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
