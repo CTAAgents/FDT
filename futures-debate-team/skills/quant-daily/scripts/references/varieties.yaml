@@ -1,0 +1,612 @@
+# varieties.yaml - 期货品种词典
+# 覆盖范围：SHFE、DCE、CZCE、GFEX、INE、CFFEX
+
+varieties:
+  # ===== 上期所 SHFE =====
+  - code: AU
+    exchange: SHFE
+    name: 黄金
+    aliases: [黄金, 沪金]
+    unit: 1000g/手
+    delivery_months: [1,3,5,7,9,11,12]
+
+  - code: AG
+    exchange: SHFE
+    name: 白银
+    aliases: [白银, 沪银]
+    unit: 15kg/手
+    delivery_months: [1,3,5,7,9,11,12]
+
+  - code: CU
+    exchange: SHFE
+    name: 铜
+    aliases: [铜, 沪铜, 阴极铜]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: AL
+    exchange: SHFE
+    name: 铝
+    aliases: [铝, 沪铝, 铝锭]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: ZN
+    exchange: SHFE
+    name: 锌
+    aliases: [锌, 沪锌]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PB
+    exchange: SHFE
+    name: 铅
+    aliases: [铅, 沪铅]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: NI
+    exchange: SHFE
+    name: 镍
+    aliases: [镍, 沪镍]
+    unit: 1t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SN
+    exchange: SHFE
+    name: 锡
+    aliases: [锡, 沪锡]
+    unit: 1t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: RB
+    exchange: SHFE
+    name: 螺纹钢
+    aliases: [螺纹, 螺纹钢, 钢]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: HC
+    exchange: SHFE
+    name: 热轧卷板
+    aliases: [热卷, 热轧]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SS
+    exchange: SHFE
+    name: 不锈钢
+    aliases: [不锈钢]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: RU
+    exchange: SHFE
+    name: 天然橡胶
+    aliases: [橡胶, 天胶, 沪胶]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: BR
+    exchange: SHFE
+    name: 丁二烯橡胶
+    aliases: [合成橡胶, 顺丁橡胶]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: FU
+    exchange: SHFE
+    name: 燃料油
+    aliases: [燃油, 燃料油]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: BU
+    exchange: SHFE
+    name: 石油沥青
+    aliases: [沥青]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: WR
+    exchange: SHFE
+    name: 线材
+    aliases: [线材]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SP
+    exchange: SHFE
+    name: 纸浆
+    aliases: [纸浆, 木浆]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: AO
+    exchange: SHFE
+    name: 氧化铝
+    aliases: [氧化铝, 铝土]
+    unit: 20t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: AD
+    exchange: SHFE
+    name: 铸造铝合金
+    aliases: [铸造铝合金, 铝合金, ADC12]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: OP
+    exchange: SHFE
+    name: 胶版印刷纸
+    aliases: [胶版印刷纸, 双胶纸, 胶印纸]
+    unit: 40t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  # ===== 大商所 DCE =====
+  - code: A
+    exchange: DCE
+    name: 黄大豆1号
+    aliases: [豆一, 国产大豆]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: B
+    exchange: DCE
+    name: 黄大豆2号
+    aliases: [豆二, 进口大豆]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: M
+    exchange: DCE
+    name: 豆粕
+    aliases: [豆粕]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,8,9,11,12]
+
+  - code: Y
+    exchange: DCE
+    name: 豆油
+    aliases: [豆油]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,8,9,11,12]
+
+  - code: P
+    exchange: DCE
+    name: 棕榈油
+    aliases: [棕榈油, 棕榈]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: C
+    exchange: DCE
+    name: 玉米
+    aliases: [玉米]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: CS
+    exchange: DCE
+    name: 玉米淀粉
+    aliases: [淀粉]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: I
+    exchange: DCE
+    name: 铁矿石
+    aliases: [铁矿, 铁矿石]
+    unit: 100t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: J
+    exchange: DCE
+    name: 焦炭
+    aliases: [焦炭]
+    unit: 100t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: JM
+    exchange: DCE
+    name: 焦煤
+    aliases: [焦煤, 主焦煤]
+    unit: 60t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: L
+    exchange: DCE
+    name: 线性低密度聚乙烯
+    aliases: [塑料, LLDPE, 聚乙烯]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: V
+    exchange: DCE
+    name: 聚氯乙烯
+    aliases: [PVC, 聚氯乙烯]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PP
+    exchange: DCE
+    name: 聚丙烯
+    aliases: [PP, 拉丝]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: EG
+    exchange: DCE
+    name: 乙二醇
+    aliases: [乙二醇, MEG]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: EB
+    exchange: DCE
+    name: 苯乙烯
+    aliases: [苯乙烯]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PG
+    exchange: DCE
+    name: 液化石油气
+    aliases: [LPG, 液化气]
+    unit: 20t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: JD
+    exchange: DCE
+    name: 鸡蛋
+    aliases: [鸡蛋]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: LH
+    exchange: DCE
+    name: 生猪
+    aliases: [生猪, 猪]
+    unit: 16t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: RR
+    exchange: DCE
+    name: 粳米
+    aliases: [粳米]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: BB
+    exchange: DCE
+    name: 胶合板
+    aliases: [胶合板]
+    unit: 500张/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: FB
+    exchange: DCE
+    name: 纤维板
+    aliases: [纤维板]
+    unit: 500张/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: LG
+    exchange: DCE
+    name: 原木
+    aliases: [原木, 木材]
+    unit: 90m³/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  # ===== 郑商所 CZCE =====
+  - code: AP
+    exchange: CZCE
+    name: 苹果
+    aliases: [苹果]
+    unit: 10t/手
+    delivery_months: [1,3,4,5,10,11,12]
+
+  - code: CF
+    exchange: CZCE
+    name: 棉花
+    aliases: [棉花, 郑棉]
+    unit: 5t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: CY
+    exchange: CZCE
+    name: 棉纱
+    aliases: [棉纱]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: CJ
+    exchange: CZCE
+    name: 红枣
+    aliases: [红枣]
+    unit: 5t/手
+    delivery_months: [1,3,5,7,9,12]
+
+  - code: FG
+    exchange: CZCE
+    name: 玻璃
+    aliases: [玻璃]
+    unit: 20t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SA
+    exchange: CZCE
+    name: 纯碱
+    aliases: [纯碱, 苏打]
+    unit: 20t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SH
+    exchange: CZCE
+    name: 烧碱
+    aliases: [烧碱, 液碱]
+    unit: 30t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: MA
+    exchange: CZCE
+    name: 甲醇
+    aliases: [甲醇, 郑醇]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: TA
+    exchange: CZCE
+    name: PTA
+    aliases: [PTA, 精对苯二甲酸]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: UR
+    exchange: CZCE
+    name: 尿素
+    aliases: [尿素]
+    unit: 20t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PF
+    exchange: CZCE
+    name: 短纤
+    aliases: [短纤, 涤纶短纤]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PR
+    exchange: CZCE
+    name: 瓶片
+    aliases: [瓶片, 聚酯瓶片, PET]
+    unit: 15t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PX
+    exchange: CZCE
+    name: 对二甲苯
+    aliases: [对二甲苯, PX, 二甲苯]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PK
+    exchange: CZCE
+    name: 花生
+    aliases: [花生]
+    unit: 5t/手
+    delivery_months: [1,3,4,5,10,11,12]
+
+  - code: OI
+    exchange: CZCE
+    name: 菜籽油
+    aliases: [菜油, 郑油]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: RM
+    exchange: CZCE
+    name: 菜籽粕
+    aliases: [菜粕]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,8,9,11]
+
+  - code: RS
+    exchange: CZCE
+    name: 菜籽
+    aliases: [菜籽]
+    unit: 10t/手
+    delivery_months: [7,8,9,11]
+
+  - code: SR
+    exchange: CZCE
+    name: 白糖
+    aliases: [白糖, 郑糖]
+    unit: 10t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: WH
+    exchange: CZCE
+    name: 强麦
+    aliases: [强麦]
+    unit: 20t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: PM
+    exchange: CZCE
+    name: 普麦
+    aliases: [普麦]
+    unit: 50t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: SM
+    exchange: CZCE
+    name: 锰硅
+    aliases: [锰硅, 硅锰]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: SF
+    exchange: CZCE
+    name: 硅铁
+    aliases: [硅铁]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  # # ZC（动力煤）已停止交易，不再同步
+  # - code: ZC
+  #   exchange: CZCE
+  #   name: 动力煤
+  #   aliases: [动煤, 郑煤]
+  #   unit: 100t/手
+  #   delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: JR
+    exchange: CZCE
+    name: 粳稻
+    aliases: [粳稻]
+    unit: 20t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: LR
+    exchange: CZCE
+    name: 晚籼稻
+    aliases: [晚籼稻]
+    unit: 20t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  - code: RI
+    exchange: CZCE
+    name: 早籼稻
+    aliases: [早籼稻]
+    unit: 20t/手
+    delivery_months: [1,3,5,7,9,11]
+
+  # ===== 广期所 GFEX =====
+  - code: SI
+    exchange: GFEX
+    name: 工业硅
+    aliases: [工业硅, 硅]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: LC
+    exchange: GFEX
+    name: 碳酸锂
+    aliases: [碳酸锂, 锂]
+    unit: 1t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PS
+    exchange: GFEX
+    name: 多晶硅
+    aliases: [多晶硅, 硅料]
+    unit: 3t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PT
+    exchange: GFEX
+    name: 铂
+    aliases: [铂, 铂金, 白金]
+    unit: 1000g/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: PD
+    exchange: GFEX
+    name: 钯
+    aliases: [钯, 钯金]
+    unit: 1000g/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  # ===== 上期能源 INE =====
+  - code: SC
+    exchange: INE
+    name: 原油
+    aliases: [原油, 上期原油]
+    unit: 1000桶/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: LU
+    exchange: INE
+    name: 低硫燃料油
+    aliases: [低硫燃, LU]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: NR
+    exchange: INE
+    name: 20号胶
+    aliases: [20号胶, 标胶]
+    unit: 10t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  - code: BC
+    exchange: INE
+    name: 国际铜
+    aliases: [国际铜, BC]
+    unit: 5t/手
+    delivery_months: [1,2,3,4,5,6,7,8,9,10,11,12]
+
+  # ===== 中金所 CFFEX（P2 启用） =====
+  - code: IF
+    exchange: CFFEX
+    name: 沪深300股指
+    aliases: [IF, 沪深300期货]
+    unit: 300元×指数点
+    delivery_months: [当月,下月,当季,下季]
+
+  - code: IC
+    exchange: CFFEX
+    name: 中证500股指
+    aliases: [IC, 中证500期货]
+    unit: 200元×指数点
+    delivery_months: [当月,下月,当季,下季]
+
+  - code: IM
+    exchange: CFFEX
+    name: 中证1000股指
+    aliases: [IM, 中证1000期货]
+    unit: 200元×指数点
+    delivery_months: [当月,下月,当季,下季]
+
+  - code: IH
+    exchange: CFFEX
+    name: 上证50股指
+    aliases: [IH, 上证50期货]
+    unit: 300元×指数点
+    delivery_months: [当月,下月,当季,下季]
+
+  - code: TS
+    exchange: CFFEX
+    name: 2年国债
+    aliases: [TS, 二年债]
+    unit: 200万元/手
+    delivery_months: [3,6,9,12]
+
+  - code: TF
+    exchange: CFFEX
+    name: 5年国债
+    aliases: [TF, 五年债]
+    unit: 200万元/手
+    delivery_months: [3,6,9,12]
+
+  - code: T
+    exchange: CFFEX
+    name: 10年国债
+    aliases: [T, 十年债]
+    unit: 200万元/手
+    delivery_months: [3,6,9,12]
+
+  - code: TL
+    exchange: CFFEX
+    name: 30年国债
+    aliases: [TL, 三十年债]
+    unit: 200万元/手
+    delivery_months: [3,6,9,12]
+
+# 别名冲突注意事项：
+# - "铜" → CU（上期所）；"国际铜" → BC（INE）
+# - "LPG" → PG（DCE 液化石油气），不是 INE 的品种
+# - "SA" → 纯碱（CZCE），烧碱是 SH（CZCE）
+# - "PG" = DCE 液化石油气，多晶硅 = GFEX.PS
+# - "LC" = 广期所碳酸锂，非 LME 铜

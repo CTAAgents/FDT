@@ -1,0 +1,228 @@
+# 境外期货品种词典
+# 覆盖 COMEX、LME、CME、CBOT、NYMEX 等主要交易所
+
+overseas_varieties:
+  # ===== COMEX (纽约商品交易所) =====
+  - code: GC
+    exchange: COMEX
+    name: 黄金
+    aliases: [COMEX黄金, 美黄金, 纽约黄金, Gold]
+    unit: 100盎司/手
+    currency: USD
+    trading_hours: "电子盘 06:00-05:00 (次日)"
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: SI
+    exchange: COMEX
+    name: 白银
+    aliases: [COMEX白银, 美白银, 纽约白银, Silver]
+    unit: 5000盎司/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: HG
+    exchange: COMEX
+    name: 铜
+    aliases: [COMEX铜, 美铜, 纽约铜, Copper]
+    unit: 25000磅/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  # ===== LME (伦敦金属交易所) =====
+  - code: CA
+    exchange: LME
+    name: 铜
+    aliases: [LME铜, 伦铜, London Copper]
+    unit: 25吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  - code: AH
+    exchange: LME
+    name: 铝
+    aliases: [LME铝, 伦铝, London Aluminium]
+    unit: 25吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  - code: NI
+    exchange: LME
+    name: 镍
+    aliases: [LME镍, 伦镍, London Nickel]
+    unit: 6吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  - code: ZN
+    exchange: LME
+    name: 锌
+    aliases: [LME锌, 伦锌, London Zinc]
+    unit: 25吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  - code: PB
+    exchange: LME
+    name: 铅
+    aliases: [LME铅, 伦铅, London Lead]
+    unit: 25吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  - code: SN
+    exchange: LME
+    name: 锡
+    aliases: [LME锡, 伦锡, London Tin]
+    unit: 5吨/手
+    currency: USD
+    data_source: "LME官网 / Investing.com"
+
+  # ===== NYMEX (纽约商业交易所) =====
+  - code: CL
+    exchange: NYMEX
+    name: WTI原油
+    aliases: [WTI原油, 美原油, 纽约原油, WTI Crude]
+    unit: 1000桶/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: NG
+    exchange: NYMEX
+    name: 天然气
+    aliases: [美天然气, 纽约天然气, Natural Gas]
+    unit: 10000百万英热单位/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: HO
+    exchange: NYMEX
+    name: 取暖油
+    aliases: [美取暖油, Heating Oil]
+    unit: 42000加仑/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: RB
+    exchange: NYMEX
+    name: 汽油
+    aliases: [美汽油, RBOB Gasoline]
+    unit: 42000加仑/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  # ===== ICE (洲际交易所) =====
+  - code: B
+    exchange: ICE
+    name: 布伦特原油
+    aliases: [布伦特原油, Brent Crude, 北海原油]
+    unit: 1000桶/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  # ===== CBOT (芝加哥期货交易所) =====
+  - code: ZS
+    exchange: CBOT
+    name: 大豆
+    aliases: [美大豆, 芝加哥大豆, Soybean]
+    unit: 5000蒲式耳/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: ZC
+    exchange: CBOT
+    name: 玉米
+    aliases: [美玉米, 芝加哥玉米, Corn]
+    unit: 5000蒲式耳/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: ZW
+    exchange: CBOT
+    name: 小麦
+    aliases: [美小麦, 芝加哥小麦, Wheat]
+    unit: 5000蒲式耳/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: ZM
+    exchange: CBOT
+    name: 豆粕
+    aliases: [美豆粕, 芝加哥豆粕, Soybean Meal]
+    unit: 100短吨/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: ZL
+    exchange: CBOT
+    name: 豆油
+    aliases: [美豆油, 芝加哥豆油, Soybean Oil]
+    unit: 60000磅/手
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  # ===== CME (芝加哥商业交易所) =====
+  - code: ES
+    exchange: CME
+    name: 标普500期货
+    aliases: [标普500, E-mini S&P500, 美股指数]
+    unit: 50美元×指数点
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: NQ
+    exchange: CME
+    name: 纳斯达克100期货
+    aliases: [纳指期货, NASDAQ100, E-mini NASDAQ]
+    unit: 20美元×指数点
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: YM
+    exchange: CME
+    name: 道琼斯期货
+    aliases: [道指期货, E-mini Dow]
+    unit: 5美元×指数点
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  - code: NKD
+    exchange: CME
+    name: 日经225期货
+    aliases: [日经225, Nikkei 225]
+    unit: 5美元×指数点
+    currency: USD
+    data_source: "Yahoo Finance / Investing.com"
+
+  # ===== SGX (新加坡交易所) =====
+  - code: CN
+    exchange: SGX
+    name: 富时中国A50期货
+    aliases: [A50期货, 新加坡A50, FTSE China A50]
+    unit: 1美元×指数点
+    currency: USD
+    data_source: "Investing.com"
+
+  - code: IN
+    exchange: SGX
+    name: 印度Nifty50期货
+    aliases: [印度Nifty, SGX Nifty]
+    unit: 1美元×指数点
+    currency: USD
+    data_source: "Investing.com"
+
+  # ===== TOCOM (东京商品交易所) =====
+  - code: JAU
+    exchange: TOCOM
+    name: 日本黄金
+    aliases: [东京黄金, TOCOM黄金, Japanese Gold]
+    unit: 1公斤/手
+    currency: JPY
+    data_source: "Investing.com"
+
+  - code: JRU
+    exchange: TOCOM
+    name: 橡胶
+    aliases: [东京橡胶, TOCOM橡胶, Japanese Rubber]
+    unit: 5吨/手
+    currency: JPY
+    data_source: "Investing.com"
