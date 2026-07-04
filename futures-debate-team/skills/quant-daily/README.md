@@ -2,89 +2,160 @@
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-2.1.0-orange)
+![Version](https://img.shields.io/badge/version-2.2.0-orange)
 
-**quant-daily** 是一套面向中国商品期货市场的真分层打分量化分析系统，覆盖 **数据采集 → 指标计算 → 7因子截面排序 → 九宫格左右侧分类** 全流程。
+**quant-daily** 是一套面向中国商品期货市场的量化分析系统，覆盖 **数据采集 → 指标计算 → 策略可插拔打分** 全流程。策略层已独立，新增策略只需新建一个文件。
 
 - 覆盖 **62个主力品种**，14个板块
-- 双轨数据源：**通达信TQ-Local**（实盘）+ **AKShare**（回测，含真实持仓量OI）
-- **真分层打分**：7因子独立裁判 + 截面排序 + 秩变换（Fama-French 1992学术正统）
-- **九宫格模糊分类器**：高斯隶属度区分左右侧信号，消除硬阈值跳跃
-- **D7期限结构因子**：期货专属维度，基于近远月价差
-- **反向交易信号模式**：`--reverse` 自动转换负IC为可交易策略
-- **回测框架**：107截面×59品种，IC评估 + 多空价差 + 分层收益
+- 双轨数据源：**通达信TQ-Local**（实盘） + **AKShare**（回测）
+- **策略可插拔**：`strategies/` 目录，`--strategy` 参数切换
+- **默认策略**：L1-L4四层累加（WL1=35/WL2=35/WL3=20/WL4=10）
 - **Data Quality Circuit Breaker**：7道全局防呆机制
 
 ## 快速开始
 
-### 安装
-
 ```bash
-git clone git@github.com:CTAAgents/experts.git
-cd experts/skills/quant-daily
-pip install -e .
+# L1-L4全品种扫描（默认·正确模式）
+python scripts/scan_all.py
+
+# 列出可用策略
+python scripts/scan_all.py --list-strategies
+
+# 指定策略
+python scripts/scan_all.py --strategy layered_l1l4
+
+# 自定义品种
+python scripts/scan_all.py --symbols PK,RB,B,UR
+
+# 指定输出目录
+python scripts/scan_all.py -o ./reports -p full_scan
 ```
 
-### 全品种信号扫描（推荐）
+## 策略可插拔架构
 
-```bash
-# 真分层打分 + 九宫格分类 + 反向信号（默认）
-python scripts/scan_true_layered.py --reverse
-
-# 指定品种
-python scripts/scan_true_layered.py --symbols PK,RB,HC --reverse
-
-# 正常模式（做多排名高品种）
-python scripts/scan_true_layered.py -o ./reports
+```
+data/   →  indicators/   →   strategies/   →   scan_all.py
+ 不变       不变              可插拔              --strategy
 ```
 
-### 回测
+### 当前策略
 
-```bash
-# 真分层回测（AKShare数据源，107截面）
-python -m backtest.backtest_true_layered
+| 策略名 | 文件 | 状态 |
+|:-------|:-----|:----|
+| `layered_l1l4` | `strategies/layered_l1l4.py` | ✅ 默认（活跃） |
+| `true_layered` | `strategies/true_layered.py` | ⛔ 已废弃 |
+
+### 新增一个策略
+
+```python
+# strategies/my_new.py
+from strategies.base import BaseStrategy, SignalResult
+from strategies.registry import register_strategy
+
+class MyStrategy(BaseStrategy):
+    @property
+    def name(self): return "my_new"
+    @property
+    def display_name(self): return "我的新策略"
+    def score(self, tech_list, mode, kline_data=None, df_map=None):
+        # tech_list: 每个品种的tech dict（含ADX/RSI/MACD等44项指标）
+        results = []
+        for tech in tech_list:
+            results.append(SignalResult(
+                symbol=tech["symbol"], total=..., 
+                direction="bull"/"bear", grade="WATCH", ...
+            ))
+        return {"all_ranked": [...], "bull_signals": [...], "bear_signals": [...]}
+
+register_strategy(MyStrategy)
+
+# 使用
+# python scan_all.py --strategy my_new
 ```
 
-## 因子法官席（7独立裁判）
+无需修改 `data/` 和 `indicators/` 层的任何代码。
 
-| # | 风格 | 因子 | 原始指标 | 九宫格归属 |
-|:-:|:---|:---|:--------|:----------|
-| D1 | 趋势 | ROC10 | 最近10日变化率 | TrendScore |
-| D2 | 回归 | -BIAS乖离率 | 价格偏离MA20的负值 | RegScore |
-| D3 | 回归 | -(RSI14-50) | RSI以50为中点的反向 | RegScore |
-| D4 | 资金 | OI_CHANGE_PCT | 持仓量变化率 | — |
-| D5 | 资金 | CMF21 | 21日资金流量 | — |
-| D6 | 确认 | 放量×方向 | 量比乘以价格变动方向 | — |
-| D7 | **期限** | **term_signal** | 期限结构(contango~/backwardation~) | RegScore |
+## L1-L4 四层打分权重
 
-## 九宫格左右侧分类
+| 层 | 名称 | 权重 | 指标 |
+|:--:|:----|:---:|:-----|
+| L1 | 萌芽/资金结构 | **35** | OI变化、基差、期限结构、ROC |
+| L2 | 量价领先 | **35** | Vortex、CCI、Supertrend、HMA |
+| L3 | 价格结构 | **20** | RSI健康区、DMI方向、ADX趋势强度 |
+| L4 | 确认信号 | **10** | 通道突破、均线排列、MACD金叉/死叉 |
 
-基于高斯隶属函数的模糊九宫格分类器，输入 RegScore 和 TrendScore 输出：
+否决项：ADX震荡、RSI极端、缩量、统计偏离（-20 ~ 0）
 
-| 格子 | Reg | Trend | 方向 | 强度 | 含义 |
-|:---:|:---:|:----:|:---:|:----:|:----|
-| 强多区 | H | H | +1 | 1.0 | 双击信号 |
-| 左侧多 | H | L/M | +1 | 0.5 | 回归驱动，需确认 |
-| 趋势多 | M | H | +1 | 0.3 | 趋势跟随 |
-| 混沌区 | M | M | 0 | 0 | 观望 |
-| 强空区 | L | L | -1 | 1.0 | 双击信号 |
-| 左侧空 | L | H/M | -1 | 0.5 | 回归驱动，需确认 |
+## CLI 参数
 
-## 回测绩效（107截面×59品种）
+| 参数 | 说明 |
+|:----|:-----|
+| `--output, -o` | 输出目录 |
+| `--prefix, -p` | 文件名前缀（默认 `full_scan`） |
+| `--symbols, -s` | 指定品种（逗号分隔），如 `PK,RB,B,UR` |
+| `--strategy` | 策略名（默认 `layered_l1l4`） |
+| `--list-strategies` | 列出所有可用策略 |
+| `--mode, -m` | [废弃] 旧版模式参数 |
 
-| 持有期 | IC均值 | IC胜率 | t值 | Top10多空价差 |
-|:-----:|:-----:|:-----:|:---:|:------------:|
-| 5日 | -0.004 | 46% | -0.21 | -0.06% |
-| 10日 | -0.028 | 47% | -1.70 | -0.32% |
-| 20日 | **-0.039** | 43% | **-2.33** | **-0.75%** |
+输出：`{prefix}_{YYYYMMDD}.json` + `{prefix}_ranking_{YYYYMMDD}.html`
 
-IC 偏负 → 做空排名高品种（反向操作），20日持有期统计显著。
+## 信号等级
+
+| 等级 | 总分范围 | 含义 |
+|:----|:--------:|------|
+| **STRONG** | ≥ 75 | 最强信号，多层共振 |
+| **WATCH** | 60-74 | 重点信号，方向一致 |
+| **WEAK** | 40-59 | 信号质量一般 |
+| **NOISE** | < 40 | 噪音，忽略 |
+
+## 三级指标获取管道
+
+```
+第一优先: TdxCollector.get_indicators()  → formula_zb 44项（通达信100%对齐）
+第二优先: tdx_bridge.patch_indicators()  → 35字段补丁
+最后保障: calc_core.calculate_tdx_compatible() → numpy向量化，45字段
+```
+
+## 数据质量熔断器
+
+| 检查项 | 阈值 | 后果 |
+|:-------|:----:|:-----|
+| 品种成功率 | ≥90% | 低于终止 |
+| K线条数 | ≥30 | 不足跳过 |
+| 时效性 | ≤5交易日 | 标注过期 |
+| 成交量 | >0占比≥50% | 标注降级 |
+| 扫描耗时 | ≤120秒 | 超限终止 |
+| 降级次数 | ≤2次/品种 | 跳过 |
+| 输出JSON | ≤5MB | 裁剪字段 |
+
+## 目录结构
+
+```
+scripts/
+├── scan_all.py              ← 策略入口（--strategy 切换）
+├── strategies/              ← 策略可插拔层
+│   ├── base.py              ← BaseStrategy 抽象基类
+│   ├── registry.py          ← 注册器
+│   ├── layered_l1l4.py      ← L1-L4策略（默认）
+│   └── true_layered.py      ← 真分层（已废弃）
+├── config/                  ← 品种列表 + 系统参数
+├── data/                    ← 数据采集（多源降级）
+├── indicators/              ← 指标计算（TDX桥接+numpy）
+├── signals/                 ← 信号评分（旧）
+└── backtest/                ← 回测框架
+
+data/（用户数据目录）
+├── futures.db               ← DuckDB 持久化
+└── dominant_maps/           ← 主力合约映射
+```
 
 ## 版本历史
 
-- **v2.1.0** (2026-07-04): 九宫格模糊分类器 + D7期限结构因子 + 代码审计17轮
-- **v2.0.0** (2026-07-04): 真分层打分设为默认，新增 `--reverse` 反向模式，回测框架
-- **v1.1.0** (2026-07-03): 权重优化，真分层评分系统v1
+- **v2.2.0** (2026-07-04): 策略可插拔架构 — `strategies/` 独立层 + registry
+- **v2.1.1** (2026-07-04): L1-L4恢复为默认模式，废弃 true_layered --reverse
+- **v2.1.0** (2026-07-04): 九宫格模糊分类器 + D7期限结构因子
+- **v2.0.0** (2026-07-04): 真分层打分设为默认
+- **v1.1.0** (2026-07-03): 权重优化，真分层评分系统
 - **v1.0.0** (2026-07-02): 初始版本
 
 ## 许可

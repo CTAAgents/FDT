@@ -1,35 +1,36 @@
 # quant-daily 用户手册
 
-> 商品期货量化分析一体化工具：数据采集 → 指标计算 → 真分层打分 → 反向交易信号
-> 版本：v2.0.0 | 更新：2026-07-04
+> 商品期货量化分析一体化工具：数据采集 → 指标计算 → 策略可插拔
+> 版本：v2.2.0 | 更新：2026-07-04
 
 ---
 
 ## 🏆 快速上手（默认用法）
 
 ```bash
-# 全品种真分层打分 + 反向交易信号
 cd scripts/
-python scan_true_layered.py --reverse
 
-# 输出：
-# 🔴 做空 TOP 10（最超买 → 预期下跌）
-# 🟢 做多 BOTTOM 10（最超卖 → 预期上涨）
+# L1-L4全品种扫描（推荐·唯一正确模式）
+python scan_all.py
+
+# 自定义品种
+python scan_all.py --symbols PK,RB,B,UR
+
+# 列出可用策略
+python scan_all.py --list-strategies
 ```
 
-## 用法模式
+> ⚠️ 2026-07-04 实盘验证：`scan_true_layered.py --reverse` 模式存在严重因子方向矛盾
+> （如PK的D1趋势=93↑却被标为做空）。已被回退禁用。请使用 `scan_all.py`。
 
-| 命令 | 模式 | 说明 |
-|:----|:----|:----|
-| `scan_true_layered.py --reverse` | **真分层+反向（默认）** | 截面均值回归策略信号 |
-| `scan_all.py` | L1-L4传统模式 | 向后兼容 |
-| `scan_true_layered.py` | 真分层正向 | 不做反向（IC为负不建议） |
-| `scan_all.py --mode compare` | 双模式对比 | 对照L1-L4与真分层排名 |
+---
+
+## 一、安装与依赖
 
 ### 1.1 操作系统
 
 - **Windows 10/11**（推荐，通达信本地数据源需要）
-- macOS / Linux（仅支持远程数据源模式，不支持本地通达信）
+- macOS / Linux（仅支持远程数据源）
 
 ### 1.2 Python 环境
 
@@ -45,11 +46,10 @@ python scan_true_layered.py --reverse
 | `numpy>=1.24` | 核心向量化计算 | [OK] |
 | `pandas>=2.0` | K线数据处理 | [OK] |
 | `pyyaml>=6.0` | 配置文件读取 | [OK] |
-| `duckdb>=0.9` | 本地数据持久化 | [!] 强烈推荐 |
+| `duckdb>=0.9` | 本地数据持久化 | [!] 推荐 |
 | `requests>=2.28` | 东方财富HTTP数据源 | [!] 推荐 |
 | `tqsdk>=2.5` | 天勤量化数据源（降级链） | [x] 可选 |
 
-安装：
 ```bash
 pip install numpy pandas pyyaml duckdb requests
 ```
@@ -60,7 +60,7 @@ pip install numpy pandas pyyaml duckdb requests
 
 ### 2.1 什么是 TQ-Local
 
-TQ-Local 是通达信软件本地 HTTP 服务，运行在 `http://127.0.0.1:17709`，提供实时行情、K线数据和技术指标公式计算服务。**这是 quant-daily 的最高优先级数据源。**
+TQ-Local 是通达信软件本地 HTTP 服务，运行在 `http://127.0.0.1:17709`，提供实时行情、K线数据和技术指标公式计算服务。这是 quant-daily 的最高优先级数据源。
 
 ### 2.2 安装通达信客户端
 
@@ -102,93 +102,130 @@ with urllib.request.urlopen(req, timeout=5) as resp:
 
 ### 3.1 位置
 
-quant-daily 是一个 WorkBuddy Skill，安装位置：
-
 ```
 ~/.workbuddy/skills/quant-daily/
-├── SKILL.md
-├── README.md
-├── USER_GUIDE.md          ← 本文件
+├── SKILL.md                  ← Skill 定义
+├── README.md                 ← 项目说明
+├── USER_GUIDE.md             ← 本文件
 ├── scripts/
-│   ├── scan_all.py              ← 全品种扫描入口（假分层）
-│   ├── scan_true_layered.py     ← 真分层扫描（v1.1新增）
-│   ├── scan_true_layered.py ← AKShare版真分层
-│   ├── analyze_targets.py       ← 目标品种量化分析
-│   ├── config/                  ← 配置
-│   ├── data/                    ← 数据采集
-│   ├── indicators/              ← 指标计算
-│   ├── signals/                 ← 信号评分
-│   └── backtest/                ← 回测框架
+│   ├── scan_all.py           ← 全品种扫描入口（策略调度器）
+│   ├── strategies/           ← 策略可插拔层
+│   │   ├── base.py           ← BaseStrategy 抽象基类
+│   │   ├── registry.py       ← 注册器
+│   │   ├── layered_l1l4.py   ← L1-L4策略（默认·活跃）
+│   │   └── true_layered.py   ← 真分层策略（已废弃）
+│   ├── config/               ← 配置（品种列表+系统参数）
+│   ├── data/                 ← 数据采集（多源降级）
+│   ├── indicators/           ← 指标计算（TDX桥接+numpy）
+│   ├── signals/              ← 信号评分（旧模块）
+│   └── backtest/             ← 回测框架
 └── data/
-    ├── futures.db               ← DuckDB 持久化
-    └── dominant_maps/           ← 主力映射
-```
-
-### 3.2 WorkBuddy 加载
-
-确保 Skill 目录存在于 `~/.workbuddy/skills/` 下。WorkBuddy 自动识别。
-
-### 3.3 手动运行
-
-```bash
-cd ~/.workbuddy/skills/quant-daily
-
-# 假分层扫描（原L1-L4阈值累加）
-python scripts/scan_all.py
-
-# 真分层扫描（截面排序+秩变换）
-python scripts/scan_true_layered.py
-
-# 自定义品种
-python scripts/scan_all.py --symbols PK,RB
-python scripts/scan_true_layered.py --symbols SA,RB,FU
+    ├── futures.db            ← DuckDB 持久化
+    └── dominant_maps/        ← 主力映射
 ```
 
 ---
 
-## 四、数据管道说明
+## 四、策略可插拔架构
 
-### 4.1 三级指标获取管道
+### 4.1 设计原则
 
-```
-┌─ 第一优先 ──────────────────────────────────┐
-│ TdxCollector.get_indicators()               │
-│ → 通达信TQ-Local formula_zb 直接获取 (44项)  │
-│ → 与通达信客户端数值100%一致                  │
-└─────────────────────────────────────────────┘
-                    ↓ 失败时
-┌─ 第二优先 ──────────────────────────────────┐
-│ tdx_bridge.patch_indicators()               │
-│ → 委托TdxCollector，降级到本地formula_zb直连 │
-│ → 35字段补丁                                │
-└─────────────────────────────────────────────┘
-                    ↓ 失败时
-┌─ 最后保障 ──────────────────────────────────┐
-│ calc_core.calculate_tdx_compatible()        │
-│ → numpy 向量化计算，算法与通达信100%对齐      │
-│ → 45字段                                    │
-└─────────────────────────────────────────────┘
+量化打分策略已独立到 `strategies/` 目录，新增策略**无需修改** `data/` 或 `indicators/` 层的任何代码。
+
+### 4.2 使用策略
+
+```bash
+# 默认（L1-L4）
+python scan_all.py
+
+# 显式指定
+python scan_all.py --strategy layered_l1l4
+
+# 列出所有
+python scan_all.py --list-strategies
 ```
 
-### 4.2 数据质量熔断器（v1.1新增·全局强制）
+### 4.3 新增策略
 
-每次扫描输出时在 `_meta` 中标注数据质量分级：
+```python
+# 1. 新建 strategies/my_strategy.py
+from strategies.base import BaseStrategy, SignalResult
+from strategies.registry import register_strategy
 
-- 🟢 **正常**: 成功率≥95% + 时效正常 + 成交量完整
-- 🟡 **降级**: 成功率90-94% 或 时效延迟1-3天
-- 🔴 **不可用**: 成功率<90% 或 时效延迟>5天
+class MyStrategy(BaseStrategy):
+    @property
+    def name(self) -> str:
+        return "my_strategy"           # --strategy 参数值
+    
+    @property
+    def display_name(self) -> str:
+        return "我的自定义策略"          # 终端显示名
+    
+    def score(self, tech_list, mode, kline_data=None, df_map=None):
+        """
+        打分逻辑。
+        tech_list: 每个品种的 tech dict，包含 symbol, name, last_price,
+                   ADX, RSI14, CCI20, MACD, 均线等44项指标
+        df_map: {sym: pd.DataFrame} 含K线数据
+        """
+        results = []
+        for tech in tech_list:
+            r = SignalResult(
+                symbol=tech["symbol"],
+                name=tech.get("name", tech["symbol"]),
+                total=...,              # 带方向总分
+                abs_score=...,          # 绝对值
+                direction="bull" if ... else "bear",
+                grade="WATCH",
+                sub_scores={"d1": ..., "d2": ...},
+                price=tech.get("last_price", 0),
+                adx=tech.get("ADX", 0),
+                rsi=tech.get("RSI14", 0),
+            )
+            results.append(r)
+        
+        all_ranked = sorted(results, key=lambda r: r.abs_score, reverse=True)
+        return {
+            "_meta": {"strategy": self.name, "total": len(results), ...},
+            "all_ranked": [r.to_dict() for r in all_ranked],
+            "bull_signals": [r.to_dict() for r in all_ranked if r.direction == "bull"],
+            "bear_signals": [r.to_dict() for r in all_ranked if r.direction == "bear"],
+        }
 
-7 道防呆机制：
+# 2. 注册
+register_strategy(MyStrategy)
 
-| # | 检查项 | 阈值 | 触发后果 |
-|:-:|:-------|:----:|:---------|
-| 1 | 品种成功率 | ≥90%（62中≥56成功） | 低于则终止评分 |
-| 2 | K线条数 | ≥30条 | 不足则跳过 |
-| 3 | 数据时效性 | ≤5交易日 | 标注"数据过期" |
-| 4 | 成交量有效性 | volume>0占比≥50% | 标注"成交量差" |
-| 5 | 扫描耗时 | ≤120秒 | 超限终止 |
-| 6 | 降级次数 | ≤2次/品种 | 标记"数据源耗尽" |
-| 7 | 输出JSON | ≤5MB | 裁剪字段 |
+# 3. 使用
+# python scan_all.py --strategy my_strategy
+```
+
+### 4.4 BaseStrategy 接口
+
+| 方法/属性 | 类型 | 说明 |
+|:----------|:----|:-----|
+| `name` | `@property str` | 策略标识符 |
+| `display_name` | `@property str` | 中文显示名 |
+| `score(tech_list, mode, kline_data, df_map)` | `method -> dict` | 核心打分方法 |
+
+### 4.5 SignalResult 字段
+
+| 字段 | 类型 | 说明 |
+|:----|:----|:-----|
+| `symbol` | str | 品种代码 |
+| `name` | str | 品种名称 |
+| `total` | float | 带方向总分（正=多头，负=空头） |
+| `abs_score` | float | 绝对分 |
+| `direction` | str | "bull" / "bear" / "neutral" |
+| `grade` | str | "STRONG" / "WATCH" / "WEAK" / "NOISE" |
+| `sub_scores` | dict | 子层/因子分数 |
+| `veto` | int | 否决计数 |
+| `consistency` | int | 子层方向一致性 |
+| `price` | float | 最新价 |
+| `adx` | float | ADX趋势强度 |
+| `rsi` | float | RSI14 |
+| `extra` | dict | 策略专属额外字段 |
+
+`to_dict()` 方法自动转为平铺 dict，兼容 scan_all.py 输出格式。
 
 ---
 
@@ -197,33 +234,40 @@ python scripts/scan_true_layered.py --symbols SA,RB,FU
 ### 5.1 全品种扫描
 
 ```bash
-# 假分层——原L1-L4阈值累加（默认）
-python scripts/scan_all.py
+# L1-L4默认策略（推荐）
+python scan_all.py
 
-# 真分层——截面排序+秩变换
-python scripts/scan_true_layered.py
-
-# AKShare数据源版真分层
-python scripts/scan_true_layered.py
+# 指定策略
+python scan_all.py --strategy layered_l1l4
 
 # 指定输出目录和文件名前缀
-python scripts/scan_all.py -o /path/to/reports -p my_scan
+python scan_all.py -o /path/to/reports -p my_scan
+
+# 自定义品种
+python scan_all.py --symbols PK,RB,B,UR
 ```
 
 输出文件：
-- `{output_dir}/{prefix}_{YYYYMMDD}.json` — 结构化信号数据
-- `{output_dir}/{prefix}_ranking_{YYYYMMDD}.html` — 交互式排序报表
+- `{prefix}_{YYYYMMDD}.json` — 结构化信号数据
+- `{prefix}_ranking_{YYYYMMDD}.html` — 交互式排序报表
 
-### 5.2 自定义品种分析
+### 5.2 策略管理
 
 ```bash
-# 快速分析目标品种
-python scripts/analyze_targets.py                           # 默认: PK,RB,B,UR
-python scripts/analyze_targets.py --symbols SA,RB,FU        # 自定义品种
-
-# 真分层自定义
-python scripts/scan_true_layered.py --symbols PK,RB,B,UR
+# 列出所有可用策略
+python scan_all.py --list-strategies
 ```
+
+### 5.3 完整参数
+
+| 参数 | 别名 | 说明 |
+|:----|:----|:-----|
+| `--output` | `-o` | 输出目录 |
+| `--prefix` | `-p` | 文件名前缀（默认 `full_scan`） |
+| `--symbols` | `-s` | 指定品种，逗号分隔 |
+| `--strategy` | — | 策略名（默认 `layered_l1l4`） |
+| `--list-strategies` | — | 列出所有策略（无需其他参数） |
+| `--mode` | `-m` | [废弃] 旧版模式参数 |
 
 ---
 
@@ -233,59 +277,66 @@ python scripts/scan_true_layered.py --symbols PK,RB,B,UR
 
 | 等级 | 总分范围 | 含义 |
 |------|:-------:|------|
-| **STRONG** | ≥ 75 | 最强信号，L1-L4多层共振，优先关注 |
-| **WATCH** | 60-74 | 重点信号，方向一致性高，可纳入观察 |
-| **WEAK** | 40-59 | 信号存在但质量一般，需验证后入场 |
-| **NOISE** | < 40 | 噪音，建议忽略 |
+| **STRONG** | ≥ 75 | 最强信号，L1-L4多层共振 |
+| **WATCH** | 60-74 | 重点信号，方向一致 |
+| **WEAK** | 40-59 | 信号一般，需验证 |
+| **NOISE** | < 40 | 噪音，忽略 |
 
-### 6.2 趋势阶段
+### 6.2 L1-L4 各层权重
+
+| 层 | 权重 | 指标 | 说明 |
+|:--:|:----:|:-----|:-----|
+| L1 | **35%** | OI变化、基差、期限结构、ROC | 资金结构驱动 |
+| L2 | **35%** | Vortex、CCI、Supertrend、HMA | 量价领先确认 |
+| L3 | **20%** | RSI健康区、DMI方向、ADX强度 | 价格结构验证 |
+| L4 | **10%** | 通道突破、均线排列、MACD | 确认信号 |
+
+否决项：ADX震荡、RSI极端、缩量、统计偏离（-20 ~ 0）
+
+### 6.3 趋势阶段
 
 | 阶段 | 含义 | 操作建议 |
 |:----:|------|---------|
-| 🟢 launch | 趋势刚启动 | 早期布局，空间最大 |
-| 🔵 trending | 主趋势运行 | 趋势确认，顺势持有 |
-| 🟡 exhausted | 衰竭中 | 趋势末端，减仓或紧止损 |
-| 🔴 reversal | 反转中 | 方向可能转变，平仓观望 |
+| launch | 趋势刚启动 | 早期布局 |
+| trending | 主趋势运行 | 顺势持有 |
+| exhausted | 衰竭中 | 减仓或紧止损 |
+| reversal | 反转中 | 平仓观望 |
 
-### 6.3 字段说明
+### 6.4 字段说明
 
 | 字段 | 说明 | 范围 |
 |------|------|:----:|
 | **总分** | L1+L2+L3+L4+否决 综合信号强度 | -100 ~ +100 |
-| **L1** | 萌芽/资金结构层（OI/基差/期限/ROC等） | -35 ~ +35 |
-| **L2** | 量价领先层（Vortex/CCI/Supertrend/HMA） | -35 ~ +35 |
-| **L3** | 价格结构层（RSI健康区/DMI方向/突破） | -20 ~ +20 |
-| **L4** | 确认层（通道突破/均线排列/MACD） | -10 ~ +10 |
-| **否决** | 硬警报（ADX震荡/RSI极端/缩量/偏离） | -20 ~ 0 |
+| **L1-L4** | 各层子分 | -35~+35 等 |
+| **否决** | 硬警报 | -20 ~ 0 |
 | **ADX** | 趋势强度，>25为强趋势 | 0~100 |
-| **RSI** | 相对强弱指数，>80超买/<20超卖 | 0~100 |
-| **Z** | 方向感知Z-score，\|Z\|>1.5统计显著 | 理论无界 |
-| **CONS** | 四层方向一致数，4/4为干净信号 | 0~4/4 |
-
-### 6.4 真分层输出说明
-
-真分层输出添加了以下额外字段：
-- **rank_total**: 全品种综合排名（1=最强多头，62=最强空头）
-- **factor_scores[]**: 各因子独立排名，不预判方向
-- **consensus**: 各维度排名一致性指标
+| **RSI** | 相对强弱 | 0~100 |
+| **Z** | 方向感知Z-score，\|Z\|>1.5显著 | 理论无界 |
+| **CONS** | 四层方向一致数，4/4为干净 | 0~4 |
 
 ---
 
-## 七、回测框架（v1.1新增）
+## 七、数据管道
 
-`scripts/backtest/` 目录包含完整的回测和信号追踪工具：
+### 7.1 三级指标获取
 
-| 文件 | 用途 | 用法 |
-|------|------|------|
-| `evaluate.py` | 历史回放评估 | `python -m scripts.backtest.evaluate --mode eval --days 120` |
-| `optimize_weights.py` | 权重网格搜索 | `python -m scripts.backtest.optimize_weights` |
-| `run_backtest.py` | 全量回测（多截面+蒙特卡罗） | `python -m scripts.backtest.run_backtest` |
-| `backtest_true_layered.py` | 真分层回测引擎 | `python -m scripts.backtest.backtest_true_layered` |
-| `daily_signal_tracker.py` | 实盘信号追踪 | `python -c "from backtest.daily_signal_tracker import track_signals; track_signals(results)"` |
+```
+第一优先: TdxCollector.get_indicators() → formula_zb 44项
+第二优先: tdx_bridge.patch_indicators() → 35字段补丁
+最后保障: calc_core.calculate_tdx_compatible() → numpy向量化 45字段
+```
 
-### 权重优化结果
+### 7.2 数据质量熔断器
 
-33组合 × 62品种网格搜索，Baseline (40/30/20/10) WATCH=10 → 最优 (35/35/20/10) WATCH=14 (+40%)。
+| # | 检查项 | 阈值 | 触发后果 |
+|:-:|:-------|:----:|:---------|
+| 1 | 品种成功率 | ≥90% | 低于终止 |
+| 2 | K线条数 | ≥30 | 不足跳过 |
+| 3 | 时效性 | ≤5交易日 | 标注过期 |
+| 4 | 成交量 | >0占比≥50% | 标注降级 |
+| 5 | 扫描耗时 | ≤120秒 | 超限终止 |
+| 6 | 降级次数 | ≤2次/品种 | 标记跳过 |
+| 7 | 输出JSON | ≤5MB | 裁剪字段 |
 
 ---
 
@@ -293,10 +344,10 @@ python scripts/scan_true_layered.py --symbols PK,RB,B,UR
 
 ### 8.1 品种列表
 
-见 `scripts/config/symbols.py`，包含 **62 个主力非僵尸品种**：
+`scripts/config/symbols.py` 包含 **62个主力品种**：
 
-| 板块 | 品种数 | 品种列表 |
-|------|:-----:|---------|
+| 板块 | 品种数 | 品种 |
+|:-----|:-----:|:----|
 | 黑色系 | 7 | rb, hc, i, j, jm, SF, SM |
 | 能源链 | 6 | sc, lu, fu, bu, pg, PX |
 | 聚酯链 | 5 | TA, PF, PR, eg, eb |
@@ -311,11 +362,11 @@ python scripts/scan_true_layered.py --symbols PK,RB,B,UR
 
 ### 8.2 数据源配置
 
-见 `scripts/references/data_sources.yaml`，切换数据源优先级。
+见 `scripts/references/data_sources.yaml`。
 
 ### 8.3 系统参数
 
-见 `scripts/config/settings.py`，包含 L1-L4 打分配置、阈值、市场参数。
+见 `scripts/config/settings.py`。
 
 ---
 
@@ -326,37 +377,30 @@ python scripts/scan_true_layered.py --symbols PK,RB,B,UR
 | 错误 | 原因 | 解决 |
 |------|------|------|
 | `No module named 'duckdb'` | DuckDB 未安装 | `pip install duckdb` |
-| `TQ-Local不可用` | 通达信未启动 | 打开通达信客户端 |
-| `0/62 采集成功` | 所有数据源均不可用 | 检查网络连接 |
-| `mean requires at least one data point` | 所有品种评分失败 | 检查数据源 |
-| 数据质量标记🔴 | 成功率<90%或时效>5天 | 检查数据源连接 |
+| `TQ-Local不可用` | 通达信未启动 | 打开通达信 |
+| `0/62 采集成功` | 所有数据源不可用 | 检查网络 |
+| 数据质量标记🔴 | 成功率<90%或时效>5天 | 检查数据源 |
 
 ### 9.2 数据不一致
 
 | 现象 | 原因 |
-|------|------|
-| ADX 列为 `nan` | TDX桥接器未连接，使用numpy计算值 |
+|:-----|:-----|
+| ADX 列为 `nan` | TDX桥接器未连接，使用numpy兜底 |
 | 指标与通达信略有偏差 | 数据降级到numpy（<2%偏差） |
 | 部分品种空信号 | 品种流动性不足或数据缺失 |
-
-### 9.3 日志
-
-扫描过程输出到 stderr/stdout，关键错误以 `[Warning]` 或 `[x]` 标记。
 
 ---
 
 ## 十、升级说明
 
-### 10.1 从 v1.0.x 升级
+### 10.1 v2.2.0 主要变更
 
-| 变更项 | v1.0.x | v1.1.0 |
-|--------|--------|--------|
-| L1-L4权重 | 40/30/20/10 | **35/35/20/10** |
-| 评分方式 | 假分层（阈值累加） | 假分层 + **真分层（截面排序）** |
-| 数据质量 | 基础校验 | **Data Quality Circuit Breaker**（7道熔断） |
-| 回测 | 基础回测 | 真分层回测引擎 |
-| CLI | `--symbols` | 沿用 |
-| 新脚本 | — | `scan_true_layered.py`, `backtest_true_layered.py`, `analyze_targets.py` |
+| 变更 | 说明 |
+|:----|:-----|
+| 新增 `strategies/` | 策略可插拔层，`--strategy` 参数切换 |
+| `scan_all.py` | 新增 `--strategy` / `--list-strategies` |
+| L1-L4恢复默认 | true_layered --reverse 已废弃 |
+| data/ indicators/ | 完全不变 |
 
 ### 10.2 GitHub 仓库
 
@@ -365,4 +409,4 @@ https://github.com/CTAAgents/experts (skills/quant-daily/)
 ---
 
 *最后更新：2026-07-04*
-*版本：quant-daily v1.1.0*
+*版本：quant-daily v2.2.0*
