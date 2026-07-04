@@ -13,6 +13,7 @@ v2.2.0 优化:
 import json
 import os
 from typing import Dict, Optional
+from datetime import datetime
 
 
 def _get_skill_dir() -> str:
@@ -20,22 +21,44 @@ def _get_skill_dir() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def _find_recent(base_dir: str, prefix: str, suffix: str = ".json") -> Optional[str]:
+    """在目录中查找最新的匹配前缀的文件。"""
+    if not os.path.isdir(base_dir):
+        return None
+    candidates = [f for f in os.listdir(base_dir) if f.startswith(prefix) and f.endswith(suffix)]
+    if not candidates:
+        return None
+    candidates.sort(reverse=True)  # 最新的在前
+    return os.path.join(base_dir, candidates[0])
+
+
 def _find_report(filename: str) -> Optional[str]:
-    """在多个候选路径中查找数据报告文件。"""
+    """在多个候选路径中查找数据报告文件，无精确匹配时搜索最新文件。"""
     skill_dir = _get_skill_dir()
-    candidates = [
-        os.path.join(os.path.expanduser("~"), "Documents", "Signal", "reports", filename),
-        os.path.join(os.path.expanduser("~"), ".workbuddy", "skills", "quant-daily", "reports", filename),
-        os.path.join(skill_dir, "reports", filename),
+    base_candidates = [
+        os.path.join(os.path.expanduser("~"), "Documents", "Signal", "reports"),
+        os.path.join(os.path.expanduser("~"), ".workbuddy", "skills", "quant-daily", "reports"),
+        os.path.join(skill_dir, "reports"),
     ]
-    for path in candidates:
+
+    # 1. 精确路径匹配
+    for base in base_candidates:
+        path = os.path.join(base, filename)
         if os.path.exists(path):
             return path
+
+    # 2. 按前缀搜索最新文件
+    prefix = filename.split("_2026")[0] if "_2026" in filename else filename.split(".")[0]
+    for base in base_candidates:
+        found = _find_recent(base, prefix)
+        if found:
+            return found
+
     return None
 
 
 def _load_data() -> dict:
-    """加载信号数据和全品种排名。"""
+    """加载信号数据和全品种排名（动态查找最新报告）。"""
     result = {"ranked": [], "signals": {}}
 
     tl_path = _find_report("true_layered_20260704.json")
@@ -141,19 +164,30 @@ _FALLBACK_CHAIN_MAP = {
 
 
 def get_price_action(symbol: str, days: int = 20) -> dict:
-    """获取品种近期价格走势摘要。"""
+    """获取品种近期价格走势摘要。
+
+    返回因子排名、方向、信号强度等信息。因子排名为百分位(0-100)，
+    越高表示做空越拥挤（反向信号时）。
+    """
     data = _load_data()
     for entry in data.get("ranked", []):
         s = entry.get('symbol', '').upper()
         if s == symbol.upper():
             dims = entry.get("dims", {})
-            d1 = dims.get("D1_趋势_动量", None)
-            d6 = dims.get("D6_确认_量价", None)
             return {
                 "symbol": symbol,
-                "trend_momentum_rank": d1,
-                "volume_price_rank": d6,
-                "maturity": entry.get("maturity_stage", ""),
-                "note": "因子排名百分位(0-100), 越高=做空越拥挤; 数据来自TDX TQ-Local"
+                "adjusted_rank": entry.get("adjusted_rank", 0),
+                "direction": entry.get("direction", "N/A"),
+                "grid": entry.get("grid", ""),
+                "side": entry.get("side", ""),
+                "reg_score": entry.get("reg_score", 0),
+                "trend_score": entry.get("trend_score", 0),
+                "signal_type": entry.get("signal_type", ""),
+                "active_dimensions": entry.get("active_dims", 0),
+                "factor_detail": {
+                    k: v for k, v in dims.items()
+                    if k.startswith("D")
+                },
+                "note": "数据来自TDX TQ-Local; 排名百分位(0-100), 方向=BUY/SELL, grid=九宫格分类"
             }
     return {"symbol": symbol, "error": "未找到价格数据"}
