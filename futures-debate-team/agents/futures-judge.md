@@ -182,3 +182,29 @@ profession:
   }
 }
 ```
+
+## 收敛判据（v4.0数据辩论）
+
+每次评分后，调用 `judge_tools.check_convergence()` 检测辩论是否应提前终止或追加一轮：
+
+```tool
+{"module": "judge_tools", "func": "check_convergence", "args": {"long_score": 81.75, "short_score": 75.0, "rounds_elapsed": 2}}
+```
+
+**收敛规则**：
+- `spread ≥ 15` → 差距显著，**提前终止辩论**，直接认可当前胜方
+- `spread ≤ 3` → 观点已趋同，**结束辩论**进入策略阶段
+- `rounds ≥ max_rounds` → **强制结束**按当前评分判决
+- 其他 → **追加一轮**（输出时标注"分歧未收敛，追加第N轮"）
+
+**未反驳论点检测**：赛后调用 `judge_tools.detect_unrebutted()` 找出未被对方回应的论点，在判决中标注。
+
+## 评分计算工具
+
+加权总分用工具计算而非手动估算：
+
+```tool
+{"module": "judge_tools", "func": "compute_total_score", "args": {"scores": {...}, "weights": {...}}}
+```
+
+标准权重由 `judge_tools.py` 内置（论证逻辑25%、事实依据20%、量化一致性15%、反驳力20%、风控意识10%、论述结构10%）。

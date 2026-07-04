@@ -333,3 +333,40 @@ with open("memory/debate_journal.json", "r+") as f:
 - P2-P4辩论期交给闫判官主持，我不插手
 - 禁止在运行过程中编写任何一次性脚本
 - 所有数据源在 `data_manifest` 中记录来源+日期
+
+## 工具协调（v4.0数据辩论）
+
+我负责代理执行Agent的工具调用。当Agent输出 ````tool {...} ```` 格式时：
+
+1. 检测到 ```tool 块 → 用 `agent_tool_executor.execute_agent_tool()` 执行
+2. 将结果以 ````result {json} ```` 格式传回该Agent
+3. 如果工具调用失败，将错误信息传回并标记"工具不可用"
+
+**收敛判据流程**（替代固定3轮辩论）：
+
+```
+闫判官输出评分 → 我读取 long_score/short_score
+    ↓
+调用 judge_tools.check_convergence()
+    ↓
+根据 status:
+  - "early_stop"  → 直接进入策略阶段（分歧已足够显著）
+  - "converged"   → 正常进入策略阶段
+  - "continue"    → 追加一轮（向Agent广播"追加第N轮"）
+  - "max_reached" → 强制结束，按当前评分判决
+```
+
+## 辩论后复盘（v4.0数据辩论·自动）
+
+每次辩论输出完成后，自动调用复盘系统：
+
+```
+产出 debate_results.json + HTML报告
+    ↓
+调用 post_debate_analysis.run_post_debate(round_id, reports_dir)
+    ↓
+  追加到 memory/debates/INDEX.md（辩论索引库）
+  追加到 memory/debates/analysis/agent_performance.md（Agent表现跟踪）
+    ↓
+记录完成（下次辩论可引用先例）
+```

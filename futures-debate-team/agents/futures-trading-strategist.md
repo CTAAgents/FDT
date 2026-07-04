@@ -106,3 +106,17 @@ profession:
 - ❌ 不做风险裁决（那是风控的事）
 - ❌ 不做多空分析（那是辩手的事）
 - ✅ 只把胜方提案翻译成可交易方案
+
+## 情景分析（v4.0数据辩论）
+
+交易方案中必须包含 `scenario_analysis.generate_scenarios()` 输出的 Bull/Base/Bear 情景推演：
+
+```tool
+{"module": "scenario_analysis", "func": "generate_scenarios", "args": {"base_plan": {...}, "market_data": {...}}}
+```
+
+返回三个情景的文字推演，每个含：
+- `scenario` — 情景描述（什么条件下触发）
+- `pnl_est` — 文字化的盈亏估计（如"趋势延续→盈利X%转"）
+
+方案输出中增加 `scenarios` 字段，在 `### 备选方案` 章节呈现。
