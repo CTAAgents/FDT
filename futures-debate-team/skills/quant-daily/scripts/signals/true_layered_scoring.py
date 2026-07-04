@@ -272,6 +272,49 @@ def rank_percentile(values: list) -> list:
 
 
 # ============================================================
+# Step 1.5: 数据溯源标签（供Agent辩论时引用数据质量）
+# ============================================================
+
+
+def build_provenance(symbol: str, field_validity: dict,
+                      factor_validity: dict, usable_factors: list) -> dict:
+    """构建数据溯源标签：每个字段的数据来源、质量评级。
+    
+    使得Agent在辩论中可以引用和质疑数据质量：
+      '根据quant-daily的TDX TQ-Local数据，PK的D1趋势分93.4'
+      '但你的D4资金数据来自AKShare OI，OI数据质量如何？'
+    """
+    provenance = {
+        "scan_type": "true_layered_reverse_v2",
+        "data_source": "TDX TQ-Local + AKShare OI注入",
+        "staleness_days": 0,
+        "global_quality": "OK" if all(
+            fv['valid_rate'] >= 0.9 for fv in factor_validity.values()
+        ) else "降级",
+        "factors": {},
+    }
+    source_map = {
+        "D1_趋势_动量": "ROC10, TDX TQ-Local K线",
+        "D2_回归_乖离率": "PRICE_DEVIATION_PCT, TDX TQ-Local K线",
+        "D3_回归_RSI反向": "RSI14, TDX TQ-Local K线",
+        "D4_资金_持仓OI": "OI_CHANGE_PCT, AKShare OI注入",
+        "D5_资金_净流CMF": "CMF21, TDX TQ-Local + AKShare OI",
+        "D6_确认_量价": "VOL_RATIO+PRICE_CHANGE_5D, TDX TQ-Local",
+        "D7_期限_基差": "TERM_SIGNAL, 通达信期限结构",
+    }
+    for factor in usable_factors:
+        fn = factor['name']
+        is_valid = field_validity.get(fn, False)
+        src = source_map.get(fn, factor.get('desc', '未知'))
+        provenance["factors"][fn] = {
+            "source": src,
+            "available": is_valid,
+            "quality": "OK" if is_valid else "缺失",
+        }
+    return provenance
+
+
+# ============================================================
 # Step 2: 核心入口
 # ============================================================
 
@@ -378,6 +421,7 @@ def compute_true_layered_score(all_techs: list) -> dict:
                 'veto_penalty': 0.0,
                 'maturity': {'stage': 'nodata', 'multiplier': 0.3},
                 'regime': regime,
+                '_provenance': build_provenance(sym, v, factor_validity, usable_factors),
             })
             continue
 
@@ -408,6 +452,7 @@ def compute_true_layered_score(all_techs: list) -> dict:
             'veto_reasons': veto_penalties[i]['reasons'],
             'maturity': maturity_stages[i],
             'regime': regime,
+            '_provenance': build_provenance(sym, v, factor_validity, usable_factors),
         })
 
     # 按调整后分降序排列

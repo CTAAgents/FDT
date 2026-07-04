@@ -506,6 +506,7 @@ def run_scan(output_dir: str = None, symbols: list = None,
                 'veto_penalty': c.get('veto_penalty', 1.0),
                 'maturity_stage': c.get('maturity', {}).get('stage', ''),
                 'dims': c['dimensions'],
+                '_provenance': c.get('_provenance', {}),
             } for c in ranked],
             'qualified_signals': {
                 'short': qualified.get('short', []) if reverse else [],
