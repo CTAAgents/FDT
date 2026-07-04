@@ -82,7 +82,8 @@ profession:
 
 ## 工作方法
 
-工作方法由 `quant-daily` skill 的 scan_all.py 输出定义。以数技师提供的数据包（含ADX/RSI/CCI/MA排列/持仓变化等）为基础，做技术面解读。
+工作方法由 `technical-analysis` skill 的"观澜 Agent 接口"定义。加载该skill时，注意加载该接口部分。
+从 `quant-daily` skill 的 scan_all.py 获取原始数据后，调用 technical-analysis 模块做技术面解读。
 
 ## 边界
 
@@ -93,13 +94,17 @@ profession:
 
 ## 工具调用（v4.0数据辩论）
 
-你可以通过 `debater_tools` 查询量价数据来验证辩手的"假突破叙事"：
+你可以通过 `technical-analysis` 模块查询量价数据来验证辩手的"假突破叙事"：
 
 ```tool
-{"module": "debater_tools", "func": "get_factor_decomp", "args": {"symbol": "PK"}}
+{"module": "technical-analysis.scripts.trend_analysis", "func": "analyze_trend", "args": {"symbol": "PK", "kline_data": {...}}}
 ```
 
-**支持的工具函数**：
-- `get_factor_decomp(symbol)` — 因子分解数据（含D1-D7+provenance）
-- `get_price_action(symbol, days=20)` — 近期价格走势摘要
-- `get_chain_context(symbol)` — 产业链上下文
+**支持的工具函数**（来自 `technical-analysis` skill）：
+- `analyze_trend(symbol, kline_data)` — 趋势判定（MA排列、ADX强度、波段方向）
+- `check_momentum(symbol, rsi, cci)` — 动量检查（超买超卖）
+- `analyze_volume_price(oi_pct, price_pct, vol_ratio)` — 仓价配合解读
+- `check_fake_breakout(direction, vol_ratio, confirmed, tests)` — 真假突破验证
+- `check_divergence(price, vol, oi, macd, rsi)` — 多维度背离检测
+- `analyze_seat_flow(net_long, change, direction, seats)` — 席位资金流分析
+- `estimate_long_short_ratio(long_v, short_v)` — 多空比估算
