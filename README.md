@@ -1,70 +1,66 @@
 # 期货交易辩论专家团（Futures Trading Debate Team）
 
-> **v3.1 九角色五阶段**：数技师定方向→研究员供证据→正反方辩手验证信号→判官判胜负→策执远出策略→风控审方案
+> **v3.1 九角色五阶段** · 自动生成: 2026-07-04 15:10
+>
+> 数技师定方向 → 研究员供证据 → 正反方辩手验证 → 判官判胜负 → 策执远出策略 → 风控审方案
 
-📖 **完整用户手册**：[futures-debate-team-user-manual.md](./futures-debate-team-user-manual.md) — 包含九角色定义、五阶段工作流、数据流程、决策机制、评分模型、消息协议、异常处理、数据溯源要求等全部内容。
+本仓库存放 [futures-debate-team](futures-debate-team/) 专家包，含完整Agent定义、规则、记忆库、头像及全部8个关联Skill。
 
-## 架构
+## 目录结构
 
 ```
 experts/
-├── futures-debate-team/          ← WorkBuddy 专家包（plugin.json + agents + avatars）
-│   ├── .codebuddy-plugin/plugin.json
-│   ├── agents/                   ← 9个Agent定义（MD文件）
-│   ├── avatars/                  ← 11个头像（PNG）
-│   └── skills/                   ← 内含主协调 skill
-│       └── futures-trading-analysis/
-└── skills/                       ← 全部8个 Skill 定义
-    ├── futures-trading-analysis/     (v3.0.0) 主协调
-    ├── futures-data-technician/      (v1.0.0) 数技师数据管道
-    ├── commodity-chain-analysis/     (v2.13.0) 基本面研究+产业链
-    ├── debate-argument-builder/      (v2.1.0) 多/空辩手论点构建
-    ├── debate-judge/                 (v2.0.0) 裁判主持+评分
-    ├── debate-risk-manager/          (v3.0.0) 风控三合一
-    ├── debate-trading-planner/       (v2.0.0) 策略师方案合成
-    └── quant-daily/                  (v1.0.1) 数据采集+指标计算（底层）
+└── futures-debate-team/           ← 专家包根目录（唯一需要关注的目录）
+    ├── agents/                    ← 10 个子Agent定义
+    ├── avatars/                   ← 11个头像
+    ├── memory/                    ← 辩论记忆库
+    ├── rules/                     ← 辩论规则
+    └── skills/                    ← 8个关联Skill（辩论专家专用）
+        ├── commodity-chain-analysis/   产业链分析
+        ├── debate-argument-builder/    论点构建
+        ├── debate-judge/              裁判主持+评分
+        ├── debate-risk-manager/        风控审核
+        ├── debate-trading-planner/     策略合成
+        ├── futures-data-technician/    数据管道
+        ├── futures-trading-analysis/   主协调Skill
+        └── quant-daily/                量化分析引擎
 ```
 
-## 九角色
+## 子Agent（10个）
 
-| 序号 | 角色 | 花名 | Agent ID | 身份 |
-|:---:|:----|:-----|:---------|:-----|
-| 1 | 🎯 团队主管 | 明鉴秋 | futures-debate-team-team-lead | 选题+拍板 |
-| 2 | 📡 数技师 | 数技源 | futures-datatech | 数据管道（定方向） |
-| 3 | 🟢 基本面研究员 | 探源 | futures-fundamental-researcher | 中立供弹（verdict:null） |
-| 4 | 🟢 技术面研究员 | 观澜 | futures-technical-researcher | 中立供弹（verdict:null） |
-| 5 | 🔵 正方辩手 | 证真 | futures-affirmative-debater | 信号捍卫者（论证方向正确） |
-| 6 | 🔴 反方辩手 | 慎思 | futures-opposition-debater | 信号挑战者（找方向漏洞） |
-| 7 | ⚪ 裁判/主持 | 闫判官 | futures-judge | 控场+评分+判胜负 |
-| 8 | 📋 策略师 | 策执远 | futures-trading-strategist | 基于判决出策略→传风控 |
-| 9 | 🟡 风控 | 风控明 | futures-risk-manager | 审核方案（否决权无改方向权） |
+  - `futures-affirmative-debater.md` | Affirmative Debater.Md
+  - `futures-chain-analyst.md` | Chain Analyst.Md
+  - `futures-datatech.md` | Datatech.Md
+  - `futures-debate-team-team-lead.md` | Debate Team Team Lead.Md
+  - `futures-fundamental-researcher.md` | Fundamental Researcher.Md
+  - `futures-judge.md` | Judge.Md
+  - `futures-opposition-debater.md` | Opposition Debater.Md
+  - `futures-risk-manager.md` | Risk Manager.Md
+  - `futures-technical-researcher.md` | Technical Researcher.Md
+  - `futures-trading-strategist.md` | Trading Strategist.Md
 
-## 五阶段
 
-| 阶段 | 时间 | 主导 | 关键产出 |
-|:----|:----:|:----|:---------|
-| 选题与准备 | T-60min | 🎯 团队主管 | 品种+周期+权益 |
-| 研究出图 | T-40min | 🟢 研究员x2 | 两份快照(基本面+技术面, verdict:null) |
-| 辩论 | T-30~T+0 | ⚪ 裁判主持 | 正方捍卫方向→反方挑战方向→final提案 |
-| 策略合成 | T+0~T+15 | 📋 策执远 | 基于判决出可执行方案 → 传风控 |
-| 风控审核 | T+15~T+25 | 🟡 风控明 | 审核方案(GREEN放行/YELLOW有条件/RED打回) |
-| 决策归档 | T+25~T+30 | 🎯 团队主管 | 执行/搁置/重辩 |
+## 关联Skill（8个）
 
-## 分工铁律
+  - `commodity-chain-analysis/` | 402 行 SKILL.md
+  - `debate-argument-builder/` | 319 行 SKILL.md
+  - `debate-judge/` | 210 行 SKILL.md
+  - `debate-risk-manager/` | 225 行 SKILL.md
+  - `debate-trading-planner/` | 287 行 SKILL.md
+  - `futures-data-technician/` | 143 行 SKILL.md
+  - `futures-trading-analysis/` | 1006 行 SKILL.md
+  - `quant-daily/` | 193 行 SKILL.md
 
-- **研究员不站队** — 只列事实+边际变化，不下结论（verdict=null强制）
-- **正方不预设多空** — 方向由数技师数据决定，正方捍卫数据信号
-- **反方不预设多空** — 站在数技师方向对立面，找信号漏洞
-- **策略师不改方向** — 只把胜方提案翻译成可执行方案，过风控审核
-- **风控不改多空** — 审核方案是否可执行，有否决权无改方向权
-- **裁判不站队** — 只控场+记录+评分
 
 ## 安装
 
 1. 将 `futures-debate-team/` 复制到 `~/.workbuddy/plugins/marketplaces/my-experts/plugins/`
-2. 运行注册脚本：`python3 scripts/register_expert.py <path>`
-3. 将 `skills/` 下的8个skill复制到 `~/.workbuddy/skills/`
+2. 在 WorkBuddy 中激活该专家即可使用（关联skill自动加载）
 
 ## 数据源
 
 K线数据通过通达信本地客户端（TQ-Local HTTP, 127.0.0.1:17709）获取，需先启动通达信软件。
+
+## 相关仓库
+
+此仓库仅包含 `futures-debate-team` 专家包。不相关的内容已迁移至各自的专属仓库。
