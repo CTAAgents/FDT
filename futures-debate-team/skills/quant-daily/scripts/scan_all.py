@@ -496,16 +496,14 @@ if __name__ == '__main__':
     import argparse
     # 获取可用策略列表
     available = list(list_strategies().keys())
-    # 过滤废弃策略（true_layered: 因子方向矛盾，已废弃）
-    active_strategies = [s for s in available if s != 'true_layered']
     default_strat = "layered_l1l4"
 
     parser = argparse.ArgumentParser(description='品种信号扫描 — 策略可插拔')
     parser.add_argument('--output', '-o', help='输出目录', default=None)
     parser.add_argument('--prefix', '-p', help='文件名前缀', default='full_scan')
     parser.add_argument('--symbols', '-s', help='指定品种代码（逗号分隔），如 "PK,RB,B,UR"。不传则全品种。', default=None)
-    parser.add_argument('--strategy', help=f'策略: {", ".join(active_strategies)} (默认: {default_strat})',
-                        default=None, choices=active_strategies + [None])
+    parser.add_argument('--strategy', help=f'策略: {", ".join(available)} (默认: {default_strat})',
+                        default=None, choices=available + [None])
     parser.add_argument('--mode', '-m', help='[已废弃] 请用 --strategy',
                         default='layered', choices=['layered', 'true_layered', 'compare'])
     parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
