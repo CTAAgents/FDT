@@ -7,20 +7,19 @@ description: >
   修复硬编码路径；备用链映射覆盖66+品种。
 agent_created: true
 changelog: |
-  v2.2.0 (2026-07-04): 架构重写 — 主框架从多空方向(bull/bear)改为辩论角色(证真/慎思)；修复硬编码路径；备用链映射66+品种；14测试
-  v2.1.0 (2026-07-03): 双模式拆分 — 独立模式保留WebSearch主动搜索，辩论专家团模式改为基于研究员快照数据
+  v2.2.0 (2026-07-04): 架构重写 — 主框架从多空方向(bull/bear)改为辩论角色(证真/慎思)；修复硬编码路径；备用链映射66+品种；20测试
   v2.1.0 (2026-07-03): 双模式拆分 — 独立模式保留WebSearch主动搜索，辩论专家团模式改为基于研究员快照数据
   v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式，输入输出格式去辩论化
   v1.0.0 (2026-07-01): 初始版本 — 从 futures-trading-analysis 剥离
 disable: false
 ---
 
-# 通用期货论点构建器
+# 期货辩论角色论点构建器
 
 ## 依赖
-- **输入方**：`BullOutput` / `BearOutput`（`contracts/debate.py`）
+- **输入方**：`DebateRoleOutput`（`contracts/debate.py`，含 role=证真/慎思）
 - **上游依赖**：依赖 P1 `DataCollectionOutput`（data）、P1 `TechnicalOutput`（tech）、P2 `ChainAnalysisOutput`（chain）
-- **版本**：`2.1`（所有 schema 带 `version` 字段，编排层 `parse_and_migrate` 自动路由）
+- **版本**：`2.2`（所有 schema 带 `version` 字段，编排层 `parse_and_migrate` 自动路由）
 - **输出方式**：正文（Markdown 人类可读）+ 末尾 ```json fence 结构化摘要
 
 ## 概述
