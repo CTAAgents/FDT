@@ -517,71 +517,73 @@ def build_html():
             </div>
         </div>"""
 
-html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商品期货深度分析 | {REPORT_DATE}</title>
+    html = f"""<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品期货深度分析 | {REPORT_DATE}</title>
 
-<style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:#0f1117; color:#e0e0e0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.6; }}
-.container {{ max-width:1200px; margin:0 auto; padding:20px; }}
-.header {{ background:linear-gradient(135deg,#1a1d28 0%,#2a1f1f 50%,#1a1d28 100%); padding:40px; border-radius:16px; margin-bottom:30px; text-align:center; border:1px solid #f59e0b33; }}
-.header h1 {{ font-size:2em; color:#f59e0b; margin-bottom:8px; }}
-.header .subtitle {{ color:#888; font-size:0.9em; }}
-.header .meta {{ display:flex; justify-content:center; gap:20px; margin-top:15px; flex-wrap:wrap; }}
-.header .meta-item {{ background:#1a1d28; padding:8px 16px; border-radius:8px; border:1px solid #2a2d38; font-size:0.85em; }}
-.header .meta-item .label {{ color:#888; }}
-.header .meta-item .value {{ color:#f59e0b; font-weight:bold; }}
-.section {{ background:#1a1d28; border-radius:12px; padding:24px 32px; margin-bottom:20px; border:1px solid #2a2d38; }}
-.section h2 {{ color:#f59e0b; font-size:1.3em; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #2a2d38; }}
-.section .sub-title {{ color:#888; font-size:0.85em; margin-bottom:12px; }}
-table {{ width:100%; border-collapse:collapse; font-size:0.85em; }}
-th {{ background:#252836; color:#f59e0b; padding:10px 12px; text-align:left; font-weight:600; border-bottom:2px solid #f59e0b44; }}
-td {{ padding:8px 12px; border-bottom:1px solid #2a2d38; }}
-tr:hover td {{ background:#25283644; }}
-.num {{ text-align:right; font-family:'Courier New',monospace; }}
-.tag-buy {{ color:#22c55e; font-weight:bold; }}
-.tag-sell {{ color:#ef4444; font-weight:bold; }}
-.tier-t1 {{ color:#f59e0b; }}
-.tier-t2 {{ color:#22c55e; font-weight:bold; }}
-.tier-t3 {{ color:#ef4444; font-weight:bold; }}
-.trend-buy {{ color:#22c55e; }}
-.trend-sell {{ color:#ef4444; }}
-.trend-hold {{ color:#f59e0b; }}
-.summary-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px; }}
-.card {{ background:#252836; border-radius:10px; padding:20px; text-align:center; }}
-.card .card-value {{ font-size:1.8em; font-weight:bold; color:#f59e0b; }}
-.card .card-label {{ color:#888; font-size:0.85em; margin-top:4px; }}
-.card .card-sub {{ color:#555; font-size:0.75em; margin-top:2px; }}
-.footer {{ text-align:center; color:#555; font-size:0.8em; padding:30px; border-top:1px solid #2a2d38; margin-top:30px; }}
-.debate-badge {{ display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.8em; }}
-.debate-buy {{ background:#22c55e22; color:#22c55e; }}
-.debate-sell {{ background:#ef444422; color:#ef4444; }}
-.debate-hold {{ background:#f59e0b22; color:#f59e0b; }}
-/* 长文本换行 */
-td {{ white-space:normal; word-break:break-word; overflow-wrap:break-word; }}
-th, td.num {{ white-space:nowrap; }}
-@media (max-width:768px) {{ .header h1 {{ font-size:1.5em; }} }}
-</style>
-</head>
-<body>
-<div class="container">
+    <style>
+    * {{ margin:0; padding:0; box-sizing:border-box; }}
+    body {{ background:#0f1117; color:#e0e0e0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.6; }}
+    .container {{ max-width:1200px; margin:0 auto; padding:20px; }}
+    .header {{ background:linear-gradient(135deg,#1a1d28 0%,#2a1f1f 50%,#1a1d28 100%); padding:40px; border-radius:16px; margin-bottom:30px; text-align:center; border:1px solid #f59e0b33; }}
+    .header h1 {{ font-size:2em; color:#f59e0b; margin-bottom:8px; }}
+    .header .subtitle {{ color:#888; font-size:0.9em; }}
+    .header .meta {{ display:flex; justify-content:center; gap:20px; margin-top:15px; flex-wrap:wrap; }}
+    .header .meta-item {{ background:#1a1d28; padding:8px 16px; border-radius:8px; border:1px solid #2a2d38; font-size:0.85em; }}
+    .header .meta-item .label {{ color:#888; }}
+    .header .meta-item .value {{ color:#f59e0b; font-weight:bold; }}
+    .section {{ background:#1a1d28; border-radius:12px; padding:24px 32px; margin-bottom:20px; border:1px solid #2a2d38; }}
+    .section h2 {{ color:#f59e0b; font-size:1.3em; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #2a2d38; }}
+    .section .sub-title {{ color:#888; font-size:0.85em; margin-bottom:12px; }}
+    table {{ width:100%; border-collapse:collapse; font-size:0.85em; }}
+    th {{ background:#252836; color:#f59e0b; padding:10px 12px; text-align:left; font-weight:600; border-bottom:2px solid #f59e0b44; }}
+    td {{ padding:8px 12px; border-bottom:1px solid #2a2d38; }}
+    tr:hover td {{ background:#25283644; }}
+    .num {{ text-align:right; font-family:'Courier New',monospace; }}
+    .tag-buy {{ color:#22c55e; font-weight:bold; }}
+    .tag-sell {{ color:#ef4444; font-weight:bold; }}
+    .tier-t1 {{ color:#f59e0b; }}
+    .tier-t2 {{ color:#22c55e; font-weight:bold; }}
+    .tier-t3 {{ color:#ef4444; font-weight:bold; }}
+    .trend-buy {{ color:#22c55e; }}
+    .trend-sell {{ color:#ef4444; }}
+    .trend-hold {{ color:#f59e0b; }}
+    .summary-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px; }}
+    .card {{ background:#252836; border-radius:10px; padding:20px; text-align:center; }}
+    .card .card-value {{ font-size:1.8em; font-weight:bold; color:#f59e0b; }}
+    .card .card-label {{ color:#888; font-size:0.85em; margin-top:4px; }}
+    .card .card-sub {{ color:#555; font-size:0.75em; margin-top:2px; }}
+    .footer {{ text-align:center; color:#555; font-size:0.8em; padding:30px; border-top:1px solid #2a2d38; margin-top:30px; }}
+    .debate-badge {{ display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.8em; }}
+    .debate-buy {{ background:#22c55e22; color:#22c55e; }}
+    .debate-sell {{ background:#ef444422; color:#ef4444; }}
+    .debate-hold {{ background:#f59e0b22; color:#f59e0b; }}
+    /* 长文本换行 */
+    td {{ white-space:normal; word-break:break-word; overflow-wrap:break-word; }}
+    th, td.num {{ white-space:nowrap; }}
+    @media (max-width:768px) {{ .header h1 {{ font-size:1.5em; }} }}
+    </style>
+    </head>
+    <body>
+    <div class="container">
 
-<div class="header">
-    <h1>📊 商品期货深度分析报告</h1>
-    <div class="subtitle">多维度量化分析 · 专家团辩论 · 风险评估</div>
-    <div class="meta">
-        <div class="meta-item"><span class="label">报告日期</span> <span class="value">{REPORT_DATE}</span></div>
-        <div class="meta-item"><span class="label">数据基准</span> <span class="value">{intermediate.get('data_benchmark','')}</span></div>
-        <div class="meta-item"><span class="label">品种</span> <span class="value">{intermediate.get('symbols_count',0)}</span></div>
-        <div class="meta-item"><span class="label">数据源</span> <span class="value">{data_source_used}</span></div>
-        <div class="meta-item"><span class="label">辩论裁决</span> <span class="value">{len(debate_results)}个品种</span></div>
+    <div class="header">
+        <h1>📊 商品期货深度分析报告</h1>
+        <div class="subtitle">多维度量化分析 · 专家团辩论 · 风险评估</div>
+        <div class="meta">
+            <div class="meta-item"><span class="label">报告日期</span> <span class="value">{REPORT_DATE}</span></div>
+            <div class="meta-item"><span class="label">数据基准</span> <span class="value">{intermediate.get('data_benchmark','')}</span></div>
+            <div class="meta-item"><span class="label">品种</span> <span class="value">{intermediate.get('symbols_count',0)}</span></div>
+            <div class="meta-item"><span class="label">数据源</span> <span class="value">{data_source_used}</span></div>
+            <div class="meta-item"><span class="label">辩论裁决</span> <span class="value">{len(debate_results)}个品种</span></div>
+        </div>
     </div>
-</div>
+    """
 
+    html += f"""
 <div class="summary-cards">
     <div class="card"><div class="card-value">{total}</div><div class="card-label">总信号数</div></div>
     <div class="card"><div class="card-value">{total_buy}</div><div class="card-label" style="color:#22c55e;">做多信号</div></div>

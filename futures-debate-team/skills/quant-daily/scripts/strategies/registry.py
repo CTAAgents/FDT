@@ -104,4 +104,3 @@ def set_default(name: str):
 # 确保所有策略模块被导入
 from . import layered_l1l4   # noqa: F401, E402
 from . import true_layered   # noqa: F401, E402
-from . import factor_timing   # noqa: F401, E402
