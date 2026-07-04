@@ -61,7 +61,7 @@ WorkBuddy 自动化协调器 → spawn 明鉴秋(独立协调员 Agent)
 
 ## 📐 接口契约（Pydantic Schema v2.5）
 
-本系统所有 phase 间的通信通过 `contracts/` 模块中的 typed Pydantic schema 进行。以下 schema 定义在 `quant-skills/futures-trading-analysis/contracts/` 目录下（编排层管接口），各子 skill 按对应 schema 产出。
+本系统所有 phase 间的通信通过 `contracts/` 模块中的 typed Pydantic schema 进行。以下 schema 定义在 `futures-trading-analysis/contracts/` 目录下（编排层管接口），各子 skill 按对应 schema 产出。
 
 ### PhaseMeta（每条输出的元数据）
 
