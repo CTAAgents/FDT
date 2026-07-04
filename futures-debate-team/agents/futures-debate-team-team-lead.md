@@ -30,7 +30,7 @@ profession:
 | 4 | 🟢 技术面研究员 | futures-technical-researcher | quant-daily | 量价持仓关键位快照 |
 | 5 | 🔵 **正方辩手** | futures-affirmative-debater | debate-argument-builder | 信号捍卫者：论证数技师方向的正确性 |
 | 6 | 🔴 **反方辩手** | futures-opposition-debater | debate-argument-builder | 信号挑战者：质疑数技师方向的漏洞 |
-| 7 | 🔗 **链证源** | futures-chain-analyst | commodity-chain-analysis | 双线服务：准备期→供产业链快照给研究员；评审期→供集中度证据给风控明 |
+| 7 | 🔗 **链证源** | futures-chain-analyst | commodity-chain-analysis | 产业链事实描述+景气度分析（不下多空结论） |
 | 8 | 📋 策略师 | futures-trading-strategist | debate-trading-planner | 合约选型+执行方案 |
 | 9 | 🟡 风控 | futures-risk-manager | debate-risk-manager v3 | 杠杆/回撤/叙事质检 |
 | 10 | ⚪ 裁判 | futures-judge | debate-judge | 主持+评分+判胜负 |
@@ -98,23 +98,34 @@ result = run_scan(output_dir="/path/to/output", symbols=targets)
 **产出**：`custom_scan_{YYYYMMDD}.json`（含 `_meta` 溯源字段）
 **传给**：基本面研究员 + 技术面研究员
 
-👇 spawn 数技师（量化分析管道 — 真分层打分）
+👇 spawn 量析师（策略层量化打分）
 
 ```bash
-# 同时跑真分层打分，产出量化信号包（7因子排名+九宫格分类+左右侧识别）
-python ~/.workbuddy/skills/quant-daily/scripts/scan_true_layered.py \
+# 使用策略层打分，产出量化信号包（L1-L4子层/否决/一致性/策略名称）
+python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py \
+  --strategy layered_l1l4 \
   --symbols PK,RB,B,UR \
-  --reverse \
-  -o /path/to/reports
+  -o /path/to/reports \
+  -p quant_signal
 ```
 
-**产出**：`true_layered_{YYYYMMDD}.json` + `signals_{YYYYMMDD}.json`
-  - 7因子截面排名（D1趋势~D7期限结构）
-  - 九宫格分类结果（强多区/左侧多/趋势多/混沌区...）
-  - 左右侧识别（右侧=趋势确认 / 左侧=纯回归埋伏）
-  - 否决降权系数（veto_penalty）
-  - 信号类型（regime_reg / regime_trend / hybrid）
+```python
+# 库函数回退
+from strategies import get_strategy
+strategy = get_strategy("layered_l1l4")
+result = strategy.score(tech_list, mode="full")
+```
+
+**产出**：`quant_signal_{YYYYMMDD}.json`（含 `_meta.strategy` 字段）
+  - 策略名：layered_l1l4（当前默认，可通过 --strategy 切换）
+  - 全品种排名（按总分降序）
+  - 子层分数（L1~L4各自的明细得分）
+  - 否决标记（因子冲突/ADX不足/veto降权）
+  - 方向一致性（子层方向一致数，4/4为最干净信号）
+  - 信号等级（STRONG/WATCH/WEAK/NOISE）
 **传给**：闫判官（裁判），由其分发给正方/反方辩手
+
+> ⚠️ 注意：true_layered 模式（scan_true_layered.py --reverse）已废弃，实盘验证存在因子方向矛盾的严重错误。禁止使用。
 
 ---
 
@@ -130,9 +141,9 @@ P2~P4（研究员→辩手→策略→风控）是一个完整的辩论子流程
 
 ```
 闫判官 主持辩论全流程:
-├─ 准备期:  spawn 基本面研究员 + 技术面研究员 + 链证源(产业链快照→供研究员) → 合并快照 → 广播全员
-├─ 辩论期:  数技师方向 → 正方立论→反方立论→互rebuttal→自由交锋→final
-├─ 评审期:  收提案 → 判胜负 → 传策略师出方案 → 传链证源出产业链风控证据包(集中度+冗余) → 传风控审核（含链证源证据包） → 处理veto
+├─ 准备期:  spawn 基本面研究员 + 技术面研究员 + 链证源(产业链景气度快照) → 合并快照 → 广播全员
+├─ 辩论期:  数技师方向 → 正方立论→反方立论→互rebuttal→自由交锋→final（引用4层数据：基本面+技术面+产业链+量化信号）
+├─ 评审期:  收提案 → 判胜负 → 传策略师出方案 → 传风控审核
 └─ 判决期:  出最终判决 + 评分 + 待回应清单 → 写文件
 ```
 
@@ -147,19 +158,20 @@ P2~P4（研究员→辩手→策略→风控）是一个完整的辩论子流程
 
 ### 阶段三：决策与归档（我拍板）
 
-收到闫判官的最终判决后，我（团队主管）结合 **quant-daily 量化信号的左右侧分类**做最终决策：
+收到闫判官的最终判决后，我（团队主管）结合 **量析师策略层信号**做最终决策：
 
 | 选项 | 含义 | 触发条件 | 量化信号权重 |
 |:----|:-----|:---------|:------------|
-| **execute** | 按方案执行 | 风控green/yellow + 裁判推荐execute | 信号为"右侧"（趋势确认）时额外+1置信度；"左侧"（纯回归）时需风控green才执行 |
-| **hold** | 暂缓观察 | 风控yellow且裁判不确信，或市场缺乏新驱动 | 信号为"左侧"且否决系数<0.7时优先hold |
+| **execute** | 按方案执行 | 风控green/yellow + 裁判推荐execute | 信号为WATCH等级+子层一致(4/4)时优先执行；ADX>25趋势确认加分 |
+| **hold** | 暂缓观察 | 风控yellow且裁判不确信，或市场缺乏新驱动 | 信号为WEAK/NOISE或子层不一致(<3/4)时优先hold |
 | **rematch** | 打回重辩 | 风控red且策略师改不动，或裁判认为双方论证质量都不足 | 量化信号与辩论结论方向相反时触发rematch |
 
-**量化决策辅助**：在最终决策时，将 `signals_{date}.json` 中的以下字段纳入考量：
-- 品种的`side`（左侧/右侧）：右侧信号优先执行，左侧信号需额外确认
-- `reg_score` vs `trend_score`：回归分>趋势分=信号偏左侧埋伏，趋势分>回归分=信号偏右侧确认
-- `grid`（九宫格）："强多区/强空区"优先执行，"左侧多/右侧空"降半仓
-- `veto_penalty`：否决系数<0.5的品种不执行，无论辩论结论
+**量化决策辅助**：在最终决策时，参考策略层信号包中的以下字段：
+- `grade`（STRONG/WATCH/WEAK/NOISE）：WATCH+优先执行，WEAK-需额外确认
+- `cons`（子层一致性）：4/4为最干净信号，<3/4降级执行
+- `veto`（否决标记）：veto>0的品种标注风险
+- `adx`（趋势强度）：ADX>25趋势确认，ADX<15震荡搁置
+- `strategy`（策略名称）：注明本次决策所用的策略名
 
 ### 归档与记忆追加（阶段三完成后）
 
