@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v3.0 — 十大角色全景：数技源(数据管道)→研究员(供弹)→辩手(开火)→风控(叫停)。基本面研究员+技术面研究员（中立不下结论），正反方辩手（基于证据立论），风控v3（仓位沙盘+叙事质检）。",
+  "description": "Multi-role futures trading debate team v4.0 — 十一角色全景：数技源(数据管道)→量析师(策略层打分)→研究员(供弹)→辩手(开火)→风控(叫停)。策略可插拔(默认L1-L4)，链证源只做景气度不下结论，正反方引用4层证据。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
