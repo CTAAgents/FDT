@@ -1,12 +1,13 @@
 ---
 name: debate-risk-manager
-version: 3.1.0
+version: 3.2.0
 description: >
-  风控明 v3.1 — 期货辩论风控官（三合一：擂台裁判+资金管家+逻辑质检）。
-  审核策执远方案，跑杠杆/回撤/叙事质检，输出green/yellow/red verdict。
-  输入包含策执远方案 + 正反方辩论维度。
+  风控明 v3.2 — 期货辩论风控官（三合一：擂台裁判+资金管家+逻辑质检）。
+  新增Python计算脚本：calc_position（仓位沙盘推演）+ simulate_gap（跳空模拟）+ audit_logic（叙事质检）。
+  29测试100%通过。
 agent_created: true
 changelog: |
+  v3.2.0 (2026-07-04): 新增3个Python计算脚本 — calc_position.py(仓位/杠杆/止损推演)、simulate_gap.py(夜盘跳空模拟+追保)、audit_logic.py(叙事概率+rebuttal质量+)；删除旧的risk_assessment_output.json；29测试全覆盖
   v3.1.0 (2026-07-03): 流程修正 — 输入由bull/bear对象改为"策执远方案+正反方辩论维度"；集成模式更新
   v3.0.0 (2026-07-03): 掌柜完整重定义 — 三合一角色(擂台裁判+资金管家+逻辑质检)；新增仓位沙盘推演(calc_position/calc_leverage/simulate_gap)；新增叙事概率质检(flag_logic)；新增green/yellow/red三级verdict；新增6步内部决策链；新增期货特有红线checklist
   v2.0.0 (2026-07-01): 重构为结构化输入+rebuttal审查 — 输入从全文改bull/bear结构化对象，新增维度级裁定(include/watch/exclude)和rebuttal_quality审查，4条红线
@@ -17,6 +18,33 @@ disable: false
 ---
 
 # 风控明 — 辩论风控总监（三合一）
+
+## 📐 Python 计算脚本（v3.2 新增）
+
+风控核心计算已从LLM推理迁移到可验证的Python模块，消除数值计算误差。
+
+| 模块 | 文件 | 核心函数 | 用途 |
+|:----|:----|:--------|:-----|
+| 仓位计算 | `scripts/calc_position.py` | `calc_position_risk()` | 杠杆/保证金/止损/安全手数推演 |
+| 跳空模拟 | `scripts/simulate_gap.py` | `simulate_gap()` | 夜盘跳空场景模拟 + 追保压力 |
+| 逻辑审计 | `scripts/audit_logic.py` | `check_narrative_probability()` | 叙事概率检查 + rebuttal质量评估 |
+
+```python
+# 仓位沙盘推演
+from scripts.calc_position import calc_position_risk
+result = calc_position_risk(price=3100, lot_size=10, margin_rate=0.10, equity=1000000, stop_loss_points=50, lots=5)
+# → {leverage: 0.15, margin_level: 'green', safe_max: 96, flags: [], ...}
+
+# 夜盘跳空模拟
+from scripts.simulate_gap import simulate_gap
+gap = simulate_gap('sc', 600, 5, 1000, equity=10000000, stop_loss_points=30)
+# → {extreme_loss_pct: 0.036, warnings: [...]}
+
+# 叙事概率检查
+from scripts.audit_logic import check_narrative_probability
+audit = check_narrative_probability('供给短缺', assumed=0.60, actual=0.05)
+# → {issue: '尾部当基准', severity: 'red', ...}
+```
 
 ## 角色定位
 
