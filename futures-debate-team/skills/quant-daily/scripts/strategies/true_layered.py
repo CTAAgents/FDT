@@ -43,9 +43,19 @@ class TrueLayeredStrategy(BaseStrategy):
         df_map: Optional[dict] = None,
     ) -> dict:
         """
-        执行真分层打分。
-        将结果转换为与 scan_all.py 兼容的格式。
+        执行真分层打分（已废弃 — 因子方向矛盾未修复）。
+        
+        此策略不再维护。请在 scan_all.py 中使用默认的 layered_l1l4 策略。
+        如需重新启用，需先修复 true_layered_scoring.py 中的因子方向问题。
         """
+        import warnings
+        warnings.warn(
+            "true_layered 策略已废弃（因子方向矛盾未修复）。"
+            "请使用默认策略 layered_l1l4。",
+            DeprecationWarning, stacklevel=2
+        )
+        print("\n⚠️  true_layered 策略已废弃。输出格式可能与下游 Agent 不兼容。")
+        print("   请使用 --strategy layered_l1l4（默认）\n")
         raw = compute_true_layered_score(tech_list)
         ranked = raw.get("ranked", [])
 
