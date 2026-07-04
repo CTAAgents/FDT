@@ -1,6 +1,6 @@
 # 期货交易辩论专家团（Futures Trading Debate Team）
 
-> **v4.0 数据辩论** · 自动生成: 2026-07-04 17:55
+> **v4.0 数据辩论** · 自动生成: 2026-07-04 18:02
 >
 > 数技源定方向 → 研究员供证据（工具查询真实数据） → 正反方辩手验证（因子溯源） → 闫判官判胜负（收敛自适应） → 策执远出策略（含情景分析） → 风控明审方案 → 明鉴秋复盘归档
 >
@@ -51,7 +51,7 @@ experts/
   - `debate-trading-planner/` | 287 行 SKILL.md
   - `futures-data-technician/` | 143 行 SKILL.md
   - `futures-trading-analysis/` | 1017 行 SKILL.md
-  - `quant-daily/` | 179 行 SKILL.md
+  - `quant-daily/` | 270 行 SKILL.md
 
 
 ## 安装

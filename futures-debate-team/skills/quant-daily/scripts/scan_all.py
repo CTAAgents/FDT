@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-品种信号扫描 — 双模式入口
-=========================
-默认：L1-L4 分层累加评分（向后兼容）
-可选：--mode true_layered → 真分层打分（portfolio sort）
-      --mode compare     → 双模式对比
+品种信号扫描 — 策略可插拔入口
+=================================
+默认：L1-L4 分层累加评分（strategies/layered_l1l4.py）
+可切换：--strategy true_layered → 真分层打分（已废弃）
+新增策略：strategies/ 目录新建文件 + registry.py 注册一行
 
 用法：
-  python scan_all.py                                          # L1-L4评分
-  python scan_all.py --mode true_layered [--symbols PK,RB]    # 真分层
-  python scan_all.py --mode compare                           # 对比
+  python scan_all.py                                          # L1-L4评分（默认）
+  python scan_all.py --strategy layered_l1l4                  # 显式指定
+  python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
+  python scan_all.py --list-strategies                        # 列出所有策略
 """
 import sys, os, json, re, pandas as pd
 from datetime import date
@@ -23,18 +24,16 @@ try:
     from indicators.core import assess_trend_maturity
     from indicators.indicators_legacy import _compute_indicators_numpy
     from indicators.tdx_bridge import get_bridge
-    from signals.scoring_system import calculate_composite_score
     from config.symbols import ALL_SYMBOLS
 except ImportError:
     from indicators.core import assess_trend_maturity
     from indicators.indicators_legacy import _compute_indicators_numpy
     from indicators.tdx_bridge import get_bridge
-    from signals.scoring_system import calculate_composite_score
     from config.symbols import ALL_SYMBOLS
 from data.multi_source_adapter import MultiSourceAdapter
 
-# 真分层打分（模式选择 v1.0）
-from signals.true_layered_scoring import compute_true_layered_score
+# ── 策略可插拔层 ──
+from strategies import get_strategy, list_strategies
 
 
 def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None):
@@ -60,16 +59,22 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
 
 
 def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
-             symbols: list = None, mode: str = "layered") -> dict:
+             symbols: list = None, mode: str = "layered",
+             strategy_name: str = None) -> dict:
     """执行品种信号扫描，返回结果字典。
+
+    策略层已独立到 strategies/ 目录，新增策略仅需:
+      1. 在 strategies/ 下新建 .py 实现 BaseStrategy
+      2. registry.py 自动注册
     
     参数：
-        mode: "layered" | "true_layered" | "compare"
-            - layered (默认): L1-L4 四层累加打分 （原有逻辑，向后兼容）
-            - true_layered: 截面排序→秩变换→等权汇总（学术正统 portfolio sort）
-            - compare: 两种模式同时输出，互相对比（实验性）
-    其他参数保持向后兼容。
-    
+        strategy_name: 策略名。None → 使用 mode 映射（向后兼容）
+            "layered" → "layered_l1l4" (默认)
+            "true_layered" → "true_layered"
+            "compare" → 保留旧行为（双模式对比打印）
+        mode: 旧版参数，保留向后兼容。新代码请用 strategy_name。
+        symbols: [(sym, name), ...] 格式。None → 全品种。
+
     参数校验：
     - symbols必须为[(sym, name), ...]格式
     - 每个sym为2-6位字母代码
@@ -117,10 +122,16 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
     print(f'  成功: {len(kline_data)}/{len(target_symbols)}')
 
     # ── Step 2: 指标计算 ──
-    print(f'\n[2] 指标计算（{"L1-L4四层累加" if mode in ("layered","compare") else ""}{" + " if mode=="compare" else ""}{"true_layered截面排序" if mode in ("true_layered","compare") else ""}）...')
+    print(f'\n[2] 指标计算...')
 
-    results = []
-    tech_list = []  # 真分层打分需要收集全部tech dict
+    # ── 解析策略名（向后兼容 mode → strategy_name） ──
+    if strategy_name is None:
+        strategy_name = {"layered": "layered_l1l4", "true_layered": "true_layered"}.get(mode, "layered_l1l4")
+
+    print(f'  → 策略: {strategy_name} ({list_strategies()[strategy_name]["display"] if strategy_name in list_strategies() else "?"})')
+
+    tech_list = []
+    df_map = {}  # 策略可能需要 DataFrame
     for i, (sym, name) in enumerate(target_symbols):
         if sym not in kline_data: continue
         try:
@@ -136,158 +147,65 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             tech['change_pct'] = (price / prev - 1) * 100
             tech['symbol'] = sym
             tech['name'] = name
-
-            # 无论哪种模式，都保存tech dict（true_layered需要全量，layered不需要但无害）
+            tech['volume'] = int(round(float(df['volume'].iloc[-1]))) if not df['volume'].empty else 0
             tech_list.append(tech)
-
-            # 仅在 layered / compare 模式下运行 L1-L4 评分
-            if mode in ('layered', 'compare'):
-                sym_scoring = {'last_price': price, 'open_interest': tech.get('open_interest', 0)}
-                kline_closes = df['close'].tolist()
-                sc = calculate_composite_score(tech, sym_scoring, 0, kline_closes, None)
-
-                direction = 'bull' if sc['direction'] == 'BUY' else ('bear' if sc['direction'] == 'SELL' else 'neutral')
-                s = 1 if direction == 'bull' else (-1 if direction == 'bear' else 0)
-                stage = sc['maturity']['stage']
-
-                results.append(dict(
-                    symbol=sym, name=name, price=round(price, 1),
-                    change_pct=round(tech.get('change_pct', 0), 2),
-                    volume=int(round(float(df['volume'].iloc[-1]))) if not df['volume'].empty else 0,
-                    total=sc['total'] * s, abs=sc['total'],
-                    l1=sc['L1_score'] * s, l2=sc['L2_score'] * s,
-                    l3=sc['L3_score'] * s, l4=sc['L4_score'] * s,
-                    veto=sc['veto_score'],
-                    direction=direction, grade=sc['grade'],
-                    adx=round(tech.get('ADX', 0), 1), rsi=round(tech.get('RSI14', 0), 1),
-                    cci=round(tech.get('CCI20', 0), 1), ma_slope=round(tech.get('MA20_SLOPE', 0), 2),
-                    macd_cross=tech.get('macd_cross', 'none'), dc20_break=tech.get('dc20_break', 'none'),
-                    ma_align=tech.get('ma_align', 'mixed'),
-                    _tdx_patched=tech.get('_tdx_patched', False),
-                    stage=stage,
-                ))
+            df_map[sym] = df
         except Exception:
             pass
         if (i + 1) % 15 == 0:
-            print(f'  [{i+1}] {len(results)} OK')
+            print(f'  [{i+1}] {len(tech_list)} OK')
 
-    # ── 模式调度：只有 true_layered 或 compare 时运行真分层打分 ──
-    true_layered_result = None
-    if mode in ('true_layered', 'compare'):
-        print(f'\n  → true_layered模式: 对{len(tech_list)}个品种执行截面排序→秩变换→等权汇总')
-        true_layered_result = compute_true_layered_score(tech_list)
-        # 如果是 true_layered 独占模式，把结果转换成 results 格式
-        if mode == 'true_layered':
-            results.clear()
-            for c in true_layered_result['ranked']:
-                net = c['net_rank']
-                direction = 'bull' if net > 0 else ('bear' if net < 0 else 'neutral')
-                grade = 'STRONG' if abs(net) >= 25 else ('WATCH' if abs(net) >= 15 else ('WEAK' if abs(net) >= 5 else 'NOISE'))
-                # 从 tech_list 中找原始指标
-                src_tech = next((t for t in tech_list if t.get('symbol') == c['symbol']), {})
-                # 动态获取因子名
-                dims = c['dimensions']
-                dim_keys = list(dims.keys())
-                n_dims = len(dim_keys)
-                results.append(dict(
-                    symbol=c['symbol'], name=src_tech.get('name', c['symbol']),
-                    price=round(src_tech.get('last_price', 0), 1),
-                    change_pct=round(src_tech.get('change_pct', 0), 2),
-                    volume=0,
-                    total=round(net * 2),
-                    abs=round(abs(net)),
-                    l1=round(dims.get(dim_keys[0], 0)) if len(dim_keys) > 0 else 0,
-                    l2=round(dims.get(dim_keys[1], 0)) if len(dim_keys) > 1 else 0,
-                    l3=round(dims.get(dim_keys[2], 0)) if len(dim_keys) > 2 else 0,
-                    l4=round(dims.get(dim_keys[3], 0)) if len(dim_keys) > 3 else 0,
-                    l5=round(dims.get(dim_keys[4], 0)) if len(dim_keys) > 4 else 0,
-                    l6=round(dims.get(dim_keys[5], 0)) if len(dim_keys) > 5 else 0,
-                    veto=0,
-                    direction=direction, grade=grade,
-                    adx=round(src_tech.get('ADX', 0), 1),
-                    rsi=round(src_tech.get('RSI14', 0), 1),
-                    cci=round(src_tech.get('CCI20', 0), 1),
-                    ma_slope=round(src_tech.get('MA20_SLOPE', 0), 2),
-                    macd_cross='none', dc20_break='none', ma_align='mixed',
-                    _tdx_patched=src_tech.get('_tdx_patched', False),
-                    stage='true_layered',
-                    _true_layered_net_rank=c['net_rank'],
-                    _true_layered_avg_rank=c['avg_rank'],
-                ))
+    # ── compare 模式: 运行两个策略并对比 ──
+    if mode == 'compare':
+        print('\n  → compare模式: 同时运行 layered_l1l4 + true_layered')
+        from strategies import get_strategy as _gs
+        strat_a = _gs("layered_l1l4")
+        strat_b = _gs("true_layered")
+        summary_a = strat_a.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
+        summary_b = strat_b.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
 
-    all_ranked = sorted(results, key=lambda x: x['abs'], reverse=True)
+        # 打印对照表
+        ar_a = summary_a['all_ranked']
+        ar_b = summary_b['all_ranked']
+        print(f'\n── compare模式: L1-L4 vs True Layered 排名对照 ──')
+        print(f'{"":─^60}')
+        print(f'{"#":>3} {"品种":<8} {"L1-L4":>8} {"#":>3} {"品种":<8} {"TL净排":>8}')
+        print(f'{"─":─^60}')
+        for i in range(min(15, len(ar_a), len(ar_b))):
+            ra = ar_a[i] if i < len(ar_a) else None
+            rb = ar_b[i] if i < len(ar_b) else None
+            la = f'{i+1:>3} {ra["symbol"]:<8} {ra.get("total",0):>+8.0f}' if ra else ''
+            lb = f'{i+1:>3} {rb["symbol"]:<8} {rb.get("total",0):>+8.0f}' if rb else ''
+            print(f'{la}  {lb}')
+        print(f'{"":─^60}')
+        summary = {**summary_a, 'true_layered_detail': summary_b}
+        print(f'\n完成: {len(ar_a)}品种(L1-L4) + {len(ar_b)}品种(TL)')
+        # compare 模式也输出JSON (但HTML只含L1-L4)
+        # 后续HTML渲染用 summary_a
+        summary_merged = {
+            '_meta': {**summary_a['_meta'], 'mode': 'compare'},
+            'bull_signals': summary_a['bull_signals'],
+            'bear_signals': summary_a['bear_signals'],
+            'all_ranked': summary_a['all_ranked'],
+            'true_layered_detail': summary_b,
+        }
+        summary = summary_merged
+    else:
+        # ── 正常模式: 使用指定策略打分 ──
+        strategy = get_strategy(strategy_name)
+        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
+        print(f'\n完成: {len(summary["all_ranked"])}品种 | 空头{len(summary["bear_signals"])} 多头{len(summary["bull_signals"])}')
 
-    # v2.18: 方向感知 Z-score（修复：失衡分布下多头Z虚高问题）
-    # 当 55/61 品种为空头时，全局均值严重偏负，多头品种的 Z 值因稀缺性而非统计学意义被夸大
-    # 修复：多头只与多头比，空头只与空头比
-    from statistics import mean, stdev
-    totals = [r['total'] for r in results]
-    mu, sigma = mean(totals), stdev(totals) if len(totals) > 1 else 1
-    bear_totals = [r['total'] for r in results if r['total'] < 0]
-    bull_totals = [r['total'] for r in results if r['total'] > 0]
-    mu_bear, sigma_bear = (mean(bear_totals), stdev(bear_totals)) if len(bear_totals) > 1 else (None, None)
-    mu_bull, sigma_bull = (mean(bull_totals), stdev(bull_totals)) if len(bull_totals) > 1 else (None, None)
-    for r in results:
-        if r['direction'] == 'bear' and sigma_bear and sigma_bear > 0:
-            r['z_score'] = round((r['total'] - mu_bear) / sigma_bear, 2)
-        elif r['direction'] == 'bull' and sigma_bull and sigma_bull > 0:
-            r['z_score'] = round((r['total'] - mu_bull) / sigma_bull, 2)
-        else:
-            r['z_score'] = 0.0
-        if mode == 'layered':
-            layers = [r['l1'], r['l2'], r['l3'], r['l4']]
-            cons = sum(1 for l in layers if (l > 0 and r['total'] > 0) or (l < 0 and r['total'] < 0))
-            r['cons'] = cons
-        else:
-            # true_layered/compare: 动态维度数量
-            dims_keys = list(r.get('dimensions', {}).keys()) if 'dimensions' in r else []
-            # 回退到 l1-l6
-            layers = [r.get(f'l{i}', 0) for i in range(1, 7)]
-            cons = sum(1 for l in layers if (l > 0 and r['total'] > 0) or (l < 0 and r['total'] < 0))
-            r['cons'] = cons
-    bull = [r for r in all_ranked if r['direction'] == 'bull']
-    bear = [r for r in all_ranked if r['direction'] == 'bear']
+    # ── 从 summary 提取数据 ──
+    all_ranked = summary.get('all_ranked', [])
+    bear = summary.get('bear_signals', [])
+    bull = summary.get('bull_signals', [])
+    meta = summary.get('_meta', {})
     tdx_ct = sum(1 for r in all_ranked if r.get('_tdx_patched'))
-
-    summary = {
-        '_meta': {'date': today_str, 'total': len(results), 'bull': len(bull), 'bear': len(bear),
-                  'mode': mode,
-                  'tdx_patched_count': tdx_ct, 'source': '通达信本地→MultiSourceAdapter',
-                  'indicators': 'TQ-Local bridge v2.18.0 (18组formula_zb/44项指标)',
-                  'z_mode': 'directional',  # v2.18: 方向感知 Z-score，多头/空头各自独立计算
-                  'z_mu': round(mu, 1), 'z_sigma': round(sigma, 1),
-                  'z_mu_bear': round(mu_bear, 1) if mu_bear is not None else None,
-                  'z_sigma_bear': round(sigma_bear, 1) if sigma_bear is not None else None,
-                  'z_mu_bull': round(mu_bull, 1) if mu_bull is not None else None,
-                  'z_sigma_bull': round(sigma_bull, 1) if sigma_bull is not None else None,
-                  },
-        'bull_signals': bull, 'bear_signals': bear, 'all_ranked': all_ranked,
-    }
-
-    if true_layered_result:
-        summary['true_layered_detail'] = true_layered_result
-        if mode == 'compare':
-            # compare模式下：打印对照表（左半：L1-L4排序，右半：真分层排序）
-            print(f'\n── compare模式: L1-L4 vs True Layered 排名对照 ──')
-            print(f'{"":─^60}')
-            print(f'{"#":>3} {"品种":<8} {"L1-L4":>8} {"#":>3} {"品种":<8} {"TL净排":>8}')
-            print(f'{"─":─^60}')
-            tl_by_symbol = {c['symbol']: c for c in true_layered_result['ranked']}
-            for i in range(min(15, len(all_ranked), len(true_layered_result['ranked']))):
-                r = all_ranked[i] if i < len(all_ranked) else None
-                tl = true_layered_result['ranked'][i] if i < len(true_layered_result['ranked']) else None
-                l_str = f'{i+1:>3} {r["symbol"]:<8} {r.get("total",0):>+8.0f}' if r else f'{"":>3} {"":<8} {"":>8}'
-                tl_str = f'{i+1:>3} {tl["symbol"]:<8} {tl["net_rank"]:>+8.1f}' if tl else f'{"":>3} {"":<8} {"":>8}'
-                print(f'{l_str}  {tl_str}')
-            print(f'{"":─^60}')
-            print(f'  注: 左列按L1-L4总分排序, 右列按真分层净排名排序')
-
-    print(f'\n完成: {len(results)}品种 | 空头{len(bear)} 多头{len(bull)} | TDX桥接{tdx_ct}')
+    results_count = len(all_ranked)
 
     # ── 终端表格 ──
-    if mode == 'true_layered':
-        table_header = f'\n{"#":>3} {"品种":<8} {"方向":<6} {"价格":>8} {"涨跌":>6} {"净排":>5} {"D1动":>5} {"D2趋":>5} {"D3资":>5} {"D4量":>5} {"D5仓":>5} {"D6位":>5} {"ADX":>5} {"RSI":>5} {"Z":>5} {"CONS":>4} {"等级":>6}'
-        sep = '-' * 100
+    if mode == 'true_layered' or summary.get('_meta', {}).get('mode') == 'true_layered':
         for i, r in enumerate(all_ranked):
             d = '多头' if r['direction'] == 'bull' else ('空头' if r['direction'] == 'bear' else '中性')
             src = 'NP'
@@ -320,8 +238,8 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
         } for r in all_ranked], ensure_ascii=False)
 
         b, bl_sig = len(bear), len(bull)
-        n_neutral = len(results) - b - bl_sig
-        tdx_pct = tdx_ct / len(results) * 100 if results else 0
+        n_neutral = results_count - b - bl_sig
+        tdx_pct = tdx_ct / results_count * 100 if results_count else 0
 
         # 构建 HTML（用三引号避免 JS 模板字面量冲突）
         html = f'''<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种信号 — {today} (v2.18.0)</title>
@@ -346,7 +264,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 </style>
 </head><body>
 <div class="hd"><h1>全品种趋势信号强度排序 (v2.18.0)</h1>
-<div class="m"><span>{today}</span><span>{len(results)}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | L1-L4四层打分</span></div></div>
+<div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | {summary.get('_meta',{}).get('strategy','L1-L4')}</span></div></div>
 <div class="st"><div class="sc b"><div class="n">{b}</div><div class="l">空头</div></div><div class="sc bl"><div class="n">{bl_sig}</div><div class="l">多头</div></div><div class="sc n"><div class="n">{n_neutral}</div><div class="l">中性</div></div></div>
 
 <div class="fb">
@@ -384,11 +302,11 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 
 <div style="margin-top:24px;display:flex;gap:14px">
 <div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #f59e0b30">
-<span style="color:#f59e0b;font-weight:600">指标来源: </span><span style="color:#f59e0b">TQ-Local formula_zb ({tdx_ct}/{len(results)}品种, {tdx_pct:.0f}%)</span>
+<span style="color:#f59e0b;font-weight:600">指标来源: </span><span style="color:#f59e0b">TQ-Local formula_zb ({tdx_ct}/{results_count}品种, {tdx_pct:.0f}%)</span>
 <p style="color:#9ca3af;font-size:12px;margin-top:6px">ADX/RSI/CCI/MACD/MA/BOLL/OBV 来自通达信实盘公式</p></div>
 <div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
 <span style="color:#22c55e;font-weight:600">数据: </span><span style="color:#e5e7eb">通达信本地 → MultiSourceAdapter</span>
-<p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.18.0 | {today} | 方向感知Z-score</p></div></div>
+<p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.18.0 | {today_str} | 方向感知Z-score</p></div></div>
 
 <div style="margin-top:14px;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
 
@@ -540,16 +458,31 @@ render();
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='品种趋势信号扫描 v2.18.1')
+    # 获取可用策略列表
+    available = list(list_strategies().keys())
+    default_strat = "layered_l1l4"
+
+    parser = argparse.ArgumentParser(description='品种信号扫描 — 策略可插拔')
     parser.add_argument('--output', '-o', help='输出目录', default=None)
     parser.add_argument('--prefix', '-p', help='文件名前缀', default='full_scan')
     parser.add_argument('--symbols', '-s', help='指定品种代码（逗号分隔），如 "PK,RB,B,UR"。不传则全品种。', default=None)
-    parser.add_argument('--mode', '-m', help='打分模式: layered(默认/L1-L4累加) | true_layered(截面排序) | compare(双模式对比)', default='layered', choices=['layered', 'true_layered', 'compare'])
+    parser.add_argument('--strategy', help=f'策略: {", ".join(available)} (默认: {default_strat})',
+                        default=None, choices=available + [None])
+    parser.add_argument('--mode', '-m', help='[已废弃] 请用 --strategy',
+                        default='layered', choices=['layered', 'true_layered', 'compare'])
+    parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
+
     args = parser.parse_args()
+
+    if args.list_strategies:
+        print('\n可用策略:')
+        for name, info in list_strategies().items():
+            default_mark = ' (默认)' if info['default'] else ''
+            print(f'  {name}: {info["display"]}{default_mark}')
+        sys.exit(0)
 
     # 解析自定义品种列表
     if args.symbols:
-        # 从 ALL_SYMBOLS 构建代码→名称映射
         sym_map = {sym: name for sym, name in ALL_SYMBOLS}
         codes = [s.strip().upper() for s in args.symbols.split(',')]
         custom_symbols = [(s, sym_map.get(s, s)) for s in codes]
@@ -559,9 +492,9 @@ if __name__ == '__main__':
 
     OUT = args.output
     if not OUT:
-        # 默认输出到工作空间 Reports 目录
         workspace = r'C:\Users\yangd\Documents\WorkBuddy'
         OUT = os.path.join(workspace, 'Commodities', 'Reports', '商品期货深度分析',
                           date.today().strftime('%Y-%m-%d'))
 
-    run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=custom_symbols, mode=args.mode)
+    run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=custom_symbols,
+             mode=args.mode, strategy_name=args.strategy)
