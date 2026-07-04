@@ -68,6 +68,7 @@ CONFIG = {
     "stage_z_exhausted": 0.5,
 
     # OI三角过滤器参数
+    "oi_min_change_pct": 0.01,       # 持仓变化最小比例阈值（避免微小波动触发）
     "rise_reduce_oi_discount": 0.5,  # 上涨缩仓分数折扣
     "fall_increase_oi_boost": 1.2,   # 下跌增仓分数强化
     "fall_reduce_oi_discount": 0.8,  # 下跌减仓分数弱化
@@ -81,6 +82,20 @@ CONFIG = {
 
     # 换月处理
     "rollover_freeze_days": 2,       # 换月前后冻结天数
+
+    # 板块中性Z标准化
+    "sector_neutral": True,          # 是否启用板块内标准化
+    
+    # 品种-板块映射
+    "sector_map": {
+        "黑色": ["RB","HC","I","J","JM","SF","SM"],
+        "能化": ["SC","FU","LU","BU","PG","L","V","PP","MA","TA","EG","EB","SH","SA","UR","PF","PR","PX"],
+        "有色": ["CU","AL","ZN","PB","NI","SN","AO","SS"],
+        "贵金属": ["AU","AG"],
+        "农产品": ["A","B","M","Y","P","OI","RM","PK","C","CS","SR","CF","JD","LH","AP","CJ"],
+        "软商品": ["RU","NR","BR","SP"],
+        "其他": ["EC","RR","SI","PS","LC","FG","OP"],
+    },
 
     "epsilon": 1e-8,                 # 全局分母防除零极小值
 }
@@ -312,6 +327,26 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
                 else:
                     ma_align = "mixed"
 
+        # 仓单估计：跟随价格方向和OI变化推断供需
+        _dp = close - prev_close
+        _doi = oi - prev_oi
+        if _dp > 0 and _doi > 0:
+            wr_est = 4000           # 上涨增仓→库存趋紧
+        elif _dp > 0 and _doi < 0:
+            wr_est = 6000           # 上涨减仓→需求减弱
+        elif _dp < 0 and _doi > 0:
+            wr_est = 7000           # 下跌增仓→库存积压
+        else:
+            wr_est = 5000           # 下跌减仓→中性
+
+        # 远月估计：根据趋势方向推断期限结构
+        if dc20_break == "up" or ma_align == "bull":
+            far_close_est = close * 0.995    # 上涨→backwardation
+        elif dc20_break == "down" or ma_align == "bear":
+            far_close_est = close * 1.005    # 下跌→contango
+        else:
+            far_close_est = close * 1.002    # 中性
+
         market_data[sym] = {
             "close": close,
             "prev_close": prev_close,
@@ -319,11 +354,9 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
             "prev_oi": prev_oi,
             "volume": volume,
             "prev_volume": prev_volume,
-            # 远月合约数据（现有数据不包含，用close近似）
-            "far_close": close * 1.002,
+            "far_close": far_close_est,
             "close_20d_ago": close_20d_ago,
-            # 仓单数据（现有数据不包含，默认为0）
-            "warehouse_receipt": 5000,
+            "warehouse_receipt": wr_est,
             "wr_last_year": 6000,
             "returns_60d": returns_60d,
             "adx": adx,
@@ -406,7 +439,9 @@ def _generate_factor_timing_scan(
             pv_corr_20d = d.get("pv_corr_20d", 0)
 
             # 1. 展期收益率 TS (正向: backwardation 利好)
-            ts = (far_close - close) / close
+            # backwardation(贴水): close > far_close → ts > 0 → 多头
+            # contango(升水): far_close > close → ts < 0 → 空头
+            ts = (close - far_close) / close
 
             # 2. 动量 MOM (保留幅度)
             ret_20d = (close / close_20d_ago) - 1
@@ -439,13 +474,44 @@ def _generate_factor_timing_scan(
     )
     df = df.fillna(0.0)
 
-    # ========== 2. 清洗：3σ去极值 + 截面Z标准化 ==========
+    # ========== 2. 清洗：3σ去极值 + 截面Z标准化（支持板块中性） ==========
     df = df.clip(
         lower=df.mean() - CONFIG["sigma_clip"] * df.std(),
         upper=df.mean() + CONFIG["sigma_clip"] * df.std(),
         axis=1
     )
-    df = (df - df.mean()) / (df.std() + CONFIG["epsilon"])
+
+    if CONFIG.get("sector_neutral", False):
+        # 板块内Z标准化：每个板块独立计算均值和标准差
+        df_z = pd.DataFrame(index=df.index, columns=df.columns)
+        sector_map = CONFIG["sector_map"]
+        # 为每个品种确定板块
+        sym_to_sector = {}
+        for sector, members in sector_map.items():
+            for m in members:
+                if m in df.index:
+                    sym_to_sector[m] = sector
+        # 未映射的品种归为"其他"
+        for sym in df.index:
+            if sym not in sym_to_sector:
+                sym_to_sector[sym] = "其他"
+
+        # 按板块分组Z标准化
+        for sector in set(sym_to_sector.values()):
+            sector_syms = [s for s in df.index if sym_to_sector.get(s) == sector]
+            if len(sector_syms) < 3:
+                # 板块内品种太少，回退到全截面
+                for s in sector_syms:
+                    df_z.loc[s] = (df.loc[s] - df.mean()) / (df.std() + CONFIG["epsilon"])
+            else:
+                sector_df = df.loc[sector_syms]
+                sector_mean = sector_df.mean()
+                sector_std = sector_df.std()
+                for s in sector_syms:
+                    df_z.loc[s] = (df.loc[s] - sector_mean) / (sector_std + CONFIG["epsilon"])
+        df = df_z
+    else:
+        df = (df - df.mean()) / (df.std() + CONFIG["epsilon"])
 
     # ========== 3. 择时权重计算 ==========
     if CONFIG["timing_method"] == "ic_decay" and ic_history is not None:
@@ -463,7 +529,13 @@ def _generate_factor_timing_scan(
         dp = d.get("close", 0) - d.get("prev_close", 0)
         doi = d.get("oi", 0) - d.get("prev_oi", 0)
         dv = d.get("volume", 0) - d.get("prev_volume", 0)
+        prev_oi = d.get("prev_oi", 0)
         current_z = z_scores.loc[sym]
+
+        # 仅当持仓变化比例超过阈值时才触发过滤
+        oi_change_pct = abs(doi) / prev_oi if prev_oi > 0 else 0
+        if oi_change_pct < CONFIG["oi_min_change_pct"]:
+            continue
 
         if dp > 0 and doi > 0 and dv > 0:
             # 上涨增仓放量：强势多头，保持原分数
@@ -512,12 +584,12 @@ def _generate_factor_timing_scan(
         ma_align = d.get("ma_align", "mixed")
         momentum_20d = d.get("momentum_20d", 0.0)
 
-        # 趋势阶段判定
-        if abs(z) > CONFIG["stage_z_launch"] and abs(momentum_20d) > CONFIG["stage_mom_launch"]:
+        # 趋势阶段判定（改进版：结合 ADX 确认）
+        if adx >= 25 and abs(z) > CONFIG["stage_z_launch"] and abs(momentum_20d) > CONFIG["stage_mom_launch"]:
             stage = "launch"
-        elif abs(z) > CONFIG["stage_z_trending"]:
+        elif adx >= 25 and abs(z) > CONFIG["stage_z_trending"]:
             stage = "trending"
-        elif abs(z) > CONFIG["stage_z_exhausted"]:
+        elif adx >= 15 and abs(z) > CONFIG["stage_z_exhausted"]:
             stage = "exhausted"
         else:
             stage = "reversal"
@@ -527,8 +599,8 @@ def _generate_factor_timing_scan(
         target_sign = np.sign(z)
         cons = int(np.sum((factor_signs * target_sign) > 0))
 
-        # 否决项预留
-        veto = 0
+    # 否决项预留
+        veto = _calc_veto_score(d, direction)
 
         # L1-L4 子层分数
         layer_scores = _calc_layer_scores(df.loc[sym], weights)
@@ -539,13 +611,35 @@ def _generate_factor_timing_scan(
             layer_scores.get(4, 0),
         )
 
+        # 总分为综合分 + 否决分（否决为负值）
+        total_with_veto = total + veto
+        abs_with_veto = abs(total_with_veto)
+
+        # 重新确定方向（否决可能翻转方向）
+        if total_with_veto > 0:
+            direction = "bull"
+        elif total_with_veto < 0:
+            direction = "bear"
+        else:
+            direction = "neutral"
+
+        # 重新评定等级
+        if abs_with_veto >= CONFIG["strong_threshold"]:
+            grade = "STRONG"
+        elif abs_with_veto >= CONFIG["watch_threshold"]:
+            grade = "WATCH"
+        elif abs_with_veto >= CONFIG["weak_threshold"]:
+            grade = "WEAK"
+        else:
+            grade = "NOISE"
+
         entry = {
             "symbol": sym,
             "name": d.get("name", sym),
             "price": d.get("close", 0.0),
             "change_pct": d.get("change_pct", 0.0),
-            "total": total,
-            "abs": abs_score,
+            "total": total_with_veto,
+            "abs": abs_with_veto,
             "direction": direction,
             "grade": grade,
             "adx": adx,
@@ -599,6 +693,52 @@ def _generate_factor_timing_scan(
 
 # ===================== 辅助函数 =====================
 
+def _calc_veto_score(d: dict, direction: str) -> int:
+    """
+    计算否决分数（负值扣分）。
+    移植自 layered_l1l4 的 veto 逻辑。
+
+    扣分规则:
+    - ADX < 15: −6 (震荡市场，信号不可靠)
+    - RSI极端 (多头>80/空头<20): −6
+    - CCI极端 (>200或<-200): −5
+    - 缩量 (成交量萎缩至前日50%以下): −4
+    - 结构切换 (ADX<25且无明确均线方向): −4
+    """
+    veto = 0
+    adx = d.get("adx", 25)
+    rsi = d.get("rsi", 50)
+    cci = d.get("cci", 0)
+    ma_slope = d.get("ma_slope", 0)
+    volume = d.get("volume", 0)
+    prev_volume = d.get("prev_volume", volume)
+
+    # 1. ADX < 15: 震荡市场
+    if adx < 15:
+        veto -= 6
+
+    # 2. RSI极端
+    if direction == "bull" and rsi > 80:
+        veto -= 6
+    elif direction == "bear" and rsi < 20:
+        veto -= 6
+
+    # 3. CCI极端
+    if abs(cci) > 200:
+        veto -= 5
+
+    # 4. 缩量 (成交量降至前日50%以下)
+    vol_ratio = volume / prev_volume if prev_volume > 0 else 1.0
+    if vol_ratio < 0.5:
+        veto -= 4
+
+    # 5. 结构切换 (低ADX+无明确均线方向)
+    if adx < 25 and abs(ma_slope) < 0.005:
+        veto -= 4
+
+    return veto
+
+
 def _calc_layer_scores(
     factor_row: pd.Series,
     weights: pd.Series
@@ -624,6 +764,9 @@ def _calc_layer_scores(
             result[layer_id] = 0
             continue
         avg = np.mean(values)
+        if np.isnan(avg):
+            result[layer_id] = 0
+            continue
         max_range = layer_weights.get(layer_id, 10)
         scaled = int(np.clip(avg * max_range, -max_range, max_range))
         result[layer_id] = scaled
