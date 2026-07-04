@@ -1,0 +1,40 @@
+{
+  "_schema_version": "1.0",
+  "_description": "辩论专家团跨轮记忆——每轮辩论结束后由明鉴秋追加",
+  "rounds": [
+    {
+      "round_id": "INIT_SEED_20260704",
+      "date": "2026-07-04",
+      "type": "seed_data",
+      "note": "基于当日全品种quant-daily扫描的初始数据，非一轮实际辩论。用于记忆系统的骨架填充。",
+      "subject": {
+        "symbols": ["ALL_62"],
+        "timeframe": "daily",
+        "account": {"equity": 1000000}
+      },
+      "quant_signal_snapshot": {
+        "short_signals": {
+          "PK": {"rank": 1, "adj_rank": 79.1, "net_rank": 33.3, "grid": "强多区", "side": "右侧", "signal_type": "regime_trend", "veto": 1.0, "adx": 30},
+          "jd": {"rank": 2, "adj_rank": 69.1, "net_rank": 22.8, "grid": "强多区", "side": "右侧", "signal_type": "regime_trend", "veto": 1.0, "adx": 48},
+          "ec": {"rank": 3, "adj_rank": 63.9, "net_rank": 17.2, "grid": "过渡区", "side": "右侧", "signal_type": "regime_reg", "veto": 1.0, "adx": 30},
+          "ni": {"rank": 8, "adj_rank": 47.0, "net_rank": -0.5, "grid": "强空区", "side": "右侧", "signal_type": "regime_reg", "veto": 1.0, "adx": 65}
+        },
+        "long_signals": {
+          "sc": {"rank": 60, "adj_rank": 9.5, "net_rank": -40.5, "grid": "左侧多", "side": "左侧", "signal_type": "regime_reg", "veto": 0.70, "adx": 83},
+          "eb": {"rank": 54, "adj_rank": 16.8, "net_rank": -33.2, "grid": "左侧多", "side": "左侧", "signal_type": "regime_reg", "veto": 0.70, "adx": 79},
+          "v": {"rank": 56, "adj_rank": 15.7, "net_rank": -34.3, "grid": "混沌区", "side": "中心", "signal_type": "hybrid", "veto": 0.70, "adx": 45}
+        }
+      },
+      "winner": null,
+      "winning_plan": null,
+      "decision": null,
+      "execution_followup": null,
+      "data_source_quality": {
+        "tdx_tq_local": {"rating": "A", "note": "170条稳定，62/62 OK"},
+        "akshare_oi": {"rating": "A", "note": "62/62 OI注入成功"},
+        "tdx_term_structure": {"rating": "B", "note": "55/62，7品种需降级"},
+        "eastmoney_realtime": {"rating": "C", "note": "RemoteDisconnected频繁"}
+      }
+    }
+  ]
+}
