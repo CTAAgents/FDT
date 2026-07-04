@@ -4,6 +4,114 @@
 import time
 
 
+
+def _svg_scatter_row(symbol: str, label: str, conf: float, rr: float) -> str:
+    """单行置信度-盈亏比SVG条"""
+    bar_w = min(int(conf), 100)
+    color = '#22c55e' if conf >= 60 else '#f59e0b'
+    return f'<tr><td style="padding:3px 6px;text-align:left">{symbol}</td><td style="padding:3px 6px">{label}</td><td style="padding:3px 6px">{conf:.0f}%</td><td style="padding:3px 6px">{rr:.1f}:1</td><td style="padding:3px 6px"><div style="height:12px;width:100px;background:#0f172a;border-radius:6px;overflow:hidden"><div style="height:100%;width:{bar_w}%;background:{color};border-radius:6px"></div></div></td></tr>'
+
+
+def _svg_bar_chart(data: list, labels: list, max_h: int = 220) -> str:
+    """竖直柱状图SVG"""
+    if not data:
+        return '<text x="250" y="130" fill="#555" text-anchor="middle">无数据</text>'
+    n = len(data)
+    w = max(10, min(40, 420 // max(n, 1)))
+    gap = 4
+    total_w = n * (w + gap)
+    start_x = max(10, (500 - total_w) // 2)
+    mx = max(abs(v) for v in data) or 1
+    bars = ''
+    for i, (v, lbl) in enumerate(zip(data, labels)):
+        h = abs(v) / mx * (max_h / 2)
+        x = start_x + i * (w + gap)
+        if v >= 0:
+            y = max_h/2 - h
+            color = '#22c55e' if h > max_h*0.3 else '#f59e0b'
+        else:
+            y = max_h/2
+            color = '#ef4444'
+            h = -h
+        bars += f'<rect x="{x}" y="{y:.0f}" width="{w}" height="{h:.0f}" rx="3" fill="{color}" opacity="0.85"/>'
+        bars += f'<text x="{x+w//2}" y="{max_h+12}" fill="#94a3b8" font-size="9" text-anchor="middle" transform="rotate(-45,{x+w//2},{max_h+12})">{lbl[:4]}</text>'
+    midline = f'<line x1="0" y1="{max_h/2}" x2="500" y2="{max_h/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>'
+    return f'<svg width="100%" height="{max_h+40}" viewBox="0 0 500 {max_h+40}">{midline}{bars}</svg>'
+
+
+def _svg_radar_chart(data_map: dict, factor_names: list, r_max: int = 100,
+                     cx: int = 200, cy: int = 150, r: int = 120, 
+                     colors: list = None) -> str:
+    """多品种六边形雷达图SVG"""
+    if colors is None:
+        colors = ['#ef4444','#f59e0b','#22c55e','#3b82f6','#a78bfa','#ec4899']
+    n = len(factor_names)
+    if n < 3:
+        return '<text x="200" y="150" fill="#555" text-anchor="middle">数据不足</text>'
+    
+    import math
+    def _polar(i, val):
+        angle = -math.pi/2 + 2*math.pi*i/n
+        v = val / r_max * r
+        return cx + v * math.cos(angle), cy + v * math.sin(angle)
+    
+    # Grid lines
+    grid = ''
+    for level in [0, 25, 50, 75, 100]:
+        pts = []
+        for i in range(n):
+            x, y = _polar(i, level)
+            pts.append(f'{x:.1f},{y:.1f}')
+        pts.append(pts[0])
+        d = 'M' + ' L'.join(pts)
+        lc = 'rgba(255,255,255,0.12)' if level % 50 != 0 else 'rgba(255,255,255,0.25)'
+        grid += f'<path d="{d}" fill="none" stroke="{lc}" stroke-width="1"/>'
+    
+    # Axis lines
+    axes = ''
+    labels_svg = ''
+    for i in range(n):
+        x, y = _polar(i, 100)
+        axes += f'<line x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>'
+        lx = x + (x-cx)*0.15
+        ly = y + (y-cy)*0.15
+        labels_svg += f'<text x="{lx:.1f}" y="{ly:.1f}" fill="#94a3b8" font-size="10" text-anchor="middle" dominant-baseline="middle">{factor_names[i]}</text>'
+    
+    # Data polygons
+    polys = ''
+    dots = ''
+    for idx, (sym, dims) in enumerate(data_map.items()):
+        c = colors[idx % len(colors)]
+        vals = list(dims.values())[:n]
+        pts = []
+        for i in range(n):
+            val = min(vals[i] if i < len(vals) else 0, r_max)
+            x, y = _polar(i, val)
+            pts.append(f'{x:.1f},{y:.1f}')
+        d = 'M' + ' L'.join(pts) + ' Z'
+        polys += f'<path d="{d}" fill="{c}22" stroke="{c}" stroke-width="2" stroke-linejoin="round"/>'
+        for i in range(n):
+            val = min(vals[i] if i < len(vals) else 0, r_max)
+            x, y = _polar(i, val)
+            dots += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="{c}" stroke="#0b1120" stroke-width="1.5"/>'
+    
+    # Legend
+    legend_items = ''
+    for idx, sym in enumerate(data_map.keys()):
+        c = colors[idx % len(colors)]
+        legend_items += f'<rect x="20" y="{10+idx*18}" width="10" height="10" rx="2" fill="{c}"/><text x="35" y="{19+idx*18}" fill="#c9d1d9" font-size="11">{sym}</text>'
+    
+    w, h = 400, 300
+    return f'<svg width="100%" height="{h}" viewBox="0 0 {w} {h}" style="max-width:400px;display:block;margin:0 auto">{grid}{axes}{polys}{dots}{labels_svg}<g transform="translate(280,10)">{legend_items}</g></svg>'
+
+
+def _svg_rank_row(symbol: str, rank: float, rank_val: float) -> str:
+    """单行截面排名条"""
+    bar_w = min(int(rank_val), 100)
+    color = '#ef4444' if rank_val >= 50 else ('#f59e0b' if rank_val >= 30 else '#22c55e')
+    return f'<tr><td style="padding:2px 6px;text-align:left;color:#94a3b8">{rank:.0f}</td><td style="padding:2px 6px;text-align:left"><strong>{symbol}</strong></td><td style="padding:2px 6px">{rank_val:.1f}</td><td style="padding:2px 4px"><div style="height:10px;width:100px;background:#0f172a;border-radius:5px;overflow:hidden"><div style="height:100%;width:{bar_w}%;background:{color};border-radius:5px"></div></div></td></tr>'
+
+
 def generate_markdown_report(chain_results: dict, all_opportunities: list,
                              buy_opps: list, sell_opps: list,
                              risk_assessments: dict, data_source: str = 'auto') -> str:
@@ -115,7 +223,7 @@ def generate_markdown_report(chain_results: dict, all_opportunities: list,
 def generate_html_report(chain_results: dict, all_opportunities: list,
                          buy_opps: list, sell_opps: list,
                          risk_assessments: dict, data_source: str = 'auto') -> str:
-    """生成HTML可视化报告（Chart.js，内联样式，置信度优先）。"""
+    """生成HTML可视化报告（纯SVG图表，内联样式，置信度优先）。"""
     import json as _json
 
     date_str = time.strftime('%Y-%m-%d')
@@ -219,7 +327,7 @@ def generate_html_report(chain_results: dict, all_opportunities: list,
     return f'''<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8">
 <title>商品期货产业链分析报告（置信度优先） - {date_str}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:1200px;margin:0 auto;padding:24px;background:#0f172a;color:#e2e8f0}}
 .header{{background:linear-gradient(135deg,#1e293b,#334155);padding:32px;border-radius:16px;margin-bottom:24px;border:1px solid #475569}}
@@ -254,7 +362,7 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-w
 .tp-prices strong{{color:#f8fafc}}
 .tp-meta{{display:flex;gap:16px;font-size:12px;color:#94a3b8;margin-top:6px}}
 .disclaimer{{color:#64748b;font-size:13px;padding:16px;border-top:1px solid #334155;margin-top:24px}}
-canvas{{max-height:350px}}
+
 </style></head><body>
 <div class="header">
 <h1>📊 商品期货产业链分析报告（置信度优先）</h1>
@@ -269,8 +377,15 @@ canvas{{max-height:350px}}
 </div></div>
 
 <div class="chart-row">
-<div class="chart-card"><h2>📈 置信度 vs 盈亏比</h2><canvas id="scatterChart"></canvas></div>
-<div class="chart-card"><h2>📊 产业链趋势评分</h2><canvas id="trendChart"></canvas></div>
+<div class="chart-card"><h2>📈 置信度 vs 盈亏比</h2>
+<div style="max-height:300px;overflow-y:auto">
+<table style="width:100%;font-size:11px">
+<tr style="color:#94a3b8;position:sticky;top:0;background:#1e293b"><th style="padding:3px 6px;text-align:left">品种</th><th style="padding:3px 6px">方向</th><th style="padding:3px 6px">置信度</th><th style="padding:3px 6px">盈亏比</th><th style="padding:3px 6px;width:100px">条</th></tr>
+{scatter_svg_rows}
+</table></div></div>
+<div class="chart-card"><h2>📊 产业链趋势评分</h2>
+{chain_bar_svg}
+</div>
 </div>
 
 <h2 style="margin-top:32px">🎯 交易机会（置信度优先排序）</h2>
@@ -280,53 +395,7 @@ canvas{{max-height:350px}}
 {chain_cards}
 
 <div class="disclaimer">⚠️ 以上内容由 AI 基于公开信息自动分析生成，仅供参考，不构成任何投资建议。投资有风险，决策需谨慎。</div>
-<script>
-// 置信度-盈亏比散点图
-new Chart(document.getElementById('scatterChart').getContext('2d'),{{
-  type:'scatter',
-  data:{{
-    datasets:[{{
-      label:'交易机会',
-      data:{scatter_js},
-      backgroundColor:function(ctx){{return ctx.raw&&ctx.raw.x>0?'#22c55e':'#ef4444'}},
-      pointRadius:8,
-    }}]
-  }},
-  options:{{
-    scales:{{
-      x:{{title:{{display:true,text:'盈亏比',color:'#94a3b8'}},grid:{{color:'#334155'}},ticks:{{color:'#94a3b8'}}}},
-      y:{{title:{{display:true,text:'置信度(%)',color:'#94a3b8'}},grid:{{color:'#334155'}},ticks:{{color:'#94a3b8'}},min:0,max:100}}
-    }},
-    plugins:{{
-      legend:{{display:false}},
-      tooltip:{{
-        callbacks:{{
-          label:function(ctx){{
-            var d=ctx.raw;
-            return d.label+': 盈亏比'+d.x+':1, 置信度'+d.y+'%';
-          }}
-        }}
-      }}
-    }}
-  }}
-}});
-
-// 产业链评分柱状图
-new Chart(document.getElementById('trendChart').getContext('2d'),{{
-  type:'bar',
-  data:{{
-    labels:{labels_js},
-    datasets:[{{label:'趋势评分',data:{_json.dumps(chain_scores)},{colors}}}]
-  }},
-  options:{{
-    scales:{{
-      y:{{grid:{{color:'#334155'}},ticks:{{color:'#94a3b8'}}}},
-      x:{{grid:{{color:'#334155'}},ticks:{{color:'#94a3b8'}}}}
-    }},
-    plugins:{{legend:{{display:false}}}}
-  }}
-}});
-</script></body></html>'''
+</body></html>'''
 
 
 def generate_debate_html_report(truth: dict) -> str:
@@ -470,11 +539,29 @@ def generate_debate_html_report(truth: dict) -> str:
     # 雷达图数据 (Top5 short / Top5 long with veto>=0.5)
     short_top5 = [s for s in s_qualified[:5]]
     long_top5 = [s for s in l_qualified if s.get('veto', 0) >= 0.5][:5]
+    
+    # Build SVG radar charts
+    short_radar_data = {{s['symbol']: s.get('dims', {{}}) for s in short_top5}}
+    long_radar_data = {{s['symbol']: s.get('dims', {{}}) for s in long_top5}}
+    short_radar_svg = _svg_radar_chart(
+        short_radar_data, factor_names,
+        colors=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a78bfa'],
+        cx=160, cy=130, r=100
+    ) if short_radar_data else '<div style="color:#555;text-align:center;padding:40px">无做空信号</div>'
+    long_radar_svg = _svg_radar_chart(
+        long_radar_data, factor_names,
+        colors=['#22c55e','#f59e0b','#3b82f6','#a78bfa','#ec4899'],
+        cx=160, cy=130, r=100
+    ) if long_radar_data else '<div style="color:#555;text-align:center;padding:40px">无做多信号</div>'
+    rank_bar_svg_rows = ''.join(
+        _svg_rank_row(r['symbol'], r.get('rank', 0), r.get('adjusted_rank', 0))
+        for r in ranked
+    )
 
     return f'''<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>期货辩论专家团深度分析报告 — {fmt_date}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#0b1120;color:#e2e8f0;padding:8px}}
@@ -494,7 +581,7 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backg
 .cr{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:20px}}
 .cb{{background:#1e293b;border-radius:12px;padding:20px;border:1px solid #334155}}
 .cb h3{{font-size:15px;font-weight:500;margin-bottom:12px;color:#94a3b8}}
-.cb canvas{{max-height:280px}}
+
 .sg{{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}}
 .sc{{background:#1e293b;border-radius:12px;padding:16px;border:1px solid #334155;transition:all .2s}}
 .sc:hover{{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}}
@@ -554,9 +641,19 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backg
 </div>
 
 <div class="cr">
-<div class="cb"><h3>🔴 做空 TOP5 · 6因子分布</h3><canvas id="sRadar"></canvas></div>
-<div class="cb"><h3>🟢 做多 TOP5 · 6因子分布</h3><canvas id="lRadar"></canvas></div>
-<div class="cb"><h3>📊 截面排名分布 ({n_all}品种)</h3><canvas id="rDist"></canvas></div>
+<div class="cb"><h3>🔴 做空 TOP5 · 6因子分布</h3>
+{short_radar_svg}
+</div>
+<div class="cb"><h3>🟢 做多 TOP5 · 6因子分布</h3>
+{long_radar_svg}
+</div>
+<div class="cb"><h3>📊 截面排名分布 ({n_all}品种)</h3>
+<div style="max-height:280px;overflow-y:auto;font-size:11px">
+<table style="width:100%">
+<tr style="color:#94a3b8;position:sticky;top:0;background:#1e293b"><th style="padding:2px 6px;text-align:left">#</th><th style="padding:2px 6px;text-align:left">品种</th><th style="padding:2px 6px">确排</th><th style="padding:2px 4px;width:100px">条</th></tr>
+{rank_bar_svg_rows}
+</table></div>
+</div>
 </div>
 
 <div class="sec" style="border-left:4px solid #ef4444">
@@ -584,17 +681,7 @@ var ALL = {rank_rows_js};
 function sc(v){{return v>=70?'#22c55e':v>=40?'#f59e0b':'#ef4444'}}
 var tb='';ALL.forEach(function(r){{tb+='<tr><td>'+r.r+'</td><td><strong>'+r.s+'</strong></td><td>'+r.a.toFixed(1)+'</td>';r.d.forEach(function(v){{tb+='<td style="color:'+sc(v)+'">'+v.toFixed(0)+'</td>'}});tb+='<td>'+r.v.toFixed(2)+'</td><td style="color:#94a3b8;font-size:12px">'+r.sig+'</td></tr>'}});
 document.getElementById('rb').innerHTML=tb;
-try{{if(typeof Chart!=='undefined'){{
-var sl={_json.dumps(factor_names,ensure_ascii=False)};
-new Chart(document.getElementById('sRadar'),{{type:'radar',data:{{labels:sl,datasets:[
-{''.join(f'{{label:"{s["symbol"]}",data:{_json.dumps(list(s.get("dims",{}).values())[:7])},borderColor:c[{i}],backgroundColor:c[{i}]+"33",borderWidth:2,pointRadius:3}},' for i,s in enumerate(short_top5))}
-]}},options:{{responsive:true,plugins:{{legend:{{labels:{{color:'#94a3b8',font:{{size:11}}}}}}}},scales:{{r:{{angleLines:{{color:'#334155'}},grid:{{color:'#334155'}},pointLabels:{{color:'#94a3b8',font:{{size:10}}}},suggestedMin:0,suggestedMax:100,ticks:{{display:false}}}}}}}}}});
-new Chart(document.getElementById('lRadar'),{{type:'radar',data:{{labels:sl,datasets:[
-{''.join(f'{{label:"{s["symbol"]}",data:{_json.dumps(list(s.get("dims",{}).values())[:7])},borderColor:lc[{i}],backgroundColor:lc[{i}]+"33",borderWidth:2,pointRadius:3}},' for i,s in enumerate(long_top5))}
-]}},options:{{responsive:true,plugins:{{legend:{{labels:{{color:'#94a3b8',font:{{size:11}}}}}}}},scales:{{r:{{angleLines:{{color:'#334155'}},grid:{{color:'#334155'}},pointLabels:{{color:'#94a3b8',font:{{size:10}}}},suggestedMin:0,suggestedMax:100,ticks:{{display:false}}}}}}}}}});
-var rv=ALL.map(function(r){{return r.a}});
-new Chart(document.getElementById('rDist'),{{type:'bar',data:{{labels:ALL.map(function(r){{return r.s}}),datasets:[{{label:'调整排名',data:rv,backgroundColor:rv.map(function(v){{return v>=50?'#ef4444':v>=30?'#f59e0b':'#22c55e'}}),borderRadius:3}}]}},options:{{responsive:true,plugins:{{legend:{{display:false}}}},scales:{{x:{{ticks:{{color:'#94a3b8',font:{{size:8}},maxRotation:90}},grid:{{display:false}}}},y:{{ticks:{{color:'#94a3b8'}},grid:{{color:'#334155'}},suggestedMin:0,suggestedMax:100}}}}}}}});
-}}catch(e){{console.warn('Chart:',e)}}
+
 </script></body></html>'''
 
 

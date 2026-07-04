@@ -517,18 +517,13 @@ def build_html():
             </div>
         </div>"""
 
-    signals_for_chart = [
-        {'pid': s.get('pid', ''), 'confidence': s.get('confidence', 0) * 100, 'direction': s.get('decision', 'HOLD')}
-        for s in all_actionable[:15]
-    ]
-
-    html = f"""<!DOCTYPE html>
+html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商品期货深度分析 | {REPORT_DATE}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:#0f1117; color:#e0e0e0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.6; }}
@@ -556,10 +551,6 @@ tr:hover td {{ background:#25283644; }}
 .trend-buy {{ color:#22c55e; }}
 .trend-sell {{ color:#ef4444; }}
 .trend-hold {{ color:#f59e0b; }}
-.chart-row {{ display:flex; gap:20px; flex-wrap:wrap; margin-top:16px; }}
-.chart-box {{ flex:1; min-width:300px; background:#252836; border-radius:8px; padding:16px; }}
-.chart-box h4 {{ color:#888; font-size:0.85em; margin-bottom:8px; }}
-.chart-box canvas {{ width:100% !important; height:300px !important; }}
 .summary-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px; }}
 .card {{ background:#252836; border-radius:10px; padding:20px; text-align:center; }}
 .card .card-value {{ font-size:1.8em; font-weight:bold; color:#f59e0b; }}
@@ -573,7 +564,7 @@ tr:hover td {{ background:#25283644; }}
 /* 长文本换行 */
 td {{ white-space:normal; word-break:break-word; overflow-wrap:break-word; }}
 th, td.num {{ white-space:nowrap; }}
-@media (max-width:768px) {{ .header h1 {{ font-size:1.5em; }} .chart-box {{ min-width:100%; }} }}
+@media (max-width:768px) {{ .header h1 {{ font-size:1.5em; }} }}
 </style>
 </head>
 <body>
