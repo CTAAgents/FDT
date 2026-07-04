@@ -367,7 +367,7 @@ def generate_debate_html_report(truth: dict) -> str:
     # 做多按rank升序排列（截面排名最低的排前面）
     l_qualified.sort(key=lambda x: x.get('rank', 99))
 
-    factor_names = ['D1趋势','D2回归','D3回归','D4资金','D5资金','D6量价','D7期限']
+    factor_names = ['D1趋势','D2回归','D3资金','D4量价','D5期限','D6波动']
 
     def _factor_bar_html(dims: dict) -> str:
         keys = list(dims.keys())[:7]
@@ -416,26 +416,26 @@ def generate_debate_html_report(truth: dict) -> str:
         d_vals = list(dims.values())[:7] if dims else [0]*7
         pro, con = [], []
         # 做空方论点（强力支持做空的因子）
-        strong_dims = [(factor_names[i], d_vals[i]) for i in range(7) if d_vals[i] >= 70]
+        strong_dims = [(factor_names[i], d_vals[i]) for i in range(6) if d_vals[i] >= 70]
         if strong_dims:
             top = strong_dims[:3]
             pro.append(f"高评分因子: {', '.join(f'{n}={v:.0f}' for n,v in top)}")
         if adx > 25:
             pro.append(f"ADX={adx:.0f} 趋势强度确认")
-        if d_vals[6] >= 70:  # D7期限
-            pro.append("D7期限结构强烈支持")
-        if d_vals[3] >= 70 or d_vals[4] >= 70:  # D4/D5资金
-            pro.append("资金面确认(D4/D5)")
+        if d_vals[4] >= 70:  # D5期限
+            pro.append("D5期限结构强烈支持")
+        if d_vals[2] >= 70:  # D3资金
+            pro.append("资金面确认(D3)")
 
         # 做空方反方论点（风险）
-        if d_vals[6] < 30:
-            con.append("D7期限支持偏弱")
+        if d_vals[4] < 30:
+            con.append("D5期限支持偏弱")
         if d_vals[0] < 20:  # D1趋势
             con.append("D1趋势已衰竭，纯回归信号")
         if adx > 60:
             con.append(f"ADX={adx:.0f} 极度过熟")
-        if d_vals[5] < 30:  # D6量价
-            con.append("D6量价未确认")
+        if d_vals[3] < 30:  # D4量价
+            con.append("D4量价未确认")
         if veto < 1:
             con.append(f"否决系数={veto:.2f}<1.0 信号信度折扣")
         if side == '左侧':
@@ -540,7 +540,7 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backg
 <div class="sub">{fmt_date} · 全品种扫描 {n_all}个品种 · 量化多头{n_bull} / 量化空头{n_bear}</div>
 <div class="bd">
 <span style="background:#1e3a5f;color:#60a5fa">📡 通达信TDX + AKShare OI</span>
-<span style="background:#3b1f1f;color:#fca5a5">🔴 7因子真分层打分</span>
+<span style="background:#3b1f1f;color:#fca5a5">🔴 6因子正交化打分</span>
 <span style="background:#1e3a2f;color:#4ade80">📊 九宫格分类·左右侧识别</span>
 </div></div>
 
@@ -554,8 +554,8 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backg
 </div>
 
 <div class="cr">
-<div class="cb"><h3>🔴 做空 TOP5 · 7因子分布</h3><canvas id="sRadar"></canvas></div>
-<div class="cb"><h3>🟢 做多 TOP5 · 7因子分布</h3><canvas id="lRadar"></canvas></div>
+<div class="cb"><h3>🔴 做空 TOP5 · 6因子分布</h3><canvas id="sRadar"></canvas></div>
+<div class="cb"><h3>🟢 做多 TOP5 · 6因子分布</h3><canvas id="lRadar"></canvas></div>
 <div class="cb"><h3>📊 截面排名分布 ({n_all}品种)</h3><canvas id="rDist"></canvas></div>
 </div>
 
@@ -572,7 +572,7 @@ body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backg
 <div class="sec">
 <h2>📊 全品种排名表 <span class="c">{n_all}品种·按adj_rank降序</span></h2>
 <div style="max-height:500px;overflow-y:auto;border:1px solid #334155;border-radius:8px">
-<table class="rt"><thead><tr><th>#</th><th>品种</th><th>确排</th><th>D1趋势</th><th>D2回归</th><th>D3回归</th><th>D4资金</th><th>D5资金</th><th>D6量价</th><th>D7期限</th><th>否决</th><th>信号</th></tr></thead>
+<table class="rt"><thead><tr><th>#</th><th>品种</th><th>确排</th><th>D1趋势</th><th>D2回归</th><th>D3资金</th><th>D4量价</th><th>D5期限</th><th>D6波动</th><th>否决</th><th>信号</th></tr></thead>
 <tbody id="rb"></tbody></table></div></div>
 
 <div class="footer">

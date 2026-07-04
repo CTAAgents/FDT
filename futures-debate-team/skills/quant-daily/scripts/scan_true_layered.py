@@ -90,21 +90,21 @@ def _collect_kline_live(symbols: list, days: int = 120, min_bars: int = 50) -> d
 
 
 def _classify_signal(dims: dict) -> str:
-    """根据维度分数判断信号驱动风格。
+    """根据维度分数判断信号驱动风格 (v2.1 6因子版)。
     
     返回: 回归 | 趋势 | 资金 | 混合 | 量价
     """
     t = dims.get('D1_趋势_动量', 0)
-    r1 = dims.get('D2_回归_乖离率', 0)
-    r2 = dims.get('D3_回归_RSI反向', 0)
-    oi = dims.get('D4_资金_持仓OI', 0)
-    cmf = dims.get('D5_资金_净流CMF', 0)
-    v = dims.get('D6_确认_量价', 0)
+    r = dims.get('D2_回归_综合', 0)
+    f = dims.get('D3_资金_综合', 0)
+    v = dims.get('D4_确认_量价', 0)
+    term = dims.get('D5_期限_基差', 0)
+    vol = dims.get('D6_波动_情绪', 0)
 
     active = []
     if t >= 50: active.append('趋势')
-    if r1 >= 50 or r2 >= 50: active.append('回归')
-    if oi >= 50 or cmf >= 50: active.append('资金')
+    if r >= 50: active.append('回归')
+    if f >= 50: active.append('资金')
     if v >= 50: active.append('量价')
 
     if len(active) == 0:
@@ -146,7 +146,7 @@ GRID_SIGMA = 0.2
 def _grid_classifier(dims: dict) -> dict:
     """九宫格分类器：高斯模糊隶属度 → 左右侧区分。返回 {direction, strength, grid, side}"""
     import math
-    reg_scores = [dims.get(k, 0) / 100.0 for k in ['D2_回归_乖离率', 'D3_回归_RSI反向', 'D7_期限_基差']
+    reg_scores = [dims.get(k, 0) / 100.0 for k in ['D2_回归_综合']
                   if dims.get(k) is not None and dims.get(k) != 0]
     tr_scores = [dims.get('D1_趋势_动量', 0) / 100.0] if dims.get('D1_趋势_动量') is not None and dims.get('D1_趋势_动量') != 0 else []
     if not reg_scores or not tr_scores:
@@ -186,14 +186,53 @@ def _get_adx(sym, techs):
     return adx
 
 
+def _check_factor_conflict(dims: dict, mode: str = 'short') -> tuple:
+    """检查因子方向一致性冲突。
+
+    当品种的**看多/看空因子高度一致**时，排除反向信号。
+
+    看多因子: D1(趋势动量), D4(持仓OI), D5(净流CMF), D7(期限基差)
+    看空因子: D2(乖离率), D3(RSI反向)
+
+    Args:
+        dims: 7维因子分 dict
+        mode: 'short'=检查看多一致性, 'long'=检查看空一致性
+
+    Returns:
+        (has_conflict, reason): 是否有冲突及原因
+    """
+    keys = list(dims.keys())
+    if len(keys) < 6:
+        return False, ''
+
+    vals = list(dims.values())
+
+    if mode == 'short':
+        # 做空候选：检查是否有强烈看多一致性（D1趋势+D3资金+D5期限）
+        bullish = sum(1 for v in [vals[0], vals[2], vals[4]] if v >= 70)
+        avg_bullish = (max(vals[0], 0) + max(vals[2], 0) + max(vals[4], 0)) / 3
+        if bullish >= 2 and avg_bullish >= 65:
+            return True, (f'一致看多(bullish={bullish}/3, avg={avg_bullish:.0f})'
+                          f' D1={vals[0]:.0f} D3={vals[2]:.0f} D5={vals[4]:.0f}')
+    else:
+        # 做多候选：检查是否有强烈看空一致性
+        bearish = sum(1 for v in [vals[0], vals[2], vals[4]] if v <= 30)
+        avg_bearish = (max(100 - vals[0], 0) + max(100 - vals[2], 0) + max(100 - vals[4], 0)) / 3
+        if bearish >= 2 and avg_bearish >= 65:
+            return True, (f'一致看空(bearish={bearish}/3, avg={avg_bearish:.0f})'
+                          f' D1={vals[0]:.0f} D3={vals[2]:.0f} D5={vals[4]:.0f}')
+    return False, ''
+
+
 def _filter_qualified_signals(short_candidates: list, long_candidates: list,
-                               tech_list: list) -> dict:
+                               tech_list: list, reverse: bool = False) -> dict:
     """筛选值得交易的信号。
     
     规则（仅安全过滤，不再按风格过滤）：
       1. 否决 veto_penalty >= 0.5
       2. ADX > 5（完全无趋势的不做）
       3. 标记 signal_type: regime_reg / regime_trend / hybrid / other
+      4. [v2.1] 因子方向一致性检查（reverse模式下排除一致看多/看空的品种）
     """
     qualified = {'short': [], 'long': []}
 
@@ -204,12 +243,16 @@ def _filter_qualified_signals(short_candidates: list, long_candidates: list,
         adx = _get_adx(c["symbol"], tech_list)
         stype = _get_signal_type(style, adx)
 
-        # 仅安全过滤
         reasons = []
         if vp < 0.5:
             reasons.append(f'否决={vp:.2f}<0.5')
         if adx < 5:
             reasons.append(f'ADX={adx:.0f}无趋势')
+        # v2.1: 因子方向一致性检查
+        if reverse:
+            conflict, conflict_reason = _check_factor_conflict(c['dimensions'], 'short')
+            if conflict:
+                reasons.append(f'因子冲突({conflict_reason})')
 
         if not reasons:
             qualified['short'].append({
@@ -249,6 +292,11 @@ def _filter_qualified_signals(short_candidates: list, long_candidates: list,
             reasons.append(f'否决={vp:.2f}<0.5')
         if adx < 5:
             reasons.append(f'ADX={adx:.0f}无趋势')
+        # v2.1: 因子方向一致性检查
+        if reverse:
+            conflict, conflict_reason = _check_factor_conflict(c['dimensions'], 'long')
+            if conflict:
+                reasons.append(f'因子冲突({conflict_reason})')
 
         entry = {
             'symbol': c['symbol'],
@@ -440,7 +488,7 @@ def run_scan(output_dir: str = None, symbols: list = None,
         print(f'\n📋 调仓建议: 持仓5-10个交易日, 等权分配, 止损设入场价±3%')
 
         # ── 合格信号筛选（按回归规则过滤）──
-        qualified = _filter_qualified_signals(short, long, tech_list)
+        qualified = _filter_qualified_signals(short, long, tech_list, reverse=reverse)
         if qualified['short'] or qualified['long']:
             print(f'\n{"="*60}')
             print(f'🏆 已筛选信号（否决≥0.5 · ADX>5）')

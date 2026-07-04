@@ -17,10 +17,11 @@ from statistics import mean
 
 # ============================================================
 # 因子定义：法官席（每法官=一个独立排序维度）
+# v2.1 正交化重构 — 7因子→6因子 + 新增波动情绪因子
 # ============================================================
 
 FACTOR_DEFINITIONS = [
-    # ─── 风格A: 趋势追踪 (1位) ───
+    # ─── 风格A: 趋势追踪 (1位, 独立) ───
     {
         'name': 'D1_趋势_动量',
         'desc': 'ROC10 — 趋势方向强度',
@@ -30,47 +31,36 @@ FACTOR_DEFINITIONS = [
         'required_fields': ['ROC10'],
         'style': 'trend',
     },
-    # ─── 风格B: 均值回归 (2位) ───
+    # ─── 风格B: 均值回归 (合并D2乖离率+D3 RSI反向 → D2) ───
+    # 取BIAS和RSI的标准化均值，避免双重计数
     {
-        'name': 'D2_回归_乖离率',
-        'desc': '-BIAS — BIAS>15%超买(排低) BIAS<-10%超卖(排高)',
+        'name': 'D2_回归_综合',
+        'desc': '( -BIAS + -(RSI14-50) ) / 2 — 综合回归信号(正=超卖/负=超买)',
         'key': None,
-        'transform': lambda tech: -(tech.get('PRICE_DEVIATION_PCT', 0)),
+        'transform': lambda tech: (
+            -(tech.get('PRICE_DEVIATION_PCT', 0)) + (-(tech.get('RSI14', 50) - 50))
+        ) / 2,
         'weight': 1,
-        'required_fields': ['PRICE_DEVIATION_PCT'],
+        'required_fields': ['PRICE_DEVIATION_PCT', 'RSI14'],
         'style': 'reversion',
     },
+    # ─── 风格C: 资金流 (合并D4持仓OI+D5净流CMF → D3) ───
     {
-        'name': 'D3_回归_RSI反向',
-        'desc': '-(RSI14-50) — RSI>80超买(排低) RSI<20超卖(排高)',
-        'key': 'RSI14',
-        'transform': lambda v: -(v - 50),
+        'name': 'D3_资金_综合',
+        'desc': '( OI变化率 + CMF21 ) / 2 — 资金面综合信号',
+        'key': None,
+        'transform': lambda tech: (
+            (tech.get('OI_CHANGE_PCT', 0) if abs(tech.get('OI_CHANGE_PCT', 0) or 0) < 30
+             else (30 if (tech.get('OI_CHANGE_PCT', 0) or 0) > 0 else -30))
+            + tech.get('CMF21', 0)
+        ) / 2,
         'weight': 1,
-        'required_fields': ['RSI14'],
-        'style': 'reversion',
-    },
-    # ─── 风格C: 资金流 (2位, 全风格) ───
-    {
-        'name': 'D4_资金_持仓OI',
-        'desc': 'OI变化率 — 持仓量方向',
-        'key': 'OI_CHANGE_PCT',
-        'transform': lambda v: v if abs(v or 0) < 30 else (30 if (v or 0) > 0 else -30),
-        'weight': 1,
-        'required_fields': ['OI_CHANGE_PCT'],
+        'required_fields': ['OI_CHANGE_PCT', 'CMF21'],
         'style': 'all',
     },
+    # ─── 风格D: 量价确认 (1位, 全风格, 独立) ───
     {
-        'name': 'D5_资金_净流CMF',
-        'desc': 'CMF21 — 资金净流入',
-        'key': 'CMF21',
-        'transform': lambda v: v,
-        'weight': 1,
-        'required_fields': ['CMF21'],
-        'style': 'all',
-    },
-    # ─── 风格D: 量价确认 (1位, 全风格) ───
-    {
-        'name': 'D6_确认_量价',
+        'name': 'D4_确认_量价',
         'desc': '放量×方向 — 量在价先',
         'key': None,
         'transform': lambda tech: (tech.get('VOL_RATIO', 1) - 1) * (1 if tech.get('PRICE_CHANGE_5D', 0) > 0 else -1),
@@ -78,14 +68,27 @@ FACTOR_DEFINITIONS = [
         'required_fields': ['VOL_RATIO', 'PRICE_CHANGE_5D'],
         'style': 'all',
     },
-    # ─── 风格E: 期限结构 (1位, 全风格·期货专用) ───
+    # ─── 风格E: 期限结构 (1位, 全风格·期货专用, 独立) ───
     {
-        'name': 'D7_期限_基差',
+        'name': 'D5_期限_基差',
         'desc': 'term_signal 期限结构方向（contango=-1~backwardation=+1）',
         'key': 'TERM_SIGNAL',
         'transform': lambda v: v * 100 if v is not None else None,
         'weight': 1,
         'required_fields': ['TERM_SIGNAL'],
+        'style': 'all',
+    },
+    # ─── 风格F: 波动情绪 (NEW — 填补情绪因子缺失) ───
+    {
+        'name': 'D6_波动_情绪',
+        'desc': '( ATR_RATIO_20*50 + BB_WIDTH_PCT ) / 2 — 波动率+布林宽度',
+        'key': None,
+        'transform': lambda tech: (
+            (tech.get('ATR_RATIO_20', 1) - 1) * 50  # 1.0=正常→0, 1.5=高波→+25, 0.5=低波→-25
+            + (tech.get('BB_WIDTH_PCT', 50) - 50)   # 50%=中性→0, 90%=宽→+40, 10%=窄→-40
+        ) / 2,
+        'weight': 1,
+        'required_fields': ['ATR_RATIO_20', 'BB_WIDTH_PCT'],
         'style': 'all',
     },
 ]
