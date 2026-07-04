@@ -1,6 +1,6 @@
 # 期货交易辩论专家团（Futures Trading Debate Team）
 
-> **v4.0 数据辩论** · 自动生成: 2026-07-04 18:05
+> **v4.0 数据辩论** · 自动生成: 2026-07-04 18:13
 >
 > 数技源定方向 → 研究员供证据（工具查询真实数据） → 正反方辩手验证（因子溯源） → 闫判官判胜负（收敛自适应） → 策执远出策略（含情景分析） → 风控明审方案 → 明鉴秋复盘归档
 >
@@ -13,7 +13,7 @@
 ```
 experts/
 └── futures-debate-team/           ← 专家包根目录（唯一需要关注的目录）
-    ├── agents/                    ← 10 个子Agent定义
+    ├── agents/                    ← 11 个子Agent定义
     ├── avatars/                   ← 11个头像
     ├── memory/                    ← 辩论记忆库
     ├── rules/                     ← 辩论规则
@@ -28,7 +28,7 @@ experts/
         └── quant-daily/                量化分析引擎
 ```
 
-## 子Agent（10个）
+## 子Agent（11个）
 
   - `futures-affirmative-debater.md` | Affirmative Debater.Md
   - `futures-chain-analyst.md` | Chain Analyst.Md
@@ -37,6 +37,7 @@ experts/
   - `futures-fundamental-researcher.md` | Fundamental Researcher.Md
   - `futures-judge.md` | Judge.Md
   - `futures-opposition-debater.md` | Opposition Debater.Md
+  - `futures-quant-analyst.md` | Quant Analyst.Md
   - `futures-risk-manager.md` | Risk Manager.Md
   - `futures-technical-researcher.md` | Technical Researcher.Md
   - `futures-trading-strategist.md` | Trading Strategist.Md

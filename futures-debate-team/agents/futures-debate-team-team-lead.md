@@ -34,17 +34,18 @@ profession:
 | 8 | 📋 策略师 | futures-trading-strategist | debate-trading-planner | 合约选型+执行方案 |
 | 9 | 🟡 风控 | futures-risk-manager | debate-risk-manager v3 | 杠杆/回撤/叙事质检 |
 | 10 | ⚪ 裁判 | futures-judge | debate-judge | 主持+评分+判胜负 |
-| 11 | 📊 **量化分析**（新增） | futures-datatech | **quant-daily** | **分层打分引擎**：跑7因子真分层打分+九宫格分类，产出量化信号包 |
+| 11 | 📊 **量化分析**（新增） | futures-quant-analyst | **quant-daily（策略层）** | **分层打分引擎**：跑策略层打分（strategies/目录），产出量化信号包 |
 
 ## 数据流总览
 
 ```
 传统流程： 数技师(scan_all) → 基本面/技术面/链证源 → 辩论
                                         ↓
-新增量化层： quant-daily(scan_true_layered) → 7因子分解 → 九宫格分类 → 辩论
+新增量化层： 量析师(strategies策略层) → 策略打分(L1-L4/自定义) → 辩论
                                         ↓
-融合方式： 三支柱(基本面+技术面+产业链) + 量化引擎(7因子+九宫格)
+融合方式： 三支柱(基本面+技术面+产业链) + 量化引擎(策略层可插拔)
            辩手在论证时需同时引用质化证据和量化信号强度
+           切换策略: --strategy layered_l1l4 | my_new_strategy
 ```
 
 ## 执行流程

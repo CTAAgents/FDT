@@ -12,6 +12,7 @@
     "./agents/futures-fundamental-researcher.md",
     "./agents/futures-technical-researcher.md",
     "./agents/futures-datatech.md",
+    "./agents/futures-quant-analyst.md",
     "./agents/futures-chain-analyst.md",
     "./agents/futures-affirmative-debater.md",
     "./agents/futures-opposition-debater.md",
@@ -30,6 +31,7 @@
       "futures-fundamental-researcher",
       "futures-technical-researcher",
       "futures-datatech",
+      "futures-quant-analyst",
       "futures-chain-analyst",
       "futures-affirmative-debater",
       "futures-opposition-debater",
@@ -214,6 +216,19 @@
         "zh": "交易策略师"
       },
       "avatar": "avatars/futures-trading-strategist.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-quant-analyst",
+      "displayName": {
+        "en": "Quant Analyst",
+        "zh": "量析师"
+      },
+      "profession": {
+        "en": "Quantitative Analyst",
+        "zh": "量化分析师"
+      },
+      "avatar": "avatars/futures-quant-analyst.png",
       "role": "member"
     }
   ]
