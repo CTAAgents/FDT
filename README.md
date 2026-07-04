@@ -1,6 +1,8 @@
 # 期货交易辩论专家团（Futures Trading Debate Team）
 
-> **v3.1 九角色五阶段** · 自动生成: 2026-07-04 15:36
+> **v4.0 数据辩论** · 自动生成: 2026-07-04 15:39
+>
+> 数技源定方向 → 研究员供证据（工具查询真实数据） → 正反方辩手验证（因子溯源） → 闫判官判胜负（收敛自适应） → 策执远出策略（含情景分析） → 风控明审方案 → 明鉴秋复盘归档
 >
 > 数技师定方向 → 研究员供证据 → 正反方辩手验证 → 判官判胜负 → 策执远出策略 → 风控审方案
 
@@ -43,12 +45,12 @@ experts/
 ## 关联Skill（8个）
 
   - `commodity-chain-analysis/` | 402 行 SKILL.md
-  - `debate-argument-builder/` | 319 行 SKILL.md
-  - `debate-judge/` | 210 行 SKILL.md
+  - `debate-argument-builder/` | 331 行 SKILL.md
+  - `debate-judge/` | 224 行 SKILL.md
   - `debate-risk-manager/` | 225 行 SKILL.md
   - `debate-trading-planner/` | 287 行 SKILL.md
   - `futures-data-technician/` | 143 行 SKILL.md
-  - `futures-trading-analysis/` | 1006 行 SKILL.md
+  - `futures-trading-analysis/` | 1017 行 SKILL.md
   - `quant-daily/` | 193 行 SKILL.md
 
 

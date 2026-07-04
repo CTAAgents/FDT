@@ -1004,3 +1004,14 @@ python ~/.workbuddy/skills/futures-trading-analysis/scripts/phase3_generate_repo
 ## 免责
 
 本分析由AI基于公开数据生成，不构成投资建议。期货交易高风险。
+
+---
+
+## v4.0 新增功能
+
+此Skill在v4.0中新增 `scripts/` 下的工具系统：
+
+- `scripts/agent_tool_executor.py` — 工具代理执行引擎。明鉴秋读取Agent输出的 ````tool {json} ```` 代码块，调用白名单内的函数并返回结果。支持模块白名单：researcher_tools、debater_tools、judge_tools、scenario_analysis。
+- `scripts/post_debate_analysis.py` — 辩论后自动复盘。追加到 `memory/debates/INDEX.md` 和 `memory/debates/analysis/agent_performance.md`。
+
+新增数据流：Agent输出 ````tool ```` → 明鉴秋用 `execute_agent_tool()` 执行 → 结果以 ````result ```` 传回Agent。
