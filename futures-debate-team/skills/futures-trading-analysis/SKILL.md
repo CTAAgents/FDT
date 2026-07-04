@@ -91,17 +91,24 @@ WorkBuddy 自动化协调器 → spawn 明鉴秋(团队主管)
 
 ### 三条铁律
 
-#### 铁律1：P1 数据采集必须使用 quant-daily 的 CLI
+#### 铁律1：P1 数据采集必须使用 quant-daily 的 CLI（区分角色模式）
 
-当 `mode=custom` 需要扫描指定品种时，明鉴秋必须执行以下命令，**不得**自行编写数据采集脚本：
+当 `mode=custom` 需要扫描指定品种时：
 
+**数技源**（纯数据采集，不做分析）：
 ```bash
-python scripts/scan_all.py --symbols PK,RB,B,UR
+python scripts/scan_all.py --output-raw --symbols PK,RB,B,UR
 ```
 
-`scan_all.py` 已内置 `--symbols` 参数（v1.0.1+），支持任意品种组合的自定义扫描。输出为结构化JSON文件，明鉴秋直接读取即可。
+**量析师**（基于数据做策略层打分）：
+```bash
+python scripts/scan_all.py --strategy layered_l1l4 --symbols PK,RB,B,UR
+```
 
-**禁止行为**：编写 `phase1_custom_scan.py`、`custom_collect.py` 等一次性数据采集脚本。
+`scan_all.py` 的 `--output-raw` 模式跳过策略打分，仅输出K线+指标+持仓原始数据包（含 `_meta` 溯源字段）。
+`--strategy` 模式基于采集的数据运行指定策略，产出量化信号包（含排名/方向/置信度/否决标记）。
+
+**两个角色使用不同的入口参数，实现代码层角色隔离。**
 
 #### 铁律2：Agent 输出必须通过文件持久化读取，不依赖消息路由
 

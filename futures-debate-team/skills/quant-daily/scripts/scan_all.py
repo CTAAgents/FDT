@@ -155,6 +155,42 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
         if (i + 1) % 15 == 0:
             print(f'  [{i+1}] {len(tech_list)} OK')
 
+    # ── 纯数据模式（数技源专用，不做策略打分） ──
+    if args.output_raw:
+        print('\n  → 纯数据模式: 跳过策略打分，仅输出原始数据包')
+        raw_package = {
+            '_meta': {
+                'mode': 'output_raw',
+                'total_targets': len(target_symbols),
+                'collected': len(kline_data),
+                'date': today_str,
+                'source': '通达信TQ-Local + numpy指标计算',
+                'data_only': True,
+            },
+            'kline_summary': {
+                sym: {
+                    'bars': len(dlist),
+                    'first_date': dlist[0].get('date', ''),
+                    'last_date': dlist[-1].get('date', ''),
+                } for sym, (name, dlist) in kline_data.items()
+            },
+            'indicators': [
+                {
+                    'symbol': t.get('symbol'),
+                    'name': t.get('name'),
+                    'last_price': t.get('last_price'),
+                    'change_pct': t.get('change_pct'),
+                    'ma20': t.get('MA20'),
+                    'ma60': t.get('MA60'),
+                    'adx': t.get('ADX14'),
+                    'rsi': t.get('RSI14'),
+                    'atr14': t.get('ATR14'),
+                    'volume': t.get('volume'),
+                }
+                for t in tech_list
+            ],
+        }
+        summary = raw_package
     # ── compare 模式: 运行两个策略并对比 ──
     if mode == 'compare':
         print('\n  → compare模式: 同时运行 layered_l1l4 + true_layered')
@@ -471,6 +507,8 @@ if __name__ == '__main__':
     parser.add_argument('--mode', '-m', help='[已废弃] 请用 --strategy',
                         default='layered', choices=['layered', 'true_layered', 'compare'])
     parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
+    parser.add_argument('--output-raw', action='store_true',
+                        help='纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）')
 
     args = parser.parse_args()
 

@@ -76,18 +76,19 @@ profession:
 }
 ```
 
-👇 spawn 数技师（数据管道）
+👇 spawn 数技师（数据管道·纯数据模式）
 
 ```bash
-# 直接调用，非Agent spawn（数技师是库函数模式）
+# 纯数据采集模式：--output-raw 跳过策略打分，只输出K线+指标+持仓
 python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py \
+  --output-raw \
   --symbols PK,RB,B,UR \
   --output /path/to/reports \
   --prefix custom_scan
 ```
 
 ```python
-# 库函数回退
+# 库函数回退（也需指定纯数据模式）
 from scan_all import run_scan
 from config.symbols import ALL_SYMBOLS
 sym_map = {s: n for s, n in ALL_SYMBOLS}

@@ -40,16 +40,18 @@ profession:
 
 ## Work Method
 
-由 `quant-daily` SKILL.md 定义。加载后执行 `scan_all.py`：
+由 `quant-daily` SKILL.md 定义。加载后执行 `scan_all.py` 的**纯数据模式**：
 
 ```bash
+# 纯数据模式：只采集K线+指标+持仓，不做策略打分
 python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py \
+  --output-raw \
   --symbols PK,RB,B,UR \
   --output /path/to/reports \
   --prefix custom_scan
 ```
 
-产出JSON已包含 `_meta` 溯源字段（数据源、日期、指标方法）。
+产出JSON已包含 `_meta` 溯源字段（数据源、日期、指标方法），且不含任何多空信号评分——你不会越界做分析。
 
 ## 履职方式
 
