@@ -1,62 +1,48 @@
 ---
 name: quant-daily
-version: 2.1.0
+version: 2.1.1
 agent_created: true
-description: 商品期货量化分析一体化skill — 真分层打分(True Layered Portfolio Sort) + 九宫格左右侧分类 + 反向交易信号。融合futures-data-search、commodity-trend-signal、technical-indicator-calc三skill能力。
+description: 商品期货量化分析一体化skill — L1-L4四层累加打分。融合futures-data-search、commodity-trend-signal、technical-indicator-calc三skill能力。
 ---
 
 # quant-daily — 商品期货量化分析一体化
 
-## 默认扫描：真分层打分 + 九宫格分类（2026-07-04 设为默认）
+## 🔴 重要：L1-L4为唯一正确模式（2026-07-04修正）
 
-**默认模式**：`true_layered`（取代原有L1-L4阶段打分）
+**默认模式**：`layered`（L1-L4四层累加打分，原有逻辑，向后兼容）
 
 ```bash
-# 全品种真分层扫描 + 反向交易信号 + 九宫格左右侧分类（默认）
-python scripts/scan_true_layered.py --reverse
+# L1-L4全品种扫描（正确模式·默认）
+python scripts/scan_all.py
 
-# 扫描并输出JSON/HTML
-python scripts/scan_true_layered.py --reverse -o ./reports
+# 指定输出目录+文件前缀
+python scripts/scan_all.py -o ./reports -p full_scan
 
-# 正常模式（做多排名高品种）
-python scripts/scan_true_layered.py
+# 自定义品种
+python scripts/scan_all.py --symbols PK,RB,B,UR
 ```
 
-**数据源方案**（回测AKShare vs 实盘TDX 双轨制）：
-| 场景 | 价量数据 | OI持仓量 | 技术指标 |
-|:---|:--------|:--------|:--------|
-| 实盘信号 | 通达信TQ-Local | AKShare注入 | TDX bridge补丁 |
-| 回测/训练 | AKShare | AKShare自带 | TDX bridge补丁 |
+> **⚠️ 禁止使用 scan_true_layered.py（包括 --reverse）**
+>
+> 2026-07-04 实盘验证：`true_layered`模式的 `--reverse` 参数导致6/62品种出现"因子方向与信号方向完全矛盾"的严重错误（如PK的D1趋势=93↑却被标为做空）。该模式的IC=-0.039(20日，胜率43%)回测统计不显著，产生大量虚假信号。已被回退。
 
-实盘命令：`scan_true_layered.py --reverse`（如上）
-回测命令：`python -m backtest.backtest_true_layered`（自动走AKShare）
+## L1-L4四层打分权重
 
-**策略定位**：截面均值回归（Contrarian）
-- 排名高的品种 = 最超买 → 做空（预期下跌）
-- 排名低的品种 = 最超卖 → 做多（预期上涨）
-- 持仓5-10个交易日，等权分配，±3%止损
+```python
+WL1 = 35  # L1 萌芽/资金结构 — 趋势动量+持仓变化
+WL2 = 35  # L2 量价领先 — 成交量+价格变动配合
+WL3 = 20  # L3 价格结构 — ADX+RSI+均线排列
+WL4 = 10  # L4 确认 — MACD金叉/死叉+突破+一致性
+```
 
-**因子法官席**（7独立裁判·全部全场景活跃 + 九宫格左右侧分类器）：
-| # | 风格 | 因子 | 原始指标 | 九宫格归属 |
-|:-:|:---|:---|:--------|:----------|
-| D1 | 趋势 | ROC10 | 最近10日变化率 | TrendScore |
-| D2 | 回归 | -BIAS乖离率 | 价格偏离MA20的负值 | RegScore |
-| D3 | 回归 | -(RSI14-50) | RSI以50为中点的反向 | RegScore |
-| D4 | 资金 | OI_CHANGE_PCT | 持仓量变化率 | — |
-| D5 | 资金 | CMF21 | 21日资金流量 | — |
-| D6 | 确认 | 放量×方向 | 量比乘以价格变动方向 | — |
-| D7 | **期限** | **term_signal** | **期限结构方向(contango~/backwardation~)** | RegScore |
+## scan_all.py CLI
 
-九宫格通过高斯隶属函数将 RegScore/TrendScore 映射到强多区/左侧多/趋势多/混沌区/强空区/右侧空/过渡空。输出 `side`（左侧/右侧/中心）区分信号是否已获趋势确认。
-
-**回测绩效**（107截面×59品种，AKShare数据，2026-07-04修正）：
-| 持有期 | IC均值 | IC胜率 | t值 | Top10多空价差 |
-|:-----:|:-----:|:-----:|:---:|:------------:|
-| 5日 | -0.004 | 46% | -0.21 | -0.06% |
-| 10日 | -0.028 | 47% | -1.70 | -0.32% |
-| 20日 | **-0.039** | 43% | **-2.33** | **-0.75%** |
-
-> 旧27截面回测（IC=+0.09）因样本量不足严重过拟合。107截面结果表明仅20日持有期IC统计显著，策略需重构因子后方可交易。
+| 参数 | 说明 | 示例 |
+|:----|:-----|:-----|
+| `--mode`, `-m` | 打分模式: `layered`(默认) / `true_layered` / `compare` | `-m layered` |
+| `--output`, `-o` | 输出目录 | `-o ./reports` |
+| `--prefix`, `-p` | 文件名前缀 | `-p full_scan` |
+| `--symbols`, `-s` | 指定品种（逗号分隔），不传则全品种 | `-s PK,RB,B` |
 
 ## 权重配置（仅 L1-L4 传统模式使用）
 
