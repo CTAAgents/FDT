@@ -317,15 +317,3 @@ class AffirmativeSchema(BaseModel):
 | 无时效标注 | 降置信度一级，标注"研究员未标注数据时效" |
 
 **辩手不需要也不应该自行判断数据时效性**——那是研究员在搜集数据时的职责。辩手只需引用研究员已经提供的数据及其时效标注。
-
----
-
-## v4.0 新增功能
-
-此Skill在v4.0中新增 `scripts/debater_tools.py`，提供以下工具函数供辩手Agent通过 ````tool {json} ```` 协议调用：
-
-- `get_factor_decomp(symbol)` — 7因子分解数据+数据溯源`_provenance`
-- `get_chain_context(symbol)` — 产业链归类上下文
-- `get_price_action(symbol, days=20)` — 价格走势摘要
-
-正反方Agent的prompt中已声明工具调用协议，明鉴秋通过 `agent_tool_executor.py` 代理执行。

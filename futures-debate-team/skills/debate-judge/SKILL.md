@@ -208,17 +208,3 @@ class JudgeVerdict(BaseModel):
   }
 }
 ```
-
----
-
-## v4.0 新增功能
-
-此Skill在v4.0中新增 `scripts/judge_tools.py`，提供评分计算和收敛判据工具：
-
-- `compute_total_score(scores, weights)` — 标准六维加权总分计算
-- `check_convergence(long_score, short_score, rounds, max_rounds=3)` — 收敛判据检测
-- `compute_convergence(round1, round2)` — 两轮分歧度变化计算
-- `detect_unrebutted(pro_claims, con_claims)` — 未被反驳论点检测
-
-收敛规则：分歧度≥15提前终止，≤3已趋同结束，≥最大轮数强制结束，其他续辩。
-闫判官Agent prompt中已声明工具调用协议，明鉴秋通过 `agent_tool_executor.py` 代理执行。
