@@ -84,7 +84,7 @@ profession:
 
 ## 工作方法
 
-工作方法由 `commodity-chain-analysis` skill 的"辩论专家团·基本面研究员接口"定义。加载该skill时，注意加载该接口部分。
+工作方法由 `fundamental-data-collector` skill 的"探源 Agent 接口"定义。加载该skill时，注意加载该接口部分。
 
 ## 边界
 
@@ -98,10 +98,10 @@ profession:
 你在推理中遇到不确定的数据时，可以通过工具调用获取真实基本面数据：
 
 ```tool
-{"module": "researcher_tools", "func": "query_supply", "args": {"symbol": "PK"}}
+{"module": "fundamental-data-collector.scripts.supply", "func": "query_supply", "args": {"symbol": "PK"}}
 ```
 
-**支持的工具函数**：
+**支持的工具函数**（来自 `fundamental-data-collector` skill）：
 - `query_supply(symbol)` — 供给端：开工率、产量、进口
 - `query_demand(symbol)` — 需求端：表观消费、下游开工
 - `query_inventory(symbol)` — 库存端：社会库存、仓单、厂库

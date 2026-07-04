@@ -1,18 +1,33 @@
 # -*- coding: utf-8 -*-
-"""产业链定义、聚类分析、龙头选择、反转映射缓存。"""
+"""产业链定义、聚类分析、龙头选择、跨链判断、反转映射缓存。
 
-from typing import Dict, List, Optional
+v2.14.0 优化内容：
+- 新增 CROSS_CHAIN_VARIETIES 跨链品种清单和管理函数
+- 新增 get_secondary_chain() / is_cross_chain_variety() / get_dominant_chain()
+- cluster_chains() 输出含 cross_chain_info 字段
+- 品种映射 100% 覆盖 futures-data-search 的 ALL_VARIETIES (66个品种)
+- 保留 bc(国际铜) / pt(铂金) 作为额外品种
+"""
 
-# 产业链品种映射
+from typing import Dict, List, Optional, Tuple
+
+# ============================================================
+# 产业链品种映射（主链）
+# ============================================================
+# 所有品种代码使用原始大小写（查询时用 .upper() 归一化）
+# 66个品种完全覆盖 futures-data-search 的 ALL_VARIETIES
+# 额外品种注明了来源
 CHAIN_PRODUCTS: Dict[str, List[str]] = {
     '黑色系':   ['i', 'j', 'jm', 'rb', 'hc', 'SF', 'SM'],
     '能源链':   ['sc', 'lu', 'fu', 'bu', 'pg', 'ec'],
     '聚酯链':   ['PX', 'TA', 'PF', 'PR'],
     '油化工':   ['eg', 'eb', 'pp', 'l', 'PL', 'bz'],
     '煤化工':   ['MA', 'SH', 'v'],
-    '有色':     ['cu', 'al', 'zn', 'pb', 'ni', 'sn', 'ao', 'bc', 'SS', 'ad'],
+    '有色':     ['cu', 'al', 'zn', 'pb', 'ni', 'sn', 'ao', 'SS', 'ad',
+                 'bc'],   # bc(国际铜) — 非 ALL_VARIETIES 标准品种，保留
     '新能源':   ['ps', 'si', 'lc'],
-    '贵金属':   ['au', 'ag', 'pt'],
+    '贵金属':   ['au', 'ag',
+                 'pt'],  # pt(铂金) — 非 ALL_VARIETIES 标准品种，保留
     '油脂油料': ['a', 'b', 'm', 'y', 'p', 'OI', 'RM', 'PK'],
     '谷物软商品': ['c', 'cs', 'SR', 'CF', 'CY', 'jd', 'lh', 'AP', 'CJ', 'rr'],
     '建材':     ['FG', 'SA', 'UR'],
@@ -20,30 +35,172 @@ CHAIN_PRODUCTS: Dict[str, List[str]] = {
     '纸浆造纸': ['sp', 'op'],
 }
 
-# ==================== 缓存加速 ====================
+# ============================================================
+# 跨链品种清单（v2.14 新增）
+# ============================================================
+# 这些品种在多个产业链中有交叉属性，需要根据市场状态判断主导链
+# 格式：{品种: {'primary': 主链, 'secondary': [副链列表],
+#              'judgment': '判断依据说明'}}
+CROSS_CHAIN_VARIETIES: Dict[str, dict] = {
+    'MA': {
+        'primary': '煤化工',
+        'secondary': ['能源链', '油化工'],
+        'judgment': '看煤价与油价谁在边际定价；MTO开工率决定甲醇→烯烃路径活跃度',
+    },
+    'SA': {
+        'primary': '建材',
+        'secondary': ['新能源'],
+        'judgment': '光伏玻璃占比持续抬升（现已>35%），平板玻璃→光伏并链分析',
+    },
+    'UR': {
+        'primary': '建材',
+        'secondary': ['煤化工', '谷物软商品'],
+        'judgment': '看当期是工业需求(脲醛树脂/电厂脱硝)还是农业需求(化肥)为主',
+    },
+    'EG': {
+        'primary': '聚酯链',
+        'secondary': ['煤化工', '油化工'],
+        'judgment': '看煤头(CTO)vs油头(石脑油裂解)产能利用率对比',
+    },
+    'LC': {
+        'primary': '新能源',
+        'secondary': ['有色'],
+        'judgment': '定价权已从矿端移到中游正极厂；与有色共享部分矿端逻辑',
+    },
+    'SI': {
+        'primary': '新能源',
+        'secondary': ['有色'],
+        'judgment': '光伏装机→多晶硅需求是主驱动；99%工业硅用于有机硅/铝合金',
+    },
+    'AL': {
+        'primary': '有色',
+        'secondary': ['能源链'],
+        'judgment': '电解铝高耗能（吨铝耗电13500kWh），煤价→电价→铝价是隐藏传导链',
+    },
+}
 
-# 反向映射：品种代码 → 产业链名称（运行一次后缓存）
+# ============================================================
+# 缓存加速
+# ============================================================
 _PRODUCT_TO_CHAIN: Dict[str, str] = {}
+_PRODUCT_TO_CROSS_CHAIN: Dict[str, dict] = {}
 
 def _build_reverse_map():
     """构建品种→产业链的反向映射表（仅构建一次）"""
-    global _PRODUCT_TO_CHAIN
+    global _PRODUCT_TO_CHAIN, _PRODUCT_TO_CROSS_CHAIN
     if not _PRODUCT_TO_CHAIN:
         for chain_name, products in CHAIN_PRODUCTS.items():
             for pid in products:
                 _PRODUCT_TO_CHAIN[pid] = chain_name
+    if not _PRODUCT_TO_CROSS_CHAIN:
+        for pid, info in CROSS_CHAIN_VARIETIES.items():
+            _PRODUCT_TO_CROSS_CHAIN[pid.upper()] = info
 
 def get_all_products() -> List[str]:
-    """获取所有品种代码列表"""
+    """获取所有品种代码列表（原始大小写）"""
     _build_reverse_map()
     return list(_PRODUCT_TO_CHAIN.keys())
 
 def get_chain_for_symbol(product_id: str) -> Optional[str]:
-    """O(1)查找品种所属产业链"""
+    """O(1)查找品种所属产业链（默认主链，大小写不敏感）"""
     _build_reverse_map()
-    return _PRODUCT_TO_CHAIN.get(product_id)
+    pid_upper = product_id.upper()
+    # 先检查主链映射
+    for chain_name, products in CHAIN_PRODUCTS.items():
+        if pid_upper in [p.upper() for p in products]:
+            return chain_name
+    return None
 
+def is_cross_chain_variety(product_id: str) -> bool:
+    """判断品种是否为跨链品种"""
+    _build_reverse_map()
+    return product_id.upper() in _PRODUCT_TO_CROSS_CHAIN
+
+def get_cross_chain_info(product_id: str) -> Optional[dict]:
+    """获取跨链品种的详细信息"""
+    _build_reverse_map()
+    return _PRODUCT_TO_CROSS_CHAIN.get(product_id.upper())
+
+def get_secondary_chain(product_id: str) -> List[str]:
+    """获取跨链品种的副链列表"""
+    info = get_cross_chain_info(product_id)
+    return info['secondary'] if info else []
+
+def get_all_chains_for_symbol(product_id: str) -> List[str]:
+    """获取品种所属的所有产业链（主链 + 副链，跨链品种专用）"""
+    _build_reverse_map()
+    pid_upper = product_id.upper()
+    chains = []
+    for chain_name, products in CHAIN_PRODUCTS.items():
+        if pid_upper in [p.upper() for p in products]:
+            chains.append(chain_name)
+    # 补充跨链品种的副链（可能不在 CHAIN_PRODUCTS 中）
+    if pid_upper in _PRODUCT_TO_CROSS_CHAIN:
+        info = _PRODUCT_TO_CROSS_CHAIN[pid_upper]
+        for sec in info['secondary']:
+            if sec not in chains:
+                chains.append(sec)
+    return chains
+
+def get_dominant_chain(product_id: str, market_state: str = 'default') -> str:
+    """根据市场状态判断跨链品种的当前主导链。
+
+    market_state 可选值：
+    - 'default': 返回默认主链
+    - 'cost_push': 成本推动型（上游定价）
+    - 'demand_pull': 需求拉动型（下游定价）
+    - 'policy_shift': 政策/新变量打断
+
+    返回：(主导链名称, 判断理由)
+    """
+    pid_upper = product_id.upper()
+    primary = get_chain_for_symbol(product_id)
+
+    if pid_upper not in _PRODUCT_TO_CROSS_CHAIN:
+        return primary, '非跨链品种，默认主链'
+
+    info = _PRODUCT_TO_CROSS_CHAIN[pid_upper]
+
+    # — 市场状态主导链切换 —
+    if product_id.upper() == 'MA':
+        if market_state == 'cost_push':
+            return '煤化工', '煤价上行主导（成本推动型），甲醇跟煤走'
+        elif market_state == 'demand_pull':
+            return '油化工', '下游烯烃需求主导（需求拉动型），甲醇跟下游走'
+        return info['primary'], info['judgment']
+
+    elif product_id.upper() == 'SA':
+        if market_state == 'policy_shift':
+            return '新能源', '光伏装机政策驱动+玻璃产能置换，光伏占比已>35%'
+        elif market_state == 'demand_pull':
+            return '新能源', '光伏组件需求拉动，纯碱→光伏玻璃链活跃'
+        return info['primary'], info['judgment']
+
+    elif product_id.upper() == 'UR':
+        if market_state == 'cost_push':
+            return '煤化工', '煤价上涨，尿素生产成本驱动'
+        elif market_state == 'demand_pull':
+            return '谷物软商品', '农业需求旺季，尿素→化肥→农产品传导'
+        return info['primary'], info['judgment']
+
+    elif product_id.upper() == 'EG':
+        if market_state == 'cost_push':
+            return '油化工', '石脑油裂解路线主导，油价→EG传导'
+        elif market_state == 'policy_shift':
+            return '煤化工', '煤制EG产能释放，煤头路线成本优势'
+        return info['primary'], info['judgment']
+
+    elif product_id.upper() == 'AL':
+        if market_state == 'cost_push':
+            return '能源链', '电力成本（煤→电→铝）主导，铝厂成本承压'
+        return info['primary'], info['judgment']
+
+    return info['primary'], info['judgment']
+
+
+# ============================================================
 # 辩论单元
+# ============================================================
 DEBATE_UNITS: Dict[str, dict] = {
     '黑色系':   {'unit': ['i', 'j', 'rb'], 'focus': '成本推涨vs需求拉动？利润在上游还是下游？'},
     '能源链':   {'unit': ['sc', 'lu', 'bu'], 'focus': '裂解价差？原油-成品油传导效率？'},
@@ -60,7 +217,10 @@ DEBATE_UNITS: Dict[str, dict] = {
     '纸浆造纸': {'unit': ['sp', 'op'], 'focus': '纸浆-双胶纸价差？sp为上游（纸浆），op为下游（双胶纸）'},
 }
 
+# ============================================================
 # 产业链相关性矩阵
+# ============================================================
+# 范围 0.0~1.0，表示跨链联动强度
 CHAIN_CORRELATION_MATRIX: Dict[str, Dict[str, float]] = {
     '黑色系':   {'能源链': 0.3, '有色': 0.4, '建材': 0.6},
     '能源链':   {'黑色系': 0.3, '聚酯链': 0.7, '油化工': 0.8},
@@ -77,9 +237,11 @@ CHAIN_CORRELATION_MATRIX: Dict[str, Dict[str, float]] = {
     '纸浆造纸': {},
 }
 
+# ============================================================
+# 同链冗余检测
+# ============================================================
 # 品种级高相关配对（同产业链内驱动因素高度重叠，需要冗余检测）
-# 格式：{链名: [(品种A, 品种B), ...]} — 仅列出真正高相关的配对
-# 未列出的品种即使同在一条链，也不视为冗余，各自保持独立
+# 格式：{链名: [(品种A, 品种B), ...]}
 WITHIN_CHAIN_HIGH_CORRELATION: Dict[str, List[tuple]] = {
     '黑色系': [
         ('rb', 'hc'),  # 螺纹钢≈热卷：地产+基建+粗钢产量+炉料成本驱动高度重叠
@@ -87,7 +249,6 @@ WITHIN_CHAIN_HIGH_CORRELATION: Dict[str, List[tuple]] = {
 }
 
 # 品种级独立声明（同产业链内驱动因素独立，永不视为冗余）
-# 格式：{链名: [品种代码列表]}
 WITHIN_CHAIN_INDEPENDENT: Dict[str, List[str]] = {
     '黑色系': ['SM', 'SF'],  # 锰硅/硅铁受独立供需+锰矿进口影响，与RB/HC相关性弱
 }
@@ -186,8 +347,17 @@ def select_leader(chain_symbols: list, overall_trend: str):
     return leader, reason
 
 
-def cluster_chains(symbols: list) -> dict:
-    """将品种数据按产业链聚类。"""
+def cluster_chains(symbols: list, market_state: str = 'default') -> dict:
+    """将品种数据按产业链聚类，v2.14 新增 cross_chain_info 字段。
+
+    Args:
+        symbols: 品种数据列表，每项含 product_id, direction, last_price, open_interest 等
+        market_state: 市场状态（用于跨链品种的主导链判断）
+            - 'default' | 'cost_push' | 'demand_pull' | 'policy_shift'
+
+    Returns:
+        dict: {链名: {count, leader, overall_trend, members, cross_chain_info, ...}}
+    """
     chain_results = {}
     # 构建大小写不敏感的产品映射
     products_upper = {chain_name: [p.upper() for p in products] for chain_name, products in CHAIN_PRODUCTS.items()}
@@ -207,7 +377,20 @@ def cluster_chains(symbols: list) -> dict:
         overall_trend = classify_chain(avg_score, direction_counts)
         leader, leader_reason = select_leader(chain_symbols, overall_trend)
 
-        chain_results[chain_name] = {
+        # 标记本链中的跨链品种
+        cross_chain_in_chain = []
+        for s in chain_symbols:
+            pid = s.get('product_id', '')
+            if is_cross_chain_variety(pid):
+                dominant, reason = get_dominant_chain(pid, market_state)
+                cross_chain_in_chain.append({
+                    'pid': pid,
+                    'cross_type': '主链' if dominant == chain_name else '副链',
+                    'dominant_chain': dominant,
+                    'dominant_reason': reason,
+                })
+
+        result = {
             'count': len(chain_symbols),
             'leader': leader.get('product_id'),
             'leader_price': leader.get('last_price'),
@@ -215,6 +398,7 @@ def cluster_chains(symbols: list) -> dict:
             'overall_trend': overall_trend,
             'avg_score': round(avg_score, 1),
             'debate_unit': DEBATE_UNITS.get(chain_name, {}),
+            'cross_chain_info': cross_chain_in_chain if cross_chain_in_chain else None,
             'members': [
                 {
                     'pid': s['product_id'],
@@ -227,4 +411,5 @@ def cluster_chains(symbols: list) -> dict:
                 for s in chain_symbols
             ],
         }
+        chain_results[chain_name] = result
     return chain_results

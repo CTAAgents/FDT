@@ -1,0 +1,429 @@
+{
+  "portfolio_summary": {
+    "date": "2025-06-30",
+    "total_position_used": "34% (可执行4品种) + 观察触发后≤20% = 总敞口≤54% < 80% ✓",
+    "top3_concentration": "cs(10%) + rb(8%) + FG(8%) = 26% < 30% ✓",
+    "chain_concentration": {
+      "建材链": {"FG": "8%", "SA(观察)": "≤2%", "total": "≤10%", "limit": "10%", "status": "合规 ✓"},
+      "黑色系": {"rb": "8%", "excluded": "hc/i", "total": "8%", "limit": "10%", "status": "合规 ✓"},
+      "谷物链": {"cs": "10%", "total": "10%", "limit": "15%", "status": "合规 ✓"},
+      "纸浆造纸": {"sp": "8%", "total": "8%", "limit": "10%", "status": "合规 ✓"},
+      "油脂油料(观察)": {"a": "≤5%", "PK": "≤5%", "note": "互为冗余, 择一入场", "status": "观察待定"}
+    },
+    "portfolio_hedge": "多头(谷物链cs) vs 空头(黑色系rb/建材FG/纸浆sp)跨产业链对冲，板块间相关性弱，天然分散。无同产业链多空并存情况，不需要主动对冲。"
+  },
+
+  "executable_plans": {
+
+    "cs": {
+      "verdict": "BUY",
+      "direction": "多头",
+      "risk_level": "低风险",
+      "score": "67",
+      "price_current": 2734,
+      "support": 2694,
+      "resistance": 2843,
+      "atr": 26,
+      "term_structure": "Back(-2.36%) ✓ 有利",
+      "context": "谷物链强势多头, Back结构支撑",
+      "chain_limit_note": "谷物链唯一品种，无集中度限制",
+      "options": [
+        {
+          "type": "激进",
+          "entry": "现价2734附近直接入场",
+          "usecase": "趋势明确、Back结构支持、低风险评分",
+          "stop_loss": {"price": 2695, "method": "ATR追踪(1.5×ATR=2734-39)", "loss_pct": "1.4%"},
+          "targets": [
+            {"level": "T1:2800", "profit_pct": "+2.4%", "position_reduce": "减30%", "risk_reward": "1.7:1"},
+            {"level": "T2:2843", "profit_pct": "+4.0%", "position_reduce": "减50%", "risk_reward": "2.9:1"},
+            {"level": "T3:突破阻力持有", "position_reduce": "余20%趋势跟踪"}
+          ],
+          "position": "10%",
+          "validity": "3个交易日",
+          "pros": ["Back结构有利多头", "谷物链强势", "止损紧(1.4%)", "盈亏比优秀"],
+          "cons": ["现价入场无安全边际", "短期可能震荡消化"]
+        },
+        {
+          "type": "保守",
+          "entry": "等待回调至2700-2710区间入场",
+          "usecase": "右侧交易铁律，等回调确认支撑",
+          "stop_loss": {"price": 2685, "method": "技术位(前低2694下方)", "loss_pct": "0.7-0.9%"},
+          "targets": [
+            {"level": "T1:2780", "profit_pct": "+2.6-3.0%", "position_reduce": "减30%", "risk_reward": "3.0:1"},
+            {"level": "T2:2843", "profit_pct": "+4.9-5.3%", "position_reduce": "减50%", "risk_reward": "5.5:1"},
+            {"level": "T3:趋势跟踪", "position_reduce": "余20%"}
+          ],
+          "position": "8%",
+          "validity": "5个交易日",
+          "pros": ["盈亏比极优", "安全边际高", "严格右侧"],
+          "cons": ["可能踏空不回调", "仓位略低于激进方案"]
+        },
+        {
+          "type": "分批",
+          "entry": "第一批:现价2734入场50%仓位; 第二批:回调2700-2710加50%",
+          "usecase": "方向明确但担心波动，平滑成本",
+          "stop_loss": {"price": 2685, "method": "综合止损(两批均价2717下方)", "loss_pct": "1.2%"},
+          "targets": [
+            {"level": "T1:2800", "profit_pct": "+3.1%", "position_reduce": "减30%", "risk_reward": "2.6:1"},
+            {"level": "T2:2843", "profit_pct": "+4.6%", "position_reduce": "减50%", "risk_reward": "3.8:1"}
+          ],
+          "position": "9%",
+          "validity": "5个交易日",
+          "pros": ["平衡入场风险", "回调加仓降低成本", "灵活应变"],
+          "cons": ["第一批可能短期浮亏", "管理复杂度略高"]
+        }
+      ],
+      "hedge_suggestion": "多头敞口与其他空头品种(cs vs rb+FG+sp)跨产业链对冲，天然分散，无需额外对冲。",
+      "recommended": "分批方案 → 右侧铁律兼容，风险收益均衡"
+    },
+
+    "rb": {
+      "verdict": "SELL",
+      "direction": "空头",
+      "risk_level": "低风险",
+      "score": "58",
+      "price_current": 3087,
+      "support": 2917,
+      "resistance": 3140,
+      "atr": 27,
+      "term_structure": "Contango(+0.13%) ✓ 略有利",
+      "context": "黑色系100%空头一致, 排除hc/i冗余后单一敞口",
+      "chain_limit_note": "黑色系唯一执行品种，集中度正常",
+      "options": [
+        {
+          "type": "激进",
+          "entry": "现价3087附近入场",
+          "usecase": "黑色系空头一致，趋势明确",
+          "stop_loss": {"price": 3128, "method": "ATR追踪(1.5×ATR=3087+41)", "loss_pct": "1.3%"},
+          "targets": [
+            {"level": "T1:3000", "profit_pct": "+2.8%", "position_reduce": "减30%", "risk_reward": "2.2:1"},
+            {"level": "T2:2917", "profit_pct": "+5.5%", "position_reduce": "减50%", "risk_reward": "4.2:1"}
+          ],
+          "position": "8%",
+          "validity": "3个交易日",
+          "pros": ["黑色系一致空头", "Contango略有利", "盈亏比好"],
+          "cons": ["现价离阻力较近", "反弹风险存在"]
+        },
+        {
+          "type": "保守",
+          "entry": "等待反弹至3120-3140区间入场",
+          "usecase": "Contango但幅度小，等更好价格",
+          "stop_loss": {"price": 3155, "method": "技术位(阻力3140上方)", "loss_pct": "0.5-1.1%"},
+          "targets": [
+            {"level": "T1:3030", "profit_pct": "+2.9-3.5%", "position_reduce": "减30%", "risk_reward": "3.0:1"},
+            {"level": "T2:2917", "profit_pct": "+6.5-7.1%", "position_reduce": "减50%", "risk_reward": "6.0:1"}
+          ],
+          "position": "7%",
+          "validity": "5个交易日",
+          "pros": ["盈亏比极优", "安全边际充足", "严格右侧"],
+          "cons": ["可能踏空反弹未至", "仓位略低"]
+        },
+        {
+          "type": "分批",
+          "entry": "第一批:现价3087入场50%; 第二批:反弹3120-3140加50%",
+          "usecase": "方向明确但反弹风险存在，分仓平滑",
+          "stop_loss": {"price": 3155, "method": "综合止损(两批均价3103上方)", "loss_pct": "1.7%"},
+          "targets": [
+            {"level": "T1:3000", "profit_pct": "+3.3%", "position_reduce": "减30%", "risk_reward": "1.9:1"},
+            {"level": "T2:2917", "profit_pct": "+6.0%", "position_reduce": "减50%", "risk_reward": "3.5:1"}
+          ],
+          "position": "8%",
+          "validity": "5个交易日",
+          "pros": ["现价少量先入场", "反弹加仓摊薄均价", "灵活应对"],
+          "cons": ["第一批可能短期浮盈不足", "整体止损率略高"]
+        }
+      ],
+      "hedge_suggestion": "独立黑色系空头，与其他板块无强相关，不需对冲。",
+      "recommended": "激进方案 → 黑色系一致空头+低风险，直接入场效率更高"
+    },
+
+    "FG": {
+      "verdict": "SELL",
+      "direction": "空头",
+      "risk_level": "低风险",
+      "score": "57",
+      "price_current": 973,
+      "support": 915,
+      "resistance": 1000,
+      "atr": 15,
+      "term_structure": "Contango(+26.48%全市场最强) ✓✓ 极有利",
+      "context": "建材链100%空头一致, 最强Contango信号",
+      "chain_limit_note": "建材链主力品种，SA观察辅仓总敞口≤10%",
+      "options": [
+        {
+          "type": "激进",
+          "entry": "现价973附近入场",
+          "usecase": "Contango 26.48%极强信号，低风险",
+          "stop_loss": {"price": 996, "method": "ATR追踪(1.5×ATR=973+23)", "loss_pct": "2.4%"},
+          "targets": [
+            {"level": "T1:945", "profit_pct": "+2.9%", "position_reduce": "减30%", "risk_reward": "1.2:1"},
+            {"level": "T2:915", "profit_pct": "+6.0%", "position_reduce": "减50%", "risk_reward": "2.5:1"},
+            {"level": "T3:跌破支撑持有", "position_reduce": "余20%趋势跟踪"}
+          ],
+          "position": "8%",
+          "validity": "3个交易日",
+          "pros": ["Contango全市场最强信号", "建材链一致空头", "下跌空间大"],
+          "cons": ["ATR偏小, 止损比例变高(2.4%)", "短期可能测试阻力"]
+        },
+        {
+          "type": "保守",
+          "entry": "等待反弹至985-990区间入场",
+          "usecase": "反弹后入场安全边际更高",
+          "stop_loss": {"price": 1005, "method": "技术位(阻力1000上方)", "loss_pct": "1.5-2.0%"},
+          "targets": [
+            {"level": "T1:955", "profit_pct": "+3.0-3.5%", "position_reduce": "减30%", "risk_reward": "1.8:1"},
+            {"level": "T2:915", "profit_pct": "+7.1-7.6%", "position_reduce": "减50%", "risk_reward": "3.8:1"}
+          ],
+          "position": "7%",
+          "validity": "5个交易日",
+          "pros": ["盈亏比更好", "安全边际高", "严格右侧"],
+          "cons": ["可能踏空", "25%+Contango信号不等人"]
+        },
+        {
+          "type": "分批",
+          "entry": "第一批:现价973入场50%; 第二批:反弹985-990加50%",
+          "usecase": "极强信号+反弹风险，两者兼顾",
+          "stop_loss": {"price": 1005, "method": "综合止损(两批均价980上方)", "loss_pct": "2.6%"},
+          "targets": [
+            {"level": "T1:945", "profit_pct": "+3.6%", "position_reduce": "减30%", "risk_reward": "1.4:1"},
+            {"level": "T2:915", "profit_pct": "+6.6%", "position_reduce": "减50%", "risk_reward": "2.5:1"}
+          ],
+          "position": "8%",
+          "validity": "5个交易日",
+          "pros": ["兼顾信号强度与安全", "分批灵活", "适合高Contango品种"],
+          "cons": ["综合止损率最高", "第一批T1盈亏比略低"]
+        }
+      ],
+      "hedge_suggestion": "建材链空头与SA观察仓同向，不构成对冲。SA如需入场，需在FG已有盈利后作为补仓，而非同时开仓。",
+      "recommended": "激进方案 → 26.48% Contango为最强信号，右侧确认已在现价，无需等待"
+    },
+
+    "sp": {
+      "verdict": "SELL",
+      "direction": "空头",
+      "risk_level": "低风险",
+      "score": "63 (标注WATCH)",
+      "price_current": 4634,
+      "support": 4263,
+      "resistance": 4750,
+      "atr": 60,
+      "term_structure": "Contango(+7.86%) ✓ 有利",
+      "context": "纸浆造纸偏空一致, 但标注WATCH需谨慎",
+      "chain_limit_note": "独立产业链, 无集中度限制",
+      "options": [
+        {
+          "type": "激进",
+          "entry": "现价4634附近入场",
+          "usecase": "Contango+偏空一致, 63分有利",
+          "stop_loss": {"price": 4724, "method": "ATR追踪(1.5×ATR=4634+90)", "loss_pct": "1.9%"},
+          "targets": [
+            {"level": "T1:4500", "profit_pct": "+2.9%", "position_reduce": "减30%", "risk_reward": "1.5:1"},
+            {"level": "T2:4350", "profit_pct": "+6.1%", "position_reduce": "减50%", "risk_reward": "3.2:1"},
+            {"level": "T3:4263", "profit_pct": "+8.0%", "position_reduce": "清仓", "risk_reward": "4.2:1"}
+          ],
+          "position": "8%",
+          "validity": "3个交易日",
+          "pros": ["Contango+偏空一致", "技术目标清晰", "盈亏比达标"],
+          "cons": ["WATCH标记需警惕", "ATR偏大(60), 止损宽度大(90点)", "上方阻力空间有限"]
+        },
+        {
+          "type": "保守",
+          "entry": "等待反弹至4680-4700区间入场",
+          "usecase": "WATCH标记下更谨慎，等反弹确认弱势",
+          "stop_loss": {"price": 4760, "method": "技术位(阻力4750上方)", "loss_pct": "1.3-1.7%"},
+          "targets": [
+            {"level": "T1:4550", "profit_pct": "+2.8-3.2%", "position_reduce": "减30%", "risk_reward": "2.0:1"},
+            {"level": "T2:4350", "profit_pct": "+7.0-7.4%", "position_reduce": "减50%", "risk_reward": "4.5:1"}
+          ],
+          "position": "6%",
+          "validity": "5个交易日",
+          "pros": ["盈亏比最优", "WATCH下更安全", "严格右侧"],
+          "cons": ["可能踏空", "仓位较低限制收益"]
+        },
+        {
+          "type": "分批",
+          "entry": "第一批:现价4634入场50%; 第二批:反弹4680-4700加50%",
+          "usecase": "WATCH标记下最稳妥，先小仓再确认",
+          "stop_loss": {"price": 4760, "method": "综合止损(两批均价4657上方)", "loss_pct": "2.2%"},
+          "targets": [
+            {"level": "T1:4500", "profit_pct": "+3.4%", "position_reduce": "减30%", "risk_reward": "1.5:1"},
+            {"level": "T2:4350", "profit_pct": "+6.6%", "position_reduce": "减50%", "risk_reward": "3.0:1"}
+          ],
+          "position": "7%",
+          "validity": "5个交易日",
+          "pros": ["WATCH下最稳健", "先建立小仓观察", "反弹确认再加"],
+          "cons": ["综合止损率最高", "执行复杂度增加"]
+        }
+      ],
+      "hedge_suggestion": "sp空头与其他品种无板块内对冲需求。纸浆独立于黑色/建材链，分散度高。",
+      "recommended": "分批方案 → WATCH标记下先小仓，反弹确认后再加仓，符合审慎原则"
+    }
+  },
+
+  "watch_plans": {
+    "a": {
+      "verdict": "BUY (观察)",
+      "risk_level": "中风险",
+      "score": "56",
+      "price_current": 4826,
+      "support": 4685,
+      "resistance": 5067,
+      "atr": 64,
+      "term_structure": "Contango(+3.57%) ⚠️ 不利多头",
+      "context": "弱信号+Contango不利，需等待结构改善",
+      "watch_conditions": [
+        {
+          "condition": "结构转化",
+          "trigger": "期限结构从Contango转为Back或Flat，或Contango收窄至<2%",
+          "rationale": "当前Contango+3.57%是多头最大阻力"
+        },
+        {
+          "condition": "价格突破",
+          "trigger": "价格站稳4920上方(突破短期阻力)",
+          "rationale": "确认多头动能恢复"
+        },
+        {
+          "condition": "技术确认",
+          "trigger": "日线RSI重回50上方+MACD柱转正",
+          "rationale": "动量确认"
+        }
+      ],
+      "entry_if_triggered": {
+        "type": "分批",
+        "entry": "第一批:触发时入50%; 第二批:回调至4850加50%",
+        "stop_loss": {"price": 4720, "method": "ATR追踪(1.5×ATR=入场价-96)", "loss_pct": "2.0%"},
+        "targets": [
+          {"level": "T1:5000", "risk_reward": "≥2:1"},
+          {"level": "T2:5067", "risk_reward": "≥3:1"}
+        ],
+        "position": "5% (与PK互为冗余, 择一) 或 3% (均入)"
+      },
+      "note": "与PK同属油脂油料多头，方向一致互为冗余。建议二选一，首选a (评分56>55)"
+    },
+
+    "PK": {
+      "verdict": "BUY (观察)",
+      "risk_level": "中风险",
+      "score": "55",
+      "price_current": 8426,
+      "support": 8296,
+      "resistance": 8932,
+      "atr": 65,
+      "term_structure": "Flat结构",
+      "context": "弱信号+Flat中性结构，缺乏明确驱动力",
+      "watch_conditions": [
+        {
+          "condition": "价格突破",
+          "trigger": "价格突破8580-8600阻力区且放量",
+          "rationale": "确认上升趋势延续"
+        },
+        {
+          "condition": "结构改善",
+          "trigger": "期限结构转为Back(哪怕微Back)",
+          "rationale": "Flat转Back是多头信号增强"
+        },
+        {
+          "condition": "成交量配合",
+          "trigger": "持仓量增加+日成交量放大至均值1.5倍以上",
+          "rationale": "资金入场确认"
+        }
+      ],
+      "entry_if_triggered": {
+        "type": "保守",
+        "entry": "突破8580后回踩8550确认入场",
+        "stop_loss": {"price": 8420, "method": "技术位(突破前支撑)", "loss_pct": "1.5%"},
+        "targets": [
+          {"level": "T1:8750", "risk_reward": "2.5:1"},
+          {"level": "T2:8932", "risk_reward": "4.5:1"}
+        ],
+        "position": "5% (与a互为冗余, 择一) 或 3% (均入)"
+      },
+      "note": "评分低于a(55<56)，若选择油脂油料多头优先考虑a。PK仅适合作为a的补充。"
+    },
+
+    "SA": {
+      "verdict": "SELL (观察)",
+      "risk_level": "中风险",
+      "score": "55",
+      "price_current": 1096,
+      "support": 1008,
+      "resistance": 1127,
+      "atr": 17,
+      "term_structure": "Contango(+17.39%) ✓ 有利",
+      "context": "建材链冗余于FG, 总敞口受限",
+      "chain_limit_note": "建材链FG(8%)+SA(≤2%)=10%",
+      "watch_conditions": [
+        {
+          "condition": "FG已有盈利",
+          "trigger": "FG空头盈利≥2%后再考虑SA入场",
+          "rationale": "主仓盈利后加仓辅仓, 控制链集中度风险"
+        },
+        {
+          "condition": "SA破位确认",
+          "trigger": "SA价格跌破1080(短期支撑)",
+          "rationale": "确认下跌加速"
+        }
+      ],
+      "entry_if_triggered": {
+        "type": "保守",
+        "entry": "FG盈利2%+SA跌破1080后入场",
+        "stop_loss": {"price": 1110, "method": "技术位(阻力1127下方)", "loss_pct": "1.8-2.8%"},
+        "targets": [
+          {"level": "T1:1050", "risk_reward": "≥1.5:1"},
+          {"level": "T2:1008", "risk_reward": "≥3.0:1"}
+        ],
+        "position": "2% (建材链总敞口维持≤10%)"
+      },
+      "note": "SA/FG同向空头非对冲是加仓。必须FG先盈利再考虑SA，避免建材链双重亏损。"
+    },
+
+    "si": {
+      "verdict": "SELL (观察)",
+      "risk_level": "中风险",
+      "score": "54",
+      "price_current": 8380,
+      "support": 7961,
+      "resistance": 8650,
+      "atr": 150,
+      "term_structure": "不明 (新能源产能过剩)",
+      "context": "弱信号+新能源产能过剩，但评分最低",
+      "watch_conditions": [
+        {
+          "condition": "破位确认",
+          "trigger": "价格跌破8300(短期支撑)",
+          "rationale": "确认新一轮下跌"
+        },
+        {
+          "condition": "量仓配合",
+          "trigger": "持仓量创新高+成交量放大",
+          "rationale": "资金加速入场做空"
+        },
+        {
+          "condition": "宏观配合",
+          "trigger": "新能源板块或工业硅现货价格同步走弱",
+          "rationale": "宏观+基本面验证"
+        }
+      ],
+      "entry_if_triggered": {
+        "type": "保守",
+        "entry": "跌破8300后回踩8330确认入场",
+        "stop_loss": {"price": 8500, "method": "技术位(阻力下方)", "loss_pct": "2.0%"},
+        "targets": [
+          {"level": "T1:8150", "risk_reward": "2.2:1"},
+          {"level": "T2:7961", "risk_reward": "4.4:1"}
+        ],
+        "position": "4% (独立品种，无集中度限制)"
+      },
+      "note": "54分全队最低，建议等待充分触发条件后再考虑入场。不要急于操作。"
+    }
+  },
+
+  "risk_management_notes": [
+    "建材链总敞口已锁定≤10%(FG 8%+SA观察≤2%)",
+    "油脂油料a/PK互为冗余，二选一为宜，避免双重敞口",
+    "SA仅作为FG的辅仓补仓策略，不可独立执行空头",
+    "sp的WATCH标记已通过分批方案审慎处理",
+    "右侧交易铁律：所有观察品种必须满足触发条件后才可入场",
+    "总持仓上限80%，当前最高54%(含观察触发)，安全空间充足"
+  ]
+}
