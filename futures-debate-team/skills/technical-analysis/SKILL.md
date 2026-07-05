@@ -1,7 +1,7 @@
 ---
 name: technical-analysis
-version: 1.0.0
-description: 技术面分析 skill v1.0.0 — 为辩论专家团·技术面研究员（观澜）提供趋势判定、量价分析、背离捕捉、席位资金流、假突破验证的独立分析工具。
+version: 2.0.0
+description: 技术面分析 skill v2.0.0 — 为辩论专家团·技术面研究员（观澜）提供ZigZag支撑阻力+动态阈值量价+多时间框架趋势+背离检测+席位资金流。
 agent_created: true
 user_invocable: false
 triggers:
@@ -10,6 +10,7 @@ triggers:
   - 背离检测
   - 假突破验证
   - 席位资金流
+  - 支撑阻力
 ---
 
 # 技术面分析 v1.0.0
@@ -23,10 +24,11 @@ triggers:
 
 | 模块 | 功能 | 核心函数 |
 |:----|:----|:--------|
-| `trend_analysis.py` | 趋势判定、动量检查 | `analyze_trend()`, `check_momentum()` |
-| `volume_price.py` | 量价配合、假突破验证 | `analyze_volume_price()`, `check_fake_breakout()` |
+| `trend_analysis.py` | 趋势判定、动量检查（v2.0: 多时间框架） | `analyze_trend()`, `check_momentum()` |
+| `volume_price.py` | 量价配合、假突破验证（v2.0: 动态阈值） | `analyze_volume_price()`, `check_fake_breakout()` |
 | `divergence.py` | 价量/价持仓/MACD/RSI背离 | `check_divergence()` |
 | `flow_analysis.py` | 席位资金流、多空比 | `analyze_seat_flow()`, `estimate_long_short_ratio()` |
+| `support_resistance.py` | **支撑/阻力位计算（v2.0新增）** | `find_swing_points()`, `identify_key_levels()`, `calculate_poc()` |
 
 ## 🔴 边界约束
 

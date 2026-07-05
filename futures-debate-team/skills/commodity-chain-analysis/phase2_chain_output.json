@@ -1,323 +1,8 @@
 {
   "variant": "chain_analysis",
-  "generated_at": "2026-07-05 14:56:42",
+  "generated_at": "2026-07-05 16:27:26",
   "chain_results": {
-    "PK": {
-      "chain": "油脂油料",
-      "chain_members": [
-        "a",
-        "b",
-        "m",
-        "y",
-        "p",
-        "OI",
-        "RM",
-        "PK"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "RB": {
-      "chain": "黑色系",
-      "chain_members": [
-        "i",
-        "j",
-        "jm",
-        "rb",
-        "hc",
-        "SF",
-        "SM"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "B": {
-      "chain": "油脂油料",
-      "chain_members": [
-        "a",
-        "b",
-        "m",
-        "y",
-        "p",
-        "OI",
-        "RM",
-        "PK"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "UR": {
-      "chain": "建材",
-      "chain_members": [
-        "FG",
-        "SA",
-        "UR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "SA": {
-      "chain": "建材",
-      "chain_members": [
-        "FG",
-        "SA",
-        "UR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "UR",
-      "notes": []
-    },
-    "PF": {
-      "chain": "聚酯链",
-      "chain_members": [
-        "PX",
-        "TA",
-        "PF",
-        "PR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "PR": {
-      "chain": "聚酯链",
-      "chain_members": [
-        "PX",
-        "TA",
-        "PF",
-        "PR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "PF",
-      "notes": []
-    },
-    "TA": {
-      "chain": "聚酯链",
-      "chain_members": [
-        "PX",
-        "TA",
-        "PF",
-        "PR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "PR",
-      "notes": []
-    },
-    "PX": {
-      "chain": "聚酯链",
-      "chain_members": [
-        "PX",
-        "TA",
-        "PF",
-        "PR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "TA",
-      "notes": []
-    },
-    "EG": {
-      "chain": "油化工",
-      "chain_members": [
-        "eg",
-        "eb",
-        "pp",
-        "l",
-        "PL",
-        "bz"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "CJ": {
-      "chain": "谷物软商品",
-      "chain_members": [
-        "c",
-        "cs",
-        "SR",
-        "CF",
-        "CY",
-        "jd",
-        "lh",
-        "AP",
-        "CJ",
-        "rr"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "OI": {
-      "chain": "油脂油料",
-      "chain_members": [
-        "a",
-        "b",
-        "m",
-        "y",
-        "p",
-        "OI",
-        "RM",
-        "PK"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "FG": {
-      "chain": "建材",
-      "chain_members": [
-        "FG",
-        "SA",
-        "UR"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "SA",
-      "notes": []
-    },
-    "MA": {
-      "chain": "煤化工",
-      "chain_members": [
-        "MA",
-        "SH",
-        "v"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "BU": {
-      "chain": "能源链",
-      "chain_members": [
-        "sc",
-        "lu",
-        "fu",
-        "bu",
-        "pg",
-        "ec"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "FU": {
-      "chain": "能源链",
-      "chain_members": [
-        "sc",
-        "lu",
-        "fu",
-        "bu",
-        "pg",
-        "ec"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "LU": {
-      "chain": "能源链",
-      "chain_members": [
-        "sc",
-        "lu",
-        "fu",
-        "bu",
-        "pg",
-        "ec"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "FU",
-      "notes": []
-    },
-    "SC": {
-      "chain": "能源链",
-      "chain_members": [
-        "sc",
-        "lu",
-        "fu",
-        "bu",
-        "pg",
-        "ec"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "LU",
-      "notes": []
-    },
-    "AL": {
+    "CU": {
       "chain": "有色",
       "chain_members": [
         "cu",
@@ -339,7 +24,7 @@
       "redundant_with": null,
       "notes": []
     },
-    "CU": {
+    "AL": {
       "chain": "有色",
       "chain_members": [
         "cu",
@@ -381,6 +66,28 @@
       "chain_consistency": 0,
       "redundant": true,
       "redundant_with": "CU",
+      "notes": []
+    },
+    "PB": {
+      "chain": "有色",
+      "chain_members": [
+        "cu",
+        "al",
+        "zn",
+        "pb",
+        "ni",
+        "sn",
+        "ao",
+        "SS",
+        "ad",
+        "bc"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "AL",
       "notes": []
     },
     "NI": {
@@ -457,16 +164,72 @@
       "redundant_with": "AU",
       "notes": []
     },
-    "RU": {
-      "chain": "橡胶",
+    "RB": {
+      "chain": "黑色系",
       "chain_members": [
-        "ru",
-        "nr",
-        "br"
+        "i",
+        "j",
+        "jm",
+        "rb",
+        "hc",
+        "SF",
+        "SM"
       ],
       "term_structure": "flat",
       "basis": "平稳",
       "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "HC": {
+      "chain": "黑色系",
+      "chain_members": [
+        "i",
+        "j",
+        "jm",
+        "rb",
+        "hc",
+        "SF",
+        "SM"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "RB",
+      "notes": []
+    },
+    "SS": {
+      "chain": "有色",
+      "chain_members": [
+        "cu",
+        "al",
+        "zn",
+        "pb",
+        "ni",
+        "sn",
+        "ao",
+        "SS",
+        "ad",
+        "bc"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "WR": {
+      "chain": "未归类",
+      "chain_members": [],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "未知",
       "chain_consistency": 0,
       "redundant": false,
       "redundant_with": null,
@@ -488,26 +251,7 @@
       "chain_trend": "震荡",
       "chain_consistency": 0,
       "redundant": true,
-      "redundant_with": "RB",
-      "notes": []
-    },
-    "J": {
-      "chain": "黑色系",
-      "chain_members": [
-        "i",
-        "j",
-        "jm",
-        "rb",
-        "hc",
-        "SF",
-        "SM"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
+      "redundant_with": "HC",
       "notes": []
     },
     "JM": {
@@ -525,46 +269,27 @@
       "basis": "平稳",
       "chain_trend": "震荡",
       "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "J",
-      "notes": []
-    },
-    "HC": {
-      "chain": "黑色系",
-      "chain_members": [
-        "i",
-        "j",
-        "jm",
-        "rb",
-        "hc",
-        "SF",
-        "SM"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "I",
-      "notes": []
-    },
-    "SF": {
-      "chain": "黑色系",
-      "chain_members": [
-        "i",
-        "j",
-        "jm",
-        "rb",
-        "hc",
-        "SF",
-        "SM"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
       "redundant": false,
       "redundant_with": null,
+      "notes": []
+    },
+    "J": {
+      "chain": "黑色系",
+      "chain_members": [
+        "i",
+        "j",
+        "jm",
+        "rb",
+        "hc",
+        "SF",
+        "SM"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "JM",
       "notes": []
     },
     "SM": {
@@ -586,12 +311,218 @@
       "redundant_with": null,
       "notes": []
     },
-    "V": {
+    "SF": {
+      "chain": "黑色系",
+      "chain_members": [
+        "i",
+        "j",
+        "jm",
+        "rb",
+        "hc",
+        "SF",
+        "SM"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "SC": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "FU": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "SC",
+      "notes": []
+    },
+    "LU": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "FU",
+      "notes": []
+    },
+    "BU": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "LU",
+      "notes": []
+    },
+    "PG": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "BU",
+      "notes": []
+    },
+    "TA": {
+      "chain": "聚酯链",
+      "chain_members": [
+        "PX",
+        "TA",
+        "PF",
+        "PR"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "EG": {
+      "chain": "油化工",
+      "chain_members": [
+        "eg",
+        "eb",
+        "pp",
+        "l",
+        "PL",
+        "bz"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "PF": {
+      "chain": "聚酯链",
+      "chain_members": [
+        "PX",
+        "TA",
+        "PF",
+        "PR"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "TA",
+      "notes": []
+    },
+    "PR": {
+      "chain": "聚酯链",
+      "chain_members": [
+        "PX",
+        "TA",
+        "PF",
+        "PR"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "PF",
+      "notes": []
+    },
+    "PX": {
+      "chain": "聚酯链",
+      "chain_members": [
+        "PX",
+        "TA",
+        "PF",
+        "PR"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "PR",
+      "notes": []
+    },
+    "MA": {
       "chain": "煤化工",
       "chain_members": [
         "MA",
         "SH",
         "v"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "UR": {
+      "chain": "建材",
+      "chain_members": [
+        "FG",
+        "SA",
+        "UR"
       ],
       "term_structure": "flat",
       "basis": "平稳",
@@ -637,7 +568,97 @@
       "redundant_with": "PP",
       "notes": []
     },
-    "LH": {
+    "V": {
+      "chain": "煤化工",
+      "chain_members": [
+        "MA",
+        "SH",
+        "v"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "CY": {
+      "chain": "谷物软商品",
+      "chain_members": [
+        "c",
+        "cs",
+        "SR",
+        "CF",
+        "CY",
+        "jd",
+        "lh",
+        "AP",
+        "CJ",
+        "rr"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "EB": {
+      "chain": "油化工",
+      "chain_members": [
+        "eg",
+        "eb",
+        "pp",
+        "l",
+        "PL",
+        "bz"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "L",
+      "notes": []
+    },
+    "SA": {
+      "chain": "建材",
+      "chain_members": [
+        "FG",
+        "SA",
+        "UR"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "UR",
+      "notes": []
+    },
+    "PK": {
+      "chain": "油脂油料",
+      "chain_members": [
+        "a",
+        "b",
+        "m",
+        "y",
+        "p",
+        "OI",
+        "RM",
+        "PK"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "CJ": {
       "chain": "谷物软商品",
       "chain_members": [
         "c",
@@ -681,51 +702,7 @@
       "redundant_with": null,
       "notes": []
     },
-    "SR": {
-      "chain": "谷物软商品",
-      "chain_members": [
-        "c",
-        "cs",
-        "SR",
-        "CF",
-        "CY",
-        "jd",
-        "lh",
-        "AP",
-        "CJ",
-        "rr"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "CJ",
-      "notes": []
-    },
-    "CF": {
-      "chain": "谷物软商品",
-      "chain_members": [
-        "c",
-        "cs",
-        "SR",
-        "CF",
-        "CY",
-        "jd",
-        "lh",
-        "AP",
-        "CJ",
-        "rr"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "A": {
+    "RM": {
       "chain": "油脂油料",
       "chain_members": [
         "a",
@@ -745,27 +722,7 @@
       "redundant_with": null,
       "notes": []
     },
-    "M": {
-      "chain": "油脂油料",
-      "chain_members": [
-        "a",
-        "b",
-        "m",
-        "y",
-        "p",
-        "OI",
-        "RM",
-        "PK"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "Y": {
+    "OI": {
       "chain": "油脂油料",
       "chain_members": [
         "a",
@@ -801,11 +758,11 @@
       "basis": "平稳",
       "chain_trend": "震荡",
       "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "Y",
+      "redundant": false,
+      "redundant_with": null,
       "notes": []
     },
-    "RM": {
+    "Y": {
       "chain": "油脂油料",
       "chain_members": [
         "a",
@@ -822,10 +779,70 @@
       "chain_trend": "震荡",
       "chain_consistency": 0,
       "redundant": true,
-      "redundant_with": "M",
+      "redundant_with": "P",
       "notes": []
     },
-    "CS": {
+    "A": {
+      "chain": "油脂油料",
+      "chain_members": [
+        "a",
+        "b",
+        "m",
+        "y",
+        "p",
+        "OI",
+        "RM",
+        "PK"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "B": {
+      "chain": "油脂油料",
+      "chain_members": [
+        "a",
+        "b",
+        "m",
+        "y",
+        "p",
+        "OI",
+        "RM",
+        "PK"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "M": {
+      "chain": "油脂油料",
+      "chain_members": [
+        "a",
+        "b",
+        "m",
+        "y",
+        "p",
+        "OI",
+        "RM",
+        "PK"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": true,
+      "redundant_with": "RM",
+      "notes": []
+    },
+    "CF": {
       "chain": "谷物软商品",
       "chain_members": [
         "c",
@@ -847,7 +864,7 @@
       "redundant_with": null,
       "notes": []
     },
-    "C": {
+    "SR": {
       "chain": "谷物软商品",
       "chain_members": [
         "c",
@@ -866,7 +883,7 @@
       "chain_trend": "震荡",
       "chain_consistency": 0,
       "redundant": true,
-      "redundant_with": "CS",
+      "redundant_with": "CJ",
       "notes": []
     },
     "JD": {
@@ -891,12 +908,19 @@
       "redundant_with": null,
       "notes": []
     },
-    "BR": {
-      "chain": "橡胶",
+    "LH": {
+      "chain": "谷物软商品",
       "chain_members": [
-        "ru",
-        "nr",
-        "br"
+        "c",
+        "cs",
+        "SR",
+        "CF",
+        "CY",
+        "jd",
+        "lh",
+        "AP",
+        "CJ",
+        "rr"
       ],
       "term_structure": "flat",
       "basis": "平稳",
@@ -906,88 +930,19 @@
       "redundant_with": null,
       "notes": []
     },
-    "SP": {
-      "chain": "纸浆造纸",
+    "CS": {
+      "chain": "谷物软商品",
       "chain_members": [
-        "sp",
-        "op"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "OP": {
-      "chain": "纸浆造纸",
-      "chain_members": [
-        "sp",
-        "op"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "SP",
-      "notes": []
-    },
-    "LC": {
-      "chain": "新能源",
-      "chain_members": [
-        "ps",
-        "si",
-        "lc"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "SI": {
-      "chain": "新能源",
-      "chain_members": [
-        "ps",
-        "si",
-        "lc"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "PS": {
-      "chain": "新能源",
-      "chain_members": [
-        "ps",
-        "si",
-        "lc"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
-    "EC": {
-      "chain": "能源链",
-      "chain_members": [
-        "sc",
-        "lu",
-        "fu",
-        "bu",
-        "pg",
-        "ec"
+        "c",
+        "cs",
+        "SR",
+        "CF",
+        "CY",
+        "jd",
+        "lh",
+        "AP",
+        "CJ",
+        "rr"
       ],
       "term_structure": "flat",
       "basis": "平稳",
@@ -1018,44 +973,38 @@
       "redundant": false,
       "redundant_with": null,
       "notes": []
-    },
-    "EB": {
-      "chain": "油化工",
-      "chain_members": [
-        "eg",
-        "eb",
-        "pp",
-        "l",
-        "PL",
-        "bz"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "L",
-      "notes": []
     }
   },
   "redundant_pairs": [
     {
-      "primary": "M",
-      "redundant": "RM",
-      "chain": "油脂油料",
-      "reason": "滚动相关系数0.81 (>0.8), 动态检测"
+      "primary": "CU",
+      "redundant": "ZN",
+      "chain": "有色",
+      "reason": "滚动相关系数0.84 (>0.8), 动态检测"
     },
     {
-      "primary": "Y",
-      "redundant": "P",
-      "chain": "油脂油料",
+      "primary": "CU",
+      "redundant": "SN",
+      "chain": "有色",
+      "reason": "滚动相关系数0.88 (>0.8), 动态检测"
+    },
+    {
+      "primary": "AL",
+      "redundant": "PB",
+      "chain": "有色",
       "reason": "滚动相关系数0.86 (>0.8), 动态检测"
     },
     {
-      "primary": "RB",
-      "redundant": "I",
-      "chain": "黑色系",
-      "reason": "滚动相关系数0.90 (>0.8), 动态检测"
+      "primary": "ZN",
+      "redundant": "SN",
+      "chain": "有色",
+      "reason": "滚动相关系数0.83 (>0.8), 动态检测"
+    },
+    {
+      "primary": "AU",
+      "redundant": "AG",
+      "chain": "贵金属",
+      "reason": "滚动相关系数0.93 (>0.8), 动态检测"
     },
     {
       "primary": "RB",
@@ -1064,28 +1013,88 @@
       "reason": "滚动相关系数0.97 (>0.8), 动态检测"
     },
     {
-      "primary": "I",
-      "redundant": "HC",
+      "primary": "RB",
+      "redundant": "I",
+      "chain": "黑色系",
+      "reason": "滚动相关系数0.90 (>0.8), 动态检测"
+    },
+    {
+      "primary": "HC",
+      "redundant": "I",
       "chain": "黑色系",
       "reason": "滚动相关系数0.85 (>0.8), 动态检测"
     },
     {
-      "primary": "J",
-      "redundant": "JM",
+      "primary": "JM",
+      "redundant": "J",
       "chain": "黑色系",
       "reason": "滚动相关系数0.85 (>0.8), 动态检测"
     },
     {
-      "primary": "UR",
-      "redundant": "SA",
-      "chain": "建材",
-      "reason": "滚动相关系数0.85 (>0.8), 动态检测"
+      "primary": "SC",
+      "redundant": "FU",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.96 (>0.8), 动态检测"
     },
     {
-      "primary": "SA",
-      "redundant": "FG",
-      "chain": "建材",
+      "primary": "SC",
+      "redundant": "LU",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.90 (>0.8), 动态检测"
+    },
+    {
+      "primary": "SC",
+      "redundant": "PG",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.95 (>0.8), 动态检测"
+    },
+    {
+      "primary": "FU",
+      "redundant": "LU",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.94 (>0.8), 动态检测"
+    },
+    {
+      "primary": "FU",
+      "redundant": "PG",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.96 (>0.8), 动态检测"
+    },
+    {
+      "primary": "LU",
+      "redundant": "BU",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.91 (>0.8), 动态检测"
+    },
+    {
+      "primary": "LU",
+      "redundant": "PG",
+      "chain": "能源链",
+      "reason": "滚动相关系数0.96 (>0.8), 动态检测"
+    },
+    {
+      "primary": "BU",
+      "redundant": "PG",
+      "chain": "能源链",
       "reason": "滚动相关系数0.88 (>0.8), 动态检测"
+    },
+    {
+      "primary": "TA",
+      "redundant": "PF",
+      "chain": "聚酯链",
+      "reason": "滚动相关系数0.99 (>0.8), 动态检测"
+    },
+    {
+      "primary": "TA",
+      "redundant": "PR",
+      "chain": "聚酯链",
+      "reason": "滚动相关系数0.95 (>0.8), 动态检测"
+    },
+    {
+      "primary": "TA",
+      "redundant": "PX",
+      "chain": "聚酯链",
+      "reason": "滚动相关系数0.98 (>0.8), 动态检测"
     },
     {
       "primary": "PF",
@@ -1095,33 +1104,15 @@
     },
     {
       "primary": "PF",
-      "redundant": "TA",
-      "chain": "聚酯链",
-      "reason": "滚动相关系数0.99 (>0.8), 动态检测"
-    },
-    {
-      "primary": "PF",
       "redundant": "PX",
       "chain": "聚酯链",
       "reason": "滚动相关系数0.99 (>0.8), 动态检测"
-    },
-    {
-      "primary": "PR",
-      "redundant": "TA",
-      "chain": "聚酯链",
-      "reason": "滚动相关系数0.95 (>0.8), 动态检测"
     },
     {
       "primary": "PR",
       "redundant": "PX",
       "chain": "聚酯链",
       "reason": "滚动相关系数0.97 (>0.8), 动态检测"
-    },
-    {
-      "primary": "TA",
-      "redundant": "PX",
-      "chain": "聚酯链",
-      "reason": "滚动相关系数0.98 (>0.8), 动态检测"
     },
     {
       "primary": "EG",
@@ -1160,124 +1151,76 @@
       "reason": "滚动相关系数0.94 (>0.8), 动态检测"
     },
     {
+      "primary": "UR",
+      "redundant": "SA",
+      "chain": "建材",
+      "reason": "滚动相关系数0.85 (>0.8), 动态检测"
+    },
+    {
       "primary": "CJ",
       "redundant": "SR",
       "chain": "谷物软商品",
       "reason": "滚动相关系数0.82 (>0.8), 动态检测"
     },
     {
-      "primary": "CS",
-      "redundant": "C",
-      "chain": "谷物软商品",
-      "reason": "滚动相关系数0.83 (>0.8), 动态检测"
+      "primary": "RM",
+      "redundant": "M",
+      "chain": "油脂油料",
+      "reason": "滚动相关系数0.81 (>0.8), 动态检测"
     },
     {
-      "primary": "BU",
-      "redundant": "LU",
-      "chain": "能源链",
-      "reason": "滚动相关系数0.91 (>0.8), 动态检测"
-    },
-    {
-      "primary": "FU",
-      "redundant": "LU",
-      "chain": "能源链",
-      "reason": "滚动相关系数0.94 (>0.8), 动态检测"
-    },
-    {
-      "primary": "FU",
-      "redundant": "SC",
-      "chain": "能源链",
-      "reason": "滚动相关系数0.96 (>0.8), 动态检测"
-    },
-    {
-      "primary": "LU",
-      "redundant": "SC",
-      "chain": "能源链",
-      "reason": "滚动相关系数0.90 (>0.8), 动态检测"
-    },
-    {
-      "primary": "CU",
-      "redundant": "ZN",
-      "chain": "有色",
-      "reason": "滚动相关系数0.84 (>0.8), 动态检测"
-    },
-    {
-      "primary": "CU",
-      "redundant": "SN",
-      "chain": "有色",
-      "reason": "滚动相关系数0.88 (>0.8), 动态检测"
-    },
-    {
-      "primary": "ZN",
-      "redundant": "SN",
-      "chain": "有色",
-      "reason": "滚动相关系数0.83 (>0.8), 动态检测"
-    },
-    {
-      "primary": "AU",
-      "redundant": "AG",
-      "chain": "贵金属",
-      "reason": "滚动相关系数0.93 (>0.8), 动态检测"
-    },
-    {
-      "primary": "SP",
-      "redundant": "OP",
-      "chain": "纸浆造纸",
-      "reason": "滚动相关系数0.90 (>0.8), 动态检测"
+      "primary": "P",
+      "redundant": "Y",
+      "chain": "油脂油料",
+      "reason": "滚动相关系数0.86 (>0.8), 动态检测"
     }
   ],
   "chain_trends": {
-    "油脂油料": "震荡",
-    "黑色系": "震荡",
-    "建材": "震荡",
-    "聚酯链": "震荡",
-    "油化工": "震荡",
-    "谷物软商品": "震荡",
-    "煤化工": "震荡",
-    "能源链": "震荡",
     "有色": "震荡",
     "贵金属": "震荡",
-    "橡胶": "震荡",
-    "纸浆造纸": "震荡",
-    "新能源": "震荡"
+    "黑色系": "震荡",
+    "能源链": "震荡",
+    "聚酯链": "震荡",
+    "油化工": "震荡",
+    "煤化工": "震荡",
+    "建材": "震荡",
+    "谷物软商品": "震荡",
+    "油脂油料": "震荡"
   },
   "chain_consistencies": {
-    "油脂油料": 0,
-    "黑色系": 0,
-    "建材": 0,
-    "聚酯链": 0,
-    "油化工": 0,
-    "谷物软商品": 0,
-    "煤化工": 0,
-    "能源链": 0,
     "有色": 0,
     "贵金属": 0,
-    "橡胶": 0,
-    "纸浆造纸": 0,
-    "新能源": 0
+    "黑色系": 0,
+    "能源链": 0,
+    "聚酯链": 0,
+    "油化工": 0,
+    "煤化工": 0,
+    "建材": 0,
+    "谷物软商品": 0,
+    "油脂油料": 0
   },
   "judge_verdict": {
     "excluded_symbols": [
       "AG",
-      "C",
+      "BU",
       "EB",
-      "FG",
+      "FU",
       "HC",
       "I",
-      "JM",
+      "J",
       "L",
       "LU",
-      "OP",
-      "P",
+      "M",
+      "PB",
+      "PF",
+      "PG",
       "PP",
       "PR",
       "PX",
-      "RM",
       "SA",
-      "SC",
       "SN",
       "SR",
-      "TA",
+      "Y",
       "ZN"
     ],
     "kept_symbols": [
@@ -1286,79 +1229,71 @@
       "AP",
       "AU",
       "B",
-      "BR",
-      "BU",
       "CF",
       "CJ",
       "CS",
       "CU",
-      "EC",
+      "CY",
       "EG",
-      "FU",
-      "J",
       "JD",
-      "LC",
+      "JM",
       "LH",
-      "M",
       "MA",
       "NI",
       "OI",
-      "PF",
+      "P",
       "PK",
-      "PS",
       "RB",
+      "RM",
       "RR",
-      "RU",
+      "SC",
       "SF",
-      "SI",
       "SM",
-      "SP",
+      "SS",
+      "TA",
       "UR",
       "V",
-      "Y"
+      "WR"
     ],
     "chain_representatives": {
-      "油脂油料": [
-        "M",
-        "Y"
+      "有色": [
+        "CU",
+        "AL",
+        "ZN"
+      ],
+      "贵金属": [
+        "AU"
       ],
       "黑色系": [
         "RB",
-        "I",
-        "J"
+        "HC",
+        "JM"
       ],
-      "建材": [
-        "UR",
-        "SA"
+      "能源链": [
+        "SC",
+        "FU",
+        "LU",
+        "BU"
       ],
       "聚酯链": [
+        "TA",
         "PF",
-        "PR",
-        "TA"
+        "PR"
       ],
       "油化工": [
         "EG",
         "PP",
         "L"
       ],
+      "建材": [
+        "UR"
+      ],
       "谷物软商品": [
-        "CJ",
-        "CS"
+        "CJ"
       ],
-      "能源链": [
-        "BU",
-        "FU",
-        "LU"
-      ],
-      "有色": [
-        "CU",
-        "ZN"
-      ],
-      "贵金属": [
-        "AU"
-      ],
-      "纸浆造纸": [
-        "SP"
+      "油脂油料": [
+        "RM",
+        "P"
       ]
     },
     "principle": "一链一代表（同链高相关品种只保留信号最强的1个）",
@@ -1369,17 +1304,14 @@
       "AP",
       "AU",
       "B",
-      "BR",
       "BU",
-      "C",
       "CF",
       "CJ",
       "CS",
       "CU",
+      "CY",
       "EB",
-      "EC",
       "EG",
-      "FG",
       "FU",
       "HC",
       "I",
@@ -1387,40 +1319,38 @@
       "JD",
       "JM",
       "L",
-      "LC",
       "LH",
       "LU",
       "M",
       "MA",
       "NI",
       "OI",
-      "OP",
       "P",
+      "PB",
       "PF",
+      "PG",
       "PK",
       "PP",
       "PR",
-      "PS",
       "PX",
       "RB",
       "RM",
       "RR",
-      "RU",
       "SA",
       "SC",
       "SF",
-      "SI",
       "SM",
       "SN",
-      "SP",
       "SR",
+      "SS",
       "TA",
       "UR",
       "V",
+      "WR",
       "Y",
       "ZN"
     ],
-    "debate_count": 35,
+    "debate_count": 30,
     "excluded_count": 21
   }
 }
