@@ -29,18 +29,35 @@ def find_swing_points(
     lows: List[float],
     lookback: int = 3,
     deviation_pct: float = 0.3,
+    rollover_indices: Optional[List[int]] = None,
 ) -> Dict[str, List[dict]]:
-    """ZigZag拐点检测 — 找前高前低。
+    """ZigZag拐点检测 — 找前高前低（支持换月跳空屏蔽）。
+
+    Args:
+        highs: 最高价序列（最近的在最后）
+        lows: 最低价序列
+        lookback: 回溯K线数
+        deviation_pct: 反转确认幅度（%）
+        rollover_indices: 换月跳空的K线索引列表，附近±lookback根跳过检测
 
     Returns:
-        {"swing_highs": [{"idx", "price", "strength"}],
-         "swing_lows":  [...]}
-        strength: 被后续拐点确认次数
+        {"swing_highs": [...], "swing_lows": [...]}
     """
     n = len(highs)
     swing_highs, swing_lows = [], []
 
+    # 构建换月屏蔽区间
+    mask = set()
+    if rollover_indices:
+        for ri in rollover_indices:
+            for offset in range(-lookback, lookback + 1):
+                idx = ri + offset
+                if 0 <= idx < n:
+                    mask.add(idx)
+
     for i in range(lookback, n - lookback):
+        if i in mask:
+            continue
         is_high = all(highs[i] > highs[i - j] and highs[i] > highs[i + j]
                       for j in range(1, lookback + 1))
         if is_high:
@@ -229,6 +246,111 @@ def _fail_condition(price: float, is_support: bool, hardness: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
+# OI/成交量确认 → 关键位置信度调整
+# ═══════════════════════════════════════════════════════════
+
+def _check_oi_confirmation(
+    price: float,
+    closes: List[float],
+    oi_series: Optional[List[float]],
+    volume_series: Optional[List[float]],
+    lookback_bars: int = 10,
+    is_support: bool = True,
+) -> dict:
+    """检查关键位附近的OI/成交量配合情况。
+
+    规则（源自规范）：
+    - 涨到压力位 OI大增+放量滞涨 → 真压力
+    - 跌到支撑位 OI大增+放量止跌 → 真支撑
+    - 跌到支撑位 OI减+空平 → 支撑有效（但偏弱）
+    - 压力/支撑位附近缩量 → 该级别置信度降低
+
+    Returns:
+        {"oi_confirm": "confirmed"|"neutral"|"contradict",
+         "volume_confirm": "confirmed"|"neutral"|"contradict",
+         "nearby_bars": int, "oi_trend": str, "vol_trend": str}
+    """
+    result = {"nearby_bars": 0, "oi_confirm": "neutral",
+              "volume_confirm": "neutral", "oi_trend": "unknown", "vol_trend": "unknown"}
+
+    if not closes or len(closes) < lookback_bars:
+        return result
+
+    # 找最近lookback_bars中接近关键位的K线
+    nearby = []
+    for i in range(max(0, len(closes) - lookback_bars * 3), len(closes)):
+        dist = abs(closes[i] - price) / max(price, 1) * 100
+        if dist < 1.0:  # 1%以内的接近
+            nearby.append(i)
+
+    result["nearby_bars"] = len(nearby)
+    if len(nearby) < 2:
+        return result
+
+    # 检查OI趋势
+    if oi_series and len(oi_series) > nearby[0]:
+        oi_vals = [oi_series[i] if i < len(oi_series) else oi_series[-1] for i in nearby]
+        if len(oi_vals) >= 2:
+            oi_change = (oi_vals[-1] - oi_vals[0]) / max(oi_vals[0], 1) * 100
+            result["oi_trend"] = f"{oi_change:+.1f}%"
+            if is_support:
+                # 跌到支撑 OI增 = 真支撑（有人接）；OI减 = 空平反弹
+                if oi_change > 3:
+                    result["oi_confirm"] = "confirmed"
+                elif oi_change < -3:
+                    result["oi_confirm"] = "confirmed"
+                else:
+                    result["oi_confirm"] = "neutral"
+            else:
+                # 涨到压力 OI大增+滞涨 = 真压力
+                if oi_change > 3:
+                    result["oi_confirm"] = "confirmed"
+                elif oi_change < -3:
+                    result["oi_confirm"] = "contradict"  # 减仓上涨 → 假突破可能
+                else:
+                    result["oi_confirm"] = "neutral"
+
+    # 检查成交量趋势
+    if volume_series and len(volume_series) > nearby[0]:
+        vol_vals = [volume_series[i] if i < len(volume_series) else volume_series[-1] for i in nearby]
+        if len(vol_vals) >= 2:
+            avg_vol_before = sum(vol_vals[:len(vol_vals)//2]) / max(len(vol_vals)//2, 1)
+            avg_vol_after = sum(vol_vals[len(vol_vals)//2:]) / max(len(vol_vals) - len(vol_vals)//2, 1)
+            vol_ratio = avg_vol_after / max(avg_vol_before, 1)
+            result["vol_trend"] = f"{vol_ratio:.1f}x"
+            if vol_ratio >= 1.5:
+                result["volume_confirm"] = "confirmed"
+            elif vol_ratio <= 0.6:
+                result["volume_confirm"] = "contradict"
+
+    return result
+
+
+def _adjust_hardness_with_oi(
+    base_hardness: str,
+    oi_check: dict,
+) -> str:
+    """根据OI/成交量配合度调整hardness"""
+    order = {"hard": 3, "medium": 2, "soft": 1}
+    base = order.get(base_hardness, 2)
+
+    confirms = 0
+    if oi_check.get("oi_confirm") == "confirmed":
+        confirms += 1
+    if oi_check.get("volume_confirm") == "confirmed":
+        confirms += 1
+    if oi_check.get("oi_confirm") == "contradict":
+        confirms -= 1
+    if oi_check.get("volume_confirm") == "contradict":
+        confirms -= 1
+
+    adjusted = base + confirms
+    adjusted = max(1, min(3, adjusted))
+    rev_map = {3: "hard", 2: "medium", 1: "soft"}
+    return rev_map[adjusted]
+
+
+# ═══════════════════════════════════════════════════════════
 # 主入口：综合识别关键位
 # ═══════════════════════════════════════════════════════════
 
@@ -245,21 +367,29 @@ def identify_key_levels(
     tick_size: float = 100,
     current_price: Optional[float] = None,
     session: str = "daily",
+    rollover_indices: Optional[List[int]] = None,
+    oi_series: Optional[List[float]] = None,
 ) -> Dict:
-    """综合识别支撑阻力位 — 包含硬/软分类 + ATR容差 + 失效条件。
+    """综合识别支撑阻力位 — 含换月屏蔽 + OI/成交量确认。
+
+    Args:
+        highs/lows/closes/volumes: K线数据
+        ma20/ma60: 均线
+        lookback/merge_pct: ZigZag参数
+        atr: ATR值（用于容差带）
+        tick_size: 整数关口判定粒度（如100=3600/3700）
+        session: 时间框架标签
+        rollover_indices: 换月跳空K线索引（用于屏蔽伪拐点）
+        oi_series: 持仓量序列（用于OI/量能确认）
 
     Returns:
-        {
-            "support_levels": [{"price", "count", "hardness", "tolerance",
-                                "source", "fail_condition", "tf"}, ...],
-            "resistance_levels": [...],
-            "poc/vah/val": float,
-            "current_price": float,
-            "method": "zigzag+volume_profile+debate_enhanced"
-        }
+        {"support_levels": [...], "resistance_levels": [...],
+         "poc/vah/val": float, "current_price": float,
+         "method": "..."}
     """
-    # 1. ZigZag
-    sw = find_swing_points(highs, lows, lookback=lookback)
+    # 1. ZigZag（含换月屏蔽）
+    sw = find_swing_points(highs, lows, lookback=lookback,
+                            rollover_indices=rollover_indices)
 
     # 2. Volume Profile
     vp = calculate_poc(highs, lows, volumes)
@@ -284,20 +414,47 @@ def identify_key_levels(
     _cp = current_price or (closes[-1] if closes else (highs[-1] + lows[-1]) / 2)
     atr = atr or (max(highs[-14:]) - min(lows[-14:])) * 0.1 if len(highs) >= 14 else 0
 
+    # 检查是否有换月附近的价位
+    rollover_near = set()
+    if rollover_indices:
+        # 找出换月附近的close价格用于标记
+        for ri in rollover_indices:
+            for offset in range(-lookback, lookback + 1):
+                idx = ri + offset
+                if 0 <= idx < len(closes):
+                    rollover_near.add(closes[idx])
+
     # 5. 构建带辩论属性的level
     def _build_level(price, count, is_support):
         src = _source_type_tag(price, vp, ma20 or 0, ma60 or 0)
-        hd = classify_level_hardness(price, count, src, vp, tick_size)
+        base_hd = classify_level_hardness(price, count, src, vp, tick_size)
+
+        # OI/成交量确认（调整hardness）
+        oi_check = _check_oi_confirmation(price, closes, oi_series, volumes,
+                                           is_support=is_support)
+        hd = _adjust_hardness_with_oi(base_hd, oi_check)
+
         tol = _atr_tolerance(atr, hd)
+        near_rollover = any(abs(price - rp) / max(price, 1) * 100 < 1.0 for rp in rollover_near)
+
         return {
             "price": round(price, 1),
             "count": count,
             "hardness": hd,
+            "base_hardness": base_hd,
             "tolerance": round(tol, 1),
             "tolerance_pct": round(tol / max(_cp, 1) * 100, 2),
             "source": src,
             "fail_condition": _fail_condition(price, is_support, hd),
             "tf": session,
+            "near_rollover": near_rollover,
+            "oi_check": {
+                "nearby_bars": oi_check["nearby_bars"],
+                "oi_confirm": oi_check["oi_confirm"],
+                "volume_confirm": oi_check["volume_confirm"],
+                "oi_trend": oi_check.get("oi_trend", "unknown"),
+                "vol_trend": oi_check.get("vol_trend", "unknown"),
+            },
         }
 
     supports = [_build_level(p, c, True) for p, c in raw_supports]
@@ -314,7 +471,7 @@ def identify_key_levels(
         "val": round(vp["val"], 1) if vp.get("valid") else None,
         "current_price": round(_cp, 1),
         "atr": round(atr, 2),
-        "method": "zigzag+volume_profile+debate_enhanced",
+        "method": "zigzag+volume_profile+debate_enhanced+v2.2",
     }
 
 
