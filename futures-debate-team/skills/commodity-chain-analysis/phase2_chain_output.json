@@ -1,6 +1,6 @@
 {
   "variant": "chain_analysis",
-  "generated_at": "2026-07-05 21:31:24",
+  "generated_at": "2026-07-05 21:31:56",
   "chain_results": {
     "PF": {
       "chain": "聚酯链",
@@ -146,26 +146,6 @@
       "redundant_with": null,
       "notes": []
     },
-    "B": {
-      "chain": "油脂油料",
-      "chain_members": [
-        "a",
-        "b",
-        "m",
-        "y",
-        "p",
-        "OI",
-        "RM",
-        "PK"
-      ],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "震荡",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
     "RB": {
       "chain": "黑色系",
       "chain_members": [
@@ -280,17 +260,6 @@
       "redundant_with": null,
       "notes": []
     },
-    "BH": {
-      "chain": "未归类",
-      "chain_members": [],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "未知",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
     "AP": {
       "chain": "谷物软商品",
       "chain_members": [
@@ -309,8 +278,8 @@
       "basis": "平稳",
       "chain_trend": "震荡",
       "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "AP",
+      "redundant": false,
+      "redundant_with": null,
       "notes": []
     },
     "CJ": {
@@ -557,17 +526,6 @@
       "redundant_with": null,
       "notes": []
     },
-    "CV": {
-      "chain": "未归类",
-      "chain_members": [],
-      "term_structure": "flat",
-      "basis": "平稳",
-      "chain_trend": "未知",
-      "chain_consistency": 0,
-      "redundant": false,
-      "redundant_with": null,
-      "notes": []
-    },
     "SN": {
       "chain": "有色",
       "chain_members": [
@@ -606,8 +564,8 @@
       "basis": "平稳",
       "chain_trend": "震荡",
       "chain_consistency": 0,
-      "redundant": true,
-      "redundant_with": "P",
+      "redundant": false,
+      "redundant_with": null,
       "notes": []
     },
     "PK": {
@@ -713,7 +671,7 @@
       "chain_trend": "震荡",
       "chain_consistency": 0,
       "redundant": true,
-      "redundant_with": "RM",
+      "redundant_with": "M",
       "notes": []
     },
     "RR": {
@@ -1211,24 +1169,6 @@
       "reason": "滚动相关系数0.86 (>0.8), 动态检测"
     },
     {
-      "primary": "P",
-      "redundant": "P",
-      "chain": "油脂油料",
-      "reason": "滚动相关系数1.00 (>0.8), 动态检测"
-    },
-    {
-      "primary": "RM",
-      "redundant": "RM",
-      "chain": "油脂油料",
-      "reason": "滚动相关系数1.00 (>0.8), 动态检测"
-    },
-    {
-      "primary": "AP",
-      "redundant": "AP",
-      "chain": "谷物软商品",
-      "reason": "滚动相关系数1.00 (>0.8), 动态检测"
-    },
-    {
       "primary": "CJ",
       "redundant": "SR",
       "chain": "谷物软商品",
@@ -1393,7 +1333,6 @@
   },
   "judge_verdict": {
     "excluded_symbols": [
-      "AP",
       "AU",
       "C",
       "CU",
@@ -1405,7 +1344,6 @@
       "LU",
       "NR",
       "OP",
-      "P",
       "PB",
       "PG",
       "PP",
@@ -1424,7 +1362,7 @@
       "AG",
       "AL",
       "AO",
-      "B",
+      "AP",
       "BR",
       "BU",
       "CF",
@@ -1441,6 +1379,7 @@
       "MA",
       "NI",
       "OI",
+      "P",
       "PF",
       "PK",
       "PS",
@@ -1468,11 +1407,9 @@
       ],
       "油脂油料": [
         "M",
-        "P",
-        "RM"
+        "P"
       ],
       "谷物软商品": [
-        "AP",
         "CJ",
         "CS"
       ],
@@ -1513,7 +1450,6 @@
       "AO",
       "AP",
       "AU",
-      "B",
       "BR",
       "BU",
       "C",
@@ -1567,7 +1503,7 @@
       "Y",
       "ZN"
     ],
-    "debate_count": 34,
-    "excluded_count": 25
+    "debate_count": 35,
+    "excluded_count": 23
   }
 }

@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.2 — P3全量实现：ML方向预测+风控5层引擎+事件日历+跨品种联动+PnL反馈闭环。十角色全景：数技源(双策略数据输出)→链证源(产业链先于决策)→研究员(供弹)→辩手(辩论)→风控(5层审核)。",
+  "description": "Multi-role futures trading debate team v4.3 — P0+P1全面实施：情感因子+流动性风险+摩擦精细化+Agent协议+DAG并行化+记忆注入+事件日历+特征注入。十角色全景：数技源→链证源→研究员→辩手→风控(5层+摩擦+流动性)。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v4.2 — P3 fully implemented: ML direction prediction with EnsemblePredictor, 5-layer risk engine (smart stop anchor + position sizing + dynamic adjustment + scenario override + feedback loop), event calendar mask, cross-symbol correlation, PnL feedback loop.",
-    "zh": "10角色期货辩论专家团v4.2：数技源双策略→链证源产业链(先于决策)→闫判官定辩论→研究员供弹→多方/空方辩论→策执远出方案→风控明5层审核→闫判官裁决→明鉴秋汇总。P3全量实现：ML方向预测+事件日历+跨品种联动+PnL反馈闭环。"
+    "en": "10-role futures debate team v4.3 — P0+P1 fully implemented: sentiment factor (6th dimension), liquidity risk (liquidity_trap detection), friction modeling (fee+slippage+interest+roll), Agent protocol v3.0 (10-role contracts), DAG parallel engine, memory reflection (query_history), event calendar time window, feature engineering injection, ML ensemble 3rd signal export.",
+    "zh": "10角色期货辩论专家团v4.3：数技源双策略→链证源产业链→闫判官定辩论→研究员供弹(含特征注入)→多方/空方辩论→策执远出方案(净盈亏比)→风控明(5层+摩擦+流动性)→闫判官裁决→明鉴秋汇总。P0+P1全实施：情感因子+流动性+摩擦+DAG并行+Agent协议+记忆注入+事件日历+特征注入+ML集成。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
