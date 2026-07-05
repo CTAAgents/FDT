@@ -1012,8 +1012,30 @@ P1完成后，明鉴秋必须将 `scan_all.py` 的产出保存为 intermediate_d
 
 ## 报告生成
 
+### 全量辩论报告（v2.15.0+ 链证源增强版）
+
+读取链证源分析结果 + 数技源信号数据，生成含动态相关性检测的深度分析HTML。
+
 ```bash
-python ~/.workbuddy/skills/futures-trading-analysis/scripts/phase3_generate_report.py
+python scripts/phase3_generate_debate_report.py \
+  --chain-json /path/to/chain_analysis.json \
+  --summary-json /path/to/summary.json \
+  --prices-json /path/to/prices.json (可选) \
+  -o /path/to/output.html
+```
+
+参数：
+- `--chain-json` — 链证源分析JSON（analyze_chain.py 产出）
+- `--summary-json` — 数技源信号JSON（scan_all.py --dual 产出的 summary JSON）
+- `--prices-json` — 历史价格JSON（可选，用于展示相关系数）
+- `-o` — 输出HTML路径
+- `--title` — 报告标题（可选）
+- `--version` — 版本号（可选）
+
+### 旧版辩论报告（向后兼容）
+
+```bash
+python scripts/phase3_generate_report.py
 ```
 
 产出 HTML 报告，采用深蓝黑色背景 + 金色强调色暗色主题风格。
