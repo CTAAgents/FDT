@@ -126,10 +126,16 @@ append_debate_journal("futures-technical-researcher", "research_snapshot", {
 ```
 
 **支持的工具函数**（来自 `technical-analysis` skill）：
-- `analyze_trend(symbol, kline_data)` — 趋势判定（MA排列、ADX强度、波段方向）
+- `analyze_trend(symbol, kline_data, timeframe)` — 趋势判定（多时间框架：daily/60min/15min）
 - `check_momentum(symbol, rsi, cci)` — 动量检查（超买超卖）
-- `analyze_volume_price(oi_pct, price_pct, vol_ratio)` — 仓价配合解读
-- `check_fake_breakout(direction, vol_ratio, confirmed, tests)` — 真假突破验证
+- `analyze_volume_price(oi_pct, price_pct, vol_ratio, reference_prices)` — 仓价配合解读（动态ATR阈值）
+- `check_fake_breakout(direction, vol_ratio, closes_after_breakout, breakout_price)` — 真假突破验证（自动K线确认）
+- `identify_key_levels(highs, lows, closes, volumes, ma20, ma60, atr, rollover_indices, oi_series)` — **支撑/阻力位综合识别（v2.1新增）**：ZigZag算法+Volume Profile+硬/软分类+ATR容差带+失效条件+OI/量能确认+多周期共振+换月跳空屏蔽
+- `cross_validate_timeframes(daily_levels, h1_levels, m15_levels)` — 多周期共振验证
+- `find_swing_points(highs, lows, lookback, rollover_indices)` — ZigZag拐点检测
+- `calculate_poc(highs, lows, volumes)` — 成交量分布POC/VAH/VAL
+- `check_divergence(price_trend, volume_trend, oi_trend, macd_trend, rsi_trend)` — 多维度背离检测
+- `analyze_seat_flow(bull_shares, bear_shares, change, direction)` — 席位资金流分析
 - `check_divergence(price, vol, oi, macd, rsi)` — 多维度背离检测
 - `analyze_seat_flow(net_long, change, direction, seats)` — 席位资金流分析
 - `estimate_long_short_ratio(long_v, short_v)` — 多空比估算

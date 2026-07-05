@@ -1,13 +1,12 @@
 ---
 name: futures-trading-analysis
-version: 3.2.0
-description: 期货交易辩论专家团 v3.2 — 证真/慎思双角色框架。数技师定方向→研究员供证据→证真(辩护方)→慎思(质疑方)→闫判官判胜负→策执远出策略→风控审方案。统一 schema: ArgumentOutput(role="证真"/"慎思")。
+version: 3.2.1
+description: 期货交易辩论专家团 v4.1 — 数技源--dual双策略→链证源先于闫判官→闫判官定辩论品种+方向→研究员供弹→证真(多方)⇄慎思(空方)交叉质询→策执远出策略→风控审方案。统一 schema: ArgumentOutput。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v3.2.1 (2026-07-05): 适配v4.1架构 — 移除量析师引用；更新为数技源--dual双策略；闫判官自主决定辩论品种与方向；证真/慎思改为从研究员资料中提取论据
   v3.2.0 (2026-07-04): 角色框架重写 — 主框架从多空方向(bull/bear)改为辩论角色(证真/慎思)；统一 schema (ArgumentOutput)；Agent spawn prompt 全部更新；向后兼容旧字段
-  v3.1.0 (2026-07-03): 流程修正 — Phase4/5互换(策执远出策略→风控审核)；正反方辩手替换多空辩手；描述更新
-  v2.5.1 (2026-07-01): 团队上下文恢复机制 — 新增Team Resilience SOP(会话边界切换导致团队失联的5步恢复流程)；
   v2.5.0 (2026-07-01): 四层架构升级 — ①格式层：Pydantic契约替换###END_XXX哨兵 ②传输层：DebateState typed state按需传参 ③拓扑微调：P3交叉质询1轮+Supervisor/Handoff混合模式 ④可观测：PhaseMeta+confidence+repair_phase回退机制
   v2.4.0 (2026-06-30): 新增裁决权重铁律 + 闫判官Prompt嵌入裁决权重规则 — 价格是唯一客观现实最高原则，期限结构权重上限15%，禁止用左侧信号推翻右侧价格方向
   v2.3.0 (2026-06-30): 新增闫判官裁决者角色 — P3后插入P3b，牛势研+熊谋略辩论后由闫判官综合权衡做出方向裁决，P4风控明基于裁决做风险评估
@@ -100,15 +99,13 @@ WorkBuddy 自动化协调器 → spawn 明鉴秋(团队主管)
 python scripts/scan_all.py --output-raw --symbols PK,RB,B,UR
 ```
 
-**量析师**（基于数据做策略层打分）：
+**数技源**（运行双策略，产出两份原始信号）：
 ```bash
-python scripts/scan_all.py --strategy layered_l1l4 --symbols PK,RB,B,UR
+python scripts/scan_all.py --dual --symbols PK,RB,B,UR
 ```
 
-`scan_all.py` 的 `--output-raw` 模式跳过策略打分，仅输出K线+指标+持仓原始数据包（含 `_meta` 溯源字段）。
-`--strategy` 模式基于采集的数据运行指定策略，产出量化信号包（含排名/方向/置信度/否决标记）。
-
-**两个角色使用不同的入口参数，实现代码层角色隔离。**
+`--dual` 模式同时运行 `layered_l1l4` + `factor_timing` 两个策略，各输出一份 JSON+HTML 报告。
+另外自动输出 `signal_summary` 汇总文件（双策略并排，供闫判官决策用）。
 
 #### 铁律2：Agent 输出必须通过文件持久化读取，不依赖消息路由
 
@@ -796,11 +793,11 @@ P1完成后，明鉴秋必须将 `scan_all.py` 的产出保存为 intermediate_d
 **步 1 — spawn 证真**（证真写 v1 + 注入慎思论点=空）:
 ```
 角色: 辩护方（证真）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:证真"定义，请加载并执行。
-角色锚定: 你来为数技源的方向做最强辩护。关注趋势方向和基本面支持证据，用数据构建逻辑链。
-边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从研究员快照中提炼。
-前序数据（按需可见）: 探源+观澜+链证源研究员快照 + 量析师信号包
+角色锚定: 你是多方辩手（证真），从研究员资料中提取多头论据。关注L1-L4技术数据和factor_timing因子数据中支持多头的证据，结合基本面+技术面快照构建逻辑链。
+边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从研究员快照和双策略数据中提炼。
+前序数据（按需可见）: 观澜技术面快照 + 探源基本面快照 + 链证源产业链快照 + L1-L4原始数据 + factor_timing原始数据
 对手论点: 暂无（首轮无慎思论点可读）
-任务: 对辩论候选列表中每一个品种，都从辩护方角度构建论据。
+任务: 对闫判官指定的辩论品种，从多方角度构建多头论据。引用双策略数据（如L1-L4 ADX/RSI/支撑位、factor_timing展期结构/投票净票）。
 产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="证真") schema
 红线: 禁止附和语；每个维度≥1个可核验数字
 产出 schema: ArgumentOutput(role="证真")（contracts/debate.py）
@@ -809,9 +806,9 @@ P1完成后，明鉴秋必须将 `scan_all.py` 的产出保存为 intermediate_d
 **步 2 — Handoff: 慎思读证真 v1 后写慎思 v1**:
 ```
 角色: 质疑方（慎思）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:慎思"定义，请加载并执行。
-角色锚定: 你是风控出身的保守派，对数技源方向的可靠性做压力测试。对数据矛盾和逻辑漏洞十分敏感。
-边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从研究员快照中提炼。
-前序数据（按需可见）: 探源+观澜+链证源研究员快照 + 量析师信号包
+角色锚定: 你是空方辩手（慎思），从研究员资料中提取空头论据。关注L1-L4技术数据和factor_timing因子数据中支持空头的证据，结合基本面+技术面快照构建逻辑链。
+边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从研究员快照和双策略数据中提炼。
+前序数据（按需可见）: 观澜技术面快照 + 探源基本面快照 + 链证源产业链快照 + L1-L4原始数据 + factor_timing原始数据
 对手论点: 你收到了证真的 v1 论点。请阅读 dimensions 和 summary_4_risk。
 任务: 对辩论候选列表中每一个品种，都从质疑方角度提出反驳。
        特别关注：你的质疑论点必须参考并回应证真的核心论据。
