@@ -60,7 +60,7 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
 
 def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
              symbols: list = None, mode: str = "layered",
-             strategy_name: str = None) -> dict:
+             strategy_name: str = None, dual: bool = False) -> dict:
     """执行品种信号扫描，返回结果字典。
 
     策略层已独立到 strategies/ 目录，新增策略仅需:
@@ -74,12 +74,65 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             "compare" → 保留旧行为（双模式对比打印）
         mode: 旧版参数，保留向后兼容。新代码请用 strategy_name。
         symbols: [(sym, name), ...] 格式。None → 全品种。
+        dual: 双策略模式。True 时同时运行 layered_l1l4 + factor_timing，
+              各输出一份独立的 JSON+HTML 报告。
 
     参数校验：
     - symbols必须为[(sym, name), ...]格式
     - 每个sym为2-6位字母代码
     - 空symbols列表触发全品种扫描
     """
+    # ── 双策略模式：运行两个策略，各输出一份报告 ──
+    if dual:
+        print(f"\n{'='*60}")
+        print(f"  双策略并行模式: L1-L4分层 + 因子择时")
+        print(f"{'='*60}")
+        result_a = run_scan(
+            output_dir=output_dir,
+            output_prefix=f"{output_prefix}_l1l4",
+            symbols=symbols,
+            strategy_name="layered_l1l4",
+            dual=False,
+        )
+        result_b = run_scan(
+            output_dir=output_dir,
+            output_prefix=f"{output_prefix}_factor_timing",
+            symbols=symbols,
+            strategy_name="factor_timing",
+            dual=False,
+        )
+        # ── 双策略信号汇总（纯数据，不做判断） ──
+        if output_dir:
+            try:
+                from signals.debate_brief import build_signal_summary, build_html as brief_html
+                import json as _json
+                l1l4_json = os.path.join(output_dir, f'{output_prefix}_l1l4_{date.today().strftime("%Y%m%d")}.json')
+                factor_json = os.path.join(output_dir, f'{output_prefix}_factor_timing_{date.today().strftime("%Y%m%d")}.json')
+                if os.path.exists(l1l4_json) and os.path.exists(factor_json):
+                    summary = build_signal_summary(l1l4_json, factor_json)
+                    s_json_path = os.path.join(output_dir, f'{output_prefix}_summary_{date.today().strftime("%Y%m%d")}.json')
+                    with open(s_json_path, 'w', encoding='utf-8') as f:
+                        _json.dump(summary, f, ensure_ascii=False, indent=2)
+                    print(f'\n📊 信号汇总: {s_json_path}')
+                    s_html = brief_html(summary)
+                    s_html_path = os.path.join(output_dir, f'{output_prefix}_summary_{date.today().strftime("%Y%m%d")}.html')
+                    with open(s_html_path, 'w', encoding='utf-8') as f:
+                        f.write(s_html)
+                    print(f'📊 汇总HTML: {s_html_path}')
+                    s_meta = summary.get('_meta', {})
+                    print(f"    L1-L4: {s_meta.get('l1l4_bull',0)}多/{s_meta.get('l1l4_bear',0)}空 | 因子: {s_meta.get('factor_bull',0)}多/{s_meta.get('factor_bear',0)}空")
+                    print(f"    → 闫判官自行决定辩论品种与方向（quant-daily不预设）")
+            except Exception as e:
+                print(f'[Warning] 信号汇总生成失败: {e}')
+        print(f"\n{'='*60}")
+        print(f"  双策略完成:")
+        meta_a = result_a.get('_meta', {})
+        meta_b = result_b.get('_meta', {})
+        print(f"    L1-L4: {meta_a.get('bull',0)}多头 / {meta_a.get('bear',0)}空头 (策略: {meta_a.get('strategy','?')})")
+        print(f"    因子择时: {meta_b.get('bull',0)}多头 / {meta_b.get('bear',0)}空头 (策略: {meta_b.get('strategy','?')})")
+        print(f"    → 闫判官根据汇总数据自行决定辩论品种与方向")
+        print(f"{'='*60}")
+        return {"_meta": {"mode": "dual", "l1l4": meta_a, "factor_timing": meta_b}}
     # ── 参数合法性校验 ──
     import re
     valid_sym_pattern = re.compile(r'^[A-Za-z]{1,6}$')
@@ -511,10 +564,15 @@ if __name__ == '__main__':
     parser.add_argument('--mode', '-m', help='[已废弃] 请用 --strategy',
                         default='layered', choices=['layered', 'true_layered', 'compare'])
     parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
+    parser.add_argument('--dual', action='store_true',
+                        help='双策略并行：同时运行 L1-L4分层 + 因子择时，各输出一份报告')
     parser.add_argument('--output-raw', action='store_true',
                         help='纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）')
 
     args = parser.parse_args()
+
+    if args.dual and args.strategy:
+        parser.error('--dual 和 --strategy 不能同时使用（--dual 已内置两个策略）')
 
     if args.list_strategies:
         print('\n可用策略:')
@@ -534,9 +592,9 @@ if __name__ == '__main__':
 
     OUT = args.output
     if not OUT:
-        workspace = r'C:\Users\yangd\Documents\WorkBuddy'
+        workspace = os.path.expanduser('~/Documents/WorkBuddy')
         OUT = os.path.join(workspace, 'Commodities', 'Reports', '商品期货深度分析',
                           date.today().strftime('%Y-%m-%d'))
 
     run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=custom_symbols,
-             mode=args.mode, strategy_name=args.strategy)
+             mode=args.mode, strategy_name=args.strategy, dual=args.dual)

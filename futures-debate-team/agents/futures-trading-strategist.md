@@ -120,3 +120,34 @@ profession:
 - `pnl_est` — 文字化的盈亏估计（如"趋势延续→盈利X%转"）
 
 方案输出中增加 `scenarios` 字段，在 `### 备选方案` 章节呈现。
+
+## Memory 记录规范
+
+每次出方案后，向 `memory/debate_journal.json` 追加记录：
+
+```python
+from scripts.memory_writer import append_debate_journal
+
+append_debate_journal("futures-trading-strategist", "trading_plan", {
+    "round": "RB_20260705",
+    "direction": "bear",
+    "entry": 3600,
+    "target": 3400,
+    "stop": 3680,
+    "lots": 4,
+    "contract": "RB2610",
+})
+```
+
+平仓后，更新 `memory/execution_followup.json`：
+
+```python
+from scripts.memory_writer import append_debate_journal
+append_debate_journal("futures-trading-strategist", "execution_followup", {
+    "round": "RB_20260705",
+    "actual_pnl": "+8.5%",
+    "max_drawdown": "-3.2%",
+    "days_held": 15,
+    "lessons": "入场过早，方向正确但回撤略大，下次等ADX>30再入场。"
+})
+```

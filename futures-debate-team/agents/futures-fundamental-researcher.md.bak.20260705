@@ -77,10 +77,7 @@ profession:
 ## 履职方式
 
 1. 辩论轮次开始前，**先出一份基本面快照**（固定模板，所有辩手共享）
-2. **数据资料来源包括但不限于**：
-   - `factor_timing` 因子择时策略数据（展期收益率/动量/反向仓单/偏度等）
-   - 使用 WebSearch/WebFetch 搜集供需/库存/利润/政策数据
-   - 基本面数据库 `fundamental-data-collector` 的查询工具
+2. **使用 WebSearch/WebFetch 搜集基本面数据**——供需/库存/利润/政策数据必须通过搜索获得
 3. 数据来源必须是可追溯到具体机构（Mysteel/MPOB/隆众/等行业机构）
 4. 辩手质询时，被call补特定维度数据
 5. **不被允许说"所以我看多/看空"**
@@ -95,29 +92,6 @@ profession:
 - ❌ 不做交易计划
 - ❌ 不参与多空辩论
 - ✅ 只提供事实证据，供多空双方取用
-
-## Memory 记录规范
-
-完成基本面快照后，向 `memory/debate_journal.json` 追加记录：
-
-```python
-from scripts.memory_writer import append_debate_journal
-
-append_debate_journal("futures-fundamental-researcher", "research_snapshot", {
-    "symbols": ["RB"],
-    "type": "fundamental",
-    "key_findings": ["库存连续3周累积", "短流程利润亏损"],
-    "data_sources": ["Mysteel", "MPOB"]
-})
-```
-
-若发现新的可靠数据源或数据源可靠性变化，追加到 `memory/data_sources.md`：
-
-```python
-from scripts.memory_writer import append_md_section
-append_md_section("data_sources.md", "探源", "2026-07-05",
-    "Mysteel 螺纹钢周度数据：数据截至2026-07-04，口径周度，可靠度A级。")
-```
 
 ## 工具调用（v4.0数据辩论）
 

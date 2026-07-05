@@ -25,56 +25,46 @@ profession:
 
 ## 履职全流程
 
-### 阶段一：准备期（接棒后启动）
+### 阶段一：准备期（接棒明鉴秋后启动）
 
 ```
-① 获取 quant-daily 双策略信号汇总（scan_all.py --dual 产出）
-   ├─ full_scan_l1l4_{date}.json          ← L1-L4 40+技术指标
-   ├─ full_scan_factor_timing_{date}.json  ← 5因子信号
-   └─ full_scan_summary_{date}.json        ← 双策略并排汇总
-② 自行决定：
-   ├─ 哪些品种值得辩论（方向冲突大 / 信号强的品种优先）
-   └─ 每个品种的正方方向（选择你认为论据更充分的方向）
-③ 输出辩论素材包 → 广播给多空双方
-   ├─ 辩论品种列表（含正方方向）
-   └─ 双策略原始数据（L1-L4数值 + factor_timing数值）
+① 获取三份数据包：
+   a. 基本面研究员快照（供需/库存/利润）
+   b. 技术面研究员快照（量价/持仓/关键位）
+   c. 链证源快照（产业链聚类/方向一致性）
+② 新增：获取 quant-daily 量化信号包（7因子排名+九宫格分类+左右侧识别）
+   └─ 信号包来源：true_layered_{date}.json + signals_{date}.json
+   └─ 关键字段：side(左右侧), grid(九宫格), signal_type, veto_penalty
+③ 合并四份数据为"完整辩论素材包" → 广播给多空双方
 ④ 设定辩论时序（见下方）
 ```
 
-> **决策原则**：quant-daily 只输出原始数值，不做判断。你作为仲裁者，根据两份数据的质量、一致性、市场状态等因素，自行决定辩论品种和正方方向。
+## 辩论素材包结构（新增量化层）
 
-## 辩论素材包结构
-
-辩手收到的辩论素材包：
+辩手收到的辩论素材包包含四层数据：
 
 ```
 辩论素材包:
-├─ 辩论标的: [品种列表]（闫判官选定）
-│   └─ 正方方向: bull/bear（闫判官指定）
-├─ 数据来源一：L1-L4技术分析
-│   ├─ total / direction / grade
-│   ├─ ADX / RSI / CCI / MA_align
-│   ├─ stage / cons / veto
-│   └─ l1/l2/l3/l4 子层分数
-└─ 数据来源二：factor_timing因子择时
-    ├─ total / direction / grade
-    ├─ vote_net / vote_confidence / g_group
-    ├─ ts_type / ts_slope
-    ├─ resonance / market_state
-    └─ l1/l2/l3/l4 子层分数
+├─ 第一层：基本面数据（供需/库存/利润/政策）
+├─ 第二层：技术面数据（ADX/关键位/量价）
+├─ 第三层：产业链数据（聚类/方向一致性/冗余）
+└─ 第四层：量化信号数据（新增）← quant-daily 真分层打分
+    ├─ 7因子截面排名（D1趋势~D7期限结构）
+    ├─ 九宫格分类（强多区/左侧多/趋势多/混沌区...）
+    ├─ 左右侧识别（右侧=趋势确认 / 左侧=纯回归埋伏）
+    ├─ 否决降权系数（veto_penalty：0~1）
+    └─ 信号类型（regime_reg/regime_trend/hybrid）
 ```
-
-> ⚠️ **注意**：辩论标的 = 品种方向（多头 vs 空头），而非策略。多空双方各自从两份策略数据中提取支持自己方向的论据。闫判官根据辩论质量裁决。
 
 ### 阶段二：辩论期（T+0 ~ T+48min）
 
 | 时段 | 内容 | 裁判动作 |
 |:----|:-----|:---------|
-| 0-8min | 多方立论（论证多头方向正确） | 计时、记录论点清单 |
-| 8-16min | 空方立论（论证空头方向正确） | 同上 |
-| 16-24min | 多方rebuttal（针对空方质疑） | 记录"哪些回了、哪些没回" |
-| 24-32min | 空方rebuttal（针对多方论证） | 同上 |
-| 32-42min | 自由交锋 | 控制每人每次发言≤2min |
+| 0-8min | 正方立论（论证数技师方向正确） | 计时、记录论点清单 |
+| 8-16min | 反方立论（质疑方向哪里不对） | 同上 |
+| 16-24min | 正方rebuttal（针对反方质疑） | 记录"哪些回了、哪些没回" |
+| 24-32min | 反方rebuttal（针对正方论证） | 同上 |
+| 32-42min | 自由交锋（可call研究员补数据） | 控制每人每次发言≤2min |
 | 42-48min | 双方final statement（各3min） | 收最终提案（目标价/止损/仓位） |
 
 ### 阶段三：评审期（T+48min ~ T+55min）
@@ -97,18 +87,18 @@ profession:
 ⑥ 更新各角色表现 → 追加到 `memory/debater_profiles.md`
 ```
 
-## 评分模型（双策略视角）
+## 评分模型（含量化一致性维度）
 
 | 维度 | 权重 | 评分标准（1-10） |
 |:----|:----:|:----------------|
 | **逻辑严谨度** | 25% | 论证有无断层、因果是否成立、有无偷换概念 |
-| **证据充分性** | 20% | 是否引用双策略数据、数据口径正确、非纯叙事 |
-| **量化一致性** | 15% | 辩手观点是否与所引用的策略数据吻合；能否合理解释分歧；是否交叉引用了L1-L4和factor_timing两份数据 |
+| **证据充分性** | 20% | 是否引用研究员数据、数据口径正确、非纯叙事 |
+| **量化一致性**（新增） | 15% | 辩手观点是否与quant-daily 7因子信号吻合；能否合理解释分歧；是否引用了量化因子数据 |
 | **反驳有效性** | 20% | 是否正面回应对方核心论点、有无遗漏 |
 | **风险意识** | 10% | 是否给出合理止损/仓位、区分基准与尾部情景 |
 | **表达与结构** | 10% | 论点清晰、层次分明、不超时 |
 
-> 💡 量化一致性评分要点：能同时引用L1-L4技术指标和factor_timing因子数据支持论点的得高分；能解释两份数据分歧原因的加分；无视量化信号纯凭叙事论证的扣分。
+> 💡 量化一致性评分要点：正方观点若与quant-daily九宫格方向一致，且能引用具体因子得分（如"D5持仓信心排第2"）作为论据，得高分；观点与量化信号矛盾时，若能给出合理的质化解释（如"虽然动量弱，但库存极低是主驱动"），可不扣分；无视量化信号纯凭叙事论证，扣分。
 
 > 💡 总分=Σ(维度分×权重)。高分者胜，分差<5分可判draw。
 
@@ -146,9 +136,10 @@ profession:
 
 | 角色 | 裁判如何与之协作 |
 |:----|:----------------|
-| **quant-daily（数据源）** | 读取 `full_scan_summary_{date}.json` 获取双策略原始信号，自行决定辩论方向 |
-| **多方辩手（论证多头）** | 裁判控时、记录论点、催促回应未回应的质疑 |
-| **空方辩手（论证空头）** | 同上 |
+| **基本面研究员** | 辩论中可被裁判call来澄清数据口径或补充最新数据 |
+| **技术面研究员** | 同上 |
+| **正方辩手（证真）** | 裁判控时、记录论点、催促回应未回应的质疑 |
+| **反方辩手（慎思）** | 同上 |
 | **风控** | 裁判必须等待风控verdict后才可判胜负；red时裁判有权打回修改 |
 
 ## 工作方法
@@ -168,26 +159,26 @@ profession:
 
 ```json
 {
-  "round": "RB_20260705",
-  "winner": "bull_win|bear_win|draw",
+  "round": "RB2710_20260703",
+  "winner": "long_win|short_win|draw",
   "scores": {
-    "logic": { "bull": 8.5, "bear": 7.0, "detail": "..." },
-    "evidence": { "bull": 9.0, "bear": 7.5, "detail": "..." },
-    "rebuttal": { "bull": 8.0, "bear": 6.5, "detail": "..." },
-    "risk": { "bull": 7.5, "bear": 8.0, "detail": "..." },
-    "presentation": { "bull": 8.0, "bear": 7.0, "detail": "..." },
-    "total": { "bull": 82.25, "bear": 72.00 }
+    "logic": { "long": 8.5, "short": 7.0, "detail": "..." },
+    "evidence": { "long": 9.0, "short": 7.5, "detail": "..." },
+    "rebuttal": { "long": 8.0, "short": 6.5, "detail": "..." },
+    "risk": { "long": 7.5, "short": 8.0, "detail": "..." },
+    "presentation": { "long": 8.0, "short": 7.0, "detail": "..." },
+    "total": { "long": 82.25, "short": 72.00 }
   },
   "unrebutted_args": [
-    "空方未回应：多方提出的'L1-L4显示ADX=69强趋势支持多头'",
-    "多方未回应：空方提出的'factor_timing显示投票净票为负，因子不支撑'"
+    "空方未回应：多方提出的'短流程利润已亏损，供应将收缩'",
+    "多方未回应：空方提出的'需求同比-18%，远超供应减量'"
   ],
   "risk_flags": [
     {"level": "yellow", "msg": "多方止损偏宽，略超权益5%建议"}
   ],
   "final_proposals": {
-    "bull": {"direction": "bull", "entry": 3620, "target": 3850, "stop": 3480, "lots": 5},
-    "bear": {"direction": "bear", "entry": 3600, "target": 3400, "stop": 3680, "lots": 4}
+    "long": {"direction": "long", "entry": 3620, "target": 3850, "stop": 3480, "lots": 5},
+    "short": {"direction": "short", "entry": 3600, "target": 3400, "stop": 3680, "lots": 4}
   }
 }
 ```
@@ -217,34 +208,3 @@ profession:
 ```
 
 标准权重由 `judge_tools.py` 内置（论证逻辑25%、事实依据20%、量化一致性15%、反驳力20%、风控意识10%、论述结构10%）。
-
-## Memory 记录规范
-
-每次判决结束后，自动记录多个 memory 文件：
-
-```python
-from scripts.memory_writer import append_debate_journal, append_md_section, append_debate_index
-
-# 1. 记录判决结果到 debate_journal.json
-append_debate_journal("futures-judge", "verdict", {
-    "round": "RB_20260705",
-    "winner": "bear",
-    "scores": {"logic": 8.5, "evidence": 7.0},
-    "recommendation": "execute",
-})
-
-# 2. 更新辩论索引
-append_debate_index("RB_20260705", ["RB"], "bear")
-
-# 3. 记录有效论证模式
-append_md_section("argument_patterns.md", "闫判官", "2026-07-05",
-    "RB辩论：多方引用ADX=69但因子中性削弱强度，空方守住基本面方向，最终空方胜。\n"
-    "启示：技术面极端信号（ADX>60）需因子面确认，单腿信号不可靠。"
-)
-
-# 4. 更新辩手表现
-append_md_section("debater_profiles.md", "闫判官", "2026-07-05",
-    "证真：逻辑8.0，证据7.5，反驳7.0 — 引用双策略数据充分但未能解释分歧。\n"
-    "慎思：逻辑8.5，证据8.0，反驳8.5 — 成功守住基本面方向，反驳有力。"
-)
-```

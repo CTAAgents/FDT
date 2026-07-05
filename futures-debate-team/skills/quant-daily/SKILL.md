@@ -1,13 +1,48 @@
 ---
 name: quant-daily
-version: 2.2.0
+version: 2.3.1
 agent_created: true
-description: 商品期货量化分析一体化skill — L1-L4四层累加打分。策略可插拔架构：新增策略仅需新建strategies/*.py + 注册一行。
+description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。
 ---
 
 # quant-daily — 商品期货量化分析一体化
 
-## 🔴 重要：L1-L4为唯一正确模式（2026-07-04修正）
+## 🔴 双策略默认模式（v2.3.1+）
+
+**每次调用 quant-daily 应默认运行双策略**，每份报告只输出原始信号数值，不做判断：
+
+- **`layered_l1l4`** (技术分析) → `full_scan_l1l4_{date}.json/.html`
+- **`factor_timing`** (因子择时) → `full_scan_factor_timing_{date}.json/.html`
+- **信号汇总** → `full_scan_summary_{date}.json/.html`（双策略并排，纯数据）
+
+```bash
+# ✅ 默认命令：双策略并行
+python scripts/scan_all.py --dual
+```
+
+输出文件结构：
+```
+reports/
+├── full_scan_l1l4_20260705.json              # L1-L4 信号（原始数值，不做判断）
+├── full_scan_l1l4_ranking_20260705.html
+├── full_scan_factor_timing_20260705.json      # 因子择时信号（原始数值，不做判断）
+├── full_scan_factor_timing_ranking_20260705.html
+├── full_scan_summary_20260705.json            # 双策略并排汇总（闫判官用）
+└── full_scan_summary_20260705.html
+```
+
+### 职责边界
+
+**quant-daily 只做客观计算**：
+- 所有数据源对置信度统一为 1.0
+- 输出两份策略的原始信号数值
+- **不包含** 辩论推荐、品种分类、风险提示
+
+**闫判官 Agent 负责决策**：
+- 自行决定哪些品种值得辩论
+- 自行决定正方方向
+- 裁决最终方向
+```
 
 **默认模式**：`layered`（L1-L4四层累加打分，原有逻辑，向后兼容）
 
@@ -46,7 +81,33 @@ data/   →  indicators/   →   strategies/   →   scan_all.py (入口)
 | 策略名 | 文件 | 状态 | 说明 |
 |:-------|:-----|:----|:-----|
 | `layered_l1l4` | `strategies/layered_l1l4.py` | ✅ **默认** | L1-L4四层累加(WL1=35/WL2=35/WL3=20/WL4=10) |
+| `factor_timing` | `strategies/factor_timing.py` | ✅ **v2.3.1 完整优化** | 5因子十分组投票 + G1/G10截断 + 真实数据源 + 市场状态自适应 (12项优化) |
 | `true_layered` | `strategies/true_layered.py` | ⛔ 废弃 | 真分层打分(IC=-0.039不显著) |
+
+> **factor_timing v2.3.1 改进（2026-07-05，代码审查驱动的12项优化）：**
+> 
+> **数据质量 (P0)：**
+> 1. far_close 降级使用主力-次主力价差，而非趋势估算
+> 2. wr_last_year 降级使用 60 日滚动均值，而非固定 6000
+> 
+> **核心算法 (P1)：**
+> 3. 板块中性改为全局Z→减板块均值（保留方差）
+> 4. OI 三角过滤增加全市场 ADX 二级闸门
+> 5. 多因子投票改为十分组法（decile rank，赛马截断）
+> 6. 基于 OI 变化的真实换月检测
+> 
+> **参数细节 (P2)：**
+> 7. 动量因子复权说明
+> 8. 偏度因子改为 30d + 60d 等权合成
+> 9. 量价相关性增加 OI 修正版（ΔP×ΔOI）
+> 10. 否决分数增加仓单异常/涨跌停/板块分歧 3 条
+> 11. L1-L4 输出共振系数
+> 12. 市场状态自适应（趋势/震荡/高波/低波自动切换参数）
+
+```bash
+# 使用因子择时策略（v2.3.0 增强版）
+python scripts/scan_all.py --strategy factor_timing --symbols PK,RB,B
+```
 
 ### 如何新增一个策略
 

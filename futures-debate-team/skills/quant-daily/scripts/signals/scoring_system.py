@@ -22,19 +22,16 @@ v2.13 变更（从v2.12升级，v2.12全部因子保留）：
 - 否决维度新增：OI背离、结构切换预警
 """
 
+from typing import Dict, Optional
 import math
-try:
-    from indicators.core import assess_trend_maturity
-except ImportError:
-    from indicators.core import assess_trend_maturity
-
+from indicators.core import assess_trend_maturity
 
 # ============================================================
 # L1-L4 权重（模块级变量，支持外部读取/覆写）
 # ============================================================
-# optimize_weights.py 通过修改这些变量实现权重网格搜索
+# 网格搜索最优 (2026-07-03): L1=35, L2=35, L3=20, L4=10
 WL1 = 35  # L1 萌芽/资金结构
-WL2 = 35  # L2 量价领先
+WL2 = 35  # L2 量价领先（+40% WATCH信号提升）
 WL3 = 20  # L3 价格结构
 WL4 = 10  # L4 确认
 # 各层内部满分（已与层权重 WLx 对齐，缩放为恒等变换）
@@ -42,52 +39,6 @@ L1_INTERNAL_MAX = 35
 L2_INTERNAL_MAX = 35
 L3_INTERNAL_MAX = 20
 L4_INTERNAL_MAX = 10
-
-
-# ============================================================
-# 内部子信号权重配置（模块级变量，支持外部读取/覆写）
-# ============================================================
-# 21个关键子信号的值可直接从字典读取，无需修改 scoring 函数。
-# 外部脚本通过修改 INTERNAL_WEIGHTS 实现权重重配置。
-# 其余次要信号保持硬编码（不在此列表中的信号不受影响）。
-INTERNAL_WEIGHTS = {
-    # L1 (7组关键信号)
-    'OI_BUILDING': 4,    # OI建仓胚：价横+OI增
-    'OI_CONFIRM': 2,     # OI确认胚：价涨+OI增
-    'OI_DIVERGE': -3,    # OI背离：价涨+OI降
-    'MA_SLOPE_INIT': 4,  # MA斜率转平/微翘
-    'MA_SLOPE_STEEP': 1, # MA斜率已陡
-    'HL_FORM': 6,        # Higher Low / Lower High
-    'VOL_PRECURSOR': 5,  # 量能先兆：均量倍量
-    'OBV_LEAD': 6,       # OBV领先/CMF脱零
-    'ROC_JUST': 4,       # ROC刚转正/负
-    'BB_MID': 3,         # %b刚过/下0.5中线
-    # L2 (4组)
-    'VORTEX_CROSS': 8,   # Vortex VI+>VI-
-    'CCI_BREAK': 7,      # CCI破±100
-    'SUPERTREND': 8,     # Supertrend翻色
-    'HMA_CROSS': 7,      # HMA交叉
-    # L3 (3组，已应用优化乘数)
-    'RSI_HEALTHY': 11,   # RSI健康区 (base 9 × 1.25)
-    'RSI_WEAK': 6,       # RSI偏强/偏弱 (base 5 × 1.25)
-    'DMI_DIR': 12,       # DMI方向确认 (base 8 × 1.5)
-    'NEW_HIGH': 8,       # 60日新高/新低 (base 8)
-    # L4 (3组关键信号)
-    'CHANNEL_BREAK': 4,  # DC20通道突破
-    'MA_ALIGN': 3,       # 均线多头/空头排列
-    'MACD_CONFIRM': 1,   # MACD方向确认
-    'DC55_CONV': 2,      # DC55长期趋势同步
-    # 否决 (3组关键)
-    'VETO_ADX_WEAK': -6,   # ADX<15震荡
-    'VETO_RSI_EXTREME': -6,# RSI超买超卖
-    'VETO_DEVIATION': -4,  # 偏离MA20>15%
-}
-
-
-def _w(key: str) -> int:
-    """获取内部子信号权重值。"""
-    return INTERNAL_WEIGHTS.get(key, 0)
-
 
 # ============================================================
 # L1 萌芽/资金结构维度（40分, v2.17: clamp 40）— 最早信号层
@@ -135,25 +86,25 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
         if is_bull:
             # OI建仓胚：价横±1.5% + OI/MA20_OI > 1.1
             if oi_rate > 1.1 and abs(price_change_5d) < 3.0:
-                score += _w("OI_BUILDING")
+                score += 4
                 reasons.append(f'OI建仓胚(率={oi_rate:.2f},价横)(+3)')
             # OI确认胚：价涨 + OI↑
             elif oi_rate > 1.05 and price_change_5d > 0.5:
-                score += _w("OI_CONFIRM")
+                score += 2
                 reasons.append(f'OI确认胚(率={oi_rate:.2f},价涨{price_change_5d:.1f}%)(+2)')
             # OI背离：价涨 + OI↓ → 假突破
             elif oi_rate < 0.9 and price_change_5d > 1:
-                score += _w("OI_DIVERGE")
+                score -= 3
                 reasons.append(f'OI背离(价涨OI降,率={oi_rate:.2f})(-3)')
         else:
             if oi_rate > 1.1 and abs(price_change_5d) < 3.0:
-                score += _w("OI_BUILDING")
+                score += 4
                 reasons.append(f'OI建仓胚(率={oi_rate:.2f},价横)(+3)')
             elif oi_rate > 1.05 and price_change_5d < -0.5:
-                score += _w("OI_CONFIRM")
+                score += 2
                 reasons.append(f'OI确认胚(率={oi_rate:.2f},价跌{price_change_5d:.1f}%)(+2)')
             elif oi_rate < 0.9 and price_change_5d < -1:
-                score += _w("OI_DIVERGE")
+                score -= 3
                 reasons.append(f'OI背离(价跌OI降,率={oi_rate:.2f})(-3)')
 
     # --- [2分] 基差走强/走弱 (v2.17: 4→2, Auxiliary tier) ---
@@ -208,14 +159,14 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
     if roc10 is not None:
         if is_bull:
             if 0 < roc10 <= 3:
-                score += _w("ROC_JUST")
+                score += 4
                 reasons.append(f'ROC10刚转正({roc10:.1f}%)(+4)')
             elif 3 < roc10 <= 8:
                 score += 2
                 reasons.append(f'ROC10初期({roc10:.1f}%)(+2)')
         else:
             if -3 <= roc10 < 0:
-                score += _w("ROC_JUST")
+                score += 4
                 reasons.append(f'ROC10刚转负({roc10:.1f}%)(+4)')
             elif -8 <= roc10 < -3:
                 score += 2
@@ -226,14 +177,14 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
     if bb_pctb is not None:
         if is_bull:
             if 0.45 <= bb_pctb <= 0.65:
-                score += _w("BB_MID")
+                score += 3
                 reasons.append(f'%b刚过中线({bb_pctb:.2f})(+3)')
             elif 0.65 < bb_pctb <= 0.90:
                 score += 2
                 reasons.append(f'%b偏强({bb_pctb:.2f})(+2)')
         else:
             if 0.35 <= bb_pctb <= 0.55:
-                score += _w("BB_MID")
+                score += 3
                 reasons.append(f'%b刚下中线({bb_pctb:.2f})(+3)')
             elif 0.15 <= bb_pctb < 0.35:
                 score += 2
@@ -258,10 +209,10 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
                 score += 4
                 reasons.append(f'MA20斜率转平({ma_slope:.2f})(+4)')
             elif 0.5 < ma_slope <= 2.0:
-                score += _w("MA_SLOPE_INIT")
+                score += 4
                 reasons.append(f'MA20斜率微翘({ma_slope:.2f})(+4)')
             elif ma_slope > 2.0:
-                score += _w("MA_SLOPE_STEEP")
+                score += 1
                 reasons.append(f'MA20斜率已陡({ma_slope:.2f})(+1)')
         else:
             if -0.5 <= ma_slope <= 0.5:
@@ -271,7 +222,7 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
                 score += 4
                 reasons.append(f'MA20斜率微降({ma_slope:.2f})(+4)')
             elif ma_slope < -2.0:
-                score += _w("MA_SLOPE_STEEP")
+                score += 1
                 reasons.append(f'MA20斜率已陡降({ma_slope:.2f})(+1)')
 
     # --- [7分] Higher Low / Lower High (v2.17: 6→7, Core tier) ---
@@ -357,11 +308,11 @@ def score_L1_germination(tech: dict, sym: dict, is_bull: bool,
 
 
 # ============================================================
-# L2 量价领先维度（30分, v2.17a）— 次早信号层
+# L2 量价领先维度（25分, v2.17）— 次早信号层
 # ============================================================
 
 def score_L2_volume_price(tech: dict, sym: dict, is_bull: bool) -> dict:
-    """L2 量价领先维度打分（v2.17a: 内部25分→缩放至30分总分）。
+    """L2 量价领先维度打分（v2.17: 满分25分，内部直接25分无需缩放）。
 
     - [7分] Vortex VI+/VI- 叉（比MACD早2-5根K）
     - [5分] CCI破±100（商品老派但灵，比通道突破早3-8根K）
@@ -426,11 +377,11 @@ def score_L2_volume_price(tech: dict, sym: dict, is_bull: bool) -> dict:
 
 
 # ============================================================
-# L3 价格结构维度（20分, v2.17a）— 价格结构
+# L3 价格结构维度（25分, v2.17）— 价格结构
 # ============================================================
 
 def score_L3_structure(tech: dict, is_bull: bool) -> dict:
-    """L3 价格结构维度打分（v2.17a: 内部25分→缩放至20分总分）。
+    """L3 价格结构维度打分（目标满分25分，内部满分25分，由 calculate_composite_score 缩放至25分）。
 
     v2.17 修正：移除RSI极端反转加分（与趋势跟踪定位冲突），重新分配权重。
     - [14分] RSI健康区间（趋势有空间）
@@ -449,39 +400,39 @@ def score_L3_structure(tech: dict, is_bull: bool) -> dict:
     if rsi is not None:
         if is_bull:
             if 40 <= rsi <= 65:
-                score += _w("RSI_HEALTHY")
-                reasons.append(f'RSI={rsi:.0f}健康区(+{_w("RSI_HEALTHY")})')
+                score += 9
+                reasons.append(f'RSI={rsi:.0f}健康区(+9)')
             elif 65 < rsi <= 75:
-                score += _w("RSI_WEAK")
-                reasons.append(f'RSI={rsi:.0f}偏强(+{_w("RSI_WEAK")})')
+                score += 5
+                reasons.append(f'RSI={rsi:.0f}偏强(+5)')
             elif 30 <= rsi < 40:
-                score += _w("RSI_WEAK")
-                reasons.append(f'RSI={rsi:.0f}偏弱(+{_w("RSI_WEAK")})')
+                score += 5
+                reasons.append(f'RSI={rsi:.0f}偏弱(+5)')
         else:
             if 35 <= rsi <= 60:
-                score += _w("RSI_HEALTHY")
-                reasons.append(f'RSI={rsi:.0f}健康区(+{_w("RSI_HEALTHY")})')
+                score += 9
+                reasons.append(f'RSI={rsi:.0f}健康区(+9)')
             elif 25 <= rsi < 35:
-                score += _w("RSI_WEAK")
-                reasons.append(f'RSI={rsi:.0f}偏弱(+{_w("RSI_WEAK")})')
+                score += 5
+                reasons.append(f'RSI={rsi:.0f}偏弱(+5)')
             elif 60 < rsi <= 70:
-                score += _w("RSI_WEAK")
-                reasons.append(f'RSI={rsi:.0f}偏强(+{_w("RSI_WEAK")})')
+                score += 5
+                reasons.append(f'RSI={rsi:.0f}偏强(+5)')
 
-    # DMI方向
+    # [8分] DMI方向 (v2.17: 6→8)
     if pdi is not None and mdi is not None:
         if (is_bull and pdi > mdi) or (not is_bull and mdi > pdi):
-            score += _w("DMI_DIR")
-            reasons.append(f'DMI方向确认(+{_w("DMI_DIR")})')
+            score += 8
+            reasons.append(f'DMI方向确认(+8)')
 
-    # 前高/前低突破
+    # [8分] 前高/前低突破 (v2.17: 5→8, 空头侧补全)
     new_low_60 = tech.get('NEW_LOW_60', False)
     if is_bull and new_high_60:
-        score += _w("NEW_HIGH")
-        reasons.append(f'突破60日新高(+{_w("NEW_HIGH")})')
+        score += 8
+        reasons.append(f'突破60日新高(+8)')
     elif not is_bull and new_low_60:
-        score += _w("NEW_HIGH")
-        reasons.append(f'跌破60日新低(+{_w("NEW_HIGH")})')
+        score += 8
+        reasons.append(f'跌破60日新低(+8)')
 
     return {'score': max(0, min(25, score)), 'reasons': reasons}
 
@@ -516,7 +467,7 @@ def score_L4_confirmation(tech: dict, sym: dict, is_bull: bool,
     breakout_score = 0
     if is_bull:
         if last_price > dc_upper:
-            breakout_score = _w("CHANNEL_BREAK")
+            breakout_score = 4
             reasons.append(f'突破DC20上轨(+3×{decay:.0%})')
         elif last_price > dc_upper * 0.99:
             breakout_score = 2
@@ -542,14 +493,14 @@ def score_L4_confirmation(tech: dict, sym: dict, is_bull: bool,
     if last_price and ma20:
         if is_bull:
             if ma5 and ma10 and ma5 > ma10 > ma20 and last_price > ma20:
-                ma_score = _w("MA_ALIGN")
+                ma_score = 3
                 reasons.append(f'均线多头排列(+3×{decay:.0%})')
             elif last_price > ma20:
                 ma_score = 1
                 reasons.append(f'价格>MA20(+1)')
         else:
             if ma5 and ma10 and ma5 < ma10 < ma20 and last_price < ma20:
-                ma_score = _w("MA_ALIGN")
+                ma_score = 3
                 reasons.append(f'均线空头排列(+3×{decay:.0%})')
             elif last_price < ma20:
                 ma_score = 1
@@ -565,10 +516,10 @@ def score_L4_confirmation(tech: dict, sym: dict, is_bull: bool,
     if macd_dif is not None:
         if is_bull:
             if macd_dif > 0 and (macd_dea is None or macd_dif > macd_dea):
-                score += _w("MACD_CONFIRM")
+                score += 1
                 reasons.append(f'MACD多头(+1)')
             elif macd_dif > 0:
-                score += _w("MACD_CONFIRM")
+                score += 1
                 reasons.append(f'MACD零轴上(+1)')
         else:
             if macd_dif < 0 and (macd_dea is None or macd_dif < macd_dea):
@@ -927,7 +878,7 @@ def calculate_composite_score(tech: dict, sym: dict, score_direction: int = 0,
     # 保存 L4 原始分供报告
     l4_raw['_pre_maturity_score'] = l4_raw.get('_pre_maturity_score', l4_raw['score'])
 
-    # 模块级权重（支持外部读取/覆写，如 optimize_weights.py）
+    # v2.17 权重重分配: 40/30/20/10 (2026-07-03: L2 25→30, L3 25→20)
     # 各层内部满分已与WLx对齐 → 缩放简化为恒等变换
     l1_scaled = min(l1_raw['score'], L1_INTERNAL_MAX)
     l2_scaled = min(l2_raw['score'], L2_INTERNAL_MAX)

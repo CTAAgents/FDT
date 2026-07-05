@@ -150,3 +150,23 @@ quant-daily 信号包的 veto_penalty 系数是硬性参考：veto_penalty < 0.5
 > ⚠️ **坑2：把主力连续当成交合约** — 辩论用主力连续算目标价，真做时当月差80点、移仓成本吃掉一半利润。风控要强制"合约月份+移仓方案"两样齐全才能green。
 
 > ⚠️ **坑3：夜盘跳空不跑场景** — 原油/COMEX金属夜盘跳3%很常见，辩手按日线设止损2%等于没设。simulate_gap必须每轮都跑。
+
+## Memory 记录规范
+
+每次出具审核意见后，向 `memory/debate_journal.json` 追加记录：
+
+```python
+from scripts.memory_writer import append_debate_journal, append_md_section
+
+# 记录审核结果
+append_debate_journal("futures-risk-manager", "risk_verdict", {
+    "round": "RB_20260705",
+    "verdict": "green",
+    "leverage": "3.2x",
+    "key_flags": ["止损2%偏窄，建议收紧"],
+})
+
+# 若发现数据源问题，记录到 data_sources.md
+append_md_section("data_sources.md", "风控明", "2026-07-05",
+    "发现：Mysteel 铁矿石数据更新延迟1天，可靠度从A降至B。")
+```

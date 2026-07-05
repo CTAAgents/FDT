@@ -1,103 +1,118 @@
-# Futures Debate Team — 期货交易辩论专家团 v4.0
+# Futures Debate Team — 期货交易辩论专家团 v4.1
 
 ## 类型
 
-Team 型（11角色多角色协作团队，闫判官全权主持辩论子流程）
+Team 型（10角色多角色协作团队，闫判官自主决定辩论品种与方向）
 
 ## 架构
 
-4层数据输入 → 3阶段串行管道，1名协调员 + 10角色：
+```
+用户 → 明鉴秋（协调员）
+           ↓
+Stage 1: 数技源 → scan_all.py --dual
+           ├── full_scan_l1l4_{date}.json         ← L1-L4 技术信号
+           ├── full_scan_factor_timing_{date}.json ← factor_timing 因子信号
+           └── full_scan_summary_{date}.json      ← 双策略并排汇总（闫判官决策用）
+           ↓
+Stage 2: 闫判官选辩论品种 + 定正方方向
+           ↓
+   ┌───────┼───────┐
+   ↓       ↓       ↓
+ 观澜     探源    链证源
+(技术分析)(基本面)(产业链景气度·无方向)
+   │       │       │
+   └───────┼───────┘
+           ↓
+    ┌──────┴──────┐
+    ↓              ↓
+ 证真(多方)      慎思(空方)
+ 从研究员资料中   从研究员资料中
+ 提取多头论据     提取空头论据
+    └──────┬──────┘
+           ↓
+    策执远出方案 → 风控明审核
+           ↓
+    闫判官裁决 → 明鉴秋汇总
+           ↓
+    debate_results.json + HTML 报告
+```
+
+## 核心设计原则（v4.1）
 
 ```
-用户
-  ↓
-明鉴秋（独立协调员）→ Stage 1: 选题 + 数技源数据采集 + 量析师策略层打分
-  ↓
-闫判官全权主持 Stage 2: 辩论全流程
-  ├─ 准备期: 探源(基本面) + 观澜(技术面) + 链证源(产业链景气度) + 量析师(策略层信号包)
-  ├─ 辩论期: 证真(正方) ⇄ 慎思(反方) → 引用4层数据辩论（基本面+技术面+产业链+量化信号）
-  ├─ 评审期: 策执远出方案 → 风控明审核
-  └─ 判决期: 多维评分 + 最终判决
-  ↓
-明鉴秋 Stage 3: execute/hold/rematch → 追加记忆 → HTML报告 → 交付用户
+数技源边界   → 只输出原始数值，不做判断
+闫判官决策   → 自行决定辩论品种与方向
+研究员中立   → 只供证据不下多空结论
+链证源中立   → 只做产业链事实描述，不下多空结论
+双策略并行   → L1-L4 + factor_timing 各输出一份
+无胶水代码   → 所有操作通过已有skill完成
+自动写记忆   → 每个Agent运行后自动写memory/
 ```
 
-## 核心设计原则（v4.0）
+## 10大角色
+
+| 角色 | Agent ID | 工作方法定义在 | 职责 |
+|:-----|:---------|:--------------|:-----|
+| 明鉴秋 | `futures-debate-team-team-lead` | `futures-trading-analysis` | 选题、调度、汇总、拍板 |
+| 数技源 | `futures-datatech` | `quant-daily` | 运行 --dual 产出双策略信号（纯数据） |
+| 探源 | `futures-fundamental-researcher` | `commodity-chain-analysis` | 基本面分析（factor_timing数据+互联网） |
+| 观澜 | `futures-technical-researcher` | `quant-daily` | 技术分析（L1-L4数据+自算指标+图形） |
+| 链证源 | `futures-chain-analyst` | `commodity-chain-analysis` | 产业链事实描述+景气度（不下多空） |
+| 证真 | `futures-affirmative-debater` | `debate-argument-builder` | 多方：从研究员资料中提取多头论据 |
+| 慎思 | `futures-opposition-debater` | `debate-argument-builder` | 空方：从研究员资料中提取空头论据 |
+| 闫判官 | `futures-judge` | `debate-judge` | 选辩论品种+定方向+主持+评分+裁决 |
+| 风控明 | `futures-risk-manager` | `debate-risk-manager` | 杠杆/回撤/叙事质检 |
+| 策执远 | `futures-trading-strategist` | `debate-trading-planner` | 合约选型+执行方案 |
+
+## 数据流（v4.1 双策略并行）
 
 ```
-修改Agent方法 → 只改对应skill
-修改辩论流程 → 只改主SKILL.md（角色+编排+边界）
-研究员中立   → 只供证据不下结论
-链证源中   → 只做产业链事实描述和景气度分析，不下多空结论
-量析师     → 策略驱动打分（strategies/目录可插拔，默认L1-L4）
-无胶水代码 → 所有操作通过已有skill完成
-记忆系统   → 跨轮记忆+知识库+规则库，三层次迭代
-```
+S1: 数技源 → scan_all.py --dual
+     ├─ full_scan_l1l4_{date}.json         — 40+技术指标数值
+     └─ full_scan_factor_timing_{date}.json — 5因子择时数值
 
-| Agent | 阶段 | 工作方法定义在 |
-|:------|:----:|:---------------|
-| 数技源 | S1 | `quant-daily`（纯数据管道）|
-| 量析师 | S1 | `quant-daily`（策略层打分引擎）|
-| 探源 | S2a | `commodity-chain-analysis` |
-| 观澜 | S2a | `quant-daily` |
-| 链证源 | S2a | `commodity-chain-analysis` |
-| 证真 | S2b | `debate-argument-builder` |
-| 慎思 | S2b | `debate-argument-builder` |
-| 策执远 | S2c | `debate-trading-planner` |
-| 风控明 | S2c | `debate-risk-manager v3` |
-| 闫判官 | S2a-S2d | `debate-judge` |
-| 明鉴秋 | S1+S3 | `futures-trading-analysis` |
+S2: 闫判官读取汇总 → 决定辩论品种与方向
+     ├─ 观澜: 技术分析（L1-L4数据+自算指标+图形识别）
+     ├─ 探源: 基本面分析（factor_timing数据+互联网数据）
+     └─ 链证源: 产业链事实描述（不下多空结论）
 
-## 团队成员
+S3: 证真(多方) ⇄ 慎思(空方) — 从研究员资料中提取论据辩论
+     → 策执远出方案 → 风控明审核 → 闫判官裁决
 
-| 角色 | Agent ID | 职责 |
-|:-----|:---------|:-----|
-| 协调员 | `futures-debate-team-team-lead` | 选题、拍板、汇总输出、追加记忆 |
-| 数技源 | `futures-datatech` | 数据采集（纯数据管道，不做分析） |
-| 量析师 | `futures-quant-analyst` | 策略层量化打分（L1-L4/自定义策略，可插拔） |
-| 探源 | `futures-fundamental-researcher` | 基本面快照（中立） |
-| 观澜 | `futures-technical-researcher` | 技术面快照（中立） |
-| 链证源 | `futures-chain-analyst` | 产业链事实描述+景气度分析（不下多空结论） |
-| 证真 | `futures-affirmative-debater` | 正方辩手：论证方向正确性（引用4层证据） |
-| 慎思 | `futures-opposition-debater` | 反方辩手：挑战方向可靠性（引用4层证据） |
-| 闫判官 | `futures-judge` | 辩论主持人+裁判 |
-| 风控明 | `futures-risk-manager` | 风险管理 |
-| 策执远 | `futures-trading-strategist` | 交易策略 |
-
-## 数据流（v4.0 策略可插拔层）
-
-```
-S1:   数技源 → 原始数据包（K线+指标+持仓，含 _meta 溯源字段）
-      量析师 → 策略层信号包（strategies/目录可插拔，默认layered_l1l4）
-S2a:  探源 + 观澜 + 链证源(景气度) → research_snapshot
-      量析师信号包 → quant_signal_package（含策略名称+子层分数+否决标记）
-S2b:  证真/慎思 → 引用4层数据（基本面+技术面+产业链+量化信号）
-      每层证据必须注明来源（探源/观澜/链证源/量析师[策略名]）
-S2c:  策执远 → executable_plan → 风控明审核
-S2d:  闫判官 → p_judge_final.json + 提炼论证模式→memory/
-S3:   明鉴秋拍板 → debate_results.json + 追加记忆 → HTML报告
+S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 ```
 
 ## 记忆系统
 
-专家内建 `memory/` 目录，包含三层记忆库：
+所有 Agent 通过 `scripts/memory_writer.py` 自动写入 `memory/` 目录：
 
-| 层 | 文件 | 用途 | 写入者 |
-|:--|:----|:----|:------|
-| T1 | `memory/debate_journal.json` | 跨轮辩论日志 | 明鉴秋 |
-| T2 | `memory/data_sources.md` | 数据源可靠性跟踪 | 风控明 |
-| T2 | `memory/argument_patterns.md` | 有效论证模式 | 闫判官 |
-| T2 | `memory/debater_profiles.md` | 角色表现记录 | 闫判官 |
-| T2 | `memory/execution_followup.json` | 执行回溯 | 策略师 |
-| T3 | `memory/rules/veto_rules.md` | 否决规则库 | 风控明+明鉴秋 |
-| T3 | `memory/rules/weighting_rules.md` | 评分权重记录 | 闫判官+明鉴秋 |
+| 文件 | 用途 | 写入者 |
+|:----|:----|:------|
+| `debate_journal.json` | 跨轮操作日志 | 全员自动写入 |
+| `data_sources.md` | 数据源可靠性 | 探源+风控明 |
+| `argument_patterns.md` | 有效论证模式 | 证真+慎思+闫判官 |
+| `debater_profiles.md` | 角色表现 | 闫判官 |
+| `execution_followup.json` | 执行回溯 | 策执远 |
+| `debates/INDEX.md` | 辩论索引 | 明鉴秋+闫判官 |
+| `policies/veto_policies.md` | 否决规则库 | 风控明+明鉴秋 |
+| `policies/weighting_history.md` | 评分权重记录 | 闫判官+明鉴秋 |
+
+## 依赖的Skills
+
+| Skill | 用途 |
+|:------|:-----|
+| `quant-daily` | 数据采集 + L1-L4 + factor_timing 双策略计算 |
+| `futures-trading-analysis` | 主流程编排 + 报告生成 |
+| `commodity-chain-analysis` | 基本面 + 产业链分析 |
+| `debate-argument-builder` | 正反方论点构建 |
+| `debate-judge` | 闫判官辩论主持裁决 |
+| `debate-risk-manager` | 风控审核 |
+| `debate-trading-planner` | 交易策略规划 |
 
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v4.0** | **2026-07-04** | **策略可插拔架构**：新增量析师(futures-quant-analyst)，策略层驱动打分(L1-L4默认，true_layered废弃)；链证源聚焦产业链描述+景气度(不下多空结论)；正反方引4层证据(+量析师信号包)；quant-daily strategies/独立层 |
+| **v4.1** | **2026-07-05** | **方案C仲裁者裁决**：量析师移除(10角色)；数技源改为--dual双策略输出(L1-L4+factor_timing)；闫判官自主决定辩论品种与方向；多方/空方从研究员资料中提取论据；所有Agent自动写memory；废弃文件清理 |
+| v4.0 | 2026-07-04 | 策略可插拔架构：新增量析师，策略层驱动打分；链证源聚焦景气度(不下多空)；正反方引4层证据 |
 | v3.3 | 2026-07-04 | quant-daily真分层打分集成 |
-| v3.2 | 2026-07-04 | 九宫格模糊隶属度分类器 |
-| v3.1 | 2026-07-03 | 链证源全面集成 |
-| v3.0 | 2026-07-03 | 架构重构 |
