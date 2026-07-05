@@ -1,18 +1,23 @@
-# 期货交易辩论专家团 — 用户使用手册 (v4.2)
+# 期货交易辩论专家团 — 用户使用手册 (v4.3)
 
 ## 1. 概述
 
-期货交易辩论专家团是一个 **多Agent深度辩论型期货分析系统**，通过 **10个专业角色Agent** 在 **4阶段管道** 中协作，对商品期货品种进行结构化多空辩论分析。
+期货交易辩论专家团是一个 **多Agent深度辩论型期货分析系统**，通过 **10个专业角色Agent** 在 **DAG并行化7级管道** 中协作，对商品期货品种进行结构化多空辩论分析。
 
-**核心理念**：quant-daily 只输出原始信号数值不做判断→链证源先于闫判官做产业链分析→闫判官自主决定辩论品种与方向→多方和空方从研究员资料中提取证据进行辩论→策执远出方案→风控明5层引擎审核→闫判官裁决。
+**核心理念**：quant-daily 只输出原始信号数值不做判断→链证源先于闫判官做产业链分析→闫判官自主决定辩论品种与方向→多方和空方从研究员资料中提取证据进行辩论→策执远出方案→风控明5层引擎审核（含交易摩擦+流动性风险）→闫判官裁决。
 
-**版本**：v4.2 | **Agent数**：10（1协调员 + 9角色）| **双策略**：L1-L4 + factor_timing
+**版本**：v4.3 | **Agent数**：10（1协调员 + 9角色）| **双策略**：L1-L4 + factor_timing（含情感第6因子）
 
-**v4.2 亮点**：
-- **P3全量实现**：ML方向预测(EnsemblePredictor) + 事件日历mask + 跨品种联动 + PnL反馈闭环
-- **风控5层引擎**：选锚→仓位→动态调整→场景覆写→反馈闭环
-- **观澜v2.1**：ZigZag+VP支撑阻力/硬软分类/ATR容差/失效条件/多周期共振
-- **换月跳空屏蔽**+OI/量能确认集成到关键位置信度
+**v4.3 亮点**：
+- **情感因子（第6因子）**：sentiment_score 注入 factor_timing 投票系统
+- **流动性风险检测**：liquidity_trap 自动阻止流动性枯竭品种开仓
+- **交易摩擦精细化**：手续费+滑点+保证金利息+移仓成本，净盈亏比约束
+- **Agent通信协议 v3.0**：10角色结构化契约，schema校验+版本迁移
+- **DAG并行化引擎**：辩论流程从串行改为7级拓扑并行
+- **记忆反思注入**：query_history() 注入闫判官/策执远同品种历史决策
+- **事件日历时间窗**：get_upcoming_events() 自动降杠杆避让宏观事件
+- **特征工程注入**：export_feature_summary() top-5特征送研究员
+- **ML+规则集成**：export_ensemble_votes() 第三路信号进证据简报
 
 ## 2. 系统架构
 
@@ -104,14 +109,17 @@
 
 ### factor_timing 因子信号
 
-5因子投票合成（展期收益率/动量/反向仓单/偏度/量价相关性）：
+6因子投票合成（展期收益率/动量/反向仓单/偏度/量价相关性/**情感评分**）：
 
 | 字段 | 含义 |
 |:-----|:-----|
 | total | 总分（正=多头，负=空头） |
-| vote_net | 投票净票（-5~+5，因子一致程度） |
+| vote_net | 投票净票（-6~+6，因子一致程度） |
 | ts_type | 期限结构类型（Back/Contango/Flat） |
 | g_group | 分组（g1_bull/g1_bear=动手组，g10=观望组） |
+| sentiment_score | 第6因子，情感评分（期货论坛/新闻，-100~+100） |
+
+> 情感因子通过 `data/sentiment/sentiment_collector.py` 采集，可作为独立定时任务刷新 `sentiment_cache.json`。因子不可用时自动回退到5因子。`seed_sentiment(symbol, score)`支持手动标注。
 
 ### risk_input 字段（风控专用）
 
@@ -239,12 +247,17 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK,M
 
 ## 7. P3 模块使用
 
-### 事件日历
+### 事件日历 + 时间窗
 
 ```python
-from technical-analysis.scripts.event_calendar import check_event_impact
+from technical-analysis.scripts.event_calendar import check_event_impact, get_upcoming_events
+# 单日检查
 impact = check_event_impact('2026-07-29', 'SC')
 # → {"has_event": true, "confidence_discount": 0.5, ...}
+
+# 前瞻时间窗（闫判官/风控明自动调用）
+events = get_upcoming_events('M', days=7)
+# → [{"event_type": "USDA_WASDE", "days_until": 3, "confidence_discount": 0.5}]
 ```
 
 ### 跨品种联动
@@ -255,22 +268,70 @@ peers = get_correlation_peers('RB', price_dict)
 # → [{"symbol": "HC", "correlation": 0.95}, {"symbol": "I", "correlation": 0.82}]
 ```
 
-### ML方向预测
+### ML方向预测 + 批量导出（第3路信号）
 
 ```python
 from quant-daily.scripts.ml_models.direction_classifier import EnsemblePredictor
 ensemble = EnsemblePredictor(rule_weight=0.6, ml_weight=0.4)
 result = ensemble.predict(rule_output, ml_output)
 # → {"prob": 0.68, "direction": 1, "confidence": 73}
+
+# 批量导出（供闫判官证据简报）
+votes = ensemble.export_ensemble_votes(['RB', 'PK', 'M'], rule_outputs, ml_outputs)
+# → {"RB": {"rule_dir": "bear", "ml_dir": "bear", "ensemble_dir": "bear", "consensus": true, ...}}
 ```
 
-### PnL反馈
+### 特征工程摘要（研究员注入）
 
 ```python
-from quant-daily.scripts.feedback.trade_journal import record_trade, close_trade
+from quant-daily.scripts.feature_pipeline.feature_engineering import engineer_features, export_feature_summary
+features = engineer_features(closes, highs, lows, volumes, oi_series, adx=72, rsi=35)
+summary = export_feature_summary('RB', features)
+# → {"symbol": "RB", "top_features": [{"feature": "oi_zscore", "name": "OI Z分数", "value": -2.1}, ...],
+#     "summary": "RB 特征摘要: OI Z分数(oi_zscore)=-2.1 | ..."}
+```
+
+### 交易摩擦计算
+
+```python
+from debate-risk-manager.scripts.risk_engine import calc_transaction_cost
+friction = calc_transaction_cost('RB', entry_price=3600, lots=4, multiplier=10, holding_days=10)
+# → {"fee_total": 28.8, "slippage_total": 144.0, "interest_total": 24.7, "roll_total": 0,
+#     "total_cost": 197.5, "cost_per_lot": 49.38, ...}
+```
+
+### 流动性风险
+
+```python
+from debate-risk-manager.scripts.risk_engine import get_liquidity_risk, set_liquidity_params
+
+set_liquidity_params('RB', volumes=[12000, 11000, 4500, 4200, 3900])
+risk = get_liquidity_risk('RB')
+# → {"liquidity_risk": 0.56, "vol_ratio": 0.33, "liquidity_trap": true, "risk_level": "red"}
+# liquidity_trap=true → 风控明直接 red_flag 阻止开仓
+```
+
+### DAG并行辩论引擎
+
+```python
+from quant-daily.scripts.signals.debate_engine import DebateEngine, run_pipeline
+
+# 一键运行完整辩论流
+report = run_pipeline({"scan": scan_func, "chain": chain_func, ...})
+# → {"total_duration": 45.2, "sequential_est": 120.0, "parallel_gain": 2.65, ...}
+```
+
+### PnL反馈 + 记忆注入
+
+```python
+from quant-daily.scripts.feedback.trade_journal import record_trade, close_trade, query_history
 trade = record_trade('RB', 'long', 6880, 6763, 7200, 6, '2026-07-05', tech_prediction={...})
 close = close_trade(trade['trade_id'], 7020, '2026-07-10', multiplier=10)
 perf = get_performance_summary()
+
+# 同品种历史查询（闫判官/策执远自动调用）
+history = query_history('RB', lookback_days=30)
+# → [{"direction": "long", "pnl_pct": 4.5, "entry_price": 6880, ...}, ...]
 ```
 
 ## 8. 启动方式
@@ -304,13 +365,16 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK
 - **关注分歧**：L1-L4和factor_timing方向冲突的品种辩论价值最高
 - **硬支撑为王**：风控明仅挂单 hard 级支撑（VP-POC/多周期共振/整数关口），soft 支撑只预警不设止损
 - **换月警惕**：换月周内前高前低可能失真，hard 支撑自动降级为 soft
-- **事件避让**：FOMC/NFP/EIA日前降仓70%，事件当日技术置信度打折50%
-- **记忆会累积**：多次运行后 `argument_patterns.md` 积累有效论证模式，`trade_journal` 积累假破率统计，提升后续决策质量
+- **事件避让**：FOMC/NFP/EIA日前降仓70%，事件当日技术置信度打折50%。`get_upcoming_events()` 可查未来7天事件窗
+- **流动性检查**：成交量萎缩至30日均40%以下时 `liquidity_trap=true`，此时不应开仓
+- **摩擦前/后对比**：全品种摩擦成本不同（螺纹钢万0.1 vs 铁矿石万1），净盈亏比 < 1.5 的方案标记为 yellow_flag
+- **记忆会累积**：多次运行后 `argument_patterns.md` 积累有效论证模式，`trade_journal` 积累假破率统计，`query_history()` 查询同品种历史决策可避免重复踩坑
 
 ## 11. 版本历史
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v4.3** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |
 | **v4.2** | **2026-07-05** | **P3全量实现**：Phase1 事件日历+跨品种联动 / Phase2 ML特征管道(30+维) / Phase3 DirectionClassifier+EnsemblePredictor / Phase4 PnL反馈闭环；风控明5层引擎(risk_engine.py)；观澜技术分析v2.1支撑阻力(hardness/容差/失效/共振)；换月跳空屏蔽+OI/量能确认；risk_input字段注入；全审计8项修复 |
 | v4.1 | 2026-07-05 | 方案C仲裁者裁决：量析师移除(10角色)；数技源改为--dual双策略输出；链证源前置(S1.5)；所有Agent自动写memory；`memory/rules/` → `memory/policies/` |
 | v4.0 | 2026-07-04 | 策略可插拔架构 |

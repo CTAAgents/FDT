@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
+from typing import Literal, Optional, List
+from .base import BaseSkillOutput
 
 
 class DimensionItem(BaseModel):
@@ -10,34 +11,112 @@ class DimensionItem(BaseModel):
     source: str = ""                        # 数据来源，可选
 
 
-class ArgumentOutput(BaseSkillOutput):
-    """统一辩手输出 — role 决定方法论（证真=辩护，慎思=质疑）
+class EvidenceItem(BaseModel):
+    """结构化证据项 — 便于策执远抽取 + 闫判官回溯"""
+    point: str                              # 论点
+    source: str                             # "观澜" / "探源" / "链证源"
+    weight: float = Field(default=1.0, ge=0, le=1)  # 该证据权重
 
-    v2.2: 统一 BullOutput/BearOutput → ArgumentOutput，
-    通过 role 字段区分辩论角色。variant 保留向后兼容。
+
+class CounterRisk(BaseModel):
+    """主动列出的己方弱点 — 不列则扣分"""
+    risk: str                               # 弱点描述
+    mitigation: str                         # 防守理由
+    severity: str = "medium"                # low / medium / high
+
+
+class EntryPlan(BaseModel):
+    """交易方案 — 直接喂给策执远"""
+    price_zone: str                         # "6860-6880"
+    stop: str                               # "6763（观澜锚6850-0.4ATR）"
+    target: str                             # "7020（观澜hard压力）"
+    risk_reward: str                        # "1:1.2"
+
+
+class StructuredDebate(BaseSkillOutput):
+    """结构化辩词 v3.0 — 替换平铺的 ArgumentOutput
+
+    核心变化：
+    1. thesis: 一句话论点（不是复述数据，是建构叙事）
+    2. evidence: 分技术/基本面，标注source（观澜/探源/链证源）
+    3. counter_risks: 主动列弱点（不列=闫判官扣分）
+    4. entry_plan: 直供给策执远
+    5. rebuttal_strategy: 预判对方主攻方向+防守方案
     """
-    role: Literal["证真", "慎思"]           # 辩论角色（主标识）
-    variant: Literal["bull", "bear"] = "bull"  # 向后兼容
-    dimensions: list[DimensionItem] = Field(min_length=5, max_length=5)
-    summary_4_risk: str                     # 给风控的精简版摘要
-    full_text: str                          # 完整论证文本（用于 HTML 报告）
-    confidence: float = Field(ge=0, le=1)   # 整体置信度
-    rebuttal_targets: list[str] = []        # 本轮反驳了对方的哪些维度，首轮为空
+    role: Literal["证真", "慎思"]
+    variant: Literal["bull", "bear"] = "bull"
+    symbol: str = ""
+
+    # 一句话论点（核心叙事）
+    thesis: str
+
+    # 结构化证据
+    evidence: dict = Field(default_factory=lambda: {
+        "technical": [],
+        "fundamental": [],
+        "chain": [],
+    })  # { "technical": [EvidenceItem], "fundamental": [...], "chain": [...] }
+
+    # 主动承认的己方弱点（不列则扣分）
+    counter_risks: List[CounterRisk] = Field(default_factory=list)
+
+    # 交易方案（直接喂给策执远）
+    entry_plan: Optional[EntryPlan] = None
+
+    # 预判对方攻击方向+己方防守方案
+    rebuttal_strategy: List[dict] = Field(default_factory=list)  # [{"attack": "...", "defense": "..."}]
+
+    # 6类交锋适用套路
+    engagement_patterns: List[str] = Field(default_factory=list)
+
+    # 整体置信度
+    confidence: float = Field(default=0.5, ge=0, le=1)
+
+    # 向后兼容字段
+    summary_4_risk: str = ""
+    full_text: str = ""
+
+
+class ArgumentOutput(BaseSkillOutput):
+    """原始辩手输出（向后兼容，新代码用 StructuredDebate）"""
+    role: Literal["证真", "慎思"]
+    variant: Literal["bull", "bear"] = "bull"
+    dimensions: list[DimensionItem] = Field(default_factory=list, min_length=0, max_length=5)
+    summary_4_risk: str = ""
+    full_text: str = ""
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    rebuttal_targets: list[str] = Field(default_factory=list)
 
 
 class BullOutput(ArgumentOutput):
-    """证真（正方辩手）输出 — 向后兼容"""
+    """证真输出 — 向后兼容"""
     role: Literal["证真"] = "证真"
     variant: Literal["bull"] = "bull"
 
 
 class BearOutput(ArgumentOutput):
-    """慎思（反方辩手）输出 — 向后兼容"""
+    """慎思输出 — 向后兼容"""
     role: Literal["慎思"] = "慎思"
     variant: Literal["bear"] = "bear"
 
 
-# 未来扩展：2.1 版本增加 rebuttal_quality_score
-class BullOutputV21(BullOutput):
-    version: Literal["2.1"] = "2.1"
-    rebuttal_quality_score: Optional[float] = Field(None, ge=0, le=1)
+class DebateFeedbackItem(BaseModel):
+    """辩论反馈 — 回流给观澜/探源/链证源"""
+    target: str                             # "观澜" / "探源" / "链证源"
+    item: str                               # 被挑战的具体项
+    challenge: str                          # 挑战内容
+    winner: str                             # "证真" / "慎思"
+    action: str                             # 改进动作
+
+
+class DebateResult(BaseModel):
+    """完整辩论结果（含反馈链路）"""
+    symbol: str
+    date: str
+    proposition_side: str                   # "long" / "short"
+    bull_debate: StructuredDebate
+    bear_debate: StructuredDebate
+    judge_verdict: dict                     # 闫判官裁决
+    feedback: List[DebateFeedbackItem] = Field(default_factory=list)
+    verdict: dict = Field(default_factory=dict)  # 兼容旧格式
+    overall: str = ""

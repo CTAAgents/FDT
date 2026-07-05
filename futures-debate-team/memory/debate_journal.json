@@ -17,6 +17,27 @@
         "bull": 1,
         "bear": 1
       }
+    },
+    {
+      "timestamp": "2026-07-05 18:51:58",
+      "agent": "chain-analyst-run",
+      "action": "chain_analysis",
+      "date": "2026-07-05",
+      "total_symbols": 62,
+      "l1l4_bull": 6,
+      "l1l4_bear": 56,
+      "chains_analyzed": 13,
+      "strong_bear_chains": 11,
+      "redundant_pairs": 5,
+      "z_extremes": 4,
+      "key_findings": [
+        "12/13 产业链为强势空头/空头趋势",
+        "黑色系RB/HC/I三冗余，建议仅保留HC",
+        "聚酯链PF/TA冗余，建议保留PF",
+        "油脂油料一致性75%，4个Z分数异常品种",
+        "谷物软商品高波动震荡(唯一非空头链)",
+        "全产业链利润压缩至亏损区间"
+      ]
     }
   ]
 }

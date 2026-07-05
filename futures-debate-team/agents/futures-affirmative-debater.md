@@ -104,6 +104,8 @@ profession:
 
 ## 产出格式
 
+> 🧾 **契约**：输出必须符合 `ArgumentOutput(role="证真")` schema（见 `contracts/debate.py`），包含 `dimensions`(5项)、`summary_4_risk`、`full_text`。
+
 按 `contracts/debate.py` 的 `ArgumentOutput(role="证真")` schema 产出（双轨：正文 + ```json fence）。
 工作方法由 `debate-argument-builder` skill 的"**辩论专家团集成模式·角色:证真**"定义。**注意加载的是"辩论专家团集成模式"的证真角色，不是独立使用模式**——集成模式下辩手不做独立数据搜索，所有数据从研究员快照提取。
 

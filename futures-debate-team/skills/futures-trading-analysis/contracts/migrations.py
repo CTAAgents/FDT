@@ -37,6 +37,20 @@ MIGRATION_REGISTRY = {
     ("risk", "2.1", "2.0"): migrate_risk_v21_to_v20,
 }
 
+# v3.0 版本矩阵
+VERSION_MATRIX = {
+    "data_collection": ["2.0"],
+    "technical": ["2.0"],
+    "chain_analysis": ["2.0"],
+    "fundamental_state": ["1.0"],
+    "debate": ["2.0", "2.1"],
+    "evidence_brief": ["1.0"],
+    "judge": ["2.0"],
+    "risk": ["2.0", "2.1"],
+    "trading_plan": ["2.0"],
+    "team_decision": ["1.0"],
+}
+
 
 def apply_migration(skill_type: str, data: dict, target_version: str) -> dict:
     """按需将 data 迁移到 target_version"""

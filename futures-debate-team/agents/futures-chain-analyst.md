@@ -48,6 +48,8 @@ profession:
 
 ## 输出格式
 
+> 🧾 **契约**：输出必须符合 `ChainAnalysisOutput` schema（见 `contracts/chain_analysis.py`），包含 `metrics`、`inventory_level`、`basis_status`、`summary`。
+
 ```json
 {
   "chain_id": "黑色系",

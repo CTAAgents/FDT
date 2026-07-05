@@ -54,6 +54,27 @@ _TERM_CACHE: Dict[str, dict] = {
 }
 
 
+def query_basis(symbol: str) -> dict:
+    """查询品种基差、期限结构、持有成本理论价（v1.1 新接口）。
+
+    与 query_term(symbol) 相同，但增加持有成本理论价字段。
+
+    Args:
+        symbol: 品种代码
+
+    Returns:
+        dict: {structure, spread, near, far, basis, holding_cost_theoretical, _source}
+    """
+    result = query_term(symbol)
+    if result.get("structure") in ("back", "contango"):
+        # 简单持有成本估算（基准假设：仓储+资金成本≈年化15%）
+        if "near" in result and "far" in result:
+            near, far = result["near"], result["far"]
+            annualized = (far - near) / near * 12
+            result["holding_cost_theoretical"] = f"年化{(annualized*100):.1f}%"
+    return result
+
+
 def query_term(symbol: str) -> dict:
     """查询品种期限结构与基差。
 

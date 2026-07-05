@@ -222,3 +222,42 @@ class EnsemblePredictor:
             if total > 0:
                 self.rule_weight = rule_acc / total
                 self.ml_weight = ml_acc / total
+
+    def export_ensemble_votes(self, symbols: List[str],
+                               rule_outputs: Dict[str, Dict],
+                               ml_outputs: Dict[str, Dict]) -> Dict[str, Dict]:
+        """批量导出品种级的集成投票结果。
+
+        供闫判官证据简报作为第3路（ML+规则集成）证据源。
+
+        Args:
+            symbols: 品种列表
+            rule_outputs: {symbol: {"prob": 0.6, "direction": 1, "confidence": 70}}
+            ml_outputs: {symbol: {"prob": 0.72, "direction": 1, "confidence": 75}}
+
+        Returns:
+            {symbol: {"rule_dir": str, "ml_dir": str, "ensemble_dir": str,
+                       "ensemble_prob": float, "confidence": int, "consensus": bool}}
+        """
+        results = {}
+        for sym in symbols:
+            rule = rule_outputs.get(sym, {"prob": 0.5, "direction": 0, "confidence": 50})
+            ml = ml_outputs.get(sym, {"prob": 0.5, "direction": 0, "confidence": 50})
+            ensemble = self.predict(rule, ml)
+
+            rule_dir = "bull" if rule.get("direction", 0) > 0 else ("bear" if rule.get("direction", 0) < 0 else "neutral")
+            ml_dir = "bull" if ml.get("direction", 0) > 0 else ("bear" if ml.get("direction", 0) < 0 else "neutral")
+            ens_dir = "bull" if ensemble.get("direction", 0) > 0 else ("bear" if ensemble.get("direction", 0) < 0 else "neutral")
+            consensus = rule_dir == ml_dir
+
+            results[sym] = {
+                "rule_dir": rule_dir,
+                "ml_dir": ml_dir,
+                "ensemble_dir": ens_dir,
+                "ensemble_prob": ensemble.get("prob", 0.5),
+                "confidence": ensemble.get("confidence", 50),
+                "consensus": consensus,
+                "rule_weight": self.rule_weight,
+                "ml_weight": self.ml_weight,
+            }
+        return results

@@ -153,6 +153,73 @@ def engineer_features(
     return features
 
 
+def export_feature_summary(symbol: str, features: Dict[str, float]) -> Dict[str, any]:
+    """为品种输出可读的特征摘要，供研究员（探源/观澜）自动注入。
+
+    返回 top-5 最显著的特征（偏离均值最远的）及其解读。
+
+    Args:
+        symbol: 品种代码
+        features: engineer_features() 输出的特征字典
+
+    Returns:
+        {"symbol": str, "top_features": [...], "summary": str}
+    """
+    if not features:
+        return {"symbol": symbol, "top_features": [], "summary": "无特征数据"}
+
+    # 特征解读映射
+    FEATURE_MEANING = {
+        "roc_1": "1日动量",
+        "roc_5": "5日动量",
+        "roc_10": "10日动量",
+        "roc_20": "20日动量",
+        "volatility_5": "5日波动率",
+        "volatility_20": "20日波动率",
+        "high_low_range_5": "5日振幅",
+        "high_low_range_20": "20日振幅",
+        "close_position_5": "5日收盘价分位",
+        "close_position_20": "20日收盘价分位",
+        "oi_change_1": "OI日变化",
+        "oi_change_5": "OI 5日变化",
+        "oi_price_divergence_1": "OI-价背离(1d)",
+        "oi_price_divergence_5": "OI-价背离(5d)",
+        "oi_ma_ratio": "OI/均值比",
+        "oi_zscore": "OI Z分数",
+        "volume_ratio": "成交量/均值比",
+        "adx": "ADX趋势强度",
+        "rsi_14": "RSI(14)",
+        "macd_hist": "MACD柱",
+        "atr_pct": "ATR%/价",
+        "ma_short_long": "MA短长比",
+    }
+
+    # 按偏离中位值排序（以0.5为中性基准）
+    scored = []
+    for k, v in features.items():
+        deviation = abs(v - 0.5) if "position" in k or "ratio" in k else abs(v)
+        meaning = FEATURE_MEANING.get(k, k)
+        scored.append((deviation, k, v, meaning))
+
+    scored.sort(reverse=True)
+    top5 = scored[:5]
+
+    top_features = []
+    lines = []
+    for _, k, v, meaning in top5:
+        entry = {"feature": k, "name": meaning, "value": round(v, 4)}
+        top_features.append(entry)
+        lines.append(f"{meaning}({k})={v:.4f}")
+
+    summary = f"{symbol} 特征摘要: {' | '.join(lines)}"
+
+    return {
+        "symbol": symbol,
+        "top_features": top_features,
+        "summary": summary,
+    }
+
+
 def build_label(
     closes: List[float],
     forecast_horizon: int = 5,

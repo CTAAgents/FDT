@@ -15,6 +15,165 @@
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import math
+from typing import Sequence
+
+# 交易摩擦模块
+_TRANSACTION_COST_CACHE = {}
+
+# 流动性风险缓存（按品种）
+_LIQUIDITY_CACHE = {}
+
+def set_liquidity_params(symbol: str, volumes: Sequence[float]):
+    """设置品种历史成交量序列，用于流动性风险计算。
+
+    Args:
+        symbol: 品种代码
+        volumes: 成交量历史序列（至少30个数据点）
+    """
+    if len(volumes) < 5:
+        return
+    import statistics
+    mean_vol = statistics.mean(volumes)
+    if mean_vol > 0:
+        std_vol = statistics.stdev(volumes) if len(volumes) > 1 else 0
+        cv = std_vol / mean_vol  # 变异系数
+        latest = volumes[-1]
+        vol_ratio = latest / mean_vol
+        _LIQUIDITY_CACHE[symbol.upper()] = {
+            "liquidity_risk": round(cv, 4),
+            "vol_ratio": round(vol_ratio, 4),
+            "sample_size": len(volumes),
+        }
+
+def get_liquidity_risk(symbol: str) -> Dict:
+    """获取品种流动性风险。
+
+    当 volume 萎缩至30日均值40%以下时标记 liquidity_trap。
+
+    Returns:
+        {"liquidity_risk": float, "vol_ratio": float,
+         "liquidity_trap": bool, "risk_level": str}
+    """
+    sym = symbol.upper()
+    cached = _LIQUIDITY_CACHE.get(sym, {})
+    if not cached:
+        return {
+            "liquidity_risk": 0,
+            "vol_ratio": 1.0,
+            "liquidity_trap": False,
+            "risk_level": "unknown",
+            "note": "未设置流动性参数",
+        }
+
+    vol_ratio = cached.get("vol_ratio", 1.0)
+    liquidity_trap = vol_ratio < 0.4  # 成交量萎缩至40%以下
+
+    if liquidity_trap:
+        risk_level = "red"
+    elif vol_ratio < 0.6:
+        risk_level = "yellow"
+    elif cached.get("liquidity_risk", 0) > 2.0:
+        risk_level = "yellow"  # 成交量极端不稳定
+    else:
+        risk_level = "green"
+
+    return {
+        "liquidity_risk": cached.get("liquidity_risk", 0),
+        "vol_ratio": vol_ratio,
+        "liquidity_trap": liquidity_trap,
+        "risk_level": risk_level,
+    }
+
+
+def set_friction_params(symbol: str, fee_rate: float = None, slippage_est: float = None,
+                        margin_rate: float = None, roll_cost: float = None,
+                        holding_days: int = 10):
+    """设置品种交易摩擦参数。不传则使用fee_table默认值。
+
+    Args:
+        symbol: 品种代码
+        fee_rate: 费率（万分之），如0.0001 = 万分之一
+        slippage_est: 估计滑点（点数）
+        margin_rate: 保证金率（如0.07 = 7%）
+        roll_cost: 移仓成本（点数/手）
+        holding_days: 预期持仓天数
+    """
+    _TRANSACTION_COST_CACHE[symbol.upper()] = {
+        "fee_rate": fee_rate,
+        "slippage_est": slippage_est,
+        "margin_rate": margin_rate,
+        "roll_cost": roll_cost,
+        "holding_days": holding_days,
+    }
+
+def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier: int,
+                          holding_days: int = 10) -> Dict:
+    """计算交易摩擦成本（手续费+滑点+保证金利息+移仓成本）。
+
+    结果注入风控明的仓位计算结果，使回测收益更接近实盘。
+    v2.0（P1-5）新增：保证金利息+移仓成本+净盈亏比
+
+    Args:
+        symbol: 品种代码
+        entry_price: 入场价
+        lots: 手数
+        multiplier: 合约乘数
+
+    Returns:
+        {"fee_total": float, "slippage_total": float,
+         "total_cost": float, "cost_per_lot": float,
+         "note": str}
+    """
+    sym = symbol.upper()
+
+    # 从缓存或fee_table获取费率
+    custom = _TRANSACTION_COST_CACHE.get(sym, {})
+    if custom.get("fee_rate") is not None:
+        fee_rate = custom["fee_rate"]
+    else:
+        # 从fee_table查
+        try:
+            from fee_table import FEE_TABLE
+            fee_info = FEE_TABLE.get(sym, FEE_TABLE.get(sym.lower(), {}))
+            if fee_info.get("fee_type") == "fixed":
+                fee_per_lot = fee_info.get("fee", 3.0)
+                fee_total = fee_per_lot * lots * 2  # 开+平
+            else:
+                rate = fee_info.get("fee", 0.0001)
+                fee_per_lot = entry_price * multiplier * rate
+                fee_total = fee_per_lot * lots * 2  # 开+平
+        except (ImportError, Exception):
+            # 默认万0.1
+            fee_per_lot = entry_price * multiplier * 0.0001
+            fee_total = fee_per_lot * lots * 2
+
+    # 滑点
+    slippage_per_lot = custom.get("slippage_est", entry_price * 0.001)  # 默认0.1%
+    slippage_total = slippage_per_lot * multiplier * lots
+
+    # 保证金利息（P1-5新增）
+    margin_rate = custom.get("margin_rate", 0.07)  # 默认7%保证金
+    holding_days = custom.get("holding_days", holding_days) or holding_days
+    annual_interest = 0.035  # 年化资金成本3.5%
+    margin_per_lot = entry_price * multiplier * margin_rate
+    interest_total = margin_per_lot * lots * annual_interest * (holding_days / 365)
+
+    # 移仓成本（P1-5新增）
+    roll_cost = custom.get("roll_cost", 0)  # 默认无移仓
+    roll_total = roll_cost * multiplier * lots
+
+    total_cost = fee_total + slippage_total + interest_total + roll_total
+    net_cost = total_cost  # 替换原有total_cost
+    return {
+        "fee_total": round(fee_total, 2),
+        "slippage_total": round(slippage_total, 2),
+        "interest_total": round(interest_total, 2),
+        "roll_total": round(roll_total, 2),
+        "total_cost": round(net_cost, 2),
+        "cost_per_lot": round(net_cost / max(lots, 1), 2),
+        "note": f"摩擦=手续费{fee_total:.2f}+滑点{slippage_total:.2f}"
+               f"+利息{interest_total:.2f}+移仓{roll_total:.2f}={net_cost:.2f}",
+    }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -219,7 +378,61 @@ def _pattern_risk_override(pattern_risk: Optional[str]) -> float:
     for p in high_risk_patterns:
         if p in pattern_risk:
             return 0.7  # 砍30%
-    return 1.0
+            return 1.0
+
+
+def calc_transaction_cost(
+    entry_price: float,
+    lots: int,
+    multiplier: int = 10,
+    fee_rate: float = 0.0001,
+    slippage_atr_ratio: float = 0.3,
+    atr: float = 0,
+    avg_volume: float = 0,
+    position_volume_ratio: float = 0,
+) -> Dict:
+    """计算交易摩擦成本 — 手续费 + 滑点 + 冲击成本估算。
+
+    期货交易的真实成本远高于表面手续费。CSTrader实验证明：
+    无摩擦回测虚高 5.94% → 21.96%（相差约270%）。
+
+    Args:
+        entry_price: 入场价
+        lots: 手数
+        multiplier: 合约乘数
+        fee_rate: 手续费率（默认万1，按品种可配）
+        slippage_atr_ratio: 滑点占ATR比例（默认0.3×ATR）
+        atr: 当前ATR值（用于滑点估算）
+        avg_volume: 日均成交量（用于冲击成本估算）
+        position_volume_ratio: 持仓占日均成交比例
+
+    Returns:
+        {"fee": float, "slippage": float, "impact_cost": float,
+         "total_cost": float, "cost_per_lot": float}
+    """
+    notional = entry_price * lots * multiplier
+
+    # 1. 手续费（双边，开+平）
+    fee = notional * fee_rate * 2
+
+    # 2. 滑点成本
+    slippage = lots * multiplier * (atr * slippage_atr_ratio) if atr > 0 else notional * 0.0005
+
+    # 3. 冲击成本（大仓位相对于成交量）
+    impact_cost = 0
+    if avg_volume > 0 and position_volume_ratio > 0.05:
+        impact_cost = notional * 0.001 * (position_volume_ratio / 0.05)
+
+    total_cost = fee + slippage + impact_cost
+    cost_per_lot = total_cost / max(lots, 1)
+
+    return {
+        "fee": round(fee, 2),
+        "slippage": round(slippage, 2),
+        "impact_cost": round(impact_cost, 2),
+        "total_cost": round(total_cost, 2),
+        "cost_per_lot": round(cost_per_lot, 2),
+    }
 
 
 def calculate_position(
@@ -269,6 +482,30 @@ def calculate_position(
     if is_left_signal:
         final_lots = max(1, final_lots // 2)
 
+    # 交易摩擦成本计算
+    try:
+        friction = calc_transaction_cost(
+            symbol="",
+            entry_price=entry_price,
+            lots=final_lots,
+            multiplier=multiplier,
+        )
+        friction_cost_per_lot = friction["cost_per_lot"]
+        friction_note = friction["note"]
+        effective_risk = loss_per_lot + friction_cost_per_lot
+        # 摩擦后实际风险预算
+        effective_max_lots = int(risk_budget / max(effective_risk, 1))
+        if effective_max_lots < max_lots:
+            max_lots = effective_max_lots
+            final_lots = max(0, int(effective_max_lots * total_discount))
+            if is_left_signal:
+                final_lots = max(1, final_lots // 2)
+            friction_flag = {"level": "yellow", "msg": f"摩擦折减：原{max_lots}手→{effective_max_lots}手（{friction_note}）"}
+        else:
+            friction_flag = {"level": "info", "msg": f"摩擦成本{friction_cost_per_lot:.2f}元/手，对仓位无影响"}
+    except Exception:
+        friction_flag = {"level": "info", "msg": "摩擦成本计算异常，跳过"}
+
     flags = []
     if conf_discount < 1.0:
         flags.append({"level": "yellow", "msg": f"置信度{confidence}，仓位折减{conf_discount*100:.0f}%"})
@@ -285,6 +522,7 @@ def calculate_position(
         "loss_per_lot": round(loss_per_lot, 2),
         "stop_distance": round(stop_distance, 1),
         "risk_budget": round(risk_budget, 0),
+        "transaction_cost": friction_flag,
         "flags": flags,
     }
 

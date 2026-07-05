@@ -9,7 +9,7 @@
 """
 
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json, os
 
 
@@ -190,6 +190,40 @@ def get_replay_buffer() -> List[Dict]:
         return []
     with open(REPLAY_BUFFER_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def query_history(symbol: str, lookback_days: int = 30) -> List[Dict]:
+    """查询某品种近期历史交易决策。
+
+    供闫判官/策执远做跨轮次学习：
+    - 同品种上次看多看亏了钱→本次更保守
+    - 同方向历史胜率统计
+
+    Args:
+        symbol: 品种代码
+        lookback_days: 回溯天数
+
+    Returns:
+        历史交易记录列表（closed状态），按时间倒序
+    """
+    journal = _load_journal()
+    cutoff = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+
+    # 筛选品种+日期范围+已平仓
+    history = []
+    for t in journal:
+        if t.get("symbol", "").upper() != symbol.upper():
+            continue
+        entry_date = t.get("entry_date", "")
+        if entry_date < cutoff:
+            continue
+        if t.get("status") != "closed":
+            continue
+        history.append(t)
+
+    # 按时间倒序
+    history.sort(key=lambda x: x.get("entry_date", ""), reverse=True)
+    return history
 
 
 def get_performance_summary() -> Dict:

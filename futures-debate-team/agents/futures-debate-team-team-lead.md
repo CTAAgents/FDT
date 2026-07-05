@@ -171,6 +171,8 @@ append_debate_index("RB_20260705", ["RB"], "bear")
 
 ### 汇总输出
 
+> 🧾 **契约**：最终汇总输出符合 `TeamDecisionOutput` schema（见 `contracts/team_decision.py`），包含 `round_id`、`decisions`、`total_exposure_pct`、`summary_200`。
+
 1. 从产物文件读取全部 Agent 产出 → 汇总为 `debate_results.json`
 2. 运行 `python skills/futures-trading-analysis/scripts/phase3_generate_report.py`
 3. TeamDelete

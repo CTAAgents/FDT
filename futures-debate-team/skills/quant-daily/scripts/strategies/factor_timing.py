@@ -627,6 +627,15 @@ def _generate_factor_timing_scan(
 
     # ========== 1. 计算五个核心因子（含 [改进8/9] 增强） ==========
     factor_values = {}
+
+    # [P1-1] 加载情感因子（第6因子）
+    sentiment_scores = {}
+    try:
+        from data.sentiment import get_sentiment_scores
+        sentiment_scores = get_sentiment_scores()
+    except (ImportError, Exception) as e:
+        logger.debug(f"情感因子不可用（非阻塞）: {e}")
+
     for sym in symbols:
         d = market_data[sym]
         try:
@@ -677,11 +686,21 @@ def _generate_factor_timing_scan(
 
         factor_values[sym] = [ts, mom, inv, skew, pv]
 
+    # [P1-1] 注入情感因子（第6因子）— 归一化到 Z-score 尺度
     df = pd.DataFrame.from_dict(
         factor_values, orient="index",
         columns=["ts", "mom", "inv", "skew", "pv"]
     )
     df = df.fillna(0.0)
+
+    # 情感因子单独追加（已有情感数据的品种）
+    snt_series = pd.Series({sym: sentiment_scores.get(sym, 0) / 100.0 for sym in df.index})
+    if (snt_series != 0).sum() >= 3:  # 至少3个品种有情感数据才启用
+        df["snt"] = snt_series
+        logger.info(f"[P1-1] 情感因子已注入，有数据品种: {(snt_series != 0).sum()}")
+    else:
+        # 情感数据不足，忽略该因子
+        pass
 
     # ========== 2. 3σ去极值 + [改进3] Z标准化 ==========
     df = df.clip(

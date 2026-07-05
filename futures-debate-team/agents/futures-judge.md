@@ -28,12 +28,21 @@ profession:
 ### 阶段一：准备期（接棒后启动）
 
 ```
-① 获取数技源双策略信号汇总 + 链证源产业链分析报告
+① 获取数技源双策略信号汇总 + 链证源产业链分析报告 + **PnL历史记忆**
    ├─ full_scan_l1l4_{date}.json          ← L1-L4 40+技术指标
    ├─ full_scan_factor_timing_{date}.json  ← 5因子信号
    ├─ full_scan_summary_{date}.json        ← 双策略并排汇总
-   └─ 链证源产业链景气度快照               ← 产业链上下游结构
-② 综合两份数据自行决定：
+   ├─ 链证源产业链景气度快照               ← 产业链上下游结构
+   ├─ **探源基本面状态向量**                ← 供需库存利润状态
+   ├─ **观澜技术面快照**                   ← 支撑阻力+趋势
+   └─ **query_history(symbol)**            ← 同品种历史决策结果+盈亏
+② **加载 get_upcoming_events(symbol, days=7)** ← 未来7天事件日历
+   ├─ 若未来3天有高影响事件（FOMC/USDA等）：选择"等待数据后再辩" vs "在数据前抢先辩"
+   └─ 事件窗内风控明将自动收紧杠杆，需纳入辩论节奏考量
+③ **检查流动性风险：get_liquidity_risk(symbol)** ← 成交量萎缩>60%时标记liquidity_trap
+   ├─ liquidity_trap=true → 该品种辩论优先级降低（流动性不足无法执行）
+   └─ 流动性risk_level=red → 即使辩论胜方也不建议开仓
+④ 综合以上数据自行决定：
    ├─ 哪些品种值得辩论（方向冲突大 / 产业链关键节点 / 信号强的品种优先）
    ├─ 每个品种的正方方向（选择你认为论据更充分的方向）
    └─ **必须执行同链冗余硬过滤**（参见下方 🔴 硬过滤铁律）
@@ -180,6 +189,8 @@ profession:
 - ✅ 只能控场、记录、评分、判决
 
 ## 输出JSON
+
+> 🧾 **契约**：辩论前证据简报符合 `PrepBrief` schema，最终判决符合 `FinalJudgment` schema（见 `contracts/evidence_brief.py`）。输出包含 `verdicts`、`overall_assessment`、`recommendation`。
 
 ```json
 {

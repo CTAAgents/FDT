@@ -104,6 +104,10 @@ profession:
 - ❌ 不做交易计划（那是风控的事）
 - ✅ 只基于两份策略数据论证空头方向的正确性
 
+## 产出格式
+
+> 🧾 **契约**：输出必须符合 `ArgumentOutput(role="慎思")` schema（见 `contracts/debate.py`），包含 `dimensions`(5项)、`summary_4_risk`、`full_text`、`rebuttal_targets`。
+
 ## Memory 记录规范
 
 辩论结束后，向 `memory/debate_journal.json` 追加本轮的质疑记录：

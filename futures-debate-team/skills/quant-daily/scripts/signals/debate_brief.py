@@ -274,6 +274,143 @@ render();
     return html
 
 
+def select_debate_symbols(summary: dict, chain_map: dict = None,
+                           min_count: int = 20, min_chains: int = 12) -> dict:
+    """
+    从信号汇总中精选辩论品种。
+
+    纯数据辅助——只输出品种列表和分类，不做方向裁决。
+    闫判官根据此列表自行决定辩论策略。
+
+    Args:
+        summary: build_signal_summary() 的输出
+        chain_map: {symbol_upper: chain_name} 映射。None时标记为"未知"
+        min_count: 最少辩论品种数
+        min_chains: 最少覆盖产业链数
+
+    Returns:
+        {
+            "_meta": {"mode": "debate_selection", "total_candidates": N, "chains_covered": M, ...},
+            "divergence": [{"symbol":..., "chain":..., "l1l4":..., "factor":..., "divergence_score":...}, ...],
+            "consensus_bear": [ ... ],
+            "consensus_bull": [ ... ],
+            "debate_candidates": [{"symbol":..., "chain":..., "proposition_side":"bear/bull", "reason":...}, ...],
+            "chain_coverage": {"chain_name": candidate_count, ...},
+            "z_extremes": [{"symbol":..., "z_score":...}, ...],
+        }
+    """
+    if chain_map is None:
+        chain_map = {}
+
+    symbols = summary.get("symbols", [])
+    meta = summary.get("_meta", {})
+
+    # 分类
+    divergence = []
+    consensus_bear = []
+    consensus_bull = []
+    neutral = []
+
+    for s in symbols:
+        sym = s["symbol"]
+        l = s["l1l4"]
+        f = s["factor_timing"]
+        l_dir, l_total = l.get("direction", "neutral"), l.get("total", 0)
+        f_dir, f_total = f.get("direction", "neutral"), f.get("total", 0)
+        chain = chain_map.get(sym.upper(), "未知")
+        item = {
+            "symbol": sym, "name": s.get("name", sym), "chain": chain,
+            "l1l4_dir": l_dir, "l1l4_total": l_total,
+            "factor_dir": f_dir, "factor_total": f_total,
+            "price": l.get("price", 0), "adx": l.get("adx", 0),
+            "grade": l.get("grade", "NOISE"),
+        }
+        if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
+            item["divergence_score"] = abs(l_total) + abs(f_total)
+            divergence.append(item)
+        elif l_dir == "bear" and f_dir == "bear":
+            item["consensus_score"] = abs(l_total) + abs(f_total)
+            consensus_bear.append(item)
+        elif l_dir == "bull" and f_dir == "bull":
+            item["consensus_score"] = abs(l_total) + abs(f_total)
+            consensus_bull.append(item)
+        else:
+            neutral.append(item)
+
+    divergence.sort(key=lambda x: x["divergence_score"], reverse=True)
+    consensus_bear.sort(key=lambda x: x["consensus_score"], reverse=True)
+    consensus_bull.sort(key=lambda x: x["consensus_score"], reverse=True)
+
+    # 精选辩论品种
+    candidates = []
+    covered_chains = set()
+
+    # 第一轮：分歧品种
+    for item in divergence:
+        item["proposition_side"] = "bear" if (abs(item["l1l4_total"]) >= abs(item["factor_total"])
+                                               and item["l1l4_dir"] == "bear") else item["l1l4_dir"]
+        if item["proposition_side"] == "neutral":
+            item["proposition_side"] = item["factor_dir"]
+        item["reason"] = f"方向分歧: L1L4={item['l1l4_dir']}({item['l1l4_total']:+d}) vs 因子={item['factor_dir']}({item['factor_total']:+d})"
+        candidates.append(item)
+        covered_chains.add(item["chain"])
+
+    # 第二轮：补充新链的共识空头
+    for item in consensus_bear:
+        if item["chain"] not in covered_chains and len(candidates) < min_count + 5:
+            item["proposition_side"] = "bear"
+            item["reason"] = f"双空共识: L1L4({item['l1l4_total']:+d}) + 因子({item['factor_total']:+d}) | 链:{item['chain']}"
+            candidates.append(item)
+            covered_chains.add(item["chain"])
+
+    # 第三轮：如果链覆盖不足，从剩余品种补充
+    all_known_chains = set(chain_map.values()) - {"未知", "其他"}
+    for chain in sorted(all_known_chains):
+        if chain not in covered_chains and len(candidates) < min_count + 5:
+            for item in neutral + consensus_bull + consensus_bear:
+                if item["chain"] == chain and item not in candidates:
+                    item["proposition_side"] = item["l1l4_dir"] if item["l1l4_dir"] != "neutral" else "bear"
+                    item["reason"] = f"链覆盖补充: {chain}"
+                    candidates.append(item)
+                    covered_chains.add(chain)
+                    break
+
+    # 第四轮：仍不足则补高分共识空头
+    if len(candidates) < min_count:
+        for item in consensus_bear:
+            if item not in candidates and len(candidates) < min_count + 3:
+                item["proposition_side"] = "bear"
+                item["reason"] = f"补足数量: 双空共识强度{item['consensus_score']}"
+                candidates.append(item)
+
+    # Z分数极端
+    z_extremes = [{"symbol": s["symbol"], "z_score": s["l1l4"].get("z_score", 0)}
+                  for s in symbols if abs(s["l1l4"].get("z_score", 0)) > 2]
+    z_extremes.sort(key=lambda x: abs(x["z_score"]), reverse=True)
+
+    # 链覆盖统计
+    chain_counts = {}
+    for c in candidates:
+        chain_counts[c["chain"]] = chain_counts.get(c["chain"], 0) + 1
+
+    return {
+        "_meta": {
+            "mode": "debate_selection",
+            "total_candidates": len(candidates),
+            "chains_covered": len(covered_chains),
+            "divergence_count": len(divergence),
+            "consensus_bear_count": len(consensus_bear),
+            "consensus_bull_count": len(consensus_bull),
+        },
+        "divergence": divergence,
+        "consensus_bear": consensus_bear,
+        "consensus_bull": consensus_bull,
+        "debate_candidates": candidates,
+        "chain_coverage": chain_counts,
+        "z_extremes": z_extremes,
+    }
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="双策略信号汇总（quant-daily纯数据输出）")
@@ -281,6 +418,9 @@ if __name__ == "__main__":
     parser.add_argument("factor_path", help="factor_timing 策略 JSON 路径")
     parser.add_argument("-o", "--output-dir", help="输出目录", default=".")
     parser.add_argument("-p", "--prefix", help="文件名前缀", default="signal_summary")
+    parser.add_argument("--select-debate", help="链映射JSON路径，启用辩论品种精选", default=None)
+    parser.add_argument("--min-count", type=int, help="最少辩论品种数", default=20)
+    parser.add_argument("--min-chains", type=int, help="最少覆盖产业链数", default=12)
     args = parser.parse_args()
 
     summary = build_signal_summary(args.l1l4_path, args.factor_path)
@@ -301,3 +441,24 @@ if __name__ == "__main__":
     print(f"\n信号汇总: {meta['total_symbols']}品种")
     print(f"  L1-L4: {meta['l1l4_bull']}多头 / {meta['l1l4_bear']}空头")
     print(f"  因子择时: {meta['factor_bull']}多头 / {meta['factor_bear']}空头")
+
+    if args.select_debate:
+        with open(args.select_debate, 'r', encoding='utf-8') as f:
+            chain_data = json.load(f)
+        chain_results = chain_data.get("chain_results", chain_data)
+        chain_map = {}
+        for sym, info in chain_results.items():
+            if isinstance(info, dict):
+                chain_map[sym.upper()] = info.get("chain", "未知")
+        selection = select_debate_symbols(
+            summary, chain_map=chain_map,
+            min_count=args.min_count, min_chains=args.min_chains,
+        )
+        sel_path = os.path.join(args.output_dir, f"{args.prefix}_candidates.json")
+        with open(sel_path, 'w', encoding='utf-8') as f:
+            json.dump(selection, f, ensure_ascii=False, indent=2)
+        sm = selection["_meta"]
+        print(f"\n辩论品种精选:")
+        print(f"  候选: {sm['total_candidates']}个, 覆盖{sm['chains_covered']}条产业链")
+        print(f"  分歧: {sm['divergence_count']}个, 共识空头: {sm['consensus_bear_count']}个")
+        print(f"  → {sel_path}")

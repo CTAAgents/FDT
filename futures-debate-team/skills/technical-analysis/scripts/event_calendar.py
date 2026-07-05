@@ -139,3 +139,43 @@ def check_event_impact(
 
 
 EVENT_CACHE = generate_event_dates(datetime.now().year)
+
+
+def get_upcoming_events(symbol: str, days: int = 7) -> List[Dict]:
+    """获取未来N天内影响某品种的事件列表。
+
+    供闫判官/风控明做辩论时间窗决策：
+    - USDA报告前48h适合等待数据后再辩
+    - FOMC前后降杠杆
+
+    Args:
+        symbol: 品种代码
+        days: 前瞻天数
+
+    Returns:
+        [{"event_type": str, "date": str, "days_until": int, "impact": str}, ...]
+    """
+    from datetime import date, timedelta
+    today = date.today()
+    end_date = today + timedelta(days=days)
+
+    events = []
+    for e in EVENT_CACHE:
+        try:
+            d = datetime.strptime(e["date"], "%Y-%m-%d").date()
+        except (ValueError, KeyError):
+            continue
+        if today <= d <= end_date:
+            affected = e.get("affected", [])
+            if affected == "__ALL__" or symbol.upper() in [s.upper() for s in affected]:
+                impact = check_event_impact(e["date"], symbol)
+                events.append({
+                    "event_type": e["event_type"],
+                    "date": e["date"],
+                    "days_until": (d - today).days,
+                    "confidence_discount": impact.get("confidence_discount", 1.0),
+                    "suggested_position_pct": impact.get("suggested_position_pct", 1.0),
+                })
+
+    events.sort(key=lambda x: x["days_until"])
+    return events

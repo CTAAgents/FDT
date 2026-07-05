@@ -2,17 +2,23 @@
 """
 判官工具 — 闫判官的评分计算工具箱
 ===================================
-将闫判官的评分逻辑从 prompt 内的 LLM 主观判断，
-变为可验证的数学运算 + 可追溯的评分过程。
+v3.0 新增:
+  - flip_proposition: 不预设正方，看双方理由后定方向
+  - generate_feedback: 辩论→三路反馈回流
+  - evaluate_debate: 基于StructuredDebate的完整评分
 
 核心函数：
   compute_total_score — 加权总分（标准五维/六维）
   compute_convergence — 分歧度计算
   detect_unrebutted   — 检测未被反驳的论点
-  check_convergence   — 收敛判据（决定是否提前终止或续辩）
+  check_convergence   — 收敛判据
+  flip_proposition    — 不预设正方，双方交定正方申请书后定
+  generate_feedback   — 辩论反馈→回流给观澜/探源/链证源
+  evaluate_debate     — 基于结构化辩词的全流程评分
 """
 
 import json, math
+from typing import Dict, List, Optional, Tuple
 
 
 def compute_total_score(scores: dict, weights: dict = None) -> dict:
@@ -136,6 +142,190 @@ def check_convergence(
         "recommendation": f"分歧度{spread:.0f}，建议追加第{rounds_elapsed+1}轮辩论",
         "winner": None,
     }
+
+
+def flip_proposition(
+    symbol: str,
+    bull_reason: str,          # 证真写的"为什么我该当正方"
+    bear_reason: str,          # 慎思写的"为什么我该当正方"
+    l1l4_signal: dict,         # L1-L4信号
+    factor_signal: dict,       # factor_timing信号
+) -> dict:
+    """闫判官不预设正方——看双方申请后定。
+
+    步骤:
+    1. 比较双方理由的质量（证据充分性、逻辑一致性）
+    2. 双策略信号方向（权重40%）
+    3. 决定正方方向
+
+    Returns:
+        {"proposition_side": "long"/"short",
+         "reason": "选择理由",
+         "bull_score": int, "bear_score": int}
+    """
+    bull_score = _rate_application(bull_reason, is_bull=True)
+    bear_score = _rate_application(bear_reason, is_bull=False)
+
+    # 双策略信号倾向
+    l1_dir = 1 if l1l4_signal.get('direction') in ('bull', 'BUY') else (-1 if l1l4_signal.get('direction') in ('bear', 'SELL') else 0)
+    f_dir = 1 if factor_signal.get('direction') in ('bull', 'BUY') else (-1 if factor_signal.get('direction') in ('bear', 'SELL') else 0)
+    signal_bias = l1_dir + f_dir  # 2=强烈多, -2=强烈空, 0=中性
+
+    # 综合: 论据质量60% + 信号40%
+    net = (bull_score - bear_score) * 0.6 + signal_bias * 5 * 0.4
+    proposition = "long" if net > 0 else "short"
+
+    return {
+        "proposition_side": proposition,
+        "reason": f"证真申请评分{bull_score}/100, 慎思申请评分{bear_score}/100, "
+                  f"双策略偏{'多' if signal_bias>0 else '空' if signal_bias<0 else '中性'} → 定正方={'多方' if proposition=='long' else '空方'}",
+        "bull_application_score": bull_score,
+        "bear_application_score": bear_score,
+        "signal_bias": signal_bias,
+    }
+
+
+def _rate_application(reason: str, is_bull: bool) -> int:
+    """对正方申请书打分（0-100）。"""
+    score = 60  # 基准
+    # 有具体数据引用+5
+    if any(c.isdigit() for c in reason): score += 10
+    # 有逻辑推理链+10
+    if any(w in reason for w in ["因为", "所以", "因此", "意味着"]): score += 10
+    # 有风险认知+10
+    if any(w in reason for w in ["风险", "但", "不过", "然而"]): score += 10
+    # 有具体数字+5
+    import re
+    if re.search(r'\d+\.?\d*%', reason): score += 5
+    if re.search(r'\d+\.?\d*元', reason): score += 5
+    return min(100, score)
+
+
+def generate_feedback(
+    symbol: str,
+    bull_debate: dict,       # StructuredDebate
+    bear_debate: dict,       # StructuredDebate
+    judge_verdict: dict,
+) -> List[dict]:
+    """辩论结束后，生成三路反馈回流。
+
+    回流1: 观澜 — 支撑/阻力位评级被挑战
+    回流2: 探源 — narrative被证伪/数据解读翻车
+    回流3: 链证源 — 产业链骨架漏项
+
+    Returns: [DebateFeedbackItem, ...]
+    """
+    feedback = []
+
+    # 回流1: 技术位挑战
+    tech_bull = bull_debate.get("evidence", {}).get("technical", [])
+    tech_bear = bear_debate.get("evidence", {}).get("technical", [])
+    for e in tech_bull + tech_bear:
+        pt = e.get("point", "")
+        if "hard" in pt and ("破" in pt or "失效" in pt or "换月" in pt):
+            feedback.append({
+                "target": "观澜",
+                "item": pt[:50],
+                "challenge": "技术位在辩论中被攻破",
+                "winner": "慎思" if "hard" in pt and "破" in pt else "证真",
+                "action": "同品种同类型支撑位，换月周+OI增>5%时hard降级为soft",
+            })
+
+    # 回流2: 叙事挑战
+    fund_bull = bull_debate.get("evidence", {}).get("fundamental", [])
+    fund_bear = bear_debate.get("evidence", {}).get("fundamental", [])
+    for e in fund_bull + fund_bear:
+        pt = e.get("point", "")
+        if "库存" in pt and ("被动" in pt or "拒收" in pt or "厂库升" in pt):
+            feedback.append({
+                "target": "探源",
+                "item": f"库存解读: {pt[:50]}",
+                "challenge": "库存结构解读在辩论中被挑战（厂库升+社库降=被动累）",
+                "winner": "慎思",
+                "action": "修正inventory.structure判断逻辑：厂库升+社库降=被动累，非主动去",
+            })
+
+    # 回流3: 产业链漏项
+    for debate in [bull_debate, bear_debate]:
+        for rs in debate.get("rebuttal_strategy", []):
+            ke = rs.get("key_evidence", "")
+            if "焦化" in ke or "利润→开工" in ke:
+                feedback.append({
+                    "target": "链证源",
+                    "item": "利润→开工传导timing",
+                    "challenge": "辩论中发现焦化利润到高炉开工链路缺失",
+                    "winner": "双方",
+                    "action": "黑链产业链骨架加焦化利润到高炉开工边",
+                })
+
+    return feedback
+
+
+def evaluate_debate(
+    bull: dict,
+    bear: dict,
+    flip_result: Optional[dict] = None,
+) -> dict:
+    """基于StructuredDebate的全流程评分。
+
+    评分维度（扩展5维）:
+    1. 论点清晰度(thesis): 是否一句话说清楚
+    2. 证据质量(evidence): 是否具体、可核验、来源明确
+    3. 风险意识(risk): 是否主动列counter_risks
+    4. 反驳预判(rebuttal): 是否预判对方攻击方向
+    5. 方案可执行性(plan): entry_plan是否合理
+
+    Returns: {"bull_score": float, "bear_score": float,
+              "verdict": str, "feedback": [...]}
+    """
+    bull_scores = _score_dimensions(bull)
+    bear_scores = _score_dimensions(bear)
+    weights = {"thesis": 0.25, "evidence": 0.25, "risk": 0.20, "rebuttal": 0.15, "plan": 0.15}
+
+    bull_total = sum(bull_scores[k] * weights[k] for k in weights)
+    bear_total = sum(bear_scores[k] * weights[k] for k in weights)
+    spread = bull_total - bear_total
+
+    if abs(spread) < 3:
+        verdict = "draw"
+    elif spread > 0:
+        verdict = "bull"
+    else:
+        verdict = "bear"
+
+    return {
+        "bull_score": round(bull_total, 1),
+        "bear_score": round(bear_total, 1),
+        "spread": round(spread, 1),
+        "verdict": verdict,
+        "bull_detail": bull_scores,
+        "bear_detail": bear_scores,
+        "method": "StructuredDebate 5维加权",
+    }
+
+
+def _score_dimensions(debate: dict) -> dict:
+    """对StructuredDebate的5个维度分别打分(0-100)。"""
+    scores = {"thesis": 60, "evidence": 60, "risk": 60, "rebuttal": 60, "plan": 60}
+    thesis = debate.get("thesis", "")
+    if len(thesis) > 15 and len(thesis) < 100: scores["thesis"] += 15
+    if "三重共振" in thesis or "共振" in thesis: scores["thesis"] += 10
+
+    tech_n = len(debate.get("evidence", {}).get("technical", []))
+    fund_n = len(debate.get("evidence", {}).get("fundamental", []))
+    scores["evidence"] = min(100, 60 + tech_n * 5 + fund_n * 5)
+
+    risks = debate.get("counter_risks", [])
+    scores["risk"] = min(100, 60 + len(risks) * 10)
+
+    rebuttals = debate.get("rebuttal_strategy", [])
+    scores["rebuttal"] = min(100, 60 + len(rebuttals) * 10)
+
+    plan = debate.get("entry_plan")
+    if plan and plan.get("price_zone"): scores["plan"] = 80
+    if plan and plan.get("risk_reward"): scores["plan"] += 10
+
+    return scores
 
 
 if __name__ == "__main__":

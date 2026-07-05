@@ -49,6 +49,7 @@ Stage 2: 闫判官综合双策略信号 + 产业链信息 → 选辩论品种 + 
 风控5层引擎  → 选锚→仓位→动态调整→场景覆写→反馈闭环
 观澜v2.1     → ZigZag+VP支撑阻力/硬软分类/ATR容差/失效条件/多周期共振
 P3全量实现   → ML方向预测+事件日历+跨品种联动+PnL反馈闭环
+P0_P1增强   → 情感因子+流动性风险+摩擦精细化+DAG并行化+特征注入+Agent协议
 ```
 
 ## 10大角色
@@ -125,6 +126,56 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 | L4: 覆写 | `special_scenario_override()` | 换月/交割/夜盘/事件 | 强制降仓+放宽止损 |
 | L5: 反馈 | `build_feedback_entry()` + `aggregate_feedback()` | 止损记录+假破率 | 同类型支撑置信度校准 |
 
+**交易摩擦**：`calc_transaction_cost()` — 基于fee_table.py（62品种费率）计算手续费+滑点+冲击成本，回测时可配置 `--fee-rate` 参数
+
+## 交易记忆 & 反思（v4.2新增）
+
+`futures-trading-analysis/scripts/trading_memory.py` 记录每笔辩论决策→平仓结果→反思注入：
+
+- `record_decision()` — 记录辩论决策（方向/入场/理由/置信度）
+- `record_outcome()` — 平仓回填PnL
+- `build_reflection_prompt()` — 更新辩论环节自动注入历史反思
+- `get_performance_summary()` — 整体表现摘要（胜率/总盈亏/最大盈亏）
+
+## 标准回测报告（v4.2新增）
+
+`quant-daily/scripts/backtest/backtest_report.py` 生产级回测引擎：
+
+| 功能 | 说明 |
+|:----|:-----|
+| CR/AR/SR/MDD全指标 | 累计/年化收益、夏普、最大回撤、卡玛比 |
+| 3基线对比 | 买入持有 / MA金叉死叉 / RSI超买超卖 |
+| 蒙提卡罗 | 2000次随机抽样，p值统计显著性检验 |
+| 摩擦折减 | `--fee-rate` 参数，摩擦前/后对比 |
+| HTML报告 | 自包含交互式报告（见 docs/reports/） |
+
+### RB回测摘要（180天数据，v3引擎）
+
+| 策略变体 | CR | SR | 胜率 | 盈亏比 | 最大回撤 | 摩擦影响 |
+|:---------|:--:|:--:|:----:|:------:|:--------:|:--------|
+| WEAK+SELL | +8.37% | 1.12 | 59.4% | 1.23 | 23.1% | 摩擦0.1%后~+8.3% |
+| WATCH+BUY | -35.93% | — | 45.9% | — | — | 熊市做多逆势 |
+| ML增强版 | +19.47% | 0.61 | 50.4% | — | — | — |
+
+> 📁 完整报告：`docs/reports/backtest_report_RB_20260705.html`
+
+### Agent通信协议 v3.0
+
+10角色间结构化通信由 `contracts/` 包定义，覆盖全链路：
+
+| 协议 | Schema | 生产者 | 消费者 |
+|:-----|:-------|:-------|:-------|
+| 基本面状态向量 | `FundamentalStateVector` | 探源 | 闫判官+证真+慎思 |
+| 技术面快照 | `TechnicalOutput` | 观澜 | 闫判官 |
+| 产业链快照 | `ChainAnalysisOutput` | 链证源 | 闫判官 |
+| 辩论论点 | `ArgumentOutput` | 证真/慎思 | 闫判官 |
+| 证据简报+判决 | `PrepBrief` / `FinalJudgment` | 闫判官 | 所有人 |
+| 风控审核 | `RiskOutput` | 风控明 | 闫判官 |
+| 交易计划 | `TradingPlanOutput` | 策执远 | 风控明 |
+| 团队决策 | `TeamDecisionOutput` | 明鉴秋 | 归档 |
+
+详见 [`docs/agent-protocol.md`](docs/agent-protocol.md)
+
 ## P3 技术债务实施（全部完成）
 
 | Phase | 项目 | 文件 | 状态 |
@@ -167,7 +218,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v4.2** | **2026-07-05** | **P3全量实现**：Phase1 事件日历+跨品种联动 / Phase2 ML特征管道(30+维) / Phase3 DirectionClassifier+EnsemblePredictor / Phase4 PnL反馈闭环；风控明5层引擎(risk_engine.py)；观澜技术分析v2.1支撑阻力(hardness/容差/失效/共振)；换月跳空屏蔽+OI/量能确认；risk_input字段注入信号汇总；全审计8项修复；CONS/ADX假警报排查(indicators_legacy除零修复) |
+| **v4.2** | **2026-07-05** | **P3全量实现**：Phase1 事件日历+跨品种联动 / Phase2 ML特征管道(30+维) / Phase3 DirectionClassifier+EnsemblePredictor / Phase4 PnL反馈闭环；风控明5层引擎(risk_engine.py)；观澜技术分析v2.1支撑阻力(hardness/容差/失效/共振)；换月跳空屏蔽+OI/量能确认；risk_input字段注入信号汇总；全审计8项修复；CONS/ADX假警报排查(indicators_legacy除零修复)；胶水代码防复发（assemble_intermediate_data / debate_brief --select-debate）；对比分析TradingAgents+CSTrader并制定P0-P2优化路线图 |
 | v4.1 | 2026-07-05 | 方案C仲裁者裁决：量析师移除(10角色)；数技源改为--dual双策略输出；链证源前置(S1.5)；所有Agent自动写memory；`memory/rules/` → `memory/policies/` |
 | v4.0 | 2026-07-04 | 策略可插拔架构：新增量析师，策略层驱动打分；链证源聚焦景气度(不下多空)；正反方引4层证据 |
 | v3.3 | 2026-07-04 | quant-daily真分层打分集成 |

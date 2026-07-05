@@ -60,6 +60,8 @@ profession:
 
 ## Output JSON
 
+> 🧾 **契约**：输出必须符合 `TechnicalOutput` schema（见 `contracts/technical.py`），包含 `trend_stage`、`indicators`、`support_resistance`、`summary`（`verdict` 必须为 null）。
+
 ```json
 {
   "subject": "RB2710 螺纹钢",
@@ -76,7 +78,8 @@ profession:
 ## 履职方式
 
 1. 与基本面研究员同步出**技术面快照**，多空双方共享
-2. **数据资料来源包括但不限于**：
+2. **注入特征工程摘要（P1-7）**：调用 `export_feature_summary(symbol, features)` 获取30+量化特征的 top-5，用于验证技术形态的可靠性（如 volatility 分位验证突破、volume_ratio 验证放量）
+3. **数据资料来源包括但不限于**：
    - `L1-L4` 策略数据（ADX/RSI/CCI/MA排列/子层一致性/stage/veto等）
    - `scan_all.py` 输出的量价/持仓/关键位数据
    - `technical-analysis` 模块自行计算补充指标
