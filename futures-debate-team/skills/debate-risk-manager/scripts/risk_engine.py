@@ -122,7 +122,77 @@ def _avoid_round_number(price: float) -> float:
     return round(price, 1)
 
 
-# ═══════════════════════════════════════════════════════════
+# ── 策执远 vs 风控明 止损覆写 ──
+
+def override_trader_stop(
+    trader_stop: float,
+    risk_anchor: Dict,
+    direction: str = "long",
+) -> Dict:
+    """风控明覆写策执远的止损价。"""
+    risk_stop = risk_anchor.get("stop_price", 0)
+    if risk_stop <= 0:
+        return {"accepted_stop": trader_stop, "override": False, "reason": "风控明无有效锚"}
+    if direction == "long":
+        risk_tighter = risk_stop > trader_stop
+    else:
+        risk_tighter = risk_stop < trader_stop
+    if risk_tighter:
+        return {"accepted_stop": round(risk_stop, 1), "override": True,
+                "reason": f"风控明锚({risk_stop})比策执远({trader_stop})更紧，强制采用"}
+    return {"accepted_stop": round(trader_stop, 1), "override": False,
+            "reason": f"策执远({trader_stop})比风控明({risk_stop})更紧，保留原方案"}
+
+
+# ── 链证源数据 → confidence 修正 ──
+
+def adjust_confidence_with_chain(
+    base_confidence: float,
+    chain_inventory_level: str = "normal",
+    chain_profit_level: str = "normal",
+    direction: str = "long",
+) -> tuple:
+    """使用链证源的产业链数据修正观澜的confidence。"""
+    adj = base_confidence
+    reasons = []
+    if chain_inventory_level == "low" and direction == "long":
+        adj += 10; reasons.append("库存低位+多头，置信+10")
+    elif chain_inventory_level == "high" and direction == "long":
+        adj -= 10; reasons.append("库存高位+多头，置信-10")
+    elif chain_inventory_level == "low" and direction == "short":
+        adj -= 10; reasons.append("库存低位+空头，置信-10")
+    elif chain_inventory_level == "high" and direction == "short":
+        adj += 10; reasons.append("库存高位+空头，置信+10")
+    if chain_profit_level == "negative" and direction == "long":
+        adj += 5; reasons.append("利润亏损+多头(减产预期)，置信+5")
+    elif chain_profit_level == "positive" and direction == "short":
+        adj += 5; reasons.append("利润高位+空头(增产预期)，置信+5")
+    return (max(0, min(100, adj)), "；".join(reasons) or "无产业链修正")
+
+
+# ── 辩论前品种预审 ──
+
+def pre_check_symbol(
+    days_to_rollover: int = 99,
+    days_to_delivery: int = 99,
+    upcoming_events: list = None,
+    current_price: float = 0,
+    atr: float = 0,
+) -> Dict:
+    """闫判官选定辩论品种后，风控明在辩论前的预审检查。"""
+    flags = []
+    if days_to_rollover <= 5:
+        flags.append({"flag": "high_rollover_risk", "msg": f"距换月{days_to_rollover}天，仓位折半"})
+    if days_to_delivery <= 5:
+        flags.append({"flag": "near_delivery", "msg": f"距交割{days_to_delivery}天，强制降仓30%"})
+    if upcoming_events:
+        flags.append({"flag": "event_day", "msg": f"宏观事件{upcoming_events}临近，技术置信度打折"})
+    return {
+        "pass": len(flags) == 0,
+        "warnings": len(flags),
+        "flags": flags,
+        "suggested_position_pct": max(0.3, 1.0 - len(flags) * 0.3),
+    }
 # 二、仓位计算（置信度 + 止损距反推）
 # ═══════════════════════════════════════════════════════════
 

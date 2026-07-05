@@ -19,6 +19,71 @@ import json, os, sys, logging
 logger = logging.getLogger(__name__)
 
 
+def _extract_risk_input(l_entry: dict, f_entry: dict) -> dict:
+    """从L1-L4和factor_timing数据中提取风控明专用字段。
+
+    这是观澜→风控明的结构化契约。风控明只认这个字段。
+    """
+    l_total = l_entry.get("total", 0)
+    f_total = f_entry.get("total", 0)
+    l_adx = l_entry.get("adx", 0)
+
+    # 置信度：L1-L4的cons(一致性) + factor的vote_confidence 加权
+    l_cons = l_entry.get("cons", 0)
+    f_conf = f_entry.get("vote_confidence", 0.0)
+    base_confidence = int((l_cons / 4 * 60 + abs(f_conf) * 40))
+
+    # ATR估算
+    atr = l_entry.get("atr", 0)
+    if not atr:
+        atr = max(abs(l_total) * 0.15, 10)
+
+    # 信号方向
+    l_dir = "bull" if l_total > 0 else ("bear" if l_total < 0 else "neutral")
+    f_dir = "bull" if f_total > 0 else ("bear" if f_total < 0 else "neutral")
+    conflict = (l_dir != f_dir) and (l_dir != "neutral" and f_dir != "neutral")
+
+    return {
+        "ATR": {"value": round(atr, 1), "period": 14},
+        "confidence": max(0, min(100, base_confidence)),
+        "adx": round(l_adx, 1),
+        "direction_conflict": conflict,
+        "l1l4_direction": l_dir,
+        "factor_direction": f_dir,
+        "pattern_risk": _detect_pattern_risk(l_entry, f_entry),
+        "invalid_condition": _build_invalid_condition(l_entry),
+    }
+
+
+def _detect_pattern_risk(l_entry: dict, f_entry: dict) -> str:
+    """检测潜在反转/风险模式。"""
+    adx = l_entry.get("adx", 0)
+    rsi = l_entry.get("rsi", 50)
+    stage = l_entry.get("stage", "")
+    cons = l_entry.get("cons", 0)
+
+    risks = []
+    if stage == "exhaustion":
+        risks.append("衰竭阶段")
+    if adx > 60 and cons < 3:
+        risks.append("ADX极端但一致性低")
+    if rsi > 75 or rsi < 25:
+        risks.append(f"RSI极端({rsi})")
+    if stage == "launch" and adx < 20:
+        risks.append("启动但无趋势确认")
+    return " | ".join(risks) if risks else "无"
+
+
+def _build_invalid_condition(l_entry: dict) -> str:
+    """根据技术指标生成关键位失效条件。"""
+    adx = l_entry.get("adx", 0)
+    total = l_entry.get("total", 0)
+    direction = "多头" if total > 0 else "空头"
+    if adx > 40:
+        return f"日线{direction}方向ADX{adx}强趋势，若ADX跌破25则趋势转弱"
+    return f"日线{direction}方向失效条件：收盘反向突破近期极值+OI配合"
+
+
 def _load_json(path: str) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -112,6 +177,7 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
             "name": l_entry.get("name", sym),
             "l1l4": _extract_l1l4(l_entry),
             "factor_timing": _extract_factor(f_entry),
+            "risk_input": _extract_risk_input(l_entry, f_entry),
         })
 
     l1l4_meta = l1l4_data.get("_meta", {})
