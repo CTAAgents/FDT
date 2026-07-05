@@ -1,0 +1,26 @@
+[
+  {
+    "trade_id": "39d060a45cf6",
+    "symbol": "RB",
+    "direction": "long",
+    "entry_price": 6880,
+    "stop_price": 6763,
+    "target_price": 7200,
+    "lots": 6,
+    "entry_date": "2026-07-05",
+    "strategy": "debate",
+    "status": "closed",
+    "tech_prediction": {
+      "prob": 0.72,
+      "direction": 1,
+      "confidence": 75
+    },
+    "trader_notes": "",
+    "created_at": "2026-07-05 18:17:18",
+    "closed_at": "2026-07-10 18:17:18",
+    "exit_price": 7020,
+    "pnl_points": 140,
+    "pnl_pct": 2.03,
+    "annotation": null
+  }
+]
