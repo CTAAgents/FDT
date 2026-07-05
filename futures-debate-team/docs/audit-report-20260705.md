@@ -33,12 +33,12 @@
 ## 修复优先级
 
 ```
-P0-1  divide by zero warning  →  15min  (indicators_legacy.py)
-P1-4  ATR=0 crash             →  5min   (risk_engine.py)
-P1-5  空支撑 fake soft         →  5min   (risk_engine.py)
-P2-6  SC斜率异常值              →  10min  (MultiSourceAdapter)
-P2-7  CONS/ADX 逻辑偏差       →  30min  (layered_l1l4.py scoring logic)
-P3-8  仓单可选因子             →  20min  (factor_timing.py)
-P0-3  Exchange警告             →  2min   (scan_all.py)
-P0-2  仓单数据填充             →  需数据管道改造（已知限制）
+P0-1  divide by zero warning  →  ✅ 已修复 (indicators_legacy.py: np.where除零防护+atr_fn护值)
+P1-4  ATR=0 crash             →  ✅ 已修复 (risk_engine.py: 返回INSUFFICIENT_DATA)
+P1-5  空支撑 fake soft         →  ✅ 已修复 (risk_engine.py: 统一走insufficient_data路径)
+P2-6  SC斜率异常值              →  ✅ 已修复 (factor_timing.py: abs(slope)>20→0)
+P2-7  CONS/ADX 逻辑偏差       →  ✅ 诊断结论: 假警报(CONS=4/4, ADX=69.2完全吻合, 误读factor_timing表)
+P3-8  仓单可选因子             →  ⚠️ 已知限制(DuckDB填充后自动恢复)
+P0-3  Exchange警告             →  ✅ 设计意图的降级fallback, 非bug
+P0-2  仓单数据填充             →  ⚠️ 需DuckDB数据管道改造（已知限制）
 ```

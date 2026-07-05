@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.1 — 十角色全景：数技源(双策略数据输出)→研究员(供弹)→辩手(辩论)→风控(审核)。策略可插拔(默认L1-L4+factor_timing)，闫判官自主决定辩论品种与方向。quant-daily只输出原始数值不做判断。",
+  "description": "Multi-role futures trading debate team v4.2 — P3全量实现：ML方向预测+风控5层引擎+事件日历+跨品种联动+PnL反馈闭环。十角色全景：数技源(双策略数据输出)→链证源(产业链先于决策)→研究员(供弹)→辩手(辩论)→风控(5层审核)。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v4.1 — quant-daily outputs dual strategy data (L1-L4 + factor_timing), Yan Panguan decides debate topics and thesis, debaters argue from both strategy data, strategist plans, risk audits, judge rules.",
-    "zh": "10角色期货辩论专家团：数技源输出双策略信号→闫判官定辩论品种与方向→技术/基本面研究员供分析资料→多方/空方辩论→策执远出方案→风控明审核→闫判官裁决→明鉴秋汇总。"
+    "en": "10-role futures debate team v4.2 — P3 fully implemented: ML direction prediction with EnsemblePredictor, 5-layer risk engine (smart stop anchor + position sizing + dynamic adjustment + scenario override + feedback loop), event calendar mask, cross-symbol correlation, PnL feedback loop.",
+    "zh": "10角色期货辩论专家团v4.2：数技源双策略→链证源产业链(先于决策)→闫判官定辩论→研究员供弹→多方/空方辩论→策执远出方案→风控明5层审核→闫判官裁决→明鉴秋汇总。P3全量实现：ML方向预测+事件日历+跨品种联动+PnL反馈闭环。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
@@ -70,6 +70,10 @@
     {
       "en": "Risk Management",
       "zh": "风险管理"
+    },
+    {
+      "en": "Machine Learning",
+      "zh": "机器学习"
     }
   ],
   "quickPrompts": [

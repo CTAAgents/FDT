@@ -1,8 +1,8 @@
 ---
 name: quant-daily
-version: 2.3.1
+version: 2.4.0
 agent_created: true
-description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。
+description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。v2.4新增P3：feature_pipeline(30+特征)+ML方向预测(EnsemblePredictor)+PnL反馈闭环。
 ---
 
 # quant-daily — 商品期货量化分析一体化
@@ -276,7 +276,14 @@ scripts/
 │   ├── signal_screener.py         # 信号筛选
 │   ├── trade_plan.py              # 交易计划
 │   ├── term_basis.py              # 期限结构分析
-│   └── report.py                  # 报告生成
+│   ├── report.py                  # 报告生成
+│   └── debate_brief.py            # 辩论证据简报 + risk_input字段注入
+├── ml_models/                     # P3: ML方向预测（v2.4.0新增）
+│   └── direction_classifier.py    # LightGBM包装器 + EnsemblePredictor(规则+ML加权)
+├── feature_pipeline/              # P3: 特征工程（v2.4.0新增）
+│   └── feature_engineering.py     # 30+维度特征: 动量/OI/技术指标/期限结构/跨品种
+├── feedback/                      # P3: PnL反馈闭环（v2.4.0新增）
+│   └── trade_journal.py           # 交易记录+反向标注+replay buffer+性能汇总
 └── backtest/                      # 回测框架
     ├── backtest_true_layered.py   # 真分层回测（AKShare，多截面多空评估）
     ├── evaluate.py                # 历史回放评估
@@ -311,6 +318,9 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 > **设计原则**：`--symbols` 参数的设计目的就是消灭"为特定品种集写胶水脚本"的需求。任何辩论场景下如需扫描指定品种，应直接调用 `scan_all.py --symbols`，不得自行编写 `phase1_custom_scan.py` 之类的一次性脚本。
 
 ## 版本历史
+
+- **v2.4.0** (2026-07-05): **P3全量实现** — 新增 ml_models/direction_classifier.py(LightGBM+EnsemblePredictor), feature_pipeline/feature_engineering.py(30+维度特征), feedback/trade_journal.py(PnL反馈闭环+反向标注); debate_brief.py 新增 risk_input字段注入(confidence/ATR/ADX/pattern_risk); indicators_legacy.py 除零修复(numpy安全向量化); SC斜率异常值过滤(abs>20%→0)
+- **v2.3.1** (2026-07-05): factor_timing 12项优化 — 真实数据源、展期斜率异常过滤、多因子十分组投票、G1/G10动手组/观望组
 
 - **v2.0.0** (2026-07-04): 真分层打分设为默认
   - 新增 true_layered_scoring 模块（7因子等权投票、否决降权、趋势成熟度）

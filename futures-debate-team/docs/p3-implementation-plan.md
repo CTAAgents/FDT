@@ -4,10 +4,10 @@
 
 | Phase | 项目 | 预估工时 | 前置依赖 | 状态 |
 |:------|:-----|:--------|:---------|:-----|
-| **Phase 1** | 事件日历mask + 跨品种联动 | 2h | 无 | ✅ 完成 |
-| **Phase 2** | ML模型数据管道 | 4h | Phase 1 | ⏳ 待启动 |
-| **Phase 3** | ML模型训练+验证 | 8h | Phase 2 | ⏳ |
-| **Phase 4** | PnL反馈闭环 | 4h | Phase 3 | ⏳ |
+| **Phase 1** | 事件日历mask + 跨品种联动 | 2h | 无 | ✅ 完成 (event_calendar.py + cross_correlation.py) |
+| **Phase 2** | ML模型数据管道 | 4h | Phase 1 | ✅ 完成 (feature_pipeline/feature_engineering.py, 30+维度) |
+| **Phase 3** | ML模型训练+验证 | 8h | Phase 2 | ✅ 完成 (ml_models/direction_classifier.py: DirectionClassifier+EnsemblePredictor) |
+| **Phase 4** | PnL反馈闭环 | 4h | Phase 3 | ✅ 完成 (feedback/trade_journal.py: record_trade+close_trade+反向标注+replay buffer) |
 
 ## Phase 1: 事件日历 + 跨品种联动（即时可建）
 
