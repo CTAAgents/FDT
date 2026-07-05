@@ -628,13 +628,20 @@ def _generate_factor_timing_scan(
     # ========== 1. 计算五个核心因子（含 [改进8/9] 增强） ==========
     factor_values = {}
 
-    # [P1-1] 加载情感因子（第6因子）
+    # [P1-1/P0-3] 加载情感因子（第6因子），含失效监控+健康度检查
     sentiment_scores = {}
+    sentiment_healthy = False
     try:
-        from data.sentiment import get_sentiment_scores
+        from data.sentiment import get_sentiment_scores, check_sentiment_health
         sentiment_scores = get_sentiment_scores()
+        health = check_sentiment_health()
+        sentiment_healthy = health.get("is_healthy", False)
+        if not sentiment_healthy:
+            logger.warning(f"[P0-3] 情感因子健康度不合格: {health.get('reason', '')}，降级到5因子")
+            sentiment_scores = {}  # 清空，强制回退
     except (ImportError, Exception) as e:
         logger.debug(f"情感因子不可用（非阻塞）: {e}")
+        sentiment_scores = {}
 
     for sym in symbols:
         d = market_data[sym]

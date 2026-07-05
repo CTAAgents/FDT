@@ -12,7 +12,7 @@
   python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
   python scan_all.py --list-strategies                        # 列出所有策略
 """
-import sys, os, json, re, pandas as pd
+import sys, os, json, re, random, pandas as pd
 from datetime import date
 
 # ── 路径自举（quant-daily scripts/ 目录） ──
@@ -60,7 +60,8 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
 
 def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
              symbols: list = None, mode: str = "layered",
-             strategy_name: str = None, dual: bool = False) -> dict:
+             strategy_name: str = None, dual: bool = False,
+             seed: int = None) -> dict:
     """执行品种信号扫描，返回结果字典。
 
     策略层已独立到 strategies/ 目录，新增策略仅需:
@@ -82,6 +83,33 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
     - 每个sym为2-6位字母代码
     - 空symbols列表触发全品种扫描
     """
+    # ── 设置全局随机种子（P0-1: 决策确定性重构）──
+    if seed is not None:
+        random.seed(seed)
+        try:
+            import numpy as np
+            np.random.seed(seed)
+        except ImportError:
+            pass
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        print(f"[Fingerprint] 全局随机种子已设置: seed={seed}")
+    
+    # ── 生成策略指纹ID ──
+    try:
+        import sys as _sys
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from scripts.fingerprint import generate_fingerprint
+        _fp = generate_fingerprint(
+            strategy_params={"strategy": strategy_name or mode, "dual": dual, "symbols_count": len(symbols) if symbols else None},
+            seed=seed,
+        )
+        print(f"[Fingerprint] 策略指纹: {_fp}")
+    except Exception as e:
+        _fp = f"FDB_v4.4_noseed_{date.today().strftime('%Y%m%d')}"
+        print(f"[Fingerprint] 指纹生成降级: {_fp} (原因: {e})")
+
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
     if dual:
         print(f"\n{'='*60}")
@@ -93,6 +121,7 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             symbols=symbols,
             strategy_name="layered_l1l4",
             dual=False,
+            seed=seed,
         )
         result_b = run_scan(
             output_dir=output_dir,
@@ -100,6 +129,7 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             symbols=symbols,
             strategy_name="factor_timing",
             dual=False,
+            seed=seed,
         )
         # ── 双策略信号汇总（纯数据，不做判断） ──
         if output_dir:
@@ -556,13 +586,16 @@ if __name__ == '__main__':
     default_strat = "layered_l1l4"
 
     parser = argparse.ArgumentParser(description='品种信号扫描 — 策略可插拔')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='全局随机种子，锁定LLM/ML/抽样随机性，保证同参数同数据结果100%复现')
     parser.add_argument('--output', '-o', help='输出目录', default=None)
     parser.add_argument('--prefix', '-p', help='文件名前缀', default='full_scan')
     parser.add_argument('--symbols', '-s', help='指定品种代码（逗号分隔），如 "PK,RB,B,UR"。不传则全品种。', default=None)
     parser.add_argument('--strategy', help=f'策略: {", ".join(available)} (默认: {default_strat})',
                         default=None, choices=available + [None])
-    parser.add_argument('--mode', '-m', help='[已废弃] 请用 --strategy',
-                        default='layered', choices=['layered', 'true_layered', 'compare'])
+    parser.add_argument('--mode', '-m', default='dry-run',
+                        help='运行模式: dry-run(回测摩擦固定) / paper(模拟盘动态滑点) / live(实盘TWAP分批)',
+                        choices=['dry-run', 'paper', 'live', 'layered', 'true_layered', 'compare'])
     parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
     parser.add_argument('--dual', action='store_true',
                         help='双策略并行：同时运行 L1-L4分层 + 因子择时，各输出一份报告')
@@ -597,4 +630,4 @@ if __name__ == '__main__':
                           date.today().strftime('%Y-%m-%d'))
 
     run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=custom_symbols,
-             mode=args.mode, strategy_name=args.strategy, dual=args.dual)
+             mode=args.mode, strategy_name=args.strategy, dual=args.dual, seed=args.seed)

@@ -24,6 +24,13 @@ _RECURRING_EVENTS = {
     "EIA": {"week": 2, "weekday": 3, "months": list(range(1, 13))},        # 每周三
     "CPI_US": {"week": 2, "weekday": 4, "months": list(range(1, 13))},     # 每月第2周周四
     "NFP": {"week": 1, "weekday": 4, "months": list(range(1, 13))},        # 每月第1周周五
+    # ── 国内宏观事件（P1-3本土化补齐） ──
+    "PBOC_LPR": {"week": 3, "weekday": 4, "months": list(range(1, 13))},   # 每月第3周周五（LPR报价）
+    "CPI_CN": {"week": 2, "weekday": 3, "months": list(range(1, 13))},     # 每月第2周周三
+    "PMI_CN": {"week": 1, "weekday": 1, "months": list(range(1, 13))},     # 每月第1周周一
+    "POLITBURO": {"week": 4, "weekday": 4, "months": [4, 7, 12]},          # 4/7/12月政治局会议（季度经济部署）
+    "NBS_PRESS": {"week": 3, "weekday": 4, "months": list(range(1, 13))},  # 国新办发布会（每月第3周）
+    "CBIRC": {"week": 3, "weekday": 2, "months": [1, 4, 7, 10]},          # 银保监会季度会议
 }
 
 # ── 品种受影响映射 ──

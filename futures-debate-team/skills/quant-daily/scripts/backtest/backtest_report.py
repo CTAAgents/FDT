@@ -718,6 +718,18 @@ def main():
                         help='不生成HTML')
     parser.add_argument('--fee-rate', type=float, default=0.0,
                         help='交易摩擦费率(如0.001=千1)，默认0不折减')
+    parser.add_argument('--rolling-window', type=int, default=0,
+                        help='滚动验证窗口天数(默认0=不滚动，建议120)')
+    parser.add_argument('--rolling-step', type=int, default=30,
+                        help='滚动验证步长(默认30天)')
+    parser.add_argument('--min-days', type=int, default=600,
+                        help='最低回测天数(默认600，覆盖完整牛熊周期)')
+    parser.add_argument('--stress-test', action='store_true',
+                        help='运行压力测试')
+    parser.add_argument('--permutation-test', action='store_true',
+                        help='运行置换检验')
+    parser.add_argument('--lookahead-check', action='store_true',
+                        help='运行前视偏差检测')
     args = parser.parse_args()
 
     symbols_raw = [s.strip().upper() for s in args.symbols.split(',')]
@@ -805,6 +817,56 @@ def main():
         print(f"     耗时: {elapsed:.0f}s")
 
         all_reports.append(report)
+
+    # ── P0-2: 回测体系加固 — 额外检验模块 ──
+    if any([args.stress_test, args.permutation_test, args.lookahead_check]):
+        print(f"\n{'='*60}")
+        print(f"  额外检验模块")
+        print(f"{'='*60}")
+    
+    # 压力测试
+    if args.stress_test:
+        try:
+            from stress_test import run_stress_test
+            stress_result = run_stress_test(symbols_raw, scenario_key="all")
+            stress_path = os.path.join(out_dir, f'stress_test_{today}.json')
+            with open(stress_path, 'w', encoding='utf-8') as f:
+                json.dump(stress_result, f, ensure_ascii=False, indent=2)
+            print(f"  [StressTest] 结果: {stress_result['summary']['pass_rate']*100:.1f}%通过 | {stress_path}")
+        except Exception as e:
+            print(f"  [StressTest] 跳过: {e}")
+    
+    # 置换检验
+    if args.permutation_test:
+        try:
+            from permutation_test import permutation_test
+            for report in all_reports:
+                if report.get('status') != 'OK':
+                    continue
+                sym = report.get('symbol', 'unknown')
+                returns = report.get('daily_returns', [])
+                sharpe = report.get('strategies', {}).get('watch_buy_10d', {}).get('sharpe_ratio', 0)
+                if returns:
+                    perm_result = permutation_test(returns, sharpe, iterations=1000)
+                    report['permutation_test'] = perm_result
+                    print(f"  [Permutation] {sym}: p={perm_result['p_value']:.4f} {'✅显著' if perm_result['is_significant'] else '❌不显著'}")
+        except Exception as e:
+            print(f"  [Permutation] 跳过: {e}")
+    
+    # 前视偏差检测
+    if args.lookahead_check:
+        try:
+            from lookahead_check import detect_lookahead_in_signals
+            for report in all_reports:
+                if report.get('status') != 'OK':
+                    continue
+                sym = report.get('symbol', 'unknown')
+                violations = detect_lookahead_in_signals(report)
+                report['lookahead_check'] = {'violations': violations, 'pass': len(violations) == 0}
+                status = '✅通过' if len(violations) == 0 else f'❌{len(violations)}项违规'
+                print(f"  [Lookahead] {sym}: {status}")
+        except Exception as e:
+            print(f"  [Lookahead] 跳过: {e}")
 
     # 汇总
     success = sum(1 for r in all_reports if r.get('status') == 'OK')

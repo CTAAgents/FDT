@@ -261,3 +261,170 @@ class EnsemblePredictor:
                 "ml_weight": self.ml_weight,
             }
         return results
+
+    # ── P1-2: 四路集成预测（规则+ML+情感+因子新鲜度） ──
+
+    def predict_four_way(
+        self,
+        rule_output: Dict[str, float],
+        ml_output: Dict[str, float],
+        sentiment_output: Dict[str, float] = None,
+        freshness_output: Dict[str, float] = None,
+    ) -> Dict[str, Any]:
+        """四路集成预测。
+
+        Args:
+            rule_output: 规则策略输出 {"direction", "prob", "confidence"}
+            ml_output: ML模型输出 {"direction", "prob", "confidence"}
+            sentiment_output: 情感因子输出 {"direction", "prob", "confidence"}，可选
+            freshness_output: 因子新鲜度输出 {"direction", "prob", "confidence"}，可选
+
+        Returns:
+            {"prob": float, "direction": int, "confidence": float,
+             "vote_details": {"rule": float, "ml": float, "sentiment": float, "freshness": float}}
+        """
+        import math
+
+        # 基础双路
+        votes = {
+            "rule": rule_output.get("prob", 50) * (1 if rule_output.get("direction", 0) > 0 else -1),
+            "ml": ml_output.get("prob", 50) * (1 if ml_output.get("direction", 0) > 0 else -1),
+        }
+
+        # 情感因子（可选）
+        if sentiment_output:
+            s_dir = 1 if sentiment_output.get("direction", 0) > 0 else -1
+            votes["sentiment"] = sentiment_output.get("prob", 50) * s_dir * 0.5  # 情感权重减半
+
+        # 因子新鲜度（可选）
+        if freshness_output:
+            f_dir = 1 if freshness_output.get("direction", 0) > 0 else -1
+            votes["freshness"] = freshness_output.get("prob", 50) * f_dir * 0.3  # 新鲜度权重最低
+
+        # 加权投票
+        weights = {"rule": self.rule_weight, "ml": self.ml_weight}
+        if sentiment_output and "sentiment" in votes:
+            weights["sentiment"] = 0.15
+        else:
+            votes["sentiment"] = 0
+        if freshness_output and "freshness" in votes:
+            weights["freshness"] = 0.10
+        else:
+            votes["freshness"] = 0
+
+        total_weight = sum(v * w for v, w in zip(votes.values(), weights.values()))
+        total_weight_sum = sum(weights.values())
+
+        if total_weight_sum == 0:
+            return {"prob": 50, "direction": 0, "confidence": 50}
+
+        weighted_vote = total_weight / total_weight_sum
+        direction = 1 if weighted_vote > 0 else -1
+        prob = min(abs(weighted_vote), 99)
+        confidence = int(prob * 1.5)
+
+        return {
+            "prob": round(prob, 2),
+            "direction": direction,
+            "confidence": min(confidence, 99),
+            "vote_details": {
+                "rule": round(votes.get("rule", 0), 2),
+                "ml": round(votes.get("ml", 0), 2),
+                "sentiment": round(votes.get("sentiment", 0), 2),
+                "freshness": round(votes.get("freshness", 0), 2),
+            },
+        }
+
+
+class DirectionClassifierV2(DirectionClassifier):
+    """P1-2: ML方向分类器 v2 — 支持增量训练、因子衰减、四路集成。"""
+
+    def __init__(self, model_path: Optional[str] = None):
+        super().__init__(model_path)
+        self.feature_decay_rate = 0.05  # 因子衰减率
+        self.feature_importance_history = []  # 特征重要性历史
+
+    def incremental_train(self, X_new: np.ndarray, y_new: np.ndarray, X_val: Optional[np.ndarray] = None, y_val: Optional[np.ndarray] = None):
+        """增量训练：在现有模型基础上微调，避免模型固化老化。
+
+        使用 LightGBM 的 init_model 参数实现增量学习。
+        每日收盘用实盘PnL样本微调模型。
+
+        Args:
+            X_new: 新样本特征
+            y_new: 新样本标签
+            X_val: 验证集特征（可选）
+            y_val: 验证集标签（可选）
+        """
+        if self.model is None:
+            return super().train(X_new, y_new, X_val, y_val)
+
+        try:
+            import lightgbm as lgb
+
+            train_data = lgb.Dataset(X_new, y_new)
+            val_data = lgb.Dataset(X_val, y_val) if X_val is not None and y_val is not None else None
+
+            params = {
+                "objective": "binary",
+                "metric": "binary_logloss",
+                "learning_rate": 0.01,  # 增量训练用小学习率
+                "num_leaves": 15,
+                "min_data_in_leaf": 10,
+                "verbose": -1,
+            }
+
+            self.model = lgb.train(
+                params,
+                train_data,
+                num_boost_round=10,  # 少量轮次微调
+                valid_sets=[val_data] if val_data else None,
+                init_model=self.model,  # 关键：基于现有模型增量训练
+            )
+        except ImportError:
+            import warnings
+            warnings.warn("LightGBM 不可用，增量训练跳过")
+
+    def update_feature_freshness(self, feature_names: List[str], importance_scores: np.ndarray):
+        """更新因子新鲜度权重。
+
+        Args:
+            feature_names: 特征名列表
+            importance_scores: 特征重要性分数
+        """
+        self.feature_importance_history.append({
+            "date": __import__('datetime').datetime.now().strftime("%Y-%m-%d"),
+            "features": {name: float(score) for name, score in zip(feature_names, importance_scores)},
+        })
+
+        # 仅保留最近3条历史
+        if len(self.feature_importance_history) > 3:
+            self.feature_importance_history = self.feature_importance_history[-3:]
+
+    def get_feature_decay_analysis(self) -> Dict[str, Any]:
+        """分析因子衰减情况。
+        
+        Returns:
+            {"decaying_features": [str], "top_features": [str], "decay_rate": float}
+        """
+        if len(self.feature_importance_history) < 2:
+            return {"decaying_features": [], "top_features": [], "decay_rate": self.feature_decay_rate}
+
+        recent = self.feature_importance_history[-1]["features"]
+        previous = self.feature_importance_history[0]["features"]
+
+        decaying = []
+        for feature in recent:
+            if feature in previous:
+                decline = previous[feature] - recent[feature]
+                if decline > previous[feature] * 0.3:  # 衰减超过30%
+                    decaying.append(feature)
+
+        top = sorted(recent, key=recent.get, reverse=True)[:5]
+
+        return {
+            "decaying_features": decaying,
+            "top_features": top,
+            "decay_rate": self.feature_decay_rate,
+            "history_count": len(self.feature_importance_history),
+        }
