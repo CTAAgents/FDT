@@ -156,7 +156,11 @@ def run_scan(output_dir: str = None, output_prefix: str = "full_scan",
             print(f'  [{i+1}] {len(tech_list)} OK')
 
     # ── 纯数据模式（数技源专用，不做策略打分） ──
-    if args.output_raw:
+    try:
+        _output_raw = args.output_raw
+    except NameError:
+        _output_raw = False
+    if _output_raw:
         print('\n  → 纯数据模式: 跳过策略打分，仅输出原始数据包')
         raw_package = {
             '_meta': {
