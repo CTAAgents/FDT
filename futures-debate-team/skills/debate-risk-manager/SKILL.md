@@ -1,19 +1,12 @@
 ---
 name: debate-risk-manager
-version: 3.2.0
+version: 4.0.0
 description: >
-  风控明 v3.2 — 期货辩论风控官（三合一：擂台裁判+资金管家+逻辑质检）。
-  新增Python计算脚本：calc_position（仓位沙盘推演）+ simulate_gap（跳空模拟）+ audit_logic（叙事质检）。
-  29测试100%通过。
+  风控明 v4.0 — 风险引擎升级（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance.py v2.1输出。
 agent_created: true
 changelog: |
-  v3.2.0 (2026-07-04): 新增3个Python计算脚本 — calc_position.py(仓位/杠杆/止损推演)、simulate_gap.py(夜盘跳空模拟+追保)、audit_logic.py(叙事概率+rebuttal质量+)；删除旧的risk_assessment_output.json；29测试全覆盖
-  v3.1.0 (2026-07-03): 流程修正 — 输入由bull/bear对象改为"策执远方案+正反方辩论维度"；集成模式更新
-  v3.0.0 (2026-07-03): 掌柜完整重定义 — 三合一角色(擂台裁判+资金管家+逻辑质检)；新增仓位沙盘推演(calc_position/calc_leverage/simulate_gap)；新增叙事概率质检(flag_logic)；新增green/yellow/red三级verdict；新增6步内部决策链；新增期货特有红线checklist
-  v2.0.0 (2026-07-01): 重构为结构化输入+rebuttal审查 — 输入从全文改bull/bear结构化对象，新增维度级裁定(include/watch/exclude)和rebuttal_quality审查，4条红线
-  v1.2.0 (2026-06-30): 同链冗余检查升级为相关性驱动排除
-  v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式
-  v1.0.0 (2026-07-01): 初始版本
+  v4.0.0 (2026-07-05): 新增risk_engine.py — 5层风控引擎（选锚算法0.8~2.5ATR+置信度仓位折减+动态逻辑止损/ATR扩张/trailing+换月/事件/夜盘覆写+反馈闭环）；接管技术Agent的hard支撑+ATR+置信度输入
+  v3.2.0 (2026-07-04): 新增3个Python计算脚本 — calc_position.py、simulate_gap.py、audit_logic.py
 disable: false
 ---
 
@@ -25,6 +18,7 @@ disable: false
 
 | 模块 | 文件 | 核心函数 | 用途 |
 |:----|:----|:--------|:-----|
+| 风险引擎 | `scripts/risk_engine.py` | `select_stop_anchor()`, `calculate_position()`, `evaluate_dynamic_adjustments()`, `special_scenario_override()`, `build_feedback_entry()`, `aggregate_feedback()` | ✅ 智能止损锚选择(0.8~2.5ATR) + confidence仓位折减 + 动态逻辑止损/ATR扩张/trailing + 换月/事件/夜盘覆写 + 反馈回流 |
 | 仓位计算 | `scripts/calc_position.py` | `calc_position_risk()` | 杠杆/保证金/止损/安全手数推演 |
 | 跳空模拟 | `scripts/simulate_gap.py` | `simulate_gap()` | 夜盘跳空场景模拟 + 追保压力 |
 | 逻辑审计 | `scripts/audit_logic.py` | `check_narrative_probability()` | 叙事概率检查 + rebuttal质量评估 |

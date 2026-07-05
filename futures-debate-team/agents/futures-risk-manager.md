@@ -151,6 +151,71 @@ quant-daily 信号包的 veto_penalty 系数是硬性参考：veto_penalty < 0.5
 
 > ⚠️ **坑3：夜盘跳空不跑场景** — 原油/COMEX金属夜盘跳3%很常见，辩手按日线设止损2%等于没设。simulate_gap必须每轮都跑。
 
+## 🔧 风险引擎工作流（对接技术Agent输出 v2.1）
+
+风控明通过 `risk_engine.py` 消费技术Agent的结构化输出，执行5层风控流程：
+
+### 输入契约（技术Agent必须提供）
+风控明需要从技术Agent（观澜）获取以下结构化字段：
+- `key_levels.supports` — 带 `hardness`/`source`/`fail_condition` 的支撑位列表
+- `ATR.value` — 14日ATR
+- `confidence` — 技术信号置信度（0-100）
+- `pattern_risk` — 反转形态警示（可选）
+- `invalid_condition` — 关键位失效条件
+
+### 五层处理流程
+
+**第一层：选止损锚** — `select_stop_anchor()`
+1. 只认 `hardness="hard"` 的支撑（POC/前高前低/整数关口+多周期共振）
+2. 优先选距当前价 0.8~2.5×ATR 的那根（太近扫损概率高、太远仓位起不来）
+3. 止损不挂锚价本身：`stop = anchor_price - 0.4×ATR` 加容差
+4. 避开整数关口（6850→6842），防程序化扫单
+
+**第二层：算仓位** — `calculate_position()`
+`仓位 = risk_budget / 止损距 × confidence折扣 × pattern折扣`
+| confidence | 折扣 | 逻辑 |
+|---|---|---|
+| ≥80 | 100% | 满仓 |
+| 65~79 | 80% | 标准 |
+| 50~64 | 50% | 等确认 |
+| <50 | 0% | 不开仓 |
+
+反转形态（双顶/头肩等）再砍30%。
+
+**第三层：盘中调整** — `evaluate_dynamic_adjustments()`
+- 技术Agent判"支撑失效" → 不等止损价打到，市价逻辑止损
+- ATR扩张>30% → 止损距按新ATR重算
+- 技术Agent吐新支撑 → trailing上移止损
+
+**第四层：特殊场景** — `special_scenario_override()`
+| 场景 | 动作 |
+|---|---|
+| 换月周(≤5天) | 降仓50%，hard→soft，放宽容差至1ATR |
+| 交割月前(≤5天) | 强制降仓至30%以下 |
+| 夜盘(02:30后) | 放宽容差0.5ATR |
+| 宏观事件日(FOMC/非农) | 降仓70%，技术置信度打折50% |
+
+**第五层：反馈闭环** — `build_feedback_entry() + aggregate_feedback()`
+每次砍仓后记录到 `feedback_entries.json`，定期汇总分析：
+- 同一类支撑的假破率统计
+- 假破率>60%的支撑类型下次自动加容差至0.6ATR
+- 反馈写入 `memory/` 供技术Agent下次调整置信度
+
+### 工具调用（风险引擎）
+
+```python
+from scripts.risk_engine import select_stop_anchor, calculate_position, evaluate_dynamic_adjustments, special_scenario_override
+
+# 选锚
+anchor = select_stop_anchor(current_price=6880, supports=supports, atr=42)
+# 算仓
+position = calculate_position(entry=6880, stop=anchor['stop_price'], equity=1000000, multiplier=10, confidence=72)
+# 动态调整
+adj = evaluate_dynamic_adjustments(current_price=6950, entry_price=6880, current_stop=6823, atr=42, new_supports=new_supports)
+# 特殊场景
+override = special_scenario_override('RB', 6880, 42, 1000000, days_to_rollover=2, upcoming_events=['FOMC'])
+```
+
 ## Memory 记录规范
 
 每次出具审核意见后，向 `memory/debate_journal.json` 追加记录：
