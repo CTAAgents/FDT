@@ -281,3 +281,84 @@ def _append_replay_buffer(record: Dict):
     os.makedirs(os.path.dirname(REPLAY_BUFFER_PATH), exist_ok=True)
     with open(REPLAY_BUFFER_PATH, 'w', encoding='utf-8') as f:
         json.dump(buffer, f, ensure_ascii=False, indent=2)
+
+
+# ═══════════════════════════════════════════════
+# v4.4 升级版交易日志（信号→执行→风控→结果）
+# ═══════════════════════════════════════════════
+
+TRADE_LOG_SCHEMA = {
+    "round_id": str,          # "RB_20260705"
+    "mode": str,              # "paper" / "live"
+    "signal": dict,           # {direction, confidence, rule_vote, ml_vote, sentiment_vote}
+    "execution": dict,        # {contract, entry_price, lots_filled, slippage_ticks, commission}
+    "risk": dict,             # {stop_loss, take_profit, margin, risk_verdict}
+    "outcome": dict,          # {exit_price, pnl, exit_reason, duration_hours}
+}
+
+
+def record_trade_v2(trade: dict) -> str:
+    """v2 交易记录（完整 schema）。"""
+    trade_id = f"T{trade.get('round_id', 'UNKNOWN')}_{datetime.now().strftime('%H%M%S')}"
+    trade["trade_id"] = trade_id
+    trade["recorded_at"] = datetime.now().isoformat()
+    _append_journal(trade)
+    return trade_id
+
+
+def daily_review(symbol: str = None, days: int = 1) -> dict:
+    """每日复盘分析。
+
+    Args:
+        symbol: 品种筛选（可选）
+        days: 回顾天数
+
+    Returns:
+        {"summary": {...}, "by_confidence": [...], "ml_vs_rule": {...}}
+    """
+    trades = query_history(symbol=symbol or "", lookback_days=days)
+    if not trades:
+        return {"trades": 0, "note": "今日无交易"}
+
+    closed = [t for t in trades if t.get("outcome", {}).get("exit_price")]
+    if not closed:
+        return {"trades": len(trades), "note": "所有交易未平仓"}
+
+    wins = sum(1 for t in closed if t.get("outcome", {}).get("pnl", 0) > 0)
+    total_pnl = sum(t.get("outcome", {}).get("pnl", 0) for t in closed)
+    gross_profit = sum(max(t.get("outcome", {}).get("pnl", 0), 0) for t in closed)
+    gross_loss = abs(sum(min(t.get("outcome", {}).get("pnl", 0), 0) for t in closed))
+
+    # 按置信度分组
+    by_confidence = {}
+    for t in closed:
+        conf = t.get("signal", {}).get("confidence", 0.5)
+        bucket = "high" if conf >= 0.7 else "medium" if conf >= 0.5 else "low"
+        if bucket not in by_confidence:
+            by_confidence[bucket] = {"trades": 0, "wins": 0, "pnl": 0}
+        by_confidence[bucket]["trades"] += 1
+        by_confidence[bucket]["wins"] += 1 if t.get("outcome", {}).get("pnl", 0) > 0 else 0
+        by_confidence[bucket]["pnl"] += t.get("outcome", {}).get("pnl", 0)
+
+    # ML vs 规则表现
+    ml_correct = sum(1 for t in closed if t.get("signal", {}).get("ml_vote", 0) * 
+                     (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0)
+    rule_correct = sum(1 for t in closed if t.get("signal", {}).get("rule_vote", 0) * 
+                       (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0)
+
+    return {
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "summary": {
+            "total_trades": len(closed),
+            "win_rate": round(wins / len(closed), 4),
+            "profit_factor": round(gross_profit / max(gross_loss, 1), 2),
+            "total_pnl": round(total_pnl, 2),
+        },
+        "by_confidence": by_confidence,
+        "ml_vs_rule": {
+            "ml_correct": ml_correct,
+            "rule_correct": rule_correct,
+            "ml_win_rate": round(ml_correct / max(len(closed), 1), 3),
+            "rule_win_rate": round(rule_correct / max(len(closed), 1), 3),
+        },
+    }

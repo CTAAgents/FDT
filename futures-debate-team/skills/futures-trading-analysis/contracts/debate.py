@@ -13,9 +13,17 @@ class DimensionItem(BaseModel):
 
 class EvidenceItem(BaseModel):
     """结构化证据项 — 便于策执远抽取 + 闫判官回溯"""
+    claim_id: str = ""                      # 论点ID（如 "证真-D1"），反驳时引用
     point: str                              # 论点
     source: str                             # "观澜" / "探源" / "链证源"
     weight: float = Field(default=1.0, ge=0, le=1)  # 该证据权重
+    # ── 结构化证据要素（辩论质量v2） ──
+    evidence_value: str = ""                # 具体数值（如 "35.2万吨"）
+    evidence_source: str = ""               # 数据来源机构（如 "Mysteel" / "交易所" / "统计局"）
+    evidence_date: str = ""                 # 数据截至日期
+    impact_level: str = "MEDIUM"           # HIGH / MEDIUM / LOW
+    logical_fallacy: str = ""               # 反驳时标注的逻辑漏洞类型
+    rebuttal_to: str = ""                   # 反驳目标论点ID（空=立论，非空=反驳）
 
 
 class CounterRisk(BaseModel):

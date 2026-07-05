@@ -19,7 +19,7 @@
     result = ensemble.predict(rule_output, ml_output)
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import json, os, math
 import numpy as np
 
@@ -428,3 +428,104 @@ class DirectionClassifierV2(DirectionClassifier):
             "decay_rate": self.feature_decay_rate,
             "history_count": len(self.feature_importance_history),
         }
+
+
+class AdaptiveEnsemble:
+    """自适应集成投票 — 规则 vs ML 权重基于滚动窗口动态调整。
+
+    用法:
+        ae = AdaptiveEnsemble(window=20)
+        ae.record(rule_correct=True, ml_correct=True, pnl=500)
+        rule_w, ml_w = ae.get_weight()  # 动态权重
+    """
+
+    def __init__(self, window: int = 20, default_rule_weight: float = 0.6):
+        self.window = window
+        self.default_rule_weight = default_rule_weight
+        self.rule_hits: list[bool] = []  # 规则方向正确次数
+        self.ml_hits: list[bool] = []    # ML方向正确次数
+        self.rule_pnls: list[float] = []
+        self.ml_pnls: list[float] = []
+
+    def record(self, rule_correct: bool, ml_correct: bool, pnl: float = 0):
+        """记录一次交易的结果。
+
+        Args:
+            rule_correct: 规则方向是否正确
+            ml_correct: ML方向是否正确
+            pnl: 实际盈亏（可选，用于PnL加权）
+        """
+        self.rule_hits.append(rule_correct)
+        self.ml_hits.append(ml_correct)
+        if pnl != 0:
+            self.rule_pnls.append(pnl if rule_correct else -pnl)
+            self.ml_pnls.append(pnl if ml_correct else -pnl)
+        # 只保留最近 window 笔
+        if len(self.rule_hits) > self.window:
+            self.rule_hits.pop(0)
+            self.ml_hits.pop(0)
+            if len(self.rule_pnls) > self.window:
+                self.rule_pnls.pop(0)
+                self.ml_pnls.pop(0)
+
+    def get_weight(self) -> tuple[float, float]:
+        """计算动态权重。
+
+        Returns:
+            (rule_weight, ml_weight) 总和为 1.0
+        """
+        if not self.rule_hits:
+            return (self.default_rule_weight, 1 - self.default_rule_weight)
+
+        # 方法1: 基于胜率
+        rule_win = sum(self.rule_hits) / len(self.rule_hits)
+        ml_win = sum(self.ml_hits) / len(self.ml_hits)
+
+        # 方法2: 基于PnL（如果有）
+        if self.rule_pnls and sum(abs(p) for p in self.rule_pnls) > 0:
+            rule_pnl_ratio = sum(self.rule_pnls) / max(abs(sum(self.ml_pnls)), 1)
+            ml_pnl_ratio = sum(self.ml_pnls) / max(abs(sum(self.rule_pnls)), 1)
+            # 融合胜率和PnL
+            rule_score = rule_win * 0.6 + min(max(rule_pnl_ratio, -1), 1) * 0.4
+            ml_score = ml_win * 0.6 + min(max(ml_pnl_ratio, -1), 1) * 0.4
+        else:
+            rule_score = rule_win
+            ml_score = ml_win
+
+        total = rule_score + ml_score
+        if total <= 0:
+            return (self.default_rule_weight, 1 - self.default_rule_weight)
+
+        rule_w = rule_score / total
+        ml_w = ml_score / total
+
+        # 限制极端值：权重不低于 0.2，不高于 0.8
+        rule_w = max(0.2, min(0.8, rule_w))
+        ml_w = 1 - rule_w
+
+        return (round(rule_w, 4), round(ml_w, 4))
+
+    def get_stats(self) -> dict:
+        """获取滚动窗口统计。"""
+        if not self.rule_hits:
+            return {"samples": 0}
+        return {
+            "samples": len(self.rule_hits),
+            "rule_win_rate": round(sum(self.rule_hits) / len(self.rule_hits), 4),
+            "ml_win_rate": round(sum(self.ml_hits) / len(self.ml_hits), 4),
+            "weights": self.get_weight(),
+            "rule_pnl_avg": round(sum(self.rule_pnls) / max(len(self.rule_pnls), 1), 2) if self.rule_pnls else 0,
+            "ml_pnl_avg": round(sum(self.ml_pnls) / max(len(self.ml_pnls), 1), 2) if self.ml_pnls else 0,
+        }
+
+
+if __name__ == "__main__":
+    ae = AdaptiveEnsemble(window=10)
+    for i in range(15):
+        ae.record(
+            rule_correct=(i % 3 != 0),  # 规则66%胜率
+            ml_correct=(i % 2 == 0),    # ML50%胜率
+            pnl=100 if i % 2 == 0 else -50,
+        )
+    print(f"动态权重: {ae.get_weight()}")
+    print(f"统计: {ae.get_stats()}")
