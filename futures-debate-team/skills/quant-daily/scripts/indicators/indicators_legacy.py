@@ -601,7 +601,7 @@ def _compute_indicators_numpy(klines, symbol: str = None) -> dict:
     up_ = h - np.roll(h, 1); dn_ = np.roll(l, 1) - l
     pdm = np.where((up_ > dn_) & (up_ > 0), up_, 0.0)
     mdm = np.where((dn_ > up_) & (dn_ > 0), dn_, 0.0)
-    at14 = a14
+    at14 = a14 if a14 != 0 else 1e-10
     pdi = 100 * wilder_rma(pdm, 14) / at14
     mdi = 100 * wilder_rma(mdm, 14) / at14
     dx = 100 * np.abs(pdi - mdi) / (pdi + mdi + 1e-10)
@@ -654,7 +654,7 @@ def _compute_indicators_numpy(klines, symbol: str = None) -> dict:
     
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1)); vm_m = np.abs(l - np.roll(h, 1))
-    tr_v = atr_fn(14)
+    tr_v = atr_fn(14) if atr_fn(14) != 0 else 1e-10
     vp = wilder_rma(vm_p, 14) / tr_v; vm = wilder_rma(vm_m, 14) / tr_v
     tech['VI_PLUS'] = float(vp[-1]); tech['VI_MINUS'] = float(vm[-1])
     

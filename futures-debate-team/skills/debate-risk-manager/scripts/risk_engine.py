@@ -46,8 +46,10 @@ def select_stop_anchor(
          "atr_ratio": float, "source": str, "hardness": str}
     """
     if not supports or atr <= 0:
-        return {"anchor_price": current_price - atr, "stop_price": current_price - 1.5 * atr,
-                "distance": 1.5 * atr, "atr_ratio": 1.5, "source": "atr_default", "hardness": "soft"}
+        return {"anchor_price": 0, "stop_price": 0,
+                "distance": 0, "atr_ratio": 0, "source": "insufficient_data",
+                "hardness": "none",
+                "error": "ATR为零或无支撑位", "code": "INSUFFICIENT_DATA"}
 
     if direction == "long":
         valid = [s for s in supports if s.get("hardness") in ("hard", "medium") and s.get("price", 0) < current_price]

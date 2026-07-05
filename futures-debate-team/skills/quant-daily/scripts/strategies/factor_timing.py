@@ -479,7 +479,14 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
             ts = term_cache[sym]
             far_close = float(ts.get("far_price", 0))
             ts_type = ts.get("type", "unknown")
-            ts_slope = float(ts.get("slope", 0))
+            ts_slope_raw = float(ts.get("slope", 0))
+            # 斜率异常值过滤：正常Back/Contango斜率在-5%~+5%
+            if abs(ts_slope_raw) > 20:
+                logger.warning(f"[{sym}] 期限结构斜率异常({ts_slope_raw}%)，已过滤为0")
+                ts_slope = 0.0
+                ts_type = "unknown"
+            else:
+                ts_slope = ts_slope_raw
             logger.info(f"[{sym}] 真实期限结构: far={far_close}, type={ts_type}, slope={ts_slope}%")
 
         if far_close is None or far_close <= 0:
