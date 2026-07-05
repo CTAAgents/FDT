@@ -1,7 +1,7 @@
 ---
 name: commodity-chain-analysis
 version: 2.15.0
-description: 商品期货产业链分析系统 v2.15.0 — 产业链聚类+动态相关系数冗余检测(取代硬编码)+跨链品种主导链判断。链证源产出双报告供闫判官裁决。
+description: 商品期货产业链分析系统 v2.16.0 — 产业链聚类+动态相关系数冗余检测(取代硬编码)+跨链品种主导链判断。链证源产出双报告供闫判官裁决。
 agent_created: true
 user_invocable: true
 triggers:

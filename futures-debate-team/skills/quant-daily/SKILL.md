@@ -2,7 +2,7 @@
 name: quant-daily
 version: 2.4.0
 agent_created: true
-description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。v2.4新增P3：feature_pipeline(30+特征)+ML方向预测(EnsemblePredictor)+PnL反馈闭环。
+description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。v2.5新增P3：feature_pipeline(30+特征)+ML方向预测(EnsemblePredictor)+PnL反馈闭环。
 ---
 
 # quant-daily — 商品期货量化分析一体化

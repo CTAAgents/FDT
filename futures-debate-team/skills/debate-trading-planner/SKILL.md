@@ -5,7 +5,7 @@ description: >
   通用期货交易策略制定器（策略师专用）。接收闫判官判决->合成可执行方案->传风控审核。8工具(select_contract/size_position/design_hedge/plan_entries/plan_stop/plan_take/plan_roll/exit_triggers)，不改方向不改目标价。
 agent_created: true
 changelog: |
-  v2.1.0 (2026-07-03): 流程修正 — 输入由裁判改为"闫判官判决"；产出传给风控审核而非最终交付；履职链路更新
+  v2.2.0 (2026-07-05): 多周期辩论 — 新增MultiTimeframeDebate类 流程修正 — 输入由裁判改为"闫判官判决"；产出传给风控审核而非最终交付；履职链路更新
   v2.0.0 (2026-07-03): 升级为策略师专用 — 新增8工具清单、策略师履职链路、对话风控的red回退机制；不改方向不改目标价约束
   v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式，输入输出格式去辩论化
   v1.0.0 (2026-07-01): 初始版本 — 从 futures-trading-analysis 剥离

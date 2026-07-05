@@ -206,13 +206,14 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | Skill | 用途 | 版本 |
 |:------|:-----|:-----|
-| `quant-daily` | 数据采集 + L1-L4 + factor_timing 双策略 + P3 ML管道 | v2.4.0 |
-| `futures-trading-analysis` | 主流程编排 + 报告生成 | v3.2.1 |
-| `commodity-chain-analysis` | 基本面 + 产业链分析 | — |
-| `technical-analysis` | 观澜独立技术分析工具（支撑阻力v2.1+事件日历+跨品种） | v2.1.0 |
-| `debate-argument-builder` | 正反方论点构建 | — |
-| `debate-judge` | 闫判官辩论主持裁决 | — |
-| `debate-risk-manager` | 风控审核（6层引擎） | v4.0.0 |
+| `quant-daily` | 数据采集 + L1-L4 + factor_timing 双策略 + P3 ML管道 + P4四路集成 | v2.5.0 |
+| `futures-trading-analysis` | 主流程编排 + 报告生成 + Pydantic v2契约 | v3.3.0 |
+| `commodity-chain-analysis` | 基本面 + 产业链分析 | v2.16.0 |
+| `technical-analysis` | 观澜独立技术分析工具（支撑阻力v2.2+事件日历+跨品种+regime） | v2.2.0 |
+| `debate-argument-builder` | 正反方论点构建（v2.3） | v2.3.0 |
+| `debate-judge` | 闫判官辩论主持裁决 + 双判官制衡 | v2.1.0 |
+| `debate-risk-manager` | 风控审核（6层引擎+L6组合风控） | v4.1.0 |
+| `debate-trading-planner` | 交易策略规划 + 多周期辩论 | v2.2.0 |
 | `debate-trading-planner` | 交易策略规划 | — |
 
 ## 版本历史

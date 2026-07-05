@@ -1,7 +1,7 @@
 ---
 name: futures-trading-analysis
-version: 3.2.1
-description: 期货交易辩论专家团 v4.1 — 数技源--dual双策略→链证源先于闫判官→闫判官定辩论品种+方向→研究员供弹→证真(多方)⇄慎思(空方)交叉质询→策执远出策略→风控审方案。统一 schema: ArgumentOutput。
+version: 3.3.0
+description: 期货交易辩论专家团 v4.4 — 数技源--dual双策略→链证源先于闫判官→闫判官定辩论品种+方向→研究员供弹→证真(慎思)交叉质询→策执远出策略→风控审方案+L6组合。Pydantic v2全量迁移+双判官制衡。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |

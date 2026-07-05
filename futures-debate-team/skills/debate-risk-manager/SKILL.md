@@ -2,10 +2,10 @@
 name: debate-risk-manager
 version: 4.0.0
 description: >
-  风控明 v4.0 — 风险引擎升级（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance.py v2.1输出。
+  风控明 v4.1 — 风险引擎升级（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance.py v2.1输出。
 agent_created: true
 changelog: |
-  v4.0.0 (2026-07-05): 新增risk_engine.py — 5层风控引擎（选锚算法0.8~2.5ATR+置信度仓位折减+动态逻辑止损/ATR扩张/trailing+换月/事件/夜盘覆写+反馈闭环）；接管技术Agent的hard支撑+ATR+置信度输入
+  v4.1.0 (2026-07-05): 新增risk_engine.py — 5层风控引擎（选锚算法0.8~2.5ATR+置信度仓位折减+动态逻辑止损/ATR扩张/trailing+换月/事件/夜盘覆写+反馈闭环）；接管技术Agent的hard支撑+ATR+置信度输入
   v3.2.0 (2026-07-04): 新增3个Python计算脚本 — calc_position.py、simulate_gap.py、audit_logic.py
 disable: false
 ---
