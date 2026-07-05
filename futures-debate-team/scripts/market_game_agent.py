@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("market_game")
 #!/usr/bin/env python3
 """
 对手盘行为建模 v1.0（P3-2）

@@ -827,7 +827,7 @@ class MultiSourceAdapter:
                 try:
                     start = datetime.strptime(start_date, "%Y-%m-%d") if '-' in start_date else datetime.strptime(start_date, "%Y%m%d")
                     days = (datetime.now() - start).days
-                except Exception: pass
+                except Exception: logger.warning("数据源异常（已降级）", exc_info=True)
             kline_records = self.tdx_collector.get_kline(variety, days=days)
             if kline_records:
                 for r in kline_records:

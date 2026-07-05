@@ -328,8 +328,8 @@ def _get_term_structure_from_duckdb(
         print("[term_basis] DuckDB查询失败，降级到AKShare")
         try:
             conn.close()
-        except:
-            pass
+        except (Exception):
+            pass  # 连接关闭失败不影响降级
         return _get_term_structure_from_akshare(symbols, trade_date)
 
     term_data = {}

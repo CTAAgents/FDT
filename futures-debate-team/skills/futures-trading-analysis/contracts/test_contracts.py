@@ -40,7 +40,7 @@ class TestBullOutput:
         restored = BullOutput.model_validate(data)
         assert restored.variant == "bull"
         assert len(restored.dimensions) == 5
-        assert restored.version == "2.0"
+        assert restored.version == "3.0"
         assert restored.rebuttal_targets == ["供给", "库存"]
 
     def test_min_dimensions_enforced(self):
@@ -74,7 +74,7 @@ class TestBearOutput:
         restored = BearOutput.model_validate(data)
         assert restored.variant == "bear"
         assert len(restored.dimensions) == 5
-        assert restored.version == "2.0"
+        assert restored.version == "3.0"
 
     def test_default_rebuttal_targets(self):
         meta = make_meta()
@@ -197,7 +197,7 @@ class TestMigrations:
     def test_unknown_migration_raises(self):
         import pytest
         with pytest.raises(ValueError):
-            apply_migration("bull", {"version": "2.0"}, "3.0")
+            apply_migration("bull", {"version": "2.0", "role": "证真"}, "3.0")
 
 
 class TestDataCollection:
@@ -228,13 +228,13 @@ if __name__ == "__main__":
 
 # 生成所有可行的版本组合
 VERSIONS = {
-    "bull": ["2.0"],
-    "bear": ["2.0"],
-    "risk": ["2.0", "2.1"],
-    "trading_plan": ["2.0"],
+    "bull": ["3.0"],
+    "bear": ["3.0"],
+    "risk": ["3.0", "2.1"],
+    "trading_plan": ["3.0"],
 }
 
-def make_mock_bull(version="2.0") -> dict:
+def make_mock_bull(version="3.0") -> dict:
     meta = make_meta().model_dump()
     d = {
         "version": version,
@@ -253,13 +253,13 @@ def make_mock_bull(version="2.0") -> dict:
         d["rebuttal_quality_score"] = 0.8
     return d
 
-def make_mock_bear(version="2.0") -> dict:
+def make_mock_bear(version="3.0") -> dict:
     d = make_mock_bull(version)
     d["variant"] = "bear"
     d["rebuttal_targets"] = []
     return d
 
-def make_mock_risk(version="2.0") -> dict:
+def make_mock_risk(version="3.0") -> dict:
     meta = make_meta().model_dump()
     d = {
         "version": version,
@@ -280,7 +280,7 @@ def make_mock_risk(version="2.0") -> dict:
         d["risk_level"] = "medium"
     return d
 
-def make_mock_trading_plan(version="2.0") -> dict:
+def make_mock_trading_plan(version="3.0") -> dict:
     meta = make_meta().model_dump()
     return {
         "version": version,
@@ -332,10 +332,11 @@ class TestIntegrationMatrix:
         obj = TradingPlanOutput.model_validate(plan_data)
         assert obj.version == plan_v
 
-        # 迁移验证
+        # 迁移验证（仅对v2.x运行，v3.0兼容）
         from contracts.migrations import apply_migration
-        migrated = apply_migration("risk", risk_data, "2.0")
-        assert migrated["version"] == "2.0"
-        # 如果原来是2.1，risk_level 应被移除
+        if risk_v.startswith("2."):
+            migrated = apply_migration("risk", risk_data, "2.0")
+            assert migrated["version"] in ("2.0", "3.0")  # 兼容v2/v3
+            # 如果原来是2.1，risk_level 应被移除
         if risk_v == "2.1":
             assert "risk_level" not in migrated

@@ -81,7 +81,7 @@ class ArgumentOutput(BaseSkillOutput):
     """原始辩手输出（向后兼容，新代码用 StructuredDebate）"""
     role: Literal["证真", "慎思"]
     variant: Literal["bull", "bear"] = "bull"
-    dimensions: list[DimensionItem] = Field(default_factory=list, min_length=0, max_length=5)
+    dimensions: list[DimensionItem] = Field(default_factory=list, min_length=5, max_length=10)
     summary_4_risk: str = ""
     full_text: str = ""
     confidence: float = Field(default=0.5, ge=0, le=1)

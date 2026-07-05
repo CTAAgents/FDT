@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("attribution")
 #!/usr/bin/env python3
 """
 归因分析器 — Shapley归因 + 判官权重动态 + 论据绩效库（P0-5）

@@ -595,7 +595,7 @@ if __name__ == '__main__':
                         default=None, choices=available + [None])
     parser.add_argument('--mode', '-m', default='dry-run',
                         help='运行模式: dry-run(回测摩擦固定) / paper(模拟盘动态滑点) / live(实盘TWAP分批)',
-                        choices=['dry-run', 'paper', 'live', 'layered', 'true_layered', 'compare'])
+                        choices=['dry-run', 'paper', 'live', 'dry-run', 'paper', 'live'])
     parser.add_argument('--list-strategies', help='列出所有可用策略', action='store_true')
     parser.add_argument('--dual', action='store_true',
                         help='双策略并行：同时运行 L1-L4分层 + 因子择时，各输出一份报告')

@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("fingerprint")
 #!/usr/bin/env python3
 """
 策略指纹生成器 + 选题硬阈值闸门
@@ -41,7 +43,7 @@ def generate_fingerprint(
         "seed": seed,
         "strategy_params": strategy_params,
         "regime_info": regime_info or {},
-        "timestamp_utc": datetime.utcnow().isoformat(),
+        "timestamp_utc": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     payload_json = json.dumps(payload, sort_keys=True, ensure_ascii=False)
     md5_hash = hashlib.md5(payload_json.encode("utf-8")).hexdigest()[:8]

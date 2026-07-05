@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("marl")
 #!/usr/bin/env python3
 """
 多智能体强化学习训练器框架 v1.0（P3-1）

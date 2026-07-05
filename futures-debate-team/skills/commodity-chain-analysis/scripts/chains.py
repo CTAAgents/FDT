@@ -246,7 +246,7 @@ CHAIN_CORRELATION_MATRIX: Dict[str, Dict[str, float]] = {
 #
 # 仍保留 WITHIN_CHAIN_INDEPENDENT 用于特殊场景：
 # 同产业链内驱动因素明确独立，即使统计相关高也不应视为冗余。
-WITHIN_CHAIN_HIGH_CORRELATION: Dict[str, List[tuple]] = {}  # ⛔ 废弃，保留为空以避免导入报错
+WITHIN_CHAIN_HIGH_CORRELATION: Dict[str, List[tuple]] = {}  # 已废弃（保留为空兼容导入）
 
 # 品种级独立声明（同产业链内驱动因素独立，永不视为冗余）
 WITHIN_CHAIN_INDEPENDENT: Dict[str, List[str]] = {

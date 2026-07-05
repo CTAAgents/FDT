@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("execution")
 #!/usr/bin/env python3
 """
 实盘执行引擎框架 v1.0（P2-1）

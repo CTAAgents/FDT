@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("factor_mining")
 #!/usr/bin/env python3
 """
 自动因子挖掘框架 v1.0（P3-3）

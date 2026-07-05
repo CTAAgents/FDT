@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("portfolio_risk")
 #!/usr/bin/env python3
 """
 组合风险计算器 — L6全局风控（P1-7）

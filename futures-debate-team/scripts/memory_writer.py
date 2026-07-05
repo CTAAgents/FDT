@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("memory_writer")
 #!/usr/bin/env python3
 """
 记忆写入器 — 竞态安全的Agent日志管理（P0-4）

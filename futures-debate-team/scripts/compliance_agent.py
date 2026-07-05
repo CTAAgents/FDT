@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("compliance")
 #!/usr/bin/env python3
 """
 合规审计模块 v1.0（P2-4）
@@ -142,7 +144,7 @@ class ComplianceAgent:
             # 解析合约月份
             try:
                 contract_m = int(re.findall(r'\d+', contract)[-1][-2:]) if hasattr(re, 'findall') else 0
-            except:
+            except Exception as _e:
                 continue
 
             # 临近交割月（当月或次月）

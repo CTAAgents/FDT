@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("ops_monitor")
 #!/usr/bin/env python3
 """
 运维监控 & 告警框架 v1.0（P2-2）
@@ -77,8 +79,8 @@ class OpsMonitor:
                 all_ok = False
             else:
                 checks.append({"name": "disk_usage", "status": "ok", "detail": f"磁盘使用率: {pct:.1f}%"})
-        except:
-            checks.append({"name": "disk_usage", "status": "skip"})
+        except (ImportError, OSError):
+            checks.append({"name": "disk_usage", "status": "skip", "detail": "不可用"})
 
         # 检查3: 内存
         import psutil

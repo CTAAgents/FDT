@@ -39,15 +39,17 @@ MIGRATION_REGISTRY = {
 
 # v3.0 版本矩阵
 VERSION_MATRIX = {
-    "data_collection": ["2.0"],
-    "technical": ["2.0"],
-    "chain_analysis": ["2.0"],
+    "data_collection": ["2.0", "3.0"],
+    "technical": ["2.0", "3.0"],
+    "chain_analysis": ["2.0", "3.0"],
     "fundamental_state": ["1.0"],
-    "debate": ["2.0", "2.1"],
+    "bull": ["2.0", "3.0"],
+    "bear": ["2.0", "3.0"],
+    "debate": ["2.0", "2.1", "3.0"],
     "evidence_brief": ["1.0"],
-    "judge": ["2.0"],
-    "risk": ["2.0", "2.1"],
-    "trading_plan": ["2.0"],
+    "judge": ["2.0", "3.0"],
+    "risk": ["2.0", "2.1", "3.0"],
+    "trading_plan": ["2.0", "3.0"],
     "team_decision": ["1.0"],
 }
 

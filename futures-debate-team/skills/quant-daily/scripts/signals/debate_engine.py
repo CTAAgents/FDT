@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("debate_engine")
 # -*- coding: utf-8 -*-
 """辩论流程并行化引擎 v1.0 — DAG调度器（P1-3）。
 

@@ -1,3 +1,5 @@
+from scripts.unified_logger import get_logger
+_logger = get_logger("vector_memory")
 #!/usr/bin/env python3
 """
 向量记忆管理器 — 三层记忆架构 + RAG注入（P0-7）
