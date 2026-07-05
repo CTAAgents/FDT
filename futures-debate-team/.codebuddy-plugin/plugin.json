@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.3 — P0+P1全面实施：情感因子+流动性风险+摩擦精细化+Agent协议+DAG并行化+记忆注入+事件日历+特征注入。十角色全景：数技源→链证源→研究员→辩手→风控(5层+摩擦+流动性)。",
+  "description": "Multi-role futures trading debate team v4.4 — 全量优化计划25项完成：P0 7项+P1 7项+P2 6项+P3 5项。十角色全景：数技源→链证源→研究员→辩手→风控(6层+L6组合风控)+双判官制衡。新增：实盘执行引擎+运维告警+合规审计+MARL训练器+对手盘建模+自动因子挖掘+多周期辩论。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v4.3 — P0+P1 fully implemented: sentiment factor (6th dimension), liquidity risk (liquidity_trap detection), friction modeling (fee+slippage+interest+roll), Agent protocol v3.0 (10-role contracts), DAG parallel engine, memory reflection (query_history), event calendar time window, feature engineering injection, ML ensemble 3rd signal export.",
-    "zh": "10角色期货辩论专家团v4.3：数技源双策略→链证源产业链→闫判官定辩论→研究员供弹(含特征注入)→多方/空方辩论→策执远出方案(净盈亏比)→风控明(5层+摩擦+流动性)→闫判官裁决→明鉴秋汇总。P0+P1全实施：情感因子+流动性+摩擦+DAG并行+Agent协议+记忆注入+事件日历+特征注入+ML集成。"
+    "en": "10-role futures debate team v4.4 — All 25 optimization items completed: decision determinism (--seed+hard threshold+fingerprint), backtest expansion (600d+multi-symbol+stress test+permutation+lookahead), sentiment stability (4-layer fallback+health check), memory conflict fix (independent files+SQLite+validation), L5 feedback upgrade (Shapley+argument DB), debate restructuring (3-round structured debate+evidence weighting), memory architecture upgrade (3-tier+RAG+negative sample), protocol compatibility (Pydantic v2+schema_version), ML iteration (incremental training+4-way ensemble), local risk events (PBOC/PMI/CPI), DAG fault tolerance (retry+fallback+monitor), 3-mode environment switching, regime classifier, L6 portfolio risk (concentration+drawdown fuse+veto), execution engine, ops monitoring, distributed deployment (Celery), compliance audit (hash chain), secret management (.gitignore+example), project standards (pyproject.toml), MARL trainer, market game agent, auto factor mining, multi-timeframe debate, dual-judge checks-and-balances.",
+    "zh": "10角色期货辩论专家团v4.4：全量优化计划25项完成。P0决策确定性+回测加固+情感因子稳定+记忆冲突修复+L5反馈升级+辩论重构+记忆升级；P1协议兼容+ML迭代+本土风控+DAG容错+环境切换+区制分流+L6组合风控；P2实盘执行引擎+运维告警+分布式部署+合规审计+密钥管理+工程规范；P3 MARL+对手盘建模+自动因子挖掘+多周期辩论+双判官制衡。数技源→链证源→研究员(含特征注入)→辩手(含三轮质证+证据加权)→策执远(净盈亏比)→风控明(6层+L6组合)→双判官(分歧阈值)→明鉴秋汇总。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
