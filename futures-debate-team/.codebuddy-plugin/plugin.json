@@ -2,7 +2,7 @@
   "name": "futures-debate-team",
   "version": "5.1.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.1.0 — 自循环闭环: 全自动反馈(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录结构+路径边界铁律)+裁决修正v2.0(R01-R10数据质量规则)+用户反馈主动归档+ATR修复+10Agent全进化。",
+  "description": "Multi-role futures trading debate team v5.1.0 — Phase1独立化: 内建调度器scheduler(心跳引擎+3触发器+5任务)+bootstrap一键启动+watchdog自动恢复+全自动辩论管道+自循环闭环(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录+路径边界铁律)+裁决修正v2.0(R01-R10)+用户反馈主动归档+ATR修复+10Agent全进化。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"

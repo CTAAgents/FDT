@@ -4,16 +4,42 @@
 
 期货交易辩论专家团是一个 **多Agent深度辩论型期货分析系统**，通过 **10个专业角色Agent** 协作，对商品期货品种进行结构化多空辩论分析。**现在已具备全自动自循环进化能力**——系统心跳驱动，无需用户干预。
 
-**核心理念**：自进化前置(每次分析请求自动validate→calibrate→evolve) → 数技源(quant-daily 纯数据输出) → 链证源产业链分析 → 闫判官双通道决策（含评分自校准+裁决修正经验库R01-R10）→ 研究员供弹 → 多空辩论（R08逻辑核验+R09异常禁引）→ 策执远出方案 → 风控明审核 → 明鉴秋合并双通道输出（R10数据源标注）→ record_verdicts 记录追踪 → 用户反馈主动归档。
+**核心理念**：🏗️ 调度引擎(内建scheduler/守护进程自主运行·不需要平台cron) → 自进化前置(每次分析请求自动validate→calibrate→evolve) → 数技源(quant-daily 纯数据输出) → 链证源产业链分析 → 闫判官双通道决策（含评分自校准+裁决修正经验库R01-R10）→ 研究员供弹 → 多空辩论（R08逻辑核验+R09异常禁引）→ 策执远出方案 → 风控明审核 → 明鉴秋合并双通道输出（R10数据源标注）→ record_verdicts 记录追踪 → 用户反馈主动归档。
 
 **版本**：v5.1 | **Agent数**：10（1协调员 + 9角色）| **双策略**：L1-L4 + factor_timing
 
 **v5.1 亮点**：
-- 🔄 **全自动自循环**：validate_verdicts → calibrate_weights → evolve_agents 每次请求自动触发，不再是手动P0
-- 🏗️ **独立记忆系统**：平台无关的目录结构，路径边界铁律，迁移时完整带走
-- 🔧 **裁决修正v2.0**：R01-R10 10条规则（新增R06数据时效/R07反向检索/R08逻辑核验/R09异常禁引/R10数据源标注）
-- 📝 **用户反馈主动归档**：检测到纠错/质疑 → 自动提炼规则 → 注入Agent MD
+- 🏗️ **独立调度引擎**：`scheduler/` 模块，心跳60秒，无需平台cron
+- 🚀 **bootstrap一键启动**：支持daemon/once/interactive三种模式
+- 🐶 **看门狗自动恢复**：`daemon_watchdog.py` 心跳检测，挂了自动重启
+- 📊 **全自动辩论管道**：`daily_debate` 任务 scan→报告→复制全自动
+- 🔄 **全自动自循环**：validate→calibrate→evolve 每次请求自动触发
+- 🗄️ **独立记忆系统**：平台无关目录结构，迁移时完整带走
+- 🔧 **裁决修正v2.0**：R01-R10 10条规则
+- 📝 **用户反馈主动归档**：检测到纠错/质疑 → 自动注入Agent MD
 - 🐛 **ATR计算修复**：SignalResult新增atr字段，修复值从10→239（与通达信一致）
+
+## 1.1 快速开始
+
+```bash
+# 1. 启动守护进程（推荐）
+cd plugins/marketplaces/my-experts/plugins/futures-debate-team
+python bootstrap.py daemon
+
+# 2. 查看运行状态
+python scripts/daemon_watchdog.py
+
+# 3. 手动触发一次日常辩论
+python scheduler/tasks.py daily_debate
+
+# 4. 单次调度检查（验证/校准/进化）
+python bootstrap.py once
+
+# 5. 停止守护进程
+python scheduler/engine.py stop
+```
+
+日常报告自动生成到 `Commodities/daily_analysis_{YYYYMMDD}.html`。
 
 ## 2. 系统架构
 
@@ -90,32 +116,8 @@
         └───────────────┘
 ```
 
-## 2. 系统架构
 
-```
-P1  数据采集与双通道分离               数技源(quant-daily)
-     │                                 scan_all.py --dual → debate_brief.py
-     │                                 产出: full_scan_summary.json + candidates.json
-     │                                   ├─ trading_recommendations[] (共识+launch+非极端,免辩论)
-     │                                   ├─ watch_list[] (观察级)
-     │                                   └─ debate_candidates[] (分歧/极端/链补,需辩论)
-     ▼
-P1.5 产业链分析                        链证源(commodity-chain)
-     │                                 产出: 产业链快照 + redundant_pairs
-     ▼
-P2  闫判官双通道分流                   闫判官(judge)
-     ├── 通道A: 直接推荐 → 设入场/止损/目标 → 策执远仓位计算
-     └── 通道B: 辩论品种 → 研究员供弹 → 证真vs慎思 → 判决
-     │
-     ▼
-P3  方案合成与风控审核                 策执远→风控明
-     │                                 双通道统一过: 合约→仓位→净盈亏比→审核
-     ▼
-P4  合并双通道 → 归档                  明鉴秋(team-lead)
-                                         TeamDecisionOutput → HTML报告
-```
-
-## 3. 双策略信号解读
+## 4. 双策略信号解读
 
 ### L1-L4 技术信号
 
@@ -157,7 +159,7 @@ P4  合并双通道 → 归档                  明鉴秋(team-lead)
 }
 ```
 
-## 4. 辩论流程详解
+## 5. 辩论流程详解
 
 ### 阶段一：数据准备 — 数技源
 
@@ -216,7 +218,7 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK,M
    - **L5 反馈回流**：平仓后记录→假破率统计→同类型支撑置信度校准
 3. **闫判官最终裁决** → 明鉴秋汇总输出 + memory写入 + PnL反馈闭环
 
-## 5. 风控明 — 观澜耦合详解
+## 6. 风控明 — 观澜耦合详解
 
 ### 选锚算法
 
@@ -250,7 +252,7 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK,M
 | 新hard支撑出现 | trailing止损锁定浮盈 |
 | 宏观事件| 事件前一日降仓70%，事件当日置信度打折50% |
 
-## 6. 技术分析 v2.2 支撑阻力识别
+## 7. 技术分析 v2.2 支撑阻力识别
 
 | 方法 | 算法 | 输出 |
 |:-----|:-----|:-----|
@@ -266,7 +268,7 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK,M
  "resonance": "confirmed", "tfs": ["daily", "m15"]}
 ```
 
-## 7. P3 模块使用
+## 8. P3 模块使用
 
 ### 事件日历 + 时间窗
 
@@ -355,7 +357,23 @@ history = query_history('RB', lookback_days=30)
 # → [{"direction": "long", "pnl_pct": 4.5, "entry_price": 6880, ...}, ...]
 ```
 
-## 8. 启动方式
+## 9. 启动方式
+
+### 9.1 守护模式（推荐）
+
+```bash
+# 启动调度器守护进程
+python bootstrap.py daemon
+# → 每60秒心跳，工作日19:15自动辩论，每日23:05自动发布
+
+# 查看守护进程状态
+python scripts/daemon_watchdog.py
+
+# 停止守护进程
+python scheduler/engine.py stop
+```
+
+### 9.2 交互模式
 
 ```bash
 # 双策略扫描（数据辅助决策）
@@ -365,7 +383,14 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK
 "分析螺纹钢期货的多空博弈情况"
 ```
 
-## 9. 记忆系统
+### 9.3 单次调度检查
+
+```bash
+# 执行一次完整的验证→校准→进化管道
+python bootstrap.py once
+```
+
+## 10. 记忆系统
 
 所有Agent运行后自动写入 `memory/` 目录：
 
@@ -380,7 +405,7 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK
 | `policies/veto_policies.md` | 否决规则库 | 风控明/明鉴秋 |
 | `policies/weighting_history.md` | 评分权重调整记录 | 闫判官/明鉴秋 |
 
-## 10. 效率提示
+## 11. 效率提示
 
 - **数据先行**：辩论前先跑 `--dual` 获得信号概览，节省辩论时间
 - **关注分歧**：L1-L4和factor_timing方向冲突的品种辩论价值最高
@@ -391,11 +416,11 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols RB,PK
 - **摩擦前/后对比**：全品种摩擦成本不同（螺纹钢万0.1 vs 铁矿石万1），净盈亏比 < 1.5 的方案标记为 yellow_flag
 - **记忆会累积**：多次运行后 `argument_patterns.md` 积累有效论证模式，`trade_journal` 积累假破率统计，`query_history()` 查询同品种历史决策可避免重复踩坑
 
-## 11. 版本历史
+## 12. 版本历史
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.1** | **2026-07-06** | **🔄 自循环闭环**：P0手动→全自动自触发；**独立记忆系统**：路径边界铁律+平台无关目录；**裁决修正v2.0**：R01-R10含数据质量规则；**用户反馈主动归档**：自动提炼→注入Agent MD；**ATR修复**：SignalResult+atr, debate_brief fallback修正(10→239) |
+| **v5.1** | **2026-07-06** | **🏗️ Phase 1独立化**：**内建调度器**scheduler/(engine+triggers+tasks 4文件·时间/数据量/事件3触发器·5任务)；**bootstrap.py**一键启动(once/daemon/interactive)；**daemon_watchdog.py**看门狗(心跳检测·自动恢复)；**全自动管道**daily_debate(scan→report→复制)；**删除3平台automation**；**自循环闭环**P0手动→全自动自触发；**独立记忆系统**路径边界铁律；**裁决修正v2.0**R01-R10；**用户反馈主动归档**；**ATR修复**(10→239) |
 | **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链+全9Agent自进化+裁决修正经验库R01-R05+闭环追踪+评分自校准 |
 | **v4.4** | **2026-07-05** | **全量优化计划25项完成**：P0 7项(决策确定性+回测加固+情感因子稳定+记忆冲突修复+L5反馈升级+辩论机制重构+记忆架构升级) P1 7项(协议兼容+ML迭代+本土风控+DAG容错+环境切换+区制分流+L6组合) P2 6项(实盘执行引擎+运维告警+分布式部署+合规审计+密钥管理+工程规范) P3 5项(MARL+对手盘建模+自动因子挖掘+多周期辩论+双判官制衡)。技术债清理：日志框架+异常修复+大文件拆分+Pydantic v2全量迁移+测试100%通过。 |
 | **v4.3** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |

@@ -1,6 +1,6 @@
 # Futures Debate Team — 期货交易辩论专家团 v5.1
 
-> 🧬 **v5.1 里程碑**: 自循环闭环系统 — 全自动反馈自触发 + 独立记忆系统(平台无关) + 裁决修正v2.0(R01-R10) + 用户反馈主动归档 + ATR修复
+> 🧬 **v5.1 里程碑**: Phase 1独立化 — 内建调度器(scheduler/) + bootstrap一键启动 + 看门狗自动恢复 + 全自动辩论管道 + 自循环闭环 + 独立记忆系统 + 裁决修正v2.0
 
 ## 类型
 
@@ -9,6 +9,15 @@ Team 型（10角色多角色协作团队，全Agent自进化）
 ## 架构
 
 ```
+🏗️ 调度引擎（独立运行，不依赖平台）
+   scheduler/
+   ├── engine.py    → 心跳发动机（每60秒）
+   ├── triggers.py  → 时间/数据量/事件 3种触发器
+   └── tasks.py     → 5个预注册任务(辩论/发布/映射/进化/ML训练)
+   │
+   ├── bootstrap.py → 一键启动(once/daemon/interactive)
+   └── scripts/daemon_watchdog.py → 看门狗自动恢复
+
 🔴 自进化前置（所有模式强制，全自动）
      │   检测未验证裁决 → validate_verdicts.py
      │   已验证≥5条 → calibrate_weights.py → evolve_agents.py
@@ -328,7 +337,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.1** | **2026-07-06** | **🔄 自循环闭环升级**：P0从手动→全自动自触发(每次分析请求自动validate→calibrate→evolve)；**独立记忆系统**：路径边界铁律(不依赖宿主工作空间·清理平台目录)；**裁决修正v2.0**：R06-R10数据质量规则(时效检查/反向检索/逻辑核验/异常禁引/源标注强制)；**用户反馈主动归档**：检测到反馈→自动提炼规则→注入Agent MD；**ATR计算Bug修复**：SignalResult新增atr字段·debate_brief fallback修正(10→239)；**7文件更新**：6个Agent MD+judgment_revisions v2.0+incidents.md新建
+| **v5.1** | **2026-07-06** | **🔄 Phase 1独立化**: **内建调度器**`scheduler/`(engine/triggers/tasks 4文件·时间/数据量/事件3种触发器·5个预注册任务)；**bootstrap.py**一键启动(once/daemon/interactive 3模式)；**daemon_watchdog.py**平台看门狗(心跳日志检测·自动恢复)；**全自动管道**`daily_debate`(scan→phase3→报告复制完整链)；**删除3个平台automation**完全替代；**自循环闭环升级**：P0手动→全自动自触发；**独立记忆系统**: 路径边界铁律+清理平台目录；**裁决修正v2.0**: R01-R10数据质量规则；**用户反馈主动归档**；**ATR修复**(10→239)；**10文件更新**
 | **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链(validate→calibrate→evolve 3脚本自动串联); 全9Agent自进化(闫判官5维评分/风控明ATR+仓位/策执远RR+仓位/辩手论证策略/链证源去重阈值/数技源重试/探源基本面权重/观澜ATR周期); 裁决修正经验库(R01-R05 5条硬规则); 闭环追踪(record_verdicts→validate_verdicts→execution_followup.json); 评分自校准(5维度权重自适应·学习率0.3·钳制±10); 新增4脚本+5memory文件; v9全品种辩论算法(14链覆盖·max2/c·安全边际排序) |
 | **v4.5** | **2026-07-06** | **Bridgewater方法论×CTA落地全量实施**：五维辩论价值评分(compute_debate_score); 研报质量过滤B-Minimal/B-Standard; 辩论历史档案debate_history; ML训练自动化TrainingOrchestrator+DisputePredictor; 全自动流水线pipeline/runner.py; 零胶水代码强化; 测试统一迁移到tests/; 新增根级debate/ml/pipeline/基础设施模块; 全量代码审计修复22处硬编码路径与152文件ruff格式化; 100测试全绿; quality_filter 96% debate_history 94% trainer 87% 覆盖率 |
 | **v4.4** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |
