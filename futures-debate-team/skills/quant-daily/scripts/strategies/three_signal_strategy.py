@@ -1,5 +1,5 @@
 """
-三层信号策略 v1.0 — 识别突破/回踩/新高三类信号
+三类信号策略 v1.0 — 识别突破/回踩/新高三类信号
 ============================================
 基于掌柜的三类买入方法：
   1. 通道突破（唐奇安/布林带）：价格突破N日边界=趋势启动
@@ -22,7 +22,7 @@ from strategies.registry import register_strategy
 
 
 class ThreeSignalStrategy(BaseStrategy):
-    """三层信号识别策略"""
+    """三类信号识别策略"""
 
     @property
     def name(self) -> str:
@@ -30,7 +30,7 @@ class ThreeSignalStrategy(BaseStrategy):
 
     @property
     def display_name(self) -> str:
-        return "三层信号(突破/回踩/跳空)"
+        return "三类信号(突破/回踩/跳空)"
 
     def score(
         self,
@@ -59,7 +59,7 @@ class ThreeSignalStrategy(BaseStrategy):
             # 从 df_map 获取K线数据用于计算
             df = df_map.get(sym) if df_map else None
 
-            # ── 三层信号识别 ──
+            # ── 三类信号识别 ──
             signals = []
 
             # 1. 通道突破信号
@@ -217,7 +217,7 @@ class ThreeSignalStrategy(BaseStrategy):
                 else:
                     direction = "bear"
 
-            # 总分（三层信号综合分，带方向）
+            # 总分（三类信号综合分，带方向）
             total_score = breakout_score + pullback_score + gap_score
             if direction == "bear":
                 total_score = -total_score

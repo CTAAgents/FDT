@@ -7,8 +7,8 @@
 ## 2026-07-06 22:25 — v5.2 架构重构
 
 **架构重构**:
-- 三层信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源
-- 所有三层信号品种必须辩论，无直接推荐通道
+- 三类信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源
+- 所有三类信号品种必须辩论，无直接推荐通道
 - ADX角色反转：低位(launch阶段)鼓励参与，高位(ADX>50/60)警示风险
 - V型反转时ADX>60警示不适用（特殊例外）
 - 证真/慎思改为动态正反方，不再固定多/空方
@@ -18,7 +18,7 @@
 
 **记忆系统更新**:
 - agent_profiles.json → v5.2，辩手角色改为动态，研究员新增data_source字段
-- argument_patterns.md → 引用三层信号替代quant-daily双策略
+- argument_patterns.md → 引用三类信号替代quant-daily双策略
 - debater_profiles.md → 备注动态正反方变更
 - judgment_revisions.md → 新增R11-R18（ADX规则+V型反转）
 - changelog.md → 本条目

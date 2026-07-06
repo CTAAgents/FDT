@@ -1,6 +1,6 @@
 # Futures Debate Team — 期货交易辩论专家团 v5.2
 
-> 🧬 **v5.2 里程碑**: 三层信号架构重构 — 内建调度器(scheduler/) + bootstrap一键启动 + 看门狗自动恢复 + 全自动辩论管道 + 自循环闭环 + 独立记忆系统 + 裁决修正v2.0
+> 🧬 **v5.2 里程碑**: 三类信号架构重构 — 内建调度器(scheduler/) + bootstrap一键启动 + 看门狗自动恢复 + 全自动辩论管道 + 自循环闭环 + 独立记忆系统 + 裁决修正v2.0
 
 ## 类型
 
@@ -68,7 +68,7 @@ P4  合并双通道 → 归档           明鉴秋(team-lead)
 | **风控明** | risk | | | | | ● 审核 |
 | **明鉴秋** | team-lead | ● 启动 | | | | ● 合并归档 |
 
-## 核心设计原则（v5.2 - 三层信号架构重构版）
+## 核心设计原则（v5.2 - 三类信号架构重构版）
 
 ```
 数技源边界     → 只输出原始数值，不做判断
@@ -337,7 +337,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.2** | **2026-07-06** | **🧬 三层信号架构重构**: 三层信号(突破/回踩/跳空)替代L1-L4+因子择时为主信号源，所有信号全辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思动态正反方(不再固定多空)，研究员数据接口独立(L1-L4→technical-analysis, 因子→fundamental-data-collector)，V型反转例外，R11-R18新增ADX规则，quant-daily仅保留three_signal策略，version 5.1→5.2。 |
+| **v5.2** | **2026-07-06** | **🧬 三类信号架构重构**: 三类信号(突破/回踩/跳空)替代L1-L4+因子择时为主信号源，所有信号全辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思动态正反方(不再固定多空)，研究员数据接口独立(L1-L4→technical-analysis, 因子→fundamental-data-collector)，V型反转例外，R11-R18新增ADX规则，quant-daily仅保留three_signal策略，version 5.1→5.2。 |
 | **v5.1** | **2026-07-06** | **🔄 Phase 1独立化**: **内建调度器**`scheduler/`(engine/triggers/tasks 4文件·时间/数据量/事件3种触发器·5个预注册任务)；**bootstrap.py**一键启动(once/daemon/interactive 3模式)；**daemon_watchdog.py**平台看门狗(心跳日志检测·自动恢复)；**全自动管道**`daily_debate`(scan→phase3→报告复制完整链)；**删除3个平台automation**完全替代；**自循环闭环升级**：P0手动→全自动自触发；**独立记忆系统**: 路径边界铁律+清理平台目录；**裁决修正v2.0**: R01-R10数据质量规则；**用户反馈主动归档**；**ATR修复**(10→239)；**10文件更新**
 | **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链(validate→calibrate→evolve 3脚本自动串联); 全9Agent自进化(闫判官5维评分/风控明ATR+仓位/策执远RR+仓位/辩手论证策略/链证源去重阈值/数技源重试/探源基本面权重/观澜ATR周期); 裁决修正经验库(R01-R05 5条硬规则); 闭环追踪(record_verdicts→validate_verdicts→execution_followup.json); 评分自校准(5维度权重自适应·学习率0.3·钳制±10); 新增4脚本+5memory文件; v9全品种辩论算法(14链覆盖·max2/c·安全边际排序) |
 | **v4.5** | **2026-07-06** | **Bridgewater方法论×CTA落地全量实施**：五维辩论价值评分(compute_debate_score); 研报质量过滤B-Minimal/B-Standard; 辩论历史档案debate_history; ML训练自动化TrainingOrchestrator+DisputePredictor; 全自动流水线pipeline/runner.py; 零胶水代码强化; 测试统一迁移到tests/; 新增根级debate/ml/pipeline/基础设施模块; 全量代码审计修复22处硬编码路径与152文件ruff格式化; 100测试全绿; quality_filter 96% debate_history 94% trainer 87% 覆盖率 |

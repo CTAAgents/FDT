@@ -14,7 +14,7 @@
 """
 
 _REGISTRY: dict[str, dict] = {}
-_DEFAULT: str = "three_signal"  # 默认策略改为三层信号
+_DEFAULT: str = "three_signal"  # 默认策略改为三类信号
 
 
 def register_strategy(

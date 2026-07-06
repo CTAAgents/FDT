@@ -34,4 +34,4 @@
 - ✅ factor_timing独立策略注册 → 取消
 - ✅ quant-daily中双通道辩论筛选(debate_brief) → 不再使用
 - ✅ 固定多空辩手 → 改为动态正反方（根据signal_type）
-- ✅ scan_all.py --dual 模式 → 三层信号 + 研究员原始数据输出
+- ✅ scan_all.py --dual 模式 → 三类信号 + 研究员原始数据输出

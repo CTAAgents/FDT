@@ -28,8 +28,6 @@ INTERMEDIATE_PATH = os.path.join(REPORT_DIR, "intermediate_data.json")
 DEBATE_PATH = os.path.join(REPORT_DIR, "debate_results.json")
 L1L4_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_l1l4_20260706.json")
 FT_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_factor_timing_20260706.json")
-SUMMARY_PATH = os.path.join(REPORT_DIR, "full_scan_summary_20260706.json")
-
 OUTPUT_DEBATE = os.path.join(REPORT_DIR, f"debate_report_{REPORT_DATE_COMPACT}.html")
 OUTPUT_L1L4 = os.path.join(REPORT_DIR, f"l1l4_full_signals_{REPORT_DATE_COMPACT}.html")
 OUTPUT_FT = os.path.join(REPORT_DIR, f"factor_timing_full_signals_{REPORT_DATE_COMPACT}.html")
@@ -155,9 +153,9 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
         # 因子择时
         if fdir == "bear":
-            bear.append(f"因子择时共振(bear) — 双策略确认空头方向，置信度提升")
+            bear.append(f"因子择时共振(bear) — 辅助验证空头方向")
         elif conflict:
-            bear.append("双策略分歧 — L1-L4空头 vs 因子择时非空，需警惕反向风险")
+            bear.append("多因子分歧 — L1-L4空头 vs 因子择时非空，需警惕反向风险")
 
         # CCI
         if cci and cci < -100:
@@ -194,9 +192,9 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         if fdir == "bull":
             bull.append(f"⚠️ 因子择时反向(bull) — 因子模型显示多头信号，与L1-L4空头矛盾")
 
-        # 双策略分歧
+        # 多因子分歧
         if conflict:
-            bull.append("⚠️ 双策略方向分歧 — L1-L4与因子择时方向不一致，仓位应减半")
+            bull.append("⚠️ 多因子方向分歧 — L1-L4与因子择时方向不一致，仓位应减半")
 
         # Z-score反方向极端
         if z > 1.5:
@@ -227,7 +225,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         if z > 1:
             bull.append(f"Z={z:.1f} 统计显著偏多")
         if fdir == "bull":
-            bull.append("因子择时共振(bull) 双策略确认")
+            bull.append("因子择时共振(bull) 多因子确认")
         if fdir == "bear":
             bear.append("因子择时分歧(bear) 反转风险")
         if rsi > 75:
@@ -701,7 +699,7 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
     if cons >= 3:
         fundamentals["leading_signals"].append(f"四层一致性CONS={cons}/4，技术面多维度共振")
     if conflict:
-        fundamentals["leading_signals"].append("⚠️ 双策略方向分歧（L1-L4 vs 因子择时不一致），基本面信号混乱需谨慎")
+        fundamentals["leading_signals"].append("⚠️ 多因子方向分歧（L1-L4 vs 因子择时不一致），基本面信号混乱需谨慎")
     if cci < -100:
         fundamentals["leading_signals"].append(f"CCI={cci:.0f}进入超卖区，短期可能存在均值修复需求")
     elif cci > 100:
@@ -799,9 +797,9 @@ def _generate_technical_analysis(pid: str, symbols_summary: list) -> dict:
     if cons >= 3:
         volume_parts.append(f"四层一致性{cons}/4，多维度信号共振")
     if conflict:
-        volume_parts.append("⚠️ 双策略方向分歧，量价信号矛盾")
+        volume_parts.append("⚠️ 多因子方向分歧，量价信号矛盾")
     if l1l4_dir == "bear" and fdir == "bear":
-        volume_parts.append("双策略共振空头，量价配合确认下行")
+        volume_parts.append("多因子共振空头，量价配合确认下行")
     elif l1l4_dir == "bear" and fdir == "bull":
         volume_parts.append("L1-L4空 vs 因子多，方向分歧，量价信号混乱")
     tech["volume_price"] = " | ".join(volume_parts)
@@ -936,9 +934,9 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
             flags.append(f"🟡 ADX={adx:.1f}<15，无趋势信号，不适合追趋势策略")
             if risk_level == "green": risk_level = "yellow"
 
-        # 双策略分歧
+        # 多因子分歧
         if conflict:
-            flags.append("🟡 双策略方向分歧(L1-L4 vs 因子)，仓位建议减半")
+            flags.append("🟡 多因子方向分歧(L1-L4 vs 因子)，仓位建议减半")
             if risk_level == "green": risk_level = "yellow"
 
         # 超卖追空风险
@@ -1546,7 +1544,7 @@ def build_debate_report():
 
     <div class="section" style="border-color:{"#22c55e" if all(r['risk_level']=='green' for r in risk_reviews) else '#ef4444'}66;">
         <h2>🛡️ 风控明审核</h2>
-        <div class="sub-title">风控明 V4.1 风险引擎(risk_engine.py) 逐项检查：杠杆/保证金/止损比/安全手数 + 趋势确认/双策略分歧/超买超卖/流动性/盈亏比合理性。<br>
+        <div class="sub-title">风控明 V4.1 风险引擎(risk_engine.py) 逐项检查：杠杆/保证金/止损比/安全手数 + 趋势确认/多因子分歧/超买超卖/流动性/盈亏比合理性。<br>
         <span style="color:#ef4444;">⚠ 当前入场/止损/目标价为闫判官估算值(基于ADX比例)，非观澜技术位验证，风控明对此进行了合理性检查。</span></div>
         {risk_html}
     </div>

@@ -2,45 +2,48 @@
 name: quant-daily
 version: 2.6.0
 agent_created: true
-description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。v2.5.0新增TqSdk盘中K线数据源（盘中优先级介于TDX和东方财富之间）。--dual模式同时输出两份信号报告+辩论证据简报。
+description: 商品期货量化分析skill — 默认策略=three_signal（三类信号：突破/回踩/跳空）。L1-L4原始指标和因子择时数据作为研究员辅助分析工具。--dual模式输出三类信号报告+L1-L4原始指标+因子择时数据。
 ---
 
 # quant-daily — 商品期货量化分析一体化
 
-## 🔴 双策略默认模式（v2.3.1+）
+## 🔴 三类信号默认模式（v2.6.0+）
 
-**每次调用 quant-daily 应默认运行双策略**，每份报告只输出原始信号数值，不做判断：
+**quant-daily 默认策略 = three_signal（三类信号）**，产出信号报告（突破/回踩/跳空）：
 
-- **`layered_l1l4`** (技术分析) → `full_scan_l1l4_{date}.json/.html`
-- **`factor_timing`** (因子择时) → `full_scan_factor_timing_{date}.json/.html`
+- **`three_signal`** (三类信号) → `full_scan_three_signal_{date}.json/.html`
+- **`full_scan_l1l4_{date}.json`** 和 **`full_scan_factor_timing_{date}.json`** 作为研究员辅助数据
+- 所有三类信号品种必须辩论 —— 无直接推荐通道
 - **信号汇总** → `full_scan_summary_{date}.json/.html`（双策略并排，纯数据）
 
 ```bash
-# ✅ 默认命令：双策略并行
+# ✅ 默认命令：三类信号扫描（默认策略=three_signal）
 python scripts/scan_all.py --dual
 ```
 
 输出文件结构：
 ```
 reports/
-├── full_scan_l1l4_20260705.json              # L1-L4 信号（原始数值，不做判断）
-├── full_scan_l1l4_ranking_20260705.html
-├── full_scan_factor_timing_20260705.json      # 因子择时信号（原始数值，不做判断）
-├── full_scan_factor_timing_ranking_20260705.html
-├── full_scan_summary_20260705.json            # 双策略并排汇总（闫判官用）
-└── full_scan_summary_20260705.html
+├── full_scan_three_signal_20260706.json        # 三类信号（主信号源：breakout/pullback/gap）
+├── full_scan_three_signal_ranking_20260706.html
+├── full_scan_l1l4_20260706.json                # L1-L4原始指标（观澜技术分析辅助）
+├── full_scan_l1l4_ranking_20260706.html
+├── full_scan_factor_timing_20260706.json        # 因子择时原始数据（探源基本面分析辅助）
+└── full_scan_factor_timing_ranking_20260706.html
 ```
 
 ### 职责边界
 
 **quant-daily 只做客观计算**：
 - 所有数据源对置信度统一为 1.0
-- 输出两份策略的原始信号数值
-- **不包含** 辩论推荐、品种分类、风险提示
+- 输出三类信号（breakout/pullback/gap）为主信号
+- L1-L4原始指标和因子择时数据为辅助分析工具
+- **不包含** 辩论推荐、品种分类、风险提示（所有信号必须辩论）
 
 **闫判官 Agent 负责决策**：
-- 自行决定哪些品种值得辩论
-- 自行决定正方方向
+- 读取signal_type字段，筛选三类信号品种
+- 所有三类信号品种必须辩论，无直接推荐通道
+- 决定正方方向
 - 裁决最终方向
 ```
 

@@ -129,9 +129,9 @@ def run_scan(
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
     if dual:
         print(f"\n{'=' * 60}")
-        print(f"  三层信号 + 研究员原始数据模式")
+        print(f"  三类信号 + 研究员原始数据模式")
         print(f"{'=' * 60}")
-        # 主策略: 三层信号（突破/回踩/跳空）
+        # 主策略: 三类信号（突破/回踩/跳空）
         result_a = run_scan(
             output_dir=output_dir,
             output_prefix=f"{output_prefix}_three_signal",
@@ -154,8 +154,8 @@ def run_scan(
         print(f"  完成:")
         meta_a = result_a.get("_meta", {})
         st = meta_a.get("signal_types", {})
-        print(f"    三层信号: {st.get('breakout',0)}突破 / {st.get('pullback',0)}回踩 / {st.get('gap',0)}跳空")
-        print(f"    → 所有三层信号品种交由闫判官辩论")
+        print(f"    三类信号: {st.get('breakout',0)}突破 / {st.get('pullback',0)}回踩 / {st.get('gap',0)}跳空")
+        print(f"    → 所有三类信号品种交由闫判官辩论")
         print(f"{'=' * 60}")
         return {"_meta": {"mode": "dual", "three_signal": meta_a}}
     # ── 参数合法性校验 ──
@@ -180,7 +180,7 @@ def run_scan(
     print(f"{'=' * 60}")
     scan_scope = "自定义品种" if symbols else "全品种"
     mode_labels = {
-        "layered": "L1-L4分层累加打分",
+        "layered": "L1-L4原始指标(研究员辅助)",
         "true_layered": "真分层打分(portfolio sort)",
         "compare": "双模式对比",
     }
@@ -241,13 +241,13 @@ def run_scan(
         if (i + 1) % 15 == 0:
             print(f"  [{i + 1}] {len(tech_list)} OK")
 
-    # ── 纯数据模式（数技源专用，不做策略打分） ──
-    try:
-        _output_raw = args.output_raw
-    except NameError:
-        _output_raw = False
-    if _output_raw:
-        print("\n  → 纯数据模式: 跳过策略打分，仅输出原始数据包")
+        # ── 纯数据模式（数技源专用，不做策略打分） ──
+        try:
+            _output_raw = args.output_raw
+        except NameError:
+            _output_raw = False
+        if _output_raw:
+            print("\n  → 纯数据模式: 跳过策略打分，仅输出原始数据包")
         raw_package = {
             "_meta": {
                 "mode": "output_raw",
@@ -335,12 +335,17 @@ def run_scan(
     results_count = len(all_ranked)
 
     # ── 终端表格 ──
+    # ── 安全取值适配器（兼容 three_signal 等策略的不同字段名）──
+    def _sv(r, key, default=0):
+        v = r.get(key, default)
+        return v if v is not None else default
+
     if mode == "true_layered" or summary.get("_meta", {}).get("mode") == "true_layered":
         for i, r in enumerate(all_ranked):
-            d = "多头" if r["direction"] == "bull" else ("空头" if r["direction"] == "bear" else "中性")
+            d = "多头" if _sv(r,"direction") == "bull" else ("空头" if _sv(r,"direction") == "bear" else "中性")
             src = "NP"
             print(
-                f"{i + 1:>3} {r['symbol']:<8} {d:<6} {r['price']:>8.0f} {r['change_pct']:>+5.1f}% {r['total']:>+4.0f} {r.get('l1', 0):>+4.0f} {r.get('l2', 0):>+4.0f} {r.get('l3', 0):>+4.0f} {r.get('l4', 0):>+4.0f} {r.get('l5', 0):>+4.0f} {r.get('l6', 0):>+4.0f} {r['adx']:>5.1f} {r['rsi']:>5.1f} {r['z_score']:>5.1f} {r['cons']:>3.0f}/6 {r['grade']:>6}"
+                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'l1', 0):>+4.0f} {_sv(r,'l2', 0):>+4.0f} {_sv(r,'l3', 0):>+4.0f} {_sv(r,'l4', 0):>+4.0f} {_sv(r,'l5', 0):>+4.0f} {_sv(r,'l6', 0):>+4.0f} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'z_score'):>5.1f} {_sv(r,'cons'):>3.0f}/6 {_sv(r,'grade'):>6}"
             )
     else:
         print(
@@ -348,10 +353,10 @@ def run_scan(
         )
         print("-" * 115)
         for i, r in enumerate(all_ranked):
-            d = "多头" if r["direction"] == "bull" else ("空头" if r["direction"] == "bear" else "中性")
+            d = "多头" if _sv(r,"direction") == "bull" else ("空头" if _sv(r,"direction") == "bear" else "中性")
             src = "TDX" if r.get("_tdx_patched") else "NP"
             print(
-                f"{i + 1:>3} {r['symbol']:<8} {d:<6} {r['price']:>8.0f} {r['change_pct']:>+5.1f}% {r['total']:>+4.0f} {r['l1']:>+3} {r['l2']:>+3} {r['l3']:>+3} {r['l4']:>+3} {r['veto']:>+3} {r['adx']:>5.1f} {r['rsi']:>5.1f} {r['z_score']:>5.1f} {r['cons']:>3.0f}/4 {r.get('stage', '?'):>8} {r['grade']:>6} {src:>4}"
+                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'l1'):>+3} {_sv(r,'l2'):>+3} {_sv(r,'l3'):>+3} {_sv(r,'l4'):>+3} {_sv(r,'veto'):>+3} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'z_score'):>5.1f} {_sv(r,'cons'):>3.0f}/4 {_sv(r,'stage', '?'):>8} {_sv(r,'grade'):>6} {src:>4}"
             )
 
     # ── 写入文件（如指定output_dir） ──
@@ -369,23 +374,23 @@ def run_scan(
             [
                 {
                     "i": i + 1,
-                    "sym": r["symbol"],
-                    "name": r["name"],
-                    "dir": r["direction"],
-                    "price": r["price"],
-                    "chg": r["change_pct"],
-                    "total": r["total"],
-                    "l1": r["l1"],
-                    "l2": r["l2"],
-                    "l3": r["l3"],
-                    "l4": r["l4"],
-                    "veto": r["veto"],
-                    "adx": r["adx"],
-                    "rsi": r["rsi"],
-                    "z": r["z_score"],
-                    "cons": r["cons"],
-                    "stage": r.get("stage", "?"),
-                    "grade": r["grade"],
+                    "sym": _sv(r,"symbol"),
+                    "name": _sv(r,"name"),
+                    "dir": _sv(r,"direction"),
+                    "price": _sv(r,"price"),
+                    "chg": _sv(r,"change_pct"),
+                    "total": _sv(r,"total"),
+                    "l1": _sv(r,"l1", 0),
+                    "l2": _sv(r,"l2", 0),
+                    "l3": _sv(r,"l3", 0),
+                    "l4": _sv(r,"l4", 0),
+                    "veto": _sv(r,"veto"),
+                    "adx": _sv(r,"adx"),
+                    "rsi": _sv(r,"rsi"),
+                    "z": _sv(r,"z_score"),
+                    "cons": _sv(r,"cons"),
+                    "stage": _sv(r,"stage", "?"),
+                    "grade": _sv(r,"grade"),
                     "tdx": r.get("_tdx_patched", False),
                 }
                 for r in all_ranked
@@ -617,11 +622,13 @@ if __name__ == "__main__":
 
     # 获取可用策略列表
     available = list(list_strategies().keys())
-    default_strat = "layered_l1l4"
+    # 从注册器中读取默认策略名（默认=three_signal）
+    all_strategies = list_strategies()
+    default_strat = [k for k, v in all_strategies.items() if v.get("default")][0]
 
     parser = argparse.ArgumentParser(description="品种信号扫描 — 策略可插拔")
     parser.add_argument(
-        "--seed", type=int, default=None, help="全局随机种子，锁定LLM/ML/抽样随机性，保证同参数同数据结果100%复现"
+        "--seed", type=int, default=None, help="全局随机种子，锁定LLM/ML/抽样随机性，保证同参数同数据结果100%%复现"
     )
     parser.add_argument("--output", "-o", help="输出目录", default=None)
     parser.add_argument("--prefix", "-p", help="文件名前缀", default="full_scan")
@@ -631,7 +638,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--strategy",
         help=f"策略: {', '.join(available)} (默认: {default_strat})",
-        default=None,
+        default=default_strat,
         choices=available + [None],
     )
     parser.add_argument(
@@ -642,7 +649,7 @@ if __name__ == "__main__":
         choices=["dry-run", "paper", "live", "dry-run", "paper", "live"],
     )
     parser.add_argument("--list-strategies", help="列出所有可用策略", action="store_true")
-    parser.add_argument("--dual", action="store_true", help="双策略并行：同时运行 L1-L4分层 + 因子择时，各输出一份报告")
+    parser.add_argument("--dual", action="store_true", help="Dual mode: run default three_signal strategy + export researcher auxiliary data")
     parser.add_argument(
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
     )
