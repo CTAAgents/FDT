@@ -4,7 +4,24 @@
 
 ---
 
-## 2026-07-06 20:00 — feedback闭环 + 辩论权重可配置+进化
+## 2026-07-06 22:25 — v5.2 架构重构
+
+**架构重构**:
+- 三层信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源
+- 所有三层信号品种必须辩论，无直接推荐通道
+- ADX角色反转：低位(launch阶段)鼓励参与，高位(ADX>50/60)警示风险
+- V型反转时ADX>60警示不适用（特殊例外）
+- 证真/慎思改为动态正反方，不再固定多/空方
+- 研究员数据接口独立：L1-L4→technical-analysis(data_interface)，因子→fundamental-data-collector(data_interface)
+- quant-daily仅保留three_signal一个默认策略
+- 技术债务记录于 memory/technical_debt.md
+
+**记忆系统更新**:
+- agent_profiles.json → v5.2，辩手角色改为动态，研究员新增data_source字段
+- argument_patterns.md → 引用三层信号替代quant-daily双策略
+- debater_profiles.md → 备注动态正反方变更
+- judgment_revisions.md → 新增R11-R18（ADX规则+V型反转）
+- changelog.md → 本条目
 
 **文件改动**:
 - `scripts/validate_verdicts.py` — 新增 `save_feedback_entries()`，验证后自动写 `feedback_entries.json`（匹配 risk_engine 的 `build_feedback_entry` 格式），对接 `aggregate_feedback` 的假破统计

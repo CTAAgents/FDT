@@ -48,7 +48,7 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v5.1 — Self-circulating closed-loop: auto-feedback(validate→calibrate→evolve self-triggering), independent memory system(platform-free directory+boundary rule), judgment revisions v2.0(R01-R10 data quality rules), user feedback auto-archive, ATR fix, 10-Agent full evolution.",
+    "en": "10-role futures debate team v5.2 — Architecture reconstruction: three-signal(breakout/pullback/gap) replaces L1-L4+factor_timing as primary source, all signals debated (no direct-recommend), ADX role reversal: low=encourage/high=warn, debaters dynamically assign sides by signal_type, independent researcher data interfaces, V-reversal exception, 10-Agent evolution + self-circulating closed-loop.",
     "zh": "10角色期货辩论专家团v5.2 — 架构重构：三层信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源，所有信号全辩论无直接推荐通道，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方，研究员数据接口独立，V型反转例外，10Agent全进化+自循环闭环。"
   },
   "avatar": "avatars/team.png",

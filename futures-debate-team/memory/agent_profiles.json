@@ -1,14 +1,14 @@
 {
-  "_meta": {"created_at": "2026-07-06 13:50", "version": "2.0", "last_evolved_at": null, "total_samples": 0},
+  "_meta": {"created_at": "2026-07-06 22:25", "version": "5.2", "last_evolved_at": null, "total_samples": 0, "note": "v5.2架构重构：三层信号替代L1-L4+因子为主信号源，证真/慎思改为动态正反方，ADX角色反转"},
   "闫判官": {"type": "judge", "evolution": "calibration.json（独立自进化系统）"},
   "风控明": {"atr_multiplier": 1.5, "max_position_pct_high": 5.0, "_last_updated": null, "_evolution_log": [], "_stats": {}},
   "策执远": {"rr_target": 2.0, "position_coefficient": 1.0, "_last_updated": null, "_evolution_log": [], "_stats": {}},
   "辩手": {
-    "证真": {"strategy": "默认", "confidence_boost": 0, "_samples": 0},
-    "慎思": {"strategy": "默认", "confidence_boost": 0, "_samples": 0}
+    "证真": {"role": "正方(动态)", "strategy": "按signal_type论证", "confidence_boost": 0, "_samples": 0, "note": "v5.2起不固定多空，根据信号方向论证"},
+    "慎思": {"role": "反方(动态)", "strategy": "按signal_type质疑", "confidence_boost": 0, "_samples": 0, "note": "v5.2起不固定多空，根据信号方向质疑"}
   },
   "链证源": {"dedup_threshold": 0.80, "max_chain_reps": 1, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "数技源": {"source_priority": ["通达信", "东方财富", "AKShare"], "retry_limit": 3, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "探源": {"fundamental_weight": 0.15, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "观澜": {"atr_period": 14, "signal_lag_tolerance": 2, "_last_updated": null, "_evolution_log": [], "_stats": {}}
+  "数技源": {"source_priority": ["通达信TQ-Local", "东方财富", "AKShare"], "retry_limit": 3, "_last_updated": null, "_evolution_log": [], "_stats": {}},
+  "探源": {"fundamental_weight": 0.15, "data_source": "data_interface+fundamental-data-collector", "_last_updated": null, "_evolution_log": [], "_stats": {}},
+  "观澜": {"atr_period": 14, "signal_lag_tolerance": 2, "data_source": "data_interface+technical-analysis", "_last_updated": null, "_evolution_log": [], "_stats": {}}
 }
