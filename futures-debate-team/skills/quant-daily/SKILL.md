@@ -1,6 +1,6 @@
 ---
 name: quant-daily
-version: 2.5.0
+version: 2.6.0
 agent_created: true
 description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。v2.5.0新增TqSdk盘中K线数据源（盘中优先级介于TDX和东方财富之间）。--dual模式同时输出两份信号报告+辩论证据简报。
 ---

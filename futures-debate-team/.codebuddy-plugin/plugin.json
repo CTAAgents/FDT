@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.1.0 — Phase1独立化: 内建调度器scheduler(心跳引擎+3触发器+5任务)+bootstrap一键启动+watchdog自动恢复+全自动辩论管道+自循环闭环(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录+路径边界铁律)+裁决修正v2.0(R01-R10)+用户反馈主动归档+ATR修复+10Agent全进化。",
+  "description": "Multi-role futures trading debate team v5.2.0 — 架构重构: 三层信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源，所有信号全辩论无直接推荐通道，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方(不再固定多空)，研究员数据接口独立(L1-L4→technical-analysis, 因子→fundamental-data-collector)，V型反转例外，10Agent全进化+自循环闭环+独立记忆系统。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -49,7 +49,7 @@
   },
   "displayDescription": {
     "en": "10-role futures debate team v5.1 — Self-circulating closed-loop: auto-feedback(validate→calibrate→evolve self-triggering), independent memory system(platform-free directory+boundary rule), judgment revisions v2.0(R01-R10 data quality rules), user feedback auto-archive, ATR fix, 10-Agent full evolution.",
-    "zh": "10角色期货辩论专家团v5.1 — 自循环闭环：全自动反馈(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录+路径边界铁律)+裁决修正v2.0(R01-R10数据质量规则)+用户反馈主动归档+ATR修复+10Agent全进化。"
+    "zh": "10角色期货辩论专家团v5.2 — 架构重构：三层信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源，所有信号全辩论无直接推荐通道，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方，研究员数据接口独立，V型反转例外，10Agent全进化+自循环闭环。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
@@ -89,71 +89,131 @@
   "members": [
     {
       "id": "futures-debate-team-team-lead",
-      "displayName": {"en": "Ming Jianqiu", "zh": "明鉴秋"},
-      "profession": {"en": "Debate Coordinator", "zh": "辩论独立协调员"},
+      "displayName": {
+        "en": "Ming Jianqiu",
+        "zh": "明鉴秋"
+      },
+      "profession": {
+        "en": "Debate Coordinator",
+        "zh": "辩论独立协调员"
+      },
       "avatar": "avatars/futures-debate-team-team-lead.png",
       "role": "lead"
     },
     {
       "id": "futures-fundamental-researcher",
-      "displayName": {"en": "Tan Yuan", "zh": "探源"},
-      "profession": {"en": "Fundamental Analyst", "zh": "基本面分析师"},
+      "displayName": {
+        "en": "Tan Yuan",
+        "zh": "探源"
+      },
+      "profession": {
+        "en": "Fundamental Analyst",
+        "zh": "基本面分析师"
+      },
       "avatar": "avatars/futures-fundamental-researcher.png",
       "role": "member"
     },
     {
       "id": "futures-technical-researcher",
-      "displayName": {"en": "Guan Lan", "zh": "观澜"},
-      "profession": {"en": "Technical Analyst", "zh": "技术面分析师"},
+      "displayName": {
+        "en": "Guan Lan",
+        "zh": "观澜"
+      },
+      "profession": {
+        "en": "Technical Analyst",
+        "zh": "技术面分析师"
+      },
       "avatar": "avatars/futures-technical-researcher.png",
       "role": "member"
     },
     {
       "id": "futures-datatech",
-      "displayName": {"en": "Shu Ji Yuan", "zh": "数技源"},
-      "profession": {"en": "Data Technician", "zh": "数据技师（纯数据输出）"},
+      "displayName": {
+        "en": "Shu Ji Yuan",
+        "zh": "数技源"
+      },
+      "profession": {
+        "en": "Data Technician",
+        "zh": "数据技师（纯数据输出）"
+      },
       "avatar": "avatars/futures-datatech.png",
       "role": "member"
     },
     {
       "id": "futures-chain-analyst",
-      "displayName": {"en": "Lian Zhengyuan", "zh": "链证源"},
-      "profession": {"en": "Industry Chain Analyst", "zh": "产业链分析师"},
+      "displayName": {
+        "en": "Lian Zhengyuan",
+        "zh": "链证源"
+      },
+      "profession": {
+        "en": "Industry Chain Analyst",
+        "zh": "产业链分析师"
+      },
       "avatar": "avatars/futures-chain-analyst.png",
       "role": "member"
     },
     {
       "id": "futures-affirmative-debater",
-      "displayName": {"en": "Zheng Zhen", "zh": "证真"},
-      "profession": {"en": "Bull-side Debater", "zh": "多方辩手（多头论证者）"},
+      "displayName": {
+        "en": "Zheng Zhen",
+        "zh": "证真"
+      },
+      "profession": {
+        "en": "Signal Affirmer",
+        "zh": "正方辩手（信号论证者）"
+      },
       "avatar": "avatars/futures-affirmative-debater.png",
       "role": "member"
     },
     {
       "id": "futures-opposition-debater",
-      "displayName": {"en": "Shen Si", "zh": "慎思"},
-      "profession": {"en": "Bear-side Debater", "zh": "空方辩手（空头论证者）"},
+      "displayName": {
+        "en": "Shen Si",
+        "zh": "慎思"
+      },
+      "profession": {
+        "en": "Signal Skeptic",
+        "zh": "反方辩手（信号质疑者）"
+      },
       "avatar": "avatars/futures-opposition-debater.png",
       "role": "member"
     },
     {
       "id": "futures-judge",
-      "displayName": {"en": "Yan Panguan", "zh": "闫判官"},
-      "profession": {"en": "Debate Judge", "zh": "辩论裁决官"},
+      "displayName": {
+        "en": "Yan Panguan",
+        "zh": "闫判官"
+      },
+      "profession": {
+        "en": "Debate Judge",
+        "zh": "辩论裁决官"
+      },
       "avatar": "avatars/futures-judge.png",
       "role": "member"
     },
     {
       "id": "futures-risk-manager",
-      "displayName": {"en": "Feng Kongming", "zh": "风控明"},
-      "profession": {"en": "Risk Manager", "zh": "风险管理总监"},
+      "displayName": {
+        "en": "Feng Kongming",
+        "zh": "风控明"
+      },
+      "profession": {
+        "en": "Risk Manager",
+        "zh": "风险管理总监"
+      },
       "avatar": "avatars/futures-risk-manager.png",
       "role": "member"
     },
     {
       "id": "futures-trading-strategist",
-      "displayName": {"en": "Ce Zhiyuan", "zh": "策执远"},
-      "profession": {"en": "Trading Strategist", "zh": "交易策略师"},
+      "displayName": {
+        "en": "Ce Zhiyuan",
+        "zh": "策执远"
+      },
+      "profession": {
+        "en": "Trading Strategist",
+        "zh": "交易策略师"
+      },
       "avatar": "avatars/futures-trading-strategist.png",
       "role": "member"
     }

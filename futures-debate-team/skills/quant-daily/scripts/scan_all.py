@@ -129,9 +129,20 @@ def run_scan(
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
     if dual:
         print(f"\n{'=' * 60}")
-        print(f"  双策略并行模式: L1-L4分层 + 因子择时")
+        print(f"  三层信号 + 研究员原始数据模式")
         print(f"{'=' * 60}")
+        # 主策略: 三层信号（突破/回踩/跳空）
         result_a = run_scan(
+            output_dir=output_dir,
+            output_prefix=f"{output_prefix}_three_signal",
+            symbols=symbols,
+            strategy_name="three_signal",
+            dual=False,
+            seed=seed,
+        )
+        # 研究员辅助数据（原始指标，不做策略打分）
+        print(f"\n  [研究员辅助] 导出L1-L4原始指标数据（供观澜技术分析）...")
+        result_b = run_scan(
             output_dir=output_dir,
             output_prefix=f"{output_prefix}_l1l4",
             symbols=symbols,
@@ -139,59 +150,14 @@ def run_scan(
             dual=False,
             seed=seed,
         )
-        result_b = run_scan(
-            output_dir=output_dir,
-            output_prefix=f"{output_prefix}_factor_timing",
-            symbols=symbols,
-            strategy_name="factor_timing",
-            dual=False,
-            seed=seed,
-        )
-        # ── 双策略信号汇总（纯数据，不做判断） ──
-        if output_dir:
-            try:
-                from signals.debate_brief import build_signal_summary, build_html as brief_html
-                import json as _json
-
-                l1l4_json = os.path.join(output_dir, f"{output_prefix}_l1l4_{date.today().strftime('%Y%m%d')}.json")
-                factor_json = os.path.join(
-                    output_dir, f"{output_prefix}_factor_timing_{date.today().strftime('%Y%m%d')}.json"
-                )
-                if os.path.exists(l1l4_json) and os.path.exists(factor_json):
-                    summary = build_signal_summary(l1l4_json, factor_json)
-                    s_json_path = os.path.join(
-                        output_dir, f"{output_prefix}_summary_{date.today().strftime('%Y%m%d')}.json"
-                    )
-                    with open(s_json_path, "w", encoding="utf-8") as f:
-                        _json.dump(summary, f, ensure_ascii=False, indent=2)
-                    print(f"\n📊 信号汇总: {s_json_path}")
-                    s_html = brief_html(summary)
-                    s_html_path = os.path.join(
-                        output_dir, f"{output_prefix}_summary_{date.today().strftime('%Y%m%d')}.html"
-                    )
-                    with open(s_html_path, "w", encoding="utf-8") as f:
-                        f.write(s_html)
-                    print(f"📊 汇总HTML: {s_html_path}")
-                    s_meta = summary.get("_meta", {})
-                    print(
-                        f"    L1-L4: {s_meta.get('l1l4_bull', 0)}多/{s_meta.get('l1l4_bear', 0)}空 | 因子: {s_meta.get('factor_bull', 0)}多/{s_meta.get('factor_bear', 0)}空"
-                    )
-                    print(f"    → 闫判官自行决定辩论品种与方向（quant-daily不预设）")
-            except Exception as e:
-                print(f"[Warning] 信号汇总生成失败: {e}")
         print(f"\n{'=' * 60}")
-        print(f"  双策略完成:")
+        print(f"  完成:")
         meta_a = result_a.get("_meta", {})
-        meta_b = result_b.get("_meta", {})
-        print(
-            f"    L1-L4: {meta_a.get('bull', 0)}多头 / {meta_a.get('bear', 0)}空头 (策略: {meta_a.get('strategy', '?')})"
-        )
-        print(
-            f"    因子择时: {meta_b.get('bull', 0)}多头 / {meta_b.get('bear', 0)}空头 (策略: {meta_b.get('strategy', '?')})"
-        )
-        print(f"    → 闫判官根据汇总数据自行决定辩论品种与方向")
+        st = meta_a.get("signal_types", {})
+        print(f"    三层信号: {st.get('breakout',0)}突破 / {st.get('pullback',0)}回踩 / {st.get('gap',0)}跳空")
+        print(f"    → 所有三层信号品种交由闫判官辩论")
         print(f"{'=' * 60}")
-        return {"_meta": {"mode": "dual", "l1l4": meta_a, "factor_timing": meta_b}}
+        return {"_meta": {"mode": "dual", "three_signal": meta_a}}
     # ── 参数合法性校验 ──
     import re
 

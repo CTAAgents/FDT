@@ -104,11 +104,9 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
     # ====== 空头论据（空头品种的主力论据，或多头品种的反方论据） ======
     if direction == "SELL" or adx > 25:
-        # 趋势强度（ADX越低越新、空间越大）
-        if stage == "launch":
-            bear.append(f"📈 突破初期(阶段=launch)，ADX={adx:.1f}正在爬升，趋势空间充足")
-        elif adx >= 60:
-            bear.append(f"⚠️ ADX={adx:.1f}趋势已运行较远，注意尾部风险，持仓需设紧止损")
+        # 趋势强度
+        if adx >= 60:
+            bear.append(f"ADX={adx:.1f} 极强空头趋势，ADX>60说明空头动能充沛，价格沿趋势运行")
         elif adx >= 40:
             bear.append(f"ADX={adx:.1f} 中强空头趋势，DMI-DI主导方向")
         elif adx >= 25:
@@ -183,12 +181,8 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         # 趋势衰竭
         if stage == "exhausted":
             bull.append(f"⚠️ 阶段=exhausted — 空头趋势末端，反转概率上升，需密切监控")
-        # V型反转例外：ADX>60但价格已反转，不适用追高追空警示
-        is_v_reversal = (stage == "reversal")
-        if adx > 60 and not is_v_reversal:
-            bull.append(f"⚠️ ADX={adx:.1f}>60 — 行情已运行较远，追空盈亏比不划算，注意动量衰竭")
-        elif adx > 60 and is_v_reversal:
-            bull.append(f"阶段=reversal — 价格已反转，V型反转形态中ADX={adx:.1f}高位属正常特征，不适用追空警示")
+        if adx > 70:
+            bull.append(f"⚠️ ADX={adx:.1f} >70 — 趋势极强但可能接近极限，动量衰减时及时止盈")
 
         # 因子分歧
         if fdir == "bull":
@@ -580,37 +574,17 @@ for s in all_actionable:
         "chain_trend": chain_results_agg.get(chain, {}).get("overall_trend", ""),
         "bull_args": bull_args,
         "bear_args": bear_args,
-        "stage": s.get("stage", ""),
-        "adx_val": s.get("adx", 0),
-        "signal_type": s.get("signal_type", ""),
     }
 
-    # T1/T2/T3 分级逻辑（按阶段优先，非置信度绝对值）
-    stage = s.get("stage", "")
-    adx_val = s.get("adx", 0)
-    if adx_val > 50 or stage == "exhausted":
+    if confidence * 100 > 90:
         info["tier"] = "T3警惕"
         T3_signals.append(info)
-    elif stage == "trending" and adx_val < 50:
+    elif confidence * 100 >= 75:
         info["tier"] = "T2主仓"
         T2_signals.append(info)
-    elif stage == "launch":
+    else:
         info["tier"] = "T1观察"
         T1_signals.append(info)
-    elif stage == "trending" and adx_val >= 50:
-        info["tier"] = "T3警惕"
-        T3_signals.append(info)
-    else:
-        # fallback: 按置信度
-        if confidence * 100 > 90:
-            info["tier"] = "T3警惕"
-            T3_signals.append(info)
-        elif confidence * 100 >= 75:
-            info["tier"] = "T2主仓"
-            T2_signals.append(info)
-        else:
-            info["tier"] = "T1观察"
-            T1_signals.append(info)
 
     filtered_signals.append(info)
 

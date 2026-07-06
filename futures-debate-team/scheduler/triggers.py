@@ -214,13 +214,14 @@ class EventTrigger:
 def get_default_triggers() -> list:
     """返回默认触发器列表"""
     return [
-        # 1. 日常辩论：工作日19:15
-        TimeTrigger(
-            task_name="daily_debate",
-            weekdays=[0, 1, 2, 3, 4],  # 周一到周五
-            hour=19,
-            minute=15,
-        ),
+        # 1. 日常辩论：工作日19:15 → 已迁移到 WorkBuddy Automation
+        # （由 WB cron 触发，不再依赖守护进程调度器）
+        # TimeTrigger(
+        #     task_name="daily_debate",
+        #     weekdays=[0, 1, 2, 3, 4],  # 周一到周五
+        #     hour=19,
+        #     minute=15,
+        # ),
         # 2. 自动发布：每日23:05
         TimeTrigger(
             task_name="auto_publish",

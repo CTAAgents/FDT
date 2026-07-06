@@ -1,4 +1,4 @@
-# 期货交易辩论专家团 — 用户使用手册 (v5.1)
+# 期货交易辩论专家团 — 用户使用手册 (v5.2)
 
 ## 1. 概述
 
@@ -6,9 +6,9 @@
 
 **核心理念**：🏗️ 调度引擎(内建scheduler/守护进程自主运行·不需要平台cron) → 自进化前置(每次分析请求自动validate→calibrate→evolve) → 数技源(quant-daily 纯数据输出) → 链证源产业链分析 → 闫判官双通道决策（含评分自校准+裁决修正经验库R01-R10）→ 研究员供弹 → 多空辩论（R08逻辑核验+R09异常禁引）→ 策执远出方案 → 风控明审核 → 明鉴秋合并双通道输出（R10数据源标注）→ record_verdicts 记录追踪 → 用户反馈主动归档。
 
-**版本**：v5.1 | **Agent数**：10（1协调员 + 9角色）| **双策略**：L1-L4 + factor_timing
+**版本**：v5.2 | **Agent数**：10（1协调员 + 9角色）| **双策略**：L1-L4 + factor_timing
 
-**v5.1 亮点**：
+**v5.2 亮点**：
 - 🏗️ **独立调度引擎**：`scheduler/` 模块，心跳60秒，无需平台cron
 - 🚀 **bootstrap一键启动**：支持daemon/once/interactive三种模式
 - 🐶 **看门狗自动恢复**：`daemon_watchdog.py` 心跳检测，挂了自动重启
@@ -420,7 +420,7 @@ python bootstrap.py once
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.1** | **2026-07-06** | **🏗️ Phase 1独立化**：**内建调度器**scheduler/(engine+triggers+tasks 4文件·时间/数据量/事件3触发器·5任务)；**bootstrap.py**一键启动(once/daemon/interactive)；**daemon_watchdog.py**看门狗(心跳检测·自动恢复)；**全自动管道**daily_debate(scan→report→复制)；**删除3平台automation**；**自循环闭环**P0手动→全自动自触发；**独立记忆系统**路径边界铁律；**裁决修正v2.0**R01-R10；**用户反馈主动归档**；**ATR修复**(10→239) |
+| **v5.2** | **2026-07-06** | **🏗️ Phase 1独立化**：**内建调度器**scheduler/(engine+triggers+tasks 4文件·时间/数据量/事件3触发器·5任务)；**bootstrap.py**一键启动(once/daemon/interactive)；**daemon_watchdog.py**看门狗(心跳检测·自动恢复)；**全自动管道**daily_debate(scan→report→复制)；**删除3平台automation**；**自循环闭环**P0手动→全自动自触发；**独立记忆系统**路径边界铁律；**裁决修正v2.0**R01-R10；**用户反馈主动归档**；**ATR修复**(10→239) |
 | **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链+全9Agent自进化+裁决修正经验库R01-R05+闭环追踪+评分自校准 |
 | **v4.4** | **2026-07-05** | **全量优化计划25项完成**：P0 7项(决策确定性+回测加固+情感因子稳定+记忆冲突修复+L5反馈升级+辩论机制重构+记忆架构升级) P1 7项(协议兼容+ML迭代+本土风控+DAG容错+环境切换+区制分流+L6组合) P2 6项(实盘执行引擎+运维告警+分布式部署+合规审计+密钥管理+工程规范) P3 5项(MARL+对手盘建模+自动因子挖掘+多周期辩论+双判官制衡)。技术债清理：日志框架+异常修复+大文件拆分+Pydantic v2全量迁移+测试100%通过。 |
 | **v4.3** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |

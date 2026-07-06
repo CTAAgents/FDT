@@ -40,6 +40,7 @@ Please make full use of this plugin's abilities whenever possible.**
 
 | 写入内容 | ✅ 专家团自有记忆 | 
 |:--------|:-----|
+| ✅ 工作日志 | `memory/changelog.md` | ← 所有代码/配置/机制变更记在此处 |
 | 裁决修正规则 | `memory/judgment_revisions.md` |
 | 辩论论证模式 | `memory/argument_patterns.md` |
 | Agent进化 | `memory/agent_profiles.json` + `agents/{agent}.md` |

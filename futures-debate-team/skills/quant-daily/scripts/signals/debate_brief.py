@@ -30,17 +30,26 @@ def _extract_risk_input(l_entry: dict, f_entry: dict) -> dict:
 
     # 置信度：L1-L4的cons(一致性) + factor的vote_confidence 加权
     l_cons = l_entry.get("cons", 0)
-    f_conf = f_entry.get("vote_confidence", 0.0)
-    base_confidence = int((l_cons / 4 * 60 + abs(f_conf) * 40))
+    f_conf = abs(f_entry.get("vote_confidence", 0.0))
+    # f_conf 可能 0-100(百分比) 或 0-1(小数), 统一归一化到 0-1
+    if f_conf > 1:
+        f_conf = f_conf / 100.0
+    base_confidence = int(min(100, l_cons / 4 * 60 + f_conf * 40))
 
-    # ATR: 优先从信号输出读取，无数据则按价格2%估算（远优于之前的信号总分×0.15）
+    # ATR: 优先从信号输出读取, fallback按品种类群估算(替代通用2%)
     atr = l_entry.get("atr", 0)
     if not atr:
         atr = f_entry.get("atr", 0)
     if not atr:
         price = l_entry.get("price", 0)
         if price:
-            atr = price * 0.02  # 通用期货日波幅约2%（覆盖LH之类高波品种略保守）
+            # 按价格区间估算日波幅: 低价品种(<=5000)≈3%, 中价≈2%, 高价(>=50000)≈1.5%
+            if price <= 5000:
+                atr = price * 0.03
+            elif price >= 50000:
+                atr = price * 0.015
+            else:
+                atr = price * 0.02
         else:
             atr = 200  # 连价格都没有的情况（罕见），用保守默认值
 
@@ -90,79 +99,142 @@ def _build_invalid_condition(l_entry: dict) -> str:
     return f"日线{direction}方向失效条件：收盘反向突破近期极值+OI配合"
 
 
-def compute_debate_score(l1l4: dict, factor: dict, chain: str = "未知") -> dict:
+# ── 五维权重配置（可从 memory/debate_weights.json 覆盖） ──
+_DEFAULT_DEBATE_WEIGHTS = {
+    "signal": 40.0,
+    "quality": 25.0,
+    "extreme": 20.0,
+    "data": 10.0,
+    "chain": 5.0,
+}
+
+# 权重文件路径（相对于项目根目录）
+_WEIGHTS_PATH = None
+
+
+def _get_weights_path() -> str:
+    """自动定位 weights 文件"""
+    global _WEIGHTS_PATH
+    if _WEIGHTS_PATH:
+        return _WEIGHTS_PATH
+    script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # 从 script 目录向上到 project root (skills/quant-daily/scripts/ → project root)
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    _WEIGHTS_PATH = os.path.join(project_root, "memory", "debate_weights.json")
+    return _WEIGHTS_PATH
+
+
+def load_debate_weights() -> dict:
+    """从 memory/debate_weights.json 加载权重, 不存在则返回默认"""
+    path = _get_weights_path()
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            weights = data.get("weights", _DEFAULT_DEBATE_WEIGHTS)
+            print(f"  [权重] 从 {path} 加载")
+            return weights
+        except Exception:
+            pass
+    return dict(_DEFAULT_DEBATE_WEIGHTS)
+
+
+def compute_debate_score(l1l4: dict, factor: dict, chain: str = "未知",
+                         chain_count: int = 0, weights: dict = None) -> dict:
     """
     五维加权辩论价值评分 (0-100)。
 
     评估一个品种的辩论价值——分歧越大、趋势越清晰、数据越极端，辩论价值越高。
 
     Dimensions:
-        ├─ 信号强度 40%: |total_l|+|total_f| 归一化 (max anchor=200)
-        ├─ 趋势质量 25%: ADX≥25加分 + stage非quiet加分 + cons一致性加分
-        ├─ 极端性   20%: RSI极端 + z-score极端 + 方向分歧
-        ├─ 数据质量 10%: veto计数罚分 (基值10)
-        └─ 链重要性  5%: 基于链名 heuristic
+        ├─ 信号强度: signal_weight% — |total_l|+|total_f| 归一化 (max anchor=200)
+        ├─ 趋势质量: quality_weight% — ADX≥25加分 + stage非quiet加分 + cons一致性加分
+        ├─ 极端性:   extreme_weight% — RSI极端 + z-score极端 + 方向分歧
+        ├─ 数据质量: data_weight% — veto计数罚分 (基值10)
+        └─ 链重要性: chain_weight% — 基于链内品种数动态计算
+
+    权重从 load_debate_weights() 加载, 可被 evolve_agents 自动调整。
     """
+    if weights is None:
+        weights = load_debate_weights()
+    w_signal = weights.get("signal", 40.0)
+    w_quality = weights.get("quality", 25.0)
+    w_extreme = weights.get("extreme", 20.0)
+    w_data = weights.get("data", 10.0)
+    w_chain = weights.get("chain", 5.0)
+    # 归一化确保和为100
+    total_w = w_signal + w_quality + w_extreme + w_data + w_chain
+    if total_w > 0:
+        w_signal = w_signal / total_w * 100
+        w_quality = w_quality / total_w * 100
+        w_extreme = w_extreme / total_w * 100
+        w_data = w_data / total_w * 100
+        w_chain = w_chain / total_w * 100
     if l1l4 is None:
         l1l4 = {}
     if factor is None:
         factor = {}
 
-    # ── 1. 信号强度 (40%) ──
+    # ── 1. 信号强度 (signal_weight%) ──
     l_total = abs(l1l4.get("total", 0))
     f_total = abs(factor.get("total", 0))
     raw_signal = l_total + f_total
-    signal_score = min(40.0, raw_signal / 200.0 * 40.0)
+    signal_score = min(w_signal, raw_signal / 200.0 * w_signal)
 
-    # ── 2. 趋势质量 (25%) ──
+    # ── 2. 趋势质量 (quality_weight%) ──
     quality_score = 0.0
     adx = l1l4.get("adx", 0) or factor.get("adx", 0)
     if adx >= 25:
-        quality_score += 10.0
+        quality_score += w_quality * 0.4
     if adx >= 40:
-        quality_score += 3.0  # 强趋势额外加分
+        quality_score += w_quality * 0.12
 
     stage = l1l4.get("stage", "unknown") or factor.get("stage", "unknown")
     if stage not in ("quiet", "unknown", ""):
-        quality_score += 5.0
+        quality_score += w_quality * 0.2
 
     cons = max(l1l4.get("cons", 0) or 0, factor.get("cons", 0) or 0)
-    quality_score += min(7.0, cons / 4.0 * 7.0)
+    quality_score += min(w_quality * 0.28, cons / 4.0 * w_quality * 0.28)
 
-    quality_score = min(25.0, quality_score)
+    quality_score = min(w_quality, quality_score)
 
-    # ── 3. 极端性 (20%) ──
+    # ── 3. 极端性 (extreme_weight%) ──
     extreme_score = 0.0
     rsi = l1l4.get("rsi", 50) or 50
     if rsi > 75:
-        extreme_score += 8.0
+        extreme_score += w_extreme * 0.4
     elif rsi < 25:
-        extreme_score += 8.0
+        extreme_score += w_extreme * 0.4
     elif rsi > 70 or rsi < 30:
-        extreme_score += 4.0
+        extreme_score += w_extreme * 0.2
 
     z_score = l1l4.get("z_score", 0) or 0
     if abs(z_score) > 2.5:
-        extreme_score += 7.0
+        extreme_score += w_extreme * 0.35
     elif abs(z_score) > 2.0:
-        extreme_score += 4.0
+        extreme_score += w_extreme * 0.2
     elif abs(z_score) > 1.5:
-        extreme_score += 2.0
+        extreme_score += w_extreme * 0.1
 
     l_dir = l1l4.get("direction", "neutral")
     f_dir = factor.get("direction", "neutral")
     if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
-        extreme_score += 5.0  # 方向分歧是好的辩论素材
+        extreme_score += w_extreme * 0.25
 
-    extreme_score = min(20.0, extreme_score)
+    extreme_score = min(w_extreme, extreme_score)
 
-    # ── 4. 数据质量 (10%) ──
+    # ── 4. 数据质量 (data_weight%) ──
     veto = max(l1l4.get("veto", 0) or 0, factor.get("veto", 0) or 0)
-    data_score = max(0.0, 10.0 - veto * 3.0)
+    data_score = max(0.0, w_data - veto * 3.0)
 
-    # ── 5. 链重要性 (5%) ──
-    key_chains = {"黑色链", "能化系", "有色金属", "贵金属"}
-    chain_score = 5.0 if chain in key_chains else 3.0
+    # ── 5. 链重要性 (chain_weight%) — 动态计算 ──
+    # 链内品种数 <=3 → 50%权重; >=4 → 80%; >=6 → 100%
+    if chain_count >= 6:
+        chain_score = w_chain
+    elif chain_count >= 4:
+        chain_score = w_chain * 0.8
+    else:
+        chain_score = w_chain * 0.6
 
     # ── 汇总 ──
     debate_value = round(signal_score + quality_score + extreme_score + data_score + chain_score, 1)
@@ -528,6 +600,15 @@ def select_debate_symbols(
             except ImportError:
                 pass
 
+    # 构建链内品种计数映射（用于动态chain_score）
+    chain_count_map = {}
+    for s in symbols:
+        c = chain_map.get(s["symbol"].upper(), "未知")
+        chain_count_map[c] = chain_count_map.get(c, 0) + 1
+
+    # 加载可配置的五维权重（被 evolve_agents 自动调节）
+    weights = load_debate_weights()
+
     # 分类 + 多维评分
     divergence = []
     consensus_bear = []
@@ -541,9 +622,10 @@ def select_debate_symbols(
         l_dir, l_total = l.get("direction", "neutral"), l.get("total", 0)
         f_dir, f_total = f.get("direction", "neutral"), f.get("total", 0)
         chain = chain_map.get(sym.upper(), "未知")
+        chain_cnt = chain_count_map.get(chain, 0)
 
         # 五维辩论价值评分
-        debate_score = compute_debate_score(l, f, chain=chain)
+        debate_score = compute_debate_score(l, f, chain=chain, chain_count=chain_cnt, weights=weights)
         debate_value = debate_score["debate_value"]
 
         # 闫判官速览摘要

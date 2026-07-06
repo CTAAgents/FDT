@@ -46,7 +46,7 @@ def load_or_create_profile(profiles_path):
 
 
 def get_validated_verdicts(followup_path):
-    """提取所有已验证的裁决（正确/错误）"""
+    """提取所有已验证的裁决（含真实stop/target触发标签）"""
     followup = load_json(followup_path)
     results = []
     for record in followup["records"]:
@@ -59,6 +59,7 @@ def get_validated_verdicts(followup_path):
         val_results = vr.get("results", [])
         for i, v in enumerate(verdicts):
             if i < len(val_results) and val_results[i].get("correct") is not None:
+                val = val_results[i]
                 results.append({
                     "symbol": v.get("symbol",""),
                     "direction": v.get("direction",""),
@@ -72,9 +73,12 @@ def get_validated_verdicts(followup_path):
                     "position_pct": v.get("position_pct",0),
                     "chain": v.get("chain",""),
                     "conflict": v.get("conflict",False),
-                    "correct": val_results[i]["correct"],
-                    "change_pct": val_results[i].get("change_pct",0),
-                    "pnl_pct": val_results[i].get("pnl_pct",0),
+                    "correct": val["correct"],
+                    "realized_pnl_pct": val.get("realized_pnl_pct", 0),
+                    "hit_stop": val.get("hit_stop", False),
+                    "hit_target1": val.get("hit_target1", False),
+                    "hit_target2": val.get("hit_target2", False),
+                    "gap_stop": val.get("gap_stop", False),
                 })
     return results
 
@@ -84,56 +88,60 @@ def get_validated_verdicts(followup_path):
 def evolve_risk_manager(verdicts, profile):
     """
     进化维度:
-    - ATR乘数: 止损距 = atr_multiplier × ATR。止损频率过高→放宽, 过低→收紧
-    - 最大仓位%: 高置信度品种上限。连续亏损→降低
+    - ATR乘数: 止损距 = atr_multiplier × ATR。真实止损触发率 > 15% → 放宽
+    - 最大仓位%: 真实实现盈亏连续亏损 → 降低
     - veto阈值: ADX低于此值时额外审查
 
     衡量指标:
-    - stop_hit_rate: 方向对了但被止损扫出的比例（理想: <15%）
-    - max_drawdown_pct: 单品种最大亏损%
+    - real_stop_hit_rate: 验证层检测到的真实止损触发率(理想 <15%)
+    - avg_realized_pnl: 真实实现盈亏(含跳空扫损)
     """
     total = len(verdicts)
     if total < 5:
         return profile
 
-    # 计算止损触发预估（方向正确但日内触及止损价的比例）
-    # 简化: 用 (stop_loss - entry) / entry 来衡量止损紧张度
-    tight_stops = []
-    for v in verdicts:
-        if v["entry_price"] > 0:
-            stop_dist = abs(v["stop_loss"] - v["entry_price"]) / v["entry_price"]
-            tight_stops.append(stop_dist)
+    # 真实止损触发率
+    stop_hits = sum(1 for v in verdicts if v.get("hit_stop"))
+    gap_hits = sum(1 for v in verdicts if v.get("gap_stop"))
+    real_stop_hit_rate = stop_hits / total if total > 0 else 0
 
-    avg_stop_dist = sum(tight_stops) / len(tight_stops) if tight_stops else 0.025
+    # 真实实现盈亏
+    realized_pnls = [v.get("realized_pnl_pct", 0) for v in verdicts if v.get("realized_pnl_pct", 0)]
+    avg_realized_pnl = sum(realized_pnls) / len(realized_pnls) if realized_pnls else 0
 
-    # 止损距离评估
-    if avg_stop_dist < 0.02:
-        # 止损太紧 → 放宽
-        adjustment = +0.2
-        reason = f"平均止损距仅{avg_stop_dist*100:.1f}%, 放宽ATR乘数"
-    elif avg_stop_dist > 0.045:
+    # 止损触发率评估（替代旧的avg_stop_dist代理）
+    if real_stop_hit_rate > 0.15:
+        adjustment = +0.3
+        reason = f"真实止损触发率{real_stop_hit_rate*100:.1f}% > 15%, 放宽ATR乘数"
+    elif real_stop_hit_rate < 0.05 and total >= 10:
         adjustment = -0.2
-        reason = f"平均止损距{avg_stop_dist*100:.1f}%, 收紧ATR乘数"
+        reason = f"真实止损触发率{real_stop_hit_rate*100:.1f}% < 5%, 收紧ATR乘数"
     else:
         adjustment = 0
-        reason = f"止损距{avg_stop_dist*100:.1f}%合理, 维持不变"
+        reason = f"止损触发率{real_stop_hit_rate*100:.1f}%合理, 维持不变"
 
-    # 最大仓位评估
-    wrong_high_conf = [v for v in verdicts if v["confidence"] == "高" and not v["correct"]]
-    correct_high_conf = [v for v in verdicts if v["confidence"] == "高" and v["correct"]]
-    high_conf_total = len(wrong_high_conf) + len(correct_high_conf)
-    
+    # 跳空扫损率报警
+    gap_warning = ""
+    gap_rate = gap_hits / total if total > 0 else 0
+    if gap_rate > 0.10:
+        gap_warning = f" ⚠️跳空扫损{gap_rate*100:.1f}%(>10%), 建议放宽夜盘止损距"
+
+    # 最大仓位评估：用真实实现盈亏替代方向正确率
+    wrong_costly = [v for v in verdicts if not v["correct"] and v.get("realized_pnl_pct", 0) < -2.0]
+    correct_good = [v for v in verdicts if v["correct"] and v.get("realized_pnl_pct", 0) > 0]
+    high_conf_total = len(wrong_costly) + len(correct_good)
+
     if high_conf_total >= 3:
-        high_conf_acc = len(correct_high_conf) / high_conf_total
-        if high_conf_acc < 0.5:
+        high_conf_pnl = sum(v.get("realized_pnl_pct", 0) for v in wrong_costly + correct_good)
+        if high_conf_pnl < -5.0:  # 高置信度品种合计亏损>5%
             max_pos_adj = -1.0
-            pos_reason = f"高置信度准确率仅{high_conf_acc*100:.0f}%, 仓位上限-1%"
-        elif high_conf_acc > 0.75:
+            pos_reason = f"高置信度品种累计亏损{high_conf_pnl:+.1f}%, 仓位上限-1%"
+        elif high_conf_pnl > 5.0:
             max_pos_adj = +0.5
-            pos_reason = f"高置信度准确率{high_conf_acc*100:.0f}%, 仓位上限+0.5%"
+            pos_reason = f"高置信度品种总盈利{high_conf_pnl:+.1f}%, 仓位上限+0.5%"
         else:
             max_pos_adj = 0
-            pos_reason = f"高置信度准确率{high_conf_acc*100:.0f}%合理"
+            pos_reason = f"高置信度品种累计盈亏{high_conf_pnl:+.1f}%合理"
     else:
         max_pos_adj = 0
         pos_reason = "样本不足"
@@ -150,13 +158,18 @@ def evolve_risk_manager(verdicts, profile):
         "max_position_pct_high": round(max_pos, 1),
         "_last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "_evolution_log": [
-            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "atr_multiplier", "from": profile.get("atr_multiplier",1.5), "to": round(atr_mult,1), "reason": reason},
-            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "max_position_high", "from": profile.get("max_position_pct_high",5.0), "to": round(max_pos,1), "reason": pos_reason},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "atr_multiplier",
+             "from": profile.get("atr_multiplier",1.5), "to": round(atr_mult,1),
+             "reason": reason + gap_warning},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "max_position_high",
+             "from": profile.get("max_position_pct_high",5.0), "to": round(max_pos,1),
+             "reason": pos_reason},
         ],
         "_stats": {
             "total_validated": total,
-            "avg_stop_distance_pct": round(avg_stop_dist * 100, 1),
-            "high_conf_accuracy": round(high_conf_acc * 100, 1) if high_conf_total >= 3 else None,
+            "real_stop_hit_rate": round(real_stop_hit_rate * 100, 1),
+            "gap_stop_rate": round(gap_rate * 100, 1),
+            "avg_realized_pnl_pct": round(avg_realized_pnl, 1),
         }
     }
 
@@ -166,53 +179,45 @@ def evolve_risk_manager(verdicts, profile):
 def evolve_strategist(verdicts, profile):
     """
     进化维度:
-    - RR目标系数: 当前RR=2.0。如果达到T1的比例太低 → 提高RR
-    - 仓位衰减系数: 连续亏损 → 降低仓位系数
+    - RR目标系数: 当前RR=2.0。真实T1达标率 > 70% → 可调高
+    - 仓位衰减系数: 真实实现PnL连续亏损 → 降低仓位系数
     - 分批止盈比例: T1减仓% vs T2减仓%
 
     衡量指标:
-    - hit_rate_t1: 方向正确品种中达到T1的比例
-    - avg_pnl: 平均单品种盈亏%
+    - real_target_hit_rate: 验证层检测到真实触及T1的比例
+    - avg_realized_pnl: 真实实现盈亏
     """
     total = len(verdicts)
     if total < 5:
         return profile
 
+    avg_realized_pnl = sum(v.get("realized_pnl_pct", 0) for v in verdicts) / total
+
+    # 真实T1达标率（替代旧的 change_pct > 3% 代理）
     correct = [v for v in verdicts if v["correct"]]
-    avg_pnl = sum(v["pnl_pct"] for v in verdicts) / total
+    target_hits = sum(1 for v in correct if v.get("hit_target1"))
+    t1_ratio = target_hits / len(correct) if correct else 0
 
-    # RR评估: 检查T1 target是否合理
-    # 如果大部分正确品种已经过了T1 → RR可能太保守, 可调高
-    # 如果正确品种都A不到T1 → RR太激进
-    t1_hits = 0
-    for v in correct:
-        if v["direction"] == "bear" and v["change_pct"] < -0.03:
-            t1_hits += 1
-        elif v["direction"] == "bull" and v["change_pct"] > 0.03:
-            t1_hits += 1
-
-    t1_ratio = t1_hits / len(correct) if correct else 0
-
-    if t1_ratio > 0.7 and avg_pnl > 2.0:
+    if t1_ratio > 0.7 and avg_realized_pnl > 2.0:
         rr_adj = +0.3
-        rr_reason = f"T1达标率{t1_ratio*100:.0f}%, 盈亏充足, RR上调"
+        rr_reason = f"真实T1达标率{t1_ratio*100:.0f}%, 盈亏充足, RR上调"
     elif t1_ratio < 0.3:
         rr_adj = -0.3
-        rr_reason = f"T1达标率仅{t1_ratio*100:.0f}%, RR过高, 下调"
+        rr_reason = f"真实T1达标率仅{t1_ratio*100:.0f}%, RR过高, 下调"
     else:
         rr_adj = 0
-        rr_reason = f"T1达标率{t1_ratio*100:.0f}%合理"
+        rr_reason = f"真实T1达标率{t1_ratio*100:.0f}%合理"
 
-    # 仓位系数评估
-    if avg_pnl < -2.0:
-        pos_decay = 0.9  # 整体亏损 → 仓位×0.9
-        pos_reason = f"整体均亏{avg_pnl:+.1f}%, 仓位系数×0.9"
-    elif avg_pnl > 3.0:
+    # 仓位系数评估：用真实实现盈亏
+    if avg_realized_pnl < -2.0:
+        pos_decay = 0.9
+        pos_reason = f"均实现盈亏{avg_realized_pnl:+.1f}%, 仓位系数×0.9"
+    elif avg_realized_pnl > 3.0:
         pos_decay = 1.05
-        pos_reason = f"整体均盈{avg_pnl:+.1f}%, 仓位系数×1.05"
+        pos_reason = f"均实现盈亏{avg_realized_pnl:+.1f}%, 仓位系数×1.05"
     else:
         pos_decay = 1.0
-        pos_reason = f"均盈亏{avg_pnl:+.1f}%合理"
+        pos_reason = f"均实现盈亏{avg_realized_pnl:+.1f}%合理"
 
     rr_target = profile.get("rr_target", 2.0) + rr_adj
     rr_target = max(1.5, min(3.0, rr_target))
@@ -226,14 +231,15 @@ def evolve_strategist(verdicts, profile):
         "position_coefficient": pos_coeff,
         "_last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "_evolution_log": [
-            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "rr_target", "from": profile.get("rr_target",2.0), "to": round(rr_target,1), "reason": rr_reason},
-            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "position_coefficient", "from": profile.get("position_coefficient",1.0), "to": pos_coeff, "reason": pos_reason},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "rr_target",
+             "from": profile.get("rr_target",2.0), "to": round(rr_target,1), "reason": rr_reason},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "action": "position_coefficient",
+             "from": profile.get("position_coefficient",1.0), "to": pos_coeff, "reason": pos_reason},
         ],
         "_stats": {
             "total_validated": total,
-            "correct_count": len(correct),
-            "t1_hit_ratio": round(t1_ratio * 100, 1),
-            "avg_pnl_pct": round(avg_pnl, 1),
+            "real_target_hit_rate": round(t1_ratio * 100, 1),
+            "avg_realized_pnl_pct": round(avg_realized_pnl, 1),
         }
     }
 
@@ -247,11 +253,7 @@ def evolve_debaters(verdicts, profile):
     - preference_divergence: 偏好分歧指数 → 是否需要更多轮辩论
 
     衡量指标:
-    - direction_win_rate: 辩论方向的胜率
-    - 从闫判官的评分中提取辩手表现
-
-    注: 辩手进化依赖辩论日志中的详细评分数据。
-    当前只有方向正确性, 没有辩论过程评分, 用方向胜率作为代理指标。
+    - direction_realized_pnl: 各方向真实实现盈亏（替代方向胜率代理）
     """
     total = len(verdicts)
     if total < 5:
@@ -260,45 +262,47 @@ def evolve_debaters(verdicts, profile):
     bull_verdicts = [v for v in verdicts if v["direction"] == "bull"]
     bear_verdicts = [v for v in verdicts if v["direction"] == "bear"]
 
-    bull_correct = sum(1 for v in bull_verdicts if v["correct"])
-    bear_correct = sum(1 for v in bear_verdicts if v["correct"])
+    bull_pnl = sum(v.get("realized_pnl_pct", 0) for v in bull_verdicts) if bull_verdicts else 0
+    bear_pnl = sum(v.get("realized_pnl_pct", 0) for v in bear_verdicts) if bear_verdicts else 0
 
-    bull_acc = bull_correct / len(bull_verdicts) * 100 if bull_verdicts else 0
-    bear_acc = bear_correct / len(bear_verdicts) * 100 if bear_verdicts else 0
+    bull_acc = sum(1 for v in bull_verdicts if v["correct"]) / len(bull_verdicts) * 100 if bull_verdicts else 0
+    bear_acc = sum(1 for v in bear_verdicts if v["correct"]) / len(bear_verdicts) * 100 if bear_verdicts else 0
 
     # 证真(多方辩手)
     bull_profile = profile.get("证真", {"strategy": "默认", "confidence_boost": 0})
     if len(bull_verdicts) >= 3:
-        if bull_acc > 65:
+        if bull_acc > 65 and bull_pnl > 0:
             bull_boost = +1.0
-            bull_note = "胜率高, 加强多头论述"
-        elif bull_acc < 40:
+            bull_note = f"胜率高({bull_acc:.0f}%)+盈利({bull_pnl:+.1f}%), 加强多头论述"
+        elif bull_acc < 40 or bull_pnl < -5:
             bull_boost = -1.0
-            bull_note = "胜率低, 收敛多头论述"
+            bull_note = f"胜率{bull_acc:.0f}%或亏损{bull_pnl:+.1f}%, 收敛多头论述"
         else:
             bull_boost = 0
-            bull_note = "表现稳定"
+            bull_note = f"表现稳定(胜率{bull_acc:.0f}%, 盈亏{bull_pnl:+.1f}%)"
         bull_profile["confidence_boost"] = round(bull_profile.get("confidence_boost", 0) + bull_boost * 0.3, 1)
-        bull_profile["strategy"] = "激进" if bull_acc > 65 else ("保守" if bull_acc < 40 else "默认")
+        bull_profile["strategy"] = "激进" if (bull_acc > 65 and bull_pnl > 0) else ("保守" if (bull_acc < 40 or bull_pnl < -5) else "默认")
         bull_profile["_win_rate"] = round(bull_acc, 1)
+        bull_profile["_realized_pnl"] = round(bull_pnl, 1)
         bull_profile["_samples"] = len(bull_verdicts)
         bull_profile["_note"] = bull_note
 
     # 慎思(空方辩手)
     bear_profile = profile.get("慎思", {"strategy": "默认", "confidence_boost": 0})
     if len(bear_verdicts) >= 3:
-        if bear_acc > 65:
+        if bear_acc > 65 and bear_pnl > 0:
             bear_boost = +1.0
-            bear_note = "胜率高, 加强空头论述"
-        elif bear_acc < 40:
+            bear_note = f"胜率高({bear_acc:.0f}%)+盈利({bear_pnl:+.1f}%), 加强空头论述"
+        elif bear_acc < 40 or bear_pnl < -5:
             bear_boost = -1.0
-            bear_note = "胜率低, 收敛空头论述"
+            bear_note = f"胜率{bear_acc:.0f}%或亏损{bear_pnl:+.1f}%, 收敛空头论述"
         else:
             bear_boost = 0
-            bear_note = "表现稳定"
+            bear_note = f"表现稳定(胜率{bear_acc:.0f}%, 盈亏{bear_pnl:+.1f}%)"
         bear_profile["confidence_boost"] = round(bear_profile.get("confidence_boost", 0) + bear_boost * 0.3, 1)
-        bear_profile["strategy"] = "激进" if bear_acc > 65 else ("保守" if bear_acc < 40 else "默认")
+        bear_profile["strategy"] = "激进" if (bear_acc > 65 and bear_pnl > 0) else ("保守" if (bear_acc < 40 or bear_pnl < -5) else "默认")
         bear_profile["_win_rate"] = round(bear_acc, 1)
+        bear_profile["_realized_pnl"] = round(bear_pnl, 1)
         bear_profile["_samples"] = len(bear_verdicts)
         bear_profile["_note"] = bear_note
 
@@ -424,7 +428,104 @@ def evolve_data_tech(verdicts, profile):
     }
 
 
-# ─── Agent6: 探源(基本面研究员) ─────────────────────────
+# ─── Agent6: 辩论五维权重 ───────────────────────────────
+
+def evolve_debate_weights(verdicts, profile):
+    """
+    进化维度: debate_brief.py 的 compute_debate_score 五维权重。
+    - signal/quality/extreme/data/chain
+
+    衡量指标: 各维度得分和品种最终 correct 的相关性。
+    维度得分高+最终正确 → 该维度预测力强 → 增加权重
+    维度得分高+最终错误 → 该维度噪声大 → 降低权重
+
+    输出: memory/debate_weights.json（被 debate_brief.py 读取）
+    """
+    total = len(verdicts)
+    if total < 10:
+        return profile
+
+    # 按维度的breakdown 分组统计
+    from collections import defaultdict
+    dim_hits = defaultdict(lambda: {"total_score": 0.0, "correct_count": 0, "total_count": 0})
+
+    for v in verdicts:
+        breakdown = v.get("breakdown", {})
+        if not breakdown:
+            continue
+        correct = v["correct"]
+        for dim in ["signal", "quality", "extreme", "data", "chain"]:
+            score = breakdown.get(dim, 0)
+            if score > 0:
+                dim_hits[dim]["total_score"] += score
+                dim_hits[dim]["total_count"] += 1
+                if correct:
+                    dim_hits[dim]["correct_count"] += 1
+
+    # 计算每个维度的"预测力系数"
+    # 预测力 = 平均得分 × 正确率
+    dim_power = {}
+    for dim, s in dim_hits.items():
+        if s["total_count"] >= 3:
+            avg_score = s["total_score"] / s["total_count"]
+            accuracy = s["correct_count"] / s["total_count"]
+            dim_power[dim] = round(avg_score * accuracy, 1)
+
+    # 按预测力调整权重：高于平均的升，低于的降
+    if dim_power:
+        avg_power = sum(dim_power.values()) / len(dim_power)
+        current = profile.get("weights", {
+            "signal": 40.0, "quality": 25.0, "extreme": 20.0,
+            "data": 10.0, "chain": 5.0,
+        })
+        adjustments = {}
+        for dim, power in dim_power.items():
+            if power > avg_power * 1.2:
+                adjustments[dim] = +2.0
+            elif power < avg_power * 0.8:
+                adjustments[dim] = -2.0
+            else:
+                adjustments[dim] = 0
+
+        new_weights = {}
+        for dim in ["signal", "quality", "extreme", "data", "chain"]:
+            new_weights[dim] = max(1.0, min(60.0,
+                current.get(dim, 20.0) + adjustments.get(dim, 0)))
+
+        # 保存到 debate_weights.json
+        script_dir = Path(__file__).parent.parent
+        weights_path = script_dir / "memory" / "debate_weights.json"
+        weights_data = {
+            "_meta": {
+                "version": "v1",
+                "description": "由 evolve_debate_weights 自动更新",
+                "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "total_samples": total,
+            },
+            "weights": new_weights,
+        }
+        save_json(str(weights_path), weights_data)
+
+        return {
+            **profile,
+            "weights": new_weights,
+            "_last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "_evolution_log": [
+                {"time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                 "action": f"权重更新: {dim_power}",
+                 "to": new_weights,
+                 "reason": f"{len(verdicts)}条样本, 均预测力{avg_power:.1f}"},
+            ],
+            "_stats": {
+                "dim_power": dim_power,
+                "avg_power": round(avg_power, 1),
+            }
+        }
+
+    return profile
+
+
+# ─── Agent7: 探源(基本面研究员) ─────────────────────────
 
 def evolve_fundamental_researcher(verdicts, profile):
     """
@@ -447,32 +548,36 @@ def evolve_fundamental_researcher(verdicts, profile):
     # 用verdicts的ft_dir作为基本面信号的代理
     consistent = 0
     inconsistent = 0
+    consistent_pnl = 0
+    inconsistent_pnl = 0
     for v in verdicts:
         ft_dir = v.get("ft_dir", "neutral")
         direction = v["direction"]
-        correct = v["correct"]
-        # FT方向与最终价格方向一致 → 基本面有帮助
-        if ft_dir == direction and correct:
+        realized = v.get("realized_pnl_pct", 0)
+        # FT方向与真实盈亏一致 → 基本面有帮助
+        if ft_dir == direction and v["correct"]:
             consistent += 1
-        elif ft_dir != "neutral" and ft_dir != direction and correct:
-            # FT方向错误但价格跟着核心方向走 → 基本面信号有问题
+            consistent_pnl += realized
+        elif ft_dir != "neutral" and ft_dir != direction and v["correct"]:
             inconsistent += 1
+            inconsistent_pnl += realized
 
     total_relevant = consistent + inconsistent
     if total_relevant < 5:
         return profile
 
     consistency = consistent / total_relevant
+    pnl_diff = consistent_pnl - inconsistent_pnl  # 一致方向与反方向的盈亏差
 
-    if consistency > 0.7:
+    if consistency > 0.7 and pnl_diff > 0:
         weight_adj = +0.05
-        reason = f"基本面一致性{consistency*100:.0f}%, 增加权重"
-    elif consistency < 0.5:
+        reason = f"基本面一致性{consistency*100:.0f}%+方向盈亏{pnl_diff:+.1f}%, 增加权重"
+    elif consistency < 0.5 or pnl_diff < -5:
         weight_adj = -0.05
-        reason = f"基本面一致性仅{consistency*100:.0f}%, 降低权重"
+        reason = f"基本面一致性{consistency*100:.0f}%或方向亏损{pnl_diff:+.1f}%, 降低权重"
     else:
         weight_adj = 0
-        reason = f"基本面一致性{consistency*100:.0f}%合理"
+        reason = f"基本面一致性{consistency*100:.0f}%+盈亏差{pnl_diff:+.1f}%合理"
 
     weight = round(profile.get("fundamental_weight", 0.15) + weight_adj, 2)
     weight = max(0.05, min(0.30, weight))
@@ -487,6 +592,7 @@ def evolve_fundamental_researcher(verdicts, profile):
         ],
         "_stats": {
             "ft_consistency": round(consistency * 100, 1),
+            "ft_pnl_diff": round(pnl_diff, 1),
             "relevant_samples": total_relevant,
         }
     }
@@ -511,30 +617,32 @@ def evolve_technical_researcher(verdicts, profile):
     if total < 5:
         return profile
 
-    # 用ADX分层统计L1-L4信号效率
-    # ADX≥50: 强趋势品种, L1-L4应该最准
-    strong_trend = [v for v in verdicts if v["adx"] >= 50 and v["direction"] == "bear"]
-    weak_trend = [v for v in verdicts if v["adx"] < 50 and v["direction"] == "bear"]
+    # 用真实实现盈亏替代方向正负判准
+    strong_trend = [v for v in verdicts if v["adx"] >= 50]
+    weak_trend = [v for v in verdicts if v["adx"] < 50]
 
-    strong_acc = sum(1 for v in strong_trend if v["correct"]) / len(strong_trend) if strong_trend else 0
-    weak_acc = sum(1 for v in weak_trend if v["correct"]) / len(weak_trend) if weak_trend else 0
+    strong_pnl = sum(v.get("realized_pnl_pct", 0) for v in strong_trend) if strong_trend else 0
+    weak_pnl = sum(v.get("realized_pnl_pct", 0) for v in weak_trend) if weak_trend else 0
+    strong_n = len(strong_trend)
+    weak_n = len(weak_trend)
 
-    # 强趋势准确率应显著高于弱趋势
-    # 如果差异太小 → 技术分析区分度不够 → 调整ATR周期
-    if len(strong_trend) >= 5 and len(weak_trend) >= 5:
-        gap = strong_acc - weak_acc
-        if gap > 0.3:
-            atr_period = profile.get("atr_period", 14)  # 区分度好, 维持
+    # 强趋势品种平均实现盈亏应显著高于弱趋势
+    if strong_n >= 5 and weak_n >= 5:
+        avg_strong = strong_pnl / strong_n
+        avg_weak = weak_pnl / weak_n
+        gap = avg_strong - avg_weak
+        if gap > 0.5:  # 强趋势平均盈亏比弱趋势高0.5%以上
+            atr_period = profile.get("atr_period", 14)
             lag_adj = 0
-            reason = f"强趋势vs弱趋势精度差{gap*100:.0f}%, 区分度好"
-        elif gap < 0.1:
+            reason = f"强趋势均盈{avg_strong:.2f}% vs 弱趋势{avg_weak:.2f}%, 区分度好"
+        elif gap < -0.3:  # 强趋势比弱趋势还差
             atr_period = profile.get("atr_period", 14) + 2
             lag_adj = +1
-            reason = f"强弱趋势精度差仅{gap*100:.0f}%, 增加ATR周期提升区分度"
+            reason = f"强趋势均盈{avg_strong:.2f}% < 弱趋势{avg_weak:.2f}%, 增加ATR周期"
         else:
             atr_period = profile.get("atr_period", 14)
             lag_adj = 0
-            reason = f"精度差{gap*100:.0f}%合理"
+            reason = f"强弱差{gap:.2f}%合理"
     else:
         atr_period = profile.get("atr_period", 14)
         lag_adj = 0
@@ -550,8 +658,10 @@ def evolve_technical_researcher(verdicts, profile):
              "from": profile.get("atr_period",14), "to": atr_period, "reason": reason},
         ],
         "_stats": {
-            "strong_trend_accuracy": round(strong_acc * 100, 1) if strong_trend else None,
-            "weak_trend_accuracy": round(weak_acc * 100, 1) if weak_trend else None,
+            "strong_trend_avg_pnl": round(strong_pnl / strong_n, 2) if strong_n else None,
+            "weak_trend_avg_pnl": round(weak_pnl / weak_n, 2) if weak_n else None,
+            "strong_n": strong_n,
+            "weak_n": weak_n,
         }
     }
 
@@ -578,6 +688,7 @@ def main():
         ("策执远", evolve_strategist, {"rr_target": 2.0, "position_coefficient": 1.0}),
         ("链证源", evolve_chain_analyst, {"dedup_threshold": 0.80, "max_chain_reps": 1}),
         ("数技源", evolve_data_tech, {"source_priority": ["通达信", "东方财富", "AKShare"], "retry_limit": 3}),
+        ("训辩权重", evolve_debate_weights, {"weights": {"signal": 40.0, "quality": 25.0, "extreme": 20.0, "data": 10.0, "chain": 5.0}}),
         ("探源", evolve_fundamental_researcher, {"fundamental_weight": 0.15}),
         ("观澜", evolve_technical_researcher, {"atr_period": 14, "signal_lag_tolerance": 2}),
     ]:
@@ -600,8 +711,10 @@ def main():
     for name in ["证真", "慎思"]:
         p = new_profiles.get(name, {})
         if p:
-            print(f"  {name}: 策略={p.get('strategy','?')}, 胜率={p.get('_win_rate','?')}%, "
-                  f"置信度偏移={p.get('confidence_boost',0):+.1f}, {p.get('_note','')}")
+            print(f"  {name}: 策略={p.get('strategy','?')}, "
+                  f"胜率={p.get('_win_rate','?')}%, "
+                  f"实现盈亏={p.get('_realized_pnl','?'):+.1f}%, "
+                  f"置信度偏移={p.get('confidence_boost',0):+.1f}")
 
     profiles["_meta"]["last_evolved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     profiles["_meta"]["total_samples"] = len(verdicts)

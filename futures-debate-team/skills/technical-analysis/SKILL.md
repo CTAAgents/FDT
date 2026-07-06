@@ -1,6 +1,6 @@
 ---
 name: technical-analysis
-version: 2.1.0
+version: 2.2.0
 description: 技术面分析 skill v2.2.0 — 为辩论专家团·技术面研究员（观澜）提供ZigZag支撑阻力(硬软分类/ATR容差/失效条件/多周期共振/OI确认)+动态阈值量价+多时间框架趋势+事件日历+跨品种联动。
 agent_created: true
 user_invocable: false

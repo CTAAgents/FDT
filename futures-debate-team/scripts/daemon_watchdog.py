@@ -48,7 +48,15 @@ def is_process_alive(pid: int) -> bool:
 
 
 def find_daemon_python() -> str:
-    """寻找合适的Python解释器"""
+    """寻找合适的Python解释器（优先 pythonw.exe 以隐藏控制台窗口）"""
+    def _try_pythonw(path: str) -> str | None:
+        """找到python.exe的同目录下的pythonw.exe"""
+        p = Path(path)
+        pw = p.with_name("pythonw.exe")
+        if pw.exists():
+            return str(pw)
+        return None
+
     candidates = [
         str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),
         str(ROOT / "venv" / "Scripts" / "python.exe"),
@@ -56,8 +64,14 @@ def find_daemon_python() -> str:
     ]
     for c in candidates:
         if os.path.exists(c):
+            # 优先pythonw.exe
+            pw = _try_pythonw(c)
+            if pw:
+                return pw
             return c
-    return sys.executable
+    # 最后兜底：sys.executable 同目录下的 pythonw.exe
+    pw = _try_pythonw(sys.executable)
+    return pw if pw else sys.executable
 
 
 def start_daemon() -> bool:
@@ -70,11 +84,17 @@ def start_daemon() -> bool:
 
     _log(f"正在启动守护进程...")
 
+    # 隐藏窗口：STARTF_USESHOWWINDOW + SW_HIDE
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+
     try:
         proc = subprocess.Popen(
             [python, bootstrap, "daemon"],
             cwd=str(ROOT),
             creationflags=flags,
+            startupinfo=si,
             stdout=open(log_file, "a", encoding="utf-8"),
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,

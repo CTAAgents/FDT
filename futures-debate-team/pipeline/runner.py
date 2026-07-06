@@ -269,9 +269,9 @@ def step_generate_report() -> bool:
 
 
 def step_record_history() -> bool:
-    """Step 6: 自动记录辩论历史到 debate_history"""
+    """Step 6: 自动记录辩论历史到 debate_history + 同步裁决到 execution_followup"""
     logger.info("=" * 60)
-    logger.info("Step 6/6: 辩论历史记录 + ML训练检查")
+    logger.info("Step 6/6: 辩论历史记录 + 裁决同步 + ML训练检查")
     logger.info("=" * 60)
 
     try:
@@ -319,6 +319,38 @@ def step_record_history() -> bool:
     except Exception as e:
         logger.warning(f"记录历史失败: {e}")
         return False
+
+    # ── 裁决同步：将 debate_results.json 同步到 execution_followup.json ──
+    try:
+        # 查找 debate_results.json（可能在 REPORT_DIR 或显式路径）
+        debate_results_files = [
+            os.path.join(REPORT_DIR, "debate_results.json"),
+            os.path.join(REPORT_DIR, f"debate_results_{DATE_COMPACT}.json"),
+        ]
+        debate_results_path = None
+        for p in debate_results_files:
+            if os.path.exists(p):
+                debate_results_path = p
+                break
+
+        if debate_results_path:
+            record_script = os.path.join(PROJECT_DIR, "scripts", "record_verdicts.py")
+            if os.path.exists(record_script):
+                r = subprocess.run(
+                    [sys.executable, record_script, "--input", debate_results_path],
+                    capture_output=True, text=True, timeout=30,
+                    encoding="utf-8", errors="replace",
+                )
+                if r.returncode == 0:
+                    logger.info(f"✅ 裁决已同步至 execution_followup.json")
+                else:
+                    logger.warning(f"裁决同步返回非零: {r.stderr.strip()[-200:]}")
+            else:
+                logger.warning(f"record_verdicts.py 不存在: {record_script}")
+        else:
+            logger.info("未找到 debate_results.json, 跳过裁决同步")
+    except Exception as e:
+        logger.warning(f"裁决同步失败: {e}")
 
     # ML训练检查
     try:

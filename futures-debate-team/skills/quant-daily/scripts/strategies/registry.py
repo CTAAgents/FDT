@@ -14,7 +14,7 @@
 """
 
 _REGISTRY: dict[str, dict] = {}
-_DEFAULT: str = "layered_l1l4"
+_DEFAULT: str = "three_signal"  # 默认策略改为三层信号
 
 
 def register_strategy(
@@ -99,6 +99,7 @@ def set_default(name: str):
     _DEFAULT = name
 
 
-# 确保所有策略模块被导入
-from . import layered_l1l4  # noqa: F401, E402
-from . import factor_timing  # noqa: F401, E402
+# 注册策略
+# L1-L4和因子择时不再作为独立策略提供交易信号
+# 它们的代码保留在strategies/目录下，通过data_interface供研究员import使用
+from . import three_signal_strategy  # noqa: F401, E402

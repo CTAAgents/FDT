@@ -82,11 +82,16 @@ profession:
 ## 履职方式
 
 1. 与基本面研究员同步出**技术面快照**，多空双方共享
-2. **注入特征工程摘要（P1-7）**：调用 `export_feature_summary(symbol, features)` 获取30+量化特征的 top-5，用于验证技术形态的可靠性（如 volatility 分位验证突破、volume_ratio 验证放量）
+2. **通过 data_interface 加载 L1-L4 原始指标数据**：
+   ```python
+   from scripts.data_interface import load_l1l4_scan, get_symbol_indicators
+   scan_data = load_l1l4_scan("路径/full_scan_l1l4_{date}.json")
+   indicators = get_symbol_indicators(scan_data, "RB")
+   ```
 3. **数据资料来源包括但不限于**：
-   - `L1-L4` 策略数据（ADX/RSI/CCI/MA排列/子层一致性/stage/veto等）
+   - `data_interface` 加载的L1-L4原始指标（ADX/RSI/CCI/MA排列/子层一致性/stage/veto等）
    - `scan_all.py` 输出的量价/持仓/关键位数据
-   - `technical-analysis` 模块自行计算补充指标
+   - `technical-analysis` 模块自行计算补充指标（支撑阻力/形态/背离）
    - 自行识别技术图形（支撑阻力/形态突破/量价关系等）
 3. 辩手交锋时，被call验证"突破是否带量""持仓是不是在跑"
 4. **特别价值**：戳穿辩手的"假突破叙事"

@@ -115,17 +115,19 @@ def set_friction_params(
     }
 
 
-def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier: int, holding_days: int = 10) -> Dict:
+def calc_friction_entry(symbol: str, entry_price: float, lots: int, multiplier: int, holding_days: int = 10) -> Dict:
     """计算交易摩擦成本（手续费+滑点+保证金利息+移仓成本）。
 
     结果注入风控明的仓位计算结果，使回测收益更接近实盘。
-    v2.0（P1-5）新增：保证金利息+移仓成本+净盈亏比
+    统一入口：替代旧的 `calc_transaction_cost` 重名定义。
+    调用方传 `symbol=""` 则使用默认万0.1费率。
 
     Args:
-        symbol: 品种代码
+        symbol: 品种代码（用于fee_table查找，可传""用默认值）
         entry_price: 入场价
         lots: 手数
         multiplier: 合约乘数
+        holding_days: 预期持仓天数（用于保证金利息）
 
     Returns:
         {"fee_total": float, "slippage_total": float,
@@ -422,62 +424,7 @@ def _pattern_risk_override(pattern_risk: Optional[str]) -> float:
     for p in high_risk_patterns:
         if p in pattern_risk:
             return 0.7  # 砍30%
-            return 1.0
-
-
-def calc_transaction_cost(
-    entry_price: float,
-    lots: int,
-    multiplier: int = 10,
-    fee_rate: float = 0.0001,
-    slippage_atr_ratio: float = 0.3,
-    atr: float = 0,
-    avg_volume: float = 0,
-    position_volume_ratio: float = 0,
-) -> Dict:
-    """计算交易摩擦成本 — 手续费 + 滑点 + 冲击成本估算。
-
-    期货交易的真实成本远高于表面手续费。CSTrader实验证明：
-    无摩擦回测虚高 5.94% → 21.96%（相差约270%）。
-
-    Args:
-        entry_price: 入场价
-        lots: 手数
-        multiplier: 合约乘数
-        fee_rate: 手续费率（默认万1，按品种可配）
-        slippage_atr_ratio: 滑点占ATR比例（默认0.3×ATR）
-        atr: 当前ATR值（用于滑点估算）
-        avg_volume: 日均成交量（用于冲击成本估算）
-        position_volume_ratio: 持仓占日均成交比例
-
-    Returns:
-        {"fee": float, "slippage": float, "impact_cost": float,
-         "total_cost": float, "cost_per_lot": float}
-    """
-    notional = entry_price * lots * multiplier
-
-    # 1. 手续费（双边，开+平）
-    fee = notional * fee_rate * 2
-
-    # 2. 滑点成本
-    slippage = lots * multiplier * (atr * slippage_atr_ratio) if atr > 0 else notional * 0.0005
-
-    # 3. 冲击成本（大仓位相对于成交量）
-    impact_cost = 0
-    if avg_volume > 0 and position_volume_ratio > 0.05:
-        impact_cost = notional * 0.001 * (position_volume_ratio / 0.05)
-
-    total_cost = fee + slippage + impact_cost
-    cost_per_lot = total_cost / max(lots, 1)
-
-    return {
-        "fee": round(fee, 2),
-        "slippage": round(slippage, 2),
-        "impact_cost": round(impact_cost, 2),
-        "total_cost": round(total_cost, 2),
-        "cost_per_lot": round(cost_per_lot, 2),
-    }
-
+    return 1.0  # 无匹配形态，维持满仓
 
 def calculate_position(
     entry_price: float,
@@ -526,9 +473,9 @@ def calculate_position(
     if is_left_signal:
         final_lots = max(1, final_lots // 2)
 
-    # 交易摩擦成本计算
+    # 交易摩擦成本计算 — 使用统一的 calc_friction_entry 接口
     try:
-        friction = calc_transaction_cost(
+        friction = calc_friction_entry(
             symbol="",
             entry_price=entry_price,
             lots=final_lots,

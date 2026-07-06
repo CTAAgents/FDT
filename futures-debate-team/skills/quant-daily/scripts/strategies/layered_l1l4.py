@@ -171,4 +171,4 @@ class LayeredL1L4Strategy(BaseStrategy):
 
 
 # ── 自动注册 ──
-register_strategy(LayeredL1L4Strategy, is_default=True)
+register_strategy(LayeredL1L4Strategy)

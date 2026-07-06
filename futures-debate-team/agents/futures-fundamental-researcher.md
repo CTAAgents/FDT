@@ -229,11 +229,16 @@ profession:
 ## 履职方式
 
 1. 辩论轮次开始前，**先出一份基本面状态向量**（结构化JSON，所有辩手共享）
-2. **注入特征工程摘要（P1-7）**：调用 `export_feature_summary(symbol, features)` 将30+量化特征的 top-5 显著特征注入基本面状态向量的 `leading_indicators` 字段，作为量化先行指标
+2. **通过 data_interface 加载 factor_timing 因子数据**：
+   ```python
+   from scripts.data_interface import load_factor_timing_scan, get_symbol_factors
+   factor_data = load_factor_timing_scan("路径/full_scan_factor_timing_{date}.json")
+   factors = get_symbol_factors(factor_data, "RB")
+   ```
 3. **数据资料来源包括但不限于**：
-   - `factor_timing` 因子择时策略数据（展期收益率/动量/反向仓单/偏度等）
+   - `data_interface` 加载的因子择时数据（展期收益率/动量/反向仓单/偏度/量价相关性等）
    - 使用 WebSearch/WebFetch 搜集基本面数据——供需/库存/利润/政策数据必须通过搜索获得
-   - `fundamental-data-collector` 模块的数据查询工具
+   - `fundamental-data-collector` 模块的数据查询工具（supply/demand/inventory/margin/basis 等）
 3. 数据来源必须是可追溯到具体机构（Mysteel/MPOB/隆众/等行业机构）
 4. 辩手质询时，被call补特定维度数据
 5. **不被允许说"所以我看多/看空"**
