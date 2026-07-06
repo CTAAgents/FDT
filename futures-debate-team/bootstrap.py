@@ -70,6 +70,9 @@ def main():
 
     if mode == "daemon":
         print(f"\n🚀 守护模式启动")
+        # 写入PID文件给看门狗使用
+        pid_file = _ROOT / "memory" / "daemon.pid"
+        pid_file.write_text(str(os.getpid()))
         from scheduler.engine import SchedulerEngine
         engine = SchedulerEngine()
         engine.run_forever()
