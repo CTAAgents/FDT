@@ -333,10 +333,8 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # 1.5 盘中优先尝试TqSdk获取主力连续K线（盘中时段在TDX之后、东方财富之前）
-        now_hour = datetime.now().hour
-        is_trading_hours = (9 <= now_hour < 15) or (21 <= now_hour < 23)
-        if is_trading_hours and self.tqsdk_available:
+        # 1.5 尝试TqSdk获取主力连续K线（backtest模式全天可用）
+        if self.tqsdk_available:
             try:
                 tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:
@@ -788,12 +786,18 @@ class MultiSourceAdapter:
             if not exchange_code:
                 return None
 
-            # TqSdk 主力连续合约格式: KQ.{exchange}@{variety}
-            continuous_id = f"KQ.{exchange_code}@{variety_upper.lower()}"
-            api = TqApi(auth=TqAuth(_user, _pass))
+            # TqSdk 主力连续合约格式: KQ.m@{exchange}@{variety}
+            continuous_id = f"KQ.m@{exchange_code}.{variety_upper.lower()}"
+
+            # 使用backtest模式获取历史K线（不依赖交易时段，同步返回数据）
+            from datetime import datetime as dt
+            now = dt.now()
+            backtest_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            api = TqApi(backtest=backtest_end, auth=TqAuth(_user, _pass))
 
             # 获取日K线
             klines = api.get_kline_serial(continuous_id, 86400, data_length=max(days, 60))
+            # backtest模式下get_kline_serial同步返回填充数据
             api.close()
 
             if klines is None or len(klines) == 0:
