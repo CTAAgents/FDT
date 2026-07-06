@@ -2,13 +2,15 @@
 """
 品种信号扫描 — 策略可插拔入口
 =================================
-默认：L1-L4 分层累加评分（strategies/layered_l1l4.py）
-可切换：--strategy true_layered → 真分层打分（已废弃）
+默认：通道突破（strategies/channel_breakout_strategy.py）
+  唐奇安DC20/DC55 + 布林带确认的双通道突破识别
+可切换：--strategy three_signal → 三类信号（突破/回踩/跳空）
 新增策略：strategies/ 目录新建文件 + registry.py 注册一行
 
 用法：
-  python scan_all.py                                          # L1-L4评分（默认）
-  python scan_all.py --strategy layered_l1l4                  # 显式指定
+  python scan_all.py                                          # 通道突破（默认）
+  python scan_all.py --strategy three_signal                  # 三类信号
+  python scan_all.py --strategy layered_l1l4                  # L1-L4分层（研究员辅助）
   python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
   python scan_all.py --list-strategies                        # 列出所有策略
 """
@@ -129,14 +131,14 @@ def run_scan(
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
     if dual:
         print(f"\n{'=' * 60}")
-        print(f"  三类信号 + 研究员原始数据模式")
+        print(f"  通道突破 + 研究员原始数据模式")
         print(f"{'=' * 60}")
-        # 主策略: 三类信号（突破/回踩/跳空）
+        # 主策略: 通道突破（唐奇安DC20/DC55 + 布林带确认）
         result_a = run_scan(
             output_dir=output_dir,
-            output_prefix=f"{output_prefix}_three_signal",
+            output_prefix=f"{output_prefix}_channel_breakout",
             symbols=symbols,
-            strategy_name="three_signal",
+            strategy_name="channel_breakout",
             dual=False,
             seed=seed,
         )
@@ -154,10 +156,10 @@ def run_scan(
         print(f"  完成:")
         meta_a = result_a.get("_meta", {})
         st = meta_a.get("signal_types", {})
-        print(f"    三类信号: {st.get('breakout',0)}突破 / {st.get('pullback',0)}回踩 / {st.get('gap',0)}跳空")
-        print(f"    → 所有三类信号品种交由闫判官辩论")
+        print(f"    通道突破: {st.get('channel_breakout',0)}通道突破 / {st.get('trend_confirmation',0)}趋势确认 / {st.get('bb_squeeze_prebreakout',0)}挤压预警")
+        print(f"    → 所有通道突破品种交由闫判官辩论")
         print(f"{'=' * 60}")
-        return {"_meta": {"mode": "dual", "three_signal": meta_a}}
+        return {"_meta": {"mode": "dual", "channel_breakout": meta_a}}
     # ── 参数合法性校验 ──
     import re
 
