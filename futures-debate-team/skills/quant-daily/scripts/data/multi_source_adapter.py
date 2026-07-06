@@ -333,7 +333,28 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # 1. 尝试东方财富API（支持任意品种的完整K线）
+        # 1.5 盘中优先尝试TqSdk获取主力连续K线（盘中时段在TDX之后、东方财富之前）
+        now_hour = datetime.now().hour
+        is_trading_hours = (9 <= now_hour < 15) or (21 <= now_hour < 23)
+        if is_trading_hours and self.tqsdk_available:
+            try:
+                tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days)
+                if tqsdk_kline and len(tqsdk_kline) >= 20:
+                    print(f"[MultiSource] get_kline({variety}) → tqsdk, {len(tqsdk_kline)}条")
+                    try:
+                        record_data_fetch(variety, "tqsdk", success=True, count=len(tqsdk_kline))
+                    except Exception:
+                        pass
+                    return {
+                        "success": True,
+                        "data": tqsdk_kline,
+                        "data_source": "tqsdk",
+                        "confidence": 1.0,
+                    }
+            except Exception as e:
+                print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
+
+        # 2. 尝试东方财富API（支持任意品种的完整K线）
         if self.eastmoney_available:
             try:
                 # 获取品种对应的 secid
@@ -726,6 +747,102 @@ class MultiSourceAdapter:
 
         except Exception as e:
             print(f"[Warning] TqSDK fetch error: {e}")
+            return None
+
+    def _fetch_tqsdk_kline(
+        self,
+        variety: str,
+        days: int = 365,
+    ) -> Optional[List[Dict]]:
+        """从TqSdk获取主力合约K线历史（盘中降级数据源）
+
+        用于 get_kline() 的盘中降级路径。与 _fetch_tqsdk() 不同，
+        本方法使用 get_kline_serial() 获取连续K线而非单一快照。
+
+        Args:
+            variety: 品种代码
+            days: 获取最近多少天K线
+
+        Returns:
+            [{"date","open","close","high","low","volume","oi",...}, ...] 或 None
+        """
+        if not self.tqsdk_available:
+            return None
+
+        try:
+            import os
+            from tqsdk import TqApi, TqAuth
+
+            _user = os.environ.get("TQSDK_USERNAME") or os.environ.get("TQ_USER", "")
+            _pass = os.environ.get("TQSDK_PASSWORD") or os.environ.get("TQ_PASSWORD", "")
+            if not _user or not _pass:
+                return None
+
+            variety_upper = variety.upper()
+            # 主力连续合约标识：如 KQ.m@SHFE.rb
+            exchange_code = {
+                "SHFE": "SHFE", "DCE": "DCE", "CZCE": "CZCE",
+                "GFEX": "GFEX", "INE": "INE", "CFFEX": "CFFEX",
+            }.get(self._get_exchange(variety_upper), "")
+
+            if not exchange_code:
+                return None
+
+            # TqSdk 主力连续合约格式: KQ.{exchange}@{variety}
+            continuous_id = f"KQ.{exchange_code}@{variety_upper.lower()}"
+            api = TqApi(auth=TqAuth(_user, _pass))
+
+            # 获取日K线
+            klines = api.get_kline_serial(continuous_id, 86400, data_length=max(days, 60))
+            api.close()
+
+            if klines is None or len(klines) == 0:
+                return None
+
+            records = []
+            import pandas as pd
+
+            if hasattr(klines, "iterrows"):
+                for idx, row in klines.iterrows():
+                    try:
+                        ts = row.get("datetime", 0)
+                        # TqSdk datetime is nanoseconds since epoch
+                        dt = pd.Timestamp(ts, unit="ns") if ts > 1e12 else pd.Timestamp(ts, unit="s")
+                        records.append({
+                            "date": dt.strftime("%Y-%m-%d"),
+                            "open": float(row.get("open", 0) or 0),
+                            "close": float(row.get("close", 0) or 0),
+                            "high": float(row.get("high", 0) or 0),
+                            "low": float(row.get("low", 0) or 0),
+                            "volume": int(float(row.get("volume", 0) or 0)),
+                            "oi": int(float(row.get("open_oi", row.get("open_interest", 0)) or 0)),
+                            "data_source": "tqsdk",
+                            "confidence": 1.0,
+                        })
+                    except (ValueError, TypeError):
+                        continue
+            else:
+                # 数组格式
+                for k in klines:
+                    try:
+                        ts = k.get("datetime", 0) if isinstance(k, dict) else 0
+                        records.append({
+                            "date": str(pd.Timestamp(ts, unit="ns").strftime("%Y-%m-%d")) if ts > 0 else "",
+                            "open": float(k.get("open", 0)) if isinstance(k, dict) else 0,
+                            "close": float(k.get("close", 0)) if isinstance(k, dict) else 0,
+                            "high": float(k.get("high", 0)) if isinstance(k, dict) else 0,
+                            "low": float(k.get("low", 0)) if isinstance(k, dict) else 0,
+                            "volume": int(float(k.get("volume", 0))) if isinstance(k, dict) else 0,
+                            "data_source": "tqsdk",
+                            "confidence": 1.0,
+                        })
+                    except (ValueError, TypeError):
+                        continue
+
+            return records if records else None
+
+        except Exception as e:
+            print(f"[Warning] TqSDK kline fetch error for {variety}: {e}")
             return None
 
     def _get_exchange(self, variety: str) -> str:

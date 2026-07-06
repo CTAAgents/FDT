@@ -38,6 +38,15 @@ COMMODITY_DIR = os.path.join(SKILLS_DIR, "commodity-chain-analysis", "scripts")
 FT_ANALYSIS_DIR = os.path.join(SKILLS_DIR, "futures-trading-analysis", "scripts")
 SIGNALS_DIR = os.path.join(QDAILY_DIR, "signals")
 
+# 品种列表（从 config/symbols.py 导入，与 scan_all 保持一致）
+try:
+    sys.path.insert(0, QDAILY_DIR)
+    from config.symbols import ALL_SYMBOLS
+    ALL_SYMBOL_CODES = [s[0] for s in ALL_SYMBOLS]
+except Exception:
+    ALL_SYMBOLS = []
+    ALL_SYMBOL_CODES = []
+
 TODAY = datetime.now()
 DATE_STR = TODAY.strftime("%Y-%m-%d")
 DATE_COMPACT = TODAY.strftime("%Y%m%d")
@@ -125,7 +134,11 @@ def step_chain_analysis() -> bool:
         logger.warning(f"analyze_chain.py 不存在 {analysis_script}，跳过链分析")
         return False
 
-    cmd = [python_exe(), analysis_script]
+    symbols_arg = ",".join(ALL_SYMBOL_CODES) if ALL_SYMBOL_CODES else ""
+    if not symbols_arg:
+        logger.warning("无法获取品种列表，跳过链分析")
+        return False
+    cmd = [python_exe(), analysis_script, "--symbols", symbols_arg]
     r = run_cmd(cmd, "产业链分析", check=False)
     return r.returncode == 0
 
@@ -278,8 +291,8 @@ def step_record_history() -> bool:
 
         logger.info(f"候选文件: {candidates_file}")
 
-        # 记录到 debate_history
-        sys.path.insert(0, SIGNALS_DIR)
+        # 记录到 debate_history（debate/history.py 在项目根目录）
+        sys.path.insert(0, PROJECT_DIR)
         from debate.history import record_feedback, load_feedback
 
         with open(candidates_file, "r", encoding="utf-8") as f:

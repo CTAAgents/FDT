@@ -1,8 +1,8 @@
 ---
 name: quant-daily
-version: 2.4.0
+version: 2.5.0
 agent_created: true
-description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。--dual模式同时输出两份信号报告+辩论证据简报。v2.5新增P3：feature_pipeline(30+特征)+ML方向预测(EnsemblePredictor)+PnL反馈闭环。
+description: 商品期货量化分析一体化skill — L1-L4 + factor_timing 双策略并行。v2.5.0新增TqSdk盘中K线数据源（盘中优先级介于TDX和东方财富之间）。--dual模式同时输出两份信号报告+辩论证据简报。
 ---
 
 # quant-daily — 商品期货量化分析一体化
@@ -292,7 +292,20 @@ scripts/
     └── daily_signal_tracker.py    # 实盘信号追踪
 ```
 
-## 三级指标获取管道
+## 数据源获取管道
+
+### K线数据降级链（get_kline）
+
+```
+盘中:
+  TDX → TqSdk(新,盘中时段) → 东方财富 → AKShare
+盘后:
+  TDX → 东方财富 → AKShare
+```
+
+- **TqSdk**（v2.5.0 新增盘中降级源）：通过 `_fetch_tqsdk_kline()` 获取主力连续合约 K 线（`KQ.{exchange}@{variety}`），需环境变量 `TQSDK_USERNAME`/`TQSDK_PASSWORD` auth。仅盘中时段（9:00-15:00 / 21:00-23:00）触发，不干扰盘后数据流。
+
+### 指标获取管道（使用TDX formula_zb直取，无降级链）
 
 ```
 第一优先: TdxCollector.get_indicators()  → formula_zb直取，44项
@@ -319,6 +332,7 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 
 ## 版本历史
 
+- **v2.5.0** (2026-07-06): **新增TqSdk盘中K线数据源** — `multi_source_adapter.py.get_kline()` 盘中时段新增TqSdk降级路径（TDX→TqSdk→东方财富→AKShare）；新增 `_fetch_tqsdk_kline()` 方法通过 TqSdk 主力连续合约（`KQ.{exchange}@{variety}`）获取 K 线；SKILL.md 数据源管道文档同步更新
 - **v2.4.0** (2026-07-05): **P3全量实现** — 新增 ml_models/direction_classifier.py(LightGBM+EnsemblePredictor), feature_pipeline/feature_engineering.py(30+维度特征), feedback/trade_journal.py(PnL反馈闭环+反向标注); debate_brief.py 新增 risk_input字段注入(confidence/ATR/ADX/pattern_risk); indicators_legacy.py 除零修复(numpy安全向量化); SC斜率异常值过滤(abs>20%→0)
 - **v2.3.1** (2026-07-05): factor_timing 12项优化 — 真实数据源、展期斜率异常过滤、多因子十分组投票、G1/G10动手组/观望组
 

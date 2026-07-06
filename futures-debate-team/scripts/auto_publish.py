@@ -92,11 +92,20 @@ def run_sync() -> bool:
             [sys.executable, SYNC_SCRIPT],
             capture_output=True, text=True, timeout=120,
             cwd=os.path.dirname(SYNC_SCRIPT),
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
+        # 显示同步脚本的全部关键输出
         for line in r.stdout.split("\n"):
-            if "Push" in line or "Commit" in line or "Error" in line:
+            if any(kw in line for kw in ["Push", "Commit", "Error", "Pushed", "✅", "⚠", "Sync"]):
                 logger(f"  {line.strip()}")
+        if r.returncode != 0:
+            for line in r.stderr.split("\n")[-10:]:
+                if line.strip():
+                    logger(f"  [stderr] {line.strip()}")
         return r.returncode == 0
+    except subprocess.TimeoutExpired:
+        logger(f"⚠ 同步超时 (120s)")
+        return False
     except Exception as e:
         logger(f"⚠ 同步失败: {e}")
         return False
