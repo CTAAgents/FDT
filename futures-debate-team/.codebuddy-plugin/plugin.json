@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.5.0",
+  "version": "4.5.1",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.5 — 双通道分离+左侧反转标记+TqSdk盘中源。共识+launch+非极端直接推荐(免辩论);分歧/极端/链补辩论。新增:分歧信号强度门槛(≥MODERATE)、极端分歧左侧反转(正方=逆转方向)、闫判官直接参数设定、策执远双通道输入、业务流固化于docs/business_flow.md。",
+  "description": "Multi-role futures trading debate team v4.5.1 — 报告完整性铁律(62品种全覆盖+过滤说明+交易参数完备+数据源穿透+时间精确到分钟)。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"

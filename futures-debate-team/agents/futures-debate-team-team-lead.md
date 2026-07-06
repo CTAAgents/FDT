@@ -233,14 +233,69 @@ append_debate_journal("futures-debate-team-team-lead", "final_decision", {
 append_debate_index("RB_20260705", ["RB"], "bear")
 ```
 
+### 📊 报告完整性铁律（2026-07-06 掌柜确立·不可违反）
+
+以下四条为最终报告必须满足的硬性标准，明鉴秋在汇总输出前逐条核验，不达标不得交付：
+
+#### 铁律1：全品种覆盖（非仅辩论品种）
+
+最终HTML报告必须包含 **全部62品种** 的说明：
+
+| 分类 | 数量 | 报告中的呈现 |
+|:-----|:----:|:-----------|
+| ✅ 辩论裁决品种 | ~20 | 全信号表格 + 详细交易策略（入场/止损/目标/仓位/盈亏比） |
+| 🔗 链内去重品种 | ~30 | 标注"去重" + 所在产业链 + **跟随的代表品种** + 自身信号数据（ADX/方向/评分） |
+| ❌ ADX不足品种 | ~10 | 标注"ADX<15 震荡排除" + 各自ADX值 |
+| ⚠️ 流动性不足品种 | ~2 | 标注"成交量不足 排除" + 各自成交量 |
+
+> 禁止仅展示20个辩论品种而剩下42个品种不说明。
+
+#### 铁律2：交易策略参数完备
+
+每个辩论裁决品种的输出必须包含以下5个字段，缺一则裁决无效：
+- `entry`：入场价格（当前价，精确到小数点）
+- `stop_loss`：止损价格（逆向2.5%基准，精确到小数点）
+- `target`：目标价格（顺向6%基准，精确到小数点）
+- `risk_reward`：盈亏比（计算值）
+- `position_pct`：建议仓位%（基于评分置信度）
+
+> 若某品种无法提供上述参数（如数据缺失），裁决标注为HOLD并说明原因。
+
+#### 铁律3：数据源向上穿透
+
+`data_manifest` 中的数据源字段必须穿透到**具体采集源名称**，禁止使用程序名替代：
+
+| ✅ 正确 | ❌ 错误 |
+|:-------|:-------|
+| `通达信TQ-Local` | `scan_all.py` |
+| `东方财富(EastMoney)` | `futures-data-search` |
+| `TqSDK` | `quant-daily` |
+| `numpy向量化(通达信公式对齐)` | `技术指标计算` |
+
+> 每个数据源的 `source` 字段必须是最终采集渠道的**产品/平台名称**，不是调用它的代码模块名。
+
+#### 铁律4：数据时间精确到分钟
+
+报告中所有时间相关字段必须精确到 **HH:MM**：
+
+- K线基准日 + 采集时间：如 `2026-07-04 K线 | 2026-07-06 11:56采集`
+- 产业链分析时间：如 `2026-07-06 11:59生成`
+- 报告生成时间：如 `2026-07-06 12:07输出`
+
+> 数据溯源表中"数据基准"列为 `YYYY-MM-DD HH:MM` 格式，不得只有日期。
+
+---
+
 ### 汇总输出
 
 > 🧾 **契约**：最终汇总输出符合 `TeamDecisionOutput` schema（见 `contracts/team_decision.py`），包含 `round_id`、`decisions`（含双通道）、`total_exposure_pct`、`summary_200`。
 
 1. 从产物文件读取全部产出 → 合并辩论通道 + 直接推荐通道 → 汇总为 `debate_results.json`
-2. 运行 `python skills/futures-trading-analysis/scripts/phase3_generate_report.py`
-3. TeamDelete
-4. SendMessage(recipient="main", content="报告路径 + ≤200字摘要，含双通道汇总")
+2. **逐条核验"报告完整性铁律"** — 四项全通过方可继续
+3. 运行 `python skills/futures-trading-analysis/scripts/phase3_generate_report.py`
+4. **核验生成的HTML** — 检查60+品种覆盖、数据源穿透、时间精度
+5. TeamDelete
+6. SendMessage(recipient="main", content="报告路径 + ≤200字摘要，含双通道汇总")
 
 ## 消息协议
 

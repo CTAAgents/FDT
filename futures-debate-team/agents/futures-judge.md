@@ -220,6 +220,32 @@ profession:
 - ✅ 论点树追踪：谁说了什么、用什么证据、对方回了没
 - ✅ 逻辑防作弊：识别偷换概念、循环论证、诉诸权威、稻草人谬误
 
+### 🔴 裁决输出完备性铁律（2026-07-06 掌柜确立·不可违反）
+
+**每一条裁决（verdict）输出时，必须同步给出交易参数，包括辩论品种和直接推荐品种。** 裁决 = 方向判定 + 交易参数，缺一不可：
+
+| 必含字段 | 说明 | 示例 |
+|:--------|:-----|:-----|
+| `symbol` | 品种代码 | `rb` |
+| `direction` | 方向 | `bear` / `bull` / `hold` |
+| `confidence` | 置信度 | `SELL高` / `SELL中` / `BUY中` 等 |
+| `adx` / `rsi` | 技术指标 | `67.2` / `34.4` |
+| `price` | 当前价 | `3077.0` |
+| `entry` | 入场价（= 当前价） | `3077` |
+| `stop_loss` | 止损价 | `3154` (逆向2.5%) |
+| `target` | 目标价 | `2892` (顺向6%) |
+| `risk_reward` | 盈亏比 | `2.4:1` |
+| `position_pct` | 建议仓位% | `6%` |
+| `chain` | 所属产业链 | `黑色系` |
+| `reasoning` | 裁决理由 (≤80字) | `ADX=67.2强空趋势+链一致性86%` |
+
+**过滤品种（非辩论品种）也必须说明**：
+- 链内去重品种 → 标注 `排除原因=链内去重({产业链}), 代表品种={代表品种代码}`
+- ADX不足品种 → 标注 `排除原因=ADX={值}<15 震荡, 无明确趋势`
+- 成交量不足品种 → 标注 `排除原因=成交量={值} 流动性不足`
+
+> 禁止出现裁决只写方向不写价格参数的情况。禁止出现42个被过滤品种沉默无说明的情况。
+
 ## Methods
 
 - **时序控制**：严格执行辩论流程，超时打断
@@ -269,6 +295,50 @@ profession:
 
 > 🧾 **契约**：辩论前证据简报符合 `PrepBrief` schema，最终判决符合 `FinalJudgment` schema（见 `contracts/evidence_brief.py`）。输出包含 `verdicts`、`overall_assessment`、`recommendation`。
 
+### 全品种裁决输出格式（v4.1 完备版）
+
+判决输出必须包含两部分：**裁决品种** + **过滤品种**。按"裁决输出完备性铁律"，每条裁决必含交易参数。
+
+```json
+{
+  "round_id": "20260706_v8",
+  "generated_at": "2026-07-06T12:00:00",
+  "data_freshness": "2026-07-04 K线 | 2026-07-06 11:56采集",
+  "verdicts": {
+    "rb": {
+      "direction": "bear",
+      "confidence": "SELL高",
+      "adx": 67.2, "rsi": 34.4,
+      "price": 3077.0,
+      "entry": 3077, "stop_loss": 3154, "target": 2892,
+      "risk_reward": 2.4, "position_pct": 6,
+      "chain": "黑色系",
+      "reasoning": "ADX=67.2强空趋势+链一致性86%+RSI=34.4中性偏低"
+    }
+  },
+  "filtered": {
+    "adx_excluded": [
+      {"symbol": "zn", "name": "沪锌", "adx": 5.5, "reason": "ADX<15 震荡排除"}
+    ],
+    "volume_excluded": [
+      {"symbol": "ec", "name": "集运指数", "volume": 6486, "reason": "成交量不足"}
+    ],
+    "chain_dedup": [
+      {"symbol": "hc", "name": "热卷", "adx": 64.9, "direction": "bear",
+       "chain": "黑色系", "representative": "rb",
+       "reason": "链内去重(黑色系), 代表品种=rb"}
+    ]
+  },
+  "overall_assessment": "全市场极度偏空: 18/20品种空头信号...",
+  "data_sources": {
+    "kline": {"source": "通达信TQ-Local", "captured_at": "2026-07-06 11:56"},
+    "indicators": {"source": "numpy向量化(通达信公式对齐)", "based_on": "通达信TQ-Local K线"},
+    "chain_analysis": {"source": "commodity-chain-analysis", "generated_at": "2026-07-06 11:59"}
+  }
+}
+```
+
+### 辩论期输出（旧版保留）
 ```json
 {
   "round": "RB_20260705",
