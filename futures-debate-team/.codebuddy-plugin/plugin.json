@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.2.0 — 架构重构: 三类信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源，所有信号全辩论无直接推荐通道，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方(不再固定多空)，研究员数据接口独立(L1-L4→technical-analysis, 因子→fundamental-data-collector)，V型反转例外，10Agent全进化+自循环闭环+独立记忆系统。",
+  "description": "Multi-role futures trading debate team v5.3.0 — 通道突破信号(唐奇安DC20/DC55+布林带)替换三类信号(突破/回踩/跳空)为主信号源，TqSDK live模式盘中实时价，盘中/盘后自适应数据获取，信号检查闸门(无信号早停)，单策略默认(非--dual)，10Agent全进化+自循环闭环+独立记忆系统。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v5.2 — Architecture reconstruction: three-signal(breakout/pullback/gap) replaces L1-L4+factor_timing as primary source, all signals debated (no direct-recommend), ADX role reversal: low=encourage/high=warn, debaters dynamically assign sides by signal_type, independent researcher data interfaces, V-reversal exception, 10-Agent evolution + self-circulating closed-loop.",
-    "zh": "10角色期货辩论专家团v5.2 — 架构重构：三类信号(突破/回踩/跳空)替代L1-L4+因子择时作为主信号源，所有信号全辩论无直接推荐通道，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方，研究员数据接口独立，V型反转例外，10Agent全进化+自循环闭环。"
+    "en": "10-role futures debate team v5.3 — Channel breakout (Donchian DC20/DC55 + Bollinger Bands) replaces three-signal as primary source. TqSDK live mode for intraday real-time prices. Adaptive intraday/after-hours data sourcing. Signal check gate (early exit on no signal). Single-strategy default (non--dual). 10-Agent evolution + self-circulating closed-loop.",
+    "zh": "10角色期货辩论专家团v5.3 — 通道突破(唐奇安DC20/DC55+布林带)替换三类信号为主信号源，TqSDK live模式盘中实时价，盘中/盘后自适应数据获取，信号检查闸门(无信号早停)，单策略默认(非--dual)，10Agent全进化+自循环闭环。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",

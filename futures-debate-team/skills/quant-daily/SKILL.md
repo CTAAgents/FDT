@@ -1,59 +1,64 @@
 ---
 name: quant-daily
-version: 2.7.0
+version: 2.8.0
 agent_created: true
-description: 商品期货量化分析skill — 默认策略=three_signal（三类信号：突破/回踩/跳空）。L1-L4和因子择时数据不再全量计算，由研究员按需通过data_interface获取。
+description: 商品期货量化分析skill — 默认策略=channel_breakout（唐奇安DC20/DC55+布林带通道突破）。L1-L4原始指标由研究员按需通过data_interface获取。
 ---
 
 # quant-daily — 商品期货量化分析一体化
 
-## 🔴 三类信号默认模式（v2.6.0+）
+## 🔴 通道突破默认模式（v2.8.0+）
 
-**quant-daily 默认策略 = three_signal（三类信号）**，产出信号报告（突破/回踩/跳空）：
+**quant-daily 默认策略 = channel_breakout（双通道突破）**，产出通道突破信号报告：
 
-- **`three_signal`** (三类信号) → `full_scan_three_signal_{date}.json/.html`
-- **`full_scan_l1l4_{date}.json`** 和 **`full_scan_factor_timing_{date}.json`** 作为研究员辅助数据
-- 所有三类信号品种必须辩论 —— 无直接推荐通道
-- **信号汇总** → `full_scan_summary_{date}.json/.html`（双策略并排，纯数据）
+- **`channel_breakout`** (唐奇安DC20/DC55 + 布林带确认) → `full_scan_channel_breakout_{date}.json/.html`
+- **L1-L4研究员辅助数据** → 仅通过 `--dual` 模式产出
+- 所有通道突破品种必须辩论 —— 无直接推荐通道
 
 ```bash
-# ✅ 默认命令：三类信号扫描（默认策略=three_signal）
+# ✅ 默认命令：通道突破扫描（默认策略=channel_breakout）
+python scripts/scan_all.py
+
+# 双策略模式（如需研究员辅助数据）
 python scripts/scan_all.py --dual
 ```
 
 输出文件结构：
 ```
 reports/
-├── full_scan_three_signal_20260706.json        # 三类信号（主信号源：breakout/pullback/gap）
-├── full_scan_three_signal_ranking_20260706.html
-├── full_scan_l1l4_20260706.json                # L1-L4原始指标（观澜技术分析辅助）
-├── full_scan_l1l4_ranking_20260706.html
-├── full_scan_factor_timing_20260706.json        # 因子择时原始数据（探源基本面分析辅助）
-└── full_scan_factor_timing_ranking_20260706.html
+├── full_scan_channel_breakout_20260706.json        # 通道突破信号（主信号源）
+├── full_scan_channel_breakout_ranking_20260706.html
 ```
 
 ### 职责边界
 
 **quant-daily 只做客观计算**：
 - 所有数据源对置信度统一为 1.0
-- 输出三类信号（breakout/pullback/gap）为主信号
-- L1-L4原始指标和因子择时数据为辅助分析工具
+- 输出通道突破信号（channel_breakout/trend_confirmation/bb_squeeze_prebreakout）为主信号
+- L1-L4原始指标为辅助分析工具
 - **不包含** 辩论推荐、品种分类、风险提示（所有信号必须辩论）
 
 **闫判官 Agent 负责决策**：
-- 读取signal_type字段，筛选三类信号品种
-- 所有三类信号品种必须辩论，无直接推荐通道
+- 读取signal_type字段，筛选通道突破品种
+- 所有通道突破品种必须辩论，无直接推荐通道
 - 决定正方方向
 - 裁决最终方向
 ```
 
-**默认模式**：`layered`（L1-L4四层累加打分，原有逻辑，向后兼容）
+**默认模式**：`channel_breakout`（双通道突破，v2.8.0 新增）
+其他模式可通过 `--strategy` 参数切换：
 
 ```bash
-# L1-L4全品种扫描（正确模式·默认）
+# 通道突破扫描（默认）
 python scripts/scan_all.py
 
-# 指定策略
+# 双策略模式（如需L1-L4研究员辅助数据）
+python scripts/scan_all.py --dual
+
+# 三类信号扫描（可选）
+python scripts/scan_all.py --strategy three_signal
+
+# L1-L4全品种扫描（研究员辅助）
 python scripts/scan_all.py --strategy layered_l1l4
 
 # 列出所有可用策略
@@ -83,33 +88,14 @@ data/   →  indicators/   →   strategies/   →   scan_all.py (入口)
 
 | 策略名 | 文件 | 状态 | 说明 |
 |:-------|:-----|:----|:-----|
-| `layered_l1l4` | `strategies/layered_l1l4.py` | ✅ **默认** | L1-L4四层累加(WL1=35/WL2=35/WL3=20/WL4=10) |
-| `factor_timing` | `strategies/factor_timing.py` | ✅ **v2.3.1 完整优化** | 5因子十分组投票 + G1/G10截断 + 真实数据源 + 市场状态自适应 (12项优化) |
+| `channel_breakout` | `strategies/channel_breakout_strategy.py` | ✅ **默认 v1.0** | 唐奇安DC20/DC55 + 布林带确认的双通道突破 |
+| `three_signal` | `strategies/three_signal_strategy.py` | ✅ 可选 | 三类信号(突破/回踩/跳空) |
+| `layered_l1l4` | `strategies/layered_l1l4.py` | ✅ 可选 | L1-L4四层累加(研究员辅助) |
 | `true_layered` | `strategies/true_layered.py` | ⛔ 废弃 | 真分层打分(IC=-0.039不显著) |
 
-> **factor_timing v2.3.1 改进（2026-07-05，代码审查驱动的12项优化）：**
-> 
-> **数据质量 (P0)：**
-> 1. far_close 降级使用主力-次主力价差，而非趋势估算
-> 2. wr_last_year 降级使用 60 日滚动均值，而非固定 6000
-> 
-> **核心算法 (P1)：**
-> 3. 板块中性改为全局Z→减板块均值（保留方差）
-> 4. OI 三角过滤增加全市场 ADX 二级闸门
-> 5. 多因子投票改为十分组法（decile rank，赛马截断）
-> 6. 基于 OI 变化的真实换月检测
-> 
-> **参数细节 (P2)：**
-> 7. 动量因子复权说明
-> 8. 偏度因子改为 30d + 60d 等权合成
-> 9. 量价相关性增加 OI 修正版（ΔP×ΔOI）
-> 10. 否决分数增加仓单异常/涨跌停/板块分歧 3 条
-> 11. L1-L4 输出共振系数
-> 12. 市场状态自适应（趋势/震荡/高波/低波自动切换参数）
-
 ```bash
-# 使用因子择时策略（v2.3.0 增强版）
-python scripts/scan_all.py --strategy factor_timing --symbols PK,RB,B
+# 使用三类信号策略（可选）
+python scripts/scan_all.py --strategy three_signal --symbols PK,RB,B
 ```
 
 ### 如何新增一个策略
@@ -194,7 +180,8 @@ WL4 = 10  # L4 确认 — MACD金叉/死叉+突破+一致性
 
 | 参数 | 说明 | 示例 |
 |:----|:-----|:-----|
-| `--mode`, `-m` | 打分模式: `layered`(默认) / `true_layered` / `compare` | `-m layered` |
+| `--strategy` | 策略名: `channel_breakout`(默认) / `three_signal` / `layered_l1l4` | `--strategy three_signal` |
+| `--dual` | 双策略模式（主策略+L1-L4研究员辅助），默认只跑主策略 | `--dual` |
 | `--output`, `-o` | 输出目录 | `-o ./reports` |
 | `--prefix`, `-p` | 文件名前缀 | `-p full_scan` |
 | `--symbols`, `-s` | 指定品种（逗号分隔），不传则全品种 | `-s PK,RB,B` |
@@ -335,6 +322,7 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 
 ## 版本历史
 
+- **v2.8.0** (2026-07-07): **默认策略改为通道突破** — 新增 channel_breakout_strategy.py（唐奇安DC20/DC55 + 布林带确认），替换原 three_signal 为默认策略；scan_all.py dual 模式同步更新；registry.py 注册链更新
 - **v2.5.0** (2026-07-06): **新增TqSdk盘中K线数据源** — `multi_source_adapter.py.get_kline()` 盘中时段新增TqSdk降级路径（TDX→TqSdk→东方财富→AKShare）；新增 `_fetch_tqsdk_kline()` 方法通过 TqSdk 主力连续合约（`KQ.{exchange}@{variety}`）获取 K 线；SKILL.md 数据源管道文档同步更新
 - **v2.4.0** (2026-07-05): **P3全量实现** — 新增 ml_models/direction_classifier.py(LightGBM+EnsemblePredictor), feature_pipeline/feature_engineering.py(30+维度特征), feedback/trade_journal.py(PnL反馈闭环+反向标注); debate_brief.py 新增 risk_input字段注入(confidence/ATR/ADX/pattern_risk); indicators_legacy.py 除零修复(numpy安全向量化); SC斜率异常值过滤(abs>20%→0)
 - **v2.3.1** (2026-07-05): factor_timing 12项优化 — 真实数据源、展期斜率异常过滤、多因子十分组投票、G1/G10动手组/观望组

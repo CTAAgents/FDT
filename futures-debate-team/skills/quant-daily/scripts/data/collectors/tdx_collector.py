@@ -226,7 +226,7 @@ class TdxCollector:
             try:
                 records.append(
                     {
-                        "date": data["Date"][i],
+                        "date": str(data["Date"][i]),
                         "open": float(data.get("Open", ["0"] * n)[i] or 0),
                         "high": float(data.get("High", ["0"] * n)[i] or 0),
                         "low": float(data.get("Low", ["0"] * n)[i] or 0),

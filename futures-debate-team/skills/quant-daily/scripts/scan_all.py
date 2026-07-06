@@ -2,15 +2,16 @@
 """
 品种信号扫描 — 策略可插拔入口
 =================================
-默认：通道突破（strategies/channel_breakout_strategy.py）
+默认：单策略通道突破（strategies/channel_breakout_strategy.py）
   唐奇安DC20/DC55 + 布林带确认的双通道突破识别
-可切换：--strategy three_signal → 三类信号（突破/回踩/跳空）
-新增策略：strategies/ 目录新建文件 + registry.py 注册一行
+可选：--dual 双策略模式（主策略 + L1-L4研究员辅助）
+  或 --strategy three_signal 三类信号
 
 用法：
-  python scan_all.py                                          # 通道突破（默认）
+  python scan_all.py                                          # 通道突破（默认单策略）
+  python scan_all.py --dual                                   # 双策略（含L1-L4辅助）
   python scan_all.py --strategy three_signal                  # 三类信号
-  python scan_all.py --strategy layered_l1l4                  # L1-L4分层（研究员辅助）
+  python scan_all.py --strategy layered_l1l4                  # L1-L4分层
   python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
   python scan_all.py --list-strategies                        # 列出所有策略
 """
@@ -651,7 +652,7 @@ if __name__ == "__main__":
         choices=["dry-run", "paper", "live", "dry-run", "paper", "live"],
     )
     parser.add_argument("--list-strategies", help="列出所有可用策略", action="store_true")
-    parser.add_argument("--dual", action="store_true", help="Dual mode: run default three_signal strategy + export researcher auxiliary data")
+    parser.add_argument("--dual", action="store_true", help="双策略模式：通道突破主策略 + L1-L4研究员辅助数据")
     parser.add_argument(
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
     )
@@ -667,7 +668,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.dual and args.strategy:
-        parser.error("--dual 和 --strategy 不能同时使用（--dual 已内置两个策略）")
+        parser.error("--dual 和 --strategy 不能同时使用（--dual 已内置两个策略：channel_breakout + layered_l1l4）")
 
     if args.list_strategies:
         print("\n可用策略:")

@@ -333,19 +333,36 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # 1.5 尝试TqSdk获取主力连续K线（backtest模式全天可用）
+        # 1.5 尝试TqSdk获取主力连续K线（live模式盘中可用）
         if self.tqsdk_available:
             try:
                 tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:
-                    print(f"[MultiSource] get_kline({variety}) → tqsdk, {len(tqsdk_kline)}条")
+                    # 统一数据格式（对齐TDX/EastMoney输出）
+                    records = []
+                    for k in tqsdk_kline:
+                        records.append(
+                            {
+                                "date": str(k.get("date", "")),
+                                "open": float(k.get("open", 0)),
+                                "close": float(k.get("close", 0)),
+                                "high": float(k.get("high", 0)),
+                                "low": float(k.get("low", 0)),
+                                "volume": int(k.get("volume", 0)),
+                                "oi": int(k.get("oi", k.get("open_interest", 0))),
+                                "settle": float(k.get("settle", 0) or 0),
+                                "data_source": "tqsdk",
+                                "confidence": 1.0,
+                            }
+                        )
+                    print(f"[MultiSource] get_kline({variety}) → tqsdk, {len(records)}条")
                     try:
                         record_data_fetch(variety, "tqsdk", success=True, count=len(tqsdk_kline))
                     except Exception:
                         pass
                     return {
                         "success": True,
-                        "data": tqsdk_kline,
+                        "data": records,
                         "data_source": "tqsdk",
                         "confidence": 1.0,
                     }
@@ -752,10 +769,10 @@ class MultiSourceAdapter:
         variety: str,
         days: int = 365,
     ) -> Optional[List[Dict]]:
-        """从TqSdk获取主力合约K线历史（盘中降级数据源）
+        """从 TqSDK 获取主力合约K线（盘中实时模式，close 为实时价）
 
-        用于 get_kline() 的盘中降级路径。与 _fetch_tqsdk() 不同，
-        本方法使用 get_kline_serial() 获取连续K线而非单一快照。
+        与 _fetch_tqsdk() 不同，本方法使用 get_kline_serial() 获取连续K线。
+        改用 live 模式（非 backtest），盘中取到的最新一根日线的 close 为实时价。
 
         Args:
             variety: 品种代码
@@ -777,7 +794,6 @@ class MultiSourceAdapter:
                 return None
 
             variety_upper = variety.upper()
-            # 主力连续合约标识：如 KQ.m@SHFE.rb
             exchange_code = {
                 "SHFE": "SHFE", "DCE": "DCE", "CZCE": "CZCE",
                 "GFEX": "GFEX", "INE": "INE", "CFFEX": "CFFEX",
@@ -786,18 +802,25 @@ class MultiSourceAdapter:
             if not exchange_code:
                 return None
 
-            # TqSdk 主力连续合约格式: KQ.m@{exchange}@{variety}
             continuous_id = f"KQ.m@{exchange_code}.{variety_upper.lower()}"
 
-            # 使用backtest模式获取历史K线（不依赖交易时段，同步返回数据）
-            from datetime import datetime as dt
-            now = dt.now()
-            backtest_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            api = TqApi(backtest=backtest_end, auth=TqAuth(_user, _pass))
+            # live 模式（非 backtest），盘中最新日线 close 为实时价
+            api = TqApi(auth=TqAuth(_user, _pass))
 
-            # 获取日K线
+            # 订阅日线（86400 秒 = 1日）
             klines = api.get_kline_serial(continuous_id, 86400, data_length=max(days, 60))
-            # backtest模式下get_kline_serial同步返回填充数据
+
+            # 等待数据就绪（最多5秒），确保最新一根日线数据到齐
+            import time as _time
+            deadline = _time.time() + 5
+            while _time.time() < deadline:
+                api.wait_update()
+                # 检查最新 bar 是否已非 NaN
+                if len(klines) > 0:
+                    last = klines.iloc[-1]
+                    if not pd.isna(last.get("close", float("nan"))):
+                        break
+
             api.close()
 
             if klines is None or len(klines) == 0:
@@ -810,12 +833,15 @@ class MultiSourceAdapter:
                 for idx, row in klines.iterrows():
                     try:
                         ts = row.get("datetime", 0)
-                        # TqSdk datetime is nanoseconds since epoch
                         dt = pd.Timestamp(ts, unit="ns") if ts > 1e12 else pd.Timestamp(ts, unit="s")
+                        close_val = float(row.get("close", 0) or 0)
+                        # 跳过空值 bar
+                        if close_val == 0 and row.get("volume", 0) == 0:
+                            continue
                         records.append({
-                            "date": dt.strftime("%Y-%m-%d"),
+                            "date": dt.strftime("%Y%m%d"),
                             "open": float(row.get("open", 0) or 0),
-                            "close": float(row.get("close", 0) or 0),
+                            "close": close_val,
                             "high": float(row.get("high", 0) or 0),
                             "low": float(row.get("low", 0) or 0),
                             "volume": int(float(row.get("volume", 0) or 0)),
@@ -826,12 +852,11 @@ class MultiSourceAdapter:
                     except (ValueError, TypeError):
                         continue
             else:
-                # 数组格式
                 for k in klines:
                     try:
                         ts = k.get("datetime", 0) if isinstance(k, dict) else 0
                         records.append({
-                            "date": str(pd.Timestamp(ts, unit="ns").strftime("%Y-%m-%d")) if ts > 0 else "",
+                            "date": str(pd.Timestamp(ts, unit="ns").strftime("%Y%m%d")) if ts > 0 else "",
                             "open": float(k.get("open", 0)) if isinstance(k, dict) else 0,
                             "close": float(k.get("close", 0)) if isinstance(k, dict) else 0,
                             "high": float(k.get("high", 0)) if isinstance(k, dict) else 0,
