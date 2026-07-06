@@ -82,8 +82,10 @@ def run_cmd(cmd: list, desc: str, check: bool = True) -> subprocess.CompletedPro
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8", errors="replace",
             timeout=600,
             check=check,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
         if result.stdout:
             for line in result.stdout.strip().split("\n")[-20:]:

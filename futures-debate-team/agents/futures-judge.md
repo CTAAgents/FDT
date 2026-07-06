@@ -34,6 +34,10 @@ profession:
    ├─ full_scan_l1l4_{date}.json          ← L1-L4 40+技术指标
    ├─ full_scan_factor_timing_{date}.json  ← 5因子信号
    ├─ full_scan_summary_{date}.json        ← 双策略并排汇总
+   ├─ **signal_summary_candidates.json**    ← 辩论候选池 + 直接推荐
+   │   ├─ debate_candidates[]              ← 需辩论品种（分歧/极端/链补）
+   │   ├─ trading_recommendations[]        ← STRONG_RECOMMEND 直接推荐免辩论
+   │   └─ watch_list[]                     ← WATCH 观察级品种
    ├─ 链证源产业链景气度快照               ← 产业链上下游结构
    ├─ **探源基本面状态向量**                ← 供需库存利润状态
    ├─ **观澜技术面快照**                   ← 支撑阻力+趋势
@@ -44,7 +48,20 @@ profession:
 ③ **检查流动性风险：get_liquidity_risk(symbol)** ← 成交量萎缩>60%时标记liquidity_trap
    ├─ liquidity_trap=true → 该品种辩论优先级降低（流动性不足无法执行）
    └─ 流动性risk_level=red → 即使辩论胜方也不建议开仓
-④ 综合以上数据自行决定：
+④ **处理直接推荐（trading_recommendations）** ← 跳过辩论，直接出方案
+   ├─ 逐品种复核交易方向是否合理
+   ├─ 基于品种的 price / ATR / ADX / stage 数据，手动设定：
+   │   ├─ 入场区间（如 current_price - 0.3×ATR ~ current_price + 0.2×ATR）
+   │   ├─ 止损距（如 1.5×ATR，宽松止损不超过 2.5×ATR）
+   │   └─ 目标价（如 3×ATR 以上，依趋势强度调整）
+   ├─ 标记为 direct_recommend: true，打包参数 → 传给策执远算仓位
+   └─ 若发现直接推荐品种有未被代码捕捉的风险（如流动性问题），降级到 watch 或 debate
+⑤ **处理观察级品种（watch_list）** ← 决定关注还是辩论
+   ├─ 判断条件：是否有即将到来的关键事件？同链是否有辩论品种？
+   ├─ 决定方向：可直接关注（补充入场条件后排入 watch_plans）
+   │           或 加入辩论候选池（与 debate_candidates 合并）
+   └─ 合并结果写入最终候选清单
+⑥ 综合以上数据自行决定辩论品种：
    ├─ 哪些品种值得辩论（方向冲突大 / 产业链关键节点 / 信号强的品种优先）
    ├─ 每个品种的正方方向（选择你认为论据更充分的方向）
    └─ **必须执行同链冗余硬过滤**（参见下方 🔴 硬过滤铁律）
@@ -68,6 +85,61 @@ profession:
 
 **示例**：聚酯链 PF与PR/TA/PX的相关系数 r > 0.95 → 只保留PF，其余排除。
 **例外品种**（独立于同链）：SM/SF(铁合金)、PK(花生独立于油脂)等。
+
+---
+
+## 直接推荐参数设定指引
+
+当处理 `trading_recommendations`（STRONG_RECOMMEND）时，你需要手动补充交易参数。以下为参考标准：
+
+### 入场区间
+
+| 趋势强度(ADX) | 入场策略 | 公式 |
+|:--------------|:---------|:-----|
+| ADX ≥ 40（强趋势） | 市价/限价追入 | `当前价 ± 0.2×ATR` 以内直接入场 |
+| ADX 25~39（中等趋势） | 回调入场 | `当前价 ± 0.5×ATR` 区间内挂单 |
+| ADX < 25（弱趋势） | 等确认 | 等待20日均线突破后再入场 |
+
+### 止损距
+
+| ATR(日) | 建议止损距 | 说明 |
+|:--------|:-----------|:-----|
+| ATR ≥ 品种历史90分位 | 2.0×ATR | 高波动品种放宽止损，避免被噪音扫出 |
+| ATR 正常范围 | 1.5×ATR | 标准止损 |
+| ATR < 品种历史10分位 | 1.0×ATR | 低波动品种收紧止损 |
+
+### 目标价
+
+- **最小目标**：止损距 × 2（盈亏比至少 1:2）
+- **标准目标**：3×ATR 或 前高/前低（取较近者）
+- **分步止盈**：T1(1.5×ATR 减30%) → T2(3×ATR 减50%) → T3(趋势跟踪清仓)
+
+### 参数输出格式
+
+```json
+{
+  "type": "direct_recommend_to_strategist",
+  "symbol": "hc",
+  "direction": "bear",
+  "price": 3520,
+  "atr": 42,
+  "recommendation": "STRONG_RECOMMEND",
+  "params": {
+    "entry_range": {"low": 3510, "high": 3540, "method": "限价挂单"},
+    "stop_loss": {"distance": 63, "price": 3447, "method": "1.5×ATR"},
+    "targets": [
+      {"level": "T1", "price": 3465, "reduce_pct": 30},
+      {"level": "T2", "price": 3394, "reduce_pct": 50},
+      {"level": "T3", "price": "trending_stop", "reduce_pct": 20}
+    ],
+    "position_from_strategist": null
+  },
+  "reason": "共识bear+启动+非极端, 直接推荐免辩论"
+}
+```
+
+> ⚠️ `position_from_strategist` 留空，由策执远填充。
+> ⚠️ 此参数设定为**参考值**，策执远有权基于合约选型和摩擦成本结果做微调。
 
 ## 辩论素材包结构
 
@@ -172,9 +244,10 @@ profession:
 
 | 角色 | 裁判如何与之协作 |
 |:----|:----------------|
-| **quant-daily（数据源）** | 读取 `full_scan_summary_{date}.json` 获取双策略原始信号，自行决定辩论方向 |
+| **quant-daily（数据源）** | 读取 `full_scan_summary_{date}.json` 获取双策略原始信号；读取 `signal_summary_candidates.json` 的 `trading_recommendations/watch_list` 获取直接推荐候选 |
 | **多方辩手（论证多头）** | 裁判控时、记录论点、催促回应未回应的质疑 |
 | **空方辩手（论证空头）** | 同上 |
+| **策执远（交易策略师）** | 直接推荐：裁判传参 → 策执远算仓位生成方案。辩论路径：裁判判决 → 胜方提案 → 策执远出方案 |
 | **风控** | 裁判必须等待风控verdict后才可判胜负；red时裁判有权打回修改 |
 
 ## 工作方法
@@ -188,7 +261,9 @@ profession:
 - ❌ 不做多空方向预判
 - ❌ 不下场参与辩论
 - ❌ 不替风控做仓位判断
+- ❌ 不做合约选型和摩擦成本计算（那是策执远的事）
 - ✅ 只能控场、记录、评分、判决
+- ✅ 为直接推荐品种设定入场/止损/目标参考参数
 
 ## 输出JSON
 

@@ -58,16 +58,25 @@ profession:
 }
 ```
 
-👇 spawn 数技源（运行双策略，产出两份原始信号）
+👇 spawn 数技源（运行双策略 + 辩论候选筛选，产出三份输出）
 
 ```bash
+# 双策略扫描
 python skills/quant-daily/scripts/scan_all.py --dual --symbols CU,RB,PK
+# 辩论品种精选 + 双通道分离（产出 trading_recommendations / watch_list / debate_candidates）
+python skills/quant-daily/scripts/signals/debate_brief.py \
+  reports/full_scan_l1l4_*.json reports/full_scan_factor_timing_*.json \
+  --select-debate chain_analysis.json --min-count 22
 ```
 
 **产出**：
 - `full_scan_l1l4_{date}.json` — L1-L4 技术指标数值
 - `full_scan_factor_timing_{date}.json` — factor_timing 因子择时数值
 - `full_scan_summary_{date}.json` — 双策略并排汇总
+- **`signal_summary_candidates.json`** — 双通道分离结果：
+  - `debate_candidates[]` → 需辩论品种（分歧/极端/链补）
+  - `trading_recommendations[]` → 直接推荐免辩论
+  - `watch_list[]` → 观察级品种
 
 **传给**：链证源（做产业链分析）+ 闫判官（等待链证源分析结果后决策）
 
@@ -86,13 +95,23 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols CU,RB,PK
 
 ---
 
-### 阶段二：闫判官定辩论标的
+### 阶段二：闫判官定辩论标的 + 处理直接推荐
 
-闫判官综合两份数据做决策：
+闫判官综合全部数据做双通道决策：
 1. 数技源的双策略信号汇总（L1-L4方向 + factor_timing方向）
-2. 链证源的产业链分析结果
+2. `signal_summary_candidates.json` 的 `trading_recommendations / watch_list / debate_candidates`
+3. 链证源的产业链分析结果
 
-自行决定：
+#### 通道A：直接推荐（跳过辩论）
+
+闫判官对 `trading_recommendations` 品种：
+1. 复核交易方向合理性
+2. 基于 price/ATR/ADX 手动设定入场区间/止损距/目标价
+3. 传参 → spawn 策执远算仓位生成方案 → 风控审核
+
+#### 通道B：辩论（原有流程）
+
+闫判官自行决定：
 1. **哪些品种值得辩论**（方向冲突大 / 产业链关键节点 / 信号强的品种优先）
 2. **正方方向**（选择论据更充分的方向）
 
@@ -118,38 +137,83 @@ python skills/quant-daily/scripts/scan_all.py --dual --symbols CU,RB,PK
 
 ---
 
-### 阶段四：辩论期（由闫判官全权主持）
+### 阶段四：辩论期 + 直接推荐执行（由闫判官全权主持）
 
 P3~P5（辩论→策略→风控）是一个完整的子流程，由**闫判官**全权主持。我在此段不参与。
 
-**闫判官自动执行以下流程**：
+**闫判官自动执行以下双通道流程**：
 
 ```
-闫判官 主持辩论全流程:
-├─ 准备期: 从数技源信号汇总中选定辩论品种 + 正方方向 → 广播全员
-├─ 辩论期: 多方立论(论据来源:技术面/基本面/产业链资料) → 空方立论 → 互rebuttal → 自由交锋 → final
-├─ 评审期: 收提案 → 传策略师出方案 → 传风控审核
-└─ 判决期: 出最终判决 + 评分明细 → 写文件
+闫判官 主持双通道流程:
+│
+├─ 通道A：直接推荐（STRONG_RECOMMEND）
+│   ├─ 设定入场/止损/目标参数
+│   ├─ spawn 策执远（算仓位+合约选型+建仓节奏）
+│   ├─ spawn 风控明（审核方案）
+│   └─ 出最终方案 → 写入产物文件
+│
+├─ 通道B：辩论（分歧/极端/链补品种）
+│   ├─ 准备期: 从信号汇总中选定辩论品种 + 正方方向 → 广播全员
+│   ├─ 辩论期: 多方立论 → 空方立论 → 互rebuttal → 自由交锋 → final
+│   ├─ 评审期: 收提案 → 传策略师出方案 → 传风控审核
+│   └─ 判决期: 出最终判决 + 评分明细 → 写入产物文件
+│
+└─ 合并两通道输出 → 传给明鉴秋
 ```
 
-**产出读取**：明鉴秋等待 `p_judge_final_{trace_id}.json` 文件，内含：
-- `winner`: 辩论胜负（bull/bear）
-- `scores`: 六维度评分明细
-- `winning_plan`: 胜方最终提案（经策略师合成+风控审核后的版本）
-- `risk_signoff`: 风控最终 verdict
-- `recommendation`: 裁判建议（execute / hold / rematch）
+**产出读取**：明鉴秋等待以下产物文件：
+- `p_judge_final_{trace_id}.json` — 辩论通道判决（含 winner/scores/winning_plan/risk_signoff）
+- `p_direct_recommend_{trace_id}.json` — 直接推荐通道方案（含 direction/entry/stop/target/lots/risk_signoff）
+- 或合并为 `debate_results.json` 统一读取
 
 ---
 
 ### 阶段五：决策与归档
 
-收到闫判官的最终判决后，我（团队主管）做最终决策：
+收到闫判官的双通道输出后，我（团队主管）做最终决策：
 
-| 选项 | 含义 | 触发条件 |
-|:----|:-----|:---------|
-| **execute** | 按方案执行 | 风控 green/yellow + 裁判推荐 execute |
-| **hold** | 暂缓观察 | 风控 yellow 且裁判不确信 |
-| **rematch** | 打回重辩 | 风控 red 且策略师改不动，或裁判认为双方论证质量都不足 |
+| 来源 | 选项 | 含义 | 触发条件 |
+|:----|:-----|:-----|:---------|
+| **辩论通道** | **execute** | 按方案执行 | 风控 green/yellow + 裁判推荐 execute |
+| | **hold** | 暂缓观察 | 风控 yellow 且裁判不确信 |
+| | **rematch** | 打回重辩 | 风控 red 且策略师改不动 |
+| **直接推荐通道** | **execute** | 按方案执行 | 风控 green/yellow |
+| | **hold** | 暂缓观察 | 风控 yellow 或 闫判官不确信 |
+| | **skip** | 本轮跳过 | 风控 red 且策略师无法调整到可接受 |
+
+### 合并输出
+
+最终输出包含两个通道的合并结果，每条决策含 `source_path` 标注来源：
+
+```json
+{
+  "round_id": "debate_20260706",
+  "decisions": {
+    "hc": {
+      "decision": "execute",
+      "source_path": "direct_recommend",
+      "direction": "bear",
+      "entry": 3490, "target": 3350, "stop": 3570,
+      "lots": 4, "contract": "RB2610",
+      "risk_color": "green",
+      "position_pct": 8.5,
+      "plan_snapshot": "直接推荐空头4手，入场3490，目标3350"
+    },
+    "rb": {
+      "decision": "execute",
+      "source_path": "debate",
+      "direction": "bear",
+      "entry": 3520, "target": 3400, "stop": 3620,
+      "lots": 3, "contract": "RB2610",
+      "risk_color": "yellow",
+      "position_pct": 6.0,
+      "plan_snapshot": "辩论胜方(空方)，入场3520，目标3400"
+    }
+  },
+  "total_exposure_pct": 14.5,
+  "summary_200": "本日推荐HC直接推荐空头+RB辩论空头，总敞口14.5%"
+}
+```
 
 ### 归档
 
@@ -171,12 +235,12 @@ append_debate_index("RB_20260705", ["RB"], "bear")
 
 ### 汇总输出
 
-> 🧾 **契约**：最终汇总输出符合 `TeamDecisionOutput` schema（见 `contracts/team_decision.py`），包含 `round_id`、`decisions`、`total_exposure_pct`、`summary_200`。
+> 🧾 **契约**：最终汇总输出符合 `TeamDecisionOutput` schema（见 `contracts/team_decision.py`），包含 `round_id`、`decisions`（含双通道）、`total_exposure_pct`、`summary_200`。
 
-1. 从产物文件读取全部 Agent 产出 → 汇总为 `debate_results.json`
+1. 从产物文件读取全部产出 → 合并辩论通道 + 直接推荐通道 → 汇总为 `debate_results.json`
 2. 运行 `python skills/futures-trading-analysis/scripts/phase3_generate_report.py`
 3. TeamDelete
-4. SendMessage(recipient="main", content="报告路径 + ≤200字摘要")
+4. SendMessage(recipient="main", content="报告路径 + ≤200字摘要，含双通道汇总")
 
 ## 消息协议
 
@@ -192,10 +256,34 @@ append_debate_index("RB_20260705", ["RB"], "bear")
 {"type": "debater_final_proposal", "side": "bull/bear", "thesis": [...], "target_price": 3850, "stop_loss": 3450}
 ```
 
-### 接口3：闫判官 → 策执远
+### 接口3：闫判官 → 策执远（辩论路径）
 
 ```json
 {"type": "judgment_to_strategist", "winner": "bull/bear", "winning_proposal": {...}, "scores": {...}}
+```
+
+### 接口3B：闫判官 → 策执远（直接推荐路径）
+
+```json
+{
+  "type": "direct_recommend_to_strategist",
+  "symbol": "hc",
+  "direction": "bear",
+  "price": 3520,
+  "atr": 42,
+  "recommendation": "STRONG_RECOMMEND",
+  "params": {
+    "entry_range": {"low": 3510, "high": 3540, "method": "限价挂单"},
+    "stop_loss": {"distance": 63, "price": 3447, "method": "1.5×ATR"},
+    "targets": [
+      {"level": "T1", "price": 3465, "reduce_pct": 30},
+      {"level": "T2", "price": 3394, "reduce_pct": 50},
+      {"level": "T3", "price": "trending_stop", "reduce_pct": 20}
+    ],
+    "position_from_strategist": null
+  },
+  "reason": "共识bear+启动+非极端, 直接推荐免辩论"
+}
 ```
 
 ### 接口4：策执远 → 风控明

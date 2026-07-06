@@ -141,9 +141,11 @@ def build_intermediate(summary: dict, chain_analysis: dict, chain_strategy: dict
     }
 
 
-def build_debate_results(summary: dict, chain_analysis: dict) -> dict:
+def build_debate_results(summary: dict, chain_analysis: dict, candidates: dict = None) -> dict:
     """
-    从 full_scan_summary + chain_analysis 构建 debate_results.json。
+    从 full_scan_summary + chain_analysis + candidates 构建 debate_results.json。
+
+    新增 candidates 参数：select_debate_symbols() 的输出，含 trading_recommendations 和 watch_list。
     """
     meta = summary.get("_meta", {})
     symbols = summary.get("symbols", [])
@@ -172,21 +174,48 @@ def build_debate_results(summary: dict, chain_analysis: dict) -> dict:
         raw_conf = (abs(l_total) + abs(f_total)) / 2
         conf = min(90, max(20, raw_conf * 0.7))
 
-        results[sym] = {
-            "direction": eng_dir,
+    result = {
+        "direction": eng_dir,
+        "confidence": conf,
+        "judge_verdict": {
+            "final_direction": eng_dir,
             "confidence": conf,
-            "judge_verdict": {
-                "final_direction": eng_dir,
-                "confidence": conf,
-                "reasoning": f"L1-L4={l_dir}({l_total:+d}), 因子择时={f_dir}({f_total:+d})",
-            },
-            "chain": chain_results_raw.get(sym.upper(), {}).get("chain", ""),
-            "l1l4_score": l_total,
-            "factor_score": f_total,
-            "divergence": l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral",
-        }
+            "reasoning": f"L1-L4={l_dir}({l_total:+d}), 因子择时={f_dir}({f_total:+d})",
+        },
+        "chain": chain_results_raw.get(sym.upper(), {}).get("chain", ""),
+        "l1l4_score": l_total,
+        "factor_score": f_total,
+        "divergence": l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral",
+    }
+
+    # 如果有候选品种数据，标记是否为直接推荐/观察级
+    if candidates:
+        cand_meta = candidates.get("_meta", {})
+        result["trading_recommendations"] = cand_meta.get("trading_recommendations", 0)
+        result["watch_list"] = cand_meta.get("watch_list", 0)
+        # 标记该品种属于哪个通道
+        for rec in candidates.get("trading_recommendations", []):
+            if rec["symbol"].upper() == sym.upper():
+                result["source_path"] = "direct_recommend"
+                result["recommendation"] = rec.get("recommendation", "STRONG_RECOMMEND")
+                result["recommend_reason"] = rec.get("reason", "")
+                break
+        for w in candidates.get("watch_list", []):
+            if w["symbol"].upper() == sym.upper():
+                result["source_path"] = "watch"
+                result["recommendation"] = "WATCH"
+                result["recommend_reason"] = w.get("reason", "")
+                break
+
+    results[sym] = result
 
     return results
+
+
+def load_candidates(path: str) -> dict:
+    """加载候选品种JSON（debate_brief.py --select-debate 产出）"""
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 if __name__ == "__main__":
@@ -197,6 +226,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--summary", required=True, help="full_scan_summary_YYYYMMDD.json 路径")
     parser.add_argument("--chain-analysis", required=True, help="chain_analysis_clean.json 路径")
+    parser.add_argument("--candidates", default=None, help="debate_brief.py --select-debate 产出的candidates JSON路径（可选，含trading_recommendations/watch_list）")
     parser.add_argument("--chain-strategy", default=None, help="chain_strategy_report.json 路径（可选）")
     parser.add_argument("--output-dir", default=".", help="输出目录（默认为当前目录）")
     parser.add_argument("--prefix", default="", help="输出文件前缀")
@@ -207,16 +237,23 @@ if __name__ == "__main__":
     summary = load_summary(args.summary)
     chain_analysis = load_chain_analysis(args.chain_analysis)
     chain_strategy = load_chain_analysis(args.chain_strategy) if args.chain_strategy else None
+    candidates = load_candidates(args.candidates) if args.candidates else None
 
     # 生成 intermediate_data.json
     intermediate = build_intermediate(summary, chain_analysis, chain_strategy)
+    # 如果有 candidates 数据，透传到 intermediate
+    if candidates:
+        intermediate["trading_recommendations"] = candidates.get("trading_recommendations", [])
+        intermediate["watch_list"] = candidates.get("watch_list", [])
+        intermediate["candidates_meta"] = candidates.get("_meta", {})
+        print(f"  [双通道] 直接推荐: {len(intermediate['trading_recommendations'])}个 | 观察级: {len(intermediate['watch_list'])}个")
     im_path = os.path.join(args.output_dir, f"{args.prefix}intermediate_data.json")
     with open(im_path, "w", encoding="utf-8") as f:
         json.dump(intermediate, f, ensure_ascii=False, indent=2)
     print(f"[OK] intermediate_data: {im_path}")
 
-    # 生成 debate_results.json
-    debate_results = build_debate_results(summary, chain_analysis)
+    # 生成 debate_results.json（含 candidates 通道标记）
+    debate_results = build_debate_results(summary, chain_analysis, candidates)
     dr_path = os.path.join(args.output_dir, f"{args.prefix}debate_results.json")
     with open(dr_path, "w", encoding="utf-8") as f:
         json.dump(debate_results, f, ensure_ascii=False, indent=2)

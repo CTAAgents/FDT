@@ -592,6 +592,19 @@ def select_debate_symbols(
             "risk_flags": risk_flags,
         }
 
+        # 极端分歧品种 → 标记左侧反转机会
+        # 当品种位于极端位置（RSI超买/超卖或Z分数极端）且两套信号方向相反时，
+        # 可能存在行情逆转的交易机会
+        _extreme_rsi = (rsi > 75 or rsi < 25)
+        _extreme_z = (abs(z_score) > 2.5)
+        if conflict and (_extreme_rsi or _extreme_z):
+            # 逆转方向：极端位置的对面
+            reversal_dir = "bear" if (rsi > 75 or z_score > 2.5) else "bull"
+            item["left_side_reversal"] = True
+            item["reversal_direction"] = reversal_dir
+            if "左侧反转机会" not in item["tags"]:
+                item["tags"].append("左侧反转机会")
+
         if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
             divergence.append(item)
         elif l_dir == "bear" and f_dir == "bear":
@@ -606,21 +619,96 @@ def select_debate_symbols(
     consensus_bear.sort(key=lambda x: x["debate_value"], reverse=True)
     consensus_bull.sort(key=lambda x: x["debate_value"], reverse=True)
 
+    # ════════════════════════════════════════════════════
+    # 双通道分离：交易推荐 vs 辩论选题
+    # ════════════════════════════════════════════════════
+    # 共识 + launch + 非极端 → 直接推荐，跳过辩论
+    # 其余品种 → 进入辩论流程
+    # ════════════════════════════════════════════════════
+    _raw_l_data = {s["symbol"]: s["l1l4"] for s in symbols}
+
+    def _is_direct_recommend(item) -> str:
+        """检查是否为直接推荐品种。返回 ""(不推荐) / "STRONG_RECOMMEND" / "WATCH" """
+        raw_l = _raw_l_data.get(item["symbol"], {})
+        rsi_val = raw_l.get("rsi", 50)
+        z_val = raw_l.get("z_score", 0)
+        stage_val = raw_l.get("stage", "")
+        consensus = (item["l1l4_dir"] == item["factor_dir"] and item["l1l4_dir"] != "neutral")
+        if not consensus:
+            return ""
+        is_launch = (stage_val == "launch")
+        non_extreme_rsi = (30 <= rsi_val <= 70)
+        non_extreme_z = (abs(z_val) < 2.0)
+        signal_ok = max(abs(item["l1l4_total"]), abs(item["factor_total"])) >= 30
+
+        # STRONG_RECOMMEND：全部条件满足
+        if is_launch and non_extreme_rsi and non_extreme_z and signal_ok:
+            return "STRONG_RECOMMEND"
+        # WATCH：共识 + (launch 或 非极端) 至少其一
+        if is_launch and signal_ok:
+            # launch 但微极端（RSI 25-75, |z|<2.5）
+            slightly_non_extreme_rsi = (25 <= rsi_val <= 75)
+            slightly_non_extreme_z = (abs(z_val) < 2.5)
+            if slightly_non_extreme_rsi and slightly_non_extreme_z:
+                return "WATCH"
+        if non_extreme_rsi and non_extreme_z and signal_ok:
+            # 非极端但非 launch（trending 阶段，趋势延续）
+            if stage_val in ("trending", "launch"):
+                return "WATCH"
+        return ""
+
+    trading_recommendations = []
+    watch_list = []
+
+    for src_list, label in [(consensus_bear, "bear"), (consensus_bull, "bull")]:
+        filtered = []
+        for item in src_list:
+            rec_type = _is_direct_recommend(item)
+            if rec_type == "STRONG_RECOMMEND":
+                item["recommendation"] = "STRONG_RECOMMEND"
+                item["reason"] = f"共识{label}+启动+非极端: 直接推荐"
+                trading_recommendations.append(item)
+            elif rec_type == "WATCH":
+                item["recommendation"] = "WATCH"
+                item["reason"] = f"共识{label}+观察级: 可直接关注"
+                watch_list.append(item)
+            else:
+                filtered.append(item)  # 保留到辩论池
+        src_list[:] = filtered  # 原地替换掉被取走的品种
+
+    print(f"\n  [双通道] 直接推荐(免辩论): {len(trading_recommendations)}个 | 观察级: {len(watch_list)}个 | 辩论候选: {len(divergence) + len(consensus_bear) + len(consensus_bull)}个")
+
     # 精选辩论品种
     candidates = []
     covered_chains = set()
 
-    # 第一轮：分歧品种
+    # 第一轮：分歧品种（仅纳入至少一边信号强度 >= MODERATE 的品种）
+    # 低于此阈值的分歧标记为弱分歧，不进入候选池——避免为辩论而辩论
+    MIN_DIVERGENCE_SIGNAL = 30  # 对应 MODERATE 阈值
+    skipped_weak_divergence = 0
     for item in divergence:
+        strength_l1l4 = abs(item["l1l4_total"])
+        strength_factor = abs(item["factor_total"])
+        if max(strength_l1l4, strength_factor) < MIN_DIVERGENCE_SIGNAL:
+            skipped_weak_divergence += 1
+            continue
         item["proposition_side"] = (
-            "bear"
-            if (abs(item["l1l4_total"]) >= abs(item["factor_total"]) and item["l1l4_dir"] == "bear")
-            else item["l1l4_dir"]
+            item.get("reversal_direction")   # 极端分歧 → 逆转方向为正方
+            if item.get("left_side_reversal")
+            else (
+                "bear"
+                if (abs(item["l1l4_total"]) >= abs(item["factor_total"]) and item["l1l4_dir"] == "bear")
+                else item["l1l4_dir"]
+            )
         )
         if item["proposition_side"] == "neutral":
             item["proposition_side"] = item["factor_dir"]
         item["reason"] = (
-            f"方向分歧: L1L4={item['l1l4_dir']}({item['l1l4_total']:+d}) vs 因子={item['factor_dir']}({item['factor_total']:+d})"
+            f"左侧反转机会: 极端{item['l1l4_dir']}位置+分歧, 正方=逆转方向({item['proposition_side']})"
+            if item.get("left_side_reversal")
+            else (
+                f"方向分歧: L1L4={item['l1l4_dir']}({item['l1l4_total']:+d}) vs 因子={item['factor_dir']}({item['factor_total']:+d})"
+            )
         )
         # 添加历史调整值
         if history_feedback:
@@ -637,6 +725,13 @@ def select_debate_symbols(
                     pass
         candidates.append(item)
         covered_chains.add(item["chain"])
+
+    if skipped_weak_divergence > 0:
+        print(f"  [辩论筛选] 跳过 {skipped_weak_divergence} 个弱信号分歧品种（两边信号强度 < {MIN_DIVERGENCE_SIGNAL}）")
+
+    left_side_count = sum(1 for c in candidates if c.get("left_side_reversal"))
+    if left_side_count > 0:
+        print(f"  [左侧反转] 极端分歧品种 x{left_side_count}: {', '.join(c['symbol'] for c in candidates if c.get('left_side_reversal'))}")
 
     # 第二轮：补充新链的共识空头
     for item in consensus_bear:
@@ -696,6 +791,8 @@ def select_debate_symbols(
             "divergence_count": len(divergence),
             "consensus_bear_count": len(consensus_bear),
             "consensus_bull_count": len(consensus_bull),
+            "trading_recommendations": len(trading_recommendations),
+            "watch_list": len(watch_list),
             "enhanced": True,
             "debate_scoring": "五维加权评分 v1",
         },
@@ -703,6 +800,8 @@ def select_debate_symbols(
         "consensus_bear": consensus_bear,
         "consensus_bull": consensus_bull,
         "debate_candidates": candidates,
+        "trading_recommendations": trading_recommendations,
+        "watch_list": watch_list,
         "chain_coverage": chain_counts,
         "z_extremes": z_extremes,
     }

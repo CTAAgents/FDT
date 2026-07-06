@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.4.0",
+  "version": "4.5.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.4 — 全量优化计划25项完成：P0 7项+P1 7项+P2 6项+P3 5项。十角色全景：数技源→链证源→研究员→辩手→风控(6层+L6组合风控)+双判官制衡。新增：实盘执行引擎+运维告警+合规审计+MARL训练器+对手盘建模+自动因子挖掘+多周期辩论。",
+  "description": "Multi-role futures trading debate team v4.5 — 双通道分离+左侧反转标记+TqSdk盘中源。共识+launch+非极端直接推荐(免辩论);分歧/极端/链补辩论。新增:分歧信号强度门槛(≥MODERATE)、极端分歧左侧反转(正方=逆转方向)、闫判官直接参数设定、策执远双通道输入、业务流固化于docs/business_flow.md。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"

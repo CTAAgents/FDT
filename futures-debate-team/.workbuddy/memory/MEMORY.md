@@ -105,3 +105,11 @@ python skills/quant-daily/scripts/assemble_intermediate_data.py \
 # Phase 3: 报告生成（现有流程）
 python skills/futures-trading-analysis/scripts/phase3_generate_report.py
 ```
+
+## 双通道业务流固化（2026-07-06）
+- **规范文档**: `docs/business_flow.md` — 五阶段双通道完整流程，作为所有 Agent 和 pipeline 的规范参考
+- **通道A** (直接推荐): 共识+launch+非极端 → 闫判官手动设参数 → 策执远算仓位 → 风控审核
+- **通道B** (辩论): 分歧/极端/链补 → 研究员供弹 → 证真vs慎思辩论 → 闫判官判决 → 策执远出方案 → 风控审核
+- **链证源**: P1.5（先于闫判官决策），产出产业链概况+redundant_pairs
+- **双通道合并点**: P3 策执远方案合成（两路径统一过风控）
+- **品种分类决策树**、角色阶段对照表、红线条目均固化在 business_flow.md 中
