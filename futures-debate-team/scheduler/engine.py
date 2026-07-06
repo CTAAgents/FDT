@@ -18,13 +18,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from .triggers import (
-    get_default_triggers,
-    _set_triggered,
-    _get_trigger_state,
-    _save_json,
-)
-from .tasks import get_task
+try:
+    from .triggers import (
+        get_default_triggers,
+        _set_triggered,
+        _get_trigger_state,
+        _save_json,
+    )
+    from .tasks import get_task
+except ImportError:
+    # 直接运行时（非包导入模式）
+    # 在 __main__ 部分会处理路径注入
+    pass
 
 
 # ─── 日志 ───────────────────────────────────────────────
@@ -123,22 +128,58 @@ class SchedulerEngine:
 
         return triggered
 
+    def _daemonize(self):
+        """衍生后台进程，当前进程立即返回"""
+        import subprocess
+
+        root = Path(__file__).resolve().parent.parent
+        script = str(root / "scheduler" / "engine.py")
+        venv = root / "venv" / "Scripts" / "python.exe"
+        python = str(venv) if venv.exists() else sys.executable
+
+        # 使用 bootstrap.py 启动守护进程（避免模块相对导入问题）
+        bootstrap_script = str(root / "bootstrap.py")
+
+        log_file = str(root / "scheduler" / "daemon.log")
+        pid_file = str(root / "memory" / "daemon.pid")
+
+        # Windows: DETACHED_PROCESS = 0x00000008, CREATE_NEW_PROCESS_GROUP = 0x00000200
+        flags = 0x00000008 | 0x00000200
+
+        try:
+            proc = subprocess.Popen(
+                [python, bootstrap_script, "daemon"],
+                cwd=str(root),
+                creationflags=flags,
+                stdout=open(log_file, "a", encoding="utf-8"),
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+            )
+            with open(pid_file, "w") as f:
+                f.write(str(proc.pid))
+
+            _log(f"   守护进程已启动 (PID: {proc.pid})")
+            print(f"\n✅ 守护进程已启动")
+            print(f"   PID: {proc.pid}")
+            print(f"   日志: scheduler/daemon.log")
+            print(f"   心跳: 每60秒")
+            print(f"\n  停止: python scheduler/engine.py stop")
+        except Exception as e:
+            print(f"\n❌ 守护进程启动失败: {e}")
+
     def run_forever(self, daemon: bool = False):
         """
         后台守护模式：每 heartbeat_interval 秒执行一次 check_and_run()。
 
         参数:
-            daemon: 如True，打印提示后立即返回（由调用方负责后台化）
+            daemon: 如True，使用subprocess衍生后台进程，当前进程立即返回
         """
+        if daemon:
+            return self._daemonize()
+
         self._running = True
         _log(f"🚀 调度器启动 | 心跳={self.heartbeat_interval}s | {len(self.triggers)}个触发器")
         _log(f"   可用任务: {', '.join(t for t in _get_task_names() if t)}")
-
-        if daemon:
-            _log("   后台模式，进程已分离")
-            print(f"PID: {os.getpid()}")
-            print(f"日志: {_LOG_PATH}")
-            return
 
         # 注册信号处理
         def _handle_sig(sig, frame):
@@ -167,8 +208,11 @@ class SchedulerEngine:
 
 
 def _get_task_names() -> list[str]:
-    from .tasks import list_tasks as lt
-    return lt()
+    try:
+        from .tasks import list_tasks as lt
+        return lt()
+    except ImportError:
+        return []
 
 
 # ─── 便捷函数 ───────────────────────────────────────────
@@ -189,12 +233,38 @@ def run_once(triggers: list | None = None) -> list[dict]:
 
 if __name__ == "__main__":
     import sys
+    import os
+    from pathlib import Path
+
+    # 确保路径正确
+    _root = Path(__file__).resolve().parent.parent
+    os.chdir(str(_root))
+    sys.path.insert(0, str(_root))
+
+    # 直接导入（避开相对导入）
+    from scheduler.triggers import get_default_triggers, _set_triggered, _get_trigger_state, _save_json
+    from scheduler.tasks import get_task, list_tasks
 
     mode = sys.argv[1] if len(sys.argv) > 1 else "once"
 
     if mode == "daemon":
         engine = SchedulerEngine()
         engine.run_forever(daemon=True)
+    elif mode == "stop":
+        pid_file = Path(__file__).resolve().parent.parent / "memory" / "daemon.pid"
+        if pid_file.exists():
+            pid = int(pid_file.read_text().strip())
+            try:
+                os.kill(pid, signal.SIGTERM)
+                pid_file.unlink()
+                print(f"✅ 已停止守护进程 (PID: {pid})")
+            except ProcessLookupError:
+                pid_file.unlink()
+                print(f"ℹ️  进程(PID:{pid})已不存在，清理pid文件")
+            except Exception as e:
+                print(f"❌ 停止失败: {e}")
+        else:
+            print(f"ℹ️  未找到守护进程 (pid文件不存在)")
     elif mode == "once":
         triggered = run_once()
         print(f"\n本次触发: {len(triggered)} 个任务")
