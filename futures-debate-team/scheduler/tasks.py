@@ -64,16 +64,26 @@ def _run_script(script_rel: str, *args: str, timeout: int = 300) -> tuple[bool, 
     if not script_path.exists():
         return False, f"脚本不存在: {script_path}"
 
-    venv_python = str(root / "venv" / "Scripts" / "python.exe")
-    if not os.path.exists(venv_python):
-        venv_python = sys.executable
+    # 脚本的父目录作为工作目录（很多脚本用相对路径如 ./reports/）
+    script_cwd = str(script_path.parent)
+
+    # Python路径探测：优先使用有依赖的Python
+    candidates = [
+        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),  # 平台管理venv（有依赖）
+        str(root / "venv" / "Scripts" / "python.exe"),           # 项目venv
+    ]
+    venv_python = sys.executable
+    for c in candidates:
+        if os.path.exists(c):
+            venv_python = c
+            break
 
     cmd = [venv_python, str(script_path)] + list(args)
     _log(f"运行: {' '.join(cmd)}")
 
     try:
         result = subprocess.run(
-            cmd, cwd=str(root), capture_output=True, text=True,
+            cmd, cwd=script_cwd, capture_output=True, text=True,  # ← 使用脚本目录作为cwd
             timeout=timeout, encoding="utf-8", errors="replace"
         )
         if result.returncode == 0:
@@ -94,23 +104,110 @@ def _run_script(script_rel: str, *args: str, timeout: int = 300) -> tuple[bool, 
 
 @register_task("daily_debate")
 def daily_debate() -> TaskResult:
-    """日常辩论 — 全量扫描62品种"""
-    start = datetime.now()
-    _log("📊 开始日常辩论全量扫描")
+    """
+    日常辩论 — 完整全量管道
 
-    # 模式一实战辩论比POC复杂，先做POC简化版：只做扫描+汇总
-    success, summary = _run_script(
+    流程:
+      Step 1: scan_all.py --dual（62品种双策略扫描）
+      Step 2: 查找最新summary + 链分析 → assemble_intermediate_data.py
+      Step 3: phase3_generate_report.py → HTML报告
+      Step 4: 复制报告到 Commodities/
+    """
+    start = datetime.now()
+    _log("📊 日常辩论 — 全量管道启动")
+    steps = []
+
+    # ── Step 1: 双策略扫描 ──
+    _log("  Step 1/4: 双策略扫描")
+    ok1, msg1 = _run_script(
         "skills/quant-daily/scripts/scan_all.py",
         "--dual",
-        timeout=180,
+        timeout=240,
     )
+    steps.append(f"扫描: {'✅' if ok1 else '❌'}")
+    if not ok1:
+        return TaskResult(
+            task_name="daily_debate", success=False,
+            started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+            finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary=f"扫描失败: {msg1}", error=msg1,
+        )
 
-    # 记录到debate_journal（简化版只记录触发）
-    journal_path = _project_root() / "memory" / "debate_journal.json"
+    # ── Step 2: 查找最新产出，准备报告目录 ──
+    _log("  Step 2/4: 准备报告数据")
+    root = _project_root()
+    date_str = datetime.now().strftime("%Y%m%d")
+    date_str_hy = datetime.now().strftime("%Y-%m-%d")
+
+    # scan_all.py的默认输出路径: ~/Documents/WorkBuddy/Commodities/Reports/商品期货深度分析/{date}/
+    workbuddy_dir = Path(os.path.expanduser("~")) / "Documents" / "WorkBuddy"
+    scan_report_dir = workbuddy_dir / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
+
+    # 查找最新的 summary JSON（优先查scan默认输出目录）
+    if scan_report_dir.exists():
+        summary_files = sorted(scan_report_dir.glob(f"full_scan_summary_{date_str}*.json"))
+    else:
+        summary_files = []
+
+    if not summary_files:
+        # 降级到 quant-daily/reports/
+        reports_dir = root / "skills" / "quant-daily" / "reports"
+        summary_files = sorted(reports_dir.glob(f"full_scan_summary_{date_str}*.json"))
+    if not summary_files:
+        summary_files = sorted(reports_dir.glob("full_scan_summary_*.json"))
+    if not summary_files:
+        steps.append("数据: ❌ 未找到summary")
+        return TaskResult(
+            task_name="daily_debate", success=False,
+            started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+            finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary="未找到扫描结果", error="summary未生成",
+        )
+
+    latest_summary = str(summary_files[-1])
+    _log(f"  summary: {latest_summary}")
+    steps.append(f"数据: ✅ {Path(latest_summary).name}")
+
+    # ── Step 3: 运行phase3报告生成 ──
+    phase3_script = str(root / "skills" / "futures-trading-analysis" / "scripts" / "phase3_generate_report.py")
+
+    if Path(phase3_script).exists():
+        ok3, msg3 = _run_script(
+            "skills/futures-trading-analysis/scripts/phase3_generate_report.py",
+            timeout=120,
+        )
+        steps.append(f"报告: {'✅' if ok3 else '❌'} {msg3[:60]}")
+    else:
+        steps.append("报告: ⏭ 脚本不存在")
+        ok3, msg3 = False, "phase3_generate_report.py not found"
+
+    # ── Step 4: 复制报告到工作空间 Commodities/ ──
+    _log("  Step 4/4: 复制报告到工作空间")
+    # phase3 输出在 scan_report_dir，复制到 Signal/Commodities/
+    html_files = list(scan_report_dir.glob("daily_analysis_*.html")) if scan_report_dir.exists() else []
+
+    commodity_dir = Path(os.path.expanduser("~")) / "Documents" / "Signal" / "Commodities"
+    copied = []
+    if commodity_dir.exists():
+        import shutil
+        for hf in html_files:
+            dest = commodity_dir / hf.name
+            shutil.copy2(str(hf), str(dest))
+            copied.append(str(dest))
+        _log(f"  已复制 {len(html_files)} 个报告到 {commodity_dir}")
+
+    if copied:
+        steps.append(f"输出: ✅ {copied[0]}")
+    else:
+        steps.append("输出: ⚠️ 目标目录不存在")
+
+    # ── 记录日志 ──
+    journal_path = root / "memory" / "debate_journal.json"
     entry = {
         "triggered_at": start.strftime("%Y-%m-%d %H:%M"),
-        "type": "daily_debate",
-        "scan_result": "ok" if success else "failed",
+        "type": "daily_debate_full",
+        "steps": steps,
+        "report_count": len(html_files),
     }
     try:
         if journal_path.exists():
@@ -124,13 +221,13 @@ def daily_debate() -> TaskResult:
     except Exception:
         pass
 
+    summary_line = " | ".join(steps)
     return TaskResult(
         task_name="daily_debate",
-        success=success,
+        success=ok3,
         started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
         finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        summary=summary,
-        error="" if success else summary,
+        summary=summary_line,
     )
 
 

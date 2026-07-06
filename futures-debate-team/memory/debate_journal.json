@@ -49,7 +49,7 @@
       "direction": "SELL",
       "confidence": "高",
       "bull_score": 70.25,
-      "short_score": 80.00,
+      "short_score": 80.0,
       "price": 3077.0,
       "adx": 67.2,
       "atr": 10.7,
@@ -60,6 +60,30 @@
       "factor_score": 0,
       "verdict": "维持做空",
       "reasoning": "ADX=67.2极强趋势+L1-L4 CONS=4/4全层一致看空构成高确定性做空信号。Factor中性仅降置信度不反转方向。"
+    },
+    {
+      "triggered_at": "2026-07-06 17:07",
+      "type": "daily_debate_full",
+      "steps": [
+        "扫描: ✅",
+        "数据: ✅ full_scan_summary_20260705.json",
+        "报告: ✅ 62个品种",
+        "报告: ✅ ============================================================",
+        "输出: ⚠️ 目标目录不存在"
+      ],
+      "report_count": 0
+    },
+    {
+      "triggered_at": "2026-07-06 17:11",
+      "type": "daily_debate_full",
+      "steps": [
+        "扫描: ✅",
+        "数据: ✅ full_scan_summary_20260705.json",
+        "报告: ✅ 62个品种",
+        "报告: ✅ ============================================================",
+        "输出: ⚠️ 目标目录不存在"
+      ],
+      "report_count": 0
     }
   ]
 }
