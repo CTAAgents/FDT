@@ -1,8 +1,8 @@
 ---
 name: quant-daily
-version: 2.6.0
+version: 2.7.0
 agent_created: true
-description: 商品期货量化分析skill — 默认策略=three_signal（三类信号：突破/回踩/跳空）。L1-L4原始指标和因子择时数据作为研究员辅助分析工具。--dual模式输出三类信号报告+L1-L4原始指标+因子择时数据。
+description: 商品期货量化分析skill — 默认策略=three_signal（三类信号：突破/回踩/跳空）。L1-L4和因子择时数据不再全量计算，由研究员按需通过data_interface获取。
 ---
 
 # quant-daily — 商品期货量化分析一体化

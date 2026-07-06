@@ -344,3 +344,10 @@ append_md_section("data_sources.md", "探源", "2026-07-05",
 ### R09 | 异常值引用禁令
 - 系统标记为"异常"/"过滤"/"unknown"的数值 → **禁止**作为论据
 - 如需引用被过滤数据 → 必须标注"系统标记异常"并提供独立数据源验证
+
+## 产出格式
+
+输出必须符合 `FundamentalStateVector` schema（见 `contracts/fundamental_state.py`），包含 `supply_demand`、`inventory`、`profit`、`term_structure`、`leading_signals`。
+
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 FundamentalStateVector schema。
+必须包含 `meta.phase`="P2" + `meta.agent_name`="探源" + `version`="3.0"。

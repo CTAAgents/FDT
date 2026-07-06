@@ -100,6 +100,7 @@ def set_default(name: str):
 
 
 # 注册策略
-# L1-L4和因子择时不再作为独立策略提供交易信号
-# 它们的代码保留在strategies/目录下，通过data_interface供研究员import使用
+# L1-L4和因子择时不再作为独立策略提供交易信号（默认模式）
+# 根据用户需求可通过 --strategy layered_l1l4 显式激活
 from . import three_signal_strategy  # noqa: F401, E402
+from . import layered_l1l4  # noqa: F401, E402  # L1-L4分层累加模式（用户可选）

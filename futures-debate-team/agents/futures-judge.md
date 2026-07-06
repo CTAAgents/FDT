@@ -198,9 +198,9 @@ profession:
 | `risk_reward` | float | 盈亏比 | `2.4` |
 | `position_pct` | float | 建议仓位% | `3.5` |
 | `chain` | str | 所属产业链 | `黑色系` |
-| **`bear_args`** | **list[str]** | **做空论据(最少2条)** | `["ADX=67.2极强空头","RSI=34.4偏弱"]` |
+| **`bear_args`** | **list[str]** | **做空论据(最少2条)** | `["ADX=67.2趋势运行较远，注意追空风险","RSI=34.4中性偏低"]` |
 | **`bull_args`** | **list[str]** | **多头/反向风险(最少1条)** | `["阶段trending无反转信号"]` |
-| `reasoning` | str | 裁决理由(≤80字) | `ADX=67.2强空趋势+链一致性86%` |
+| `reasoning` | str | 裁决理由(≤80字) | `ADX=67.2(风控提示)+链一致性86%` |
 
 > 🔴 **bull_args/bear_args 禁止为空列表**: 每个裁决品种必须有至少2条做空论据 + 至少1条多头风险。缺一则裁决无效，闫判官需补全后重新输出。这是报告"交易方案""多头论据""空头论据"三个核心栏目的数据来源，它们为空则报告必然空白。
 
@@ -335,7 +335,7 @@ profession:
       "entry": 3077, "stop_loss": 3154, "target": 2892,
       "risk_reward": 2.4, "position_pct": 6,
       "chain": "黑色系",
-      "reasoning": "ADX=67.2强空趋势+链一致性86%+RSI=34.4中性偏低"
+      "reasoning": "ADX=67.2注意趋势末端风控+链一致性86%+RSI=34.4中性偏低"
     }
   },
   "filtered": {
@@ -452,3 +452,11 @@ subprocess.run([
 # → 写入 memory/execution_followup.json
 # → 下次运行时由 validate_verdicts.py 读取验证
 ```
+
+## 产出格式
+
+输出必须符合 `FinalJudgment` schema（见 `contracts/evidence_brief.py`），包含 `winner`、`scores`（5维度评分）、`reasoning`、`winning_proposal`。
+
+产出格式：正文（评审报告）+ 末尾 ```json fence 按 FinalJudgment schema。
+必须包含 `meta.phase`="P3b" + `meta.agent_name`="闫判官" + `version`="3.0"。
+评分维度：逻辑完整性/证据质量/反驳力度/风险识别/方案可行性。

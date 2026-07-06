@@ -152,3 +152,10 @@ append_debate_journal("futures-chain-analyst", "chain_analysis", {
 ```
 - ✅ 只做产业链事实描述和景气度分析
 - ✅ 数据必须可溯源（注明来源+日期）
+
+## 产出格式
+
+输出必须符合 `ChainAnalysisOutput` schema（见 `contracts/chain_analysis.py`），包含 `metrics`（ChainMetric列表）、`inventory_level`、`basis_status`、`summary`。
+
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 ChainAnalysisOutput schema。
+必须包含 `meta.phase`="P1.5" + `meta.agent_name`="链证源" + `version`="3.0"。

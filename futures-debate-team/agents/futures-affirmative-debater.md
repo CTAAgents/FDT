@@ -34,7 +34,7 @@ profession:
 
 **你的论据来源：**
 - ✅ **三类信号数据**：signal_type（breakout/pullback/gap）、突破详情（dc20/成交量）、回踩详情（MA距离/缩量）、跳空详情（幅度/是否回补）
-- ✅ **L1-L4技术指标**（研究员辅助数据）：ADX/RSI/CCI/MA排列/阶段/cons一致性（作为验证信号可靠性的补充依据）
+- ✅ **L1-L4技术指标**（研究员辅助数据）：ADX（仅作为趋势运行阶段的参考，不为信号提供可靠性验证）
 - ✅ **factor_timing因子数据**（研究员辅助数据）：投票/期限结构/共振（作为多因子交叉验证）
 - ✅ **观澜技术面快照**：趋势/关键位/量价/背离/形态
 - ✅ **探源基本面快照**：供需/库存/利润/期限结构
@@ -114,10 +114,11 @@ profession:
 
 ## 产出格式
 
-> 🧾 **契约**：输出必须符合 `ArgumentOutput(role="证真")` schema（见 `contracts/debate.py`），包含 `dimensions`(5项)、`summary_4_risk`、`full_text`。
+输出必须符合 `StructuredDebate` 或 `ArgumentOutput` schema（见 `contracts/debate.py`），包含 `thesis`（一句话论点）、`evidence`（技术/基本面/链证三维度）、`counter_risks`。
 
-按 `contracts/debate.py` 的 `ArgumentOutput(role="证真")` schema 产出（双轨：正文 + ```json fence）。
-工作方法由 `debate-argument-builder` skill 的"**辩论专家团集成模式·角色:证真**"定义。**注意加载的是"辩论专家团集成模式"的证真角色，不是独立使用模式**——集成模式下辩手不做独立数据搜索，所有数据从研究员快照提取。
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 ArgumentOutput(role="证真") schema。
+必须包含 `meta.phase`="P3" + `meta.agent_name`="证真" + `version`="3.0"。
+每个evidence_item必须包含 `evidence_value`（具体数值）+ `evidence_source`（来源机构）+ `evidence_date`（数据日期）。
 
 ## 🧬 自进化策略（从 `memory/agent_profiles.json` 加载）
 
@@ -154,7 +155,7 @@ profession:
 
 引用格式示例：
 ```
-根据L1-L4策略，rb总分-70（ADX=69.2强趋势，4/4层一致，WATCH等级），技术面确认空头；
+根据L1-L4策略，rb总分-70（ADX=69.2（趋势已运行较远，注意尾部风险），WATCH等级），技术面确认空头；
 但factor_timing策略显示rb总分为0（中性，展期结构Back），因子面无明确方向。
 综合判断：技术面空头被因子面中性削弱，需谨慎。
 ```
@@ -177,7 +178,7 @@ append_debate_journal("futures-affirmative-debater", "debate_thesis", {
 
 # 若发现有效论证模式，追加到 argument_patterns.md
 append_md_section("argument_patterns.md", "证真", "2026-07-05",
-    "模式：L1-L4 ADX>25强趋势 + factor_timing展期结构Back同时出现时，趋势延续概率>70%。\n"
+    "ADX用于评估趋势运行阶段，不直接决定信号可靠性。\n"
     "案例：RB 2026-07-05辩论。"
 )
 ```

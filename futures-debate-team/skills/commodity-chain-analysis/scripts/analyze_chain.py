@@ -152,6 +152,26 @@ def build_symbols_from_p1(input_path: str) -> list:
     with open(input_path, "r", encoding="utf-8") as f:
         p1 = json.load(f)
 
+    # 三类信号格式 (all_ranked)
+    ranked = p1.get("all_ranked")
+    if isinstance(ranked, list) and len(ranked) > 0:
+        symbols_data = []
+        for item in ranked:
+            sym = item.get("symbol", "")
+            if not sym:
+                continue
+            direction = item.get("direction", "neutral")
+            dir_map = {"bull": "多头上涨", "bear": "空头下跌", "neutral": "中性"}
+            symbols_data.append({
+                "product_id": sym.upper(),
+                "product_name": item.get("name", sym),
+                "last_price": item.get("price", 0),
+                "direction": dir_map.get(direction, "中性"),
+                "score": abs(item.get("total", 0)),
+                "open_interest": item.get("open_interest", 0),
+            })
+        return symbols_data
+
     symbols_data = []
     contracts = p1.get("contracts", p1.get("all_actionable", []))
     if isinstance(contracts, list) and all(isinstance(c, str) for c in contracts):

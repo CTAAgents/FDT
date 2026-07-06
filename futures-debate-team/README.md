@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.2
+# Futures Debate Team — 期货交易辩论专家团 v5.2.1
 
-> 🧬 **v5.2 里程碑**: 三类信号架构重构 — 内建调度器(scheduler/) + bootstrap一键启动 + 看门狗自动恢复 + 全自动辩论管道 + 自循环闭环 + 独立记忆系统 + 裁决修正v2.0
+> 🧬 **v5.2.1 修复**: ADX仅风控不参与评分 + Agent输出格式统一 + JSON Schema标准导出 (docs/schemas/) + 时序通信铁律S01-S05 + 胶水代码清零
 
 ## 类型
 

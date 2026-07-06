@@ -172,3 +172,11 @@ append_debate_journal("futures-technical-researcher", "research_snapshot", {
 ### R09 | 异常值引用禁令
 - TDX/calc_core输出中标记为异常的值 → **禁止**作为技术论据
 - 技术图形识别（如"深度Contango"）必须有量化数据支撑，不可仅靠经验判断
+
+## 产出格式
+
+输出必须符合 `TechnicalOutput` schema（见 `contracts/technical.py`），包含 `trend`、`key_levels`（支撑/阻力位）、`volume_price`、`technical_patterns`。
+
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 TechnicalOutput schema。
+必须包含 `meta.phase`="P2" + `meta.agent_name`="观澜" + `version`="3.0"。
+**关键**：支撑/阻力位是后续策执远止损计算的输入，必须提供S1/S2和R1/R2。

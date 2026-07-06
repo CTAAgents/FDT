@@ -79,13 +79,7 @@ class ThreeSignalStrategy(BaseStrategy):
                     else:
                         breakout_detail["volume_confirm"] = False
                         breakout_detail["vol_ratio"] = round(vol_ratio, 1)
-                # ADX走向（是上升还是下降）
-                if adx > 20:
-                    breakout_score += 10
-                    breakout_detail["adx_support"] = True
-                else:
-                    breakout_detail["adx_support"] = False
-                # 带宽检查
+                # 带宽检查（ADX不参与评分，仅输出供风控使用）
                 if df is not None and len(df) > 20:
                     high_20 = df["high"].iloc[-20:].max()
                     low_20 = df["low"].iloc[-20:].min()
@@ -205,17 +199,12 @@ class ThreeSignalStrategy(BaseStrategy):
                 signal_type = "pullback"
                 signal_confidence = pullback_score
 
-            # 方向判断（基于趋势）
+            # 方向判断（基于MA斜率，不依赖ADX）
             direction = "neutral"
             if ma_slope > 5:
                 direction = "bull"
             elif ma_slope < -5:
                 direction = "bear"
-            elif adx > 25:
-                if rsi > 50:
-                    direction = "bull"
-                else:
-                    direction = "bear"
 
             # 总分（三类信号综合分，带方向）
             total_score = breakout_score + pullback_score + gap_score

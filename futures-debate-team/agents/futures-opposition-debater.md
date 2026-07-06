@@ -146,7 +146,10 @@ profession:
 
 ## 产出格式
 
-> 🧾 **契约**：输出必须符合 `ArgumentOutput(role="慎思")` schema（见 `contracts/debate.py`），包含 `dimensions`(5项)、`summary_4_risk`、`full_text`、`rebuttal_targets`。
+输出必须符合 `StructuredDebate` 或 `ArgumentOutput` schema（见 `contracts/debate.py`），包含 `thesis`（一句话论点）、`evidence`（技术/基本面/链证三维度）、`counter_risks`。
+
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 ArgumentOutput(role="慎思") schema。
+必须包含 `meta.phase`="P3" + `meta.agent_name`="慎思" + `version`="3.0"。
 
 ## Memory 记录规范
 
@@ -159,14 +162,14 @@ from scripts.memory_writer import append_debate_journal, append_md_section
 append_debate_journal("futures-opposition-debater", "debate_thesis", {
     "round": "RB_20260705",
     "side": "bear",
-    "key_arguments": ["L1-L4 ADX=69确认强空头趋势", "factor_timing展期结构Back但幅度收窄"],
+    "key_arguments": ["ADX=69（趋势已运行较远，持续加仓风控成本高）", "factor_timing展期结构Back但幅度收窄"],
     "target_price": 3400,
     "stop_loss": 3680,
 })
 
 # 若发现有效的质疑模式，追加到 argument_patterns.md
 append_md_section("argument_patterns.md", "慎思", "2026-07-05",
-    "模式：L1-L4 ADX>50极端趋势时，即使展期结构Back也有衰竭风险。\n"
+    "ADX>50仅提示趋势运行较远，需要更严格的风控。\n"
     "案例：RB 2026-07-05辩论。"
 )
 ```

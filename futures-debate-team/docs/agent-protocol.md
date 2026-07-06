@@ -3,6 +3,35 @@
 > 定义 futures-debate-team 10角色间的结构化通信契约。每个 Agent 的输入/输出必须符合对应的 schema。
 > 解决 "telephone effect"——信息在 Agent 间传递时因格式混搭导致的失真。
 
+## 📐 协议标准层次
+
+| 层次 | 标准 | 来源 |
+|:-----|:-----|:-----|
+| **数据格式** | JSON Schema (Draft 2020-12) | JSON Schema / OpenAPI 3.1 **行业标准** |
+| **通信契约** | Pydantic v2 models (`contracts/`) | 内部定义，可导出为JSON Schema |
+| **编码** | UTF-8 | **行业标准** |
+| **时间格式** | ISO 8601 (`YYYY-MM-DD HH:MM`) | ISO **国际标准** |
+| **品种代码** | 交易所标准代码（rb.SHF, CU.SHF） | 各交易所 **行业标准** |
+| **金额格式** | 浮点数，不包含货币符号 | 内部约定 |
+
+### JSON Schema 文件位置
+
+所有 schema 的 JSON Schema 定义（Draft 2020-12 / OpenAPI 3.1 兼容）在 `docs/schemas/` 目录下：
+
+| Schema | JSON Schema 文件 | Pydantic源 |
+|:-------|:----------------|:-----------|
+| ChainAnalysisOutput | `docs/schemas/ChainAnalysisOutput.json` | `contracts/chain_analysis.py` |
+| ChainMetric | `docs/schemas/ChainMetric.json` | `contracts/chain_analysis.py` |
+| ArgumentOutput | `docs/schemas/ArgumentOutput.json` | `contracts/debate.py` |
+| StructuredDebate | `docs/schemas/StructuredDebate.json` | `contracts/debate.py` |
+| DimensionItem | `docs/schemas/DimensionItem.json` | `contracts/debate.py` |
+| EvidenceItem | `docs/schemas/EvidenceItem.json` | `contracts/debate.py` |
+| RiskOutput | `docs/schemas/RiskOutput.json` | `contracts/risk.py` |
+| VerdictItem | `docs/schemas/VerdictItem.json` | `contracts/risk.py` |
+| OverallJudgment | `docs/schemas/OverallJudgment.json` | `contracts/risk.py` |
+
+Agent输出必须与 `docs/schemas/` 下的JSON Schema定义一致。可使用任意JSON Schema验证工具进行校验。
+
 ---
 
 ## 协议总图
@@ -119,22 +148,27 @@
 
 ## 契约定义（Schema 索引）
 
-所有 schema 见 `skills/futures-trading-analysis/contracts/`：
+所有 schema 定义在 `skills/futures-trading-analysis/contracts/` 目录下（Pydantic v2 models），同步导出为 JSON Schema 文件 `docs/schemas/`：
 
-| schema | 文件 | 版本 | 生产者 | 消费者 |
-|:-------|:-----|:-----|:-------|:-------|
-| `PhaseMeta` | `base.py` | 2.0 | 所有 Agent | 编排层 |
-| `BaseSkillOutput` | `base.py` | 2.0 | 所有 Agent（基类） | 编排层 |
-| `DataCollectionOutput` | `data_collection.py` | 2.0 | 数聚石（旧） | 分析层 |
-| `TechnicalOutput` | `technical.py` | 2.0 | 观澜 | 闫判官+证真+慎思 |
-| `ChainAnalysisOutput` | `chain_analysis.py` | 2.0 | 链证源 | 闫判官 |
-| `FundamentalStateVector` | `fundamental_state.py` | **1.0** 🆕 | 探源 | 闫判官+证真+慎思 |
-| `ArgumentOutput` | `debate.py` | 2.0/2.1 | 证真/慎思 | 闫判官 |
-| `PrepBrief` | `evidence_brief.py` | **1.0** 🆕 | 闫判官（辩论前） | 辩论角色 |
-| `FinalJudgment` | `evidence_brief.py` | **1.0** 🆕 | 闫判官（裁决） | 明鉴秋 |
-| `RiskOutput` | `risk.py` | 2.0/2.1 | 风控明 | 闫判官 |
-| `TradingPlanOutput` | `trading_plan.py` | 2.0 | 策执远 | 风控明 |
-| `TeamDecisionOutput` | `team_decision.py` | **1.0** 🆕 | 明鉴秋 | main + 归档 |
+| schema | 源文件 | JSON Schema | 版本 | 生产者 | 消费者 |
+|:-------|:-------|:------------|:----|:-------|:-------|
+| `PhaseMeta` | `base.py` | — (通用元数据) | 3.0 | 所有 Agent | 编排层 |
+| `BaseSkillOutput` | `base.py` | — (基类) | 3.0 | 所有 Agent（基类） | 编排层 |
+| `DataCollectionOutput` | `data_collection.py` | — | 2.0 | 数聚石（旧） | 分析层 |
+| `TechnicalOutput` | `technical.py` | — | 2.0 | 观澜 | 闫判官+证真+慎思 |
+| `ChainAnalysisOutput` | `chain_analysis.py` | `ChainAnalysisOutput.json` | 3.0 | 链证源 | 闫判官 |
+| `FundamentalStateVector` | `fundamental_state.py` | — | 1.0 🆕 | 探源 | 闫判官+证真+慎思 |
+| `ArgumentOutput` | `debate.py` | `ArgumentOutput.json` | 3.0 | 证真/慎思 | 闫判官 |
+| `StructuredDebate` | `debate.py` | `StructuredDebate.json` | 3.0 | 证真/慎思 (v3) | 闫判官 |
+| `PrepBrief` | `evidence_brief.py` | — | 1.0 🆕 | 闫判官（辩论前） | 辩论角色 |
+| `FinalJudgment` | `evidence_brief.py` | — | 1.0 🆕 | 闫判官（裁决） | 明鉴秋 |
+| `RiskOutput` | `risk.py` | `RiskOutput.json` | 3.0 | 风控明 | 闫判官 |
+| `TradingPlanOutput` | `trading_plan.py` | — | 2.0 | 策执远 | 风控明 |
+| `TeamDecisionOutput` | `team_decision.py` | — | 1.0 🆕 | 明鉴秋 | main + 归档 |
+
+> 💡 **Validation**: 任何 JSON Schema 文件 (`.json`) 均可使用标准 JSON Schema 验证工具校验。Pydantic 模型可通过 `.model_validate()` 在 Python 中直接校验。
+
+---
 
 ---
 

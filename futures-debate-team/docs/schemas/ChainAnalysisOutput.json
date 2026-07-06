@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChainAnalysisOutput",
+  "description": "链证源输出 - 产业链基本面分析",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "3.0"
+      ]
+    },
+    "variant": {
+      "type": "string",
+      "enum": [
+        "futures_chain"
+      ]
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ChainMetric"
+      }
+    },
+    "inventory_level": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "basis_status": {
+      "type": "string",
+      "enum": [
+        "contango",
+        "backwardation",
+        "flat"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "description": "产业链分析总结"
+    },
+    "judge_advice": {
+      "type": "object",
+      "description": "闫判官裁决建议（链去重等）"
+    }
+  },
+  "required": [
+    "version",
+    "variant",
+    "summary"
+  ]
+}

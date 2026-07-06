@@ -186,3 +186,11 @@ append_debate_journal("futures-trading-strategist", "execution_followup", {
     "lessons": "入场过早，方向正确但回撤略大，下次等ADX>30再入场。"
 })
 ```
+
+## 产出格式
+
+输出必须符合 `TradingPlanOutput` schema（见 `contracts/trading_plan.py`），包含 `plans`（每品种2-3方案）、`portfolio_note`、`hedge_suggestion`。
+
+产出格式：正文（方案分析）+ 末尾 ```json fence 按 TradingPlanOutput schema。
+必须包含 `meta.phase`="P4" + `meta.agent_name`="策执远" + `version`="3.0"。
+每套方案必须包含：entry/stop_loss(技术位)/target/position/validity。

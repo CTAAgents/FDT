@@ -44,9 +44,17 @@ def _detect_format(debate_results: dict) -> str:
         if isinstance(val, dict) and any(k in val for k in ("judge_verdict", "verdict", "direction")):
             return "per_pid"
     if "verdicts" in debate_results and isinstance(debate_results["verdicts"], dict):
-        return "nested"
+        if debate_results["verdicts"]:  # 非空
+            return "nested"
+        # verdicts为空字典，检查是否有final_verdict
+        if "final_verdict" in debate_results and isinstance(debate_results["final_verdict"], dict):
+            if debate_results["final_verdict"]:
+                return "final_verdict"
     if "verdicts" in debate_results and isinstance(debate_results["verdicts"], list):
         return "nested_list"
+    if "final_verdict" in debate_results and isinstance(debate_results["final_verdict"], dict):
+        if debate_results["final_verdict"]:
+            return "final_verdict"
     return "per_pid"
 
 
@@ -264,6 +272,10 @@ def adapt_debate_results(debate_results: dict, intermediate: dict) -> dict:
         verdicts = debate_results.get("verdicts", {})
         overall = debate_results.get("overall", {})
         debate_results = _nested_to_per_pid(verdicts, overall, intermediate)
+    elif fmt == "final_verdict":
+        verdicts = debate_results.get("final_verdict", {})
+        overall = debate_results.get("overall", {})
+        debate_results = _nested_to_per_pid(verdicts, overall, intermediate)
     elif fmt == "nested_list":
         raw_list = debate_results.get("verdicts", [])
         nested_dict = {}
@@ -303,6 +315,31 @@ def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dic
         if not chain:
             chain = pid_to_chain.get(pid.lower(), "")
 
+        # 处理final_verdict格式：l1l4/factor子dict展开
+        l1l4 = v.get("l1l4", {})
+        if isinstance(l1l4, dict):
+            v_adx = v.get("adx", l1l4.get("adx", 0))
+            v_rsi = v.get("rsi", l1l4.get("rsi", 50))
+            v_price = v.get("price", v.get("entry_price", v.get("entry", 0)))
+            v_score = v.get("score", l1l4.get("total", 0))
+        else:
+            v_adx = v.get("adx", 0)
+            v_rsi = v.get("rsi", 50)
+            v_price = v.get("price", v.get("entry_price", v.get("entry", 0)))
+            v_score = v.get("score", 0)
+
+        # 如果没有bull_args/bear_args，从reasoning生成
+        if not bear_args and not bull_args:
+            reasoning = v.get("reasoning", "")
+            risk_note = v.get("risk_note", "")
+            key_tension = v.get("key_tension", "")
+            if direction == "SELL":
+                bear_args = reasoning[:200] if reasoning else "空头方向"
+                bull_args = risk_note[:200] if risk_note else (key_tension[:200] if key_tension else "")
+            elif direction == "BUY":
+                bull_args = reasoning[:200] if reasoning else "多头方向"
+                bear_args = risk_note[:200] if risk_note else ""
+
         per_pid[pid] = {
             "judge_verdict": {
                 "final_direction": direction,
@@ -315,16 +352,16 @@ def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dic
             "bear_args": bear_args,
             "verdict": {"status": direction, "confidence": conf_val},
             "direction": direction,
-            "entry_price": v.get("entry_price", v.get("entry", 0)),
+            "entry_price": v_price,
             "target_price": v.get("target_price", v.get("target", 0)),
             "stop_loss_price": v.get("stop_loss_price", v.get("stop_loss", 0)),
             "position_size": v.get("position_pct", v.get("position_size", 0)),
             "risk_reward_ratio": v.get("risk_reward_ratio", v.get("risk_reward", 0)),
             "chain": chain,
-            "adx": v.get("adx", 0),
-            "rsi": v.get("rsi", 50),
-            "score": v.get("score", 0),
-            "price": v.get("entry_price", v.get("entry", 0)),
+            "adx": v_adx,
+            "rsi": v_rsi,
+            "score": v_score,
+            "price": v_price,
         }
     return per_pid
 
@@ -370,6 +407,78 @@ if os.path.exists(DEBATE_PATH):
         debate_results = json.load(f)
     debate_results = adapt_debate_results(debate_results, intermediate)
     print(f"✓ 辩论结果: {len(debate_results)} 个品种")
+    
+    # ── 加载证真/慎思辩论详情并注入 per-pid ──
+    def _load_debate_args(report_dir: str) -> dict:
+        """读取辩论详情文件，返回 {symbol: dict} 格式"""
+        import re
+        result = {}
+        for fname, key in [('p3_zhengzhen_20260706.json', 'affirmative_arguments'),
+                           ('p3_zhensi_20260706.json', 'arguments')]:
+            fpath = os.path.join(report_dir, fname)
+            if os.path.exists(fpath):
+                with open(fpath, encoding='utf-8') as f:
+                    content = f.read()
+                # 如果是markdown+json fence格式
+                fence = re.search(r'```json\s*(.*?)```', content, re.DOTALL)
+                raw = json.loads(fence.group(1)) if fence else json.loads(content)
+                items = raw.get(key, raw)
+                if isinstance(items, list):
+                    for item in items:
+                        sym = item.get('symbol', item.get('subject', '')).split()[0].upper()
+                        result.setdefault(sym, {})[fname[:4]] = item
+                elif isinstance(items, dict):
+                    for sym, item in items.items():
+                        result.setdefault(sym.upper(), {})[fname[:4]] = item
+        return result
+
+    debate_args = _load_debate_args(os.path.dirname(DEBATE_PATH)) if os.path.exists(DEBATE_PATH) else {}
+    for pid in debate_results:
+        args = debate_args.get(pid.upper(), {})
+        zz = args.get('p3_z', {})  # 证真
+        zs = args.get('p3_z2', {})  # 慎思
+        if not debate_results[pid].get('bull_args'):
+            if isinstance(zz, dict):
+                thesis = zz.get('thesis', zz.get('core_claim', ''))
+                dims = zz.get('dimensions', zz.get('evidence', []))
+                if thesis: debate_results[pid]['bull_args'] = thesis[:200]
+                elif isinstance(dims, list):
+                    debate_results[pid]['bull_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
+        if not debate_results[pid].get('bear_args'):
+            if isinstance(zs, dict):
+                thesis = zs.get('thesis', zs.get('core_claim', ''))
+                dims = zs.get('dimensions', zs.get('evidence', []))
+                if thesis: debate_results[pid]['bear_args'] = thesis[:200]
+                elif isinstance(dims, list):
+                    debate_results[pid]['bear_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
+
+    # ── 加载策执远交易方案并注入 per-pid（合约/入场/止损/目标） ──
+    for fname in ['p5_trading_plan_20260706.json', 'p5_trading_plan.json']:
+        fpath = os.path.join(os.path.dirname(DEBATE_PATH), fname) if os.path.exists(DEBATE_PATH) else ''
+        if not fpath or not os.path.exists(fpath):
+            continue
+        with open(fpath, encoding='utf-8') as f:
+            tp = json.load(f)
+        plans = tp.get('plans', tp.get('symbols', {}))
+        if isinstance(plans, dict):
+            for pid in debate_results:
+                p = plans.get(pid.upper(), plans.get(pid.lower(), {}))
+                if not p: continue
+                debate_results[pid]['main_contract'] = p.get('main_contract', '')
+                debate_results[pid]['price'] = p.get('price', debate_results[pid].get('entry_price', 0))
+                ops = p.get('options', [])
+                if ops:
+                    opt = ops[0]  # 保守方案
+                    debate_results[pid]['entry_price'] = debate_results[pid].get('entry_price') or p.get('price', 0)
+                    if isinstance(opt.get('stop_loss'), dict):
+                        debate_results[pid]['stop_loss_price'] = opt['stop_loss'].get('price', 0)
+                    elif isinstance(opt.get('stop_loss'), (int, float)):
+                        debate_results[pid]['stop_loss_price'] = opt['stop_loss']
+                    targets = opt.get('targets', [])
+                    if targets:
+                        debate_results[pid]['target_price'] = targets[0].get('price', 0) if isinstance(targets[0], dict) else targets[0]
+                    debate_results[pid]['position_size'] = float(opt.get('position_pct', opt.get('position', '2%', '').replace('%', '') or 3.5))
+        break
 
 data_source_used = intermediate.get("data_source", "unknown")
 tdx_available = intermediate.get("_meta", {}).get("tdx_bridge_available", False)

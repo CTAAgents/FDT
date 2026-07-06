@@ -1,11 +1,13 @@
 ---
 name: futures-trading-analysis
-version: 3.4.0
-description: 期货交易辩论专家团 v5.2 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。所有三类信号必须辩论，无直接推荐通道。
+version: 3.5.0
+description: 期货交易辩论专家团 v5.2 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。所有三类信号必须辩论，无直接推荐通道。P1只跑三类信号，L1-L4/因子择时由研究员按需调用。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
-  v3.2.1 (2026-07-05): 适配v4.1架构 — 移除量析师引用；更新为数技源--dual双策略；闫判官自主决定辩论品种与方向；证真/慎思改为从研究员资料中提取论据
+  v3.5.0 (2026-07-07): ADX仅风控不参与评分+Agent输出格式统一+JSON Schema导出+时序通信铁律S01-S05+phase3加载辩论详情+交易方案合并
+  v3.3.0 (2026-07-06): P1不再使用--dual。L1-L4和因子择时取消全量计算，研究员按需调用data_interface
+  v3.2.1 (2026-07-05): 适配v4.1架构 — 移除量析师引用；更新为数技源三类信号扫描；闫判官自主决定辩论品种与方向；证真/慎思改为从研究员资料中提取论据
   v3.2.0 (2026-07-04): 角色框架重写 — 主框架从多空方向(bull/bear)改为辩论角色(证真/慎思)；统一 schema (ArgumentOutput)；Agent spawn prompt 全部更新；向后兼容旧字段
   v2.5.0 (2026-07-01): 四层架构升级 — ①格式层：Pydantic契约替换###END_XXX哨兵 ②传输层：DebateState typed state按需传参 ③拓扑微调：P3交叉质询1轮+Supervisor/Handoff混合模式 ④可观测：PhaseMeta+confidence+repair_phase回退机制
   v2.4.0 (2026-06-30): 新增裁决权重铁律 + 闫判官Prompt嵌入裁决权重规则 — 价格是唯一客观现实最高原则，期限结构权重上限15%，禁止用左侧信号推翻右侧价格方向
@@ -90,22 +92,16 @@ WorkBuddy 自动化协调器 → spawn 明鉴秋(团队主管)
 
 ### 三条铁律
 
-#### 铁律1：P1 数据采集必须使用 quant-daily 的 CLI（区分角色模式）
+#### 铁律1：P1 数据采集必须使用 quant-daily 的 CLI（只跑三类信号，不做dual）
 
 当 `mode=custom` 需要扫描指定品种时：
 
-**数技源**（纯数据采集，不做分析）：
+**数技源**（纯数据采集+三类信号计算，不做分析）：
 ```bash
-python scripts/scan_all.py --output-raw --symbols PK,RB,B,UR
+python scripts/scan_all.py --symbols PK,RB,B,UR
 ```
 
-**数技源**（运行三类信号策略，产出信号+研究员数据）：
-```bash
-python scripts/scan_all.py --dual --symbols PK,RB,B,UR
-```
-
-`--dual` 模式运行默认策略 `three_signal`，产出三类信号报告（breakout/pullback/gap）。
-同时自动导出 L1-L4原始指标 和 factor_timing因子数据，供研究员辅助分析。
+**不再使用 `--dual` 模式。L1-L4和因子择时不是全量信号源**，由研究员（观澜/探源）在P3阶段通过各自的 `data_interface.py` 按需拉取（只计算辩论品种）。
 
 #### 铁律2：Agent 输出必须通过文件持久化读取，不依赖消息路由
 
@@ -673,26 +669,38 @@ targets: [...]  # custom 模式下指定品种列表，如 ["rb", "FG", "cs"]
 
 批量报告的目标是**快速定位值得关注的品种**，详细分析由后续 custom 模式按需触发。
 
-### spawn 协议（v2.4 双轨过渡版）
+### spawn 协议（v3.0 Agent工具链适配版）
 
-**总则**：Agent 产出双轨——正文（人类可读 Markdown）+ 末尾 ```json fence 结构化摘要。明鉴秋通过 `parse_phase_output()` 从 fence 中扒结构化数据写入 `DebateState`；如果扒不到，走回退路径（全文当文本处理）。
+**总则**：
+1. Agent通过加载技能（Skill tool）获取工具和能力，不依赖 `allowed-tools` frontmatter
+2. 产出双轨——正文（人类可读 Markdown）+ 末尾 ```json fence 结构化摘要
+3. 明鉴秋通过 `parse_phase_output()` 从 fence 中扒结构化数据写入 `DebateState`
 
-明鉴秋构建 spawn prompt 的原则：**只传下游需要的最小子字段**（参照 Sparse MAD 按需可见原则），不再全文拼接。
+**明鉴秋构建 spawn prompt 的原则**：**只传下游需要的最小子字段**（参照 Sparse MAD 按需可见原则），不再全文拼接。
 
 每次 spawn Agent 时，Prompt 结构如下：
 
 ```
+subagent_type: "general-purpose"    # 使用通用型agent（有完整工具集）
+模式：{mode}
+数据品种：{品种列表}
+
 你是{角色名}，辩论专家团的{职责描述}。
 你的边界：{边界能力}。
-你的工作方法由 {skill名} 定义，请加载该 skill 的辩论专家团接口部分并执行。
-产出格式：正文（人类可读 Markdown分析）+ 末尾 ```json fence 结构化摘要（字段严格按对应 schema）
-本次工作模式：{mode}
-{品种列表}
-{下游专属的子字段数据 — 只传需要的}
+请使用 Skill 工具加载 {skill名} 的定义，获取领域知识和输出格式要求。
+产出格式：正文（Markdown分析）+ 末尾 ```json fence 结构化摘要，字段严格按对应 schema
+**【通信约束】** 不要向任何其他Agent发送消息索要数据。如缺少数据，在你的产出中注明缺失内容，明鉴秋会处理。
 完成后用 SendMessage 将完整产出发送给 main。
 ```
 
-**明鉴秋不需要在Prompt中写工作方法**——只需告诉Agent去加载对应的skill。
+### 🔴 时序与通信铁律（P0不可违反）
+
+| 编号 | 规则 | 违反后果 |
+|:----|:----|:---------|
+| S01 | **数据就绪信号**：下游Agent的spawn必须等到上游产出的文件**已存在且size稳定≥5秒**。明鉴秋在spawn prompt中附录"上游文件已写入完毕"确认。禁止直接spawn并发让下游自己去猜文件是否写完 | 读到半成品→置信度偏低→结论错误 |
+| S02 | **禁止Agent间直接通信**：所有Agent产出必须通过写文件，然后由明鉴秋统一传递给下游。Agent之间不得互相SendMessage（包括"索取数据"请求）。如果缺数据，告知明鉴秋，由明鉴秋调度 | 控制流断裂→重复工作→谁在做什么无法追踪 |
+| S03 | **原子写入**：Agent写产出文件时先写`.tmp`后缀，写完后rename为正式文件名。明鉴秋检查`.tmp`文件不存在且正式文件mtime≥5秒才算就绪 | 文件竞争→读到半成品JSON |
+| S04 | **轮询就绪**：明鉴秋spawn上游后，等待上游文件就绪的策略：每15秒检查一次文件是否存在+size是否稳定，最多60次（15分钟超时）。不依赖TaskOutput的block模式 | TaskOutput不阻塞→无法判断何时推进 |
 
 ### 执行流程（混合 Supervisor + Handoff）
 
@@ -715,19 +723,21 @@ targets: [...]  # custom 模式下指定品种列表，如 ["rb", "FG", "cs"]
 
 ---
 
-**Phase 1 统一执行** — 使用 quant-daily scan_all.py（无Agent胶水代码模式）
+**Phase 1 统一执行** — 使用 quant-daily scan_all.py（只跑三类信号，不做dual）
 
-根据 **无胶水代码协议（铁律1）**，P1 不再 spawn 数聚石+技研锋两个独立 Agent，而是直接调用 quant-daily 的 CLI：
+根据 **无胶水代码协议（铁律1）**，P1 直接调用 quant-daily 的 CLI，只跑三类信号策略：
 
 ```bash
 # full_scan 模式
-python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> -p full_scan
+python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录>
 
 # custom 模式（指定品种）
-python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> -p custom_scan --symbols PK,RB,B,UR
+python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> --symbols PK,RB,B,UR
 ```
 
-`scan_all.py` 一次性完成：数据采集 + 指标计算 + L1-L4信号评分，输出结构化JSON。
+`scan_all.py` 完成：数据采集 + 三类信号计算（breakout/pullback/gap）。
+
+**L1-L4和因子择时不是P1全量扫描的一部分**。研究员（观澜/探源）在P3通过各自的 `data_interface.py` 按需拉取（只计算辩论品种）。
 
 **回退**：如果 `scan_all.py` 因模块导入问题失败，直接通过 Python 调用 `run_scan()` 函数（传 `symbols` 参数），而非写新脚本：
 

@@ -270,3 +270,11 @@ append_debate_journal("futures-risk-manager", "risk_verdict", {
 append_md_section("data_sources.md", "风控明", "2026-07-05",
     "发现：Mysteel 铁矿石数据更新延迟1天，可靠度从A降至B。")
 ```
+
+## 产出格式
+
+输出必须符合 `RiskOutput` schema（见 `contracts/risk.py`），包含 `verdicts`（5维度风控裁决）、`overall`（综合判定）、`full_report`。
+
+产出格式：正文（风险评估）+ 末尾 ```json fence 按 RiskOutput schema。
+必须包含 `meta.phase`="P4" + `meta.agent_name`="风控明" + `version`="3.0"。
+verdicts必须有5条，ruling不得全是"include"，至少1个"watch"或"exclude"。
