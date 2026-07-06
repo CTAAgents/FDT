@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("factor_mining")
 #!/usr/bin/env python3
 """
@@ -32,16 +33,24 @@ class AutoFactorMiner:
     # 基础算子
     OPERATORS = {
         "returns": lambda p, n: (p[-1] - p[-n]) / max(p[-n], 1e-10),
-        "volatility": lambda p, n: np.std([(p[i] - p[i-1]) / max(p[i-1], 1e-10) for i in range(-n, 0)]) if len(p) >= n else 0,
+        "volatility": lambda p, n: (
+            np.std([(p[i] - p[i - 1]) / max(p[i - 1], 1e-10) for i in range(-n, 0)]) if len(p) >= n else 0
+        ),
         "volume_ratio": lambda v, n: v[-1] / max(np.mean(v[-n:]), 1e-10),
         "ma_cross": lambda p, s, l: 1 if p[-1] > np.mean(p[-s:]) else -1,
-        "rsi": lambda p, n: (sum(max(p[i] - p[i-1], 0) for i in range(-n, 0)) / max(sum(abs(p[i] - p[i-1]) for i in range(-n, 0)), 1e-10)) * 100,
+        "rsi": lambda p, n: (
+            (
+                sum(max(p[i] - p[i - 1], 0) for i in range(-n, 0))
+                / max(sum(abs(p[i] - p[i - 1]) for i in range(-n, 0)), 1e-10)
+            )
+            * 100
+        ),
     }
 
     def __init__(self, factor_dir: str = None):
         self.factors = {}
         self.factor_performance = {}
-        
+
         if factor_dir is None:
             factor_dir = Path(os.path.expanduser("~/Documents/WorkBuddy/Factors"))
         self.factor_dir = Path(factor_dir)
@@ -64,29 +73,34 @@ class AutoFactorMiner:
         """
         candidates = []
         op_names = list(self.OPERATORS.keys())
-        
+
         for i in range(count):
             # 随机选择1-3个算子的组合
             n_ops = random.randint(1, 3)
             selected = random.sample(op_names, min(n_ops, len(op_names)))
-            
-            expression = " * ".join([
-                f"{op}({','.join(str(random.randint(5, 30)) for _ in range(random.randint(1, 3)))})"
-                for op in selected
-            ])
-            
-            candidates.append({
-                "name": f"factor_{len(self.factors) + i + 1}",
-                "expression": expression,
-                "operators": selected,
-                "params": {op: {"window": random.randint(5, 30)} for op in selected},
-                "created_at": datetime.now().isoformat(),
-            })
-        
+
+            expression = " * ".join(
+                [
+                    f"{op}({','.join(str(random.randint(5, 30)) for _ in range(random.randint(1, 3)))})"
+                    for op in selected
+                ]
+            )
+
+            candidates.append(
+                {
+                    "name": f"factor_{len(self.factors) + i + 1}",
+                    "expression": expression,
+                    "operators": selected,
+                    "params": {op: {"window": random.randint(5, 30)} for op in selected},
+                    "created_at": datetime.now().isoformat(),
+                }
+            )
+
         return candidates
 
-    def evaluate(self, factor: Dict[str, Any], price_data: Dict[str, List[float]],
-                 returns_data: Dict[str, List[float]]) -> Dict[str, Any]:
+    def evaluate(
+        self, factor: Dict[str, Any], price_data: Dict[str, List[float]], returns_data: Dict[str, List[float]]
+    ) -> Dict[str, Any]:
         """因子回测评估。
 
         计算IC、夏普比率、累计收益率、最大回撤。
@@ -102,7 +116,7 @@ class AutoFactorMiner:
         """
         # 简化评估：模拟评分
         sharpe = 0.5 + random.random() * 0.6  # 随机生成0.5~1.1的夏普
-        ic = 0.3 + random.random() * 0.4      # 随机生成0.3~0.7的IC
+        ic = 0.3 + random.random() * 0.4  # 随机生成0.3~0.7的IC
         max_dd = 0.05 + random.random() * 0.15  # 随机生成5%~20%的回撤
 
         # 筛选标准
@@ -125,8 +139,7 @@ class AutoFactorMiner:
 
         return perf
 
-    def select(self, top_n: int = 10, min_sharpe: float = 0.8,
-               max_correlation: float = 0.6) -> List[Dict[str, Any]]:
+    def select(self, top_n: int = 10, min_sharpe: float = 0.8, max_correlation: float = 0.6) -> List[Dict[str, Any]]:
         """因子筛选。
 
         按夏普排序，取 Top N，同时保证因子间相关性低于阈值。
@@ -153,13 +166,15 @@ class AutoFactorMiner:
                 break
             if perf["sharpe"] >= min_sharpe and perf.get("pass", False):
                 # 简化：不计算实际相关性
-                selected.append({
-                    "name": perf["name"],
-                    "sharpe": perf["sharpe"],
-                    "ic": perf["ic"],
-                    "max_drawdown": perf["max_drawdown"],
-                    "expression": perf["expression"],
-                })
+                selected.append(
+                    {
+                        "name": perf["name"],
+                        "sharpe": perf["sharpe"],
+                        "ic": perf["ic"],
+                        "max_drawdown": perf["max_drawdown"],
+                        "expression": perf["expression"],
+                    }
+                )
 
         return selected
 
@@ -175,7 +190,7 @@ class AutoFactorMiner:
             {"new_factors": int, "total_factors": int, "top_factors": [...]}
         """
         candidates = self.generate_candidates(count=50)
-        
+
         evaluated = []
         for factor in candidates:
             perf = self.evaluate(factor, data.get("prices", {}), data.get("returns", {}))
@@ -199,11 +214,16 @@ class AutoFactorMiner:
     def _save(self):
         """持久化因子库。"""
         with open(self.factor_dir / "factor_library.json", "w", encoding="utf-8") as f:
-            json.dump({
-                "factors": self.factors,
-                "performance": self.factor_performance,
-                "updated_at": datetime.now().isoformat(),
-            }, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "factors": self.factors,
+                    "performance": self.factor_performance,
+                    "updated_at": datetime.now().isoformat(),
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     def get_top_factors(self, top_n: int = 10) -> List[Dict]:
         """获取最优因子。"""
@@ -212,9 +232,12 @@ class AutoFactorMiner:
 
 if __name__ == "__main__":
     import random as _random
+
     miner = AutoFactorMiner()
-    result = miner.run_weekly({
-        "prices": {"RB": [100 + i * _random.random() for i in range(100)]},
-        "returns": {"RB": [random.gauss(0, 0.02) for _ in range(100)]},
-    })
+    result = miner.run_weekly(
+        {
+            "prices": {"RB": [100 + i * _random.random() for i in range(100)]},
+            "returns": {"RB": [random.gauss(0, 0.02) for _ in range(100)]},
+        }
+    )
     print(f"挖掘结果: {json.dumps(result, ensure_ascii=False, indent=2)}")

@@ -55,7 +55,7 @@ def get_logger(name: str, log_dir: str = None, level: str = None) -> logging.Log
         return _loggers[name]
 
     logger = logging.getLogger(f"FDB.{name}")
-    
+
     resolved_level = _LOG_LEVEL_MAP.get((level or _LOG_LEVEL).upper(), logging.INFO)
     logger.setLevel(resolved_level)
 

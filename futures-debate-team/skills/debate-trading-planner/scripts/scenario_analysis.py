@@ -10,11 +10,11 @@ import json
 
 def generate_scenarios(base_plan: dict = None, market_data: dict = None) -> dict:
     """根据辩论判决生成三种情景的文字推演。
-    
+
     Args:
         base_plan: 辩论最终方案（含品种、方向、仓位）
         market_data: 当前市场数据快照
-    
+
     Returns:
         {bull_case, base_case, bear_case} 三个情景
     """

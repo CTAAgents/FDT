@@ -24,6 +24,7 @@ from enum import Enum
 
 # 替换JSON文件缓存为 DuckDB
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from .duckdb_store import DuckDBStore
 from .data_source_config import DataSourceConfig
@@ -32,29 +33,30 @@ from .data_freshness_monitor import record_data_fetch
 
 class DataSource(Enum):
     """数据源枚举"""
+
     EXCHANGE_API = "exchange_api"  # 交易所官方API
-    TQSDK = "tqsdk"              # 天勤量化
-    EASTMONEY = "eastmoney"      # 东方财富公开API
-    TDX_LOCAL = "tdx_local"      # 通达信本地HTTP服务
-    AKSHARE = "akshare"          # AKShare
-    WEBSEARCH = "websearch"      # WebSearch
-    CACHE = "cache"              # 历史缓存
-    NONE = "none"                # 无数据源
+    TQSDK = "tqsdk"  # 天勤量化
+    EASTMONEY = "eastmoney"  # 东方财富公开API
+    TDX_LOCAL = "tdx_local"  # 通达信本地HTTP服务
+    AKSHARE = "akshare"  # AKShare
+    WEBSEARCH = "websearch"  # WebSearch
+    CACHE = "cache"  # 历史缓存
+    NONE = "none"  # 无数据源
 
 
 class DataSourceHealth:
     """数据源健康状态
-    
+
     使用 source.value (字符串) 作为内部 key，兼容不同 DataSource enum 类
     （multi_source_adapter.DataSource 与 data_source_config.DataSource 是不同的 Enum 类）。
     """
-    
+
     def __init__(self):
         self.status: Dict[str, Dict[str, Any]] = {}
 
     def _key(self, source: DataSource) -> str:
         """统一 key 提取：无论传入哪个 DataSource enum 类，都用 .value"""
-        return source.value if hasattr(source, 'value') else str(source)
+        return source.value if hasattr(source, "value") else str(source)
 
     def _ensure_key(self, source: DataSource):
         """确保 key 存在"""
@@ -135,13 +137,15 @@ class MultiSourceAdapter:
         self.akshare_available = False
 
         # 1. 交易所官方API（按配置 enabled 决定是否加载）
-        if self.config.is_enabled('exchange_api'):
+        if self.config.is_enabled("exchange_api"):
             try:
                 import sys as _sys
+
                 _collector_scripts = str(Path(__file__).parent.parent / "collectors" / "exchange_data" / "scripts")
                 if _collector_scripts not in _sys.path:
                     _sys.path.insert(0, _collector_scripts)
                 from exchange_data_collector import ExchangeDataCollector
+
                 self.exchange_collector_cls = ExchangeDataCollector
                 self.collector_available = True
                 self.exchange_collector = None  # 延迟到首次使用实例化
@@ -152,9 +156,10 @@ class MultiSourceAdapter:
                 self.collector_available = False
 
         # 2. TqSdk（按配置 enabled 决定是否加载，懒加载避免初始化卡住）
-        if self.config.is_enabled('tqsdk'):
+        if self.config.is_enabled("tqsdk"):
             try:
                 import importlib.util
+
                 if importlib.util.find_spec("tqsdk") is not None:
                     self.tqsdk_available = True
                 else:
@@ -165,6 +170,7 @@ class MultiSourceAdapter:
         # 3. 东方财富API — 轻量级公开数据源
         try:
             from .collectors.eastmoney_collector import EastMoneyCollector
+
             self.eastmoney_collector = EastMoneyCollector()
             self.eastmoney_available = True
             print(f"[DB] 东方财富采集器已加载")
@@ -174,9 +180,10 @@ class MultiSourceAdapter:
             self.eastmoney_available = False
 
         # 4. 通达信本地HTTP服务（按配置 enabled 决定是否加载）
-        if self.config.is_enabled('tdx_local'):
+        if self.config.is_enabled("tdx_local"):
             try:
                 from .collectors.tdx_collector import TdxCollector
+
                 self.tdx_collector = TdxCollector()
                 if self.tdx_collector.is_available:
                     self.tdx_local_available = True
@@ -191,6 +198,7 @@ class MultiSourceAdapter:
         # 5. AKShare
         try:
             import akshare as ak
+
             self.akshare_available = True
         except ImportError:
             self.akshare_available = False
@@ -256,7 +264,7 @@ class MultiSourceAdapter:
 
         # 所有数据源都失败
         try:
-            record_data_fetch(variety, 'all', success=False, error='所有数据源均不可用')
+            record_data_fetch(variety, "all", success=False, error="所有数据源均不可用")
         except Exception:
             pass
         return {
@@ -286,6 +294,7 @@ class MultiSourceAdapter:
              "data_source": str, "confidence": float}
         """
         from datetime import timedelta
+
         start_date = (datetime.now() - timedelta(days=days + 50)).strftime("%Y-%m-%d")
         end_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -296,26 +305,30 @@ class MultiSourceAdapter:
                 if tdx_kline and len(tdx_kline) >= 20:
                     records = []
                     for k in tdx_kline:
-                        records.append({
-                            "date": k.get("date", ""),
-                            "open": k.get("open", 0),
-                            "close": k.get("close", 0),
-                            "high": k.get("high", 0),
-                            "low": k.get("low", 0),
-                            "volume": k.get("volume", 0),
-                            "oi": k.get("oi", 0),
-                            "settle": k.get("settle", 0),
-                            "data_source": "tdx_local",
-                            "confidence": 1.0,
-                        })
+                        records.append(
+                            {
+                                "date": k.get("date", ""),
+                                "open": k.get("open", 0),
+                                "close": k.get("close", 0),
+                                "high": k.get("high", 0),
+                                "low": k.get("low", 0),
+                                "volume": k.get("volume", 0),
+                                "oi": k.get("oi", 0),
+                                "settle": k.get("settle", 0),
+                                "data_source": "tdx_local",
+                                "confidence": 1.0,
+                            }
+                        )
                     print(f"[MultiSource] get_kline({variety}) → 通达信本地, {len(records)}条")
                     try:
-                        record_data_fetch(variety, 'tdx_local', success=True, count=len(records))
+                        record_data_fetch(variety, "tdx_local", success=True, count=len(records))
                     except Exception:
                         pass
                     return {
-                        "success": True, "data": records,
-                        "data_source": "tdx_local", "confidence": 1.0,
+                        "success": True,
+                        "data": records,
+                        "data_source": "tdx_local",
+                        "confidence": 1.0,
                     }
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
@@ -342,32 +355,34 @@ class MultiSourceAdapter:
                 if secid:
                     beg = start_date.replace("-", "")
                     end = end_date.replace("-", "")
-                    klines = self.eastmoney_collector.get_kline_history(
-                        secid, beg=beg, end=end, klt=101, fqt=1
-                    )
+                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=101, fqt=1)
                     if klines and len(klines) > 0:
                         records = []
                         for k in klines:
-                            records.append({
-                                "date": k.get("date", ""),
-                                "open": k.get("open", 0),
-                                "close": k.get("close", 0),
-                                "high": k.get("high", 0),
-                                "low": k.get("low", 0),
-                                "volume": k.get("volume", 0),
-                                "oi": int(k.get("hold", k.get("open_interest", 0))),
-                                "settle": 0,
-                                "data_source": "eastmoney",
-                                "confidence": 1.0,
-                            })
+                            records.append(
+                                {
+                                    "date": k.get("date", ""),
+                                    "open": k.get("open", 0),
+                                    "close": k.get("close", 0),
+                                    "high": k.get("high", 0),
+                                    "low": k.get("low", 0),
+                                    "volume": k.get("volume", 0),
+                                    "oi": int(k.get("hold", k.get("open_interest", 0))),
+                                    "settle": 0,
+                                    "data_source": "eastmoney",
+                                    "confidence": 1.0,
+                                }
+                            )
                         print(f"[MultiSource] get_kline({variety}) → 东方财富, {len(records)}条")
                         try:
-                            record_data_fetch(variety, 'eastmoney', success=True, count=len(records))
+                            record_data_fetch(variety, "eastmoney", success=True, count=len(records))
                         except Exception:
                             pass
                         return {
-                            "success": True, "data": records,
-                            "data_source": "eastmoney", "confidence": 1.0,
+                            "success": True,
+                            "data": records,
+                            "data_source": "eastmoney",
+                            "confidence": 1.0,
                         }
             except Exception as e:
                 print(f"[MultiSource] 东方财富 get_kline {variety}: {e}")
@@ -376,6 +391,7 @@ class MultiSourceAdapter:
         if self.akshare_available:
             try:
                 import akshare as ak
+
                 # AKShare 主力连续合约格式: {品种小写}0，如 bu0, fu0, pg0
                 ak_symbol = variety.lower() + "0"
                 df = ak.futures_zh_daily_sina(symbol=ak_symbol)
@@ -383,40 +399,46 @@ class MultiSourceAdapter:
                     records = []
                     for _, row in df.iterrows():
                         try:
-                            records.append({
-                                "date": str(row.get("date", "")),
-                                "open": float(row.get("open", 0)),
-                                "close": float(row.get("close", 0)),
-                                "high": float(row.get("high", 0)),
-                                "low": float(row.get("low", 0)),
-                                "volume": int(row.get("volume", 0)),
-                                "oi": int(row.get("hold", row.get("open_interest", 0))),
-                                "settle": float(row.get("settle", 0) or 0),
-                                "data_source": "akshare",
-                                "confidence": 1.0,
-                            })
+                            records.append(
+                                {
+                                    "date": str(row.get("date", "")),
+                                    "open": float(row.get("open", 0)),
+                                    "close": float(row.get("close", 0)),
+                                    "high": float(row.get("high", 0)),
+                                    "low": float(row.get("low", 0)),
+                                    "volume": int(row.get("volume", 0)),
+                                    "oi": int(row.get("hold", row.get("open_interest", 0))),
+                                    "settle": float(row.get("settle", 0) or 0),
+                                    "data_source": "akshare",
+                                    "confidence": 1.0,
+                                }
+                            )
                         except (ValueError, TypeError):
                             continue
                     if records:
                         print(f"[MultiSource] get_kline({variety}) → AKShare, {len(records)}条")
                         try:
-                            record_data_fetch(variety, 'akshare', success=True, count=len(records))
+                            record_data_fetch(variety, "akshare", success=True, count=len(records))
                         except Exception:
                             pass
                         return {
-                            "success": True, "data": records,
-                            "data_source": "akshare", "confidence": 1.0,
+                            "success": True,
+                            "data": records,
+                            "data_source": "akshare",
+                            "confidence": 1.0,
                         }
             except Exception as e:
                 print(f"[MultiSource] AKShare get_kline {variety}: {e}")
 
         try:
-            record_data_fetch(variety, 'none', success=False, error=f'所有数据源均无法获取 {variety} K线数据')
+            record_data_fetch(variety, "none", success=False, error=f"所有数据源均无法获取 {variety} K线数据")
         except Exception:
             pass
         return {
-            "success": False, "data": [],
-            "data_source": "none", "confidence": 0,
+            "success": False,
+            "data": [],
+            "data_source": "none",
+            "confidence": 0,
             "error": f"所有数据源均无法获取 {variety} K线数据",
         }
 
@@ -441,10 +463,12 @@ class MultiSourceAdapter:
             try:
                 ts = self.tdx_collector.get_term_structure(variety)
                 if ts:
-                    contract_count = len(ts.get('contracts', []))
-                    print(f"[MultiSource] get_term_structure({variety}) → 通达信本地, {ts['type']} (斜率{ts['slope']}%)")
+                    contract_count = len(ts.get("contracts", []))
+                    print(
+                        f"[MultiSource] get_term_structure({variety}) → 通达信本地, {ts['type']} (斜率{ts['slope']}%)"
+                    )
                     try:
-                        record_data_fetch(variety, 'tdx_local', success=True, count=contract_count)
+                        record_data_fetch(variety, "tdx_local", success=True, count=contract_count)
                     except Exception:
                         pass
                     return {"success": True, **ts}
@@ -456,10 +480,10 @@ class MultiSourceAdapter:
             if self.eastmoney_available:
                 ts = self.eastmoney_collector.get_term_structure(variety)
                 if ts:
-                    contract_count = len(ts.get('contracts', []))
+                    contract_count = len(ts.get("contracts", []))
                     print(f"[MultiSource] get_term_structure({variety}) → 东方财富, {ts['type']} (斜率{ts['slope']}%)")
                     try:
-                        record_data_fetch(variety, 'eastmoney', success=True, count=contract_count)
+                        record_data_fetch(variety, "eastmoney", success=True, count=contract_count)
                     except Exception:
                         pass
                     return {"success": True, **ts}
@@ -470,9 +494,12 @@ class MultiSourceAdapter:
             "success": False,
             "error": f"无法获取 {variety} 期限结构",
             "variety": variety.upper(),
-            "near_month": "", "near_price": 0,
-            "far_month": "", "far_price": 0,
-            "slope": 0, "type": "Unknown",
+            "near_month": "",
+            "near_price": 0,
+            "far_month": "",
+            "far_price": 0,
+            "slope": 0,
+            "type": "Unknown",
             "contracts": [],
             "data_source": "none",
         }
@@ -502,12 +529,14 @@ class MultiSourceAdapter:
                 if ind and len(ind) > 0:
                     print(f"[MultiSource] get_indicators({symbol}) → 通达信本地, {len(ind)}项指标")
                     try:
-                        record_data_fetch(symbol, 'tdx_local', success=True, count=len(ind))
+                        record_data_fetch(symbol, "tdx_local", success=True, count=len(ind))
                     except Exception:
                         pass
                     return {
-                        "success": True, "data": ind,
-                        "data_source": "tdx_local", "confidence": 1.0,
+                        "success": True,
+                        "data": ind,
+                        "data_source": "tdx_local",
+                        "confidence": 1.0,
                         "indicator_count": len(ind),
                         "method": "formula_zb",
                     }
@@ -560,15 +589,18 @@ class MultiSourceAdapter:
 
         try:
             # 懒实例化：首次使用时才创建（带超时，防止周末预热挂起）
-            if not hasattr(self, 'exchange_collector') or self.exchange_collector is None:
+            if not hasattr(self, "exchange_collector") or self.exchange_collector is None:
                 print("[exchange_api] 懒加载实例化 ExchangeDataCollector...")
                 import threading
+
                 result_holder = []
+
                 def _init():
                     try:
                         result_holder.append(self.exchange_collector_cls())
                     except Exception as e:
                         result_holder.append(e)
+
                 t = threading.Thread(target=_init)
                 t.daemon = True
                 t.start()
@@ -579,7 +611,7 @@ class MultiSourceAdapter:
                 if result_holder and isinstance(result_holder[0], Exception):
                     raise result_holder[0]
                 self.exchange_collector = result_holder[0]
-            
+
             # 获取最近交易日数据
             trade_date = self.exchange_collector.get_latest_trading_day()
             df = self.exchange_collector.get_all_exchange_data(trade_date)
@@ -587,23 +619,25 @@ class MultiSourceAdapter:
             if df is not None and len(df) > 0:
                 # 按品种过滤
                 if variety:
-                    filtered = df[df['variety'].str.lower() == variety.lower()]
+                    filtered = df[df["variety"].str.lower() == variety.lower()]
                 else:
                     filtered = df
 
                 records = []
                 for _, row in filtered.iterrows():
-                    records.append({
-                        "date": str(row.get('trade_date', '')),
-                        "open": float(row.get('open', 0)),
-                        "high": float(row.get('high', 0)),
-                        "low": float(row.get('low', 0)),
-                        "close": float(row.get('close', 0)),
-                        "volume": int(row.get('volume', 0)),
-                        "oi": int(row.get('open_interest', 0)),
-                        "data_source": "exchange_api",
-                        "confidence": 1.0,
-                    })
+                    records.append(
+                        {
+                            "date": str(row.get("trade_date", "")),
+                            "open": float(row.get("open", 0)),
+                            "high": float(row.get("high", 0)),
+                            "low": float(row.get("low", 0)),
+                            "close": float(row.get("close", 0)),
+                            "volume": int(row.get("volume", 0)),
+                            "oi": int(row.get("open_interest", 0)),
+                            "data_source": "exchange_api",
+                            "confidence": 1.0,
+                        }
+                    )
                 return records
         except Exception as e:
             print(f"[Warning] Exchange collector error: {e}")
@@ -624,17 +658,21 @@ class MultiSourceAdapter:
             import os
             from tqsdk import TqApi, TqAuth
 
-            _user = os.environ.get('TQSDK_USERNAME') or os.environ.get('TQ_USER', '')
-            _pass = os.environ.get('TQSDK_PASSWORD') or os.environ.get('TQ_PASSWORD', '')
+            _user = os.environ.get("TQSDK_USERNAME") or os.environ.get("TQ_USER", "")
+            _pass = os.environ.get("TQSDK_PASSWORD") or os.environ.get("TQ_PASSWORD", "")
             if not _user or not _pass:
                 return None
 
             api = TqApi(auth=TqAuth(_user, _pass))
             variety_upper = variety.upper()
             exchange_code = {
-                'SHFE': 'SHFE', 'DCE': 'DCE', 'CZCE': 'CZCE',
-                'GFEX': 'GFEX', 'INE': 'INE', 'CFFEX': 'CFFEX',
-            }.get(self._get_exchange(variety_upper), '')
+                "SHFE": "SHFE",
+                "DCE": "DCE",
+                "CZCE": "CZCE",
+                "GFEX": "GFEX",
+                "INE": "INE",
+                "CFFEX": "CFFEX",
+            }.get(self._get_exchange(variety_upper), "")
 
             if not exchange_code:
                 api.close()
@@ -644,7 +682,7 @@ class MultiSourceAdapter:
             records = []
             # 只查询主力候选合约月（近月+季度月），避免非活跃合约超时阻塞
             candidate_months = [
-                (now.month + 2, 0),   # 2月后（避开当月/次月交割月）
+                (now.month + 2, 0),  # 2月后（避开当月/次月交割月）
                 (now.month + 3, 0),
                 (now.month + 4, 0),
                 (now.month + 5, 0),
@@ -654,26 +692,32 @@ class MultiSourceAdapter:
                 month = ((m - 1) % 12) + 1
                 year = (now.year + y_offset) % 100
 
-                if exchange_code == 'CZCE':
+                if exchange_code == "CZCE":
                     iid = f"{exchange_code}.{variety_upper}{str(year)[-1]}{month:02d}"
                 else:
                     iid = f"{exchange_code}.{variety_upper.lower()}{year:02d}{month:02d}"
 
                 try:
                     q = api.get_quote(iid)
-                    if q and str(q.get('ins_class', '')) in ('FUTURE', '期货') and float(q.get('last_price', 0) or 0) > 0:
-                        records.append({
-                            "date": now.strftime("%Y-%m-%d"),
-                            "contract": iid.split('.')[-1],
-                            "open": float(q.get('open', 0) or 0),
-                            "high": float(q.get('highest', 0) or 0),
-                            "low": float(q.get('lowest', 0) or 0),
-                            "close": float(q.get('last_price', 0) or 0),
-                            "volume": int(q.get('volume', 0) or 0),
-                            "oi": int(q.get('open_interest', 0) or 0),
-                            "data_source": "tqsdk",
-                            "confidence": 1.0,
-                        })
+                    if (
+                        q
+                        and str(q.get("ins_class", "")) in ("FUTURE", "期货")
+                        and float(q.get("last_price", 0) or 0) > 0
+                    ):
+                        records.append(
+                            {
+                                "date": now.strftime("%Y-%m-%d"),
+                                "contract": iid.split(".")[-1],
+                                "open": float(q.get("open", 0) or 0),
+                                "high": float(q.get("highest", 0) or 0),
+                                "low": float(q.get("lowest", 0) or 0),
+                                "close": float(q.get("last_price", 0) or 0),
+                                "volume": int(q.get("volume", 0) or 0),
+                                "oi": int(q.get("open_interest", 0) or 0),
+                                "data_source": "tqsdk",
+                                "confidence": 1.0,
+                            }
+                        )
                 except Exception:
                     continue
 
@@ -687,24 +731,93 @@ class MultiSourceAdapter:
     def _get_exchange(self, variety: str) -> str:
         """根据品种代码返回交易所"""
         exchange_map = {
-            'CU':'SHFE','AL':'SHFE','ZN':'SHFE','PB':'SHFE','NI':'SHFE','SN':'SHFE',
-            'AU':'SHFE','AG':'SHFE','RB':'SHFE','HC':'SHFE','SS':'SHFE','RU':'SHFE',
-            'BR':'SHFE','FU':'SHFE','BU':'SHFE','WR':'SHFE','SP':'SHFE','AO':'SHFE',
-            'AD':'SHFE','OP':'SHFE',
-            'A':'DCE','B':'DCE','M':'DCE','Y':'DCE','P':'DCE','C':'DCE','CS':'DCE',
-            'I':'DCE','J':'DCE','JM':'DCE','L':'DCE','V':'DCE','PP':'DCE','EG':'DCE',
-            'EB':'DCE','PG':'DCE','JD':'DCE','LH':'DCE','RR':'DCE','BB':'DCE','FB':'DCE','LG':'DCE',
-            'AP':'CZCE','CF':'CZCE','CY':'CZCE','CJ':'CZCE','FG':'CZCE','SA':'CZCE',
-            'SH':'CZCE','MA':'CZCE','TA':'CZCE','UR':'CZCE','PF':'CZCE','PR':'CZCE',
-            'PX':'CZCE','PK':'CZCE','OI':'CZCE','RM':'CZCE','RS':'CZCE','SR':'CZCE',
-            'WH':'CZCE','PM':'CZCE','SM':'CZCE','SF':'CZCE','ZC':'CZCE','JR':'CZCE',
-            'LR':'CZCE','RI':'CZCE',
-            'SI':'GFEX','LC':'GFEX','PS':'GFEX','PT':'GFEX','PD':'GFEX',
-            'SC':'INE','LU':'INE','NR':'INE','BC':'INE',
-            'IF':'CFFEX','IC':'CFFEX','IM':'CFFEX','IH':'CFFEX',
-            'T':'CFFEX','TF':'CFFEX','TS':'CFFEX','TL':'CFFEX',
+            "CU": "SHFE",
+            "AL": "SHFE",
+            "ZN": "SHFE",
+            "PB": "SHFE",
+            "NI": "SHFE",
+            "SN": "SHFE",
+            "AU": "SHFE",
+            "AG": "SHFE",
+            "RB": "SHFE",
+            "HC": "SHFE",
+            "SS": "SHFE",
+            "RU": "SHFE",
+            "BR": "SHFE",
+            "FU": "SHFE",
+            "BU": "SHFE",
+            "WR": "SHFE",
+            "SP": "SHFE",
+            "AO": "SHFE",
+            "AD": "SHFE",
+            "OP": "SHFE",
+            "A": "DCE",
+            "B": "DCE",
+            "M": "DCE",
+            "Y": "DCE",
+            "P": "DCE",
+            "C": "DCE",
+            "CS": "DCE",
+            "I": "DCE",
+            "J": "DCE",
+            "JM": "DCE",
+            "L": "DCE",
+            "V": "DCE",
+            "PP": "DCE",
+            "EG": "DCE",
+            "EB": "DCE",
+            "PG": "DCE",
+            "JD": "DCE",
+            "LH": "DCE",
+            "RR": "DCE",
+            "BB": "DCE",
+            "FB": "DCE",
+            "LG": "DCE",
+            "AP": "CZCE",
+            "CF": "CZCE",
+            "CY": "CZCE",
+            "CJ": "CZCE",
+            "FG": "CZCE",
+            "SA": "CZCE",
+            "SH": "CZCE",
+            "MA": "CZCE",
+            "TA": "CZCE",
+            "UR": "CZCE",
+            "PF": "CZCE",
+            "PR": "CZCE",
+            "PX": "CZCE",
+            "PK": "CZCE",
+            "OI": "CZCE",
+            "RM": "CZCE",
+            "RS": "CZCE",
+            "SR": "CZCE",
+            "WH": "CZCE",
+            "PM": "CZCE",
+            "SM": "CZCE",
+            "SF": "CZCE",
+            "ZC": "CZCE",
+            "JR": "CZCE",
+            "LR": "CZCE",
+            "RI": "CZCE",
+            "SI": "GFEX",
+            "LC": "GFEX",
+            "PS": "GFEX",
+            "PT": "GFEX",
+            "PD": "GFEX",
+            "SC": "INE",
+            "LU": "INE",
+            "NR": "INE",
+            "BC": "INE",
+            "IF": "CFFEX",
+            "IC": "CFFEX",
+            "IM": "CFFEX",
+            "IH": "CFFEX",
+            "T": "CFFEX",
+            "TF": "CFFEX",
+            "TS": "CFFEX",
+            "TL": "CFFEX",
         }
-        return exchange_map.get(variety.upper(), '')
+        return exchange_map.get(variety.upper(), "")
 
     def _fetch_eastmoney(
         self,
@@ -723,19 +836,21 @@ class MultiSourceAdapter:
             if quotes and len(quotes) > 0:
                 records = []
                 for q in quotes:
-                    records.append({
-                        "code": q.get("code", ""),
-                        "name": q.get("name", ""),
-                        "price": q.get("price", 0),
-                        "change_pct": q.get("change_pct", 0),
-                        "volume": q.get("volume", 0),
-                        "oi": q.get("oi", 0),
-                        "open": q.get("open", 0),
-                        "high": q.get("high", 0),
-                        "low": q.get("low", 0),
-                        "data_source": "eastmoney",
-                        "confidence": 1.0,
-                    })
+                    records.append(
+                        {
+                            "code": q.get("code", ""),
+                            "name": q.get("name", ""),
+                            "price": q.get("price", 0),
+                            "change_pct": q.get("change_pct", 0),
+                            "volume": q.get("volume", 0),
+                            "oi": q.get("oi", 0),
+                            "open": q.get("open", 0),
+                            "high": q.get("high", 0),
+                            "low": q.get("low", 0),
+                            "data_source": "eastmoney",
+                            "confidence": 1.0,
+                        }
+                    )
                 return records
 
             # 实时行情失败时，尝试获取品种对应的secid（用于查K线）
@@ -770,23 +885,23 @@ class MultiSourceAdapter:
                 if start_date:
                     beg = start_date.replace("-", "")
                 end = end_date.replace("-", "") if end_date else None
-                klines = self.eastmoney_collector.get_kline_history(
-                    secid, beg=beg, end=end, klt=101, fqt=1
-                )
+                klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=101, fqt=1)
                 if klines:
                     records = []
                     for k in klines:
-                        records.append({
-                            "date": k.get("date", ""),
-                            "open": k.get("open", 0),
-                            "high": k.get("high", 0),
-                            "low": k.get("low", 0),
-                            "close": k.get("close", 0),
-                            "volume": k.get("volume", 0),
-                            "change_pct": k.get("change_pct", 0),
-                            "data_source": "eastmoney",
-                            "confidence": 1.0,
-                        })
+                        records.append(
+                            {
+                                "date": k.get("date", ""),
+                                "open": k.get("open", 0),
+                                "high": k.get("high", 0),
+                                "low": k.get("low", 0),
+                                "close": k.get("close", 0),
+                                "volume": k.get("volume", 0),
+                                "change_pct": k.get("change_pct", 0),
+                                "data_source": "eastmoney",
+                                "confidence": 1.0,
+                            }
+                        )
                     return records
 
             return None
@@ -798,8 +913,12 @@ class MultiSourceAdapter:
     def _get_exchange_code(self, variety: str) -> int:
         """根据品种代码返回东方财富交易所代码"""
         exchange_map = {
-            'SHFE': 113, 'DCE': 114, 'CZCE': 115,
-            'CFFEX': 8, 'INE': 142, 'GFEX': 225,
+            "SHFE": 113,
+            "DCE": 114,
+            "CZCE": 115,
+            "CFFEX": 8,
+            "INE": 142,
+            "GFEX": 225,
         }
         exchange_name = self._get_exchange(variety)
         return exchange_map.get(exchange_name, 113)
@@ -825,9 +944,14 @@ class MultiSourceAdapter:
             days = 365
             if start_date:
                 try:
-                    start = datetime.strptime(start_date, "%Y-%m-%d") if '-' in start_date else datetime.strptime(start_date, "%Y%m%d")
+                    start = (
+                        datetime.strptime(start_date, "%Y-%m-%d")
+                        if "-" in start_date
+                        else datetime.strptime(start_date, "%Y%m%d")
+                    )
                     days = (datetime.now() - start).days
-                except Exception: logger.warning("数据源异常（已降级）", exc_info=True)
+                except Exception:
+                    logger.warning("数据源异常（已降级）", exc_info=True)
             kline_records = self.tdx_collector.get_kline(variety, days=days)
             if kline_records:
                 for r in kline_records:
@@ -854,39 +978,56 @@ class MultiSourceAdapter:
             import akshare as ak
 
             # AKShare 期货日线数据 — 使用 futures_main_sina 获取主力合约
-            ak_symbol = variety.lower() + '0'
+            ak_symbol = variety.lower() + "0"
             df = ak.futures_main_sina(symbol=ak_symbol)
 
             if df is not None and len(df) > 0:
                 # 中文列名映射
-                cn_map = {'日期': 'date', '开盘价': 'open', '最高价': 'high', '最低价': 'low',
-                          '收盘价': 'close', '成交量': 'volume', '持仓量': 'open_interest'}
+                cn_map = {
+                    "日期": "date",
+                    "开盘价": "open",
+                    "最高价": "high",
+                    "最低价": "low",
+                    "收盘价": "close",
+                    "成交量": "volume",
+                    "持仓量": "open_interest",
+                }
                 # 转换为标准格式
                 records = []
                 for _, row in df.iterrows():  # 返回全部数据（上游需要150天）
+
                     def get_val(keys):
                         for k in keys:
                             v = row.get(k)
-                            if v is not None: return v
+                            if v is not None:
+                                return v
                         return 0
-                    records.append({
-                        "date": str(get_val(['日期','date'])),
-                        "open": float(get_val(['开盘价','open'])),
-                        "high": float(get_val(['最高价','high'])),
-                        "low": float(get_val(['最低价','low'])),
-                        "close": float(get_val(['收盘价','close'])),
-                        "volume": int(get_val(['成交量','volume'])),
-                        "oi": int(get_val(['持仓量','open_interest','hold'])),
-                        "data_source": "AKShare",
-                        "confidence": 1.0,
-                    })
+
+                    records.append(
+                        {
+                            "date": str(get_val(["日期", "date"])),
+                            "open": float(get_val(["开盘价", "open"])),
+                            "high": float(get_val(["最高价", "high"])),
+                            "low": float(get_val(["最低价", "low"])),
+                            "close": float(get_val(["收盘价", "close"])),
+                            "volume": int(get_val(["成交量", "volume"])),
+                            "oi": int(get_val(["持仓量", "open_interest", "hold"])),
+                            "data_source": "AKShare",
+                            "confidence": 1.0,
+                        }
+                    )
                 return records
         except Exception as e:
             print(f"[Warning] AKShare error: {e}")
             return None
 
-    def _fetch_websearch(self, variety: str, contract_type: str = "main",
-                         start_date: Optional[str] = None, end_date: Optional[str] = None) -> Optional[List[Dict]]:
+    def _fetch_websearch(
+        self,
+        variety: str,
+        contract_type: str = "main",
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Optional[List[Dict]]:
         """从WebSearch获取数据（东方财富+新浪API直连兜底）
 
         当TqSDK/AKShare等主流数据源不可用时，通过stdlib urllib直接调用
@@ -901,8 +1042,10 @@ class MultiSourceAdapter:
         from urllib.error import URLError
 
         variety_upper = variety.upper()
-        UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-              "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        UA = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        )
 
         # === Strategy 1: 东方财富 push2his K线 API ===
         # URL: https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=113.RB0&...
@@ -921,10 +1064,13 @@ class MultiSourceAdapter:
                 f"&klt=101&fqt=1&beg={beg}&end={end_dt}"
             )
 
-            req = Request(url, headers={
-                "User-Agent": UA,
-                "Referer": "https://quote.eastmoney.com/",
-            })
+            req = Request(
+                url,
+                headers={
+                    "User-Agent": UA,
+                    "Referer": "https://quote.eastmoney.com/",
+                },
+            )
             with urlopen(req, timeout=15) as resp:
                 raw = resp.read().decode("utf-8")
                 data = json.loads(raw)
@@ -935,17 +1081,19 @@ class MultiSourceAdapter:
                 for kline_str in klines:
                     parts = kline_str.split(",")
                     if len(parts) >= 6:
-                        records.append({
-                            "date": parts[0],
-                            "open": float(parts[1]),
-                            "close": float(parts[2]),
-                            "high": float(parts[3]),
-                            "low": float(parts[4]),
-                            "volume": int(float(parts[5])),
-                            "oi": int(float(parts[7])) if len(parts) >= 8 else 0,
-                            "data_source": "websearch_eastmoney",
-                            "confidence": 0.85,
-                        })
+                        records.append(
+                            {
+                                "date": parts[0],
+                                "open": float(parts[1]),
+                                "close": float(parts[2]),
+                                "high": float(parts[3]),
+                                "low": float(parts[4]),
+                                "volume": int(float(parts[5])),
+                                "oi": int(float(parts[7])) if len(parts) >= 8 else 0,
+                                "data_source": "websearch_eastmoney",
+                                "confidence": 0.85,
+                            }
+                        )
                 if records:
                     print(f"[WebSearch] 东方财富成功: {variety_upper} {len(records)}条K线")
                     return records
@@ -962,10 +1110,13 @@ class MultiSourceAdapter:
                 f"?symbol={sina_symbol}"
             )
 
-            req = Request(url, headers={
-                "User-Agent": UA,
-                "Referer": "https://finance.sina.com.cn/",
-            })
+            req = Request(
+                url,
+                headers={
+                    "User-Agent": UA,
+                    "Referer": "https://finance.sina.com.cn/",
+                },
+            )
             with urlopen(req, timeout=15) as resp:
                 raw = resp.read().decode("gbk", errors="replace")
 
@@ -978,16 +1129,18 @@ class MultiSourceAdapter:
             if klines and isinstance(klines, list):
                 records = []
                 for k in klines:
-                    records.append({
-                        "date": str(k.get("d", "")),
-                        "open": float(k.get("o", 0)),
-                        "high": float(k.get("h", 0)),
-                        "low": float(k.get("l", 0)),
-                        "close": float(k.get("c", 0)),
-                        "volume": int(float(k.get("v", 0))),
-                        "data_source": "websearch_sina",
-                        "confidence": 0.80,
-                    })
+                    records.append(
+                        {
+                            "date": str(k.get("d", "")),
+                            "open": float(k.get("o", 0)),
+                            "high": float(k.get("h", 0)),
+                            "low": float(k.get("l", 0)),
+                            "close": float(k.get("c", 0)),
+                            "volume": int(float(k.get("v", 0))),
+                            "data_source": "websearch_sina",
+                            "confidence": 0.80,
+                        }
+                    )
                 if records:
                     print(f"[WebSearch] 新浪成功: {variety_upper} {len(records)}条K线")
                     return records
@@ -1005,8 +1158,7 @@ class MultiSourceAdapter:
         """从DuckDB缓存获取数据"""
         if self.db_available and self.db is not None:
             try:
-                cached = self.db.get_cached("quote", variety, ttl_hours=4,
-                                             start_date=start_date, end_date=end_date)
+                cached = self.db.get_cached("quote", variety, ttl_hours=4, start_date=start_date, end_date=end_date)
                 if cached:
                     print(f"[Cache] DuckDB hit for {variety}")
                     return cached
@@ -1017,13 +1169,13 @@ class MultiSourceAdapter:
         cache_file = self.cache_dir / f"{variety}_{start_date or 'latest'}.json"
         if cache_file.exists():
             try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
+                with open(cache_file, "r", encoding="utf-8") as f:
                     cached_data = json.load(f)
-                cache_time = datetime.fromisoformat(cached_data.get('timestamp', '2000-01-01'))
+                cache_time = datetime.fromisoformat(cached_data.get("timestamp", "2000-01-01"))
                 if datetime.now() - cache_time > timedelta(days=1):
                     print(f"[Info] JSON cache expired for {variety}")
                     return None
-                return cached_data.get('data', [])
+                return cached_data.get("data", [])
             except Exception as e:
                 print(f"[Warning] JSON cache read error: {e}")
         return None
@@ -1040,12 +1192,17 @@ class MultiSourceAdapter:
         # 兜底：JSON文件（兼容旧调用者）
         cache_file = self.cache_dir / f"{variety}_latest.json"
         try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    "variety": variety,
-                    "timestamp": datetime.now().isoformat(),
-                    "data": data,
-                }, f, ensure_ascii=False, indent=2)
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "variety": variety,
+                        "timestamp": datetime.now().isoformat(),
+                        "data": data,
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
         except Exception as e:
             print(f"[Warning] JSON cache write error: {e}")
 

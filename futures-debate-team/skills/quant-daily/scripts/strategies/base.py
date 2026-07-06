@@ -10,15 +10,16 @@ from typing import Optional
 @dataclass
 class SignalResult:
     """单个品种的打分结果，统一格式"""
+
     symbol: str
     name: str = ""
-    total: float = 0.0              # 带方向总分（正=多头, 负=空头）
-    abs_score: float = 0.0          # 绝对分
-    direction: str = "neutral"      # "bull" | "bear" | "neutral"
-    grade: str = "NOISE"            # "STRONG" | "WATCH" | "WEAK" | "NOISE"
-    sub_scores: dict = field(default_factory=dict)   # 层/因子明细 {name: score}
-    veto: int = 0                   # 否决计数
-    consistency: int = 0            # 子层一致性
+    total: float = 0.0  # 带方向总分（正=多头, 负=空头）
+    abs_score: float = 0.0  # 绝对分
+    direction: str = "neutral"  # "bull" | "bear" | "neutral"
+    grade: str = "NOISE"  # "STRONG" | "WATCH" | "WEAK" | "NOISE"
+    sub_scores: dict = field(default_factory=dict)  # 层/因子明细 {name: score}
+    veto: int = 0  # 否决计数
+    consistency: int = 0  # 子层一致性
     price: float = 0.0
     change_pct: float = 0.0
     volume: int = 0
@@ -32,7 +33,7 @@ class SignalResult:
     z_score: float = 0.0
     stage: str = "unknown"
     _tdx_patched: bool = False
-    extra: dict = field(default_factory=dict)   # 策略专属额外字段
+    extra: dict = field(default_factory=dict)  # 策略专属额外字段
 
     def to_dict(self) -> dict:
         """转平铺 dict，兼容 scan_all.py 输出格式"""

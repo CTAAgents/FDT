@@ -84,8 +84,197 @@ def _build_invalid_condition(l_entry: dict) -> str:
     return f"日线{direction}方向失效条件：收盘反向突破近期极值+OI配合"
 
 
+def compute_debate_score(l1l4: dict, factor: dict, chain: str = "未知") -> dict:
+    """
+    五维加权辩论价值评分 (0-100)。
+
+    评估一个品种的辩论价值——分歧越大、趋势越清晰、数据越极端，辩论价值越高。
+
+    Dimensions:
+        ├─ 信号强度 40%: |total_l|+|total_f| 归一化 (max anchor=200)
+        ├─ 趋势质量 25%: ADX≥25加分 + stage非quiet加分 + cons一致性加分
+        ├─ 极端性   20%: RSI极端 + z-score极端 + 方向分歧
+        ├─ 数据质量 10%: veto计数罚分 (基值10)
+        └─ 链重要性  5%: 基于链名 heuristic
+    """
+    if l1l4 is None:
+        l1l4 = {}
+    if factor is None:
+        factor = {}
+
+    # ── 1. 信号强度 (40%) ──
+    l_total = abs(l1l4.get("total", 0))
+    f_total = abs(factor.get("total", 0))
+    raw_signal = l_total + f_total
+    signal_score = min(40.0, raw_signal / 200.0 * 40.0)
+
+    # ── 2. 趋势质量 (25%) ──
+    quality_score = 0.0
+    adx = l1l4.get("adx", 0) or factor.get("adx", 0)
+    if adx >= 25:
+        quality_score += 10.0
+    if adx >= 40:
+        quality_score += 3.0  # 强趋势额外加分
+
+    stage = l1l4.get("stage", "unknown") or factor.get("stage", "unknown")
+    if stage not in ("quiet", "unknown", ""):
+        quality_score += 5.0
+
+    cons = max(l1l4.get("cons", 0) or 0, factor.get("cons", 0) or 0)
+    quality_score += min(7.0, cons / 4.0 * 7.0)
+
+    quality_score = min(25.0, quality_score)
+
+    # ── 3. 极端性 (20%) ──
+    extreme_score = 0.0
+    rsi = l1l4.get("rsi", 50) or 50
+    if rsi > 75:
+        extreme_score += 8.0
+    elif rsi < 25:
+        extreme_score += 8.0
+    elif rsi > 70 or rsi < 30:
+        extreme_score += 4.0
+
+    z_score = l1l4.get("z_score", 0) or 0
+    if abs(z_score) > 2.5:
+        extreme_score += 7.0
+    elif abs(z_score) > 2.0:
+        extreme_score += 4.0
+    elif abs(z_score) > 1.5:
+        extreme_score += 2.0
+
+    l_dir = l1l4.get("direction", "neutral")
+    f_dir = factor.get("direction", "neutral")
+    if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
+        extreme_score += 5.0  # 方向分歧是好的辩论素材
+
+    extreme_score = min(20.0, extreme_score)
+
+    # ── 4. 数据质量 (10%) ──
+    veto = max(l1l4.get("veto", 0) or 0, factor.get("veto", 0) or 0)
+    data_score = max(0.0, 10.0 - veto * 3.0)
+
+    # ── 5. 链重要性 (5%) ──
+    key_chains = {"黑色链", "能化系", "有色金属", "贵金属"}
+    chain_score = 5.0 if chain in key_chains else 3.0
+
+    # ── 汇总 ──
+    debate_value = round(signal_score + quality_score + extreme_score + data_score + chain_score, 1)
+    debate_value = max(0.0, min(100.0, debate_value))
+
+    # ── 标签生成 ──
+    tags = []
+    if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
+        tags.append("方向分歧")
+    if adx >= 40:
+        tags.append("强趋势")
+    elif adx >= 25:
+        tags.append("趋势中")
+    if rsi > 70:
+        tags.append("RSI超买")
+    elif rsi < 30:
+        tags.append("RSI超卖")
+    if abs(z_score) > 2.0:
+        tags.append("极端值")
+    if veto > 0:
+        tags.append(f"veto×{veto}")
+    if debate_value >= 80:
+        tags.append("高辩论价值")
+    elif debate_value >= 60:
+        tags.append("中等辩论价值")
+
+    return {
+        "debate_value": debate_value,
+        "breakdown": {
+            "signal": round(signal_score, 1),
+            "quality": round(quality_score, 1),
+            "extreme": round(extreme_score, 1),
+            "data": round(data_score, 1),
+            "chain": round(chain_score, 1),
+        },
+        "tags": tags,
+    }
+
+
+def build_judge_brief(symbol_entry: dict, debate_score: dict, risk_input: dict = None) -> dict:
+    """
+    为闫判官生成速览摘要 + 关键指标速览。
+
+    Args:
+        symbol_entry: summary["symbols"] 中的单个品种条目
+        debate_score: compute_debate_score() 的返回
+        risk_input: _extract_risk_input() 的返回（可选）
+
+    Returns:
+        包含 quick_summary, conflict, strength, risk_flags 等字段
+    """
+    l = symbol_entry.get("l1l4", {})
+    f = symbol_entry.get("factor_timing", {})
+
+    l_total = l.get("total", 0)
+    f_total = f.get("total", 0)
+    l_adx = l.get("adx", 0)
+    l_dir = l.get("direction", "neutral")
+    f_dir = f.get("direction", "neutral")
+
+    # 一句话摘要
+    l_summary = f"L1-L4{l_dir}(总分{l_total:+d}"
+    l_summary += f", ADX{l_adx})" if l_adx else ")"
+    f_summary = f"因子{f_dir}(总分{f_total:+d})"
+    quick_summary = f"{l_summary} vs {f_summary}"
+
+    # 方向冲突检测
+    conflict = (l_dir != f_dir) and (l_dir != "neutral" and f_dir != "neutral")
+
+    # 信号强度分级
+    def _strength_grade(total_val: int) -> str:
+        if abs(total_val) >= 60:
+            return "STRONG"
+        elif abs(total_val) >= 30:
+            return "MODERATE"
+        elif abs(total_val) > 0:
+            return "WEAK"
+        return "NOISE"
+
+    # 风险标签
+    risk_flags_parts = []
+    rsi = l.get("rsi", 50)
+    if rsi > 75:
+        risk_flags_parts.append(f"RSI超买({rsi})")
+    elif rsi < 25:
+        risk_flags_parts.append(f"RSI超卖({rsi})")
+    adx = l.get("adx", 0)
+    cons = l.get("cons", 0)
+    if adx > 60 and cons < 3:
+        risk_flags_parts.append("ADX极端但一致性低")
+    stage = l.get("stage", "")
+    if stage == "exhaustion":
+        risk_flags_parts.append("衰竭阶段")
+    z_score = l.get("z_score", 0)
+    if abs(z_score) > 2.5:
+        risk_flags_parts.append(f"Z分数极端({z_score:.1f})")
+
+    risk_flags = " | ".join(risk_flags_parts) if risk_flags_parts else "正常"
+
+    result = {
+        "quick_summary": quick_summary,
+        "conflict": conflict,
+        "strength": {
+            "l1l4": _strength_grade(l_total),
+            "factor": _strength_grade(f_total),
+        },
+        "risk_flags": risk_flags,
+    }
+
+    if risk_input:
+        result["direction_conflict"] = risk_input.get("direction_conflict", conflict)
+        result["pattern_risk"] = risk_input.get("pattern_risk", "无")
+
+    return result
+
+
 def _load_json(path: str) -> dict:
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -168,17 +357,19 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
 
     symbols = []
     for sym in all_symbols:
-        l_entry = l1l4_map.get(sym, {"symbol": sym, "total": 0, "direction": "neutral",
-                                       "grade": "NOISE", "name": sym})
-        f_entry = factor_map.get(sym, {"symbol": sym, "total": 0, "direction": "neutral",
-                                         "grade": "NOISE", "name": sym})
-        symbols.append({
-            "symbol": sym,
-            "name": l_entry.get("name", sym),
-            "l1l4": _extract_l1l4(l_entry),
-            "factor_timing": _extract_factor(f_entry),
-            "risk_input": _extract_risk_input(l_entry, f_entry),
-        })
+        l_entry = l1l4_map.get(sym, {"symbol": sym, "total": 0, "direction": "neutral", "grade": "NOISE", "name": sym})
+        f_entry = factor_map.get(
+            sym, {"symbol": sym, "total": 0, "direction": "neutral", "grade": "NOISE", "name": sym}
+        )
+        symbols.append(
+            {
+                "symbol": sym,
+                "name": l_entry.get("name", sym),
+                "l1l4": _extract_l1l4(l_entry),
+                "factor_timing": _extract_factor(f_entry),
+                "risk_input": _extract_risk_input(l_entry, f_entry),
+            }
+        )
 
     l1l4_meta = l1l4_data.get("_meta", {})
     factor_meta = factor_data.get("_meta", {})
@@ -203,29 +394,35 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
 
 def build_html(summary: dict) -> str:
     """生成信号汇总表HTML（纯数据展示）"""
-    rows_json = json.dumps([{
-        "sym": s["symbol"],
-        "name": s["name"],
-        "l_total": s["l1l4"]["total"],
-        "l_dir": s["l1l4"]["direction"],
-        "l_grade": s["l1l4"]["grade"],
-        "l_adx": s["l1l4"]["adx"],
-        "l_stage": s["l1l4"]["stage"],
-        "l_cons": s["l1l4"]["cons"],
-        "l_rsi": s["l1l4"]["rsi"],
-        "f_total": s["factor_timing"]["total"],
-        "f_dir": s["factor_timing"]["direction"],
-        "f_grade": s["factor_timing"]["grade"],
-        "f_ts": s["factor_timing"]["ts_type"],
-        "f_vote": s["factor_timing"]["vote_net"],
-        "f_confidence": s["factor_timing"]["vote_confidence"],
-        "f_market": s["factor_timing"]["market_state"],
-        "f_stage": s["factor_timing"]["stage"],
-    } for s in summary["symbols"]], ensure_ascii=False)
+    rows_json = json.dumps(
+        [
+            {
+                "sym": s["symbol"],
+                "name": s["name"],
+                "l_total": s["l1l4"]["total"],
+                "l_dir": s["l1l4"]["direction"],
+                "l_grade": s["l1l4"]["grade"],
+                "l_adx": s["l1l4"]["adx"],
+                "l_stage": s["l1l4"]["stage"],
+                "l_cons": s["l1l4"]["cons"],
+                "l_rsi": s["l1l4"]["rsi"],
+                "f_total": s["factor_timing"]["total"],
+                "f_dir": s["factor_timing"]["direction"],
+                "f_grade": s["factor_timing"]["grade"],
+                "f_ts": s["factor_timing"]["ts_type"],
+                "f_vote": s["factor_timing"]["vote_net"],
+                "f_confidence": s["factor_timing"]["vote_confidence"],
+                "f_market": s["factor_timing"]["market_state"],
+                "f_stage": s["factor_timing"]["stage"],
+            }
+            for s in summary["symbols"]
+        ],
+        ensure_ascii=False,
+    )
 
     meta = summary["_meta"]
 
-    html = f'''<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>双策略信号汇总 — quant-daily</title>
+    html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>双策略信号汇总 — quant-daily</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
 .hd{{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}}
@@ -270,33 +467,38 @@ document.getElementById('tb').innerHTML=h;}}
 function sortBy(col){{if(_sortCol===col){{_sortAsc=!_sortAsc;}}else{{_sortCol=col;_sortAsc=col===0?true:false;}}render();}}
 render();
 </script>
-</body></html>'''
+</body></html>"""
     return html
 
 
-def select_debate_symbols(summary: dict, chain_map: dict = None,
-                           min_count: int = 20, min_chains: int = 12) -> dict:
+def select_debate_symbols(
+    summary: dict, chain_map: dict = None, min_count: int = 20, min_chains: int = 12, history_path: str = None
+) -> dict:
     """
     从信号汇总中精选辩论品种。
 
-    纯数据辅助——只输出品种列表和分类，不做方向裁决。
-    闫判官根据此列表自行决定辩论策略。
+    增强版：使用五维加权的 debate_value 替代原简单 divergence_score，
+    并添加闫判官速览摘要和历史反馈。
 
     Args:
         summary: build_signal_summary() 的输出
         chain_map: {symbol_upper: chain_name} 映射。None时标记为"未知"
         min_count: 最少辩论品种数
         min_chains: 最少覆盖产业链数
+        history_path: 历史反馈JSON路径（可选）
 
     Returns:
         {
-            "_meta": {"mode": "debate_selection", "total_candidates": N, "chains_covered": M, ...},
-            "divergence": [{"symbol":..., "chain":..., "l1l4":..., "factor":..., "divergence_score":...}, ...],
-            "consensus_bear": [ ... ],
-            "consensus_bull": [ ... ],
-            "debate_candidates": [{"symbol":..., "chain":..., "proposition_side":"bear/bull", "reason":...}, ...],
-            "chain_coverage": {"chain_name": candidate_count, ...},
-            "z_extremes": [{"symbol":..., "z_score":...}, ...],
+            "_meta": {...},
+            "divergence": [{"symbol":..., "debate_value":..., ...}, ...],
+            "consensus_bear": [...],
+            "consensus_bull": [...],
+            "debate_candidates": [{"symbol":..., "chain":..., "proposition_side":"bear/bull",
+                                    "debate_value":..., "breakdown":..., "tags":...,
+                                    "quick_summary":..., "conflict":..., "strength":...,
+                                    "risk_flags":..., "history":..., ...}, ...],
+            "chain_coverage": {...},
+            "z_extremes": [...],
         }
     """
     if chain_map is None:
@@ -305,7 +507,21 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
     symbols = summary.get("symbols", [])
     meta = summary.get("_meta", {})
 
-    # 分类
+    # 加载历史反馈（从 history_path 或默认位置）
+    history_feedback = {}
+    if history_path:
+        try:
+            with open(history_path, "r", encoding="utf-8") as _hf:
+                history_feedback = json.load(_hf)
+        except (FileNotFoundError, json.JSONDecodeError, IOError):
+            try:
+                from debate import history as dh
+
+                history_feedback = dh.load_feedback()
+            except ImportError:
+                pass
+
+    # 分类 + 多维评分
     divergence = []
     consensus_bear = []
     consensus_bull = []
@@ -318,28 +534,77 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
         l_dir, l_total = l.get("direction", "neutral"), l.get("total", 0)
         f_dir, f_total = f.get("direction", "neutral"), f.get("total", 0)
         chain = chain_map.get(sym.upper(), "未知")
+
+        # 五维辩论价值评分
+        debate_score = compute_debate_score(l, f, chain=chain)
+        debate_value = debate_score["debate_value"]
+
+        # 闫判官速览摘要
+        l_dir_cn = "多头" if l_dir == "bull" else ("空头" if l_dir == "bear" else "中性")
+        f_dir_cn = "多头" if f_dir == "bull" else ("空头" if f_dir == "bear" else "中性")
+        l_adx_val = l.get("adx", 0)
+        quick_summary = f"L1-L4{l_dir_cn}(总分{l_total:+d}, ADX{l_adx_val}) vs 因子{f_dir_cn}(总分{f_total:+d})"
+        conflict = (l_dir != f_dir) and (l_dir != "neutral" and f_dir != "neutral")
+
+        def _strength_grade(total_val: int) -> str:
+            if abs(total_val) >= 60:
+                return "STRONG"
+            elif abs(total_val) >= 30:
+                return "MODERATE"
+            elif abs(total_val) > 0:
+                return "WEAK"
+            return "NOISE"
+
+        risk_parts = []
+        rsi = l.get("rsi", 50)
+        if rsi > 75:
+            risk_parts.append(f"RSI超买({rsi})")
+        elif rsi < 25:
+            risk_parts.append(f"RSI超卖({rsi})")
+        adx = l.get("adx", 0)
+        cons = l.get("cons", 0)
+        if adx > 60 and cons < 3:
+            risk_parts.append("ADX极端但一致性低")
+        if l.get("stage", "") == "exhaustion":
+            risk_parts.append("衰竭阶段")
+        z_score = l.get("z_score", 0)
+        if abs(z_score) > 2.5:
+            risk_parts.append(f"Z分数极端({z_score:.1f})")
+        risk_flags = " | ".join(risk_parts) if risk_parts else "正常"
+
         item = {
-            "symbol": sym, "name": s.get("name", sym), "chain": chain,
-            "l1l4_dir": l_dir, "l1l4_total": l_total,
-            "factor_dir": f_dir, "factor_total": f_total,
-            "price": l.get("price", 0), "adx": l.get("adx", 0),
+            "symbol": sym,
+            "name": s.get("name", sym),
+            "chain": chain,
+            "l1l4_dir": l_dir,
+            "l1l4_total": l_total,
+            "factor_dir": f_dir,
+            "factor_total": f_total,
+            "price": l.get("price", 0),
+            "adx": l.get("adx", 0),
             "grade": l.get("grade", "NOISE"),
+            "debate_value": debate_value,
+            "breakdown": debate_score["breakdown"],
+            "tags": debate_score["tags"],
+            "quick_summary": quick_summary,
+            "conflict": conflict,
+            "strength": {"l1l4": _strength_grade(l_total), "factor": _strength_grade(f_total)},
+            "risk_flags": risk_flags,
         }
+
         if l_dir != f_dir and l_dir != "neutral" and f_dir != "neutral":
-            item["divergence_score"] = abs(l_total) + abs(f_total)
             divergence.append(item)
         elif l_dir == "bear" and f_dir == "bear":
-            item["consensus_score"] = abs(l_total) + abs(f_total)
             consensus_bear.append(item)
         elif l_dir == "bull" and f_dir == "bull":
-            item["consensus_score"] = abs(l_total) + abs(f_total)
             consensus_bull.append(item)
         else:
             neutral.append(item)
 
-    divergence.sort(key=lambda x: x["divergence_score"], reverse=True)
-    consensus_bear.sort(key=lambda x: x["consensus_score"], reverse=True)
-    consensus_bull.sort(key=lambda x: x["consensus_score"], reverse=True)
+    # 按 debate_value 排序
+    divergence.sort(key=lambda x: x["debate_value"], reverse=True)
+    consensus_bear.sort(key=lambda x: x["debate_value"], reverse=True)
+    consensus_bull.sort(key=lambda x: x["debate_value"], reverse=True)
 
     # 精选辩论品种
     candidates = []
@@ -347,11 +612,29 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
 
     # 第一轮：分歧品种
     for item in divergence:
-        item["proposition_side"] = "bear" if (abs(item["l1l4_total"]) >= abs(item["factor_total"])
-                                               and item["l1l4_dir"] == "bear") else item["l1l4_dir"]
+        item["proposition_side"] = (
+            "bear"
+            if (abs(item["l1l4_total"]) >= abs(item["factor_total"]) and item["l1l4_dir"] == "bear")
+            else item["l1l4_dir"]
+        )
         if item["proposition_side"] == "neutral":
             item["proposition_side"] = item["factor_dir"]
-        item["reason"] = f"方向分歧: L1L4={item['l1l4_dir']}({item['l1l4_total']:+d}) vs 因子={item['factor_dir']}({item['factor_total']:+d})"
+        item["reason"] = (
+            f"方向分歧: L1L4={item['l1l4_dir']}({item['l1l4_total']:+d}) vs 因子={item['factor_dir']}({item['factor_total']:+d})"
+        )
+        # 添加历史调整值
+        if history_feedback:
+            try:
+                from debate import history as dh
+
+                item["history_adjustment"] = dh.get_symbol_value_score(item["symbol"], history_feedback)
+            except ImportError:
+                try:
+                    from debate import history as dh
+
+                    item["history_adjustment"] = dh.get_symbol_value_score(item["symbol"], history_feedback)
+                except ImportError:
+                    pass
         candidates.append(item)
         covered_chains.add(item["chain"])
 
@@ -359,7 +642,16 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
     for item in consensus_bear:
         if item["chain"] not in covered_chains and len(candidates) < min_count + 5:
             item["proposition_side"] = "bear"
-            item["reason"] = f"双空共识: L1L4({item['l1l4_total']:+d}) + 因子({item['factor_total']:+d}) | 链:{item['chain']}"
+            item["reason"] = (
+                f"双空共识: L1L4({item['l1l4_total']:+d}) + 因子({item['factor_total']:+d}) | 链:{item['chain']}"
+            )
+            if history_feedback:
+                try:
+                    from debate import history as dh
+
+                    item["history_adjustment"] = dh.get_symbol_value_score(item["symbol"], history_feedback)
+                except ImportError:
+                    pass
             candidates.append(item)
             covered_chains.add(item["chain"])
 
@@ -380,12 +672,15 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
         for item in consensus_bear:
             if item not in candidates and len(candidates) < min_count + 3:
                 item["proposition_side"] = "bear"
-                item["reason"] = f"补足数量: 双空共识强度{item['consensus_score']}"
+                item["reason"] = f"补足数量: 双空共识强度(debate_value={item['debate_value']})"
                 candidates.append(item)
 
     # Z分数极端
-    z_extremes = [{"symbol": s["symbol"], "z_score": s["l1l4"].get("z_score", 0)}
-                  for s in symbols if abs(s["l1l4"].get("z_score", 0)) > 2]
+    z_extremes = [
+        {"symbol": s["symbol"], "z_score": s["l1l4"].get("z_score", 0)}
+        for s in symbols
+        if abs(s["l1l4"].get("z_score", 0)) > 2
+    ]
     z_extremes.sort(key=lambda x: abs(x["z_score"]), reverse=True)
 
     # 链覆盖统计
@@ -401,6 +696,8 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
             "divergence_count": len(divergence),
             "consensus_bear_count": len(consensus_bear),
             "consensus_bull_count": len(consensus_bull),
+            "enhanced": True,
+            "debate_scoring": "五维加权评分 v1",
         },
         "divergence": divergence,
         "consensus_bear": consensus_bear,
@@ -413,6 +710,7 @@ def select_debate_symbols(summary: dict, chain_map: dict = None,
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="双策略信号汇总（quant-daily纯数据输出）")
     parser.add_argument("l1l4_path", help="L1-L4 策略 JSON 路径")
     parser.add_argument("factor_path", help="factor_timing 策略 JSON 路径")
@@ -421,19 +719,20 @@ if __name__ == "__main__":
     parser.add_argument("--select-debate", help="链映射JSON路径，启用辩论品种精选", default=None)
     parser.add_argument("--min-count", type=int, help="最少辩论品种数", default=20)
     parser.add_argument("--min-chains", type=int, help="最少覆盖产业链数", default=12)
+    parser.add_argument("--history-path", help="历史反馈JSON路径（可选）", default=None)
     args = parser.parse_args()
 
     summary = build_signal_summary(args.l1l4_path, args.factor_path)
     os.makedirs(args.output_dir, exist_ok=True)
 
     json_path = os.path.join(args.output_dir, f"{args.prefix}.json")
-    with open(json_path, 'w', encoding='utf-8') as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     print(f"[OK] JSON: {json_path}")
 
     html = build_html(summary)
     html_path = os.path.join(args.output_dir, f"{args.prefix}.html")
-    with open(html_path, 'w', encoding='utf-8') as f:
+    with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"[OK] HTML: {html_path}")
 
@@ -443,7 +742,7 @@ if __name__ == "__main__":
     print(f"  因子择时: {meta['factor_bull']}多头 / {meta['factor_bear']}空头")
 
     if args.select_debate:
-        with open(args.select_debate, 'r', encoding='utf-8') as f:
+        with open(args.select_debate, "r", encoding="utf-8") as f:
             chain_data = json.load(f)
         chain_results = chain_data.get("chain_results", chain_data)
         chain_map = {}
@@ -451,11 +750,14 @@ if __name__ == "__main__":
             if isinstance(info, dict):
                 chain_map[sym.upper()] = info.get("chain", "未知")
         selection = select_debate_symbols(
-            summary, chain_map=chain_map,
-            min_count=args.min_count, min_chains=args.min_chains,
+            summary,
+            chain_map=chain_map,
+            min_count=args.min_count,
+            min_chains=args.min_chains,
+            history_path=args.history_path,
         )
         sel_path = os.path.join(args.output_dir, f"{args.prefix}_candidates.json")
-        with open(sel_path, 'w', encoding='utf-8') as f:
+        with open(sel_path, "w", encoding="utf-8") as f:
             json.dump(selection, f, ensure_ascii=False, indent=2)
         sm = selection["_meta"]
         print(f"\n辩论品种精选:")

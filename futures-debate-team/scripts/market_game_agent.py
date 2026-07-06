@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("market_game")
 #!/usr/bin/env python3
 """
@@ -28,8 +29,7 @@ import json, math
 class MarketGameAgent:
     """对手盘行为分析器 — 博弈视角的市场解读。"""
 
-    def analyze(self, price_data: List[float], volume_data: List[float],
-                oi_data: List[float] = None) -> Dict[str, Any]:
+    def analyze(self, price_data: List[float], volume_data: List[float], oi_data: List[float] = None) -> Dict[str, Any]:
         """综合分析市场博弈行为。
 
         Args:
@@ -45,30 +45,30 @@ class MarketGameAgent:
              "recommendation": str}         # 操作建议
         """
         signals = []
-        
+
         # 1. 假突破检测
         fb = self.detect_fake_breakout(price_data, volume_data)
         if fb["risk"] > 0.5:
             signals.append(fb)
-        
+
         # 2. 诱空/诱多检测
         suction = self.detect_suction(price_data, volume_data, oi_data)
         if suction["confidence"] > 0.5:
             signals.append(suction)
-        
+
         # 3. 机构资金行为分析
         inst = self.simulate_institutional(price_data, volume_data)
         if inst["suspicion"] > 0.5:
             signals.append(inst)
-        
+
         # 综合判断
         max_risk = max([s.get("risk", 0) for s in signals], default=0)
         max_confidence = max([s.get("confidence", 0) for s in signals], default=0)
-        
+
         # 确定诱多/诱空类型
         sucking_types = [s.get("sucking_type") for s in signals if s.get("sucking_type")]
         primary_type = sucking_types[0] if sucking_types else "none"
-        
+
         # 建议
         if max_risk > 0.7:
             rec = "假突破风险高，建议等待确认再入场"
@@ -131,8 +131,7 @@ class MarketGameAgent:
             "risk_level": "high" if fake_risk > 0.6 else "medium",
         }
 
-    def detect_suction(self, prices: List[float], volumes: List[float],
-                       oi: List[float] = None) -> Dict[str, Any]:
+    def detect_suction(self, prices: List[float], volumes: List[float], oi: List[float] = None) -> Dict[str, Any]:
         """检测诱多/诱空（sucking）。
 
         特征：
@@ -159,16 +158,23 @@ class MarketGameAgent:
 
         # 快速拉升→诱多，快速下跌→诱空
         if p_change > 0.03 and v_surge:
-            return {"risk": 0.6, "sucking_type": "bull_trap", "confidence": 0.6,
-                    "detail": "快速拉升+成交量萎缩，疑似诱多"}
+            return {
+                "risk": 0.6,
+                "sucking_type": "bull_trap",
+                "confidence": 0.6,
+                "detail": "快速拉升+成交量萎缩，疑似诱多",
+            }
         elif p_change < -0.03 and v_surge:
-            return {"risk": 0.6, "sucking_type": "bear_trap", "confidence": 0.6,
-                    "detail": "快速下跌+成交量萎缩，疑似诱空"}
+            return {
+                "risk": 0.6,
+                "sucking_type": "bear_trap",
+                "confidence": 0.6,
+                "detail": "快速下跌+成交量萎缩，疑似诱空",
+            }
         else:
             return {"risk": 0.2, "sucking_type": "none", "confidence": 0.3}
 
-    def simulate_institutional(self, prices: List[float],
-                                volumes: List[float]) -> Dict[str, Any]:
+    def simulate_institutional(self, prices: List[float], volumes: List[float]) -> Dict[str, Any]:
         """模拟机构资金行为。
 
         特征：
@@ -183,7 +189,7 @@ class MarketGameAgent:
             return {"suspicion": 0, "behavior": "unknown", "confidence": 0}
 
         # 计算波动率
-        returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]
+        returns = [(prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, len(prices))]
         vol = sum(abs(r) for r in returns) / len(returns)
 
         # 窄幅盘整+低波动 → 机构吸筹/出货
@@ -200,11 +206,12 @@ class MarketGameAgent:
 
 if __name__ == "__main__":
     import random
+
     # 测试假突破场景
     prices = [100 + i * 0.2 for i in range(20)] + [102, 101.5, 101, 100.5, 100]
     volumes = [1000 + random.randint(-100, 100) for _ in range(25)]
     volumes[-5:] = [300, 250, 200, 150, 100]  # 突破后缩量
-    
+
     agent = MarketGameAgent()
     result = agent.analyze(prices, volumes)
     print(f"博弈分析: {json.dumps(result, ensure_ascii=False, indent=2)}")

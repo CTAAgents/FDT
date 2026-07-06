@@ -21,6 +21,7 @@ from enum import Enum
 
 class DataSource(Enum):
     """数据源枚举（与 data_sources.yaml 的 name 字段对齐）"""
+
     TQSDK = "tqsdk"
     EXCHANGE_API = "exchange_api"
     EASTMONEY = "eastmoney"
@@ -37,6 +38,7 @@ class DataSource(Enum):
 @dataclass
 class DataSourceEntry:
     """单个数据源的配置条目"""
+
     name: str
     display_name: str
     enabled: bool
@@ -72,23 +74,23 @@ class DataSourceConfig:
             self._config = {}
             return
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 
         self._config = {}
-        for entry in raw.get('sources', []):
-            name = entry.get('name', '')
+        for entry in raw.get("sources", []):
+            name = entry.get("name", "")
             if not name:
                 continue
             self._config[name] = DataSourceEntry(
                 name=name,
-                display_name=entry.get('display_name', name),
-                category=entry.get('type', 'price'),  # type 字段映射为 category
-                enabled=entry.get('enabled', True),
-                priority_intraday=entry.get('priority_intraday', 99),
-                priority_afternoon=entry.get('priority_afternoon', 99),
-                description=entry.get('description', ''),
-                params=entry.get('params', {}),
+                display_name=entry.get("display_name", name),
+                category=entry.get("type", "price"),  # type 字段映射为 category
+                enabled=entry.get("enabled", True),
+                priority_intraday=entry.get("priority_intraday", 99),
+                priority_afternoon=entry.get("priority_afternoon", 99),
+                description=entry.get("description", ""),
+                params=entry.get("params", {}),
             )
 
     def is_enabled(self, name: str) -> bool:
@@ -110,12 +112,12 @@ class DataSourceConfig:
         Returns:
             按优先级排序的 DataSource 枚举列表
         """
-        priority_key = 'priority_intraday' if is_trading_hour else 'priority_afternoon'
+        priority_key = "priority_intraday" if is_trading_hour else "priority_afternoon"
 
         # 过滤启用且类型为 price 的，按优先级排序
         sorted_entries = sorted(
-            [e for e in self._config.values() if e.enabled and e.category == 'price'],
-            key=lambda e: getattr(e, priority_key, 99)
+            [e for e in self._config.values() if e.enabled and e.category == "price"],
+            key=lambda e: getattr(e, priority_key, 99),
         )
 
         result = []
@@ -175,6 +177,7 @@ class DataSourceConfig:
 
 # ==================== 快捷接口 ====================
 
+
 def get_priority_sources(is_trading_hour: bool = True) -> List[DataSource]:
     """获取按优先级排序的数据源列表（快捷方式）"""
     return DataSourceConfig().get_priority_list(is_trading_hour)
@@ -203,13 +206,13 @@ if __name__ == "__main__":
         print(f"  → {s.value}")
 
     print("\n=== 资讯数据源（news 类型） ===")
-    for e in config.get_sources_by_category('news'):
+    for e in config.get_sources_by_category("news"):
         print(f"  → {e.name} ({e.display_name})")
 
     print("\n=== 综合数据源（comprehensive 类型） ===")
-    for e in config.get_sources_by_category('comprehensive'):
+    for e in config.get_sources_by_category("comprehensive"):
         print(f"  → {e.name} ({e.display_name})")
 
     print("\n=== 问财数据源（skillhub 类型） ===")
-    for e in config.get_sources_by_category('skillhub'):
+    for e in config.get_sources_by_category("skillhub"):
         print(f"  → {e.name} ({e.display_name})")

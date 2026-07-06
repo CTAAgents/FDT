@@ -77,6 +77,7 @@ def load_historical_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     """加载历史数据（使用MultiSourceAdapter）"""
     try:
         from data.multi_source_adapter import MultiSourceAdapter
+
         adapter = MultiSourceAdapter()
         df = adapter.get_kline(symbol, period="1d", start_date=start, end_date=end)
         if df is None or df.empty:
@@ -94,7 +95,7 @@ def simulate_stress_scenario(
 ) -> Dict[str, Any]:
     """
     对单个品种在极端场景下进行模拟。
-    
+
      Returns:
         {
             "symbol": str,
@@ -108,18 +109,18 @@ def simulate_stress_scenario(
     """
     if base_data.empty:
         return {"symbol": symbol, "error": "无数据"}
-    
+
     impact = scenario.get("impact_factor", {}).get(symbol, 0)
     vol_mult = scenario.get("volatility_multiplier", 2.0)
     liq_shock = scenario.get("liquidity_shock", False)
-    
+
     # 计算基础波动率
     returns = base_data["close"].pct_change().dropna()
     base_vol = returns.std() * math.sqrt(252)
-    
+
     # 模拟极端波动
     stressed_vol = base_vol * vol_mult
-    
+
     # 模拟方向性冲击
     if impact != 0:
         stressed_returns = returns * (1 + abs(impact) * 0.5)
@@ -127,16 +128,16 @@ def simulate_stress_scenario(
             stressed_returns = -stressed_returns
     else:
         stressed_returns = returns * vol_mult
-    
+
     # 模拟最大回撤
     cum_returns = (1 + stressed_returns).cumprod()
     running_max = cum_returns.expanding().max()
     drawdown = (cum_returns - running_max) / running_max
     max_dd = drawdown.min()
-    
+
     # 存活率 = 最大回撤未超过20%的概率（简化）
     survival = max(0, 1 - abs(max_dd) / 0.20) if abs(max_dd) < 0.50 else 0.0
-    
+
     # 建议动作
     if abs(max_dd) > 0.30:
         recommendation = "极端场景：暂停开仓，减仓至30%"
@@ -146,7 +147,7 @@ def simulate_stress_scenario(
         recommendation = "中等风险：标准风控"
     else:
         recommendation = "低风险：正常操作"
-    
+
     return {
         "symbol": symbol,
         "scenario": scenario["name"],
@@ -162,35 +163,35 @@ def simulate_stress_scenario(
 def run_stress_test(symbols: List[str], scenario_key: str = "all") -> Dict[str, Any]:
     """
     运行压力测试。
-    
+
     Args:
         symbols: 品种列表
         scenario_key: 场景名或"all"运行所有场景
-    
+
     Returns:
         {"summary": {...}, "results": [...]}
     """
     scenarios = [scenario_key] if scenario_key != "all" else list(STRESS_SCENARIOS.keys())[:-1]  # 排除custom
-    
+
     all_results = []
     for sc_key in scenarios:
         scenario = STRESS_SCENARIOS.get(sc_key)
         if not scenario:
             continue
-        
+
         start, end = scenario["period"]
         print(f"\n[StressTest] 场景: {scenario['name']} ({start} ~ {end})")
-        
+
         for sym in symbols:
             df = load_historical_data(sym, start, end)
             result = simulate_stress_scenario(sym, scenario, df)
             all_results.append(result)
             print(f"  {sym}: MDD={result.get('max_drawdown', 'N/A')}, 建议={result.get('recommendation', 'N/A')}")
-    
+
     # 汇总
     survival_rates = [r.get("survival_rate", 0) for r in all_results if "survival_rate" in r]
     avg_survival = sum(survival_rates) / max(len(survival_rates), 1)
-    
+
     summary = {
         "scenario_count": len(scenarios),
         "symbol_count": len(symbols),
@@ -198,23 +199,24 @@ def run_stress_test(symbols: List[str], scenario_key: str = "all") -> Dict[str, 
         "avg_survival_rate": round(avg_survival, 4),
         "pass_rate": round(sum(1 for s in survival_rates if s > 0.5) / max(len(survival_rates), 1), 4),
     }
-    
+
     return {"summary": summary, "results": all_results}
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="压力测试模块")
     parser.add_argument("--symbols", "-s", default="RB", help="品种代码（逗号分隔）")
     parser.add_argument("--scenario", default="all", help="场景名或all")
     parser.add_argument("--output", "-o", help="输出JSON路径")
     args = parser.parse_args()
-    
+
     symbols = [s.strip().upper() for s in args.symbols.split(",")]
     result = run_stress_test(symbols, args.scenario)
-    
+
     print(f"\n[StressTest] 汇总: {json.dumps(result['summary'], ensure_ascii=False, indent=2)}")
-    
+
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)

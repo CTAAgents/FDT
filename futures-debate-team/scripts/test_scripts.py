@@ -4,6 +4,7 @@ scripts/ 模块测试（技术债清理 — 测试覆盖率）
 """
 
 import sys, os, json, tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
@@ -45,6 +46,7 @@ class TestFingerprint:
 
     def test_set_global_seed(self):
         import random
+
         set_global_seed(42)
         a = random.randint(0, 1000)
         set_global_seed(42)

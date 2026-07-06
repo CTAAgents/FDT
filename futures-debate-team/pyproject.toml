@@ -4,8 +4,8 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "4.4.0"
-description = "Multi-role futures trading debate system — 10 Agent CTA decision framework"
+version = "4.5.0"
+description = "Multi-role futures trading debate system — 11 Agent CTA decision framework (Bridgewater+ML)"
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -69,8 +69,11 @@ include = ["contracts*", "scripts*", "deploy*"]
 namespaces = false
 
 [tool.pytest.ini_options]
-testpaths = ["skills/futures-trading-analysis/contracts"]
+testpaths = [
+    "tests/quant-daily",
+]
 python_files = ["test_*.py"]
+addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 
 [tool.black]
 line-length = 120

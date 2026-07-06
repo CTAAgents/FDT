@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("execution")
 #!/usr/bin/env python3
 """
@@ -29,24 +30,24 @@ from enum import Enum
 
 class ExecutionMode(Enum):
     DRY_RUN = "dry-run"
-    PAPER = "paper" 
+    PAPER = "paper"
     LIVE = "live"
 
 
 class ExecutionAgent:
     """实盘执行引擎 — 对接CTP/易盛柜台。"""
-    
+
     def __init__(self, mode: str = "dry-run", account_id: str = "default"):
         self.mode = ExecutionMode(mode)
         self.account_id = account_id
         self.orders = []
         self.positions = {}
-        
+
         print(f"[ExecutionAgent] 初始化完成 - mode={mode}, account={account_id}")
-    
+
     def get_main_contract(self, symbol: str, date: str = None) -> Dict[str, Any]:
         """获取主力合约信息。
-        
+
         优先使用成交量和持仓量排序，选择流动性最强的合约。
 
         Args:
@@ -54,12 +55,12 @@ class ExecutionAgent:
             date: 查询日期（默认今日）
 
         Returns:
-            {"contract": "rb2510", "expiry": "2026-10-15", 
+            {"contract": "rb2510", "expiry": "2026-10-15",
              "volume_rank": 1, "is_main": True}
         """
         # 简化实现：实际部署时通过CTP查询合约列表
-        month = (datetime.now() if not date else datetime.strptime(date, "%Y-%m-%d"))
-        
+        month = datetime.now() if not date else datetime.strptime(date, "%Y-%m-%d")
+
         # 主力合约映射示例
         main_map = {
             "RB": f"rb{month.year % 100}{str(month.month + 2).zfill(2) if month.month <= 10 else '01'}",
@@ -69,16 +70,18 @@ class ExecutionAgent:
             "CU": f"cu{month.year % 100}{str(month.month + 2).zfill(2)}",
             "SC": f"sc{month.year % 100}{str(month.month + 3).zfill(2)}",
         }
-        
-        contract = main_map.get(symbol.upper(), f"{symbol.lower()}{month.year % 100}{str(month.month % 12 + 1).zfill(2)}")
-        
+
+        contract = main_map.get(
+            symbol.upper(), f"{symbol.lower()}{month.year % 100}{str(month.month % 12 + 1).zfill(2)}"
+        )
+
         return {
             "contract": contract,
             "exchange": "SHFE",
             "is_main": True,
             "expiry_estimate": f"{month.year + 1}-{str(month.month).zfill(2)}-15",
         }
-    
+
     def roll_over(self, symbol: str, current_contract: str, days_before_expiry: int = 7) -> Dict[str, Any]:
         """换月移仓：平滑切换到下一个主力合约。
 
@@ -92,10 +95,10 @@ class ExecutionAgent:
         """
         # 检查当前合约是否临近交割
         new_main = self.get_main_contract(symbol)
-        
+
         if new_main["contract"] == current_contract:
             return {"new_contract": current_contract, "roll_date": None, "method": "no_roll"}
-        
+
         # 移仓策略：卖旧买新，分批进行
         # 实际部署时分3-5天逐批移仓
         plan = {
@@ -106,21 +109,21 @@ class ExecutionAgent:
             "days_per_batch": 1,
             "estimated_cost": self._estimate_roll_cost(symbol),
         }
-        
+
         return plan
-    
+
     def _estimate_roll_cost(self, symbol: str) -> Dict[str, float]:
         """估算移仓成本（价差+手续费+滑点）。"""
         # 简化：实际需读取合约价差
         return {
             "spread_cost": 0.01,  # 价差成本比例
             "commission": 0.0002,  # 手续费比例
-            "slippage": 0.0005,   # 滑点比例
+            "slippage": 0.0005,  # 滑点比例
         }
-    
-    def create_execution_plan(self, symbol: str, direction: str, 
-                              lots: int, order_type: str = "twap",
-                              price_limit: float = None) -> Dict[str, Any]:
+
+    def create_execution_plan(
+        self, symbol: str, direction: str, lots: int, order_type: str = "twap", price_limit: float = None
+    ) -> Dict[str, Any]:
         """创建执行计划（含限价单拆分）。
 
         Args:
@@ -134,41 +137,47 @@ class ExecutionAgent:
             {"orders": [...], "estimated_cost": float, "execution_time": str}
         """
         contract_info = self.get_main_contract(symbol)
-        
+
         if order_type == "twap":
             # TWAP分批：按时间均匀拆分
             sub_lots = max(1, lots // 5)
             orders = []
             for i in range(5):
                 actual_lots = sub_lots if i < 4 else lots - sub_lots * 4
-                orders.append({
-                    "batch": i + 1,
+                orders.append(
+                    {
+                        "batch": i + 1,
+                        "contract": contract_info["contract"],
+                        "direction": direction,
+                        "lots": actual_lots,
+                        "order_type": "limit",
+                        "price_limit": price_limit,
+                        "scheduled_time": f"T+{i}",
+                    }
+                )
+        elif order_type == "market":
+            orders = [
+                {
+                    "batch": 1,
                     "contract": contract_info["contract"],
                     "direction": direction,
-                    "lots": actual_lots,
+                    "lots": lots,
+                    "order_type": "market",
+                    "price_limit": None,
+                }
+            ]
+        else:
+            orders = [
+                {
+                    "batch": 1,
+                    "contract": contract_info["contract"],
+                    "direction": direction,
+                    "lots": lots,
                     "order_type": "limit",
                     "price_limit": price_limit,
-                    "scheduled_time": f"T+{i}",
-                })
-        elif order_type == "market":
-            orders = [{
-                "batch": 1,
-                "contract": contract_info["contract"],
-                "direction": direction,
-                "lots": lots,
-                "order_type": "market",
-                "price_limit": None,
-            }]
-        else:
-            orders = [{
-                "batch": 1,
-                "contract": contract_info["contract"],
-                "direction": direction,
-                "lots": lots,
-                "order_type": "limit",
-                "price_limit": price_limit,
-            }]
-        
+                }
+            ]
+
         plan = {
             "plan_id": f"EXEC_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "symbol": symbol,
@@ -179,9 +188,9 @@ class ExecutionAgent:
             "estimated_cost": self._estimate_roll_cost(symbol),
             "mode": self.mode.value,
         }
-        
+
         return plan
-    
+
     def execute(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """执行交易计划。
 
@@ -196,10 +205,7 @@ class ExecutionAgent:
             return {
                 "status": "simulated",
                 "plan_id": plan["plan_id"],
-                "filled_orders": [
-                    {**o, "filled": True, "filled_price": 100.0}
-                    for o in plan["orders"]
-                ],
+                "filled_orders": [{**o, "filled": True, "filled_price": 100.0} for o in plan["orders"]],
                 "avg_price": 100.0,
                 "note": "dry-run模式：模拟成交",
             }
@@ -208,10 +214,7 @@ class ExecutionAgent:
             return {
                 "status": "simulated_with_slippage",
                 "plan_id": plan["plan_id"],
-                "filled_orders": [
-                    {**o, "filled": True, "filled_price": 101.5}
-                    for o in plan["orders"]
-                ],
+                "filled_orders": [{**o, "filled": True, "filled_price": 101.5} for o in plan["orders"]],
                 "avg_price": 101.5,
                 "note": "paper模式：含动态滑点模拟",
             }
@@ -285,6 +288,7 @@ class PaperExecutionEngine:
 
         # 3. 动态滑点（置信度越低，滑点越大）
         import random
+
         slippage_ticks = max(0, int((1 - confidence) * 5))  # 0~5 ticks
         slippage_price = slippage_ticks * (1 if direction == "long" else -1)
 
@@ -305,11 +309,16 @@ class PaperExecutionEngine:
 
         # 6. 记录交易
         trade = {
-            "symbol": symbol, "direction": direction,
-            "lots_requested": lots, "lots_filled": filled_lots,
-            "entry_price": filled_price, "slippage_ticks": slippage_ticks,
-            "confidence": confidence, "fill_rate": fill_rate,
-            "status": "open", "opened_at": datetime.now().isoformat(),
+            "symbol": symbol,
+            "direction": direction,
+            "lots_requested": lots,
+            "lots_filled": filled_lots,
+            "entry_price": filled_price,
+            "slippage_ticks": slippage_ticks,
+            "confidence": confidence,
+            "fill_rate": fill_rate,
+            "status": "open",
+            "opened_at": datetime.now().isoformat(),
         }
         self.trades.append(trade)
 
@@ -321,8 +330,7 @@ class PaperExecutionEngine:
             "slippage_ticks": slippage_ticks,
         }
 
-    def close_position(self, symbol: str, exit_price: float,
-                       reason: str = "manual") -> dict:
+    def close_position(self, symbol: str, exit_price: float, reason: str = "manual") -> dict:
         """平仓并记录PnL。"""
         pos = self.positions.get(symbol)
         if not pos:
@@ -349,8 +357,10 @@ class PaperExecutionEngine:
         del self.positions[symbol]
 
         return {
-            "symbol": symbol, "pnl": pnl,
-            "exit_price": exit_price, "reason": reason,
+            "symbol": symbol,
+            "pnl": pnl,
+            "exit_price": exit_price,
+            "reason": reason,
             "equity": self.equity,
         }
 
@@ -387,7 +397,7 @@ def live_readiness_check(engine: PaperExecutionEngine) -> dict:
     """
     summary = engine.get_summary()
     closed = [t for t in engine.trades if t["status"] == "closed"]
-    
+
     # 定义8道安检
     checks = {
         "paper_trades_enough": len(closed) >= 20,
@@ -399,10 +409,10 @@ def live_readiness_check(engine: PaperExecutionEngine) -> dict:
         "ml_rule_aligned": True,  # 简化
         "judge_verdict_execute": True,  # 由外部传入
     }
-    
+
     failed = [name for name, passed in checks.items() if not passed]
     ready = len(failed) == 0
-    
+
     return {
         "ready": ready,
         "total_checks": len(checks),

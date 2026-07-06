@@ -66,9 +66,7 @@ def get_strategy(name: str = None):
     entry = _REGISTRY.get(name)
     if entry is None:
         available = ", ".join(_REGISTRY.keys())
-        raise KeyError(
-            f"策略 '{name}' 未注册。可用策略: {available}"
-        )
+        raise KeyError(f"策略 '{name}' 未注册。可用策略: {available}")
     return entry["instance"]
 
 
@@ -102,5 +100,5 @@ def set_default(name: str):
 
 
 # 确保所有策略模块被导入
-from . import layered_l1l4   # noqa: F401, E402
-from . import factor_timing   # noqa: F401, E402
+from . import layered_l1l4  # noqa: F401, E402
+from . import factor_timing  # noqa: F401, E402

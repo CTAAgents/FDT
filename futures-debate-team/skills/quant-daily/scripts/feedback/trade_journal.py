@@ -14,13 +14,11 @@ import json, os
 
 
 TRADE_JOURNAL_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data", "trade_journal", "journal.json"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "trade_journal", "journal.json"
 )
 
 REPLAY_BUFFER_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data", "trade_journal", "replay_buffer.json"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "trade_journal", "replay_buffer.json"
 )
 
 
@@ -54,6 +52,7 @@ def record_trade(
         交易记录 dict
     """
     import hashlib
+
     trade_id = hashlib.md5(f"{symbol}{entry_date}{entry_price}{datetime.now().timestamp()}".encode()).hexdigest()[:12]
 
     trade = {
@@ -81,8 +80,9 @@ def record_trade(
     return trade
 
 
-def close_trade(trade_id: str, exit_price: float, exit_date: str,
-                 multiplier: float = 10, annotation: Optional[Dict] = None) -> Dict:
+def close_trade(
+    trade_id: str, exit_price: float, exit_date: str, multiplier: float = 10, annotation: Optional[Dict] = None
+) -> Dict:
     """平仓并计算 PnL。
 
     Args:
@@ -135,8 +135,7 @@ def close_trade(trade_id: str, exit_price: float, exit_date: str,
     return {"error": f"trade_id {trade_id} not found"}
 
 
-def annotate_prediction(trade_id: str, prediction: Dict,
-                         actual_direction: str, pnl_pct: float) -> Dict:
+def annotate_prediction(trade_id: str, prediction: Dict, actual_direction: str, pnl_pct: float) -> Dict:
     """反向标注技术Agent的预测 — PnL 结算后的反馈。
 
     判断标准:
@@ -173,13 +172,15 @@ def annotate_prediction(trade_id: str, prediction: Dict,
 
     # 错例进 replay buffer
     if label in ("wrong", "confident_mistake"):
-        _append_replay_buffer({
-            "trade_id": trade_id,
-            "prediction": prediction,
-            "annotation": label,
-            "pnl_pct": round(pnl_pct, 2),
-            "annotated_at": annotation["annotated_at"],
-        })
+        _append_replay_buffer(
+            {
+                "trade_id": trade_id,
+                "prediction": prediction,
+                "annotation": label,
+                "pnl_pct": round(pnl_pct, 2),
+                "annotated_at": annotation["annotated_at"],
+            }
+        )
 
     return annotation
 
@@ -188,7 +189,7 @@ def get_replay_buffer() -> List[Dict]:
     """获取 replay buffer（错例集合）"""
     if not os.path.exists(REPLAY_BUFFER_PATH):
         return []
-    with open(REPLAY_BUFFER_PATH, 'r', encoding='utf-8') as f:
+    with open(REPLAY_BUFFER_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -251,16 +252,17 @@ def get_performance_summary() -> Dict:
 
 # ── 内部持久化 ──
 
+
 def _load_journal() -> List[Dict]:
     if not os.path.exists(TRADE_JOURNAL_PATH):
         return []
-    with open(TRADE_JOURNAL_PATH, 'r', encoding='utf-8') as f:
+    with open(TRADE_JOURNAL_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _save_journal(journal: List[Dict]):
     os.makedirs(os.path.dirname(TRADE_JOURNAL_PATH), exist_ok=True)
-    with open(TRADE_JOURNAL_PATH, 'w', encoding='utf-8') as f:
+    with open(TRADE_JOURNAL_PATH, "w", encoding="utf-8") as f:
         json.dump(journal, f, ensure_ascii=False, indent=2)
 
 
@@ -273,13 +275,13 @@ def _append_journal(record: Dict):
 def _append_replay_buffer(record: Dict):
     buffer = []
     if os.path.exists(REPLAY_BUFFER_PATH):
-        with open(REPLAY_BUFFER_PATH, 'r', encoding='utf-8') as f:
+        with open(REPLAY_BUFFER_PATH, "r", encoding="utf-8") as f:
             buffer = json.load(f)
     buffer.append(record)
     if len(buffer) > 500:
         buffer = buffer[-500:]
     os.makedirs(os.path.dirname(REPLAY_BUFFER_PATH), exist_ok=True)
-    with open(REPLAY_BUFFER_PATH, 'w', encoding='utf-8') as f:
+    with open(REPLAY_BUFFER_PATH, "w", encoding="utf-8") as f:
         json.dump(buffer, f, ensure_ascii=False, indent=2)
 
 
@@ -288,12 +290,12 @@ def _append_replay_buffer(record: Dict):
 # ═══════════════════════════════════════════════
 
 TRADE_LOG_SCHEMA = {
-    "round_id": str,          # "RB_20260705"
-    "mode": str,              # "paper" / "live"
-    "signal": dict,           # {direction, confidence, rule_vote, ml_vote, sentiment_vote}
-    "execution": dict,        # {contract, entry_price, lots_filled, slippage_ticks, commission}
-    "risk": dict,             # {stop_loss, take_profit, margin, risk_verdict}
-    "outcome": dict,          # {exit_price, pnl, exit_reason, duration_hours}
+    "round_id": str,  # "RB_20260705"
+    "mode": str,  # "paper" / "live"
+    "signal": dict,  # {direction, confidence, rule_vote, ml_vote, sentiment_vote}
+    "execution": dict,  # {contract, entry_price, lots_filled, slippage_ticks, commission}
+    "risk": dict,  # {stop_loss, take_profit, margin, risk_verdict}
+    "outcome": dict,  # {exit_price, pnl, exit_reason, duration_hours}
 }
 
 
@@ -341,10 +343,16 @@ def daily_review(symbol: str = None, days: int = 1) -> dict:
         by_confidence[bucket]["pnl"] += t.get("outcome", {}).get("pnl", 0)
 
     # ML vs 规则表现
-    ml_correct = sum(1 for t in closed if t.get("signal", {}).get("ml_vote", 0) * 
-                     (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0)
-    rule_correct = sum(1 for t in closed if t.get("signal", {}).get("rule_vote", 0) * 
-                       (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0)
+    ml_correct = sum(
+        1
+        for t in closed
+        if t.get("signal", {}).get("ml_vote", 0) * (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0
+    )
+    rule_correct = sum(
+        1
+        for t in closed
+        if t.get("signal", {}).get("rule_vote", 0) * (1 if t.get("outcome", {}).get("pnl", 0) > 0 else -1) > 0
+    )
 
     return {
         "date": datetime.now().strftime("%Y-%m-%d"),

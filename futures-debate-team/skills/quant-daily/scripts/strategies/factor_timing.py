@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -66,6 +66,7 @@ def _get_adapter():
     global _ADAPTER_CACHE
     if _ADAPTER_CACHE is None:
         from data.multi_source_adapter import MultiSourceAdapter
+
         _ADAPTER_CACHE = MultiSourceAdapter()
     return _ADAPTER_CACHE
 
@@ -74,6 +75,7 @@ def _get_db():
     global _DB_CACHE
     if _DB_CACHE is None:
         from data.duckdb_store import DuckDBStore
+
         try:
             _DB_CACHE = DuckDBStore()
         except Exception as e:
@@ -86,94 +88,100 @@ def _get_db():
 CONFIG = {
     # 因子列表与层级映射（key: 因子名, value: 所属层级 1/2/3/4）
     "factor_layer_map": {
-        "ts": 1,    # 展期收益率 → L1
-        "mom": 2,   # 动量 → L2
-        "inv": 3,   # 反向仓单 → L3
+        "ts": 1,  # 展期收益率 → L1
+        "mom": 2,  # 动量 → L2
+        "inv": 3,  # 反向仓单 → L3
         "skew": 4,  # 偏度 → L4
-        "pv": 4,    # 量价相关性 → L4（与skew共享L4）
+        "pv": 4,  # 量价相关性 → L4（与skew共享L4）
     },
     # 各层级权重（用于计算子层分数，总和应为100）
     "layer_weights": {1: 35, 2: 35, 3: 20, 4: 10},
-
     # 清洗参数
-    "sigma_clip": 3,                # 3σ去极值
-    "score_scale_factor": 33,       # Z分数映射到±100缩放系数
-
+    "sigma_clip": 3,  # 3σ去极值
+    "score_scale_factor": 33,  # Z分数映射到±100缩放系数
     # 信号等级阈值
     "strong_threshold": 75,
     "watch_threshold": 60,
     "weak_threshold": 40,
-
     # 趋势阶段参数
     "stage_z_launch": 2.0,
     "stage_mom_launch": 0.05,
     "stage_z_trending": 1.0,
     "stage_z_exhausted": 0.5,
-
     # OI三角过滤器参数
-    "oi_min_change_pct": 0.01,       # 持仓变化最小比例阈值（避免微小波动触发）
+    "oi_min_change_pct": 0.01,  # 持仓变化最小比例阈值（避免微小波动触发）
     "rise_reduce_oi_discount": 0.5,  # 上涨缩仓分数折扣
-    "fall_increase_oi_boost": 1.2,   # 下跌增仓分数强化
+    "fall_increase_oi_boost": 1.2,  # 下跌增仓分数强化
     "fall_reduce_oi_discount": 0.8,  # 下跌减仓分数弱化
-    "oi_adx_threshold": 25,          # [改进4] OI三角过滤仅当 ADX>此值 启用
-    "market_adx_gate": 20,           # [改进4] 全市场平均ADX二级闸门
-
+    "oi_adx_threshold": 25,  # [改进4] OI三角过滤仅当 ADX>此值 启用
+    "market_adx_gate": 20,  # [改进4] 全市场平均ADX二级闸门
     # === [改进5] 多因子投票参数（十分组法） ===
-    "voting_method": "decile_vote",      # "equal" 等权 | "decile_vote" 十分组投票
-    "decile_vote_threshold": 3,          # 至少3个因子认为头部才做多
-    "decile_top_n": 2,                   # 头部定义为十分组中的 top N 组（1=G1, 2=G1+G2）
-    "decile_bottom_n": 2,                # 尾部定义为 bottom N 组
-    "g1_count": 3,                       # G1 强势组（动手）
-    "g10_count": 3,                      # G10 观望组
-    "g_watch_base_score": 30,            # G10 观望组的基础分数上限
-
+    "voting_method": "decile_vote",  # "equal" 等权 | "decile_vote" 十分组投票
+    "decile_vote_threshold": 3,  # 至少3个因子认为头部才做多
+    "decile_top_n": 2,  # 头部定义为十分组中的 top N 组（1=G1, 2=G1+G2）
+    "decile_bottom_n": 2,  # 尾部定义为 bottom N 组
+    "g1_count": 3,  # G1 强势组（动手）
+    "g10_count": 3,  # G10 观望组
+    "g_watch_base_score": 30,  # G10 观望组的基础分数上限
     # IC衰减参数（仅 voting_method="equal" 时生效）
     "ic_lookback": 63,
     "ic_half_life": 21,
     "ic_smooth_alpha": 0.3,
-
     # === [改进6] 换月检测参数 ===
-    "rollover_freeze_days": 2,           # 换月前后冻结天数
+    "rollover_freeze_days": 2,  # 换月前后冻结天数
     "rollover_oi_ratio_threshold": 0.8,  # 次主力OI/主力OI > 此值 → 切换中
-
     # === [改进3] 板块中性控制 ===
-    "sector_neutral": False,             # False: 全市场标准化，保留板块 beta
-                                         # True: 均值中性（全局Z → 减板块均值）
+    "sector_neutral": False,  # False: 全市场标准化，保留板块 beta
+    # True: 均值中性（全局Z → 减板块均值）
     "sector_map": {
-        "黑色": ["RB","HC","I","J","JM","SF","SM"],
-        "能化": ["SC","FU","LU","BU","PG","L","V","PP","MA","TA","EG","EB","SH","SA","UR","PF","PR","PX"],
-        "有色": ["CU","AL","ZN","PB","NI","SN","AO","SS"],
-        "贵金属": ["AU","AG"],
-        "农产品": ["A","B","M","Y","P","OI","RM","PK","C","CS","SR","CF","JD","LH","AP","CJ"],
-        "软商品": ["RU","NR","BR","SP"],
-        "其他": ["EC","RR","SI","PS","LC","FG","OP"],
+        "黑色": ["RB", "HC", "I", "J", "JM", "SF", "SM"],
+        "能化": [
+            "SC",
+            "FU",
+            "LU",
+            "BU",
+            "PG",
+            "L",
+            "V",
+            "PP",
+            "MA",
+            "TA",
+            "EG",
+            "EB",
+            "SH",
+            "SA",
+            "UR",
+            "PF",
+            "PR",
+            "PX",
+        ],
+        "有色": ["CU", "AL", "ZN", "PB", "NI", "SN", "AO", "SS"],
+        "贵金属": ["AU", "AG"],
+        "农产品": ["A", "B", "M", "Y", "P", "OI", "RM", "PK", "C", "CS", "SR", "CF", "JD", "LH", "AP", "CJ"],
+        "软商品": ["RU", "NR", "BR", "SP"],
+        "其他": ["EC", "RR", "SI", "PS", "LC", "FG", "OP"],
     },
-
     # 真实数据源控制
     "use_real_data": True,
     "fallback_to_estimate": True,
-
     # === [改进12] 市场状态自适应 ===
-    "market_state_adapt": True,          # 是否启用市场状态自适应参数
-    "trend_adx_threshold": 30,           # 全市场ADX > 此值 → 趋势市
-    "low_adx_threshold": 18,             # 全市场ADX < 此值 → 震荡市
-    "high_vol_threshold": 0.02,          # 全市场波动率 > 此值 → 高波市
+    "market_state_adapt": True,  # 是否启用市场状态自适应参数
+    "trend_adx_threshold": 30,  # 全市场ADX > 此值 → 趋势市
+    "low_adx_threshold": 18,  # 全市场ADX < 此值 → 震荡市
+    "high_vol_threshold": 0.02,  # 全市场波动率 > 此值 → 高波市
     # 各市场状态的参数覆盖
     "state_params": {
         "trending": {"strong_threshold": 70, "score_scale_factor": 33},
-        "choppy":   {"strong_threshold": 85, "score_scale_factor": 25, "oi_adx_threshold": 30},
+        "choppy": {"strong_threshold": 85, "score_scale_factor": 25, "oi_adx_threshold": 30},
         "high_vol": {"strong_threshold": 80, "score_scale_factor": 28, "sigma_clip": 3.5},
-        "low_vol":  {"strong_threshold": 70, "score_scale_factor": 35, "oi_min_change_pct": 0.005},
+        "low_vol": {"strong_threshold": 70, "score_scale_factor": 35, "oi_min_change_pct": 0.005},
     },
-
     # === [改进8] 偏度窗口 ===
-    "skew_window_short": 30,             # 短期偏度窗口
-    "skew_window_long": 60,              # 长期偏度窗口
-
+    "skew_window_short": 30,  # 短期偏度窗口
+    "skew_window_long": 60,  # 长期偏度窗口
     # 周期配置
     "kline_period": "daily",
-
-    "epsilon": 1e-8,                     # 全局分母防除零极小值
+    "epsilon": 1e-8,  # 全局分母防除零极小值
 }
 
 
@@ -301,6 +309,7 @@ class FactorTimingStrategy(BaseStrategy):
 
 # ===================== [P0/P2] 数据适配层（v2.3.1） =====================
 
+
 def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> Dict[str, Dict]:
     """
     将 tech_list + df_map 转换为因子择时引擎所需的 market_data 格式。
@@ -369,15 +378,15 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
         returns_60d = []
         pv_corr_20d = 0.0
         momentum_20d = 0.0
-        oi_adjusted_pv_20d = 0.0    # [改进9] OI 修正量价相关性
+        oi_adjusted_pv_20d = 0.0  # [改进9] OI 修正量价相关性
         oi_series = None
-        rolling_oi_history = []     # [改进2] 用于滚动均值计算
-        is_rollover_flag = False    # [改进6] 换月标记
+        rolling_oi_history = []  # [改进2] 用于滚动均值计算
+        is_rollover_flag = False  # [改进6] 换月标记
 
         if df_map and sym in df_map:
             df = df_map[sym]
             closes = df["close"].values.astype(float)
-            volumes = df.get("volume", df.get("volume", pd.Series([0]*len(df)))).values.astype(float)
+            volumes = df.get("volume", df.get("volume", pd.Series([0] * len(df)))).values.astype(float)
             oi_col = None
             for col in ("open_interest", "oi"):
                 if col in df.columns:
@@ -429,7 +438,7 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
                 prev_oi_avg = np.mean(oi_vals[-10:-5])
                 if prev_oi_avg > 0 and recent_oi_avg < prev_oi_avg * 0.5:
                     is_rollover_flag = True
-                    logger.info(f"[{sym}] OI 骤降至 {recent_oi_avg/prev_oi_avg:.0%}，疑似换月")
+                    logger.info(f"[{sym}] OI 骤降至 {recent_oi_avg / prev_oi_avg:.0%}，疑似换月")
 
         # 技术指标
         adx = float(tech.get("ADX", 25))
@@ -493,7 +502,11 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
             # [改进1] 改用接近-次近价差估算，而非趋势估算
             # 从 df_map 取最近两期收盘价的差值来模拟主力-次主力价差
             if df_map and sym in df_map and n >= 2:
-                recent_volatility = float(np.std(closes[-20:]) / np.mean(closes[-20:])) if n >= 20 and np.mean(closes[-20:]) > 0 else 0.005
+                recent_volatility = (
+                    float(np.std(closes[-20:]) / np.mean(closes[-20:]))
+                    if n >= 20 and np.mean(closes[-20:]) > 0
+                    else 0.005
+                )
                 # 用波动率来缩放：高波动品种猜测back/contango幅度更大
                 roll_est = close * (1 + recent_volatility * np.random.RandomState(0).choice([-1, 1]) * 0.3)
                 far_close = close + (roll_est - close)
@@ -501,7 +514,11 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
                 if recent_volatility > 0.03:
                     far_close = close * 1.001
                 else:
-                    far_close = close * (1 + recent_volatility * 0.5) if ma_align == "bear" else close * (1 - recent_volatility * 0.5)
+                    far_close = (
+                        close * (1 + recent_volatility * 0.5)
+                        if ma_align == "bear"
+                        else close * (1 - recent_volatility * 0.5)
+                    )
             else:
                 far_close = close * 1.002
 
@@ -583,6 +600,7 @@ def _build_market_data(tech_list: list[dict], df_map: Optional[dict] = None) -> 
 
 # ===================== [P1/P2] 因子择时引擎（核心算法） =====================
 
+
 def _generate_factor_timing_scan(
     date: datetime,
     market_data: Dict[str, Dict],
@@ -608,12 +626,18 @@ def _generate_factor_timing_scan(
     if not symbols:
         return {
             "_meta": {
-                "mode": "layered", "strategy": "factor_timing",
+                "mode": "layered",
+                "strategy": "factor_timing",
                 "version": "2.3.1",
-                "total": 0, "bull": 0, "bear": 0,
-                "z_mu": 0, "z_sigma": 0,
+                "total": 0,
+                "bull": 0,
+                "bear": 0,
+                "z_mu": 0,
+                "z_sigma": 0,
             },
-            "all_ranked": [], "bull_signals": [], "bear_signals": []
+            "all_ranked": [],
+            "bull_signals": [],
+            "bear_signals": [],
         }
 
     voting_method = CONFIG.get("voting_method", "decile_vote")
@@ -633,6 +657,7 @@ def _generate_factor_timing_scan(
     sentiment_healthy = False
     try:
         from data.sentiment import get_sentiment_scores, check_sentiment_health
+
         sentiment_scores = get_sentiment_scores()
         health = check_sentiment_health()
         sentiment_healthy = health.get("is_healthy", False)
@@ -694,10 +719,7 @@ def _generate_factor_timing_scan(
         factor_values[sym] = [ts, mom, inv, skew, pv]
 
     # [P1-1] 注入情感因子（第6因子）— 归一化到 Z-score 尺度
-    df = pd.DataFrame.from_dict(
-        factor_values, orient="index",
-        columns=["ts", "mom", "inv", "skew", "pv"]
-    )
+    df = pd.DataFrame.from_dict(factor_values, orient="index", columns=["ts", "mom", "inv", "skew", "pv"])
     df = df.fillna(0.0)
 
     # 情感因子单独追加（已有情感数据的品种）
@@ -711,9 +733,7 @@ def _generate_factor_timing_scan(
 
     # ========== 2. 3σ去极值 + [改进3] Z标准化 ==========
     df = df.clip(
-        lower=df.mean() - CONFIG["sigma_clip"] * df.std(),
-        upper=df.mean() + CONFIG["sigma_clip"] * df.std(),
-        axis=1
+        lower=df.mean() - CONFIG["sigma_clip"] * df.std(), upper=df.mean() + CONFIG["sigma_clip"] * df.std(), axis=1
     )
 
     if CONFIG.get("sector_neutral", False):
@@ -875,8 +895,11 @@ def _generate_factor_timing_scan(
         target_dir = np.sign(total)
         resonance = sum(1 for ld in layer_directions if ld == target_dir)
         # 从0方向中排除
-        resonance = sum(1 for ld, l in zip(layer_directions, [l1, l2, l3, l4])
-                        if l != 0 and (l > 0 and total > 0 or l < 0 and total < 0))
+        resonance = sum(
+            1
+            for ld, l in zip(layer_directions, [l1, l2, l3, l4])
+            if l != 0 and (l > 0 and total > 0 or l < 0 and total < 0)
+        )
 
         # 否决后总分
         total_with_veto = total + veto
@@ -928,8 +951,8 @@ def _generate_factor_timing_scan(
             "vote_conf": round(vote_conf_map.get(sym, 0.0), 4),
             "g_group": g_group,
             "ts_type": d.get("ts_type", "unknown"),
-            "resonance": resonance,                 # [改进11]
-            "market_state": market_state,            # [改进12]
+            "resonance": resonance,  # [改进11]
+            "market_state": market_state,  # [改进12]
         }
         all_ranked.append(entry)
         if direction == "bull":
@@ -974,6 +997,7 @@ def _generate_factor_timing_scan(
 
 
 # ===================== [改进5] 十分组投票机制 =====================
+
 
 def _calc_decile_vote(
     df: pd.DataFrame,
@@ -1122,6 +1146,7 @@ def _apply_g1_g10(
 
 # ===================== [改进12] 市场状态检测 =====================
 
+
 def _detect_market_state(
     market_data: Dict[str, Dict],
     symbols: list,
@@ -1177,6 +1202,7 @@ def _apply_state_params(market_state: str):
 
 
 # ===================== [改进10] 辅助函数（扩展veto） =====================
+
 
 def _calc_veto_score_v231(
     d: dict,
@@ -1266,10 +1292,7 @@ def _calc_veto_score_v231(
     return veto
 
 
-def _calc_layer_scores(
-    factor_row: pd.Series,
-    weights: pd.Series
-) -> Dict[int, int]:
+def _calc_layer_scores(factor_row: pd.Series, weights: pd.Series) -> Dict[int, int]:
     """根据因子所属层级，计算 L1-L4 子层分数。"""
     layer_map = CONFIG["factor_layer_map"]
     layer_weights = CONFIG["layer_weights"]
@@ -1301,11 +1324,7 @@ def _calc_layer_scores(
     return result
 
 
-def _calc_ic_decay_weights(
-    date: datetime,
-    df: pd.DataFrame,
-    ic_history: Dict[str, np.ndarray]
-) -> pd.Series:
+def _calc_ic_decay_weights(date: datetime, df: pd.DataFrame, ic_history: Dict[str, np.ndarray]) -> pd.Series:
     """基于历史IC的指数衰减加权计算因子权重。"""
     lookback = CONFIG["ic_lookback"]
     half_life = CONFIG["ic_half_life"]
@@ -1348,10 +1367,7 @@ def _enrich(results: list[SignalResult]):
             r.z_score = 0.0
 
         layers = [r.sub_scores.get(k, 0) for k in ("l1", "l2", "l3", "l4")]
-        r.consistency = sum(
-            1 for l in layers
-            if (l > 0 and r.total > 0) or (l < 0 and r.total < 0)
-        )
+        r.consistency = sum(1 for l in layers if (l > 0 and r.total > 0) or (l < 0 and r.total < 0))
 
 
 # ── 自动注册 ──

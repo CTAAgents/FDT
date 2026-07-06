@@ -36,10 +36,14 @@ class DirectionClassifier:
         self.feature_names = None
         self.model_path = model_path
 
-    def train(self, X: np.ndarray, y: np.ndarray,
-              X_val: Optional[np.ndarray] = None,
-              y_val: Optional[np.ndarray] = None,
-              feature_names: Optional[List[str]] = None):
+    def train(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        feature_names: Optional[List[str]] = None,
+    ):
         """训练 LightGBM 分类器。
 
         Args:
@@ -62,27 +66,27 @@ class DirectionClassifier:
         y_binary = np.where(y == 1, 1, 0)
 
         params = {
-            'objective': 'binary',
-            'metric': 'auc',
-            'boosting_type': 'gbdt',
-            'num_leaves': 31,
-            'learning_rate': 0.05,
-            'feature_fraction': 0.8,
-            'bagging_fraction': 0.8,
-            'bagging_freq': 5,
-            'verbose': -1,
-            'min_data_in_leaf': 20,
+            "objective": "binary",
+            "metric": "auc",
+            "boosting_type": "gbdt",
+            "num_leaves": 31,
+            "learning_rate": 0.05,
+            "feature_fraction": 0.8,
+            "bagging_fraction": 0.8,
+            "bagging_freq": 5,
+            "verbose": -1,
+            "min_data_in_leaf": 20,
         }
 
         train_data = lgb.Dataset(X, label=y_binary, feature_name=feature_names)
         valid_sets = [train_data]
-        valid_names = ['train']
+        valid_names = ["train"]
 
         if X_val is not None and y_val is not None:
             y_val_binary = np.where(y_val == 1, 1, 0)
             val_data = lgb.Dataset(X_val, label=y_val_binary, reference=train_data)
             valid_sets.append(val_data)
-            valid_names.append('val')
+            valid_names.append("val")
 
         self.model = lgb.train(
             params,
@@ -121,7 +125,7 @@ class DirectionClassifier:
             X = np.array([list(features.values())])
 
         # LightGBM 推理
-        if hasattr(self.model, 'predict'):
+        if hasattr(self.model, "predict"):
             prob = float(self.model.predict(X)[0])
         else:
             # fallback
@@ -138,16 +142,17 @@ class DirectionClassifier:
 
     def save(self, path: str):
         """保存模型"""
-        if hasattr(self.model, 'save_model'):
+        if hasattr(self.model, "save_model"):
             self.model.save_model(path)
         else:
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump({"fallback": True, "feature_names": self.feature_names}, f)
 
     def load(self, path: str):
         """加载模型"""
         try:
             import lightgbm as lgb
+
             self.model = lgb.Booster(model_file=path)
         except Exception:
             with open(path) as f:
@@ -162,8 +167,7 @@ class EnsemblePredictor:
     权重根据近期准确率在线调整（类似 Expert Tracking）。
     """
 
-    def __init__(self, rule_weight: float = 0.6, ml_weight: float = 0.4,
-                 adapt_online: bool = True):
+    def __init__(self, rule_weight: float = 0.6, ml_weight: float = 0.4, adapt_online: bool = True):
         self.rule_weight = rule_weight
         self.ml_weight = ml_weight
         self.adapt_online = adapt_online
@@ -223,9 +227,9 @@ class EnsemblePredictor:
                 self.rule_weight = rule_acc / total
                 self.ml_weight = ml_acc / total
 
-    def export_ensemble_votes(self, symbols: List[str],
-                               rule_outputs: Dict[str, Dict],
-                               ml_outputs: Dict[str, Dict]) -> Dict[str, Dict]:
+    def export_ensemble_votes(
+        self, symbols: List[str], rule_outputs: Dict[str, Dict], ml_outputs: Dict[str, Dict]
+    ) -> Dict[str, Dict]:
         """批量导出品种级的集成投票结果。
 
         供闫判官证据简报作为第3路（ML+规则集成）证据源。
@@ -245,9 +249,15 @@ class EnsemblePredictor:
             ml = ml_outputs.get(sym, {"prob": 0.5, "direction": 0, "confidence": 50})
             ensemble = self.predict(rule, ml)
 
-            rule_dir = "bull" if rule.get("direction", 0) > 0 else ("bear" if rule.get("direction", 0) < 0 else "neutral")
+            rule_dir = (
+                "bull" if rule.get("direction", 0) > 0 else ("bear" if rule.get("direction", 0) < 0 else "neutral")
+            )
             ml_dir = "bull" if ml.get("direction", 0) > 0 else ("bear" if ml.get("direction", 0) < 0 else "neutral")
-            ens_dir = "bull" if ensemble.get("direction", 0) > 0 else ("bear" if ensemble.get("direction", 0) < 0 else "neutral")
+            ens_dir = (
+                "bull"
+                if ensemble.get("direction", 0) > 0
+                else ("bear" if ensemble.get("direction", 0) < 0 else "neutral")
+            )
             consensus = rule_dir == ml_dir
 
             results[sym] = {
@@ -344,7 +354,13 @@ class DirectionClassifierV2(DirectionClassifier):
         self.feature_decay_rate = 0.05  # 因子衰减率
         self.feature_importance_history = []  # 特征重要性历史
 
-    def incremental_train(self, X_new: np.ndarray, y_new: np.ndarray, X_val: Optional[np.ndarray] = None, y_val: Optional[np.ndarray] = None):
+    def incremental_train(
+        self,
+        X_new: np.ndarray,
+        y_new: np.ndarray,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+    ):
         """增量训练：在现有模型基础上微调，避免模型固化老化。
 
         使用 LightGBM 的 init_model 参数实现增量学习。
@@ -383,6 +399,7 @@ class DirectionClassifierV2(DirectionClassifier):
             )
         except ImportError:
             import warnings
+
             warnings.warn("LightGBM 不可用，增量训练跳过")
 
     def update_feature_freshness(self, feature_names: List[str], importance_scores: np.ndarray):
@@ -392,10 +409,12 @@ class DirectionClassifierV2(DirectionClassifier):
             feature_names: 特征名列表
             importance_scores: 特征重要性分数
         """
-        self.feature_importance_history.append({
-            "date": __import__('datetime').datetime.now().strftime("%Y-%m-%d"),
-            "features": {name: float(score) for name, score in zip(feature_names, importance_scores)},
-        })
+        self.feature_importance_history.append(
+            {
+                "date": __import__("datetime").datetime.now().strftime("%Y-%m-%d"),
+                "features": {name: float(score) for name, score in zip(feature_names, importance_scores)},
+            }
+        )
 
         # 仅保留最近3条历史
         if len(self.feature_importance_history) > 3:
@@ -403,7 +422,7 @@ class DirectionClassifierV2(DirectionClassifier):
 
     def get_feature_decay_analysis(self) -> Dict[str, Any]:
         """分析因子衰减情况。
-        
+
         Returns:
             {"decaying_features": [str], "top_features": [str], "decay_rate": float}
         """
@@ -443,7 +462,7 @@ class AdaptiveEnsemble:
         self.window = window
         self.default_rule_weight = default_rule_weight
         self.rule_hits: list[bool] = []  # 规则方向正确次数
-        self.ml_hits: list[bool] = []    # ML方向正确次数
+        self.ml_hits: list[bool] = []  # ML方向正确次数
         self.rule_pnls: list[float] = []
         self.ml_pnls: list[float] = []
 
@@ -524,7 +543,7 @@ if __name__ == "__main__":
     for i in range(15):
         ae.record(
             rule_correct=(i % 3 != 0),  # 规则66%胜率
-            ml_correct=(i % 2 == 0),    # ML50%胜率
+            ml_correct=(i % 2 == 0),  # ML50%胜率
             pnl=100 if i % 2 == 0 else -50,
         )
     print(f"动态权重: {ae.get_weight()}")

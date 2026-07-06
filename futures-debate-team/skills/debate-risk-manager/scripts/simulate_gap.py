@@ -11,30 +11,31 @@ from dataclasses import dataclass
 @dataclass
 class GapRecord:
     """历史跳空记录"""
-    pct: float       # 跳空幅度（%）
-    date: str        # 日期
+
+    pct: float  # 跳空幅度（%）
+    date: str  # 日期
 
 
 # 品种分类跳空幅度经验值（近2年历史统计）
 # 来源：各品种主力合约夜盘-日盘跳空幅度 95%分位数
 DEFAULT_GAP_PERCENTILES: Dict[str, dict] = {
-    'aggressive': {
-        'description': '原油/COMEX金属/能化',
-        'typical_gap_pct': 0.03,
-        'extreme_gap_pct': 0.06,
-        'examples': ['sc', 'fu', 'lu', 'ni', 'sn', 'ag'],
+    "aggressive": {
+        "description": "原油/COMEX金属/能化",
+        "typical_gap_pct": 0.03,
+        "extreme_gap_pct": 0.06,
+        "examples": ["sc", "fu", "lu", "ni", "sn", "ag"],
     },
-    'moderate': {
-        'description': '黑色/有色/橡胶',
-        'typical_gap_pct': 0.02,
-        'extreme_gap_pct': 0.04,
-        'examples': ['rb', 'hc', 'i', 'cu', 'al', 'ru'],
+    "moderate": {
+        "description": "黑色/有色/橡胶",
+        "typical_gap_pct": 0.02,
+        "extreme_gap_pct": 0.04,
+        "examples": ["rb", "hc", "i", "cu", "al", "ru"],
     },
-    'conservative': {
-        'description': '农产品/软商品',
-        'typical_gap_pct': 0.015,
-        'extreme_gap_pct': 0.03,
-        'examples': ['a', 'b', 'm', 'c', 'SR', 'CF'],
+    "conservative": {
+        "description": "农产品/软商品",
+        "typical_gap_pct": 0.015,
+        "extreme_gap_pct": 0.03,
+        "examples": ["a", "b", "m", "c", "SR", "CF"],
     },
 }
 
@@ -50,19 +51,19 @@ def get_gap_params(symbol: str) -> dict:
     """
     sym_upper = symbol.upper()
     for category, params in DEFAULT_GAP_PERCENTILES.items():
-        if sym_upper in [e.upper() for e in params['examples']]:
+        if sym_upper in [e.upper() for e in params["examples"]]:
             return {
-                'typical_gap_pct': params['typical_gap_pct'],
-                'extreme_gap_pct': params['extreme_gap_pct'],
-                'category': category,
-                'description': params['description'],
+                "typical_gap_pct": params["typical_gap_pct"],
+                "extreme_gap_pct": params["extreme_gap_pct"],
+                "category": category,
+                "description": params["description"],
             }
     # 默认保守估计
     return {
-        'typical_gap_pct': 0.02,
-        'extreme_gap_pct': 0.04,
-        'category': 'unknown',
-        'description': '默认保守估计（中波动）',
+        "typical_gap_pct": 0.02,
+        "extreme_gap_pct": 0.04,
+        "category": "unknown",
+        "description": "默认保守估计（中波动）",
     }
 
 
@@ -88,8 +89,8 @@ def simulate_gap(
         dict: {typical_loss, extreme_loss, gap_exceeds_stop, max_gap_pct, warnings}
     """
     params = get_gap_params(symbol)
-    typical_gap = params['typical_gap_pct']
-    extreme_gap = params['extreme_gap_pct']
+    typical_gap = params["typical_gap_pct"]
+    extreme_gap = params["extreme_gap_pct"]
 
     # 跳空导致的盈亏（取反向最大值）
     typical_loss = entry_price * typical_gap * lot_size * lots
@@ -116,7 +117,7 @@ def simulate_gap(
 
     return {
         "symbol": symbol,
-        "category": params['category'],
+        "category": params["category"],
         "typical_gap_pct": typical_gap,
         "extreme_gap_pct": extreme_gap,
         "typical_loss": round(typical_loss, 0),

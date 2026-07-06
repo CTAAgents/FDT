@@ -69,6 +69,24 @@ phase3_generate_report.py
     → daily_analysis_*.html（现有流程，无改动）
 ```
 
+## Bridgewater方法论实施（2026-07-06）
+
+基于 Bridgewater AIA Labs 论文方法论的三条路径全量实施：
+
+### 新增/修改模块
+
+| 模块 | 功能 | 覆盖率 |
+|:-----|:-----|:-------|
+| `debate_brief.py` | 新增`compute_debate_score()`五维评分(信号40%/趋势25%/极端20%/数据10%/链5%) + `build_judge_brief()` | 75% |
+| `debate_history.py` | 轻量JSON档案(append-only)，`load_feedback/record_feedback/get_symbol_value_score` | 90% |
+| `quality_filter.py` | B-Minimal规则评分(五维Checklist) + B-Standard自动标注框架 | 96% |
+| `auto_train_orchestrator.py` | TrainingOrchestrator(条件检查/LightGBM训练/自动评审/部署/回滚) + DisputePredictor | 55% |
+
+### 关键改动
+- **select_debate_symbols() 增强**: 排序从简单`divergence_score`→五维`debate_value`；候选字段从4个→12个
+- **量化改进**: quality_filter需求模式补充"需求"关键词；auto_train_orchestrator修复timezone与首次训练条件
+- **测试**: 5个测试文件, 70个测试, 0失败
+
 ### 执行顺序（不再产生胶水代码）
 ```bash
 # Phase 1: 双策略扫描

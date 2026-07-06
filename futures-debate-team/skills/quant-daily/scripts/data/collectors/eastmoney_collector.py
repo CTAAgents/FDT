@@ -34,7 +34,7 @@ EXCHANGE_MAP = {
 # 默认请求头
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Accept": "*/*",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
     "Referer": "https://quote.eastmoney.com/",
@@ -85,12 +85,14 @@ class EastMoneyCollector:
             for item in items:
                 exchange_id = item.get("f13")
                 exchange = EXCHANGE_MAP.get(exchange_id, f"其他({exchange_id})")
-                futures_list.append({
-                    "code": item.get("f12", ""),
-                    "name": item.get("f14", ""),
-                    "exchange": exchange,
-                    "secid": f"{exchange_id}.{item.get('f12', '')}",
-                })
+                futures_list.append(
+                    {
+                        "code": item.get("f12", ""),
+                        "name": item.get("f14", ""),
+                        "exchange": exchange,
+                        "secid": f"{exchange_id}.{item.get('f12', '')}",
+                    }
+                )
 
             return futures_list
 
@@ -243,22 +245,24 @@ class EastMoneyCollector:
                     continue
 
                 exchange_id = item.get("f13")
-                quotes.append({
-                    "code": code,
-                    "name": name,
-                    "exchange": EXCHANGE_MAP.get(exchange_id, f"其他({exchange_id})"),
-                    "price": item.get("f2"),        # 最新价
-                    "change_pct": item.get("f3"),   # 涨跌幅
-                    "change": item.get("f4"),       # 涨跌额
-                    "volume": item.get("f5"),       # 成交量
-                    "oi": item.get("f6"),           # 持仓量
-                    "open": item.get("f15"),        # 开盘价
-                    "high": item.get("f17"),        # 最高价
-                    "low": item.get("f16"),         # 最低价
-                    "pre_close": item.get("f18"),   # 昨收
-                    "amount": item.get("f20"),      # 成交额
-                    "amplitude": item.get("f7"),    # 振幅
-                })
+                quotes.append(
+                    {
+                        "code": code,
+                        "name": name,
+                        "exchange": EXCHANGE_MAP.get(exchange_id, f"其他({exchange_id})"),
+                        "price": item.get("f2"),  # 最新价
+                        "change_pct": item.get("f3"),  # 涨跌幅
+                        "change": item.get("f4"),  # 涨跌额
+                        "volume": item.get("f5"),  # 成交量
+                        "oi": item.get("f6"),  # 持仓量
+                        "open": item.get("f15"),  # 开盘价
+                        "high": item.get("f17"),  # 最高价
+                        "low": item.get("f16"),  # 最低价
+                        "pre_close": item.get("f18"),  # 昨收
+                        "amount": item.get("f20"),  # 成交额
+                        "amplitude": item.get("f7"),  # 振幅
+                    }
+                )
 
             return quotes
 
@@ -287,14 +291,16 @@ class EastMoneyCollector:
             # 过滤主连/次主连/指数
             if len(code) > 4 and code[-1] in ("m", "s", "i"):
                 continue
-            contracts.append({
-                "code": code.upper(),
-                "name": q["name"],
-                "month": code[-4:] if len(code) >= 4 else "",
-                "last_price": q["price"],
-                "volume": q["volume"],
-                "oi": q["oi"],
-            })
+            contracts.append(
+                {
+                    "code": code.upper(),
+                    "name": q["name"],
+                    "month": code[-4:] if len(code) >= 4 else "",
+                    "last_price": q["price"],
+                    "volume": q["volume"],
+                    "oi": q["oi"],
+                }
+            )
 
         return contracts
 
@@ -329,11 +335,13 @@ class EastMoneyCollector:
                 continue
             month = code[-4:] if len(code) >= 4 else ""
             if month.isdigit():
-                contracts.append({
-                    "month": month,
-                    "price": q.get("price", 0),
-                    "oi": q.get("oi", 0),
-                })
+                contracts.append(
+                    {
+                        "month": month,
+                        "price": q.get("price", 0),
+                        "oi": q.get("oi", 0),
+                    }
+                )
 
         if len(contracts) < 2:
             return None

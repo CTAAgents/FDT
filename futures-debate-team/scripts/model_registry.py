@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from scripts.unified_logger import get_logger
+
 logger = get_logger("model_registry")
 
 
@@ -47,8 +48,7 @@ class ModelRegistry:
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
 
-    def register_version(self, version_id: str, parent_version: str = None,
-                          metrics: dict = None, notes: str = ""):
+    def register_version(self, version_id: str, parent_version: str = None, metrics: dict = None, notes: str = ""):
         """注册新版本。
 
         Args:
@@ -131,8 +131,10 @@ class ModelRegistry:
             diff[key] = round(v2_val - v1_val, 4)
 
         return {
-            "v1": v1, "v2": v2,
-            "v1_metrics": m1, "v2_metrics": m2,
+            "v1": v1,
+            "v2": v2,
+            "v1_metrics": m1,
+            "v2_metrics": m2,
             "diff": diff,
         }
 

@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("compliance")
 #!/usr/bin/env python3
 """
@@ -31,28 +32,59 @@ class ComplianceAgent:
 
     # ── 持仓限额（按品种，手数） ──
     POSITION_LIMITS = {
-        "IF": 500, "IC": 500, "IH": 500, "IM": 500,  # 股指期货
-        "T": 10000, "TF": 10000, "TS": 10000,          # 国债期货
-        "CU": 5000, "AL": 6000, "ZN": 6000, "PB": 4000,
-        "AU": 3000, "AG": 6000,
-        "RB": 20000, "HC": 20000, "I": 10000, "J": 5000, "JM": 5000,
-        "SC": 5000, "FU": 5000, "BU": 5000,
-        "M": 15000, "Y": 10000, "P": 10000, "OI": 10000,
-        "SR": 10000, "CF": 8000,
+        "IF": 500,
+        "IC": 500,
+        "IH": 500,
+        "IM": 500,  # 股指期货
+        "T": 10000,
+        "TF": 10000,
+        "TS": 10000,  # 国债期货
+        "CU": 5000,
+        "AL": 6000,
+        "ZN": 6000,
+        "PB": 4000,
+        "AU": 3000,
+        "AG": 6000,
+        "RB": 20000,
+        "HC": 20000,
+        "I": 10000,
+        "J": 5000,
+        "JM": 5000,
+        "SC": 5000,
+        "FU": 5000,
+        "BU": 5000,
+        "M": 15000,
+        "Y": 10000,
+        "P": 10000,
+        "OI": 10000,
+        "SR": 10000,
+        "CF": 8000,
     }
 
     # ── 大户报告门槛（手数，超过需报告交易所） ──
     LARGE_TRADER_THRESHOLDS = {
-        "IF": 100, "IC": 100, "IH": 100,
-        "CU": 1000, "AL": 1500, "ZN": 1500,
-        "AU": 500, "AG": 1500,
-        "RB": 5000, "HC": 5000, "I": 3000,
-        "M": 4000, "Y": 3000, "P": 3000,
+        "IF": 100,
+        "IC": 100,
+        "IH": 100,
+        "CU": 1000,
+        "AL": 1500,
+        "ZN": 1500,
+        "AU": 500,
+        "AG": 1500,
+        "RB": 5000,
+        "HC": 5000,
+        "I": 3000,
+        "M": 4000,
+        "Y": 3000,
+        "P": 3000,
     }
 
     # ── 日内交易频次限制（部分品种） ──
     DAY_TRADE_LIMITS = {
-        "IF": 200, "IC": 200, "IH": 200, "IM": 200,  # 股指：日内开仓限制
+        "IF": 200,
+        "IC": 200,
+        "IH": 200,
+        "IM": 200,  # 股指：日内开仓限制
     }
 
     def __init__(self, log_dir: str = None):
@@ -63,8 +95,9 @@ class ComplianceAgent:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
-    def check_all(self, positions: List[Dict], orders: List[Dict] = None,
-                  account_type: str = "individual") -> Dict[str, Any]:
+    def check_all(
+        self, positions: List[Dict], orders: List[Dict] = None, account_type: str = "individual"
+    ) -> Dict[str, Any]:
         """全量合规检查。
 
         Args:
@@ -121,14 +154,16 @@ class ComplianceAgent:
         for symbol, lots in symbol_lots.items():
             limit = self.POSITION_LIMITS.get(symbol)
             if limit and lots > limit:
-                violations.append({
-                    "rule": "position_limit",
-                    "symbol": symbol,
-                    "current": lots,
-                    "limit": limit,
-                    "severity": "HIGH",
-                    "message": f"{symbol}持仓{lots}手超过限额{limit}手",
-                })
+                violations.append(
+                    {
+                        "rule": "position_limit",
+                        "symbol": symbol,
+                        "current": lots,
+                        "limit": limit,
+                        "severity": "HIGH",
+                        "message": f"{symbol}持仓{lots}手超过限额{limit}手",
+                    }
+                )
 
         return {"pass": len(violations) == 0, "violations": violations}
 
@@ -143,19 +178,21 @@ class ComplianceAgent:
             lots = pos.get("lots", 0)
             # 解析合约月份
             try:
-                contract_m = int(re.findall(r'\d+', contract)[-1][-2:]) if hasattr(re, 'findall') else 0
+                contract_m = int(re.findall(r"\d+", contract)[-1][-2:]) if hasattr(re, "findall") else 0
             except Exception as _e:
                 continue
 
             # 临近交割月（当月或次月）
             if contract_m in (current_month, current_month + 1):
-                violations.append({
-                    "rule": "delivery_month",
-                    "contract": contract,
-                    "lots": lots,
-                    "severity": "WARNING",
-                    "message": f"{contract}临近交割月，请确认持仓合规",
-                })
+                violations.append(
+                    {
+                        "rule": "delivery_month",
+                        "contract": contract,
+                        "lots": lots,
+                        "severity": "WARNING",
+                        "message": f"{contract}临近交割月，请确认持仓合规",
+                    }
+                )
 
         return {"pass": len(violations) == 0, "violations": violations}
 
@@ -169,14 +206,16 @@ class ComplianceAgent:
         for symbol, lots in symbol_lots.items():
             threshold = self.LARGE_TRADER_THRESHOLDS.get(symbol)
             if threshold and lots > threshold:
-                violations.append({
-                    "rule": "large_trader_report",
-                    "symbol": symbol,
-                    "current": lots,
-                    "threshold": threshold,
-                    "severity": "INFO",
-                    "message": f"{symbol}持仓{lots}手超过大户报告门槛{threshold}手，需向交易所报告",
-                })
+                violations.append(
+                    {
+                        "rule": "large_trader_report",
+                        "symbol": symbol,
+                        "current": lots,
+                        "threshold": threshold,
+                        "severity": "INFO",
+                        "message": f"{symbol}持仓{lots}手超过大户报告门槛{threshold}手，需向交易所报告",
+                    }
+                )
 
         return {"pass": len(violations) == 0, "violations": violations}
 
@@ -191,14 +230,16 @@ class ComplianceAgent:
         for symbol, count in symbol_counts.items():
             limit = self.DAY_TRADE_LIMITS.get(symbol)
             if limit and count > limit:
-                violations.append({
-                    "rule": "day_trade_frequency",
-                    "symbol": symbol,
-                    "current": count,
-                    "limit": limit,
-                    "severity": "HIGH",
-                    "message": f"{symbol}日内交易{count}次超过限制{limit}次",
-                })
+                violations.append(
+                    {
+                        "rule": "day_trade_frequency",
+                        "symbol": symbol,
+                        "current": count,
+                        "limit": limit,
+                        "severity": "HIGH",
+                        "message": f"{symbol}日内交易{count}次超过限制{limit}次",
+                    }
+                )
 
         return {"pass": len(violations) == 0, "violations": violations}
 
@@ -226,8 +267,7 @@ class ComplianceAgent:
 
     def get_audit_report(self, days: int = 7) -> Dict[str, Any]:
         """获取审计报告。"""
-        recent = [l for l in self.audit_logs if l["timestamp"] > 
-                  (datetime.now() - timedelta(days=days)).isoformat()]
+        recent = [l for l in self.audit_logs if l["timestamp"] > (datetime.now() - timedelta(days=days)).isoformat()]
         return {
             "period_days": days,
             "total_audits": len(recent),

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""最终版产业链分析 — 含基本面验证，产出两份报告"""
-import sys, os, json, math, statistics
+"""最终版产业链分析 — 含基本面验证，产出两份报告
+用法: python run_final_chain_analysis.py [YYYY-MM-DD]
+若不传日期，自动使用今天日期。
+"""
+
+import sys, os, json, math, statistics, glob
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -8,22 +12,45 @@ if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
 from chains import (
-    CHAIN_PRODUCTS, get_chain_for_symbol, is_cross_chain_variety,
-    get_dominant_chain, get_all_chains_for_symbol, classify_chain,
-    WITHIN_CHAIN_INDEPENDENT
+    CHAIN_PRODUCTS,
+    get_chain_for_symbol,
+    is_cross_chain_variety,
+    get_dominant_chain,
+    get_all_chains_for_symbol,
+    classify_chain,
+    WITHIN_CHAIN_INDEPENDENT,
 )
 
-DATADIR = r"C:\Users\yangd\Documents\WorkBuddy\Commodities\Reports\商品期货深度分析\2026-07-05"
+HOME = os.path.expanduser("~")
+DATE_STR = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
+DATE_COMPACT = DATE_STR.replace("-", "")
+DATADIR = os.path.join(HOME, "Documents", "WorkBuddy", "Commodities", "Reports", "商品期货深度分析", DATE_STR)
 OUTDIR = DATADIR
 
+
+def _find_file(pattern):
+    path = os.path.join(DATADIR, pattern.format(DATE_COMPACT=DATE_COMPACT))
+    if os.path.exists(path):
+        return path
+    base, ext = os.path.splitext(pattern)
+    matches = glob.glob(os.path.join(DATADIR, f"{base}*{ext}"))
+    if matches:
+        return sorted(matches)[-1]
+    raise FileNotFoundError(f"未找到: {path}")
+
+
 def load_qd_data():
-    with open(os.path.join(DATADIR, "full_scan_summary_20260705.json"), "r") as f:
+    summary_path = _find_file("full_scan_summary_{DATE_COMPACT}.json")
+    l1l4_path = _find_file("full_scan_l1l4_{DATE_COMPACT}.json")
+    ft_path = _find_file("full_scan_factor_timing_{DATE_COMPACT}.json")
+    with open(summary_path, "r") as f:
         summary = json.load(f)
-    with open(os.path.join(DATADIR, "full_scan_l1l4_20260705.json"), "r") as f:
+    with open(l1l4_path, "r") as f:
         l1l4 = json.load(f)
-    with open(os.path.join(DATADIR, "full_scan_factor_timing_20260705.json"), "r") as f:
+    with open(ft_path, "r") as f:
         ft = json.load(f)
     return summary, l1l4, ft
+
 
 def build_symbol_map(summary):
     smap = {}
@@ -46,6 +73,7 @@ def build_symbol_map(summary):
         }
     return smap
 
+
 def build_price_dict(l1l4):
     pdict = {}
     for s in l1l4["all_ranked"]:
@@ -59,6 +87,7 @@ def build_price_dict(l1l4):
         }
     return pdict
 
+
 def analyze_chains(symbol_map, price_dict):
     chain_data = {}
     chain_members = {name: [] for name in CHAIN_PRODUCTS}
@@ -66,49 +95,51 @@ def analyze_chains(symbol_map, price_dict):
         chain = get_chain_for_symbol(sym)
         if chain and chain in chain_members:
             chain_members[chain].append(sym)
-    
+
     for chain_name, members in chain_members.items():
         if not members:
             continue
         buy_count = sell_count = 0
         total_abs_scores = 0
         member_details = []
-        
+
         for sym in members:
             info = symbol_map.get(sym, {})
             pd = price_dict.get(sym, {})
             l1_dir = info.get("l1l4_direction", "neutral")
             l1_total = info.get("l1l4_total", 0)
-            
+
             if l1_dir == "bull":
                 buy_count += 1
             elif l1_dir == "bear":
                 sell_count += 1
-            
+
             total_abs_scores += abs(l1_total)
-            
+
             cross_info = None
             if is_cross_chain_variety(sym):
                 dominant, reason = get_dominant_chain(sym)
                 cross_info = {"dominant": dominant, "reason": reason}
-            
-            member_details.append({
-                "symbol": sym,
-                "name": info.get("name", sym),
-                "price": pd.get("price", 0),
-                "l1l4_total": l1_total,
-                "l1l4_direction": l1_dir,
-                "l1l4_grade": info.get("l1l4_grade", ""),
-                "ft_direction": info.get("ft_direction", ""),
-                "z_score": pd.get("z_score", 0),
-                "adx": pd.get("adx", 0),
-                "cross_chain": cross_info,
-            })
-        
+
+            member_details.append(
+                {
+                    "symbol": sym,
+                    "name": info.get("name", sym),
+                    "price": pd.get("price", 0),
+                    "l1l4_total": l1_total,
+                    "l1l4_direction": l1_dir,
+                    "l1l4_grade": info.get("l1l4_grade", ""),
+                    "ft_direction": info.get("ft_direction", ""),
+                    "z_score": pd.get("z_score", 0),
+                    "adx": pd.get("adx", 0),
+                    "cross_chain": cross_info,
+                }
+            )
+
         avg_score = total_abs_scores / len(members) if members else 0
         direction_counts = {"BUY": buy_count, "SELL": sell_count, "HOLD": len(members) - buy_count - sell_count}
         trend = classify_chain(avg_score, direction_counts)
-        
+
         # 一致性
         if "空" in trend:
             aligned = sell_count
@@ -116,9 +147,9 @@ def analyze_chains(symbol_map, price_dict):
             aligned = buy_count
         else:
             aligned = len(members)
-        
+
         consistency = round(aligned / len(members) * 100, 1) if members else 0
-        
+
         chain_data[chain_name] = {
             "members": member_details,
             "member_count": len(members),
@@ -128,8 +159,9 @@ def analyze_chains(symbol_map, price_dict):
             "trend": trend,
             "consistency_pct": consistency,
         }
-    
+
     return chain_data
+
 
 def detect_redundancy(chain_data):
     redundant_pairs = []
@@ -138,41 +170,45 @@ def detect_redundancy(chain_data):
     for chain, syms in WITHIN_CHAIN_INDEPENDENT.items():
         for s in syms:
             independent[s.upper()] = chain
-    
+
     for chain_name, data in chain_data.items():
         members = data["members"]
         if len(members) < 2:
             continue
         for i in range(len(members)):
-            for j in range(i+1, len(members)):
+            for j in range(i + 1, len(members)):
                 a, b = members[i], members[j]
                 sym_a, sym_b = a["symbol"].upper(), b["symbol"].upper()
                 if sym_a in independent or sym_b in independent:
                     continue
-                dir_same = (a["l1l4_direction"] == b["l1l4_direction"])
+                dir_same = a["l1l4_direction"] == b["l1l4_direction"]
                 score_diff = abs(abs(a["l1l4_total"]) - abs(b["l1l4_total"]))
                 if dir_same and score_diff < 15:
                     if abs(a["l1l4_total"]) >= abs(b["l1l4_total"]):
                         primary, redundant = a["symbol"], b["symbol"]
                     else:
                         primary, redundant = b["symbol"], a["symbol"]
-                    redundant_pairs.append({
-                        "primary": primary, "redundant": redundant,
-                        "chain": chain_name,
-                        "score_diff": score_diff,
-                        "reason": f"同为{a['l1l4_direction']}方向，信号差{score_diff}分"
-                    })
-    
+                    redundant_pairs.append(
+                        {
+                            "primary": primary,
+                            "redundant": redundant,
+                            "chain": chain_name,
+                            "score_diff": score_diff,
+                            "reason": f"同为{a['l1l4_direction']}方向，信号差{score_diff}分",
+                        }
+                    )
+
     # 排序：按score_diff从小到大（最冗余的排在前面）并取前5对
     redundant_pairs.sort(key=lambda x: x["score_diff"])
     redundant_pairs = redundant_pairs[:5]
-    
+
     for pair in redundant_pairs:
         redundant_flags[pair["redundant"]] = pair["primary"]
         if pair["primary"] not in redundant_flags:
             redundant_flags[pair["primary"]] = None
-    
+
     return redundant_pairs, redundant_flags
+
 
 def check_z_score_extremes(chain_data):
     extremes = []
@@ -187,14 +223,17 @@ def check_z_score_extremes(chain_data):
                 continue
             if abs(zf) > 2.0:
                 severity = "🔴 高度异常" if abs(zf) > 3.0 else "⚠️ 异常"
-                extremes.append({"symbol": m["symbol"], "chain": chain_name, "z_score": round(zf, 2), "severity": severity})
+                extremes.append(
+                    {"symbol": m["symbol"], "chain": chain_name, "z_score": round(zf, 2), "severity": severity}
+                )
     return extremes
+
 
 def identify_anchor(chain_name, data):
     members = data.get("members", [])
     if not members:
         return "未知"
-    
+
     if "黑色" in chain_name:
         i_signal = rb_signal = None
         for m in members:
@@ -281,40 +320,46 @@ def main():
     summary, l1l4, ft = load_qd_data()
     symbol_map = build_symbol_map(summary)
     price_dict = build_price_dict(l1l4)
-    
+
     chain_data = analyze_chains(symbol_map, price_dict)
     redundant_pairs, redundant_flags = detect_redundancy(chain_data)
     z_extremes = check_z_score_extremes(chain_data)
-    
+
     # ========== 报告1: 策略报告 ==========
     strategy_lines = []
     strategy_lines.append("# 链证源策略报告 — 给闫判官参考辩论方向\n")
-    strategy_lines.append(f"**日期**: 2026-07-05 | **数据源**: scan_all.py --dual | **全品种多头**: {summary['_meta']['l1l4_bull']} | **全品种空头**: {summary['_meta']['l1l4_bear']}\n")
+    strategy_lines.append(
+        f"**日期**: 2026-07-05 | **数据源**: scan_all.py --dual | **全品种多头**: {summary['_meta']['l1l4_bull']} | **全品种空头**: {summary['_meta']['l1l4_bear']}\n"
+    )
     strategy_lines.append("---\n")
-    
+
     for chain_name in sorted(chain_data.keys()):
         d = chain_data[chain_name]
         anchor = identify_anchor(chain_name, d)
         strategy_lines.append(f"## {chain_name}\n")
         strategy_lines.append(f"- **趋势**: {d['trend']}")
         strategy_lines.append(f"- **锚点**: {anchor}")
-        strategy_lines.append(f"- **品种:{d['member_count']} | BUY:{d['buy_count']} | SELL:{d['sell_count']} | 信号强度:{d['avg_score']} | 一致性:{d['consistency_pct']}%**\n")
+        strategy_lines.append(
+            f"- **品种:{d['member_count']} | BUY:{d['buy_count']} | SELL:{d['sell_count']} | 信号强度:{d['avg_score']} | 一致性:{d['consistency_pct']}%**\n"
+        )
         strategy_lines.append("|品种|价格|方向|得分|z-score|ADX|")
         strategy_lines.append("|---|---|---|---|---|---|")
         for m in d["members"]:
             cross = " ★" if m.get("cross_chain") else ""
-            strategy_lines.append(f"|{m['symbol']}{cross}|{m['price']}|{m['l1l4_direction']}|{m['l1l4_total']}|{m.get('z_score','N/A')}|{m.get('adx','')}|")
+            strategy_lines.append(
+                f"|{m['symbol']}{cross}|{m['price']}|{m['l1l4_direction']}|{m['l1l4_total']}|{m.get('z_score', 'N/A')}|{m.get('adx', '')}|"
+            )
         strategy_lines.append("")
         # 期限结构
         back_count = sum(1 for m in d["members"] if True)  # placeholder
         strategy_lines.append(f"- **期限结构**: 全链Contango为主（远月升水，反映需求端悲观预期）")
         strategy_lines.append("---\n")
-    
+
     # ========== 报告2: 产业链分析报告 ==========
     analysis_lines = []
     analysis_lines.append("# 链证源产业链分析报告 — 给闫判官做辩论品种取舍\n")
     analysis_lines.append("---\n")
-    
+
     # 1. 冗余检测
     analysis_lines.append("## 一、动态相关系数冗余检测\n")
     analysis_lines.append("按「一链一代表」原则，同链同向且信号强度接近的品种建议仅保留1个：\n")
@@ -329,7 +374,7 @@ def main():
     analysis_lines.append("**独立品种声明（不参与冗余检测）**:\n")
     for c, syms in WITHIN_CHAIN_INDEPENDENT.items():
         analysis_lines.append(f"- {c}: {', '.join(syms)} — 驱动因素独立\n")
-    
+
     # 2. 跨链品种
     analysis_lines.append("## 二、跨链品种主导链判断\n")
     analysis_lines.append("|品种|主链|副链|当前主导|理由|")
@@ -338,10 +383,14 @@ def main():
         for m in d["members"]:
             ci = m.get("cross_chain")
             if ci:
-                sec = ", ".join(get_all_chains_for_symbol(m["symbol"])[1:3]) if len(get_all_chains_for_symbol(m["symbol"])) > 1 else ""
+                sec = (
+                    ", ".join(get_all_chains_for_symbol(m["symbol"])[1:3])
+                    if len(get_all_chains_for_symbol(m["symbol"])) > 1
+                    else ""
+                )
                 analysis_lines.append(f"|{m['symbol']}|{chain_name}|{sec}|{ci['dominant']}|{ci['reason']}|")
     analysis_lines.append("")
-    
+
     # 3. 一致性验证
     analysis_lines.append("## 三、产业链一致性验证\n")
     analysis_lines.append("|产业链|一致性%|趋势|BUY/SELL|")
@@ -350,7 +399,7 @@ def main():
         d = chain_data[cn]
         analysis_lines.append(f"|{cn}|{d['consistency_pct']}%|{d['trend']}|{d['buy_count']}/{d['sell_count']}|")
     analysis_lines.append("")
-    
+
     # 4. Z分数极端检查
     analysis_lines.append("## 四、Z分数极端性检查\n")
     if z_extremes:
@@ -361,7 +410,7 @@ def main():
     else:
         analysis_lines.append("> 全品种|z|≤2，无极端价格位置。\n")
     analysis_lines.append("")
-    
+
     # 5. 基本面验证
     analysis_lines.append("## 五、基本面验证笔记\n")
     for chain_name in sorted(chain_data.keys()):
@@ -370,7 +419,7 @@ def main():
         for note in notes:
             analysis_lines.append(f"- {note}")
         analysis_lines.append("")
-    
+
     # 6. 冗余排除建议
     analysis_lines.append("## 六、冗余排除建议（辩论品种取舍）\n")
     kept_list = []
@@ -387,7 +436,7 @@ def main():
             kept_list.append(f"{cn}: {best['symbol']}({best['name']}, 信号{best['l1l4_total']})")
         for m in red_here:
             excluded_list.append(f"{m['symbol']}({cn}, 冗余于{redundant_flags[m['symbol']]})")
-    
+
     analysis_lines.append("**建议保留（链代表）**:\n")
     for k in kept_list:
         analysis_lines.append(f"- {k}")
@@ -400,53 +449,59 @@ def main():
         analysis_lines.append("> 无冗余排除品种。\n")
     analysis_lines.append("---")
     analysis_lines.append(f"*报告生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
-    
+
     full_strategy = "\n".join(strategy_lines)
     full_analysis = "\n".join(analysis_lines)
-    
+
     # 输出结构化JSON
     output = {
         "variant": "chain_analysis",
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "chain_summary": {k: {
-            "trend": v["trend"],
-            "member_count": v["member_count"],
-            "buy_count": v["buy_count"],
-            "sell_count": v["sell_count"],
-            "consistency_pct": v["consistency_pct"],
-            "avg_score": v["avg_score"],
-        } for k, v in chain_data.items()},
+        "chain_summary": {
+            k: {
+                "trend": v["trend"],
+                "member_count": v["member_count"],
+                "buy_count": v["buy_count"],
+                "sell_count": v["sell_count"],
+                "consistency_pct": v["consistency_pct"],
+                "avg_score": v["avg_score"],
+            }
+            for k, v in chain_data.items()
+        },
         "redundant_pairs": redundant_pairs,
         "z_score_extremes": z_extremes,
         "strategy_report": full_strategy,
         "analysis_report": full_analysis,
     }
-    
+
     with open(os.path.join(OUTDIR, "chain_strategy_report.json"), "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     with open(os.path.join(OUTDIR, "chain_analysis_report.json"), "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
-    
+
     print("✅ 两份报告已写入 JSON")
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("产业链景气度总览")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for cn in sorted(chain_data.keys()):
         d = chain_data[cn]
-        print(f"{cn:12s} | {d['trend']:12s} | 品种{d['member_count']} | 一致性{d['consistency_pct']}% | BUY={d['buy_count']} SELL={d['sell_count']}")
-    
+        print(
+            f"{cn:12s} | {d['trend']:12s} | 品种{d['member_count']} | 一致性{d['consistency_pct']}% | BUY={d['buy_count']} SELL={d['sell_count']}"
+        )
+
     print(f"\nZ分数异常: {len(z_extremes)}个 | 冗余配对: {len(redundant_pairs)}对")
-    
+
     # 打印报告
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("策略报告")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     print(full_strategy)
-    
-    print(f"\n{'='*60}")
+
+    print(f"\n{'=' * 60}")
     print("产业链分析报告")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     print(full_analysis)
+
 
 if __name__ == "__main__":
     main()

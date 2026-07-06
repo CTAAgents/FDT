@@ -1,8 +1,8 @@
-# Futures Debate Team — 期货交易辩论专家团 v4.4
+# Futures Debate Team — 期货交易辩论专家团 v4.5
 
 ## 类型
 
-Team 型（10角色多角色协作团队，闫判官自主决定辩论品种与方向）
+Team 型（11角色多角色协作团队，闫判官自主决定辩论品种与方向）
 
 ## 架构
 
@@ -36,7 +36,7 @@ Stage 2: 闫判官综合双策略信号 + 产业链信息 → 选辩论品种 + 
     debate_results.json + HTML 报告 + memory 自动写入
 ```
 
-## 核心设计原则（v4.4）
+## 核心设计原则（v4.5）
 
 ```
 数技源边界   → 只输出原始数值，不做判断
@@ -51,9 +51,64 @@ Stage 2: 闫判官综合双策略信号 + 产业链信息 → 选辩论品种 + 
 P3全量实现   → ML方向预测+事件日历+跨品种联动+PnL反馈闭环
 P0_P1增强   → 情感因子+流动性风险+摩擦精细化+DAG并行化+特征注入+Agent协议
 P2_P3增强   → 实盘执行引擎+运维告警+合规审计+MARL+对手盘建模+自动因子挖掘+双判官制衡
+Bridgewater  → 五维辩论价值评分+研报质量过滤+ML训练自动化+历史反馈闭环
 ```
 
-## 10大角色
+## 系统架构（v4.5 — 新增根级基础设施层）
+
+```
+futures-debate-team/
+├── debate/                    ← 辩论系统基础设施
+│   ├── history.py             ← 辩论历史记录（append-only JSON档案）
+├── ml/                        ← ML/AI 训练基础设施
+│   ├── trainer.py             ← TrainingOrchestrator + DisputePredictor
+├── pipeline/                   ← 数据预处理/管道
+│   ├── quality_filter.py      ← 研报质量过滤（B-Minimal + B-Standard）
+│   └── runner.py              ← 全自动流水线（scan→chain→debate→report→ML）
+├── skills/                    ← 专业技能层
+│   ├── quant-daily/           ← 数据采集 + 信号计算
+│   ├── commodity-chain-analysis/
+│   └── ...
+└── tests/                     ← 统一测试目录
+    └── quant-daily/
+```
+
+**关键原则**：跨层 cross-cutting 功能放在根级目录，不塞入具体 skill。
+
+## Bridgewater 方法论 × CTA 落地（v4.5 新增）
+
+基于 Bridgewater AIA Labs 论文方法论的 3 条路径全量实施：
+
+| 路径 | 描述 | 产出 | 覆盖率 |
+|:-----|:-----|:-----|:------|
+| **Path A** | 研报质量评估 — B-Minimal五维checklist + B-Standard自动标注 | `pipeline/quality_filter.py` | 96% |
+| **Path B** | 辩论历史反馈闭环 — 轻量JSON档案，记录/读取/分值计算 | `debate/history.py` | 94% |
+| **Path C** | ML训练自动化 — TrainingOrchestrator + DisputePredictor | `ml/trainer.py` | 87% |
+
+### 五维辩论价值评分（debate_brief.py 增强）
+
+`compute_debate_score()` 为每个品种计算五维加权评分，替代简单分歧度排序：
+
+| 维度 | 权重 | 评分依据 |
+|:-----|:----:|:---------|
+| 信号强度 | 40% | L1-L4总得分 + factor_timing总得分，分歧加倍 |
+| 趋势质量 | 25% | ADX(趋势强度) + 阶段(launch>trending>quiet) + 共识数 |
+| 极端值 | 20% | RSI极端 + Z分数极端 + 超买/超卖标签 |
+| 数据可靠性 | 10% | veto扣分(每-1扣2分) |
+| 产业链重要性 | 5% | 黑色系/贵金属=5分，其他=3分 |
+
+### 自动流水线（零人工干预）
+
+`pipeline/runner.py` 全自动串联交易日流程：
+
+```
+16:15 (收盘后) → scan_all.py --dual → chain_analysis → debate_brief(五维评分)
+                → assemble_intermediate → report → history记录 → ML训练检查
+```
+
+自动化调度：
+- **工作日 16:15**：全自动辩论流水线
+- **周日 17:00**：ML模型自动训练检查
 
 | 角色 | Agent ID | 工作方法定义在 | 职责 |
 |:-----|:---------|:--------------|:-----|
@@ -220,7 +275,8 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v4.3** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |
+| **v4.5** | **2026-07-06** | **Bridgewater方法论×CTA落地全量实施**：五维辩论价值评分(compute_debate_score); 研报质量过滤B-Minimal/B-Standard; 辩论历史档案debate_history; ML训练自动化TrainingOrchestrator+DisputePredictor; 全自动流水线pipeline/runner.py; 零胶水代码强化; 测试统一迁移到tests/; 新增根级debate/ml/pipeline/基础设施模块; 全量代码审计修复22处硬编码路径与152文件ruff格式化; 100测试全绿; quality_filter 96% debate_history 94% trainer 87% 覆盖率 |
+| **v4.4** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |
 | **v4.2** | **2026-07-05** | **P3全量实现**：Phase1 事件日历+跨品种联动 / Phase2 ML特征管道(30+维) / Phase3 DirectionClassifier+EnsemblePredictor / Phase4 PnL反馈闭环；风控明6层引擎(risk_engine.py)；观澜技术分析v2.1支撑阻力(hardness/容差/失效/共振)；换月跳空屏蔽+OI/量能确认；risk_input字段注入信号汇总；全审计8项修复；CONS/ADX假警报排查(indicators_legacy除零修复)；胶水代码防复发（assemble_intermediate_data / debate_brief --select-debate）；对比分析TradingAgents+CSTrader并制定P0-P2优化路线图 |
 | v4.1 | 2026-07-05 | 方案C仲裁者裁决：量析师移除(10角色)；数技源改为--dual双策略输出；链证源前置(S1.5)；所有Agent自动写memory；`memory/rules/` → `memory/policies/` |
 | v4.0 | 2026-07-04 | 策略可插拔架构：新增量析师，策略层驱动打分；链证源聚焦景气度(不下多空)；正反方引4层证据 |

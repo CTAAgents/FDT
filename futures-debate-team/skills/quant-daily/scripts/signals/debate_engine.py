@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("debate_engine")
 # -*- coding: utf-8 -*-
 """辩论流程并行化引擎 v1.0 — DAG调度器（P1-3）。
@@ -26,18 +27,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 class DAGNode:
     """DAG节点 — 代表一个Agent阶段。"""
 
-    def __init__(self, name: str, level: int, deps: List[str],
-                 action: Optional[Callable] = None,
-                 timeout: int = 120):
+    def __init__(self, name: str, level: int, deps: List[str], action: Optional[Callable] = None, timeout: int = 120):
         self.name = name
-        self.level = level          # 拓扑层级 (0=最前)
-        self.deps = deps            # 依赖的节点名列表
-        self.action = action        # 要执行的函数
-        self.timeout = timeout      # 超时秒数
+        self.level = level  # 拓扑层级 (0=最前)
+        self.deps = deps  # 依赖的节点名列表
+        self.action = action  # 要执行的函数
+        self.timeout = timeout  # 超时秒数
         self.result = None
         self.error = None
         self.duration = 0.0
-        self.status = "pending"     # pending/running/done/failed/skipped
+        self.status = "pending"  # pending/running/done/failed/skipped
 
 
 class DebateEngine:
@@ -101,8 +100,7 @@ class DebateEngine:
         results = {}
 
         if verbose:
-            _log(f"辩论DAG引擎启动 | 共{len(self.nodes)}节点, {max_level+1}层级, "
-                 f"最大并行数{self.max_workers}")
+            _log(f"辩论DAG引擎启动 | 共{len(self.nodes)}节点, {max_level + 1}层级, 最大并行数{self.max_workers}")
 
         for level in sorted(self._level_map.keys()):
             ready = self._get_ready_nodes(level)
@@ -144,8 +142,9 @@ class DebateEngine:
             sequential_duration += level_duration
 
         total_duration = time.time() - total_start
-        nodes_status = {n: {"status": node.status, "duration": node.duration,
-                            "error": node.error} for n, node in self.nodes.items()}
+        nodes_status = {
+            n: {"status": node.status, "duration": node.duration, "error": node.error} for n, node in self.nodes.items()
+        }
 
         parallel_gain = 1.0
         if total_duration > 0 and sequential_duration > 0:
@@ -173,7 +172,7 @@ class DebateEngine:
         node.status = "running"
         max_retries = 3  # 初始执行 + 2次重试
         last_error = None
-        
+
         for attempt in range(max_retries):
             start = time.time()
             try:
@@ -188,12 +187,12 @@ class DebateEngine:
                 node.duration = time.time() - start
                 last_error = str(e)
                 if attempt < max_retries - 1:
-                    _log(f"  ⚠️ {name} 第{attempt+1}次失败 ({e})，重试中...")
-                    time.sleep(min(5, 2 ** attempt))  # 指数退避
+                    _log(f"  ⚠️ {name} 第{attempt + 1}次失败 ({e})，重试中...")
+                    time.sleep(min(5, 2**attempt))  # 指数退避
                 else:
                     node.status = "failed"
                     node.error = last_error
-                    _log(f"  ❌ {name} 第{attempt+1}次失败 ({e})，启动降级...")
+                    _log(f"  ❌ {name} 第{attempt + 1}次失败 ({e})，启动降级...")
                     # 降级兜底：复用昨日缓存
                     fallback = self._get_fallback(name)
                     if fallback:
@@ -201,12 +200,12 @@ class DebateEngine:
                         node.status = "skipped"
                         return fallback
                     raise
-    
+
     def _get_fallback(self, name: str) -> Optional[Dict]:
         """降级兜底：尝试从昨日缓存读取数据。"""
         import glob as _glob
         from datetime import timedelta as _td
-        
+
         # 昨日日期
         yesterday = (datetime.now() - _td(days=1)).strftime("%Y%m%d")
         # 搜索可能的昨日缓存文件
@@ -216,16 +215,16 @@ class DebateEngine:
             f"**/memory/{yesterday}/debate_results.json",
             f"**/{yesterday}*/**/*.json",
         ]
-        
+
         for pattern in patterns:
             matches = _glob.glob(os.path.expanduser(f"~/Documents/WorkBuddy/**/{pattern}"), recursive=True)
             if matches:
                 try:
-                    with open(matches[0], 'r', encoding='utf-8') as f:
+                    with open(matches[0], "r", encoding="utf-8") as f:
                         return json.load(f)
                 except (json.JSONDecodeError, IOError):
                     continue
-        
+
         return None
 
     def get_report(self) -> Dict:
@@ -246,6 +245,7 @@ def _log(msg: str):
 
 
 # ── 内置流水线工厂 ──
+
 
 def build_default_pipeline(data_funcs: Dict[str, Callable]) -> DebateEngine:
     """构建默认辩论流水线。
@@ -272,23 +272,27 @@ def build_default_pipeline(data_funcs: Dict[str, Callable]) -> DebateEngine:
     engine.add_node(DAGNode("观澜", 1, ["数技源"], data_funcs.get("technical"), timeout=120))
 
     # Level 2: 闫判官准备
-    engine.add_node(DAGNode("闫判官准备期", 2, ["数技源", "链证源", "探源", "观澜", "事件日历"],
-                            data_funcs.get("judge_prep"), timeout=60))
+    engine.add_node(
+        DAGNode(
+            "闫判官准备期",
+            2,
+            ["数技源", "链证源", "探源", "观澜", "事件日历"],
+            data_funcs.get("judge_prep"),
+            timeout=60,
+        )
+    )
 
     # Level 3: 辩论双方（并行）
     engine.add_node(DAGNode("证真", 3, ["闫判官准备期"], data_funcs.get("bull"), timeout=120))
     engine.add_node(DAGNode("慎思", 3, ["闫判官准备期"], data_funcs.get("bear"), timeout=120))
 
     # Level 4: 策略+风控（策执远→风控明串行）
-    engine.add_node(DAGNode("策执远", 4, ["证真", "慎思", "闫判官准备期"],
-                            data_funcs.get("strategist"), timeout=60))
+    engine.add_node(DAGNode("策执远", 4, ["证真", "慎思", "闫判官准备期"], data_funcs.get("strategist"), timeout=60))
     engine.add_node(DAGNode("风控明", 4, ["策执远"], data_funcs.get("risk"), timeout=60))
 
     # Level 5-6: 裁决和汇总
-    engine.add_node(DAGNode("闫判官裁决", 5, ["风控明", "证真", "慎思"],
-                            data_funcs.get("judge_final"), timeout=60))
-    engine.add_node(DAGNode("明鉴秋汇总", 6, ["闫判官裁决", "数技源", "链证源"],
-                            data_funcs.get("lead"), timeout=30))
+    engine.add_node(DAGNode("闫判官裁决", 5, ["风控明", "证真", "慎思"], data_funcs.get("judge_final"), timeout=60))
+    engine.add_node(DAGNode("明鉴秋汇总", 6, ["闫判官裁决", "数技源", "链证源"], data_funcs.get("lead"), timeout=30))
 
     return engine
 
@@ -329,8 +333,7 @@ class MultiTimeframeDebate:
             },
         }
 
-    def build_multi_tf_pipeline(self, data_funcs: Dict[str, Callable],
-                                 symbols: List[str] = None) -> DebateEngine:
+    def build_multi_tf_pipeline(self, data_funcs: Dict[str, Callable], symbols: List[str] = None) -> DebateEngine:
         """构建多周期辩论流水线。
 
         日线级: 全流程辩论（宏观方向）
@@ -346,35 +349,38 @@ class MultiTimeframeDebate:
         engine = DebateEngine(max_workers=4)
 
         # Level 0: 多周期数据扫描
-        engine.add_node(DAGNode("daily_data", 0, [],
-                                data_funcs.get("daily_scan"), timeout=300))
-        engine.add_node(DAGNode("hourly_data", 0, [],
-                                data_funcs.get("hourly_scan"), timeout=300))
+        engine.add_node(DAGNode("daily_data", 0, [], data_funcs.get("daily_scan"), timeout=300))
+        engine.add_node(DAGNode("hourly_data", 0, [], data_funcs.get("hourly_scan"), timeout=300))
 
         # Level 1: 日线宏观分析
-        engine.add_node(DAGNode("daily_technical", 1, ["daily_data"],
-                                data_funcs.get("technical"), timeout=120))
-        engine.add_node(DAGNode("daily_fundamental", 1, ["daily_data"],
-                                data_funcs.get("fundamental"), timeout=120))
+        engine.add_node(DAGNode("daily_technical", 1, ["daily_data"], data_funcs.get("technical"), timeout=120))
+        engine.add_node(DAGNode("daily_fundamental", 1, ["daily_data"], data_funcs.get("fundamental"), timeout=120))
 
         # Level 2: 小时线技术分析
-        engine.add_node(DAGNode("hourly_technical", 2, ["hourly_data", "daily_technical"],
-                                data_funcs.get("technical"), timeout=120))
+        engine.add_node(
+            DAGNode("hourly_technical", 2, ["hourly_data", "daily_technical"], data_funcs.get("technical"), timeout=120)
+        )
 
         # Level 3: 多周期辩论（以日线方向为准）
-        engine.add_node(DAGNode("debaters", 3, ["daily_technical", "daily_fundamental", "hourly_technical"],
-                                data_funcs.get("debate"), timeout=300))
+        engine.add_node(
+            DAGNode(
+                "debaters",
+                3,
+                ["daily_technical", "daily_fundamental", "hourly_technical"],
+                data_funcs.get("debate"),
+                timeout=300,
+            )
+        )
 
         # Level 4: 策执远+风控
-        engine.add_node(DAGNode("strategist", 4, ["debaters"],
-                                data_funcs.get("strategy"), timeout=120))
-        engine.add_node(DAGNode("risk", 4, ["strategist"],
-                                data_funcs.get("risk"), timeout=60))
+        engine.add_node(DAGNode("strategist", 4, ["debaters"], data_funcs.get("strategy"), timeout=120))
+        engine.add_node(DAGNode("risk", 4, ["strategist"], data_funcs.get("risk"), timeout=60))
 
         return engine
 
-    def resolve_conflict(self, daily_direction: int, hourly_direction: int,
-                         daily_confidence: float, hourly_confidence: float) -> Dict[str, Any]:
+    def resolve_conflict(
+        self, daily_direction: int, hourly_direction: int, daily_confidence: float, hourly_confidence: float
+    ) -> Dict[str, Any]:
         """解决多周期方向冲突。
 
         规则：

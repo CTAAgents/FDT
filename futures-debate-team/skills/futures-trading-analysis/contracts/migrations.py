@@ -62,6 +62,4 @@ def apply_migration(skill_type: str, data: dict, target_version: str) -> dict:
     key = (skill_type, current, target_version)
     if key in MIGRATION_REGISTRY:
         return MIGRATION_REGISTRY[key](data)
-    raise ValueError(
-        f"No migration path from {current} to {target_version} for {skill_type}"
-    )
+    raise ValueError(f"No migration path from {current} to {target_version} for {skill_type}")

@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("ops_monitor")
 #!/usr/bin/env python3
 """
@@ -33,7 +34,7 @@ class OpsMonitor:
         self.health_history = []
         self.config = self._load_config(config_path)
         self.start_time = datetime.now()
-        
+
         print(f"[OpsMonitor] 初始化完成 - {self.start_time}")
 
     def _load_config(self, config_path: str = None) -> Dict:
@@ -63,15 +64,18 @@ class OpsMonitor:
         all_ok = True
 
         # 检查1: 时间同步
-        checks.append({
-            "name": "system_time",
-            "status": "ok",
-            "detail": f"当前时间: {datetime.now()}",
-        })
+        checks.append(
+            {
+                "name": "system_time",
+                "status": "ok",
+                "detail": f"当前时间: {datetime.now()}",
+            }
+        )
 
         # 检查2: 磁盘空间（简化）
         try:
             import shutil
+
             usage = shutil.disk_usage(os.path.expanduser("~"))
             pct = usage.used / usage.total * 100
             if pct > 90:
@@ -84,20 +88,23 @@ class OpsMonitor:
 
         # 检查3: 内存
         import psutil
+
         mem = psutil.virtual_memory()
         if mem.percent > 85:
             checks.append({"name": "memory", "status": "warn", "detail": f"内存使用率: {mem.percent:.1f}%"})
             all_ok = False
         else:
             checks.append({"name": "memory", "status": "ok", "detail": f"内存使用率: {mem.percent:.1f}%"})
-        
+
         # 检查4: 运行时间
         uptime = (datetime.now() - self.start_time).total_seconds()
-        checks.append({
-            "name": "uptime",
-            "status": "ok",
-            "detail": f"运行时长: {uptime/3600:.1f}h",
-        })
+        checks.append(
+            {
+                "name": "uptime",
+                "status": "ok",
+                "detail": f"运行时长: {uptime / 3600:.1f}h",
+            }
+        )
 
         # 综合状态
         status_counts = {}
@@ -181,18 +188,18 @@ table {{ width: 100%; border-collapse: collapse; }}
 td, th {{ padding: 8px 12px; border-bottom: 1px solid #eee; text-align: left; }}
 </style></head><body>
 <h1>📊 每日复盘报告</h1>
-<p>生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+<p>生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
 
 <div class="card">
 <h2>🟢 系统健康</h2>
-<p>状态: <span class="status-{health['status']}">{health['status'].upper()}</span></p>
-<p>运行时长: {health['uptime_hours']:.1f}h</p>
+<p>状态: <span class="status-{health["status"]}">{health["status"].upper()}</span></p>
+<p>运行时长: {health["uptime_hours"]:.1f}h</p>
 </div>
 
 <div class="card">
 <h2>🔔 今日告警</h2>
 <table><tr><th>级别</th><th>标题</th><th>时间</th></tr>
-{"".join(f'<tr><td>{a["level"]}</td><td>{a["title"]}</td><td>{a["timestamp"][:19]}</td></tr>' for a in self.alerts[-20:] if a["title"] != "")}
+{"".join(f"<tr><td>{a["level"]}</td><td>{a["title"]}</td><td>{a["timestamp"][:19]}</td></tr>" for a in self.alerts[-20:] if a["title"] != "")}
 </table>
 </div>
 
@@ -225,11 +232,16 @@ Futures-Debate-Team v4.4 — 自动生成</p>
     def _render_agent_status(self) -> str:
         """渲染Agent状态表格。"""
         agents = [
-            "futures-datatech", "futures-chain-analyst",
-            "futures-technical-researcher", "futures-fundamental-researcher",
-            "futures-affirmative-debater", "futures-opposition-debater",
-            "futures-trading-strategist", "futures-risk-manager",
-            "futures-judge", "futures-debate-team-team-lead",
+            "futures-datatech",
+            "futures-chain-analyst",
+            "futures-technical-researcher",
+            "futures-fundamental-researcher",
+            "futures-affirmative-debater",
+            "futures-opposition-debater",
+            "futures-trading-strategist",
+            "futures-risk-manager",
+            "futures-judge",
+            "futures-debate-team-team-lead",
         ]
         rows = ""
         for agent in agents:
@@ -240,10 +252,12 @@ Futures-Debate-Team v4.4 — 自动生成</p>
     def start(self, interval_minutes: int = 5):
         """启动监控循环（后台线程）。"""
         import threading
+
         def _loop():
             while True:
                 self.check_system_health()
                 time.sleep(interval_minutes * 60)
+
         t = threading.Thread(target=_loop, daemon=True)
         t.start()
         print(f"[OpsMonitor] 监控已启动 (间隔={interval_minutes}分钟)")

@@ -50,7 +50,7 @@ def calc_leverage(contract_value: float, equity: float) -> float:
         杠杆倍数（如 2.5 = 2.5倍）
     """
     if equity <= 0:
-        return float('inf')
+        return float("inf")
     return round(contract_value / equity, 2)
 
 
@@ -65,14 +65,14 @@ def calc_margin_usage(total_margin: float, equity: float) -> Tuple[float, str]:
         (比例, 等级): 如 (0.35, 'green')
     """
     if equity <= 0:
-        return (1.0, 'red')
+        return (1.0, "red")
     ratio = total_margin / equity
     if ratio > 0.60:
-        level = 'red'
+        level = "red"
     elif ratio > 0.40:
-        level = 'yellow'
+        level = "yellow"
     else:
-        level = 'green'
+        level = "green"
     return (round(ratio, 4), level)
 
 
@@ -87,14 +87,14 @@ def calc_stop_loss_pct(stop_amount: float, equity: float) -> Tuple[float, str]:
         (比例, 等级): 如 (0.04, 'yellow')
     """
     if equity <= 0:
-        return (1.0, 'red')
+        return (1.0, "red")
     ratio = stop_amount / equity
     if ratio > 0.05:
-        level = 'red'
+        level = "red"
     elif ratio > 0.03:
-        level = 'yellow'
+        level = "yellow"
     else:
-        level = 'green'
+        level = "green"
     return (round(ratio, 4), level)
 
 
@@ -140,7 +140,11 @@ def calc_position_risk(
     if is_left_signal:
         lots = max(1, lots // 2)
 
-    safe_max = min(safe_max_by_stop, safe_max_by_leverage) if safe_max_by_stop and safe_max_by_leverage else max(safe_max_by_stop, safe_max_by_leverage)
+    safe_max = (
+        min(safe_max_by_stop, safe_max_by_leverage)
+        if safe_max_by_stop and safe_max_by_leverage
+        else max(safe_max_by_stop, safe_max_by_leverage)
+    )
 
     # Generate flags
     flags = []

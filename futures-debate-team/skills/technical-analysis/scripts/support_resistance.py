@@ -24,6 +24,7 @@ import math
 # ZigZag拐点检测
 # ═══════════════════════════════════════════════════════════
 
+
 def find_swing_points(
     highs: List[float],
     lows: List[float],
@@ -58,12 +59,10 @@ def find_swing_points(
     for i in range(lookback, n - lookback):
         if i in mask:
             continue
-        is_high = all(highs[i] > highs[i - j] and highs[i] > highs[i + j]
-                      for j in range(1, lookback + 1))
+        is_high = all(highs[i] > highs[i - j] and highs[i] > highs[i + j] for j in range(1, lookback + 1))
         if is_high:
             swing_highs.append({"idx": i, "price": highs[i], "strength": 1})
-        is_low = all(lows[i] < lows[i - j] and lows[i] < lows[i + j]
-                     for j in range(1, lookback + 1))
+        is_low = all(lows[i] < lows[i - j] and lows[i] < lows[i + j] for j in range(1, lookback + 1))
         if is_low:
             swing_lows.append({"idx": i, "price": lows[i], "strength": 1})
 
@@ -99,9 +98,8 @@ def _mark_strength(highs: List[dict], lows: List[dict]):
 # 价位聚合
 # ═══════════════════════════════════════════════════════════
 
-def consolidate_levels(
-    levels: List[float], merge_pct: float = 0.3
-) -> List[Tuple[float, int]]:
+
+def consolidate_levels(levels: List[float], merge_pct: float = 0.3) -> List[Tuple[float, int]]:
     """聚合邻近价位"""
     if not levels:
         return []
@@ -119,6 +117,7 @@ def consolidate_levels(
 # Volume Profile
 # ═══════════════════════════════════════════════════════════
 
+
 def calculate_poc(
     highs: List[float],
     lows: List[float],
@@ -133,9 +132,10 @@ def calculate_poc(
     price_max = max(highs)
     bin_width = (price_max - price_min) / num_bins if price_max > price_min else 1
 
-    bins = [{"low": price_min + i * bin_width,
-             "high": price_min + (i + 1) * bin_width, "volume": 0.0}
-            for i in range(num_bins)]
+    bins = [
+        {"low": price_min + i * bin_width, "high": price_min + (i + 1) * bin_width, "volume": 0.0}
+        for i in range(num_bins)
+    ]
 
     for i in range(len(highs)):
         for b in bins:
@@ -174,6 +174,7 @@ def calculate_poc(
 # 硬/软分类 + ATR容差 + 失效条件
 # ═══════════════════════════════════════════════════════════
 
+
 def _is_round_number(price: float, tick_size: float = 100) -> bool:
     """判断是否为整数关口（如3600, 3800等）"""
     if tick_size <= 0:
@@ -199,8 +200,8 @@ def _source_type_tag(price: float, vp: Dict, ma20: float, ma60: float) -> str:
 
 def classify_level_hardness(
     price: float,
-    count: int,         # 聚合了多少价位到此点
-    source_tag: str,    # 来源标签
+    count: int,  # 聚合了多少价位到此点
+    source_tag: str,  # 来源标签
     vp: Dict,
     tick_size: float = 100,
 ) -> str:
@@ -249,6 +250,7 @@ def _fail_condition(price: float, is_support: bool, hardness: str) -> str:
 # OI/成交量确认 → 关键位置信度调整
 # ═══════════════════════════════════════════════════════════
 
+
 def _check_oi_confirmation(
     price: float,
     closes: List[float],
@@ -270,8 +272,13 @@ def _check_oi_confirmation(
          "volume_confirm": "confirmed"|"neutral"|"contradict",
          "nearby_bars": int, "oi_trend": str, "vol_trend": str}
     """
-    result = {"nearby_bars": 0, "oi_confirm": "neutral",
-              "volume_confirm": "neutral", "oi_trend": "unknown", "vol_trend": "unknown"}
+    result = {
+        "nearby_bars": 0,
+        "oi_confirm": "neutral",
+        "volume_confirm": "neutral",
+        "oi_trend": "unknown",
+        "vol_trend": "unknown",
+    }
 
     if not closes or len(closes) < lookback_bars:
         return result
@@ -314,8 +321,8 @@ def _check_oi_confirmation(
     if volume_series and len(volume_series) > nearby[0]:
         vol_vals = [volume_series[i] if i < len(volume_series) else volume_series[-1] for i in nearby]
         if len(vol_vals) >= 2:
-            avg_vol_before = sum(vol_vals[:len(vol_vals)//2]) / max(len(vol_vals)//2, 1)
-            avg_vol_after = sum(vol_vals[len(vol_vals)//2:]) / max(len(vol_vals) - len(vol_vals)//2, 1)
+            avg_vol_before = sum(vol_vals[: len(vol_vals) // 2]) / max(len(vol_vals) // 2, 1)
+            avg_vol_after = sum(vol_vals[len(vol_vals) // 2 :]) / max(len(vol_vals) - len(vol_vals) // 2, 1)
             vol_ratio = avg_vol_after / max(avg_vol_before, 1)
             result["vol_trend"] = f"{vol_ratio:.1f}x"
             if vol_ratio >= 1.5:
@@ -354,6 +361,7 @@ def _adjust_hardness_with_oi(
 # 主入口：综合识别关键位
 # ═══════════════════════════════════════════════════════════
 
+
 def identify_key_levels(
     highs: List[float],
     lows: List[float],
@@ -388,8 +396,7 @@ def identify_key_levels(
          "method": "..."}
     """
     # 1. ZigZag（含换月屏蔽）
-    sw = find_swing_points(highs, lows, lookback=lookback,
-                            rollover_indices=rollover_indices)
+    sw = find_swing_points(highs, lows, lookback=lookback, rollover_indices=rollover_indices)
 
     # 2. Volume Profile
     vp = calculate_poc(highs, lows, volumes)
@@ -430,8 +437,7 @@ def identify_key_levels(
         base_hd = classify_level_hardness(price, count, src, vp, tick_size)
 
         # OI/成交量确认（调整hardness）
-        oi_check = _check_oi_confirmation(price, closes, oi_series, volumes,
-                                           is_support=is_support)
+        oi_check = _check_oi_confirmation(price, closes, oi_series, volumes, is_support=is_support)
         hd = _adjust_hardness_with_oi(base_hd, oi_check)
 
         tol = _atr_tolerance(atr, hd)
@@ -479,6 +485,7 @@ def identify_key_levels(
 # 多周期共振验证
 # ═══════════════════════════════════════════════════════════
 
+
 def cross_validate_timeframes(
     daily_levels: Dict,
     h1_levels: Optional[Dict] = None,
@@ -511,22 +518,28 @@ def cross_validate_timeframes(
                 for existing in all_prices.get(side, []):
                     if abs(existing["price"] - p) / max(existing["price"], 1) * 100 <= merge_pct:
                         existing["tfs"].append(tf_name)
-                        existing["hardness"] = _pick_harder(existing.get("hardness", "soft"),
-                                                             lvl.get("hardness", "soft"))
+                        existing["hardness"] = _pick_harder(
+                            existing.get("hardness", "soft"), lvl.get("hardness", "soft")
+                        )
                         found = True
                         break
                 if not found:
-                    all_prices.setdefault(side, []).append({
-                        "price": p,
-                        "tfs": [tf_name],
-                        "hardness": lvl.get("hardness", "soft"),
-                    })
+                    all_prices.setdefault(side, []).append(
+                        {
+                            "price": p,
+                            "tfs": [tf_name],
+                            "hardness": lvl.get("hardness", "soft"),
+                        }
+                    )
 
     # 给daily_levels打共振标签
     def _apply_resonance(levels_list, side):
         for lvl in levels_list:
-            match = [x for x in all_prices.get(side, [])
-                     if abs(x["price"] - lvl["price"]) / max(lvl["price"], 1) * 100 <= merge_pct]
+            match = [
+                x
+                for x in all_prices.get(side, [])
+                if abs(x["price"] - lvl["price"]) / max(lvl["price"], 1) * 100 <= merge_pct
+            ]
             if match:
                 m = match[0]
                 lvl["resonance"] = "confirmed" if len(m["tfs"]) >= 2 else "single"

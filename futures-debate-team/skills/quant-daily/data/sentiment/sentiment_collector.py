@@ -70,34 +70,34 @@ def collect_sentiment(symbol: str = "ALL") -> Dict[str, float]:
         {symbol: score}, score ∈ [-100, 100]
     """
     scores = {}
-    
+
     # 层级1: 官方舆情（模拟实现，实际部署接入交易所API）
     official_scores = _collect_from_official(symbol)
     scores.update(official_scores)
-    
+
     # 层级2: 权威财经（模拟实现，实际部署接入Wind/钢联API）
     missing = _get_missing_symbols(symbol, scores)
     if missing:
         financial_scores = _collect_from_financial(missing)
         scores.update(financial_scores)
-    
+
     # 层级3: 社区论坛（模拟实现，实际部署爬虫+反爬策略）
     missing = _get_missing_symbols(symbol, scores)
     if missing:
         community_scores = _collect_from_community(missing)
         scores.update(community_scores)
-    
+
     # 层级4: 历史均值兜底
     missing = _get_missing_symbols(symbol, scores)
     if missing:
         historical_scores = _collect_from_historical(missing)
         scores.update(historical_scores)
-    
+
     # 硬阈值检查：有效品种数 < MIN_VALID_SYMBOLS → 全部清空
     if len(scores) < MIN_VALID_SYMBOLS:
         warnings.warn(f"[Sentiment] 有效情感数据仅{len(scores)}个品种(<{MIN_VALID_SYMBOLS})，因子降级到5因子")
         return {}
-    
+
     return scores
 
 
@@ -105,19 +105,41 @@ def _get_missing_symbols(symbol: str, current: Dict[str, float]) -> list:
     """获取尚未采集到数据的品种列表。"""
     if symbol != "ALL":
         return [symbol.upper()] if symbol.upper() not in current else []
-    
+
     # 全品种模式下，从 ALL_SYMBOLS 获取品种列表
     try:
         sys_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         if sys_path not in sys.path:
             import sys as _sys
+
             _sys.path.insert(0, sys_path)
         from config.symbols import ALL_SYMBOLS
+
         all_symbols = [s for s, _ in ALL_SYMBOLS]
     except ImportError:
         # 降级：使用常见品种列表
-        all_symbols = ["RB", "HC", "I", "J", "JM", "M", "Y", "P", "OI", "SR", "CF", "AU", "AG", "CU", "AL", "ZN", "SC", "FU", "BU"]
-    
+        all_symbols = [
+            "RB",
+            "HC",
+            "I",
+            "J",
+            "JM",
+            "M",
+            "Y",
+            "P",
+            "OI",
+            "SR",
+            "CF",
+            "AU",
+            "AG",
+            "CU",
+            "AL",
+            "ZN",
+            "SC",
+            "FU",
+            "BU",
+        ]
+
     return [s for s in all_symbols if s not in current]
 
 
@@ -144,9 +166,9 @@ def _collect_from_historical(symbols: list) -> Dict[str, float]:
     """从历史缓存中读取30日滚动平均作为兜底。"""
     scores = {}
     try:
-        with open(SENTIMENT_PATH, 'r', encoding='utf-8') as f:
+        with open(SENTIMENT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         for sym in symbols:
             # 查找历史均值（如果缓存中有多个日期数据）
             hist_key = f"{sym}_30d_avg"
@@ -156,7 +178,7 @@ def _collect_from_historical(symbols: list) -> Dict[str, float]:
                 scores[sym] = data[sym]  # 使用最近一次值
     except (FileNotFoundError, json.JSONDecodeError):
         pass
-    
+
     return scores
 
 
@@ -164,13 +186,13 @@ def get_sentiment_scores() -> Dict[str, float]:
     """获取最新情感因子数据（含失效监控）。
 
     优先从本地缓存读取。若缓存过期（>24h），触发collect_sentiment()。
-    
+
     Returns:
         {symbol: sentiment_score}, score ∈ [-100, 100]
         空 dict = 情感因子不可用，factor_timing 自动回退到5因子
     """
     try:
-        with open(SENTIMENT_PATH, 'r', encoding='utf-8') as f:
+        with open(SENTIMENT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
         cache_date = data.get("_date", "")
         if cache_date == date.today().strftime("%Y-%m-%d"):
@@ -201,7 +223,7 @@ def check_sentiment_health() -> Dict[str, any]:
     2. 时效性：缓存日期 = 今日
     3. 相关性：情感因子与行情的相关性 > 0.1（统计显著）
     4. 波动率：情感评分波动不过度（标准差 < 50）
-    
+
     Returns:
         {
             "is_healthy": bool,
@@ -212,12 +234,12 @@ def check_sentiment_health() -> Dict[str, any]:
         }
     """
     try:
-        with open(SENTIMENT_PATH, 'r', encoding='utf-8') as f:
+        with open(SENTIMENT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         scores = {k: v for k, v in data.items() if not k.startswith("_")}
         n_symbols = len(scores)
-        
+
         # 检查1: 覆盖率
         if n_symbols < MIN_VALID_SYMBOLS:
             return {
@@ -225,7 +247,7 @@ def check_sentiment_health() -> Dict[str, any]:
                 "coverage": n_symbols,
                 "reason": f"覆盖率不足: {n_symbols} < {MIN_VALID_SYMBOLS}",
             }
-        
+
         # 检查2: 时效性
         cache_date = data.get("_date", "")
         if cache_date != date.today().strftime("%Y-%m-%d"):
@@ -234,11 +256,15 @@ def check_sentiment_health() -> Dict[str, any]:
                 "coverage": n_symbols,
                 "reason": f"缓存过期: {cache_date}",
             }
-        
+
         # 检查3: 评分波动率（不过度）
         values = list(scores.values())
         if len(values) > 1:
-            std = __import__('numpy').std(values) if 'numpy' in sys.modules else (sum((x - sum(values)/len(values))**2 for x in values) / len(values)) ** 0.5
+            std = (
+                __import__("numpy").std(values)
+                if "numpy" in sys.modules
+                else (sum((x - sum(values) / len(values)) ** 2 for x in values) / len(values)) ** 0.5
+            )
             if std > 50:
                 return {
                     "is_healthy": False,
@@ -246,13 +272,13 @@ def check_sentiment_health() -> Dict[str, any]:
                     "volatility": round(std, 2),
                     "reason": f"评分波动过大: std={std:.2f} > 50",
                 }
-        
+
         return {
             "is_healthy": True,
             "coverage": n_symbols,
             "reason": "健康",
         }
-    
+
     except Exception as e:
         return {
             "is_healthy": False,
@@ -268,18 +294,18 @@ def _save_cache(scores: Dict[str, float]):
         "_version": "1.1",
     }
     data.update(scores)
-    
+
     # 更新30日滚动平均（简化：存储当日值，实际应维护历史窗口）
     for sym, score in scores.items():
         data[f"{sym}_30d_avg"] = score  # 简化版，实际应计算30日均值
-    
+
     os.makedirs(os.path.dirname(SENTIMENT_PATH), exist_ok=True)
-    with open(SENTIMENT_PATH, 'w', encoding='utf-8') as f:
+    with open(SENTIMENT_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    
+
     # 同时写入健康度
     health = check_sentiment_health()
-    with open(HEALTH_PATH, 'w', encoding='utf-8') as f:
+    with open(HEALTH_PATH, "w", encoding="utf-8") as f:
         json.dump(health, f, ensure_ascii=False, indent=2)
 
 
@@ -291,10 +317,9 @@ def seed_sentiment(symbol: str, score: float):
         score: 情感评分 [-100, 100]
     """
     try:
-        with open(SENTIMENT_PATH, 'r', encoding='utf-8') as f:
+        with open(SENTIMENT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        data = {"_date": date.today().strftime("%Y-%m-%d"),
-                "_updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        data = {"_date": date.today().strftime("%Y-%m-%d"), "_updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     data[symbol.upper()] = score
     _save_cache({k: v for k, v in data.items() if not k.startswith("_")})

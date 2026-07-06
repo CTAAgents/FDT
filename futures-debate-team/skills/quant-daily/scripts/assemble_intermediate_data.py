@@ -25,21 +25,20 @@ from datetime import datetime
 
 
 def load_summary(path: str) -> dict:
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def load_chain_analysis(path: str) -> dict:
-    content = open(path, 'r', encoding='utf-8').read()
-    start = content.find('{')
-    end = content.rfind('}')
+    content = open(path, "r", encoding="utf-8").read()
+    start = content.find("{")
+    end = content.rfind("}")
     if start >= 0 and end > start:
-        return json.loads(content[start:end + 1])
+        return json.loads(content[start : end + 1])
     raise ValueError(f"未在{path}中找到JSON数据")
 
 
-def build_intermediate(summary: dict, chain_analysis: dict,
-                       chain_strategy: dict = None) -> dict:
+def build_intermediate(summary: dict, chain_analysis: dict, chain_strategy: dict = None) -> dict:
     """
     从 full_scan_summary + chain_analysis 构建 intermediate_data.json。
     """
@@ -55,6 +54,7 @@ def build_intermediate(summary: dict, chain_analysis: dict,
 
     # 构建 chain_results（phase3_generate_report.py 需要 {name: {members: [...], ...}} 格式）
     from collections import defaultdict
+
     chain_members = defaultdict(list)
     for sym, chain_name in chain_map.items():
         chain_members[chain_name].append(sym)
@@ -87,34 +87,38 @@ def build_intermediate(summary: dict, chain_analysis: dict,
         factor = s.get("factor_timing", {})
         sym = s["symbol"]
         price = l1l4.get("price", l1l4.get("last_price", 0))
-        direction = "BUY" if l1l4.get("direction") == "bull" else (
-            "SELL" if l1l4.get("direction") == "bear" else "HOLD")
-        symbols_summary.append({
-            "pid": sym,
-            "product_name": s.get("name", sym),
-            "direction": direction,
-            "confidence": abs(l1l4.get("total", 0)) / 100.0,
-            "price": price,
-            "entry_price": price,
-            "target_price": price * (1.05 if direction == "BUY" else 0.95),
-            "stop_loss_price": price * (0.97 if direction == "BUY" else 1.03),
-            "risk_reward_ratio": 1.5,
-            "position_size": 5,
-            "chain": chain_map.get(sym.upper(), ""),
-            "score": l1l4.get("total", 0),
-            "adx": l1l4.get("adx", 0),
-            "signal_direction": direction,
-            "decision": direction,
-        })
+        direction = (
+            "BUY" if l1l4.get("direction") == "bull" else ("SELL" if l1l4.get("direction") == "bear" else "HOLD")
+        )
+        symbols_summary.append(
+            {
+                "pid": sym,
+                "product_name": s.get("name", sym),
+                "direction": direction,
+                "confidence": abs(l1l4.get("total", 0)) / 100.0,
+                "price": price,
+                "entry_price": price,
+                "target_price": price * (1.05 if direction == "BUY" else 0.95),
+                "stop_loss_price": price * (0.97 if direction == "BUY" else 1.03),
+                "risk_reward_ratio": 1.5,
+                "position_size": 5,
+                "chain": chain_map.get(sym.upper(), ""),
+                "score": l1l4.get("total", 0),
+                "adx": l1l4.get("adx", 0),
+                "signal_direction": direction,
+                "decision": direction,
+            }
+        )
         all_actionable.append(symbols_summary[-1])
 
     # 获取 tdx_bridge 可用性
     tdx_available = False
     try:
         import sys as _sys
-        _sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..",
-                                          "quant-daily", "scripts"))
+
+        _sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "quant-daily", "scripts"))
         from indicators.tdx_bridge import get_bridge
+
         tdx_available = get_bridge().available
     except Exception:
         pass
@@ -128,10 +132,8 @@ def build_intermediate(summary: dict, chain_analysis: dict,
         "all_actionable": all_actionable,
         "chain_results": chain_results,
         "symbols_summary": symbols_summary,
-        "BUY_top5": [s["pid"] for s in sorted(
-            symbols_summary, key=lambda x: x.get("score", 0), reverse=True)[:5]],
-        "SELL_top5": [s["pid"] for s in sorted(
-            symbols_summary, key=lambda x: -abs(x.get("score", 0)))[:5]],
+        "BUY_top5": [s["pid"] for s in sorted(symbols_summary, key=lambda x: x.get("score", 0), reverse=True)[:5]],
+        "SELL_top5": [s["pid"] for s in sorted(symbols_summary, key=lambda x: -abs(x.get("score", 0)))[:5]],
         "_meta": {
             "tdx_bridge_available": tdx_available,
             "indicator_source": "通达信TQ-Local + numpy兜底",
@@ -161,7 +163,8 @@ def build_debate_results(summary: dict, chain_analysis: dict) -> dict:
 
         # 方向映射
         direction_map = {
-            ("bull", "bull"): "BUY", ("bear", "bear"): "SELL",
+            ("bull", "bull"): "BUY",
+            ("bear", "bear"): "SELL",
         }
         eng_dir = direction_map.get((l_dir, f_dir), "HOLD")
 
@@ -188,16 +191,14 @@ def build_debate_results(summary: dict, chain_analysis: dict) -> dict:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(
-        description="数据适配器: scan_all + chain_analysis → intermediate_data + debate_results")
-    parser.add_argument("--summary", required=True,
-                        help="full_scan_summary_YYYYMMDD.json 路径")
-    parser.add_argument("--chain-analysis", required=True,
-                        help="chain_analysis_clean.json 路径")
-    parser.add_argument("--chain-strategy", default=None,
-                        help="chain_strategy_report.json 路径（可选）")
-    parser.add_argument("--output-dir", default=".",
-                        help="输出目录（默认为当前目录）")
+        description="数据适配器: scan_all + chain_analysis → intermediate_data + debate_results"
+    )
+    parser.add_argument("--summary", required=True, help="full_scan_summary_YYYYMMDD.json 路径")
+    parser.add_argument("--chain-analysis", required=True, help="chain_analysis_clean.json 路径")
+    parser.add_argument("--chain-strategy", default=None, help="chain_strategy_report.json 路径（可选）")
+    parser.add_argument("--output-dir", default=".", help="输出目录（默认为当前目录）")
     parser.add_argument("--prefix", default="", help="输出文件前缀")
     args = parser.parse_args()
 
@@ -210,14 +211,14 @@ if __name__ == "__main__":
     # 生成 intermediate_data.json
     intermediate = build_intermediate(summary, chain_analysis, chain_strategy)
     im_path = os.path.join(args.output_dir, f"{args.prefix}intermediate_data.json")
-    with open(im_path, 'w', encoding='utf-8') as f:
+    with open(im_path, "w", encoding="utf-8") as f:
         json.dump(intermediate, f, ensure_ascii=False, indent=2)
     print(f"[OK] intermediate_data: {im_path}")
 
     # 生成 debate_results.json
     debate_results = build_debate_results(summary, chain_analysis)
     dr_path = os.path.join(args.output_dir, f"{args.prefix}debate_results.json")
-    with open(dr_path, 'w', encoding='utf-8') as f:
+    with open(dr_path, "w", encoding="utf-8") as f:
         json.dump(debate_results, f, ensure_ascii=False, indent=2)
     print(f"[OK] debate_results: {dr_path}")
 

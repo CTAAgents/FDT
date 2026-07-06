@@ -15,8 +15,7 @@ def _estimate_dynamic_threshold(prices: List[float] = None) -> float:
     """估算动态阈值：若无ATR数据返回默认值1.0%"""
     if not prices or len(prices) < 5:
         return 1.0
-    diffs = [abs(prices[i] - prices[i - 1]) / prices[i - 1] * 100
-             for i in range(1, len(prices))]
+    diffs = [abs(prices[i] - prices[i - 1]) / prices[i - 1] * 100 for i in range(1, len(prices))]
     if not diffs:
         return 1.0
     avg = sum(diffs) / len(diffs)
@@ -45,45 +44,45 @@ def analyze_volume_price(
     result = {}
     detail_parts = []
     threshold = _estimate_dynamic_threshold(reference_prices)
-    oi_threshold = max(threshold * 2, 1.0)   # OI阈值 = 2倍价格波动阈值
+    oi_threshold = max(threshold * 2, 1.0)  # OI阈值 = 2倍价格波动阈值
     price_threshold = max(threshold * 0.8, 0.3)
 
     # 仓价配合解读（中性化描述）
     if oi_change_pct is not None and price_change_pct is not None:
         if oi_change_pct > oi_threshold and price_change_pct > price_threshold:
-            result['oi_price_interpretation'] = '增量上涨：持仓与价格同步上升'
+            result["oi_price_interpretation"] = "增量上涨：持仓与价格同步上升"
             detail_parts.append(f"总持仓↑{oi_change_pct:+.1f}% 价↑{price_change_pct:+.1f}%=资金入场推涨")
         elif oi_change_pct > oi_threshold and price_change_pct < -price_threshold:
-            result['oi_price_interpretation'] = '增量下跌：持仓上升价格下跌'
+            result["oi_price_interpretation"] = "增量下跌：持仓上升价格下跌"
             detail_parts.append(f"总持仓↑{oi_change_pct:+.1f}% 价↓{price_change_pct:+.1f}%=空头主动加仓")
         elif oi_change_pct < -oi_threshold and price_change_pct > price_threshold:
-            result['oi_price_interpretation'] = '减量上涨：持仓下降价格上涨'
+            result["oi_price_interpretation"] = "减量上涨：持仓下降价格上涨"
             detail_parts.append(f"总持仓↓{oi_change_pct:+.1f}% 价↑{price_change_pct:+.1f}%=空头减仓推动")
         elif oi_change_pct < -oi_threshold and price_change_pct < -price_threshold:
-            result['oi_price_interpretation'] = '减量下跌：持仓与价格同步下降'
+            result["oi_price_interpretation"] = "减量下跌：持仓与价格同步下降"
             detail_parts.append(f"总持仓↓{oi_change_pct:+.1f}% 价↓{price_change_pct:+.1f}%=多头减仓回落")
         else:
-            result['oi_price_interpretation'] = '仓价变化不显著（未超动态阈值）'
+            result["oi_price_interpretation"] = "仓价变化不显著（未超动态阈值）"
             detail_parts.append(f"持仓{oi_change_pct:+.1f}% 价{price_change_pct:+.1f}%=变动在阈值{threshold}%范围内")
 
-    result['_dynamic_threshold'] = round(threshold, 2)
+    result["_dynamic_threshold"] = round(threshold, 2)
 
     # 成交量判断
     if volume_ratio is not None:
         if volume_ratio >= 2.0:
-            result['volume_status'] = '显著放量'
+            result["volume_status"] = "显著放量"
             detail_parts.append(f"成交量{volume_ratio:.1f}倍均量=显著放量")
         elif volume_ratio >= 1.5:
-            result['volume_status'] = '温和放量'
+            result["volume_status"] = "温和放量"
             detail_parts.append(f"成交量{volume_ratio:.1f}倍均量=温和放量")
         elif volume_ratio <= 0.5:
-            result['volume_status'] = '显著缩量'
+            result["volume_status"] = "显著缩量"
             detail_parts.append(f"成交量{volume_ratio:.1f}倍均量=显著缩量")
         else:
-            result['volume_status'] = '正常'
+            result["volume_status"] = "正常"
             detail_parts.append(f"成交量{volume_ratio:.1f}倍均量=正常水平")
 
-    result['detail'] = '；'.join(detail_parts) if detail_parts else '数据不足'
+    result["detail"] = "；".join(detail_parts) if detail_parts else "数据不足"
     return result
 
 
@@ -112,13 +111,11 @@ def check_fake_breakout(
     """
     # 自动计算 price_confirmation（如提供K线数据）
     if price_confirmation is None and closes_after_breakout and breakout_price:
-        if breakout_direction == 'up':
-            holds = sum(1 for c in closes_after_breakout[:confirmation_bars]
-                        if c > breakout_price)
+        if breakout_direction == "up":
+            holds = sum(1 for c in closes_after_breakout[:confirmation_bars] if c > breakout_price)
             price_confirmation = holds >= math.ceil(confirmation_bars * 0.6)
         else:
-            holds = sum(1 for c in closes_after_breakout[:confirmation_bars]
-                        if c < breakout_price)
+            holds = sum(1 for c in closes_after_breakout[:confirmation_bars] if c < breakout_price)
             price_confirmation = holds >= math.ceil(confirmation_bars * 0.6)
 
     # 仍无法判定时，默认保守处理
@@ -130,29 +127,53 @@ def check_fake_breakout(
     vol_score = min(volume_ratio / 2.0, 1.0)
     combined_score = (vol_score + test_score) / 2
 
-    if breakout_direction == 'up':
+    if breakout_direction == "up":
         if volume_ratio >= 2.0 and price_confirmation:
-            return {"is_fake": False, "confidence": "高",
-                    "reason": f"带量{volume_ratio:.1f}倍突破+{confirmation_bars}根确认站稳=真突破"}
+            return {
+                "is_fake": False,
+                "confidence": "高",
+                "reason": f"带量{volume_ratio:.1f}倍突破+{confirmation_bars}根确认站稳=真突破",
+            }
         elif volume_ratio >= 2.0 and not price_confirmation:
-            return {"is_fake": True, "confidence": "中",
-                    "reason": f"有量{volume_ratio:.1f}倍但{confirmation_bars}根未确认=暂判定假突破"}
+            return {
+                "is_fake": True,
+                "confidence": "中",
+                "reason": f"有量{volume_ratio:.1f}倍但{confirmation_bars}根未确认=暂判定假突破",
+            }
         elif volume_ratio < 1.5 and prior_resistance_tested == 0:
-            return {"is_fake": True, "confidence": "高",
-                    "reason": f"缩量{volume_ratio:.1f}倍突破+首次测试=假突破概率大"}
+            return {
+                "is_fake": True,
+                "confidence": "高",
+                "reason": f"缩量{volume_ratio:.1f}倍突破+首次测试=假突破概率大",
+            }
         else:
-            return {"is_fake": combined_score < 0.5, "confidence": "低-中",
-                    "reason": f"量能{volume_ratio:.1f}倍+测试{prior_resistance_tested}次+确认={price_confirmation}=疑似假突破"}
+            return {
+                "is_fake": combined_score < 0.5,
+                "confidence": "低-中",
+                "reason": f"量能{volume_ratio:.1f}倍+测试{prior_resistance_tested}次+确认={price_confirmation}=疑似假突破",
+            }
     else:
         if volume_ratio >= 2.0 and price_confirmation:
-            return {"is_fake": False, "confidence": "高",
-                    "reason": f"带量{volume_ratio:.1f}倍下破+{confirmation_bars}根确认跌破=真突破"}
+            return {
+                "is_fake": False,
+                "confidence": "高",
+                "reason": f"带量{volume_ratio:.1f}倍下破+{confirmation_bars}根确认跌破=真突破",
+            }
         elif volume_ratio >= 2.0 and not price_confirmation:
-            return {"is_fake": True, "confidence": "中",
-                    "reason": f"有量{volume_ratio:.1f}倍但{confirmation_bars}根未确认=暂判定假突破"}
+            return {
+                "is_fake": True,
+                "confidence": "中",
+                "reason": f"有量{volume_ratio:.1f}倍但{confirmation_bars}根未确认=暂判定假突破",
+            }
         elif volume_ratio < 1.5 and prior_resistance_tested == 0:
-            return {"is_fake": True, "confidence": "高",
-                    "reason": f"缩量{volume_ratio:.1f}倍下破+首次测试=假突破概率大"}
+            return {
+                "is_fake": True,
+                "confidence": "高",
+                "reason": f"缩量{volume_ratio:.1f}倍下破+首次测试=假突破概率大",
+            }
         else:
-            return {"is_fake": combined_score < 0.5, "confidence": "低-中",
-                    "reason": f"量能{volume_ratio:.1f}倍+测试{prior_resistance_tested}次+确认={price_confirmation}=疑似假突破"}
+            return {
+                "is_fake": combined_score < 0.5,
+                "confidence": "低-中",
+                "reason": f"量能{volume_ratio:.1f}倍+测试{prior_resistance_tested}次+确认={price_confirmation}=疑似假突破",
+            }

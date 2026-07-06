@@ -19,18 +19,18 @@ import json, os, math
 # ── 固定事件模板（每年更新一次） ──
 # 格式：每月第几周的周几发生哪类事件
 _RECURRING_EVENTS = {
-    "FOMC": {"week": 3, "weekday": 2, "months": list(range(1, 13))},       # 每月第3周的周二
-    "USDA_WASDE": {"week": 2, "weekday": 4, "months": list(range(1, 13))}, # 每月第2周的周四
-    "EIA": {"week": 2, "weekday": 3, "months": list(range(1, 13))},        # 每周三
-    "CPI_US": {"week": 2, "weekday": 4, "months": list(range(1, 13))},     # 每月第2周周四
-    "NFP": {"week": 1, "weekday": 4, "months": list(range(1, 13))},        # 每月第1周周五
+    "FOMC": {"week": 3, "weekday": 2, "months": list(range(1, 13))},  # 每月第3周的周二
+    "USDA_WASDE": {"week": 2, "weekday": 4, "months": list(range(1, 13))},  # 每月第2周的周四
+    "EIA": {"week": 2, "weekday": 3, "months": list(range(1, 13))},  # 每周三
+    "CPI_US": {"week": 2, "weekday": 4, "months": list(range(1, 13))},  # 每月第2周周四
+    "NFP": {"week": 1, "weekday": 4, "months": list(range(1, 13))},  # 每月第1周周五
     # ── 国内宏观事件（P1-3本土化补齐） ──
-    "PBOC_LPR": {"week": 3, "weekday": 4, "months": list(range(1, 13))},   # 每月第3周周五（LPR报价）
-    "CPI_CN": {"week": 2, "weekday": 3, "months": list(range(1, 13))},     # 每月第2周周三
-    "PMI_CN": {"week": 1, "weekday": 1, "months": list(range(1, 13))},     # 每月第1周周一
-    "POLITBURO": {"week": 4, "weekday": 4, "months": [4, 7, 12]},          # 4/7/12月政治局会议（季度经济部署）
+    "PBOC_LPR": {"week": 3, "weekday": 4, "months": list(range(1, 13))},  # 每月第3周周五（LPR报价）
+    "CPI_CN": {"week": 2, "weekday": 3, "months": list(range(1, 13))},  # 每月第2周周三
+    "PMI_CN": {"week": 1, "weekday": 1, "months": list(range(1, 13))},  # 每月第1周周一
+    "POLITBURO": {"week": 4, "weekday": 4, "months": [4, 7, 12]},  # 4/7/12月政治局会议（季度经济部署）
     "NBS_PRESS": {"week": 3, "weekday": 4, "months": list(range(1, 13))},  # 国新办发布会（每月第3周）
-    "CBIRC": {"week": 3, "weekday": 2, "months": [1, 4, 7, 10]},          # 银保监会季度会议
+    "CBIRC": {"week": 3, "weekday": 2, "months": [1, 4, 7, 10]},  # 银保监会季度会议
 }
 
 # ── 品种受影响映射 ──
@@ -60,6 +60,7 @@ def _get_nth_weekday(year: int, month: int, nth: int, weekday: int) -> Optional[
     """获取某月第n个周x的日期。weekday: 0=周一, 6=周日, nth从1开始"""
     from calendar import monthcalendar
     import calendar
+
     cal = monthcalendar(year, month)
     # 找到该月所有指定weekday的日期
     days = [week[weekday] for week in cal if week[weekday] != 0]
@@ -79,6 +80,7 @@ def generate_event_dates(year: int) -> List[Dict]:
                 events.append({"event_type": etype, "date": d, "affected": _EVENT_AFFECTED_SYMBOLS.get(etype, [])})
     # EIA是每周三，特殊处理
     import calendar
+
     for m in range(1, 13):
         for w in calendar.monthcalendar(year, m):
             if w[2] != 0:  # 周三
@@ -163,6 +165,7 @@ def get_upcoming_events(symbol: str, days: int = 7) -> List[Dict]:
         [{"event_type": str, "date": str, "days_until": int, "impact": str}, ...]
     """
     from datetime import date, timedelta
+
     today = date.today()
     end_date = today + timedelta(days=days)
 
@@ -176,13 +179,15 @@ def get_upcoming_events(symbol: str, days: int = 7) -> List[Dict]:
             affected = e.get("affected", [])
             if affected == "__ALL__" or symbol.upper() in [s.upper() for s in affected]:
                 impact = check_event_impact(e["date"], symbol)
-                events.append({
-                    "event_type": e["event_type"],
-                    "date": e["date"],
-                    "days_until": (d - today).days,
-                    "confidence_discount": impact.get("confidence_discount", 1.0),
-                    "suggested_position_pct": impact.get("suggested_position_pct", 1.0),
-                })
+                events.append(
+                    {
+                        "event_type": e["event_type"],
+                        "date": e["date"],
+                        "days_until": (d - today).days,
+                        "confidence_discount": impact.get("confidence_discount", 1.0),
+                        "suggested_position_pct": impact.get("suggested_position_pct", 1.0),
+                    }
+                )
 
     events.sort(key=lambda x: x["days_until"])
     return events

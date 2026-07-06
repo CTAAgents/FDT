@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""逻辑审计模块 — 叙事概率检查、rebuttal 质量评估、尾端风险识别。
-"""
+"""逻辑审计模块 — 叙事概率检查、rebuttal 质量评估、尾端风险识别。"""
 
 from typing import Dict, List, Optional
 
@@ -62,11 +61,11 @@ def assess_rebuttal_quality(
         dict: {score, is_acceptable, detail}
     """
     levels = {
-        '接住': {'score': 1.0, 'acceptable': True, 'detail': '准确引用了证据和数据'},
-        '部分接住': {'score': 0.5, 'acceptable': True, 'detail': '有论点但证据不够充分'},
-        '糊弄': {'score': 0.0, 'acceptable': False, 'detail': '无实质反驳或逻辑跳跃'},
+        "接住": {"score": 1.0, "acceptable": True, "detail": "准确引用了证据和数据"},
+        "部分接住": {"score": 0.5, "acceptable": True, "detail": "有论点但证据不够充分"},
+        "糊弄": {"score": 0.0, "acceptable": False, "detail": "无实质反驳或逻辑跳跃"},
     }
-    return levels.get(quality, {'score': 0.0, 'acceptable': False, 'detail': '未知质量'})
+    return levels.get(quality, {"score": 0.0, "acceptable": False, "detail": "未知质量"})
 
 
 def run_logic_audit(
@@ -87,36 +86,42 @@ def run_logic_audit(
     bad_quality = []
 
     for d in dimensions:
-        ruling = d.get('ruling', 'include')
-        quality = d.get('rebuttal_quality', '糊弄')
-        dim_name = d.get('dim', 'unknown')
+        ruling = d.get("ruling", "include")
+        quality = d.get("rebuttal_quality", "糊弄")
+        dim_name = d.get("dim", "unknown")
 
-        if ruling == 'exclude':
+        if ruling == "exclude":
             exclude_count += 1
-        elif ruling == 'watch':
+        elif ruling == "watch":
             watch_count += 1
 
         q_result = assess_rebuttal_quality(quality)
-        if q_result['acceptable']:
+        if q_result["acceptable"]:
             acceptable_quality_count += 1
         else:
-            bad_quality.append({
-                "dim": dim_name,
-                "ruling": ruling,
-                "rebuttal_quality": quality,
-                "detail": q_result['detail'],
-            })
+            bad_quality.append(
+                {
+                    "dim": dim_name,
+                    "ruling": ruling,
+                    "rebuttal_quality": quality,
+                    "detail": q_result["detail"],
+                }
+            )
 
     if exclude_count == 0 and watch_count == 0:
-        issues.append({
-            "level": "yellow",
-            "msg": "所有维度均为 include，无 exlude 或 watch，可能过于乐观",
-        })
+        issues.append(
+            {
+                "level": "yellow",
+                "msg": "所有维度均为 include，无 exlude 或 watch，可能过于乐观",
+            }
+        )
     if len(bad_quality) == 0:
-        issues.append({
-            "level": "yellow",
-            "msg": "所有 rebuttal 均为'接住'，可能存在乐观偏差",
-        })
+        issues.append(
+            {
+                "level": "yellow",
+                "msg": "所有 rebuttal 均为'接住'，可能存在乐观偏差",
+            }
+        )
 
     return {
         "dimension_count": len(dimensions),

@@ -9,25 +9,33 @@ import sys
 import os
 from typing import Dict, Optional
 
+
 # 尝试从 futures-data-search 获取数据
 def _try_load_ranked_data() -> list:
     """尝试从 true_layered 报告加载排名数据（含期限结构信息）。"""
+    import glob
+
+    HOME = os.path.expanduser("~")
     candidates = [
-        r"C:\Users\yangd\Documents\Signal\reports\true_layered_20260704.json",
-        r"C:\Users\yangd\.workbuddy\skills\quant-daily\reports\true_layered_20260704.json",
+        os.path.join(HOME, "Documents", "Signal", "reports"),
+        os.path.join(HOME, ".workbuddy", "skills", "quant-daily", "reports"),
     ]
-    for path in candidates:
-        if os.path.exists(path):
-            import json
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                if isinstance(data, dict) and 'ranked' in data:
-                    return data['ranked']
-                if isinstance(data, list):
-                    return data
-            except (json.JSONDecodeError, FileNotFoundError):
-                continue
+    for base in candidates:
+        if os.path.isdir(base):
+            files = sorted(glob.glob(os.path.join(base, "true_layered_*.json")), reverse=True)
+            if files:
+                path = files[0]
+                import json
+
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    if isinstance(data, dict) and "ranked" in data:
+                        return data["ranked"]
+                    if isinstance(data, list):
+                        return data
+                except (json.JSONDecodeError, FileNotFoundError):
+                    continue
     return []
 
 
@@ -71,7 +79,7 @@ def query_basis(symbol: str) -> dict:
         if "near" in result and "far" in result:
             near, far = result["near"], result["far"]
             annualized = (far - near) / near * 12
-            result["holding_cost_theoretical"] = f"年化{(annualized*100):.1f}%"
+            result["holding_cost_theoretical"] = f"年化{(annualized * 100):.1f}%"
     return result
 
 
@@ -89,22 +97,25 @@ def query_term(symbol: str) -> dict:
     # 优先从 true_layered 报告获取实时数据
     ranked = _try_load_ranked_data()
     for entry in ranked:
-        if entry.get('symbol', '').upper() == sym:
-            factors = {k: v for k, v in entry.items() if k.startswith('D')}
+        if entry.get("symbol", "").upper() == sym:
+            factors = {k: v for k, v in entry.items() if k.startswith("D")}
             return {
                 "structure": "参考ranked数据",
                 "data_source": "true_layered_20260704.json",
-                "provenance": entry.get('_provenance', {}),
+                "provenance": entry.get("_provenance", {}),
                 "factors": factors,
-                "adjusted_rank": entry.get('adjusted_rank', 0),
+                "adjusted_rank": entry.get("adjusted_rank", 0),
                 "_source": "true_layered 实时排名数据",
             }
 
     # fallback 到内置缓存
-    base = _TERM_CACHE.get(sym, {
-        "structure": "N/A",
-        "info": f"未找到{sym}的期限数据",
-    })
+    base = _TERM_CACHE.get(
+        sym,
+        {
+            "structure": "N/A",
+            "info": f"未找到{sym}的期限数据",
+        },
+    )
     base["_source"] = "探源自研期限数据库（数据截至2026-07-04，基于主要合约价差）"
     base["_updated"] = "2026-07-04"
     return base

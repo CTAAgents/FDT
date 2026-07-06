@@ -23,6 +23,7 @@ _TRANSACTION_COST_CACHE = {}
 # 流动性风险缓存（按品种）
 _LIQUIDITY_CACHE = {}
 
+
 def set_liquidity_params(symbol: str, volumes: Sequence[float]):
     """设置品种历史成交量序列，用于流动性风险计算。
 
@@ -33,6 +34,7 @@ def set_liquidity_params(symbol: str, volumes: Sequence[float]):
     if len(volumes) < 5:
         return
     import statistics
+
     mean_vol = statistics.mean(volumes)
     if mean_vol > 0:
         std_vol = statistics.stdev(volumes) if len(volumes) > 1 else 0
@@ -44,6 +46,7 @@ def set_liquidity_params(symbol: str, volumes: Sequence[float]):
             "vol_ratio": round(vol_ratio, 4),
             "sample_size": len(volumes),
         }
+
 
 def get_liquidity_risk(symbol: str) -> Dict:
     """获取品种流动性风险。
@@ -85,9 +88,14 @@ def get_liquidity_risk(symbol: str) -> Dict:
     }
 
 
-def set_friction_params(symbol: str, fee_rate: float = None, slippage_est: float = None,
-                        margin_rate: float = None, roll_cost: float = None,
-                        holding_days: int = 10):
+def set_friction_params(
+    symbol: str,
+    fee_rate: float = None,
+    slippage_est: float = None,
+    margin_rate: float = None,
+    roll_cost: float = None,
+    holding_days: int = 10,
+):
     """设置品种交易摩擦参数。不传则使用fee_table默认值。
 
     Args:
@@ -106,8 +114,8 @@ def set_friction_params(symbol: str, fee_rate: float = None, slippage_est: float
         "holding_days": holding_days,
     }
 
-def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier: int,
-                          holding_days: int = 10) -> Dict:
+
+def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier: int, holding_days: int = 10) -> Dict:
     """计算交易摩擦成本（手续费+滑点+保证金利息+移仓成本）。
 
     结果注入风控明的仓位计算结果，使回测收益更接近实盘。
@@ -134,6 +142,7 @@ def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier
         # 从fee_table查
         try:
             from fee_table import FEE_TABLE
+
             fee_info = FEE_TABLE.get(sym, FEE_TABLE.get(sym.lower(), {}))
             if fee_info.get("fee_type") == "fixed":
                 fee_per_lot = fee_info.get("fee", 3.0)
@@ -172,13 +181,14 @@ def calc_transaction_cost(symbol: str, entry_price: float, lots: int, multiplier
         "total_cost": round(net_cost, 2),
         "cost_per_lot": round(net_cost / max(lots, 1), 2),
         "note": f"摩擦=手续费{fee_total:.2f}+滑点{slippage_total:.2f}"
-               f"+利息{interest_total:.2f}+移仓{roll_total:.2f}={net_cost:.2f}",
+        f"+利息{interest_total:.2f}+移仓{roll_total:.2f}={net_cost:.2f}",
     }
 
 
 # ═══════════════════════════════════════════════════════════
 # 一、止损锚选择算法
 # ═══════════════════════════════════════════════════════════
+
 
 def select_stop_anchor(
     current_price: float,
@@ -205,10 +215,16 @@ def select_stop_anchor(
          "atr_ratio": float, "source": str, "hardness": str}
     """
     if not supports or atr <= 0:
-        return {"anchor_price": 0, "stop_price": 0,
-                "distance": 0, "atr_ratio": 0, "source": "insufficient_data",
-                "hardness": "none",
-                "error": "ATR为零或无支撑位", "code": "INSUFFICIENT_DATA"}
+        return {
+            "anchor_price": 0,
+            "stop_price": 0,
+            "distance": 0,
+            "atr_ratio": 0,
+            "source": "insufficient_data",
+            "hardness": "none",
+            "error": "ATR为零或无支撑位",
+            "code": "INSUFFICIENT_DATA",
+        }
 
     if direction == "long":
         valid = [s for s in supports if s.get("hardness") in ("hard", "medium") and s.get("price", 0) < current_price]
@@ -240,7 +256,7 @@ def select_stop_anchor(
             "atr_ratio": round((current_price - fallback_stop) / max(atr, 1), 2),
             "source": nearest.get("source", "fallback"),
             "hardness": nearest.get("hardness", "hard"),
-            "note": "兜底选锚：距当前价<0.8ATR或>2.5ATR"
+            "note": "兜底选锚：距当前价<0.8ATR或>2.5ATR",
         }
     else:
         # 空单：用resistance选锚
@@ -270,7 +286,7 @@ def select_stop_anchor(
             "atr_ratio": round((fallback_stop - current_price) / max(atr, 1), 2),
             "source": nearest.get("source", "fallback"),
             "hardness": nearest.get("hardness", "hard"),
-            "note": "兜底选锚"
+            "note": "兜底选锚",
         }
 
 
@@ -284,6 +300,7 @@ def _avoid_round_number(price: float) -> float:
 
 
 # ── 策执远 vs 风控明 止损覆写 ──
+
 
 def override_trader_stop(
     trader_stop: float,
@@ -299,13 +316,20 @@ def override_trader_stop(
     else:
         risk_tighter = risk_stop < trader_stop
     if risk_tighter:
-        return {"accepted_stop": round(risk_stop, 1), "override": True,
-                "reason": f"风控明锚({risk_stop})比策执远({trader_stop})更紧，强制采用"}
-    return {"accepted_stop": round(trader_stop, 1), "override": False,
-            "reason": f"策执远({trader_stop})比风控明({risk_stop})更紧，保留原方案"}
+        return {
+            "accepted_stop": round(risk_stop, 1),
+            "override": True,
+            "reason": f"风控明锚({risk_stop})比策执远({trader_stop})更紧，强制采用",
+        }
+    return {
+        "accepted_stop": round(trader_stop, 1),
+        "override": False,
+        "reason": f"策执远({trader_stop})比风控明({risk_stop})更紧，保留原方案",
+    }
 
 
 # ── 链证源数据 → confidence 修正 ──
+
 
 def adjust_confidence_with_chain(
     base_confidence: float,
@@ -317,21 +341,28 @@ def adjust_confidence_with_chain(
     adj = base_confidence
     reasons = []
     if chain_inventory_level == "low" and direction == "long":
-        adj += 10; reasons.append("库存低位+多头，置信+10")
+        adj += 10
+        reasons.append("库存低位+多头，置信+10")
     elif chain_inventory_level == "high" and direction == "long":
-        adj -= 10; reasons.append("库存高位+多头，置信-10")
+        adj -= 10
+        reasons.append("库存高位+多头，置信-10")
     elif chain_inventory_level == "low" and direction == "short":
-        adj -= 10; reasons.append("库存低位+空头，置信-10")
+        adj -= 10
+        reasons.append("库存低位+空头，置信-10")
     elif chain_inventory_level == "high" and direction == "short":
-        adj += 10; reasons.append("库存高位+空头，置信+10")
+        adj += 10
+        reasons.append("库存高位+空头，置信+10")
     if chain_profit_level == "negative" and direction == "long":
-        adj += 5; reasons.append("利润亏损+多头(减产预期)，置信+5")
+        adj += 5
+        reasons.append("利润亏损+多头(减产预期)，置信+5")
     elif chain_profit_level == "positive" and direction == "short":
-        adj += 5; reasons.append("利润高位+空头(增产预期)，置信+5")
+        adj += 5
+        reasons.append("利润高位+空头(增产预期)，置信+5")
     return (max(0, min(100, adj)), "；".join(reasons) or "无产业链修正")
 
 
 # ── 辩论前品种预审 ──
+
 
 def pre_check_symbol(
     days_to_rollover: int = 99,
@@ -354,8 +385,11 @@ def pre_check_symbol(
         "flags": flags,
         "suggested_position_pct": max(0.3, 1.0 - len(flags) * 0.3),
     }
+
+
 # 二、仓位计算（置信度 + 止损距反推）
 # ═══════════════════════════════════════════════════════════
+
 
 def _confidence_discount(confidence: float) -> float:
     """根据技术Agent置信度做仓位折减"""
@@ -371,8 +405,18 @@ def _confidence_discount(confidence: float) -> float:
 
 def _pattern_risk_override(pattern_risk: Optional[str]) -> float:
     """反转模式覆写 — 如果技术Agent标注了反转形态在酝酿，砍仓位"""
-    high_risk_patterns = ["双顶", "双底", "头肩", "上升楔形", "下降楔形",
-                          "扩张三角形", "M头", "W底", "黄昏星", "启明星"]
+    high_risk_patterns = [
+        "双顶",
+        "双底",
+        "头肩",
+        "上升楔形",
+        "下降楔形",
+        "扩张三角形",
+        "M头",
+        "W底",
+        "黄昏星",
+        "启明星",
+    ]
     if not pattern_risk:
         return 1.0
     for p in high_risk_patterns:
@@ -500,7 +544,10 @@ def calculate_position(
             final_lots = max(0, int(effective_max_lots * total_discount))
             if is_left_signal:
                 final_lots = max(1, final_lots // 2)
-            friction_flag = {"level": "yellow", "msg": f"摩擦折减：原{max_lots}手→{effective_max_lots}手（{friction_note}）"}
+            friction_flag = {
+                "level": "yellow",
+                "msg": f"摩擦折减：原{max_lots}手→{effective_max_lots}手（{friction_note}）",
+            }
         else:
             friction_flag = {"level": "info", "msg": f"摩擦成本{friction_cost_per_lot:.2f}元/手，对仓位无影响"}
     except Exception:
@@ -508,7 +555,7 @@ def calculate_position(
 
     flags = []
     if conf_discount < 1.0:
-        flags.append({"level": "yellow", "msg": f"置信度{confidence}，仓位折减{conf_discount*100:.0f}%"})
+        flags.append({"level": "yellow", "msg": f"置信度{confidence}，仓位折减{conf_discount * 100:.0f}%"})
     if pattern_discount < 1.0:
         flags.append({"level": "yellow", "msg": f"反转形态'{pattern_risk}'，仓位再砍30%"})
     if is_left_signal:
@@ -530,6 +577,7 @@ def calculate_position(
 # ═══════════════════════════════════════════════════════════
 # 三、动态调整
 # ═══════════════════════════════════════════════════════════
+
 
 def evaluate_dynamic_adjustments(
     current_price: float,
@@ -569,7 +617,7 @@ def evaluate_dynamic_adjustments(
         return {
             "action": "stop_now",
             "new_stop": current_price,
-            "reason": "技术性破位：关键支撑已被判定失效，不等价格打到止损，立即市价砍"
+            "reason": "技术性破位：关键支撑已被判定失效，不等价格打到止损，立即市价砍",
         }
 
     # 场景2: ATR扩张 >30%
@@ -580,16 +628,17 @@ def evaluate_dynamic_adjustments(
             return {
                 "action": "widen",
                 "new_stop": round(new_stop, 1),
-                "reason": f"ATR扩张{atr_expansion*100:.0f}%（{atr}→{new_atr}），止损按新ATR重算至2.5倍"
+                "reason": f"ATR扩张{atr_expansion * 100:.0f}%（{atr}→{new_atr}），止损按新ATR重算至2.5倍",
             }
 
     # 场景3: 技术Agent吐出新支撑 → trailing止损
     if new_supports and is_long:
         # 选硬支撑中低于当前价但高于当前止损的（即能上移止损）
-        candidates = [s for s in new_supports
-                      if s.get("hardness") == "hard"
-                      and s.get("price", 0) > current_stop
-                      and s.get("price", 0) < current_price]
+        candidates = [
+            s
+            for s in new_supports
+            if s.get("hardness") == "hard" and s.get("price", 0) > current_stop and s.get("price", 0) < current_price
+        ]
         if candidates:
             best = max(candidates, key=lambda s: s["price"])
             new_stop = best["price"] - 0.3 * atr
@@ -598,7 +647,7 @@ def evaluate_dynamic_adjustments(
                     "action": "trailing",
                     "new_stop": round(new_stop, 1),
                     "anchor_price": best["price"],
-                    "reason": f"新hard支撑{best['price']}出现，trailing止损从{current_stop}→{round(new_stop,1)}"
+                    "reason": f"新hard支撑{best['price']}出现，trailing止损从{current_stop}→{round(new_stop, 1)}",
                 }
 
     return result
@@ -691,6 +740,7 @@ def special_scenario_override(
 # 五、反馈闭环
 # ═══════════════════════════════════════════════════════════
 
+
 def build_feedback_entry(
     symbol: str,
     anchor_price: float,
@@ -751,21 +801,20 @@ def aggregate_feedback(feedback_entries: List[Dict]) -> Dict:
         if "实破" in e.get("hit_scenario", ""):
             source_stats[src]["real"] += 1
 
-    worst = sorted(source_stats.items(),
-                   key=lambda x: x[1]["fake"] / max(x[1]["total"], 1),
-                   reverse=True)[:3]
+    worst = sorted(source_stats.items(), key=lambda x: x[1]["fake"] / max(x[1]["total"], 1), reverse=True)[:3]
 
     suggestions = []
     for src, stats in worst:
         if stats["fake"] / max(stats["total"], 1) > 0.6:
-            suggestions.append(f"{src}假破率{stats['fake']/stats['total']*100:.0f}%，建议下次同类型加容差至0.6ATR")
+            suggestions.append(f"{src}假破率{stats['fake'] / stats['total'] * 100:.0f}%，建议下次同类型加容差至0.6ATR")
 
     return {
         "total_stops": total,
         "fake_break_pct": round(fake / max(total, 1) * 100, 1),
         "real_break_pct": round(real / max(total, 1) * 100, 1),
         "logic_stop_ct": logic,
-        "worst_sources": [{"source": s, "fake_pct": round(st["fake"]/max(st["total"],1)*100,1)}
-                          for s, st in worst],
+        "worst_sources": [
+            {"source": s, "fake_pct": round(st["fake"] / max(st["total"], 1) * 100, 1)} for s, st in worst
+        ],
         "suggestions": suggestions,
     }

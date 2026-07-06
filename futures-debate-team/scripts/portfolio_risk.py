@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("portfolio_risk")
 #!/usr/bin/env python3
 """
@@ -27,42 +28,81 @@ from collections import defaultdict
 
 # ── 产业链映射 ──
 CHAIN_MAP = {
-    "RB": "black", "HC": "black", "I": "black", "J": "black", "JM": "black", "FG": "black",
-    "M": "oilseeds", "Y": "oilseeds", "P": "oilseeds", "OI": "oilseeds", "RM": "oilseeds",
-    "SR": "soft", "CF": "soft", "C": "grain", "CS": "grain", "A": "grain", "B": "grain",
-    "AU": "precious", "AG": "precious",
-    "CU": "nonferrous", "AL": "nonferrous", "ZN": "nonferrous", "NI": "nonferrous", "SN": "nonferrous",
-    "SC": "energy", "FU": "energy", "BU": "energy", "L": "chemical", "PP": "chemical", "V": "chemical", "MA": "chemical", "TA": "chemical", "EG": "chemical", "EB": "chemical", "UR": "chemical", "SA": "chemical", "PF": "chemical", "PR": "chemical",
-    "IF": "financial", "IC": "financial", "IH": "financial", "IM": "financial",
-    "PK": "oilseeds", "LH": "livestock", "AP": "fruit",
+    "RB": "black",
+    "HC": "black",
+    "I": "black",
+    "J": "black",
+    "JM": "black",
+    "FG": "black",
+    "M": "oilseeds",
+    "Y": "oilseeds",
+    "P": "oilseeds",
+    "OI": "oilseeds",
+    "RM": "oilseeds",
+    "SR": "soft",
+    "CF": "soft",
+    "C": "grain",
+    "CS": "grain",
+    "A": "grain",
+    "B": "grain",
+    "AU": "precious",
+    "AG": "precious",
+    "CU": "nonferrous",
+    "AL": "nonferrous",
+    "ZN": "nonferrous",
+    "NI": "nonferrous",
+    "SN": "nonferrous",
+    "SC": "energy",
+    "FU": "energy",
+    "BU": "energy",
+    "L": "chemical",
+    "PP": "chemical",
+    "V": "chemical",
+    "MA": "chemical",
+    "TA": "chemical",
+    "EG": "chemical",
+    "EB": "chemical",
+    "UR": "chemical",
+    "SA": "chemical",
+    "PF": "chemical",
+    "PR": "chemical",
+    "IF": "financial",
+    "IC": "financial",
+    "IH": "financial",
+    "IM": "financial",
+    "PK": "oilseeds",
+    "LH": "livestock",
+    "AP": "fruit",
 }
 
 
 class PortfolioRisk:
     """L6 组合全局风控计算器。"""
-    
+
     # 风控阈值
     THRESHOLDS = {
-        "max_chain_concentration": 0.15,   # 单一产业链 ≤ 15%
+        "max_chain_concentration": 0.15,  # 单一产业链 ≤ 15%
         "max_correlation_threshold": 0.70,  # 高相关阈值
-        "max_daily_drawdown": 0.025,        # 单日回撤 ≤ 2.5%
-        "max_total_margin_ratio": 0.40,     # 保证金占比 ≤ 40%
-        "consecutive_loss_sleep": 3,        # 连续亏损3笔休眠
+        "max_daily_drawdown": 0.025,  # 单日回撤 ≤ 2.5%
+        "max_total_margin_ratio": 0.40,  # 保证金占比 ≤ 40%
+        "consecutive_loss_sleep": 3,  # 连续亏损3笔休眠
     }
-    
+
     def __init__(self, account_equity: float, thresholds: Dict[str, float] = None):
         self.account_equity = account_equity
         self.thresholds = thresholds or self.THRESHOLDS
-    
-    def calculate(self, positions: List[Dict[str, Any]], daily_pnl: float = 0, consecutive_losses: int = 0) -> Dict[str, Any]:
+
+    def calculate(
+        self, positions: List[Dict[str, Any]], daily_pnl: float = 0, consecutive_losses: int = 0
+    ) -> Dict[str, Any]:
         """
         计算组合风险指标。
-        
+
         Args:
             positions: [{"symbol": str, "lots": int, "margin": float, "direction": int, "entry_price": float}, ...]
             daily_pnl: 当日总盈亏
             consecutive_losses: 连续亏损笔数
-        
+
         Returns:
             {
                 "concentration_ok": bool,      # 行业集中度检查
@@ -76,40 +116,56 @@ class PortfolioRisk:
             }
         """
         results = {}
-        
+
         # 1. 行业集中度检查
         results["concentration_ok"] = self._check_concentration(positions)
-        
+
         # 2. 跨品种相关性检查
         results["correlation_ok"] = self._check_correlation(positions)
-        
+
         # 3. 回撤检查
         results["drawdown_ok"] = self._check_drawdown(daily_pnl)
-        
+
         # 4. 保证金占比检查
         results["margin_ok"] = self._check_margin(positions)
-        
+
         # 5. 连续亏损检查
         results["consecutive_ok"] = consecutive_losses < self.thresholds["consecutive_loss_sleep"]
-        
+
         # 综合评级
-        all_ok = all([results["concentration_ok"], results["correlation_ok"], results["drawdown_ok"], results["margin_ok"], results["consecutive_ok"]])
-        some_ok = sum([results["concentration_ok"], results["correlation_ok"], results["drawdown_ok"], results["margin_ok"], results["consecutive_ok"]])
-        
+        all_ok = all(
+            [
+                results["concentration_ok"],
+                results["correlation_ok"],
+                results["drawdown_ok"],
+                results["margin_ok"],
+                results["consecutive_ok"],
+            ]
+        )
+        some_ok = sum(
+            [
+                results["concentration_ok"],
+                results["correlation_ok"],
+                results["drawdown_ok"],
+                results["margin_ok"],
+                results["consecutive_ok"],
+            ]
+        )
+
         if all_ok:
             results["overall"] = "green"
         elif some_ok >= 3:
             results["overall"] = "yellow"
         else:
             results["overall"] = "red"
-        
+
         # 独立否决权：回撤超限或连续亏损超限 → 直接否决
         results["veto_debate"] = not results["drawdown_ok"] or not results["consecutive_ok"]
-        
+
         results["details"] = self._calc_details(positions, daily_pnl)
-        
+
         return results
-    
+
     def _check_concentration(self, positions: List[Dict[str, Any]]) -> bool:
         """检查单一产业链集中度。"""
         chain_values = defaultdict(float)
@@ -117,10 +173,10 @@ class PortfolioRisk:
             symbol = pos.get("symbol", "")
             chain = CHAIN_MAP.get(symbol, "other")
             chain_values[chain] += pos.get("margin", 0)
-        
+
         max_concentration = max(chain_values.values()) / max(self.account_equity, 1) if chain_values else 0
         return max_concentration <= self.thresholds["max_chain_concentration"]
-    
+
     def _check_correlation(self, positions: List[Dict[str, Any]]) -> bool:
         """检查高相关性合约是否同时开仓。"""
         # 简化：同产业链且方向相同 → 视为高相关
@@ -128,24 +184,24 @@ class PortfolioRisk:
         for pos in positions:
             chain = CHAIN_MAP.get(pos.get("symbol", ""), "other")
             chain_directions[chain].append(pos.get("direction", 0))
-        
+
         for chain, directions in chain_directions.items():
             if len(directions) > 1 and all(d == directions[0] for d in directions):
                 # 同产业链同方向多品种 → 高相关风险
                 return False
         return True
-    
+
     def _check_drawdown(self, daily_pnl: float) -> bool:
         """检查单日回撤。"""
         drawdown_ratio = abs(daily_pnl) / max(self.account_equity, 1)
         return drawdown_ratio <= self.thresholds["max_daily_drawdown"]
-    
+
     def _check_margin(self, positions: List[Dict[str, Any]]) -> bool:
         """检查保证金占比。"""
         total_margin = sum(pos.get("margin", 0) for pos in positions)
         margin_ratio = total_margin / max(self.account_equity, 1)
         return margin_ratio <= self.thresholds["max_total_margin_ratio"]
-    
+
     def _calc_details(self, positions: List[Dict[str, Any]], daily_pnl: float) -> Dict[str, float]:
         """计算详细指标。"""
         chain_values = defaultdict(float)
@@ -153,11 +209,13 @@ class PortfolioRisk:
             symbol = pos.get("symbol", "")
             chain = CHAIN_MAP.get(symbol, "other")
             chain_values[chain] += pos.get("margin", 0)
-        
+
         total_margin = sum(pos.get("margin", 0) for pos in positions)
-        
+
         return {
-            "max_chain_concentration": round(max(chain_values.values()) / max(self.account_equity, 1), 4) if chain_values else 0,
+            "max_chain_concentration": round(max(chain_values.values()) / max(self.account_equity, 1), 4)
+            if chain_values
+            else 0,
             "total_margin_ratio": round(total_margin / max(self.account_equity, 1), 4),
             "daily_drawdown_ratio": round(abs(daily_pnl) / max(self.account_equity, 1), 4),
             "position_count": len(positions),

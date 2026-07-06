@@ -1,7 +1,7 @@
 # Futures-Debate-Team 分布式部署配置（P2-3）
 # =============================================
 # 使用 Celery 作为任务队列，支持多节点并行执行。
-# 
+#
 # 启动方式:
 #   celery -A deploy.celery_app worker --concurrency=4
 #

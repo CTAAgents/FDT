@@ -1,9 +1,10 @@
 """测试配置 — 确保相对导入正确"""
+
 import sys, os
 
 # 正确方式：将scripts的父目录加入path，然后以 scripts.xxx 方式导入
-SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-SCRIPTS_DIR = os.path.join(SKILL_DIR, 'scripts')
+SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+SCRIPTS_DIR = os.path.join(SKILL_DIR, "scripts")
 
 # 父目录优先，scripts作为包导入
 if SKILL_DIR not in sys.path:

@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 """辩论专家团产业链验证 — 链证源执行脚本"""
+
 import sys, os, json
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS
 from scripts.chain_verifier import chain_verification
 
+
 def get_chain_members(chain_name):
     return CHAIN_PRODUCTS.get(chain_name, [])
+
 
 # ======== 辩论候选品种数据 ========
 candidates = [
@@ -85,7 +89,11 @@ for c in candidates:
     pid = c["product_id"]
     result = chain_verification(c, chain_data)
     verification_results[pid] = result
-    adj_str = f"+{result['confidence_adjustment']:.0%}" if result["confidence_adjustment"] >= 0 else f"{result['confidence_adjustment']:.0%}"
+    adj_str = (
+        f"+{result['confidence_adjustment']:.0%}"
+        if result["confidence_adjustment"] >= 0
+        else f"{result['confidence_adjustment']:.0%}"
+    )
     aligned_str = "✅一致" if result["aligned"] else "❌背离"
     print(f"  {pid:<4}: chain={result['chain_name']:<8} trend={result['chain_trend']:<8} {aligned_str} adj={adj_str}")
     print(f"         {result['detail']}")
@@ -135,32 +143,24 @@ print("=" * 70)
 
 # 品种级高相关配对（驱动因素高度重叠才标记冗余）
 HIGH_CORR_PAIRS = {
-    ('rb', 'hc'),  # 螺纹钢≈热卷：地产+基建+粗钢产量+炉料成本驱动高度重叠
+    ("rb", "hc"),  # 螺纹钢≈热卷：地产+基建+粗钢产量+炉料成本驱动高度重叠
 }
 
 # 品种级独立声明（驱动因素独立，永不视为冗余）
-INDEPENDENT_PIDS = {'SM', 'SF'}  # 锰硅/硅铁受独立供需+锰矿进口影响，与RB/HC相关性弱
+INDEPENDENT_PIDS = {"SM", "SF"}  # 锰硅/硅铁受独立供需+锰矿进口影响，与RB/HC相关性弱
 
 chain_groups = {
-    "黑色系": {"direction": "SELL", "candidates": [
-        ("hc", 57, "SELL"), ("rb", 55, "SELL"), ("SM", 51, "SELL")
-    ]},
-    "谷物软商品": {"candidates": [
-        ("cs", 66, "BUY"), ("lh", 54, "BUY"), ("rr", 53, "SELL")
-    ]},
-    "油脂油料": {"direction": "BUY", "candidates": [
-        ("a", 47, "BUY"), ("m", 42, "BUY"), ("y", 40, "BUY")
-    ]},
-    "纸浆造纸": {"direction": "SELL", "candidates": [
-        ("sp", 57, "SELL")
-    ]},
+    "黑色系": {"direction": "SELL", "candidates": [("hc", 57, "SELL"), ("rb", 55, "SELL"), ("SM", 51, "SELL")]},
+    "谷物软商品": {"candidates": [("cs", 66, "BUY"), ("lh", 54, "BUY"), ("rr", 53, "SELL")]},
+    "油脂油料": {"direction": "BUY", "candidates": [("a", 47, "BUY"), ("m", 42, "BUY"), ("y", 40, "BUY")]},
+    "纸浆造纸": {"direction": "SELL", "candidates": [("sp", 57, "SELL")]},
 }
 
 redundancy_map = {}  # pid -> {redundant, redundant_with}
 
 for chain_name, group in chain_groups.items():
     print(f"\n【{chain_name}】")
-    
+
     # 初始化所有品种为非冗余
     for c in group["candidates"]:
         redundancy_map[c[0]] = {"redundant": False, "redundant_with": None}
@@ -168,38 +168,37 @@ for chain_name, group in chain_groups.items():
         pid = c[0].upper()
         if pid in INDEPENDENT_PIDS or any(pid == p.upper() for pair in HIGH_CORR_PAIRS for p in pair):
             pass  # 独立品种初始标记非冗余，下面只处理高相关对
-    
+
     # 遍历高相关配对，检查同方向冗余
     for pair in HIGH_CORR_PAIRS:
         a, b = pair
         a_data = next((c for c in group["candidates"] if c[0].upper() == a.upper()), None)
         b_data = next((c for c in group["candidates"] if c[0].upper() == b.upper()), None)
-        
+
         if not a_data or not b_data:
             continue  # 配对品种之一不在本链候选列表中
-        
+
         if a_data[2] != b_data[2]:
             print(f"  {a}({a_data[2]}) vs {b}({b_data[2]}) — 方向不同，无需冗余")
             continue
-        
+
         # 同方向 → 按score保留高的
         if a_data[1] >= b_data[1]:
             primary, redundant = a_data, b_data
         else:
             primary, redundant = b_data, a_data
-        
+
         print(f"  ⚠️ 高相关冗余: {a} vs {b} — 同方向({primary[2]})，保留 {primary[0]}(score={primary[1]})")
         redundancy_map[redundant[0]] = {"redundant": True, "redundant_with": primary[0]}
-    
+
     # 信息: 独立品种
     for c in group["candidates"]:
         pid = c[0].upper()
         if pid in INDEPENDENT_PIDS:
             print(f"  ✓ {c[0]}(score={c[1]}) — 独立品种(驱动因素独立)，不参与冗余排除")
-    
+
     # 信息: 非冗余保留品种
-    non_flagged = [c[0] for c in group["candidates"] 
-                   if not redundancy_map[c[0]]["redundant"]]
+    non_flagged = [c[0] for c in group["candidates"] if not redundancy_map[c[0]]["redundant"]]
     if len(non_flagged) == len(group["candidates"]):
         if len(group["candidates"]) > 1:
             print(f"  ✓ 无高相关冗余排除（所有品种保留独立）")
@@ -220,20 +219,34 @@ for c in candidates:
     vr = verification_results.get(pid, {})
     z_info = z_status.get(pid, {"z_score": None, "status": "无数据"})
     red = redundancy_map.get(pid, {"redundant": False, "redundant_with": None})
-    
+
     term_map = {
-        "cs": "flat", "hc": "contango", "sp": "unknown",
-        "rb": "contango", "lh": "contango", "rr": "unknown",
-        "SM": "contango", "a": "contango", "m": "contango", "y": "flat"
+        "cs": "flat",
+        "hc": "contango",
+        "sp": "unknown",
+        "rb": "contango",
+        "lh": "contango",
+        "rr": "unknown",
+        "SM": "contango",
+        "a": "contango",
+        "m": "contango",
+        "y": "flat",
     }
     basis_map = {
-        "cs": "平稳", "hc": "走弱", "sp": "未知",
-        "rb": "走弱", "lh": "走弱", "rr": "未知",
-        "SM": "走弱", "a": "走弱", "m": "走弱", "y": "平稳"
+        "cs": "平稳",
+        "hc": "走弱",
+        "sp": "未知",
+        "rb": "走弱",
+        "lh": "走弱",
+        "rr": "未知",
+        "SM": "走弱",
+        "a": "走弱",
+        "m": "走弱",
+        "y": "平稳",
     }
-    
+
     notes = []
-    
+
     # 检查期限结构与方向的一致性
     term = term_map[pid]
     direction = c["direction"]
@@ -245,23 +258,23 @@ for c in candidates:
         notes.append("⚠️ 贴水结构下做空，展仓成本高")
     elif term == "backwardation" and direction == "BUY":
         notes.append("✅ 贴水结构支持做多，现货紧张")
-    
+
     # 加入产业链一致性注释
     if vr.get("aligned"):
         notes.append(f"✅ 与{chain}趋势一致（置信度{vr.get('confidence_adjustment', 0):+.0%})")
     else:
         notes.append(f"❌ 与{chain}趋势背离（置信度{vr.get('confidence_adjustment', 0):+.0%})")
-    
+
     # Z分数注释
     if z_info["status"] == "极度极端":
         notes.append("⚠️⚠️ Z分数极度极端，高概率均值回归，注意反向风险")
     elif z_info["status"] == "极端":
         notes.append("⚠️ Z分数极端，注意均值回归风险")
-    
+
     # 冗余标记
     if red["redundant"]:
         notes.append(f"⚠️ 同链冗余，建议优先考虑 {red['redundant_with']}")
-    
+
     entry = {
         "chain": chain,
         "chain_members": members,
@@ -274,7 +287,7 @@ for c in candidates:
         "z_status": z_info["status"],
         "redundant": red["redundant"],
         "redundant_with": red["redundant_with"],
-        "notes": notes
+        "notes": notes,
     }
     final_output[pid] = entry
 

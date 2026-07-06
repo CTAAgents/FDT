@@ -30,7 +30,6 @@ FEATURE_META = {
     "high_low_range_20": {"type": "momentum", "desc": "20日高低振幅均值"},
     "close_position_5": {"type": "momentum", "desc": "收盘价在5日高低区间位置"},
     "close_position_20": {"type": "momentum", "desc": "收盘价在20日高低区间位置"},
-
     # --- OI衍生 (8维) ---
     "oi_change_1": {"type": "oi", "desc": "1日OI变化率"},
     "oi_change_5": {"type": "oi", "desc": "5日OI变化率"},
@@ -40,7 +39,6 @@ FEATURE_META = {
     "oi_ma_ratio": {"type": "oi", "desc": "OI/MA20(OI) 比值"},
     "oi_zscore": {"type": "oi", "desc": "OI的20日z-score"},
     "volume_ratio": {"type": "oi", "desc": "成交量/20日均量"},
-
     # --- 技术指标 (8维) ---
     "adx": {"type": "technical", "desc": "ADX趋势强度"},
     "rsi_14": {"type": "technical", "desc": "RSI14"},
@@ -50,13 +48,11 @@ FEATURE_META = {
     "bb_position": {"type": "technical", "desc": "价格在布林带位置"},
     "ma_short_long": {"type": "technical", "desc": "MA20/MA60 比值"},
     "atr_pct": {"type": "technical", "desc": "ATR/价格 比值"},
-
     # --- 期限结构 (4维) ---
     "ts_type_encoded": {"type": "term_structure", "desc": "展期结构编码"},
     "ts_slope": {"type": "term_structure", "desc": "展期斜率"},
     "basis_pct": {"type": "term_structure", "desc": "基差/价格"},
     "spread_1_5": {"type": "term_structure", "desc": "1-5月差"},
-
     # --- 跨品种 (2维, 需外部数据) ---
     "cross_corr_peers": {"type": "cross", "desc": "同板块关联品种平均相关系数"},
     "cross_price_ratio": {"type": "cross", "desc": "品种/板块指数 比值"},
@@ -121,7 +117,11 @@ def engineer_features(
         features["oi_price_divergence_1"] = p_1 - oi_1 if abs(oi_1) < 50 else 0
         features["oi_price_divergence_5"] = features.get("roc_5", 0) - _safe_pct_change(oi_series, 5)
         # OI/均价
-        oi_ma = sum(oi_series[-20:]) / max(len(oi_series[-20:]), 1) if len(oi_series) >= 20 else sum(oi_series) / len(oi_series)
+        oi_ma = (
+            sum(oi_series[-20:]) / max(len(oi_series[-20:]), 1)
+            if len(oi_series) >= 20
+            else sum(oi_series) / len(oi_series)
+        )
         features["oi_ma_ratio"] = oi_series[-1] / max(oi_ma, 1)
         # OI z-score
         oi_vals = oi_series[-20:] if len(oi_series) >= 20 else oi_series
@@ -261,7 +261,7 @@ def store_features(
     }
     os.makedirs(store_dir, exist_ok=True)
     fp = os.path.join(store_dir, f"{symbol}_{date_str}.json")
-    with open(fp, 'w', encoding='utf-8') as f:
+    with open(fp, "w", encoding="utf-8") as f:
         json.dump(record, f, ensure_ascii=False, indent=2)
     return fp
 
@@ -278,13 +278,13 @@ def load_dataset(
     """
     records = []
     for fname in os.listdir(store_dir):
-        if not fname.endswith('.json'):
+        if not fname.endswith(".json"):
             continue
         if symbols:
-            sym = fname.split('_')[0]
+            sym = fname.split("_")[0]
             if sym not in symbols:
                 continue
-        with open(os.path.join(store_dir, fname), 'r', encoding='utf-8') as f:
+        with open(os.path.join(store_dir, fname), "r", encoding="utf-8") as f:
             records.append(json.load(f))
         if len(records) >= max_records:
             break
@@ -292,14 +292,15 @@ def load_dataset(
     if not records:
         return np.array([]), np.array([]), []
 
-    feature_names = [k for k in records[0].keys() if k not in ('symbol', 'date', 'label')]
+    feature_names = [k for k in records[0].keys() if k not in ("symbol", "date", "label")]
     X = np.array([[r.get(k, 0) for k in feature_names] for r in records])
-    y = np.array([r.get('label', 0) for r in records])
+    y = np.array([r.get("label", 0) for r in records])
 
     return X, y, feature_names
 
 
 # ── 辅助函数 ──
+
 
 def _safe_roc(series: List[float], period: int) -> float:
     if len(series) <= period or series[-(period + 1)] == 0:
@@ -316,8 +317,7 @@ def _safe_pct_change(series: List[float], period: int) -> float:
 def _safe_volatility(series: List[float], window: int) -> float:
     if len(series) < window + 1:
         return 0.0
-    returns = [(series[i] - series[i - 1]) / max(series[i - 1], 1)
-               for i in range(-window, 0)]
+    returns = [(series[i] - series[i - 1]) / max(series[i - 1], 1) for i in range(-window, 0)]
     if not returns:
         return 0.0
     mean_r = sum(returns) / len(returns)

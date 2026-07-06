@@ -12,11 +12,11 @@ Agent Tool Executor v1.0 — 辩论团队工具代理执行引擎
 
 协议：
   Agent 输出固定格式：
-  
+
   ```tool
   {"module": "researcher_tools", "func": "query_supply", "args": {"symbol": "PK"}}
   ```
-  
+
   执行引擎返回：
   ```result
   {"success": true, "data": {...}, "source": "...", "timestamp": "..."}
@@ -33,15 +33,23 @@ import importlib, json, time, traceback, sys, os
 # 白名单：允许调用的模块+函数
 ALLOWED_CALLS = {
     "researcher_tools": [
-        "query_supply", "query_demand", "query_inventory",
-        "query_margin", "query_term", "query_web",
+        "query_supply",
+        "query_demand",
+        "query_inventory",
+        "query_margin",
+        "query_term",
+        "query_web",
     ],
     "debater_tools": [
-        "get_factor_decomp", "get_chain_context", "get_price_action",
+        "get_factor_decomp",
+        "get_chain_context",
+        "get_price_action",
     ],
     "judge_tools": [
-        "compute_total_score", "compute_convergence",
-        "detect_unrebutted", "check_convergence",
+        "compute_total_score",
+        "compute_convergence",
+        "detect_unrebutted",
+        "check_convergence",
     ],
     "scenario_analysis": [
         "generate_scenarios",
@@ -63,6 +71,7 @@ MODULE_PATHS = {
 def _import_from_path(filepath: str):
     """从文件路径动态导入模块，返回模块对象。"""
     import importlib.util
+
     module_name = os.path.splitext(os.path.basename(filepath))[0]
     spec = importlib.util.spec_from_file_location(module_name, filepath)
     if spec is None or spec.loader is None:
@@ -74,14 +83,15 @@ def _import_from_path(filepath: str):
 
 def parse_tool_call(agent_output: str) -> dict:
     """从 Agent 输出中提取工具调用。
-    
+
     支持两种格式：
     1. JSON 格式：```tool\n{"module": "...", "func": "...", "args": {...}}\n```
     2. 简写格式：```tool\nmodule.func(arg1=val1)\n```
     """
     import re
+
     # JSON 格式
-    m = re.search(r'```tool\s*\n(.*?)\n```', agent_output, re.DOTALL)
+    m = re.search(r"```tool\s*\n(.*?)\n```", agent_output, re.DOTALL)
     if not m:
         return None
     body = m.group(1).strip()
@@ -91,16 +101,16 @@ def parse_tool_call(agent_output: str) -> dict:
     except json.JSONDecodeError:
         pass
     # 简写格式
-    m2 = re.search(r'(\w+)\.(\w+)\(([^)]*)\)', body)
+    m2 = re.search(r"(\w+)\.(\w+)\(([^)]*)\)", body)
     if m2:
         module_name = m2.group(1)
         func_name = m2.group(2)
         args_str = m2.group(3)
         args = {}
         if args_str.strip():
-            for pair in args_str.split(','):
-                if '=' in pair:
-                    k, v = pair.split('=', 1)
+            for pair in args_str.split(","):
+                if "=" in pair:
+                    k, v = pair.split("=", 1)
                     k, v = k.strip(), v.strip().strip('"').strip("'")
                     args[k] = v
         return {"module": module_name, "func": func_name, "args": args}
@@ -148,12 +158,16 @@ def execute_tool_call(call: dict) -> dict:
 
 def execute_agent_tool(agent_output: str) -> dict:
     """解析并执行 Agent 输出的工具调用。
-    
+
     返回可在 Agent prompt 中展示的结果字符串。
     """
     call = parse_tool_call(agent_output)
     if not call:
-        return {"success": False, "error": "未检测到有效的工具调用格式", "format_hint": "```tool\\n{\"module\":\"...\",\"func\":\"...\",\"args\":{...}}\\n```"}
+        return {
+            "success": False,
+            "error": "未检测到有效的工具调用格式",
+            "format_hint": '```tool\\n{"module":"...","func":"...","args":{...}}\\n```',
+        }
     result = execute_tool_call(call)
     if result["success"]:
         return {

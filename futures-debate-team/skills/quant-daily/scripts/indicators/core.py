@@ -53,23 +53,45 @@ from .calc_core import (
 )
 
 __all__ = [
-    'assess_trend_maturity',
-    'calculate_tdx_compatible',
-    'calculate_rsi', 'calculate_adx', 'calculate_macd',
-    'calculate_stoch', 'calculate_williams_r', 'calculate_cci',
-    'calculate_atr', 'calculate_ma', 'calculate_ema',
-    'calculate_bollinger_bands', 'calculate_supertrend',
-    'calculate_donchian', 'calculate_vortex', 'calculate_hma',
-    'calculate_cmf', 'calculate_obv', 'calculate_mfi',
-    'calculate_kama', 'calculate_sar', 'calculate_roc',
-    'calculate_ultimate_oscillator', 'calculate_ppo',
-    'calculate_natr', 'calculate_highs_lows',
-    'calculate_bb_width', 'calculate_bb_pctb', 'calculate_bb_squeeze',
-    'calculate_ma_slope', 'calculate_linearreg_slope',
-    'calculate_linearreg_angle', 'calculate_donchian_trend',
-    'calculate_bull_bear_power',
-    'detect_doji', 'detect_hammer', 'detect_engulfing',
-    'detect_higher_high_lower_low', 'detect_volume_price_divergence',
+    "assess_trend_maturity",
+    "calculate_tdx_compatible",
+    "calculate_rsi",
+    "calculate_adx",
+    "calculate_macd",
+    "calculate_stoch",
+    "calculate_williams_r",
+    "calculate_cci",
+    "calculate_atr",
+    "calculate_ma",
+    "calculate_ema",
+    "calculate_bollinger_bands",
+    "calculate_supertrend",
+    "calculate_donchian",
+    "calculate_vortex",
+    "calculate_hma",
+    "calculate_cmf",
+    "calculate_obv",
+    "calculate_mfi",
+    "calculate_kama",
+    "calculate_sar",
+    "calculate_roc",
+    "calculate_ultimate_oscillator",
+    "calculate_ppo",
+    "calculate_natr",
+    "calculate_highs_lows",
+    "calculate_bb_width",
+    "calculate_bb_pctb",
+    "calculate_bb_squeeze",
+    "calculate_ma_slope",
+    "calculate_linearreg_slope",
+    "calculate_linearreg_angle",
+    "calculate_donchian_trend",
+    "calculate_bull_bear_power",
+    "detect_doji",
+    "detect_hammer",
+    "detect_engulfing",
+    "detect_higher_high_lower_low",
+    "detect_volume_price_divergence",
 ]
 
 
@@ -82,9 +104,9 @@ def assess_trend_maturity(tech: dict, sym: dict, score: int) -> dict:
     3. launch: 突破DC20通道(多头>0.7/空头<0.3) + (Boll收口或DC55同向拐头)
     4. trending: DC20上半区 + ADX>=25强制promotion
     """
-    last_price = sym.get('last_price')
-    ma20 = tech.get('MA20')
-    rsi = tech.get('RSI14')
+    last_price = sym.get("last_price")
+    ma20 = tech.get("MA20")
+    rsi = tech.get("RSI14")
 
     is_bull = score > 0
 
@@ -94,18 +116,18 @@ def assess_trend_maturity(tech: dict, sym: dict, score: int) -> dict:
         price_deviation_pct = (last_price - ma20) / ma20 * 100
 
     # ===== 通道数据 =====
-    bb_upper = tech.get('BB_UPPER')
-    bb_middle = tech.get('BB_MIDDLE')
-    bb_lower = tech.get('BB_LOWER')
-    dc_upper = tech.get('DC_UPPER')
-    dc_lower = tech.get('DC_LOWER')
-    dc_mid = tech.get('DC_MID')
-    dc55_upper = tech.get('DC55_UPPER')
-    dc55_lower = tech.get('DC55_LOWER')
-    dc55_mid = tech.get('DC55_MID')
-    dc55_trend = tech.get('DC55_TREND')  # 'up' / 'down' / 'flat'
-    bb_squeeze = tech.get('BB_SQUEEZE', False)
-    bb_width_pct = tech.get('BB_WIDTH_PCT')
+    bb_upper = tech.get("BB_UPPER")
+    bb_middle = tech.get("BB_MIDDLE")
+    bb_lower = tech.get("BB_LOWER")
+    dc_upper = tech.get("DC_UPPER")
+    dc_lower = tech.get("DC_LOWER")
+    dc_mid = tech.get("DC_MID")
+    dc55_upper = tech.get("DC55_UPPER")
+    dc55_lower = tech.get("DC55_LOWER")
+    dc55_mid = tech.get("DC55_MID")
+    dc55_trend = tech.get("DC55_TREND")  # 'up' / 'down' / 'flat'
+    bb_squeeze = tech.get("BB_SQUEEZE", False)
+    bb_width_pct = tech.get("BB_WIDTH_PCT")
 
     # ===== DC20 通道位置 =====
     dc_pos = None
@@ -145,7 +167,7 @@ def assess_trend_maturity(tech: dict, sym: dict, score: int) -> dict:
     price_extreme = abs(price_deviation_pct) > 12
 
     # ===== 四阶段判断 =====
-    stage = 'unknown'
+    stage = "unknown"
 
     # 1. 反转期
     if dc55_mid and last_price:
@@ -156,73 +178,73 @@ def assess_trend_maturity(tech: dict, sym: dict, score: int) -> dict:
             stage = "reversal"
 
     # 2. 衰竭期
-    if stage == 'unknown' and dc_pos is not None:
+    if stage == "unknown" and dc_pos is not None:
         exhausted_bull = is_bull and dc_pos > 0.85
         exhausted_bear = not is_bull and dc_pos < 0.15
         if (exhausted_bull or exhausted_bear) and rsi_extreme:
-            stage = 'exhausted'
+            stage = "exhausted"
         elif dc_pos > 0.85 and price_extreme and rsi_extreme:
-            stage = 'exhausted'
+            stage = "exhausted"
 
     # 3. 启动期
-    if stage == 'unknown' and dc_pos is not None:
+    if stage == "unknown" and dc_pos is not None:
         breakout = (is_bull and dc_pos > 0.7) or (not is_bull and dc_pos < 0.3)
-        if breakout and (bb_squeeze or dc55_trend == 'up' and is_bull or dc55_trend == 'down' and not is_bull):
-            stage = 'launch'
+        if breakout and (bb_squeeze or dc55_trend == "up" and is_bull or dc55_trend == "down" and not is_bull):
+            stage = "launch"
         elif breakout and dc_pos > 0.7 and dc_pos <= 0.85:
-            stage = 'launch'
+            stage = "launch"
         elif not is_bull and breakout and dc_pos <= 0.15:
-            stage = 'launch'
+            stage = "launch"
 
     # 4. 主升期
-    if stage == 'unknown' and dc_pos is not None:
+    if stage == "unknown" and dc_pos is not None:
         if dc_pos > 0.5:
-            stage = 'trending'
+            stage = "trending"
         elif dc_pos > 0.3:
             if bb_pos is not None and bb_pos > 0.3:
-                stage = 'trending'
+                stage = "trending"
             else:
-                stage = 'launch'
+                stage = "launch"
         else:
-            stage = 'launch'
+            stage = "launch"
 
     # 5. ADX强制修正
-    if stage == 'launch':
-        adx_val = tech.get('ADX')
+    if stage == "launch":
+        adx_val = tech.get("ADX")
         if adx_val is not None and adx_val >= 25:
-            stage = 'trending'
+            stage = "trending"
 
     # 6. 无通道数据回退
-    if stage == 'unknown':
+    if stage == "unknown":
         if price_extreme:
-            stage = 'exhausted'
+            stage = "exhausted"
         elif abs(price_deviation_pct) > 5:
-            stage = 'trending'
+            stage = "trending"
         else:
-            stage = 'launch'
+            stage = "launch"
 
     # 综合通道位置
     if dc_pos is not None:
         if dc_pos <= 0.3:
-            channel_position = 'near_lower'
+            channel_position = "near_lower"
         elif dc_pos <= 0.5:
-            channel_position = 'below_mid'
+            channel_position = "below_mid"
         elif dc_pos <= 0.7:
-            channel_position = 'above_mid'
+            channel_position = "above_mid"
         elif dc_pos <= 0.85:
-            channel_position = 'near_upper'
+            channel_position = "near_upper"
         else:
-            channel_position = 'at_extreme'
+            channel_position = "at_extreme"
     else:
-        channel_position = 'unknown'
+        channel_position = "unknown"
 
     return {
-        'stage': stage,
-        'channel_position': channel_position,
-        'dc_pos': round(dc_pos, 3) if dc_pos is not None else None,
-        'dc55_pos': round(dc55_pos, 3) if dc55_pos is not None else None,
-        'bb_pos': round(bb_pos, 3) if bb_pos is not None else None,
-        'price_deviation_pct': round(price_deviation_pct, 2),
-        'price_extreme': price_extreme,
-        'rsi_extreme': rsi_extreme,
+        "stage": stage,
+        "channel_position": channel_position,
+        "dc_pos": round(dc_pos, 3) if dc_pos is not None else None,
+        "dc55_pos": round(dc55_pos, 3) if dc55_pos is not None else None,
+        "bb_pos": round(bb_pos, 3) if bb_pos is not None else None,
+        "price_deviation_pct": round(price_deviation_pct, 2),
+        "price_extreme": price_extreme,
+        "rsi_extreme": rsi_extreme,
     }

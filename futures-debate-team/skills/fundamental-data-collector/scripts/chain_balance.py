@@ -26,6 +26,7 @@ def query_chain_balance(symbol: str) -> dict:
     try:
         from fundamental_data_collector.scripts.supply import query_supply
         from fundamental_data_collector.scripts.demand import query_demand
+
         supply_data = query_supply(sym)
         demand_data = query_demand(sym)
         has_real_data = True
@@ -63,11 +64,14 @@ def query_chain_balance(symbol: str) -> dict:
         },
     }
 
-    template = BALANCE_TEMPLATES.get(sym, {
-        "desc": f"{sym}通用供需框架",
-        "supply_anchor": "产量+进口+开工率",
-        "demand_anchor": "表观消费+下游开工",
-    })
+    template = BALANCE_TEMPLATES.get(
+        sym,
+        {
+            "desc": f"{sym}通用供需框架",
+            "supply_anchor": "产量+进口+开工率",
+            "demand_anchor": "表观消费+下游开工",
+        },
+    )
 
     result = {
         "symbol": sym,
@@ -76,7 +80,7 @@ def query_chain_balance(symbol: str) -> dict:
         "driver": "待识别",
         "framework": template,
         "_source": "探源供需平衡表估算（基于supply+demand模块）",
-        "_note": "当前输出为框架模板，建议通过 WebSearch 获取最新平衡表数据填入"
+        "_note": "当前输出为框架模板，建议通过 WebSearch 获取最新平衡表数据填入",
     }
 
     if has_real_data:

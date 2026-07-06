@@ -74,11 +74,7 @@ class LayeredL1L4Strategy(BaseStrategy):
 
             sc = calculate_composite_score(tech, sym_scoring, 0, closes, None)
 
-            direction = (
-                "bull"
-                if sc["direction"] == "BUY"
-                else ("bear" if sc["direction"] == "SELL" else "neutral")
-            )
+            direction = "bull" if sc["direction"] == "BUY" else ("bear" if sc["direction"] == "SELL" else "neutral")
             s = 1 if direction == "bull" else (-1 if direction == "bear" else 0)
             stage = sc["maturity"]["stage"]
 
@@ -170,10 +166,7 @@ class LayeredL1L4Strategy(BaseStrategy):
 
             # 子层一致性
             layers = [r.sub_scores.get(k, 0) for k in ("l1", "l2", "l3", "l4")]
-            r.consistency = sum(
-                1 for l in layers
-                if (l > 0 and r.total > 0) or (l < 0 and r.total < 0)
-            )
+            r.consistency = sum(1 for l in layers if (l > 0 and r.total > 0) or (l < 0 and r.total < 0))
 
 
 # ── 自动注册 ──

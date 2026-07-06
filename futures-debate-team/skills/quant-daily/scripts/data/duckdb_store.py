@@ -26,6 +26,7 @@ from pathlib import Path
 
 try:
     import duckdb
+
     DUCKDB_AVAILABLE = True
 except ImportError:
     DUCKDB_AVAILABLE = False
@@ -110,7 +111,7 @@ class DuckDBStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = duckdb.connect(str(self.db_path))
         # 🔐 并发写保护锁（防止多线程同时写DuckDB导致文件锁冲突）
-        self._write_lock = __import__('threading').RLock()
+        self._write_lock = __import__("threading").RLock()
         self._init_schemas()
 
     def _init_schemas(self):
@@ -133,7 +134,7 @@ class DuckDBStore:
         Returns:
             执行结果
         """
-        is_write = sql.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER'))
+        is_write = sql.strip().upper().startswith(("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER"))
         if is_write:
             with self._write_lock:
                 if params is not None:
@@ -160,7 +161,7 @@ class DuckDBStore:
 
     def save_oi_ranking(self, records: List[Tuple]) -> int:
         """保存持仓排名数据
-        
+
         records: [(trade_date, variety, contract, exchange, rank, member, direction, lots, change_from_prev)]
         """
         if not records:
@@ -168,25 +169,29 @@ class DuckDBStore:
         self.conn.executemany(
             """INSERT OR REPLACE INTO oi_ranking
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            records
+            records,
         )
         return len(records)
 
     def get_latest_oi(self, variety: str, top_n: int = 20) -> List[Dict]:
         """获取最新持仓排名"""
-        rows = self.conn.execute("""
+        rows = self.conn.execute(
+            """
             SELECT * FROM oi_ranking
             WHERE variety = ? AND trade_date = (
                 SELECT MAX(trade_date) FROM oi_ranking WHERE variety = ?
             )
             ORDER BY direction, rank
             LIMIT ?
-        """, [variety, variety, top_n * 2]).fetchall()
+        """,
+            [variety, variety, top_n * 2],
+        ).fetchall()
         return [self._row_to_dict(row, "oi_ranking") for row in rows]
 
     def get_oi_net_position(self, variety: str, top_n: int = 5, days: int = 10) -> List[Dict]:
         """获取主力席位N日净持仓变化趋势"""
-        rows = self.conn.execute(f"""
+        rows = self.conn.execute(
+            f"""
             SELECT trade_date,
                    SUM(CASE WHEN direction='long' THEN lots ELSE 0 END) -
                    SUM(CASE WHEN direction='short' THEN lots ELSE 0 END) AS net_position
@@ -196,12 +201,16 @@ class DuckDBStore:
               AND trade_date >= (SELECT MAX(trade_date) FROM oi_ranking WHERE variety = ?) - INTERVAL {days} DAY
             GROUP BY trade_date
             ORDER BY trade_date
-        """, [variety, top_n, variety]).fetchall()
+        """,
+            [variety, top_n, variety],
+        ).fetchall()
         return [{"date": str(r[0]), "net_position": r[1]} for r in rows]
 
     def get_oi_top5_concentration(self, variety: str) -> Optional[Dict]:
         """获取前5会员多空集中度"""
-        return self.conn.execute("""
+        return (
+            self.conn.execute(
+                """
             SELECT trade_date,
                    SUM(CASE WHEN direction='long' AND rank<=5 THEN lots END) AS top5_long,
                    SUM(CASE WHEN direction='short' AND rank<=5 THEN lots END) AS top5_short,
@@ -209,7 +218,12 @@ class DuckDBStore:
             FROM oi_ranking
             WHERE variety = ?
               AND trade_date = (SELECT MAX(trade_date) FROM oi_ranking WHERE variety = ?)
-        """, [variety, variety]).fetchdf().to_dict('records')
+        """,
+                [variety, variety],
+            )
+            .fetchdf()
+            .to_dict("records")
+        )
 
     # ═══════════════════════════════════════════════════════════════
     # 仓单日报
@@ -222,24 +236,28 @@ class DuckDBStore:
         self.conn.executemany(
             """INSERT OR REPLACE INTO warehouse
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            records
+            records,
         )
         return len(records)
 
     def get_latest_warehouse(self, variety: str) -> List[Dict]:
         """获取最新仓单数据"""
-        rows = self.conn.execute("""
+        rows = self.conn.execute(
+            """
             SELECT * FROM warehouse
             WHERE variety = ? AND trade_date = (
                 SELECT MAX(trade_date) FROM warehouse WHERE variety = ?
             )
             ORDER BY net_change
-        """, [variety, variety]).fetchall()
+        """,
+            [variety, variety],
+        ).fetchall()
         return [self._row_to_dict(row, "warehouse") for row in rows]
 
     def get_warehouse_trend(self, variety: str, days: int = 30) -> List[Dict]:
         """获取仓单变化趋势"""
-        rows = self.conn.execute("""
+        rows = self.conn.execute(
+            """
             SELECT trade_date,
                    SUM(registered_lots) AS total_registered,
                    SUM(cancelled_lots) AS total_cancelled,
@@ -249,7 +267,9 @@ class DuckDBStore:
               AND trade_date >= (SELECT MAX(trade_date) FROM warehouse WHERE variety = ?) - INTERVAL {days} DAY
             GROUP BY trade_date
             ORDER BY trade_date
-        """, [variety, variety, days]).fetchall()
+        """,
+            [variety, variety, days],
+        ).fetchall()
         return [{"date": str(r[0]), "registered": r[1], "cancelled": r[2], "net_change": r[3]} for r in rows]
 
     # ═══════════════════════════════════════════════════════════════
@@ -263,29 +283,35 @@ class DuckDBStore:
         self.conn.executemany(
             """INSERT OR REPLACE INTO futures_news
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            records
+            records,
         )
         return len(records)
 
     def get_latest_news(self, variety: str, top_k: int = 5) -> List[Dict]:
         """获取某品种的最新新闻"""
-        rows = self.conn.execute("""
+        rows = self.conn.execute(
+            """
             SELECT * FROM futures_news
             WHERE variety = ?
             ORDER BY publish_date DESC
             LIMIT ?
-        """, [variety, top_k]).fetchall()
+        """,
+            [variety, top_k],
+        ).fetchall()
         return [self._row_to_dict(row, "futures_news") for row in rows]
 
     def search_news(self, keyword: str, days: int = 30) -> List[Dict]:
         """搜索近期相关新闻（DuckDB全文检索）"""
-        rows = self.conn.execute(f"""
+        rows = self.conn.execute(
+            f"""
             SELECT * FROM futures_news
             WHERE (title LIKE ? OR summary LIKE ?)
               AND publish_date >= CURRENT_DATE - INTERVAL {days} DAY
             ORDER BY publish_date DESC
             LIMIT 20
-        """, [f"%{keyword}%", f"%{keyword}%"]).fetchall()
+        """,
+            [f"%{keyword}%", f"%{keyword}%"],
+        ).fetchall()
         return [self._row_to_dict(row, "futures_news") for row in rows]
 
     # ═══════════════════════════════════════════════════════════════
@@ -299,38 +325,47 @@ class DuckDBStore:
         self.conn.executemany(
             """INSERT OR REPLACE INTO term_structure
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            records
+            records,
         )
         return len(records)
 
     def get_term_structure(self, variety: str, trade_date: Optional[str] = None) -> List[Dict]:
         """获取期限结构"""
         if trade_date:
-            rows = self.conn.execute("""
+            rows = self.conn.execute(
+                """
                 SELECT * FROM term_structure
                 WHERE variety = ? AND trade_date = ?
                 ORDER BY contract
-            """, [variety, trade_date]).fetchall()
+            """,
+                [variety, trade_date],
+            ).fetchall()
         else:
-            rows = self.conn.execute("""
+            rows = self.conn.execute(
+                """
                 SELECT * FROM term_structure
                 WHERE variety = ? AND trade_date = (
                     SELECT MAX(trade_date) FROM term_structure WHERE variety = ?
                 )
                 ORDER BY contract
-            """, [variety, variety]).fetchall()
+            """,
+                [variety, variety],
+            ).fetchall()
         return [self._row_to_dict(row, "term_structure") for row in rows]
 
     def get_spread(self, variety: str, contract_a: str, contract_b: str) -> Optional[Dict]:
         """获取跨月价差"""
-        return self.conn.execute("""
+        return self.conn.execute(
+            """
             SELECT a.price - b.price AS spread
             FROM term_structure a
             JOIN term_structure b ON a.trade_date = b.trade_date
             WHERE a.variety = ? AND a.contract = ?
               AND b.variety = ? AND b.contract = ?
               AND a.trade_date = (SELECT MAX(trade_date) FROM term_structure WHERE variety = ?)
-        """, [variety, contract_a, variety, contract_b, variety]).fetchone()
+        """,
+            [variety, contract_a, variety, contract_b, variety],
+        ).fetchone()
 
     # ═══════════════════════════════════════════════════════════════
     # API 查询缓存（通用防重复请求）
@@ -344,10 +379,13 @@ class DuckDBStore:
     def get_cached(self, query_type: str, variety: str, ttl_hours: int = 4, **params) -> Optional[Any]:
         """读取缓存"""
         key = self._make_cache_key(query_type, variety, **params)
-        row = self.conn.execute("""
+        row = self.conn.execute(
+            """
             SELECT result_json FROM query_cache
             WHERE cache_key = ? AND expires_at > CURRENT_TIMESTAMP
-        """, [key]).fetchone()
+        """,
+            [key],
+        ).fetchone()
         if row:
             return json.loads(row[0])
         return None
@@ -357,10 +395,13 @@ class DuckDBStore:
         key = self._make_cache_key(query_type, variety, **params)
         now = datetime.now()
         expires = now + timedelta(hours=ttl_hours)
-        self.conn.execute("""
+        self.conn.execute(
+            """
             INSERT OR REPLACE INTO query_cache
             VALUES (?, ?, ?, ?, ?, ?)
-        """, [key, json.dumps(data, ensure_ascii=False), now, expires, query_type, variety])
+        """,
+            [key, json.dumps(data, ensure_ascii=False), now, expires, query_type, variety],
+        )
 
     # ═══════════════════════════════════════════════════════════════
     # 工具方法
@@ -369,18 +410,32 @@ class DuckDBStore:
     def _row_to_dict(self, row: tuple, table: str) -> Dict:
         """将DB行转为字典"""
         schemas = {
-            "oi_ranking": ["trade_date", "variety", "contract", "exchange", "rank",
-                           "member", "direction", "lots", "change_from_prev"],
-            "warehouse": ["trade_date", "variety", "exchange", "warehouse_name",
-                          "registered_lots", "cancelled_lots", "net_change", "unit"],
-            "futures_news": ["id", "publish_date", "variety", "title", "source",
-                             "url", "summary", "sentiment"],
-            "term_structure": ["trade_date", "variety", "contract", "price",
-                               "volume", "open_interest", "settle"],
+            "oi_ranking": [
+                "trade_date",
+                "variety",
+                "contract",
+                "exchange",
+                "rank",
+                "member",
+                "direction",
+                "lots",
+                "change_from_prev",
+            ],
+            "warehouse": [
+                "trade_date",
+                "variety",
+                "exchange",
+                "warehouse_name",
+                "registered_lots",
+                "cancelled_lots",
+                "net_change",
+                "unit",
+            ],
+            "futures_news": ["id", "publish_date", "variety", "title", "source", "url", "summary", "sentiment"],
+            "term_structure": ["trade_date", "variety", "contract", "price", "volume", "open_interest", "settle"],
         }
         cols = schemas.get(table, [f"col{i}" for i in range(len(row))])
-        return {col: (str(val) if isinstance(val, (date, datetime)) else val)
-                for col, val in zip(cols, row)}
+        return {col: (str(val) if isinstance(val, (date, datetime)) else val) for col, val in zip(cols, row)}
 
     def get_table_stats(self) -> Dict[str, int]:
         """获取各表记录数统计"""
@@ -414,7 +469,7 @@ class DuckDBStore:
             "db_exists": self.db_path.exists(),
             "storage_size": self.get_storage_size(),
             "tables": self.get_table_stats(),
-            "duckdb_version": duckdb.__version__ if hasattr(duckdb, '__version__') else 'installed',
+            "duckdb_version": duckdb.__version__ if hasattr(duckdb, "__version__") else "installed",
         }
 
 
@@ -434,19 +489,19 @@ def main():
 
         # 测试OI数据存取
         test_oi = [
-            ('2026-06-26', 'CU', 'CU2609', 'SHFE', 1, '中信期货', 'long', 25000, 2000),
-            ('2026-06-26', 'CU', 'CU2609', 'SHFE', 2, '永安期货', 'long', 22000, 1500),
-            ('2026-06-26', 'CU', 'CU2609', 'SHFE', 1, '永安期货', 'short', 20000, 1000),
-            ('2026-06-26', 'CU', 'CU2609', 'SHFE', 2, '中信期货', 'short', 18000, -500),
+            ("2026-06-26", "CU", "CU2609", "SHFE", 1, "中信期货", "long", 25000, 2000),
+            ("2026-06-26", "CU", "CU2609", "SHFE", 2, "永安期货", "long", 22000, 1500),
+            ("2026-06-26", "CU", "CU2609", "SHFE", 1, "永安期货", "short", 20000, 1000),
+            ("2026-06-26", "CU", "CU2609", "SHFE", 2, "中信期货", "short", 18000, -500),
         ]
         store.save_oi_ranking(test_oi)
         print(f"[OK] OI排名写入: 4条")
 
         # 读取验证
-        oi_data = store.get_latest_oi('CU')
+        oi_data = store.get_latest_oi("CU")
         print(f"   查询结果: {len(oi_data)} 条")
 
-        net_trend = store.get_oi_net_position('CU')
+        net_trend = store.get_oi_net_position("CU")
         print(f"   净持仓趋势: {len(net_trend)} 天")
 
         # 测试缓存
@@ -455,9 +510,9 @@ def main():
         print(f"[OK] 缓存读写: {'命中' if cached else '未命中'}")
 
         store.close()
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("DuckDB 存储引擎正常运行")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     except ImportError as e:
         print(f"\n[x] {e}")

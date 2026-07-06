@@ -22,6 +22,7 @@ MAX_HISTORY_DAYS = 90
 @dataclass
 class ContractInfo:
     """合约信息"""
+
     code: str  # 合约代码，如 CU2609
     volume: int  # 成交量
     open_interest: int  # 持仓量
@@ -49,7 +50,7 @@ class DominantMappingCalculator:
         contracts: List[ContractInfo],
         current_main: Optional[str] = None,
         trade_date: str = None,
-        is_financial: bool = False
+        is_financial: bool = False,
     ) -> Dict[str, Any]:
         """
         计算主力/次主力合约
@@ -88,7 +89,7 @@ class DominantMappingCalculator:
                 "switch_date": None,
                 "gap": None,
                 "updated_at": datetime.now().isoformat(),
-                "error": "所有合约临近交割，无法确定主力"
+                "error": "所有合约临近交割，无法确定主力",
             }
 
         # Step 2: 按持仓量（金融期货按成交量）降序排列
@@ -118,14 +119,15 @@ class DominantMappingCalculator:
             # 如果持仓量最大的合约不是当前主力，判断是否切换
             elif current_main and o1.code != current_main:
                 # 找到当前主力的持仓量
-                current_main_contract = next(
-                    (c for c in valid_contracts if c.code == current_main), None
-                )
+                current_main_contract = next((c for c in valid_contracts if c.code == current_main), None)
                 if current_main_contract:
-                    current_metric = current_main_contract.open_interest if not is_financial else current_main_contract.volume
+                    current_metric = (
+                        current_main_contract.open_interest if not is_financial else current_main_contract.volume
+                    )
                     # 切换条件：新主力持仓量 ≥ 当前主力 × 1.1 且新主力是远月
-                    if (o1_metric >= current_metric * 1.1 and
-                            int(o1.delivery_month) > int(current_main_contract.delivery_month)):
+                    if o1_metric >= current_metric * 1.1 and int(o1.delivery_month) > int(
+                        current_main_contract.delivery_month
+                    ):
                         new_main = o1.code
                         switched = True
                         switch_date = trade_date
@@ -155,9 +157,7 @@ class DominantMappingCalculator:
         # Step 5: 计算指数连续（加权平均）
         total_oi = sum(c.open_interest for c in valid_contracts)
         if total_oi > 0:
-            index_price = sum(
-                c.open_interest * c.close_price for c in valid_contracts
-            ) / total_oi
+            index_price = sum(c.open_interest * c.close_price for c in valid_contracts) / total_oi
         else:
             index_price = None
 
@@ -170,12 +170,10 @@ class DominantMappingCalculator:
             "prev_main": prev_main,
             "switched": switched,
             "switch_date": switch_date,
-            "prev_close": next(
-                (c.close_price for c in contracts if c.code == prev_main), None
-            ) if prev_main else None,
+            "prev_close": next((c.close_price for c in contracts if c.code == prev_main), None) if prev_main else None,
             "new_open": None,  # 需要在T+1开盘时填入
             "gap": gap,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now().isoformat(),
         }
 
     def update_all_varieties(
@@ -183,7 +181,7 @@ class DominantMappingCalculator:
         all_contracts: Dict[str, List[ContractInfo]],
         current_mappings: Dict[str, Dict],
         trade_date: str,
-        financial_varieties: List[str] = None
+        financial_varieties: List[str] = None,
     ) -> Dict[str, Dict]:
         """
         更新所有品种的主力映射
@@ -211,7 +209,7 @@ class DominantMappingCalculator:
                 contracts=contracts,
                 current_main=current_main,
                 trade_date=trade_date,
-                is_financial=is_financial
+                is_financial=is_financial,
             )
 
         return new_mappings
@@ -232,12 +230,12 @@ class DominantMappingCalculator:
         filename = f"dominant_map_{date_str}.json"
         filepath = self.output_dir / filename
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(mappings, f, ensure_ascii=False, indent=2)
 
         # 同时更新 latest 文件
         latest_filepath = self.output_dir / "dominant_map_latest.json"
-        with open(latest_filepath, 'w', encoding='utf-8') as f:
+        with open(latest_filepath, "w", encoding="utf-8") as f:
             json.dump(mappings, f, ensure_ascii=False, indent=2)
 
         return filepath
@@ -258,14 +256,16 @@ class DominantMappingCalculator:
         for variety, new_info in new_mappings.items():
             if new_info.get("switched"):
                 old_info = old_mappings.get(variety, {})
-                switches.append({
-                    "variety": variety,
-                    "prev_main": old_info.get("main"),
-                    "new_main": new_info.get("main"),
-                    "switch_date": new_info.get("switch_date"),
-                    "gap": new_info.get("gap"),
-                    "prev_close": new_info.get("prev_close")
-                })
+                switches.append(
+                    {
+                        "variety": variety,
+                        "prev_main": old_info.get("main"),
+                        "new_main": new_info.get("main"),
+                        "switch_date": new_info.get("switch_date"),
+                        "gap": new_info.get("gap"),
+                        "prev_close": new_info.get("prev_close"),
+                    }
+                )
 
         return switches
 
@@ -311,7 +311,7 @@ class DominantMappingArchive:
         if not filepath.exists():
             return {}
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return {}
@@ -355,13 +355,15 @@ class DominantMappingArchive:
             info = mapping[variety]
             current_main = info.get("main")
             if current_main and prev_main and current_main != prev_main:
-                switches.append({
-                    "date": date_str,
-                    "prev_main": prev_main,
-                    "new_main": current_main,
-                    "gap": info.get("gap"),
-                    "switch_date": info.get("switch_date"),
-                })
+                switches.append(
+                    {
+                        "date": date_str,
+                        "prev_main": prev_main,
+                        "new_main": current_main,
+                        "gap": info.get("gap"),
+                        "switch_date": info.get("switch_date"),
+                    }
+                )
             prev_main = current_main
 
         return list(reversed(switches))
@@ -417,7 +419,7 @@ def main():
             open_interest=80000,
             last_trade_date="2026-07-15",
             close_price=78200,
-            delivery_month="2607"
+            delivery_month="2607",
         ),
         ContractInfo(
             code="CU2608",
@@ -425,7 +427,7 @@ def main():
             open_interest=150000,
             last_trade_date="2026-08-15",
             close_price=78450,
-            delivery_month="2608"
+            delivery_month="2608",
         ),
         ContractInfo(
             code="CU2609",
@@ -433,7 +435,7 @@ def main():
             open_interest=180000,
             last_trade_date="2026-09-15",
             close_price=78780,
-            delivery_month="2609"
+            delivery_month="2609",
         ),
         ContractInfo(
             code="CU2610",
@@ -441,15 +443,12 @@ def main():
             open_interest=120000,
             last_trade_date="2026-10-15",
             close_price=79010,
-            delivery_month="2610"
+            delivery_month="2610",
         ),
     ]
 
     result = calculator.calculate_dominant(
-        variety="CU",
-        contracts=contracts,
-        current_main="CU2608",
-        trade_date="2026-06-27"
+        variety="CU", contracts=contracts, current_main="CU2608", trade_date="2026-06-27"
     )
 
     print("主力映射结果:")

@@ -1,4 +1,5 @@
 from scripts.unified_logger import get_logger
+
 _logger = get_logger("marl")
 #!/usr/bin/env python3
 """
@@ -39,7 +40,12 @@ class MARLTrainer:
         "futures-affirmative-debater": {"evidence_depth": 1.0, "logic": 1.0},
         "futures-opposition-debater": {"evidence_depth": 1.0, "logic": 1.0},
         "futures-risk-manager": {"conservatism": 1.0, "leverage": 1.0},
-        "futures-judge": {"technical_weight": 0.25, "fundamental_weight": 0.25, "chain_weight": 0.25, "sentiment_weight": 0.25},
+        "futures-judge": {
+            "technical_weight": 0.25,
+            "fundamental_weight": 0.25,
+            "chain_weight": 0.25,
+            "sentiment_weight": 0.25,
+        },
     }
 
     def __init__(self, weights_path: str = None):
@@ -65,8 +71,7 @@ class MARLTrainer:
         with open(self.weights_path, "w", encoding="utf-8") as f:
             json.dump(self.weights, f, ensure_ascii=False, indent=2)
 
-    def define_reward_function(self, debate_quality: float, trade_pnl: float,
-                                 risk_control: float) -> float:
+    def define_reward_function(self, debate_quality: float, trade_pnl: float, risk_control: float) -> float:
         """协同奖励函数。
 
         Args:
@@ -77,15 +82,10 @@ class MARLTrainer:
         Returns:
             总奖励（0~1）
         """
-        reward = (
-            0.3 * debate_quality +
-            0.5 * trade_pnl +
-            0.2 * risk_control
-        )
+        reward = 0.3 * debate_quality + 0.5 * trade_pnl + 0.2 * risk_control
         return min(max(reward, 0), 1)
 
-    def train(self, historical_debates: List[Dict],
-              trade_results: List[Dict], learning_rate: float = 0.1):
+    def train(self, historical_debates: List[Dict], trade_results: List[Dict], learning_rate: float = 0.1):
         """训练角色权重。
 
         Args:
@@ -117,11 +117,13 @@ class MARLTrainer:
 
         reward = self.define_reward_function(avg_debate, avg_trade, 0.5)
 
-        self.rewards.append({
-            "timestamp": datetime.now().isoformat(),
-            "reward": reward,
-            "samples": {"debates": len(historical_debates), "trades": len(trade_results)},
-        })
+        self.rewards.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "reward": reward,
+                "samples": {"debates": len(historical_debates), "trades": len(trade_results)},
+            }
+        )
 
         # 自适应学习率
         adapted_lr = learning_rate * (reward - 0.5) * 2  # reward > 0.5 时加速学习

@@ -29,37 +29,97 @@ import math
 
 # ==================== 交易所后缀映射 ====================
 EXCHANGE_SUFFIX = {
-    'SHFE': 'SHF', 'DCE': 'DCE', 'CZCE': 'CZC',
-    'CFFEX': 'CFF', 'INE': 'INE', 'GFEX': 'GFE',
+    "SHFE": "SHF",
+    "DCE": "DCE",
+    "CZCE": "CZC",
+    "CFFEX": "CFF",
+    "INE": "INE",
+    "GFEX": "GFE",
 }
 
 # ==================== 品种与交易所映射 ====================
 VARIETY_EXCHANGE = {
-    'CU': 'SHFE', 'AL': 'SHFE', 'ZN': 'SHFE', 'PB': 'SHFE',
-    'NI': 'SHFE', 'SN': 'SHFE', 'AU': 'SHFE', 'AG': 'SHFE',
-    'RB': 'SHFE', 'HC': 'SHFE', 'RU': 'SHFE', 'BR': 'SHFE',
-    'FU': 'SHFE', 'BU': 'SHFE', 'SP': 'SHFE', 'SS': 'SHFE',
-    'AO': 'SHFE', 'WR': 'SHFE', 'OP': 'SHFE',
-    'A': 'DCE', 'B': 'DCE', 'M': 'DCE', 'Y': 'DCE', 'P': 'DCE',
-    'C': 'DCE', 'CS': 'DCE', 'I': 'DCE', 'J': 'DCE', 'JM': 'DCE',
-    'L': 'DCE', 'V': 'DCE', 'PP': 'DCE', 'EG': 'DCE', 'EB': 'DCE',
-    'PG': 'DCE', 'JD': 'DCE', 'LH': 'DCE', 'RR': 'DCE', 'FB': 'DCE',
-    'AP': 'CZCE', 'CF': 'CZCE', 'CJ': 'CZCE', 'FG': 'CZCE',
-    'SA': 'CZCE', 'MA': 'CZCE', 'TA': 'CZCE', 'UR': 'CZCE',
-    'PF': 'CZCE', 'PR': 'CZCE', 'PX': 'CZCE', 'PK': 'CZCE',
-    'OI': 'CZCE', 'RM': 'CZCE', 'SR': 'CZCE', 'SF': 'CZCE',
-    'SM': 'CZCE', 'SH': 'CZCE', 'ZC': 'CZCE',
-    'SC': 'INE', 'LU': 'INE', 'NR': 'INE', 'BC': 'INE', 'EC': 'INE',
-    'SI': 'GFEX', 'LC': 'GFEX', 'PS': 'GFEX',
-    'IF': 'CFFEX', 'IH': 'CFFEX', 'IC': 'CFFEX', 'IM': 'CFFEX',
-    'T': 'CFFEX', 'TF': 'CFFEX', 'TS': 'CFFEX', 'TL': 'CFFEX',
+    "CU": "SHFE",
+    "AL": "SHFE",
+    "ZN": "SHFE",
+    "PB": "SHFE",
+    "NI": "SHFE",
+    "SN": "SHFE",
+    "AU": "SHFE",
+    "AG": "SHFE",
+    "RB": "SHFE",
+    "HC": "SHFE",
+    "RU": "SHFE",
+    "BR": "SHFE",
+    "FU": "SHFE",
+    "BU": "SHFE",
+    "SP": "SHFE",
+    "SS": "SHFE",
+    "AO": "SHFE",
+    "WR": "SHFE",
+    "OP": "SHFE",
+    "A": "DCE",
+    "B": "DCE",
+    "M": "DCE",
+    "Y": "DCE",
+    "P": "DCE",
+    "C": "DCE",
+    "CS": "DCE",
+    "I": "DCE",
+    "J": "DCE",
+    "JM": "DCE",
+    "L": "DCE",
+    "V": "DCE",
+    "PP": "DCE",
+    "EG": "DCE",
+    "EB": "DCE",
+    "PG": "DCE",
+    "JD": "DCE",
+    "LH": "DCE",
+    "RR": "DCE",
+    "FB": "DCE",
+    "AP": "CZCE",
+    "CF": "CZCE",
+    "CJ": "CZCE",
+    "FG": "CZCE",
+    "SA": "CZCE",
+    "MA": "CZCE",
+    "TA": "CZCE",
+    "UR": "CZCE",
+    "PF": "CZCE",
+    "PR": "CZCE",
+    "PX": "CZCE",
+    "PK": "CZCE",
+    "OI": "CZCE",
+    "RM": "CZCE",
+    "SR": "CZCE",
+    "SF": "CZCE",
+    "SM": "CZCE",
+    "SH": "CZCE",
+    "ZC": "CZCE",
+    "SC": "INE",
+    "LU": "INE",
+    "NR": "INE",
+    "BC": "INE",
+    "EC": "INE",
+    "SI": "GFEX",
+    "LC": "GFEX",
+    "PS": "GFEX",
+    "IF": "CFFEX",
+    "IH": "CFFEX",
+    "IC": "CFFEX",
+    "IM": "CFFEX",
+    "T": "CFFEX",
+    "TF": "CFFEX",
+    "TS": "CFFEX",
+    "TL": "CFFEX",
 }
 
 # 连续合约后缀
 CONTINUOUS_SUFFIX = {
-    'main': 'L8',       # 主力连续
-    'sub': 'L7',        # 次主力连续
-    'index': 'L9',      # 加权指数
+    "main": "L8",  # 主力连续
+    "sub": "L7",  # 次主力连续
+    "index": "L9",  # 加权指数
 }
 
 
@@ -75,9 +135,14 @@ def _get_tdx_codes(variety: str) -> List[str]:
     now = datetime.now()
     year = now.year % 100
     month = now.month
-    offsets = {'SHFE': [1, 2, 3, 0], 'DCE': [3, 4, 5, 2],
-               'CZCE': [2, 3, 4, 1], 'CFFEX': [0, 1, 2, 3],
-               'INE': [1, 2, 3, 0], 'GFEX': [3, 4, 5, 2]}.get(exchange, [1, 2, 3])
+    offsets = {
+        "SHFE": [1, 2, 3, 0],
+        "DCE": [3, 4, 5, 2],
+        "CZCE": [2, 3, 4, 1],
+        "CFFEX": [0, 1, 2, 3],
+        "INE": [1, 2, 3, 0],
+        "GFEX": [3, 4, 5, 2],
+    }.get(exchange, [1, 2, 3])
     codes = []
     # L8 是主力连续（合成合约），price/volume准确但holding=0
     # 将L8放在第一位用于获取准确价格，后面月合约提供持仓量
@@ -88,7 +153,7 @@ def _get_tdx_codes(variety: str) -> List[str]:
         if m > 12:
             m -= 12
             y += 1
-        if exchange == 'CZCE':
+        if exchange == "CZCE":
             ym = f"{y}{m:02d}"[-3:]
         else:
             ym = f"{y:02d}{m:02d}"
@@ -120,8 +185,7 @@ class TdxCollector:
         try:
             req = urllib.request.Request(
                 self.HTTP_URL,
-                data=json.dumps({"id": 1, "method": "get_match_stkinfo",
-                                 "params": {"key_word": "铜"}}).encode("utf-8"),
+                data=json.dumps({"id": 1, "method": "get_match_stkinfo", "params": {"key_word": "铜"}}).encode("utf-8"),
                 headers={"Content-Type": "application/json; charset=utf-8"},
                 method="POST",
             )
@@ -160,15 +224,17 @@ class TdxCollector:
         records = []
         for i in range(n):
             try:
-                records.append({
-                    "date": data["Date"][i],
-                    "open": float(data.get("Open", ["0"]*n)[i] or 0),
-                    "high": float(data.get("High", ["0"]*n)[i] or 0),
-                    "low": float(data.get("Low", ["0"]*n)[i] or 0),
-                    "close": float(data.get("Close", ["0"]*n)[i] or 0),
-                    "volume": int(float(data.get("Volume", ["0"]*n)[i] or 0)),
-                    "oi": int(float(data.get("Hold", ["0"]*n)[i] or 0)),
-                })
+                records.append(
+                    {
+                        "date": data["Date"][i],
+                        "open": float(data.get("Open", ["0"] * n)[i] or 0),
+                        "high": float(data.get("High", ["0"] * n)[i] or 0),
+                        "low": float(data.get("Low", ["0"] * n)[i] or 0),
+                        "close": float(data.get("Close", ["0"] * n)[i] or 0),
+                        "volume": int(float(data.get("Volume", ["0"] * n)[i] or 0)),
+                        "oi": int(float(data.get("Hold", ["0"] * n)[i] or 0)),
+                    }
+                )
             except (ValueError, IndexError):
                 continue
         return records if len(records) > 5 else None
@@ -177,24 +243,80 @@ class TdxCollector:
 
     # 中文名称映射（用于搜索）
     CN_NAME_MAP = {
-        'CU': '沪铜', 'AL': '沪铝', 'ZN': '沪锌', 'PB': '沪铅',
-        'NI': '沪镍', 'SN': '沪锡', 'AU': '沪金', 'AG': '沪银',
-        'RB': '螺纹', 'HC': '热卷', 'RU': '橡胶', 'BR': '丁二烯橡胶',
-        'FU': '燃油', 'BU': '沥青', 'SP': '纸浆', 'SS': '不锈钢',
-        'AO': '氧化铝', 'WR': '线材', 'OP': '双胶纸',
-        'A': '豆一', 'B': '豆二', 'M': '豆粕', 'Y': '豆油', 'P': '棕榈',
-        'C': '玉米', 'CS': '淀粉', 'I': '铁矿', 'J': '焦炭', 'JM': '焦煤',
-        'L': '塑料', 'V': 'PVC', 'PP': '聚丙烯', 'EG': '乙二醇', 'EB': '苯乙烯',
-        'PG': '液化气', 'JD': '鸡蛋', 'LH': '生猪', 'RR': '粳米', 'FB': '纤维板',
-        'AP': '苹果', 'CF': '棉花', 'CJ': '红枣', 'FG': '玻璃',
-        'SA': '纯碱', 'MA': '甲醇', 'TA': 'PTA', 'UR': '尿素',
-        'PF': '短纤', 'PR': '瓶片', 'PX': '对二甲苯', 'PK': '花生',
-        'OI': '菜油', 'RM': '菜粕', 'SR': '白糖', 'SF': '硅铁',
-        'SM': '锰硅', 'SH': '烧碱', 'ZC': '动力煤',
-        'SC': '原油', 'LU': '低硫燃油', 'NR': '20号胶', 'BC': '国际铜', 'EC': '欧线',
-        'SI': '工业硅', 'LC': '碳酸锂', 'PS': '多晶硅',
-        'IF': '沪深300', 'IH': '上证50', 'IC': '中证500', 'IM': '中证1000',
-        'T': '国债', 'TF': '五年国债', 'TS': '两年国债', 'TL': '三十年国债',
+        "CU": "沪铜",
+        "AL": "沪铝",
+        "ZN": "沪锌",
+        "PB": "沪铅",
+        "NI": "沪镍",
+        "SN": "沪锡",
+        "AU": "沪金",
+        "AG": "沪银",
+        "RB": "螺纹",
+        "HC": "热卷",
+        "RU": "橡胶",
+        "BR": "丁二烯橡胶",
+        "FU": "燃油",
+        "BU": "沥青",
+        "SP": "纸浆",
+        "SS": "不锈钢",
+        "AO": "氧化铝",
+        "WR": "线材",
+        "OP": "双胶纸",
+        "A": "豆一",
+        "B": "豆二",
+        "M": "豆粕",
+        "Y": "豆油",
+        "P": "棕榈",
+        "C": "玉米",
+        "CS": "淀粉",
+        "I": "铁矿",
+        "J": "焦炭",
+        "JM": "焦煤",
+        "L": "塑料",
+        "V": "PVC",
+        "PP": "聚丙烯",
+        "EG": "乙二醇",
+        "EB": "苯乙烯",
+        "PG": "液化气",
+        "JD": "鸡蛋",
+        "LH": "生猪",
+        "RR": "粳米",
+        "FB": "纤维板",
+        "AP": "苹果",
+        "CF": "棉花",
+        "CJ": "红枣",
+        "FG": "玻璃",
+        "SA": "纯碱",
+        "MA": "甲醇",
+        "TA": "PTA",
+        "UR": "尿素",
+        "PF": "短纤",
+        "PR": "瓶片",
+        "PX": "对二甲苯",
+        "PK": "花生",
+        "OI": "菜油",
+        "RM": "菜粕",
+        "SR": "白糖",
+        "SF": "硅铁",
+        "SM": "锰硅",
+        "SH": "烧碱",
+        "ZC": "动力煤",
+        "SC": "原油",
+        "LU": "低硫燃油",
+        "NR": "20号胶",
+        "BC": "国际铜",
+        "EC": "欧线",
+        "SI": "工业硅",
+        "LC": "碳酸锂",
+        "PS": "多晶硅",
+        "IF": "沪深300",
+        "IH": "上证50",
+        "IC": "中证500",
+        "IM": "中证1000",
+        "T": "国债",
+        "TF": "五年国债",
+        "TS": "两年国债",
+        "TL": "三十年国债",
     }
 
     def get_contract_list(self, variety: str) -> Optional[List[Dict]]:
@@ -212,7 +334,7 @@ class TdxCollector:
             return None
 
         keyword = self.CN_NAME_MAP.get(variety.upper(), variety)
-        exchange = VARIETY_EXCHANGE.get(variety.upper(), '')
+        exchange = VARIETY_EXCHANGE.get(variety.upper(), "")
         result = self._call("get_match_stkinfo", {"key_word": keyword})
         if not result:
             return None
@@ -237,12 +359,14 @@ class TdxCollector:
                 ctype = "continuous"
             else:
                 ctype = "contract"
-            contracts.append({
-                "code": code,
-                "name": name,
-                "type": ctype,
-                "exchange": exchange,
-            })
+            contracts.append(
+                {
+                    "code": code,
+                    "name": name,
+                    "type": ctype,
+                    "exchange": exchange,
+                }
+            )
         return contracts if contracts else None
 
     def get_continuous_code(self, variety: str, ctype: str = "main") -> Optional[str]:
@@ -269,17 +393,21 @@ class TdxCollector:
             result = self._call("get_market_snapshot", {"stock_code": code})
             if result and result.get("Now"):
                 v = result
-                return [{
-                    "code": code, "variety": variety.upper(),
-                    "price": float(v.get("Now", 0) or 0),
-                    "open": float(v.get("Open", 0) or 0),
-                    "high": float(v.get("Max", 0) or 0),
-                    "low": float(v.get("Min", 0) or 0),
-                    "close": float(v.get("LastClose", 0) or 0),
-                    "volume": int(v.get("Volume", 0) or 0),
-                    "holding": int(v.get("Holding", 0) or 0),
-                    "data_source": "tdx_local", "confidence": 1.0,
-                }]
+                return [
+                    {
+                        "code": code,
+                        "variety": variety.upper(),
+                        "price": float(v.get("Now", 0) or 0),
+                        "open": float(v.get("Open", 0) or 0),
+                        "high": float(v.get("Max", 0) or 0),
+                        "low": float(v.get("Min", 0) or 0),
+                        "close": float(v.get("LastClose", 0) or 0),
+                        "volume": int(v.get("Volume", 0) or 0),
+                        "holding": int(v.get("Holding", 0) or 0),
+                        "data_source": "tdx_local",
+                        "confidence": 1.0,
+                    }
+                ]
         return None
 
     def get_contract_quote(self, code: str) -> Optional[Dict]:
@@ -313,19 +441,21 @@ class TdxCollector:
         for c in contracts:
             q = self.get_contract_quote(c["code"])
             if q:
-                records.append({
-                    "code": c["code"].split(".")[0],
-                    "full_code": c["code"],
-                    "name": c["name"],
-                    "type": c["type"],
-                    "price": q["price"],
-                    "open": q["open"],
-                    "high": q["high"],
-                    "low": q["low"],
-                    "close": q["close"],
-                    "volume": q["volume"],
-                    "holding": q["holding"],
-                })
+                records.append(
+                    {
+                        "code": c["code"].split(".")[0],
+                        "full_code": c["code"],
+                        "name": c["name"],
+                        "type": c["type"],
+                        "price": q["price"],
+                        "open": q["open"],
+                        "high": q["high"],
+                        "low": q["low"],
+                        "close": q["close"],
+                        "volume": q["volume"],
+                        "holding": q["holding"],
+                    }
+                )
         if not records:
             return None
         records.sort(key=lambda x: x["volume"], reverse=True)
@@ -349,10 +479,15 @@ class TdxCollector:
         best, best_n = None, 0
         for code in codes:
             try:
-                r = self._call("get_market_data", {
-                    "stock_list": [code], "period": "1d",
-                    "count": min(days + 50, 2000), "dividend_type": "none",
-                })
+                r = self._call(
+                    "get_market_data",
+                    {
+                        "stock_list": [code],
+                        "period": "1d",
+                        "count": min(days + 50, 2000),
+                        "dividend_type": "none",
+                    },
+                )
                 if r:
                     recs = self._extract_kline(code, r)
                     if recs and len(recs) > best_n:
@@ -374,10 +509,15 @@ class TdxCollector:
         """
         if not self.is_available:
             return None
-        r = self._call("get_market_data", {
-            "stock_list": [code], "period": "1d",
-            "count": min(days + 50, 2000), "dividend_type": "none",
-        })
+        r = self._call(
+            "get_market_data",
+            {
+                "stock_list": [code],
+                "period": "1d",
+                "count": min(days + 50, 2000),
+                "dividend_type": "none",
+            },
+        )
         if r:
             return self._extract_kline(code, r)
         return None
@@ -403,9 +543,9 @@ class TdxCollector:
             klines = self.get_contract_kline(code, days=days)
             if klines:
                 result[code] = klines
-                print(f"  [{i+1}/{len(contracts)}] [OK] {code}: {len(klines)}条K线")
+                print(f"  [{i + 1}/{len(contracts)}] [OK] {code}: {len(klines)}条K线")
             else:
-                print(f"  [{i+1}/{len(contracts)}] [x] {code}: 无数据")
+                print(f"  [{i + 1}/{len(contracts)}] [x] {code}: 无数据")
         return result
 
     # ==================== 期限结构 ====================
@@ -439,9 +579,7 @@ class TdxCollector:
             return None
 
         # 过滤出具体合约（排除连续合约 + 价格无效合约）
-        specific = [c for c in contracts
-                    if c["type"] == "contract"
-                    and c.get("price") and c["price"] > 0]
+        specific = [c for c in contracts if c["type"] == "contract" and c.get("price") and c["price"] > 0]
         if len(specific) < 2:
             # v2.0.1: 价格=0合约自动过滤，避免hc等品种远月无成交返回0
             return None
@@ -476,27 +614,34 @@ class TdxCollector:
             "far_month": far["code"][-4:],
             "far_price": far_price,
             "contract_count": len(specific),
-            "contracts": [{
-                "month": c["code"][-4:],
-                "code": c["full_code"],
-                "price": c["price"],
-                "volume": c["volume"],
-                "holding": c["holding"],
-            } for c in specific],
-            "continuous": [{
-                "code": c["full_code"],
-                "name": c["name"],
-                "price": c["price"],
-                "volume": c["volume"],
-            } for c in contracts if c["type"] == "continuous"],
+            "contracts": [
+                {
+                    "month": c["code"][-4:],
+                    "code": c["full_code"],
+                    "price": c["price"],
+                    "volume": c["volume"],
+                    "holding": c["holding"],
+                }
+                for c in specific
+            ],
+            "continuous": [
+                {
+                    "code": c["full_code"],
+                    "name": c["name"],
+                    "price": c["price"],
+                    "volume": c["volume"],
+                }
+                for c in contracts
+                if c["type"] == "continuous"
+            ],
             "data_source": "tdx_local",
         }
 
     # ==================== 跨期价差 ====================
 
-    def get_spread(self, variety: str,
-                   near_month: Optional[str] = None,
-                   far_month: Optional[str] = None) -> Optional[Dict]:
+    def get_spread(
+        self, variety: str, near_month: Optional[str] = None, far_month: Optional[str] = None
+    ) -> Optional[Dict]:
         """
         计算跨期价差。
 
@@ -543,9 +688,11 @@ class TdxCollector:
         return {
             "variety": variety.upper(),
             "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "near_code": near["full_code"], "near_price": near["price"],
+            "near_code": near["full_code"],
+            "near_price": near["price"],
             "near_volume": near["volume"],
-            "far_code": far["full_code"], "far_price": far["price"],
+            "far_code": far["full_code"],
+            "far_price": far["price"],
             "far_volume": far["volume"],
             "spread": round(spread, 2),
             "spread_pct": spread_pct,
@@ -553,9 +700,7 @@ class TdxCollector:
             "data_source": "tdx_local",
         }
 
-    def get_spread_history(self, variety: str,
-                           near_month: str, far_month: str,
-                           days: int = 60) -> Optional[Dict]:
+    def get_spread_history(self, variety: str, near_month: str, far_month: str, days: int = 60) -> Optional[Dict]:
         """
         获取跨期价差历史数据。
 
@@ -599,12 +744,14 @@ class TdxCollector:
             np_ = near_map[d]["close"]
             fp_ = far_map[d]["close"]
             sp = np_ - fp_
-            history.append({
-                "date": d,
-                "near_price": np_,
-                "far_price": fp_,
-                "spread": round(sp, 2),
-            })
+            history.append(
+                {
+                    "date": d,
+                    "near_price": np_,
+                    "far_price": fp_,
+                    "spread": round(sp, 2),
+                }
+            )
             spreads.append(sp)
 
         if not spreads:
@@ -693,12 +840,15 @@ class TdxCollector:
 
         # 设置公式数据上下文
         try:
-            r = self._call("formula_set_data_info", {
-                "stock_code": tdx_code,
-                "stock_period": "1d",
-                "count": 250,
-                "dividend_type": 0,
-            })
+            r = self._call(
+                "formula_set_data_info",
+                {
+                    "stock_code": tdx_code,
+                    "stock_period": "1d",
+                    "count": 250,
+                    "dividend_type": 0,
+                },
+            )
             if not r or r.get("ErrorId", "") != "0":
                 return None
         except Exception:
@@ -732,9 +882,9 @@ class TdxCollector:
             dmi = self._call("formula_zb", {"formula_name": "DMI", "formula_arg": "14,6", "xsflag": 2})
             if dmi:
                 dmi_val = dmi.get("Value", {})
-                result['adx'] = _last_float(dmi_val.get('ADX'))
-                result['pdi'] = _last_float(dmi_val.get('PDI'))
-                result['mdi'] = _last_float(dmi_val.get('MDI'))
+                result["adx"] = _last_float(dmi_val.get("ADX"))
+                result["pdi"] = _last_float(dmi_val.get("PDI"))
+                result["mdi"] = _last_float(dmi_val.get("MDI"))
         except Exception:
             pass
 
@@ -743,7 +893,7 @@ class TdxCollector:
             rsi = self._call("formula_zb", {"formula_name": "RSI", "formula_arg": "14,14", "xsflag": 2})
             if rsi:
                 rsi_val = rsi.get("Value", {})
-                result['rsi'] = _last_float(rsi_val.get('RSI1'))
+                result["rsi"] = _last_float(rsi_val.get("RSI1"))
         except Exception:
             pass
 
@@ -752,7 +902,7 @@ class TdxCollector:
             cci = self._call("formula_zb", {"formula_name": "CCI", "formula_arg": "", "xsflag": 2})
             if cci:
                 cci_val = cci.get("Value", {})
-                result['cci'] = _last_float(cci_val.get('CCI'))
+                result["cci"] = _last_float(cci_val.get("CCI"))
         except Exception:
             pass
 
@@ -761,9 +911,9 @@ class TdxCollector:
             macd = self._call("formula_zb", {"formula_name": "MACD", "formula_arg": "", "xsflag": 2})
             if macd:
                 macd_val = macd.get("Value", {})
-                result['macd_dif'] = _last_float(macd_val.get('DIF'))
-                result['macd_dea'] = _last_float(macd_val.get('DEA'))
-                result['macd_hist'] = _last_float(macd_val.get('MACD'))
+                result["macd_dif"] = _last_float(macd_val.get("DIF"))
+                result["macd_dea"] = _last_float(macd_val.get("DEA"))
+                result["macd_hist"] = _last_float(macd_val.get("MACD"))
         except Exception:
             pass
 
@@ -773,9 +923,9 @@ class TdxCollector:
             if ma:
                 ma_val = ma.get("Value", {})
                 for i in range(1, 6):
-                    v = _last_float(ma_val.get(f'MA{i}'))
+                    v = _last_float(ma_val.get(f"MA{i}"))
                     if v is not None:
-                        result[f'ma{i}'] = v
+                        result[f"ma{i}"] = v
         except Exception:
             pass
 
@@ -784,9 +934,9 @@ class TdxCollector:
             boll = self._call("formula_zb", {"formula_name": "BOLL", "formula_arg": "", "xsflag": 2})
             if boll:
                 boll_val = boll.get("Value", {})
-                result['boll_upper'] = _last_float(boll_val.get('UB'))
-                result['boll_mid'] = _last_float(boll_val.get('BOLL'))
-                result['boll_lower'] = _last_float(boll_val.get('LB'))
+                result["boll_upper"] = _last_float(boll_val.get("UB"))
+                result["boll_mid"] = _last_float(boll_val.get("BOLL"))
+                result["boll_lower"] = _last_float(boll_val.get("LB"))
         except Exception:
             pass
 
@@ -795,8 +945,8 @@ class TdxCollector:
             obv = self._call("formula_zb", {"formula_name": "OBV", "formula_arg": "", "xsflag": 2})
             if obv:
                 obv_val = obv.get("Value", {})
-                result['obv'] = _last_float(obv_val.get('OBV'))
-                result['obv_ma'] = _last_float(obv_val.get('MAOBV'))
+                result["obv"] = _last_float(obv_val.get("OBV"))
+                result["obv_ma"] = _last_float(obv_val.get("MAOBV"))
         except Exception:
             pass
 
@@ -807,7 +957,7 @@ class TdxCollector:
             atr = self._call("formula_zb", {"formula_name": "ATR", "formula_arg": "14", "xsflag": 2})
             if atr:
                 atr_val = atr.get("Value", {})
-                result['atr'] = _last_float(atr_val.get('ATR'))
+                result["atr"] = _last_float(atr_val.get("ATR"))
         except Exception:
             pass
 
@@ -816,9 +966,9 @@ class TdxCollector:
             kdj = self._call("formula_zb", {"formula_name": "KDJ", "formula_arg": "9,3,3", "xsflag": 2})
             if kdj:
                 kdj_val = kdj.get("Value", {})
-                result['kdj_k'] = _last_float(kdj_val.get('K'))
-                result['kdj_d'] = _last_float(kdj_val.get('D'))
-                result['kdj_j'] = _last_float(kdj_val.get('J'))
+                result["kdj_k"] = _last_float(kdj_val.get("K"))
+                result["kdj_d"] = _last_float(kdj_val.get("D"))
+                result["kdj_j"] = _last_float(kdj_val.get("J"))
         except Exception:
             pass
 
@@ -827,7 +977,7 @@ class TdxCollector:
             mfi = self._call("formula_zb", {"formula_name": "MFI", "formula_arg": "14", "xsflag": 2})
             if mfi:
                 mfi_val = mfi.get("Value", {})
-                result['mfi'] = _last_float(mfi_val.get('MFI'))
+                result["mfi"] = _last_float(mfi_val.get("MFI"))
         except Exception:
             pass
 
@@ -836,8 +986,8 @@ class TdxCollector:
             roc = self._call("formula_zb", {"formula_name": "ROC", "formula_arg": "12", "xsflag": 2})
             if roc:
                 roc_val = roc.get("Value", {})
-                result['roc'] = _last_float(roc_val.get('ROC'))
-                result['roc_ma'] = _last_float(roc_val.get('MAROC'))
+                result["roc"] = _last_float(roc_val.get("ROC"))
+                result["roc_ma"] = _last_float(roc_val.get("MAROC"))
         except Exception:
             pass
 
@@ -846,9 +996,9 @@ class TdxCollector:
             bias = self._call("formula_zb", {"formula_name": "BIAS", "formula_arg": "6,12,24", "xsflag": 2})
             if bias:
                 bias_val = bias.get("Value", {})
-                result['bias1'] = _last_float(bias_val.get('BIAS1'))
-                result['bias2'] = _last_float(bias_val.get('BIAS2'))
-                result['bias3'] = _last_float(bias_val.get('BIAS3'))
+                result["bias1"] = _last_float(bias_val.get("BIAS1"))
+                result["bias2"] = _last_float(bias_val.get("BIAS2"))
+                result["bias3"] = _last_float(bias_val.get("BIAS3"))
         except Exception:
             pass
 
@@ -857,8 +1007,8 @@ class TdxCollector:
             psy = self._call("formula_zb", {"formula_name": "PSY", "formula_arg": "12", "xsflag": 2})
             if psy:
                 psy_val = psy.get("Value", {})
-                result['psy'] = _last_float(psy_val.get('PSY'))
-                result['psy_ma'] = _last_float(psy_val.get('PSYMA'))
+                result["psy"] = _last_float(psy_val.get("PSY"))
+                result["psy_ma"] = _last_float(psy_val.get("PSYMA"))
         except Exception:
             pass
 
@@ -867,8 +1017,8 @@ class TdxCollector:
             vr = self._call("formula_zb", {"formula_name": "VR", "formula_arg": "26", "xsflag": 2})
             if vr:
                 vr_val = vr.get("Value", {})
-                result['vr'] = _last_float(vr_val.get('VR'))
-                result['vr_ma'] = _last_float(vr_val.get('MAVR'))
+                result["vr"] = _last_float(vr_val.get("VR"))
+                result["vr_ma"] = _last_float(vr_val.get("MAVR"))
         except Exception:
             pass
 
@@ -877,7 +1027,7 @@ class TdxCollector:
             sar = self._call("formula_zb", {"formula_name": "SAR", "formula_arg": "4,2,20", "xsflag": 2})
             if sar:
                 sar_val = sar.get("Value", {})
-                result['sar'] = _last_float(sar_val.get('SAR'))
+                result["sar"] = _last_float(sar_val.get("SAR"))
         except Exception:
             pass
 
@@ -886,9 +1036,9 @@ class TdxCollector:
             vol = self._call("formula_zb", {"formula_name": "VOL", "formula_arg": "5,10", "xsflag": 2})
             if vol:
                 vol_val = vol.get("Value", {})
-                result['volume'] = _last_float(vol_val.get('VOLUME'))
-                result['vol_ma5'] = _last_float(vol_val.get('MAVOL1'))
-                result['vol_ma10'] = _last_float(vol_val.get('MAVOL2'))
+                result["volume"] = _last_float(vol_val.get("VOLUME"))
+                result["vol_ma5"] = _last_float(vol_val.get("MAVOL1"))
+                result["vol_ma10"] = _last_float(vol_val.get("MAVOL2"))
         except Exception:
             pass
 
@@ -897,8 +1047,8 @@ class TdxCollector:
             trix = self._call("formula_zb", {"formula_name": "TRIX", "formula_arg": "12,9", "xsflag": 2})
             if trix:
                 trix_val = trix.get("Value", {})
-                result['trix'] = _last_float(trix_val.get('TRIX'))
-                result['trix_ma'] = _last_float(trix_val.get('MATRIX'))
+                result["trix"] = _last_float(trix_val.get("TRIX"))
+                result["trix_ma"] = _last_float(trix_val.get("MATRIX"))
         except Exception:
             pass
 
@@ -907,8 +1057,8 @@ class TdxCollector:
             wr = self._call("formula_zb", {"formula_name": "WR", "formula_arg": "14", "xsflag": 2})
             if wr:
                 wr_val = wr.get("Value", {})
-                result['wr1'] = _last_float(wr_val.get('WR1'))
-                result['wr2'] = _last_float(wr_val.get('WR2'))
+                result["wr1"] = _last_float(wr_val.get("WR1"))
+                result["wr2"] = _last_float(wr_val.get("WR2"))
         except Exception:
             pass
 
@@ -917,7 +1067,7 @@ class TdxCollector:
             bbi = self._call("formula_zb", {"formula_name": "BBI", "formula_arg": "", "xsflag": 2})
             if bbi:
                 bbi_val = bbi.get("Value", {})
-                result['bbi'] = _last_float(bbi_val.get('BBI'))
+                result["bbi"] = _last_float(bbi_val.get("BBI"))
         except Exception:
             pass
 
@@ -926,8 +1076,8 @@ class TdxCollector:
             uos = self._call("formula_zb", {"formula_name": "UOS", "formula_arg": "7,14,28", "xsflag": 2})
             if uos:
                 uos_val = uos.get("Value", {})
-                result['uos'] = _last_float(uos_val.get('UOS'))
-                result['uos_ma'] = _last_float(uos_val.get('MAUOS'))
+                result["uos"] = _last_float(uos_val.get("UOS"))
+                result["uos_ma"] = _last_float(uos_val.get("MAUOS"))
         except Exception:
             pass
 
@@ -936,8 +1086,8 @@ class TdxCollector:
             mtm = self._call("formula_zb", {"formula_name": "MTM", "formula_arg": "12,6", "xsflag": 2})
             if mtm:
                 mtm_val = mtm.get("Value", {})
-                result['mtm'] = _last_float(mtm_val.get('MTM'))
-                result['mtm_ma'] = _last_float(mtm_val.get('MTMMA'))
+                result["mtm"] = _last_float(mtm_val.get("MTM"))
+                result["mtm_ma"] = _last_float(mtm_val.get("MTMMA"))
         except Exception:
             pass
 
@@ -946,6 +1096,7 @@ class TdxCollector:
 
 # ==================== 快捷函数 ====================
 
+
 def get_collector() -> TdxCollector:
     """获取单例采集器"""
     return TdxCollector()
@@ -953,6 +1104,7 @@ def get_collector() -> TdxCollector:
 
 if __name__ == "__main__":
     import time
+
     c = TdxCollector()
     if not c.is_available:
         print("[x] 通达信HTTP服务不可用")
@@ -969,7 +1121,7 @@ if __name__ == "__main__":
     if ts:
         print(f"  类型: {ts['type']}, 斜率: {ts['slope']}%, 合约数: {ts['contract_count']}")
         print(f"  近月: {ts['near_month']}={ts['near_price']}, 远月: {ts['far_month']}={ts['far_price']}")
-        for ct in ts['contracts']:
+        for ct in ts["contracts"]:
             print(f"    {ct['code']:15s} price={ct['price']:>8} vol={ct['volume']:>8} oi={ct['holding']:>12}")
 
     print("\n=== 跨期价差 ===")

@@ -30,5 +30,5 @@ where = ["scripts"]
 include = ["scripts*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["../../tests/quant-daily"]
 python_files = ["test_*.py"]

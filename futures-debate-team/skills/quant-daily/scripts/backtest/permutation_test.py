@@ -32,13 +32,13 @@ def permutation_test(
 ) -> Dict[str, Any]:
     """
     置换检验：随机打乱收益序列，计算置换后的夏普比率分布。
-    
+
     Args:
         returns: 原始日收益率序列
         original_sharpe: 原始策略夏普比率
         iterations: 置换次数
         seed: 随机种子
-    
+
     Returns:
         {
             "original_sharpe": float,
@@ -52,10 +52,10 @@ def permutation_test(
     """
     random.seed(seed)
     np.random.seed(seed)
-    
+
     returns_arr = np.array(returns)
     n = len(returns_arr)
-    
+
     permuted_sharpes = []
     for _ in range(iterations):
         shuffled = np.random.permutation(returns_arr)
@@ -66,15 +66,15 @@ def permutation_test(
         else:
             sharpe = 0
         permuted_sharpes.append(sharpe)
-    
+
     permuted_sharpes = np.array(permuted_sharpes)
-    
+
     # 计算p值：原始夏普优于多少比例的置换结果
     p_value = np.mean(permuted_sharpes >= original_sharpe)
     percentile = p_value * 100
-    
+
     is_significant = p_value < 0.05  # 单侧检验，5%显著性水平
-    
+
     return {
         "original_sharpe": round(original_sharpe, 4),
         "p_value": round(p_value, 6),
@@ -97,6 +97,7 @@ def run_permutation_test_from_returns(
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="置换检验模块")
     parser.add_argument("--backtest-result", help="回测结果JSON路径")
     parser.add_argument("--returns", help="收益率序列JSON（逗号分隔）")
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--iterations", type=int, default=1000, help="置换次数")
     parser.add_argument("--output", "-o", help="输出JSON路径")
     args = parser.parse_args()
-    
+
     if args.backtest_result:
         with open(args.backtest_result, "r", encoding="utf-8") as f:
             bt = json.load(f)
@@ -116,12 +117,12 @@ if __name__ == "__main__":
     else:
         print("用法: --backtest-result <path> 或 --returns <csv> --sharpe <float>")
         sys.exit(1)
-    
+
     result = permutation_test(returns, sharpe, args.iterations)
     print(f"[PermutationTest] 原始夏普: {result['original_sharpe']}")
     print(f"[PermutationTest] p值: {result['p_value']} (百分位: {result['percentile']}%)")
     print(f"[PermutationTest] 显著性: {'✅ 显著优于随机' if result['is_significant'] else '❌ 不显著'}")
-    
+
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)

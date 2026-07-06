@@ -25,23 +25,35 @@ CSV 格式 (signals.csv)：
   # 查看追踪报告
   report()
 """
+
 import os, csv, json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 # ── 路径 ──
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TRACKER_DIR = os.path.join(os.path.dirname(SKILL_DIR), 'backtest', 'tracker')
-SIGNALS_CSV = os.path.join(TRACKER_DIR, 'signals.csv')
-OUTCOMES_CSV = os.path.join(TRACKER_DIR, 'outcomes.csv')
-FIELDS = ['record_date', 'sym', 'grade', 'direction', 'total', 'price',
-          'ret_5d', 'ret_10d', 'ret_20d', 'resolved_at', 'status']
+TRACKER_DIR = os.path.join(os.path.dirname(SKILL_DIR), "backtest", "tracker")
+SIGNALS_CSV = os.path.join(TRACKER_DIR, "signals.csv")
+OUTCOMES_CSV = os.path.join(TRACKER_DIR, "outcomes.csv")
+FIELDS = [
+    "record_date",
+    "sym",
+    "grade",
+    "direction",
+    "total",
+    "price",
+    "ret_5d",
+    "ret_10d",
+    "ret_20d",
+    "resolved_at",
+    "status",
+]
 
 
 def _ensure_dir():
     os.makedirs(TRACKER_DIR, exist_ok=True)
     if not os.path.exists(SIGNALS_CSV):
-        with open(SIGNALS_CSV, 'w', newline='', encoding='utf-8') as f:
+        with open(SIGNALS_CSV, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=FIELDS)
             writer.writeheader()
 
@@ -56,38 +68,38 @@ def track_signals(scan_results: List[Dict], record_date: str = None):
     """
     _ensure_dir()
     if record_date is None:
-        record_date = datetime.now().strftime('%Y-%m-%d')
+        record_date = datetime.now().strftime("%Y-%m-%d")
 
     # 读取已有记录去重
     existing = set()
     if os.path.exists(SIGNALS_CSV):
-        with open(SIGNALS_CSV, 'r', encoding='utf-8') as f:
+        with open(SIGNALS_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                existing.add((row['record_date'], row['sym']))
+                existing.add((row["record_date"], row["sym"]))
 
     new_rows = 0
     for r in scan_results:
-        key = (record_date, r.get('sector', r.get('sym', '?')))
+        key = (record_date, r.get("sector", r.get("sym", "?")))
         if key in existing:
             continue
         row = {
-            'record_date': record_date,
-            'sym': r.get('sector', r.get('sym', '?')),
-            'grade': r.get('grade', '?'),
-            'direction': r.get('direction', '?'),
-            'total': r.get('total', 0),
-            'price': r.get('price', 0),
-            'ret_5d': '',
-            'ret_10d': '',
-            'ret_20d': '',
-            'resolved_at': '',
-            'status': 'pending',
+            "record_date": record_date,
+            "sym": r.get("sector", r.get("sym", "?")),
+            "grade": r.get("grade", "?"),
+            "direction": r.get("direction", "?"),
+            "total": r.get("total", 0),
+            "price": r.get("price", 0),
+            "ret_5d": "",
+            "ret_10d": "",
+            "ret_20d": "",
+            "resolved_at": "",
+            "status": "pending",
         }
         existing.add(key)
         new_rows += 1
 
-        with open(SIGNALS_CSV, 'a', newline='', encoding='utf-8') as f:
+        with open(SIGNALS_CSV, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=FIELDS)
             writer.writerow(row)
 
@@ -109,24 +121,24 @@ def update_outcomes(data_provider=None):
     updated = 0
     today = datetime.now()
 
-    with open(SIGNALS_CSV, 'r', encoding='utf-8') as f:
+    with open(SIGNALS_CSV, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             # 已resolve的跳过
-            if row.get('status') == 'resolved':
+            if row.get("status") == "resolved":
                 rows.append(row)
                 continue
 
             # 自动填充 status 标记
-            has_ret = (row.get('ret_5d') or row.get('ret_10d') or row.get('ret_20d'))
+            has_ret = row.get("ret_5d") or row.get("ret_10d") or row.get("ret_20d")
             if has_ret:
-                row['status'] = 'resolved'
-                row['resolved_at'] = today.strftime('%Y-%m-%d %H:%M')
+                row["status"] = "resolved"
+                row["resolved_at"] = today.strftime("%Y-%m-%d %H:%M")
                 updated += 1
 
             rows.append(row)
 
-    with open(SIGNALS_CSV, 'w', newline='', encoding='utf-8') as f:
+    with open(SIGNALS_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
         writer.writerows(rows)
@@ -145,14 +157,15 @@ def report(min_signals: int = 3) -> dict:
         return {}
 
     from collections import defaultdict
+
     by_grade = defaultdict(list)
 
-    with open(SIGNALS_CSV, 'r', encoding='utf-8') as f:
+    with open(SIGNALS_CSV, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            grade = row.get('grade', '?')
-            ret_10d = row.get('ret_10d', '')
-            if ret_10d and grade in ('WATCH', 'WEAK'):
+            grade = row.get("grade", "?")
+            ret_10d = row.get("ret_10d", "")
+            if ret_10d and grade in ("WATCH", "WEAK"):
                 by_grade[grade].append(float(ret_10d))
 
     print(f"\n{'=' * 55}")
@@ -160,46 +173,45 @@ def report(min_signals: int = 3) -> dict:
     print(f"{'=' * 55}")
 
     report_data = {}
-    for grade in ['WATCH', 'WEAK']:
+    for grade in ["WATCH", "WEAK"]:
         arr = by_grade.get(grade, [])
         if len(arr) < min_signals:
             print(f"  {grade:<8}: 仅{len(arr)}个已解决信号 (需≥{min_signals})")
-            report_data[grade] = {'count': len(arr), 'note': '样本不足'}
+            report_data[grade] = {"count": len(arr), "note": "样本不足"}
             continue
         wins = sum(1 for r in arr if r > 0)
         wr = wins / len(arr) * 100
         avg_r = sum(arr) / len(arr)
-        print(f"  {grade:<8}: {len(arr):>4}个已解决 "
-              f"胜率{wr:>5.1f}% 均收益{avg_r:>+6.2f}%")
-        report_data[grade] = {'count': len(arr), 'win_rate': round(wr, 1),
-                              'avg_return': round(avg_r, 2)}
+        print(f"  {grade:<8}: {len(arr):>4}个已解决 胜率{wr:>5.1f}% 均收益{avg_r:>+6.2f}%")
+        report_data[grade] = {"count": len(arr), "win_rate": round(wr, 1), "avg_return": round(avg_r, 2)}
 
     return report_data
 
 
-def export_signals(format='json'):
+def export_signals(format="json"):
     """导出追踪信号用于外部分析。"""
     _ensure_dir()
     if not os.path.exists(SIGNALS_CSV):
         return []
 
-    with open(SIGNALS_CSV, 'r', encoding='utf-8') as f:
+    with open(SIGNALS_CSV, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         data = [row for row in reader]
 
-    if format == 'json':
-        out_path = os.path.join(TRACKER_DIR, 'signals_export.json')
-        with open(out_path, 'w', encoding='utf-8') as f:
+    if format == "json":
+        out_path = os.path.join(TRACKER_DIR, "signals_export.json")
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     return data
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == 'report':
+
+    if len(sys.argv) > 1 and sys.argv[1] == "report":
         report()
-    elif len(sys.argv) > 1 and sys.argv[1] == 'update':
+    elif len(sys.argv) > 1 and sys.argv[1] == "update":
         update_outcomes()
     else:
         print("用法: python daily_signal_tracker.py [report|update]")

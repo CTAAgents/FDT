@@ -12,9 +12,10 @@ import json, os, datetime
 
 def _load_json(filepath: str) -> dict:
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
-    except: return {}
+    except:
+        return {}
 
 
 def _get_expert_root() -> str:
@@ -29,7 +30,9 @@ def _get_expert_root() -> str:
     if os.path.isdir(os.path.join(candidate, "agents")):
         return candidate
     # hardcoded fallback
-    return r"C:\Users\yangd\.workbuddy\plugins\marketplaces\my-experts\plugins\futures-debate-team"
+    return os.path.join(
+        os.path.expanduser("~"), ".workbuddy", "plugins", "marketplaces", "my-experts", "plugins", "futures-debate-team"
+    )
 
 
 def update_debate_index(round_id: str, judge_verdict: dict, results: dict) -> str:
@@ -42,7 +45,7 @@ def update_debate_index(round_id: str, judge_verdict: dict, results: dict) -> st
     short_candidates = results.get("quant_signals_summary", {}).get("short_top5", {})
     symbols = ", ".join(list(short_candidates.keys())[:5])
 
-    entry = f"""| {round_id} | {symbols} | {score.get('long', 0):.1f} vs {score.get('short', 0):.1f} | {winner} | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} |
+    entry = f"""| {round_id} | {symbols} | {score.get("long", 0):.1f} vs {score.get("short", 0):.1f} | {winner} | {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")} |
 """
     header = f"""# 辩论索引库
 
@@ -50,7 +53,7 @@ def update_debate_index(round_id: str, judge_verdict: dict, results: dict) -> st
 |--------|------|------|------|------|{chr(10)}"""
 
     if os.path.exists(index_path):
-        with open(index_path, 'r', encoding='utf-8') as f:
+        with open(index_path, "r", encoding="utf-8") as f:
             existing = f.read()
         if "| 辩论ID |" not in existing:
             existing = header + existing
@@ -62,20 +65,20 @@ def update_debate_index(round_id: str, judge_verdict: dict, results: dict) -> st
         return f"跳过：{round_id} 已存在"
 
     # 插入第一条数据后
-    lines = existing.split('\n')
+    lines = existing.split("\n")
     insert_pos = 0
     for i, line in enumerate(lines):
-        if line.startswith('| --') or line.startswith('|---'):
+        if line.startswith("| --") or line.startswith("|---"):
             insert_pos = i + 1
             break
     if insert_pos == 0:
         insert_pos = len(lines)
-    
+
     lines.insert(insert_pos, entry.rstrip())
-    
-    with open(index_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(lines) + '\n')
-    
+
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
     return f"INDEX.md 已更新: {round_id}"
 
 
@@ -94,16 +97,16 @@ def update_agent_performance(round_id: str, judge_verdict: dict) -> str:
 
     if not os.path.exists(perf_path):
         header = f"# Agent 表现跟踪\n\n## 辩论记录\n记录格式：辩论ID → 各维度评分\n"
-        with open(perf_path, 'w', encoding='utf-8') as f:
+        with open(perf_path, "w", encoding="utf-8") as f:
             f.write(header)
     else:
-        with open(perf_path, 'r', encoding='utf-8') as f:
+        with open(perf_path, "r", encoding="utf-8") as f:
             existing = f.read()
         if round_id in existing:
             return f"跳过：{round_id} 已存在"
 
-    with open(perf_path, 'a', encoding='utf-8') as f:
-        f.write('\n'.join(entry_lines) + '\n')
+    with open(perf_path, "a", encoding="utf-8") as f:
+        f.write("\n".join(entry_lines) + "\n")
 
     return f"Agent表现已记录: {round_id}"
 
@@ -126,6 +129,9 @@ def run_post_debate(round_id: str, reports_dir: str) -> dict:
 
 if __name__ == "__main__":
     import sys
-    round_id = sys.argv[1] if len(sys.argv) > 1 else "20260704"
-    result = run_post_debate(round_id, r"C:\Users\yangd\Documents\Signal\reports")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    round_id = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y%m%d")
+    report_dir = (
+        sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.expanduser("~"), "Documents", "Signal", "reports")
+    )
+    result = run_post_debate(round_id, report_dir)
