@@ -16,6 +16,7 @@
 """
 
 import sys, os, math
+from datetime import datetime
 from statistics import mean, stdev
 from typing import Optional
 
@@ -51,10 +52,10 @@ class ChannelBreakoutStrategy(BaseStrategy):
             sym = tech.get("symbol", "")
             name = tech.get("name", sym)
             price = tech.get("last_price", tech.get("price", 0))
-            adx = tech.get("ADX14", tech.get("adx", 0))
+            adx = tech.get("ADX", tech.get("ADX14", 0))
             volume = tech.get("volume", 0)
             change_pct = tech.get("change_pct", 0)
-            atr = tech.get("ATR14", tech.get("atr", 0))
+            atr = tech.get("ATR", tech.get("ATR14", 0))
             dc20_break = tech.get("dc20_break", "none")
 
             # ── 技术指标已有字段 ──
@@ -351,12 +352,13 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     "dc20": round(dc20_score, 1),
                     "dc55": round(dc55_score, 1),
                     "bb": round(bb_score, 1),
-                    "volume": round(volume_score, 1),
+                    "vol_score": round(volume_score, 1),  # 注意：不能用"volume"，会和to_dict()的volume字段冲突
                 },
                 price=price,
                 change_pct=change_pct,
                 volume=volume,
                 adx=adx,
+                atr=atr,
                 rsi=tech.get("RSI14", tech.get("rsi", 50)),
                 cci=tech.get("CCI20", tech.get("cci", 0)),
                 ma_slope=tech.get("MA20_SLOPE", tech.get("ma_slope", 0)),
@@ -389,6 +391,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
             "_meta": {
                 "mode": "channel_breakout",
                 "strategy": self.name,
+                "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "total": len(results),
                 "bull": len(bull),
                 "bear": len(bear),
