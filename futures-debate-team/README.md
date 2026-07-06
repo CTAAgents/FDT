@@ -248,6 +248,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 文件 | 用途 | 写入者 |
 |:----|:----|:------|
+| **v4.5.1** | **2026-07-06** | **自动发布**：流水线完成后自动版本号自增、文档同步、GitHub推送 |
 | `debate_journal.json` | 跨轮操作日志 | 全员自动写入 |
 | `data_sources.md` | 数据源可靠性 | 探源+风控明 |
 | `argument_patterns.md` | 有效论证模式 | 证真+慎思+闫判官 |
