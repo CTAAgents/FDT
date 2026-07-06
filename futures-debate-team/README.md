@@ -1,13 +1,19 @@
-# Futures Debate Team — 期货交易辩论专家团 v4.6
+# Futures Debate Team — 期货交易辩论专家团 v5.0
+
+> 🧬 **v5.0 里程碑**: 自进化闭环系统 — 全9Agent自进化 + 裁决修正经验库 + 闭环追踪验证 + 评分5维自校准
 
 ## 类型
 
-Team 型（11角色多角色协作团队，闫判官自主决定辩论品种与方向）
+Team 型（10角色多角色协作团队，全Agent自进化）
 
 ## 架构
 
 ```
-P1  数据采集与双通道分离        数技源(quant-daily)
+P0   🆕 进化链(2026-07-06)          validate→calibrate→evolve 自动运行
+     │                             产出: calibration.json + agent_profiles.json
+     │                             反馈: 9个Agent读取各自进化参数
+     ▼
+P1  数据采集与双通道分离           数技源(quant-daily)
      │                           scan_all.py --dual → debate_brief.py
      │                           产出: full_scan_summary.json + candidates.json
      │                              ├─ trading_recommendations[] 共识+launch+非极端(免辩论)
@@ -18,7 +24,7 @@ P1.5 产业链分析                  链证源(commodity-chain)
      │                           产出: 产业链快照 + redundant_pairs(同链相关性)
      ▼
 P2  闫判官双通道分流             闫判官(judge)
-     │                           输入: 信号 + candidates + 链数据
+     │                           输入: 信号 + candidates + 链数据 + calibration.json
      ├── 通道A: 直接推荐
      │   ├── 闫判官: 复核方向 → 基于price/ATR/ADX设定入场/止损/目标
      │   └── 策执远: 合约选型 + 仓位计算 + 建仓节奏
@@ -26,7 +32,7 @@ P2  闫判官双通道分流             闫判官(judge)
      └── 通道B: 辩论
          ├── 研究员供弹(观澜技术面 + 探源基本面)
          ├── 证真(多方) vs 慎思(空方) 多轮辩论
-         └── 闫判官: 六维评分→判决→胜方提案
+         └── 闫判官: 六维评分(含5维自校准)→判决→胜方提案
      │
      ▼
 P3  方案合成与风控审核          策执远(strategist) → 风控明(risk)
@@ -52,7 +58,7 @@ P4  合并双通道 → 归档           明鉴秋(team-lead)
 | **风控明** | risk | | | | | ● 审核 |
 | **明鉴秋** | team-lead | ● 启动 | | | | ● 合并归档 |
 
-## 核心设计原则（v4.6 - 双通道版）
+## 核心设计原则（v5.0 - 自进化闭环版）
 
 ```
 数技源边界     → 只输出原始数值，不做判断
@@ -303,6 +309,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链(validate→calibrate→evolve 3脚本自动串联); 全9Agent自进化(闫判官5维评分/风控明ATR+仓位/策执远RR+仓位/辩手论证策略/链证源去重阈值/数技源重试/探源基本面权重/观澜ATR周期); 裁决修正经验库(R01-R05 5条硬规则); 闭环追踪(record_verdicts→validate_verdicts→execution_followup.json); 评分自校准(5维度权重自适应·学习率0.3·钳制±10); 新增4脚本+5memory文件; v9全品种辩论算法(14链覆盖·max2/c·安全边际排序) |
 | **v4.5** | **2026-07-06** | **Bridgewater方法论×CTA落地全量实施**：五维辩论价值评分(compute_debate_score); 研报质量过滤B-Minimal/B-Standard; 辩论历史档案debate_history; ML训练自动化TrainingOrchestrator+DisputePredictor; 全自动流水线pipeline/runner.py; 零胶水代码强化; 测试统一迁移到tests/; 新增根级debate/ml/pipeline/基础设施模块; 全量代码审计修复22处硬编码路径与152文件ruff格式化; 100测试全绿; quality_filter 96% debate_history 94% trainer 87% 覆盖率 |
 | **v4.4** | **2026-07-05** | **P0+P1全面实施**：情感因子(第6因子)+sentiment_collector; 流动性风险liquidity_trap检测; 交易摩擦精细化(利息+移仓+净盈亏比); Agent通信协议v3.0(contracts包+10角色schema); DAG并行化引擎(debate_engine.py); 记忆反思 query_history 注入; 事件日历时间窗 get_upcoming_events; 特征工程 export_feature_summary 注入研究员; ML export_ensemble_votes 第3路信号; 优化计划P0 8/8 + P1 7/7全部完成 |
 | **v4.2** | **2026-07-05** | **P3全量实现**：Phase1 事件日历+跨品种联动 / Phase2 ML特征管道(30+维) / Phase3 DirectionClassifier+EnsemblePredictor / Phase4 PnL反馈闭环；风控明6层引擎(risk_engine.py)；观澜技术分析v2.1支撑阻力(hardness/容差/失效/共振)；换月跳空屏蔽+OI/量能确认；risk_input字段注入信号汇总；全审计8项修复；CONS/ADX假警报排查(indicators_legacy除零修复)；胶水代码防复发（assemble_intermediate_data / debate_brief --select-debate）；对比分析TradingAgents+CSTrader并制定P0-P2优化路线图 |

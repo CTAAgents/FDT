@@ -38,6 +38,28 @@
         "谷物软商品高波动震荡(唯一非空头链)",
         "全产业链利润压缩至亏损区间"
       ]
+    },
+    {
+      "timestamp": "2026-07-06 13:30:00",
+      "agent": "futures-judge",
+      "action": "verdict",
+      "round": "RB_20260706",
+      "symbol": "RB",
+      "winner": "short_win",
+      "direction": "SELL",
+      "confidence": "高",
+      "bull_score": 70.25,
+      "short_score": 80.00,
+      "price": 3077.0,
+      "adx": 67.2,
+      "atr": 10.7,
+      "l1l4_direction": "bear",
+      "l1l4_score": -71,
+      "l1l4_cons": 4,
+      "factor_direction": "neutral",
+      "factor_score": 0,
+      "verdict": "维持做空",
+      "reasoning": "ADX=67.2极强趋势+L1-L4 CONS=4/4全层一致看空构成高确定性做空信号。Factor中性仅降置信度不反转方向。"
     }
   ]
 }

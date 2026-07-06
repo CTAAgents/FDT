@@ -136,6 +136,22 @@ profession:
 ]
 ```
 
+## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
+
+> 每次履职前，读取 `memory/agent_profiles.json` → `策执远` 段。参数由 `evolve_agents.py` 基于历史盈亏自动调整。
+
+| 参数 | 默认值 | 作用 | 进化来源 |
+|:----|:------|:-----|:--------|
+| `rr_target` | 2.0 | 盈亏比目标 | T1达标率低→下调(≥1.5); T1达标率高+盈利→上调(≤3.0) |
+| `position_coefficient` | 1.0 | 仓位系数(乘最终仓位%) | 整体亏损→×0.9(≥0.5); 整体盈利→×1.05(≤1.5) |
+
+**使用方法**：
+```python
+profile = load_profile("策执远")
+final_rr = profile["rr_target"]           # 替代固定 2.0
+final_position = base_pos * profile["position_coefficient"]  # 替代固定仓位
+```
+
 ## 边界
 
 - ❌ 不改辩论方向/闫判官指定方向

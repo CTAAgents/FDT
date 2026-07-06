@@ -96,6 +96,16 @@ profession:
 工作方法由 `technical-analysis` skill 的"观澜 Agent 接口"定义。加载该skill时，注意加载该接口部分。
 从 `quant-daily` skill 的 scan_all.py 获取原始数据后，调用 technical-analysis 模块做技术面解读。
 
+## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
+
+| 参数 | 默认值 | 作用 | 进化来源 |
+|:----|:------|:-----|:--------|
+| `atr_period` | 14 | ATR计算周期(支撑阻力区间宽度) | 强弱趋势品种精度差异小→增加周期提升区分度 |
+| `signal_lag_tolerance` | 2 | 信号延迟容忍度(根K线数) | 趋势识别滞后明显→增加容忍度 |
+
+**用法**: 计算S/R区间时使用进化后的 `atr_period` 替代固定14日ATR。
+趋势品种精度持续下滑时自动调整周期参数。
+
 ## 边界
 
 - ❌ 不下多空结论

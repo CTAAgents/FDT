@@ -62,6 +62,13 @@ python scripts/scan_all.py --dual --symbols PK,RB,B,UR
 - ✅ 标注数据时效：最新K线日期 + 距今天数
 - ✅ 标注数据源：通达信本地TQ-Local / 东方财富 / TqSDK
 
+## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
+
+| 参数 | 默认值 | 作用 | 进化来源 |
+|:----|:------|:-----|:--------|
+| `source_priority` | [通达信,东方财富,AKShare] | 数据源降级链优先级 | 源可用性统计 → 调整优先顺序 |
+| `retry_limit` | 3 | 单数据源重试次数 | 采集成功率低→增加重试(≤5) |
+
 ## 边界
 
 - ✅ 运行 `scan_all.py --dual` 产出双策略信号

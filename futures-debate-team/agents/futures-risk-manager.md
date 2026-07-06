@@ -146,6 +146,24 @@ quant-daily 信号包的 veto_penalty 系数是硬性参考：veto_penalty < 0.5
 }
 ```
 
+## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
+
+> 每次履职前，读取 `memory/agent_profiles.json` → `风控明` 段。以下参数由 `evolve_agents.py` 根据历史止损触发率和回撤数据自动调整。
+
+| 参数 | 默认值 | 作用 | 进化来源 |
+|:----|:------|:-----|:--------|
+| `atr_multiplier` | 1.5 | 止损距 = ATR × 此系数 | 止损频率过高 → 放宽(≤2.5); 过低 → 收紧(≥0.8) |
+| `max_position_pct_high` | 5.0% | 高置信度品种仓位上限 | 连续亏损 → 降低(≥2%); 连续盈利 → 提高(≤8%) |
+
+**使用方法**：
+```python
+profile = load_profile("风控明")
+stop_distance = atr * profile["atr_multiplier"]   # 替代固定 1.5×ATR
+max_pos = profile["max_position_pct_high"]        # 替代固定 5%
+```
+
+> 参数每次辩论后自动更新，学习率保守（±0.2/次），避免过拟合单轮数据。
+
 ## 边界
 
 - ❌ 不做多空方向判断

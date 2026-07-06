@@ -1,0 +1,16 @@
+{
+  "confidence": {},
+  "adx_range": {},
+  "rsi_range": {},
+  "conflict": {},
+  "direction_bias": 0,
+  "chains": {},
+  "_meta": {
+    "calibrated_at": "2026-07-06 13:47",
+    "total_samples": 0,
+    "baseline": 0.6,
+    "learning_rate": 0.3,
+    "min_samples": 5,
+    "status": "pending — 首次校准需≥5条已验证裁决"
+  }
+}
