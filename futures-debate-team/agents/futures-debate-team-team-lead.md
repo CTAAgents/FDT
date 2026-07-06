@@ -54,7 +54,11 @@ version: "5.0.0"
     │      ├─ ≥5 → 自动运行 evolve_agents.py（7Agent参数进化）
     │      └─ <5 → 跳过进化
     │
-    └─ 4. 加载最新的 calibration.json + agent_profiles.json → 注入当前会话
+    ├─ 4. 检查 debate_history 是否有 ≥50 条新样本
+    │      └─ 是 → 自动 TrainingOrchestrator.run_daily_check()
+    │              （增量训练LightGBM → 评审 → 部署候选模型）
+    │
+    └─ 5. 加载最新的 calibration.json + agent_profiles.json → 注入当前会话
            ↓
        进入用户请求的分析模式（模式一/二/三）
 ```
@@ -66,12 +70,14 @@ version: "5.0.0"
 | 有未验证裁决 + K线已更新到T+1以上 | `validate_verdicts.py` | 任何分析请求的第一秒 |
 | 已验证 ≥5条 | `calibrate_weights.py` | validate之后 |
 | 已验证 ≥5条 | `evolve_agents.py` | calibrate之后 |
+| 新辩论样本 ≥50条 | `TrainingOrchestrator.run_daily_check()` | 自循环第4步 |
 | 每轮辩论结束 | `record_verdicts.py` | P5裁决完成后 |
 
 ### 自循环含义
 
 ```
-本轮辩论 → record裁决 → 下次请求时validate → calibrate+evolve → 参数注入Agent → 下次辩论更准
+本轮辩论 → record裁决 → 下次请求时validate → calibrate+evolve → ML训练检查 →
+参数注入Agent → 下次辩论更准（参数+模型双线进化）
 ```
 
 不需要用户说"验证一下历史裁决"或"进化一下参数"——这些是系统的心跳，不是外部命令。
