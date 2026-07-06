@@ -91,6 +91,7 @@ def run_sync() -> bool:
         r = subprocess.run(
             [sys.executable, SYNC_SCRIPT],
             capture_output=True, text=True, timeout=120,
+            encoding="utf-8", errors="replace",
             cwd=os.path.dirname(SYNC_SCRIPT),
             env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
