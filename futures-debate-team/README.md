@@ -23,50 +23,49 @@ Team 型（10角色多角色协作团队，全Agent自进化）
      │   已验证≥5条 → calibrate_weights.py → evolve_agents.py
      │   加载最新 calibration.json + agent_profiles.json
      ▼
-P1  数据采集与双通道分离           数技源(quant-daily)
-     │                           scan_all.py --dual → debate_brief.py
-     │                           产出: full_scan_summary.json + candidates.json
-     │                              ├─ trading_recommendations[] 共识+launch+非极端(免辩论)
-     │                              ├─ watch_list[]              观察级品种
-     │                              └─ debate_candidates[]       分歧/极端/链补(需辩论)
+P1  三类信号全量扫描               数技源(quant-daily - three_signal策略)
+     │                           产出: full_scan_three_signal_*.json
+     │                           (L1-L4/因子择时由研究员按需调用data_interface)
      ▼
-P1.5 产业链分析                  链证源(commodity-chain)
-     │                           产出: 产业链快照 + redundant_pairs(同链相关性)
+P1.5 产业链分析                    链证源(commodity-chain-analysis)
+     │                           产出: 产业链景气度快照 + 冗余排除
+     │                           基于三类信号品种，不做全覆盖
      ▼
-P2  闫判官双通道分流             闫判官(judge)
-     │                           输入: 信号 + candidates + 链数据 + calibration.json
-     ├── 通道A: 直接推荐
-     │   ├── 闫判官: 复核方向 → 基于price/ATR/ADX设定入场/止损/目标
-     │   └── 策执远: 合约选型 + 仓位计算 + 建仓节奏
+P2  闫判官筛选辩论品种             闫判官(judge)
+     │                           输入: 三类信号 + 链分析
+     │                           按R26指定正方方向(signal_type隐含方向)
+     │                           链内去重(一链1-2个代表品种)
+     ▼
+P3  研究员供弹 → 辩论             并行Agent(明鉴秋全程调度·时序铁律)
+     ├── 观澜: 技术面+支撑阻力S1/S2/R1/R2
+     ├── 探源: 基本面状态向量5维度
+     ├── 证真: 正方论据(5维度CLAIM-EVIDENCE-REASONING-IMPACT)
+     └── 慎思: 反方反驳(解构型论证)
      │
-     └── 通道B: 辩论
-         ├── 研究员供弹(观澜技术面 + 探源基本面)
-         ├── 证真(多方) vs 慎思(空方) 多轮辩论
-         └── 闫判官: 六维评分(含5维自校准)→判决→胜方提案
-     │
+     ▼ 明鉴秋poll_file_ready轮询等待文件就绪
      ▼
-P3  方案合成与风控审核          策执远(strategist) → 风控明(risk)
-     │                           双通道统一过: 合约→仓位→风控→净盈亏比
-     │                           red退回修改 / green通过
+P4  策执远方案 → 风控明审核
+     ├── 策执远: 3挡方案(保守/中性/进取+具体合约)
+     └── 风控明: 5维审核(include/watch/exclude)
      ▼
-P4  合并双通道 → 归档           明鉴秋(team-lead)
-                                 TeamDecisionOutput → debate_results.json → HTML报告
+P5  明鉴秋汇总 → 归档             明鉴秋(team-lead)
+                                 debate_results.json + HTML报告
 ```
 
 ### 角色与阶段对照
 
 | 角色 | Agent | P1 | P1.5 | P2 | P3 | P4 |
 |:-----|:------|:--:|:----:|:--:|:--:|:--:|
-| **数技源** | datatech | ● 信号 | | | | |
+| **数技源** | datatech | ● 三类信号 | | | | |
 | **链证源** | chain-analyst | | ● 产业链 | | | |
-| **闫判官** | judge | | | ● 双通道分流 | ● 判决 | |
+| **闫判官** | judge | | | ● 选品种+定方向 | | |
 | **探源** | fundamental | | | | ● 供弹 | |
-| **观澜** | technical | | | | ● 供弹 | |
-| **证真(多方)** | affirmative | | | | ● 辩论 | |
-| **慎思(空方)** | opposition | | | | ● 辩论 | |
-| **策执远** | strategist | | | ● 通道A仓位 | ● 方案合成 | |
+| **观澜** | technical | | | | ● 供弹+支撑/阻力 | |
+| **证真** | affirmative | | | | ● 正方论据 | |
+| **慎思** | opposition | | | | ● 反方论据 | |
+| **策执远** | strategist | | | | ● 方案(3挡) | |
 | **风控明** | risk | | | | | ● 审核 |
-| **明鉴秋** | team-lead | ● 启动 | | | | ● 合并归档 |
+| **明鉴秋** | team-lead | ● 启动+调度 | | | ● 轮询传递 | ● 归档+报告 |
 
 ## 核心设计原则（v5.2 - 三类信号架构重构版）
 
@@ -337,6 +336,7 @@ S4: 明鉴秋汇总 → debate_results.json + HTML + memory更新
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v5.2.1** | **2026-07-07** | **🔧 全面修复**: ADX仅风控不参与评分(3个Agent MD+strategy)+Agent输出格式统一(8个MD加产出格式段)+JSON Schema标准导出(docs/schemas/ 9文件)+时序通信铁律S01-S05(poll_file_ready+原子写入+禁止Agent串线)+胶水代码清零+phase3加载辩论详情+交易方案合约注入。 |
 | **v5.2** | **2026-07-06** | **🧬 三类信号架构重构**: 三类信号(突破/回踩/跳空)替代L1-L4+因子择时为主信号源，所有信号全辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思动态正反方(不再固定多空)，研究员数据接口独立(L1-L4→technical-analysis, 因子→fundamental-data-collector)，V型反转例外，R11-R18新增ADX规则，quant-daily仅保留three_signal策略，version 5.1→5.2。 |
 | **v5.1** | **2026-07-06** | **🔄 Phase 1独立化**: **内建调度器**`scheduler/`(engine/triggers/tasks 4文件·时间/数据量/事件3种触发器·5个预注册任务)；**bootstrap.py**一键启动(once/daemon/interactive 3模式)；**daemon_watchdog.py**平台看门狗(心跳日志检测·自动恢复)；**全自动管道**`daily_debate`(scan→phase3→报告复制完整链)；**删除3个平台automation**完全替代；**自循环闭环升级**：P0手动→全自动自触发；**独立记忆系统**: 路径边界铁律+清理平台目录；**裁决修正v2.0**: R01-R10数据质量规则；**用户反馈主动归档**；**ATR修复**(10→239)；**10文件更新**
 | **v5.0** | **2026-07-06** | **🧬 自进化闭环里程碑**：P0进化链(validate→calibrate→evolve 3脚本自动串联); 全9Agent自进化(闫判官5维评分/风控明ATR+仓位/策执远RR+仓位/辩手论证策略/链证源去重阈值/数技源重试/探源基本面权重/观澜ATR周期); 裁决修正经验库(R01-R05 5条硬规则); 闭环追踪(record_verdicts→validate_verdicts→execution_followup.json); 评分自校准(5维度权重自适应·学习率0.3·钳制±10); 新增4脚本+5memory文件; v9全品种辩论算法(14链覆盖·max2/c·安全边际排序) |
