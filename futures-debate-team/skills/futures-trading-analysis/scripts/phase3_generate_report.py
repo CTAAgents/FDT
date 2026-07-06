@@ -11,122 +11,179 @@ from datetime import datetime
 
 # ==================== 辩论结果适配器（兼容新旧格式） ====================
 # v2.5: 支持 contracts/ schema 格式和旧版平铺格式
+# v2.6 (2026-07-06): 修复 bull_args/bear_args 空列表问题 + 添加方向映射 + 数据源穿透
 def _detect_format(debate_results: dict) -> str:
-    """
-    检测 debate_results.json 的数据格式。
-    返回: 'per_pid'（{pid: {data}}） 或 'nested'（{verdicts: {pid: {data}}, ...}）
-    """
-    # 如果任何一个value是dict且包含'judge_verdict'/'verdict'等字段 → per_pid
+    """检测 debate_results.json 的数据格式。"""
     for key, val in debate_results.items():
         if isinstance(val, dict) and any(k in val for k in ("judge_verdict", "verdict", "direction")):
             return "per_pid"
-    # 如果存在'verdicts'键且其值是dict → nested
     if "verdicts" in debate_results and isinstance(debate_results["verdicts"], dict):
         return "nested"
-    # 兜底：尝试按per_pid处理
+    if "verdicts" in debate_results and isinstance(debate_results["verdicts"], list):
+        return "nested_list"
     return "per_pid"
 
 
+def _normalize_args(args_val) -> str:
+    """规范化 bull_args/bear_args: 支持 str / list / None → HTML 友好字符串"""
+    if args_val is None:
+        return ""
+    if isinstance(args_val, str):
+        return args_val
+    if isinstance(args_val, list):
+        if len(args_val) == 0:
+            return ""
+        return "<br>".join(str(a) for a in args_val)
+    return str(args_val)
+
+
+def _map_direction(raw_dir: str) -> str:
+    """统一方向映射: 中文/英文/短码 → BUY/SELL/HOLD"""
+    d = (raw_dir or "").strip().lower()
+    if d in ("做多", "多头", "bull", "buy", "long"):
+        return "BUY"
+    if d in ("做空", "空头", "bear", "sell", "short"):
+        return "SELL"
+    return "HOLD"
+
+
+def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
+    """当 bull_args/bear_args 为空时，从中间数据自动生成论据"""
+    bear, bull = [], []
+    symbols = intermediate.get("symbols_summary", [])
+    item = None
+    for s in symbols:
+        if s.get("symbol", s.get("pid", "")) == sym:
+            item = s
+            break
+    if not item:
+        return "", ""
+    adx = item.get("adx", 0)
+    rsi = item.get("rsi", 50)
+    l1l4_total = item.get("l1l4_total", item.get("total", 0))
+    direction = _map_direction(v.get("direction", item.get("l1l4_direction", "")))
+    fdir = v.get("factor_direction", item.get("factor_direction", "neutral"))
+    stage = item.get("stage", "")
+    z = item.get("z_score", 0)
+    chain_name = v.get("chain", "")
+    # 生成论据
+    if direction == "SELL":
+        if adx >= 60: bear.append(f"ADX={adx:.1f} 极强空头趋势")
+        elif adx >= 40: bear.append(f"ADX={adx:.1f} 中强空头趋势")
+        else: bear.append(f"ADX={adx:.1f} 趋势偏弱")
+        if rsi < 30: bear.append(f"RSI={rsi:.1f} 超卖但趋势向下")
+        elif rsi < 40: bear.append(f"RSI={rsi:.1f} 偏弱区间")
+        if abs(l1l4_total) >= 65: bear.append(f"L1-L4={l1l4_total} 四层共振确认")
+        elif abs(l1l4_total) >= 55: bear.append(f"L1-L4={l1l4_total} 中高分空头")
+        if stage == "trending": bear.append("阶段: trending 主趋势运行中")
+        if z < -1: bear.append(f"Z={z:.1f} 统计显著偏空")
+        if fdir == "bear": bear.append("因子择时共振(bear) 双策略确认")
+        if fdir == "bull": bull.append("因子择时分歧(bull) 反转风险")
+    if rsi < 25: bull.append(f"RSI={rsi:.1f} 极端超卖 技术反弹风险")
+    if stage == "exhausted": bull.append("趋势 exhausted 反转概率上升")
+    return "<br>".join(bear) if bear else "", "<br>".join(bull) if bull else ""
+
+
 def adapt_debate_results(debate_results: dict, intermediate: dict) -> dict:
-    """
-    将 debate_results.json 适配为 report generator 内部格式（per-pid dict）。
-    自动检测格式：
-    1. per_pid 格式：{'PK': {judge_verdict:..., bull_args:...}, 'SA': {...}}
-    2. nested 格式：{'verdicts': {'PK': {direction:..., confidence:...}}, 'overall': {...}}
-    """
+    """将 debate_results.json 适配为 report generator 内部格式（per-pid dict）。"""
     fmt = _detect_format(debate_results)
 
     if fmt == "nested":
-        # 扁平化 nested 格式 → per_pid
         verdicts = debate_results.get("verdicts", {})
         overall = debate_results.get("overall", {})
-        per_pid = {}
-        for pid, v in verdicts.items():
-            if not isinstance(v, dict):
-                continue
-            direction = v.get("direction", "HOLD")
-            conf = v.get("confidence", 0)
-            ruling = v.get("risk_ruling", "")
-            # 方向映射
-            dir_map = {"做多": "BUY", "做空": "SELL", "观望": "HOLD"}
-            eng_dir = dir_map.get(direction, direction)
+        debate_results = _nested_to_per_pid(verdicts, overall, intermediate)
 
-            per_pid[pid] = {
-                "judge_verdict": {
-                    "final_direction": direction,
-                    "confidence": conf,
-                    "reasoning": v.get("reasoning", ""),
-                },
-                "category": overall.get("tendency", ""),
-                "risk_detail": overall.get("core_conflict", ""),
-                "bull_args": v.get("bull_args", ""),
-                "bear_args": v.get("bear_args", ""),
-                "verdict": {"status": direction, "confidence": conf},
-                "direction": eng_dir,
-                "risk_ruling": ruling,  # per-pid ruling, NOT global
-                "entry_price": v.get("entry_price", 0),
-                "target_price": v.get("target_price", 0),
-                "stop_loss_price": v.get("stop_loss_price", 0),
-                "position_size": v.get("position_size", 0),
-                "risk_reward_ratio": v.get("risk_reward_ratio", 0),
-            }
-        debate_results = per_pid
+    elif fmt == "nested_list":
+        # verdicts 是 list 格式 → 先转为 nested dict
+        raw_list = debate_results.get("verdicts", [])
+        nested_dict = {}
+        for v in raw_list:
+            if isinstance(v, dict):
+                sym = v.get("symbol", v.get("pid", ""))
+                if sym:
+                    nested_dict[sym] = v
+        overall = debate_results.get("overall", {})
+        debate_results = _nested_to_per_pid(nested_dict, overall, intermediate)
 
-    # 统一 per_pid 处理
+    return _per_pid_normalize(debate_results, intermediate)
+
+
+def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dict:
+    """nested {pid: {direction, confidence, ...}} → per_pid {pid: {judge_verdict:..., ...}}"""
+    per_pid = {}
+    for pid, v in verdicts.items():
+        if not isinstance(v, dict):
+            continue
+        direction = _map_direction(v.get("direction", ""))
+        conf_raw = v.get("confidence", 0)
+        if isinstance(conf_raw, str):
+            conf_map = {"HIGH": 0.85, "MEDIUM": 0.60, "LOW": 0.35}
+            conf_val = conf_map.get(conf_raw, 0.5)
+        else:
+            conf_val = float(conf_raw) if conf_raw else 0.5
+
+        # 规范化 bull/bear arguments
+        bull_args = _normalize_args(v.get("bull_args", ""))
+        bear_args = _normalize_args(v.get("bear_args", ""))
+        if not bear_args and not bull_args:
+            bear_args, bull_args = _generate_fallback_args(pid, v, intermediate)
+
+        per_pid[pid] = {
+            "judge_verdict": {
+                "final_direction": direction,
+                "confidence": conf_val,
+                "reasoning": v.get("reasoning", v.get("judge_verdict", "")),
+            },
+            "category": overall.get("tendency", ""),
+            "risk_detail": overall.get("core_conflict", ""),
+            "bull_args": bull_args,
+            "bear_args": bear_args,
+            "verdict": {"status": direction, "confidence": conf_val},
+            "direction": direction,
+            "entry_price": v.get("entry_price", v.get("entry", 0)),
+            "target_price": v.get("target_price", v.get("target", 0)),
+            "stop_loss_price": v.get("stop_loss_price", v.get("stop_loss", 0)),
+            "position_size": v.get("position_pct", v.get("position_size", 0)),
+            "risk_reward_ratio": v.get("risk_reward_ratio", v.get("risk_reward", 0)),
+            "chain": v.get("chain", ""),
+            "adx": v.get("adx", 0),
+            "rsi": v.get("rsi", 50),
+            "score": v.get("score", 0),
+        }
+    return per_pid
+
+
+def _per_pid_normalize(debate_results: dict, intermediate: dict) -> dict:
+    """统一 per_pid 格式处理"""
     adapted = {}
     for pid, d in debate_results.items():
         if not isinstance(d, dict):
             continue
-        entry = dict(d)  # 拷贝
-
-        # 1. Judge verdict — 已存在则保留
+        entry = dict(d)
+        # 1. Judge verdict
         if "judge_verdict" not in entry or not isinstance(entry.get("judge_verdict"), dict):
             entry["judge_verdict"] = {
                 "final_direction": entry.get("direction", "HOLD"),
                 "confidence": entry.get("confidence", 0),
                 "reasoning": entry.get("reasoning", ""),
             }
-
-        # 2. Risk verdict
-        if "risk_output" in d and isinstance(d["risk_output"], dict):
-            ro = d["risk_output"]
-            entry["category"] = ro.get("overall", {}).get("tendency", "")
-            entry["risk_detail"] = ro.get("overall", {}).get("core_conflict", "")
-
-        # 3. Bull/Bear arguments (fallback if not already present)
-        if "bull_output" in d and isinstance(d["bull_output"], dict) and not entry.get("bull_args"):
-            bo = d["bull_output"]
-            dims = bo.get("dimensions", [])
-            dim_summary = "; ".join([f"{dim.get('dim', '')}: {dim.get('evidence', '')}" for dim in dims[:3]])
-            entry["bull_args"] = bo.get("summary_4_risk", "") + (" | " + dim_summary if dim_summary else "")
-        if "bear_output" in d and isinstance(d["bear_output"], dict) and not entry.get("bear_args"):
-            bo = d["bear_output"]
-            dims = bo.get("dimensions", [])
-            dim_summary = "; ".join([f"{dim.get('dim', '')}: {dim.get('evidence', '')}" for dim in dims[:3]])
-            entry["bear_args"] = bo.get("summary_4_risk", "") + (" | " + dim_summary if dim_summary else "")
-
-        # 4. Trading plan
-        if "plan_output" in d and isinstance(d["plan_output"], dict):
-            po = d["plan_output"]
-            actions = po.get("actions", [])
-            if actions:
-                a = actions[0]
-                entry["direction"] = "BUY" if a.get("direction") == "long" else "SELL"
-                entry["entry_price"] = a.get("entry_price", 0)
-                entry["target_price"] = a.get("take_profit", 0)
-                entry["stop_loss_price"] = a.get("stop_loss", 0)
-                entry["position_size"] = a.get("position_size_pct", 0)
-                entry["risk_reward_ratio"] = po.get("risk_reward_ratio", 0)
-
-        # 5. Chain (from chain_results in intermediate_data.json)
+        # 2. Normalize bull/bear args
+        for key in ("bull_args", "bear_args"):
+            val = entry.get(key, "")
+            if isinstance(val, list):
+                entry[key] = "<br>".join(str(a) for a in val) if val else ""
+            elif not val:
+                fallback_bear, fallback_bull = _generate_fallback_args(pid, entry, intermediate)
+                entry["bear_args"] = entry.get("bear_args") or fallback_bear
+                entry["bull_args"] = entry.get("bull_args") or fallback_bull
+        # 3. Chain from intermediate
         chain_results = intermediate.get("chain_results", {})
-        if not entry.get("chain"):
+        if not entry.get("chain") and chain_results:
             for cname, cinfo in chain_results.items():
                 members = cinfo.get("members", []) if isinstance(cinfo, dict) else []
                 if pid in members:
-                    entry["chain"] = {"chain": cname, "term_structure": cinfo.get("term_structure", "")}
+                    entry["chain"] = {"chain": cname}
                     break
-
         adapted[pid] = entry
     return adapted
 

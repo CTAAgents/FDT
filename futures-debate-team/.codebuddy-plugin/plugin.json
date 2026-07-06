@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.5.5",
+  "version": "4.5.6",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.5.4 — 每品种必辩(全量/批量/单品种均完整辩论,禁止算法替代)+SOP流程保护+报告完整性铁律+数据源穿透。",
+  "description": "Multi-role futures trading debate team v4.5.6 — 铁律4条强化(8必含字段+bull/bear强制非空)+phase3适配器修复(论据自动生成+list格式兼容)+报告生成前核验前置。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
