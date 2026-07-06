@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "4.5.2",
+  "version": "4.5.3",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v4.5.2 — 黑盒封装(不可探查内部/不可单独调用子角色)+报告完整性铁律(62品种全覆盖+交易参数完备+数据源穿透+时间精确到分钟)。",
+  "description": "Multi-role futures trading debate team v4.5.3 — SOP流程保护(全量/批量/单品种三种模式,不可跳过阶段)+报告完整性铁律+数据源穿透+时间精确到分钟。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
