@@ -352,7 +352,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     "dc20": round(dc20_score, 1),
                     "dc55": round(dc55_score, 1),
                     "bb": round(bb_score, 1),
-                    "vol_score": round(volume_score, 1),  # 注意：不能用"volume"，会和to_dict()的volume字段冲突
+                    "vol_score": round(volume_score, 1),
                 },
                 price=price,
                 change_pct=change_pct,
@@ -365,6 +365,8 @@ class ChannelBreakoutStrategy(BaseStrategy):
                 stage=stage,
                 ma_align=tech.get("ma_align", "mixed"),
                 dc20_break=dc20_break,
+                z_score=tech.get("Z_SCORE", tech.get("z_score", 0.0)),
+                consistency=tech.get("cons", tech.get("consistency", 0)),
                 extra={
                     "signal_type": signal_type,
                     "channel_detail": dc_detail,

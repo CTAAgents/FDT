@@ -1,6 +1,6 @@
 ---
 name: quant-daily
-version: 2.8.0
+version: 2.8.1
 agent_created: true
 description: 商品期货量化分析skill — 默认策略=channel_breakout（唐奇安DC20/DC55+布林带通道突破）。L1-L4原始指标由研究员按需通过data_interface获取。
 ---
@@ -305,7 +305,7 @@ scripts/
 
 ## 使用方法
 
-详见 [USER_GUIDE.md](USER_GUIDE.md)
+详见 [README.md](../../README.md)
 
 ```bash
 # 全品种信号扫描
@@ -322,6 +322,7 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 
 ## 版本历史
 
+- **v2.8.1** (2026-07-07): **SCI指标修复** — channel_breakout_strategy补传z_score/consistency/stage字段；three_signal_backtest→channel_breakout_backtest重命名；fingerprint降级警告静默化；USER_GUIDE引用修复为README
 - **v2.8.0** (2026-07-07): **默认策略改为通道突破** — 新增 channel_breakout_strategy.py（唐奇安DC20/DC55 + 布林带确认），替换原 three_signal 为默认策略；scan_all.py dual 模式同步更新；registry.py 注册链更新
 - **v2.5.0** (2026-07-06): **新增TqSdk盘中K线数据源** — `multi_source_adapter.py.get_kline()` 盘中时段新增TqSdk降级路径（TDX→TqSdk→东方财富→AKShare）；新增 `_fetch_tqsdk_kline()` 方法通过 TqSdk 主力连续合约（`KQ.{exchange}@{variety}`）获取 K 线；SKILL.md 数据源管道文档同步更新
 - **v2.4.0** (2026-07-05): **P3全量实现** — 新增 ml_models/direction_classifier.py(LightGBM+EnsemblePredictor), feature_pipeline/feature_engineering.py(30+维度特征), feedback/trade_journal.py(PnL反馈闭环+反向标注); debate_brief.py 新增 risk_input字段注入(confidence/ATR/ADX/pattern_risk); indicators_legacy.py 除零修复(numpy安全向量化); SC斜率异常值过滤(abs>20%→0)

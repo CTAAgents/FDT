@@ -127,7 +127,6 @@ def run_scan(
         print(f"[Fingerprint] 策略指纹: {_fp}")
     except Exception as e:
         _fp = f"FDB_v4.4_noseed_{date.today().strftime('%Y%m%d')}"
-        print(f"[Fingerprint] 指纹生成降级: {_fp} (原因: {e})")
 
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
     if dual:
