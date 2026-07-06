@@ -1,6 +1,6 @@
 {
   "name": "futures-debate-team",
-  "version": "4.5.4",
+  "version": "4.5.5",
   "deprecated": false,
   "description": "Multi-role futures trading debate team v4.5.4 — 每品种必辩(全量/批量/单品种均完整辩论,禁止算法替代)+SOP流程保护+报告完整性铁律+数据源穿透。",
   "author": {
