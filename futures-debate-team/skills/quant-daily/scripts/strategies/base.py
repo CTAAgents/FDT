@@ -32,6 +32,7 @@ class SignalResult:
     ma_align: str = "mixed"
     z_score: float = 0.0
     stage: str = "unknown"
+    atr: float = 0.0  # ATR(14) — 平均真实波幅
     _tdx_patched: bool = False
     extra: dict = field(default_factory=dict)  # 策略专属额外字段
 
@@ -59,6 +60,7 @@ class SignalResult:
             "_tdx_patched": self._tdx_patched,
             "veto": self.veto,
             "cons": self.consistency,
+            "atr": round(self.atr, 1),
         }
         # 合并子层分数
         for k, v in self.sub_scores.items():

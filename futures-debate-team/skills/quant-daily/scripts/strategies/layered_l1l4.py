@@ -104,6 +104,7 @@ class LayeredL1L4Strategy(BaseStrategy):
                 dc20_break=tech.get("dc20_break", "none"),
                 ma_align=tech.get("ma_align", "mixed"),
                 stage=stage,
+                atr=float(tech.get("ATR", tech.get("ATR14", tech.get("atr", 0)))),
                 _tdx_patched=tech.get("_tdx_patched", False),
             )
             results.append(result)

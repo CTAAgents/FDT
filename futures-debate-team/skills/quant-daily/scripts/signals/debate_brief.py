@@ -33,10 +33,16 @@ def _extract_risk_input(l_entry: dict, f_entry: dict) -> dict:
     f_conf = f_entry.get("vote_confidence", 0.0)
     base_confidence = int((l_cons / 4 * 60 + abs(f_conf) * 40))
 
-    # ATR估算
+    # ATR: 优先从信号输出读取，无数据则按价格2%估算（远优于之前的信号总分×0.15）
     atr = l_entry.get("atr", 0)
     if not atr:
-        atr = max(abs(l_total) * 0.15, 10)
+        atr = f_entry.get("atr", 0)
+    if not atr:
+        price = l_entry.get("price", 0)
+        if price:
+            atr = price * 0.02  # 通用期货日波幅约2%（覆盖LH之类高波品种略保守）
+        else:
+            atr = 200  # 连价格都没有的情况（罕见），用保守默认值
 
     # 信号方向
     l_dir = "bull" if l_total > 0 else ("bear" if l_total < 0 else "neutral")
@@ -298,9 +304,10 @@ def _extract_l1l4(entry: dict) -> dict:
         "l2": entry.get("l2", 0),
         "l3": entry.get("l3", 0),
         "l4": entry.get("l4", 0),
-        "z_score": entry.get("z_score", 0),
-        "volume": entry.get("volume", 0),
-    }
+		"z_score": entry.get("z_score", 0),
+		"volume": entry.get("volume", 0),
+		"atr": entry.get("atr", 0),
+	}
 
 
 def _extract_factor(entry: dict) -> dict:

@@ -245,6 +245,7 @@ class FactorTimingStrategy(BaseStrategy):
                 dc20_break=entry.get("dc20_break", "none"),
                 ma_align=entry.get("ma_align", "mixed"),
                 stage=entry.get("stage", "unknown"),
+                atr=float(entry.get("atr", entry.get("ATR", entry.get("ATR14", 0)))),
                 z_score=entry.get("z_score", 0),
                 consistency=entry.get("cons", 0),
                 extra={

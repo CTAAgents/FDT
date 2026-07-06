@@ -156,3 +156,14 @@ append_debate_journal("futures-technical-researcher", "research_snapshot", {
 - `check_divergence(price, vol, oi, macd, rsi)` — 多维度背离检测
 - `analyze_seat_flow(net_long, change, direction, seats)` — 席位资金流分析
 - `estimate_long_short_ratio(long_v, short_v)` — 多空比估算
+
+## 🔴 数据质量铁律（2026-07-06 新增·LH辩论事故驱动）
+
+### R06 | 数据时效性检查
+- 技术指标基于K线计算 → 必须标注K线数据截止日期
+- 同一品种不同时间框架的数据不可混合引用不做标注
+- 引用DC20/唐奇安等通道突破时，必须标注计算所基于的K线数量
+
+### R09 | 异常值引用禁令
+- TDX/calc_core输出中标记为异常的值 → **禁止**作为技术论据
+- 技术图形识别（如"深度Contango"）必须有量化数据支撑，不可仅靠经验判断

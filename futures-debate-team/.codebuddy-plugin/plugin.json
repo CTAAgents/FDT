@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.0.0 — 自进化闭环里程碑：P0进化链(validate→calibrate→evolve)+全9Agent自进化(风控/策略/辩手/链证/数技/探源/观澜/闫判官)+裁决修正经验库(R01-R05)+闭环追踪(record→verify→feedback)+评分5维自校准。",
+  "description": "Multi-role futures trading debate team v5.1.0 — 自循环闭环: 全自动反馈(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录结构+路径边界铁律)+裁决修正v2.0(R01-R10数据质量规则)+用户反馈主动归档+ATR修复+10Agent全进化。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v5.0 — Self-evolving closed-loop: P0 chain(validate→calibrate→evolve), all 9 Agents self-evolve(judge weights/risk ATR/strategist RR/debater strategy/chain dedup threshold/data retry/fundamental weight/technical ATR), judgment revision library(R01-R05), closed-loop tracking(record→verify→feedback), 5-dimension scoring self-calibration.",
-    "zh": "10角色期货辩论专家团v5.0 — 自进化闭环：P0进化链(validate→calibrate→evolve)+全9Agent自进化(闫判官权重/风控ATR/策执远RR/辩手策略/链证去重阈值/数技源重试/探源权重/观澜ATR)+裁决修正经验库(R01-R05)+闭环追踪(记录→验证→反馈)+评分5维自校准。"
+    "en": "10-role futures debate team v5.1 — Self-circulating closed-loop: auto-feedback(validate→calibrate→evolve self-triggering), independent memory system(platform-free directory+boundary rule), judgment revisions v2.0(R01-R10 data quality rules), user feedback auto-archive, ATR fix, 10-Agent full evolution.",
+    "zh": "10角色期货辩论专家团v5.1 — 自循环闭环：全自动反馈(validate→calibrate→evolve自触发)+独立记忆系统(平台无关目录+路径边界铁律)+裁决修正v2.0(R01-R10数据质量规则)+用户反馈主动归档+ATR修复+10Agent全进化。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",
