@@ -330,6 +330,9 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # 阶段（沿用技术阶段）
             stage = tech.get("stage", "unknown")
 
+            # MA60数值（供闫判官MA60方向规则判断）
+            ma60 = tech.get("MA60", tech.get("ma60", None))
+
             # 信号类型（通道突破+布林带确认的统一描述）
             signal_type = "none"
             if abs(dc20_score) >= 30 and abs(dc_score) >= 20:
@@ -376,6 +379,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     "dc55_trend": dc55_trend,
                     "bb_width_pct": round(bb_width_pct, 2) if bb_width_pct is not None else None,
                     "bb_squeeze": bb_squeeze,
+                    "ma60": round(ma60, 1) if ma60 else None,
                 },
             )
             results.append(result)
