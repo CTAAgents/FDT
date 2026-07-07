@@ -110,15 +110,16 @@ class ChannelBreakoutStrategy(BaseStrategy):
                 elif dc20_pos is not None and dc20_pos > 0.5:
                     dc_detail["dc20_position"] = "mid_upper"
 
-                # ADX趋势确认
-                if adx >= 25:
-                    dc20_score += 5.0
-                    dc_detail["adx_confirmed"] = True
-                elif adx >= 20:
-                    dc20_score += 2.0
-                    dc_detail["adx_confirmed"] = "weak"
+                # ADX趋势评估：ADX是滞后指标，低ADX不否定突破
+                # ADX>60警示趋势可能衰竭，ADX25-60确认趋势健康，ADX<25中性
+                if adx > 60:
+                    dc20_score -= 5.0  # 极端高位警示
+                    dc_detail["adx_signal"] = "exhaustion_warning"
+                elif adx >= 25:
+                    dc20_score += 3.0  # 趋势健康
+                    dc_detail["adx_signal"] = "trend_healthy"
                 else:
-                    dc_detail["adx_confirmed"] = False
+                    dc_detail["adx_signal"] = "neutral"  # ADX低是正常的，趋势可能刚开始
 
             elif dc20_break == "down":
                 dc20_score -= 30.0
@@ -139,14 +140,15 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     dc_detail["dc20_position"] = "lower_zone"
                 elif dc20_pos is not None and dc20_pos < 0.5:
                     dc_detail["dc20_position"] = "mid_lower"
-                if adx >= 25:
-                    dc20_score -= 5.0
-                    dc_detail["adx_confirmed"] = True
-                elif adx >= 20:
-                    dc20_score -= 2.0
-                    dc_detail["adx_confirmed"] = "weak"
+                # ADX趋势评估（同上，方向取反）
+                if adx > 60:
+                    dc20_score += 5.0  # 空头衰竭警示→加分(向零靠拢)
+                    dc_detail["adx_signal"] = "exhaustion_warning"
+                elif adx >= 25:
+                    dc20_score -= 3.0  # 空头趋势健康
+                    dc_detail["adx_signal"] = "trend_healthy"
                 else:
-                    dc_detail["adx_confirmed"] = False
+                    dc_detail["adx_signal"] = "neutral"
             else:
                 dc_detail["dc20_direction"] = "none"
 
