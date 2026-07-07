@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "5.5.0"
+version = "5.4.1"
 description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.4: APM-CS 5-axis scoring + Telescope failure clustering (D1-D5 observability), ViBench replay + held-out judge (D1/D3), self_improve scaffold, full-period K-line, enforce_discipline position caps; v5.3 channel breakout (Donchian DC20/DC55 + BB) + TqSDK live mode + signal check gate"
 readme = "README.md"
 requires-python = ">=3.10"

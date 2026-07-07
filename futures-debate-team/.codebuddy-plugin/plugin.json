@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.5.0",
+  "version": "5.4.1",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.5.0 — 在v5.4可观测性基础上新增：定性信息门户目录(info_portals.md) — 三层级分类框架(监管/交易所→综合资讯→产业垂直)共30+权威站点，品种映射速查表；data_sources.md 新增定性门户交叉引用；团队主管SOP新增定性信息取证职责。",
+  "description": "Multi-role futures trading debate team v5.4.1 — 在v5.4可观测性基础上新增：定性信息门户目录(info_portals.md) — 三层级分类框架(监管/交易所→综合资讯→产业垂直)共30+权威站点，品种映射速查表；data_sources.md 新增定性门户交叉引用；团队主管SOP新增定性信息取证职责。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
