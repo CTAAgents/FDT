@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.4.0 — 在v5.3通道突破基础上新增：APM-CS五轴评分卡+Telescope失败聚类(D1-D5可观测性)、ViBench回放+held-out一致性裁判(D1/D3解锁)、self_improve自改进脚手架、全周期K线(日/周/月/多分钟周期)、D4纪律钳制(仓位上限强制)、成本感知PnL；10Agent全进化+自循环闭环+独立记忆系统。",
+  "description": "Multi-role futures trading debate team v5.5.0 — 在v5.4可观测性基础上新增：定性信息门户目录(info_portals.md) — 三层级分类框架(监管/交易所→综合资讯→产业垂直)共30+权威站点，品种映射速查表；data_sources.md 新增定性门户交叉引用；团队主管SOP新增定性信息取证职责。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
