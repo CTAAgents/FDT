@@ -711,10 +711,15 @@ def main():
     for name in ["证真", "慎思"]:
         p = new_profiles.get(name, {})
         if p:
+            def _fmt_num(v, suffix=""):
+                try:
+                    return f"{float(v):+.1f}{suffix}"
+                except (ValueError, TypeError):
+                    return f"{v}{suffix}"
             print(f"  {name}: 策略={p.get('strategy','?')}, "
                   f"胜率={p.get('_win_rate','?')}%, "
-                  f"实现盈亏={p.get('_realized_pnl','?'):+.1f}%, "
-                  f"置信度偏移={p.get('confidence_boost',0):+.1f}")
+                  f"实现盈亏={_fmt_num(p.get('_realized_pnl','?'), '%')}, "
+                  f"置信度偏移={_fmt_num(p.get('confidence_boost',0))}")
 
     profiles["_meta"]["last_evolved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     profiles["_meta"]["total_samples"] = len(verdicts)

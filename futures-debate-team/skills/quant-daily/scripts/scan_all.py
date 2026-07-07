@@ -27,6 +27,23 @@ PARENT_DIR = os.path.dirname(SKILL_DIR)  # 包含 scripts/ 作为包名
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
 
+
+# ── S03 原子写入工具：避免 Windows 残留 .tmp 阻止 rename 报 FileExistsError ──
+def _atomic_write(path, data, mode="json"):
+    """先写 .tmp，清理可能残留的旧 .tmp/目标后 os.replace 落盘（Windows 安全）。"""
+    tmp = path + ".tmp"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    if os.path.exists(path):
+        os.remove(path)
+    if mode == "json":
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    else:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+    os.replace(tmp, path)
+
 try:
     from indicators.core import assess_trend_maturity
     from indicators.indicators_legacy import _compute_indicators_numpy
@@ -43,16 +60,38 @@ from data.multi_source_adapter import MultiSourceAdapter
 from strategies import get_strategy, list_strategies
 
 
+def _split_symbol_contract(sym: str):
+    """从品种代码解析 (variety, contract)。
+
+    'LH2609' → ('LH', '2609')；'LH' → ('LH', None)
+    支持1-6位字母 + 可选3-4位合约月份后缀。
+    用于单品种辩论时自动取真实合约K线(MA60等与文华/真实合约一致)，
+    不带后缀则沿用主力连续L8。
+    """
+    import re as _re
+
+    m = _re.match(r"^([A-Za-z]{1,6})(\d{3,4})?$", sym)
+    if not m:
+        return sym, None
+    return m.group(1), m.group(2)
+
+
 def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
-    """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。"""
+    """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。
+
+    合约解析：symbol 若带月份后缀(如 LH2609)自动提取 contract 并取真实合约K线；
+    不带后缀则用主力连续L8。显式传入的 contract 参数优先于 symbol 内嵌后缀。
+    """
     from datetime import date
 
     if today_str is None:
         today_str = date.today().strftime("%Y%m%d")
     kline_data = {}
     for i, (sym, name) in enumerate(symbols):
+        variety, sym_contract = _split_symbol_contract(sym)
+        eff_contract = contract or sym_contract
         try:
-            resp = adapter.get_kline(variety=sym, days=days, contract=contract, period=period)
+            resp = adapter.get_kline(variety=variety, days=days, contract=eff_contract, period=period)
             if isinstance(resp, dict) and resp.get("success"):
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
@@ -166,7 +205,7 @@ def run_scan(
     # ── 参数合法性校验 ──
     import re
 
-    valid_sym_pattern = re.compile(r"^[A-Za-z]{1,6}$")
+    valid_sym_pattern = re.compile(r"^[A-Za-z]{1,6}(\d{3,4})?$")
     if symbols is not None:
         if not isinstance(symbols, list):
             raise TypeError("symbols必须是列表，格式 [(sym, name), ...]")
@@ -364,13 +403,32 @@ def run_scan(
                 f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'l1'):>+3} {_sv(r,'l2'):>+3} {_sv(r,'l3'):>+3} {_sv(r,'l4'):>+3} {_sv(r,'veto'):>+3} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'z_score'):>5.1f} {_sv(r,'cons'):>3.0f}/4 {_sv(r,'stage', '?'):>8} {_sv(r,'grade'):>6} {src:>4}"
             )
 
-    # ── 写入文件（如指定output_dir） ──
+        # ── 写入文件（如指定output_dir） ──
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         json_path = os.path.join(output_dir, f"{output_prefix}_{today_str}.json")
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(summary, f, ensure_ascii=False, indent=2)
+        _atomic_write(json_path, summary, mode="json")
         print(f"\n📊 JSON: {json_path}")
+
+        # ── 数据追踪（供自优化器用，静默失败） ──
+        try:
+            from optimizer.data_tracker import record_scan
+            scan_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+            for r in all_ranked:
+                record_scan(
+                    symbol=r.get("symbol", ""),
+                    period=period,
+                    scan_time=scan_time,
+                    signal_type=r.get("signal_type", "unknown"),
+                    total_score=r.get("total", 0),
+                    grade=r.get("grade", "NOISE"),
+                    price=r.get("price", 0),
+                    adx=r.get("adx", 0),
+                    atr=r.get("atr", 0),
+                    rsi=r.get("rsi", 50),
+                )
+        except Exception:
+            pass  # 数据追踪是可选功能，不可用时静默跳过
 
         # HTML — 交互式排序表格
         import json as _json
@@ -615,8 +673,7 @@ render();
 </script>
 </body></html>"""
         html_path = os.path.join(output_dir, f"{output_prefix}_ranking_{today_str}.html")
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html)
+        _atomic_write(html_path, html, mode="text")
         print(f"[OK] HTML: {html_path} ({os.path.getsize(html_path)} bytes)")
 
     return summary
@@ -671,6 +728,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--list-strategies", help="列出所有可用策略", action="store_true")
     parser.add_argument("--dual", action="store_true", help="双策略模式：通道突破主策略 + L1-L4研究员辅助数据")
+    parser.add_argument("--no-track", action="store_true", help="禁用自优化数据追踪")
     parser.add_argument(
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
     )
@@ -765,17 +823,11 @@ def _run_walk_forward(symbols: list, train_days: int, test_days: int, output_dir
         )
 
     result_path = os.path.join(output_dir, f"walk_forward_results_{datetime.now().strftime('%Y%m%d')}.json")
-    with open(result_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "symbols": [s[0] for s in symbols] if symbols and isinstance(symbols[0], tuple) else symbols,
-                "train_days": train_days,
-                "test_days": test_days,
-                "windows": results,
-                "total_windows": len(results),
-            },
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+    _atomic_write(result_path, {
+        "symbols": [s[0] for s in symbols] if symbols and isinstance(symbols[0], tuple) else symbols,
+        "train_days": train_days,
+        "test_days": test_days,
+        "windows": results,
+        "total_windows": len(results),
+    }, mode="json")
     print(f"  📊 Walk-Forward报告: {result_path}")

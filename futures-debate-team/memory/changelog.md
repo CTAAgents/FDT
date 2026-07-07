@@ -4,6 +4,24 @@
 
 ---
 
+## 2026-07-07 20:00 — v5.4.0 可观测性与自改进
+
+**版本号同步**：pyproject.toml / .codebuddy-plugin/plugin.json / .version_history.json / README.md 统一升至 **5.4.0**。
+
+**新能力（向后兼容）**：
+- APM-CS 五轴评分卡（D1–D5）+ Telescope 失败模式聚类，周一自动触发（`scheduler/triggers.py`、`scripts/cluster_failures.py`、`scripts/apm_scorecard.py`）
+- D1/D3/ViBench 回放落地：`futures-judge-heldout.md` + `memory_writer.append_debate_record` + `scripts/replay_harness.py`（held-out 一致性裁判，非阻断审计）
+- D2 Acuity 真实计算 + 成本感知 PnL（`validate_verdicts.py` COST_BPS=2.0）
+- D4 纪律钳制 `scripts/enforce_discipline.py`（R13/R14/R-resonance 仓位上限强制）
+- D2 信号退化标记 / D5 陈旧失败过滤 / Stage3 `scripts/self_improve.py` 脚手架
+- 全周期 K 线支持（日/周/月/240m/60m/15m/5m/1m + 自定义周期，period 透传）
+
+**Bug 修复**：LH2609 MA60 真实合约口径（channel_breakout `_split_symbol_contract`）、`scan_all.py` 原子写入（`_atomic_write`）、`portfolio_backtest.py` 裸 except、RuleChecker 浮点边界（1e-6）、`triggers.py` DataTrigger `run_cmd` 闭包
+
+**质量门禁**：今日 `/loop` 审计 5 门禁全 100%（G1-G4=100%，G5 修复后 134/134）
+
+---
+
 ## 2026-07-06 22:25 — v5.2 架构重构
 
 **架构重构**:

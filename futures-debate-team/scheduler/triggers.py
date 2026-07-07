@@ -133,12 +133,14 @@ class DataTrigger:
         count_key: str = "records",
         threshold: int = 50,
         cooldown_minutes: int = 1440,  # 默认24小��冷却
+        run_cmd: str = None,
     ):
         self.task_name = task_name
         self.data_path = data_path
         self.count_key = count_key
         self.threshold = threshold
         self.cooldown_minutes = cooldown_minutes
+        self.run_cmd = run_cmd
 
     def check(self, now: datetime | None = None) -> tuple[bool, str]:
         now = now or datetime.now()
@@ -209,6 +211,40 @@ class EventTrigger:
         return True, f"事件触发: {self.task_name} (信号文件: {self.signal_file})"
 
 
+# ─── Trigger 2b: 辩论轮次计数触发器（D3 自动点亮）──
+
+class DebateRecordTrigger(DataTrigger):
+    """计数 journal 中 debate_record 的去重轮次数，≥threshold 触发。
+
+    用于 D3 Composure 自动点亮：辩论轮次积累到 ≥5 后自动重算评分卡。
+    """
+
+    def check(self, now: datetime | None = None) -> tuple[bool, str]:
+        now = now or datetime.now()
+
+        # 冷却检查（复用父类状态）
+        state = _get_trigger_state()
+        last_fired = state.get("last_triggered", {}).get(self.task_name, "")
+        if last_fired:
+            try:
+                last_dt = datetime.strptime(last_fired, "%Y-%m-%d %H:%M")
+                elapsed = (now - last_dt).total_seconds() / 60
+                if elapsed < self.cooldown_minutes:
+                    return False, f"冷却中（距上次触发{elapsed:.0f}分钟）"
+            except ValueError:
+                pass
+
+        data = _load_json(self.data_path)
+        if not data:
+            return False, f"数据文件{self.data_path}为空"
+
+        recs = [e for e in data.get("entries", []) if e.get("action") == "debate_record"]
+        rounds = set(r.get("round_id") for r in recs if r.get("round_id"))
+        if len(rounds) < self.threshold:
+            return False, f"辩论轮次{len(rounds)}<{self.threshold}，不点亮 D3"
+        return True, f"辩论轮次{len(rounds)}≥{self.threshold} → 点亮 D3 (python scripts/apm_scorecard.py)"
+
+
 # ─── 注册表：所有预配置触发器 ───────────────────────────
 
 def get_default_triggers() -> list:
@@ -251,5 +287,46 @@ def get_default_triggers() -> list:
             count_key="entries",
             threshold=50,
             cooldown_minutes=4320,  # 每3天最多检查一次
+        ),
+        # 6. 失败模式聚类：每周一08:00（Telescope层）
+        TimeTrigger(
+            task_name="cluster_failures",
+            weekdays=[0],  # 仅周一
+            hour=8,
+            minute=0,
+        ),
+        # 7. APM-CS五轴评分卡：每周一08:30（依赖cluster_failures先完成）
+        TimeTrigger(
+            task_name="apm_scorecard",
+            weekdays=[0],  # 仅周一
+            hour=8,
+            minute=30,
+        ),
+        # 8. ViBench 前向基准：案例累计≥30时自动构建+回放（阶段三自改进对照基线）
+        #    当前20案例, 回放引擎仍 BLOCKED(需辩论输入快照), 触发后仅更新基线指标
+        DataTrigger(
+            task_name="vibench_baseline",
+            data_path="benchmarks/test_cases.json",
+            count_key="total_cases",
+            threshold=30,
+            cooldown_minutes=10080,  # 每周最多检查一次
+            # 触发时执行构建(若缺失) + 基线报告
+            run_cmd="python scripts/run_benchmark.py --run",
+        ),
+        # 9. D3 自动点亮：辩论轮次(debate_record 去重)≥5 时自动重算评分卡
+        DebateRecordTrigger(
+            task_name="d3_auto_light",
+            data_path="memory/debate_journal.json",
+            threshold=5,
+            cooldown_minutes=1440,
+        ),
+        # 10. D4 纪律钳制：每周一08:45（apm_scorecard 之后）自动校正历史仓位上限
+        #     兜底调度；真正的"每次裁决后钳制"由 enforce_discipline.capped_position 提供，
+        #     团队-lead P6 可在组装裁决时调用（本批未强制改 team-lead.md）。
+        TimeTrigger(
+            task_name="discipline_enforce",
+            weekdays=[0],  # 仅周一
+            hour=8,
+            minute=45,
         ),
     ]

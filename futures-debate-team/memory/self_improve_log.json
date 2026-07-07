@@ -1,0 +1,249 @@
+{
+  "entries": [
+    {
+      "generated_at": "2026-07-07 18:27:00",
+      "status": "proposal",
+      "n_suggestions": 4,
+      "suggestions": [
+        {
+          "source": "D4_Discipline",
+          "priority": "P0",
+          "text": "规则 R01 违规 1 次 → 在裁决组装期强制 apply enforce_discipline.capped_position()"
+        },
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:27:28",
+      "status": "proposal",
+      "n_suggestions": 4,
+      "suggestions": [
+        {
+          "source": "D4_Discipline",
+          "priority": "P0",
+          "text": "规则 R01 违规 1 次 → 复核辩论信号/置信度/冲突标注逻辑（非仓位类，capped_position 不适用）"
+        },
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:34:35",
+      "status": "proposal",
+      "n_suggestions": 4,
+      "suggestions": [
+        {
+          "source": "D4_Discipline",
+          "priority": "P0",
+          "text": "规则 R01 违规 1 次 → 复核辩论信号/置信度/冲突标注逻辑（非仓位类，capped_position 不适用）"
+        },
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:37:46",
+      "status": "proposal",
+      "n_suggestions": 4,
+      "suggestions": [
+        {
+          "source": "D4_Discipline",
+          "priority": "P0",
+          "text": "规则 R01 违规 1 次 → 复核辩论信号/置信度/冲突标注逻辑（非仓位类，capped_position 不适用）"
+        },
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:40:09",
+      "status": "proposal",
+      "n_suggestions": 4,
+      "suggestions": [
+        {
+          "source": "D4_Discipline",
+          "priority": "P0",
+          "text": "规则 R13 违规 1 次 → 在裁决组装期强制 apply enforce_discipline.capped_position()"
+        },
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:41:32",
+      "status": "proposal",
+      "n_suggestions": 3,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:56:29",
+      "status": "proposal",
+      "n_suggestions": 3,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:56:54",
+      "status": "proposal",
+      "n_suggestions": 3,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:57:27",
+      "status": "proposal",
+      "n_suggestions": 3,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-07 18:58:13",
+      "status": "proposal",
+      "n_suggestions": 3,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        }
+      ]
+    }
+  ]
+}

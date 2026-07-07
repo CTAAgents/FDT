@@ -1,0 +1,12 @@
+{
+  "benchmark_version": "v0.1-seed",
+  "evaluated_at": "2026-07-07 16:33",
+  "total_cases": 20,
+  "cost_bps": 2.0,
+  "direction_accuracy": 40.0,
+  "net_accuracy": 40.0,
+  "avg_gross_pnl_pct": -0.29,
+  "avg_net_pnl_pct": -0.31,
+  "replay_status": "BLOCKED — 原始辩论输入快照(scan信号/产业链/基本面)未捕获, 回放引擎待输入捕获机制就绪",
+  "note": "回放引擎 BLOCKED 期间, baseline 直接聚合 ground_truth (等价于当前系统在该固定集表现)。输入捕获就绪后, 此处将改为回放当前 prompt 并对比 ground_truth。"
+}

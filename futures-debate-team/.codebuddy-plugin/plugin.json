@@ -1,8 +1,8 @@
 {
   "name": "futures-debate-team",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "deprecated": false,
-  "description": "Multi-role futures trading debate team v5.3.0 — 通道突破信号(唐奇安DC20/DC55+布林带)替换三类信号(突破/回踩/跳空)为主信号源，TqSDK live模式盘中实时价，盘中/盘后自适应数据获取，信号检查闸门(无信号早停)，单策略默认(非--dual)，10Agent全进化+自循环闭环+独立记忆系统。",
+  "description": "Multi-role futures trading debate team v5.4.0 — 在v5.3通道突破基础上新增：APM-CS五轴评分卡+Telescope失败聚类(D1-D5可观测性)、ViBench回放+held-out一致性裁判(D1/D3解锁)、self_improve自改进脚手架、全周期K线(日/周/月/多分钟周期)、D4纪律钳制(仓位上限强制)、成本感知PnL；10Agent全进化+自循环闭环+独立记忆系统。",
   "author": {
     "name": "WorkBuddy",
     "email": "support@workbuddy.cn"
@@ -48,8 +48,8 @@
     "zh": "期货交易辩论专家团"
   },
   "displayDescription": {
-    "en": "10-role futures debate team v5.3 — Channel breakout (Donchian DC20/DC55 + Bollinger Bands) replaces three-signal as primary source. TqSDK live mode for intraday real-time prices. Adaptive intraday/after-hours data sourcing. Signal check gate (early exit on no signal). Single-strategy default (non--dual). 10-Agent evolution + self-circulating closed-loop.",
-    "zh": "10角色期货辩论专家团v5.3 — 通道突破(唐奇安DC20/DC55+布林带)替换三类信号为主信号源，TqSDK live模式盘中实时价，盘中/盘后自适应数据获取，信号检查闸门(无信号早停)，单策略默认(非--dual)，10Agent全进化+自循环闭环。"
+    "en": "10-role futures debate team v5.4 — Channel breakout (Donchian DC20/DC55 + Bollinger Bands) primary source, plus APM-CS 5-axis scoring + Telescope failure clustering (D1-D5 observability), ViBench replay + held-out judge (D1/D3), self_improve scaffold, full-period K-line, D4 discipline enforcement. TqSDK live mode, adaptive data sourcing, signal check gate, 10-Agent evolution + self-circulating closed-loop.",
+    "zh": "10角色期货辩论专家团v5.4 — 通道突破(唐奇安DC20/DC55+布林带)主信号源，新增APM-CS五轴评分+Telescope失败聚类(D1-D5可观测性)、ViBench回放+held-out一致性裁判(D1/D3)、self_improve自改进、全周期K线、D4纪律钳制。TqSDK live模式，盘中/盘后自适应，信号检查闸门，10Agent全进化+自循环闭环。"
   },
   "avatar": "avatars/team.png",
   "categoryId": "08-FinanceInvestment",

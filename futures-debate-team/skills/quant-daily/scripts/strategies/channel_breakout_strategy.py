@@ -26,6 +26,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 from strategies.base import BaseStrategy, SignalResult
 from strategies.registry import register_strategy
+from config.settings import resolve_param, SYMBOL_CHAIN_MAP, SIGNAL_GRADE_THRESHOLDS
 
 
 class ChannelBreakoutStrategy(BaseStrategy):
@@ -48,23 +49,27 @@ class ChannelBreakoutStrategy(BaseStrategy):
         period: str = "daily",
         window_mode: str = "fixed",
     ) -> dict:
+        # ── 参数解析速记（品种×周期四层回落，所有参数来自 config.settings） ──
+        # resolve_param(section, key, symbol, chain, period)
+        # 回落链: per_symbol → per_chain → per_period → default
+        _r = lambda sec, key, sym="", chain="", per="daily": resolve_param(sec, key, sym, chain, per)
+        _get_chain = lambda sym: SYMBOL_CHAIN_MAP.get(sym, "其他")
+
         # ── 等效时间窗口缩放 ──
         # 在 time 模式下,将 DC20/DC55/MA60 的窗口从固定bar数缩放为等效天数
         if window_mode == "time" and df_map:
-            # 计算缩放系数: 1个交易日≈345分钟
-            trading_min_per_day = 345
+            trading_min_per_day = _r("time_window", "trading_min_per_day")
             _bar_min = {"1m": 1, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
                         "60m": 60, "120m": 120, "240m": 240, "daily": 1440}
             bar_min = _bar_min.get(period, 60)
-            scale = trading_min_per_day / max(bar_min, 1)  # K线数/天
-            _dc20_t = int(20 * scale)
-            _dc55_t = int(55 * scale)
-            _ma60_t = int(60 * scale)
-            # 对每个品种,从 df_map 中重新计算缩放后的 DC/MA 值并覆盖 tech
+            scale = trading_min_per_day / max(bar_min, 1)
+            _dc20_t = int(_r("time_window", "dc20_period") * scale)
+            _dc55_t = int(_r("time_window", "dc55_period") * scale)
+            _ma60_t = int(_r("time_window", "ma60_period") * scale)
             for tech in tech_list:
                 sym = tech.get("symbol", "")
                 df = df_map.get(sym)
-                if df is not None and len(df) >= max(_dc55_t, 60):
+                if df is not None and len(df) >= max(_dc55_t, _r("time_window", "min_bars_required")):
                     closes = df["close"].values.astype(float)
                     highs = df["high"].values.astype(float)
                     lows = df["low"].values.astype(float)
@@ -95,6 +100,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
 
         for tech in tech_list:
             sym = tech.get("symbol", "")
+            chain_name = _get_chain(sym)
             name = tech.get("name", sym)
             price = tech.get("last_price", tech.get("price", 0))
             adx = tech.get("ADX", tech.get("ADX14", 0))
@@ -134,63 +140,61 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # ── A1: DC20 短期通道突破 (40% of 75% = 30% total) ──
             dc20_score = 0.0
             if dc20_break == "up":
-                dc20_score += 30.0
+                dc20_score += _r("dc20", "break_base_score", sym, chain_name, period)
                 dc_detail["dc20_direction"] = "up"
                 # 突破幅度确认
                 if dc20_upper and price:
                     distance_pct = (price / dc20_upper - 1) * 100
                     dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
-                    if distance_pct > 1.0:
-                        dc20_score += 10.0  # 大幅突破加分
+                    if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                        dc20_score += _r("dc20", "break_strong_bonus", sym, chain_name, period)
                         dc_detail["dc20_break_strength"] = "strong"
-                    elif distance_pct > 0.3:
-                        dc20_score += 5.0
+                    elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                        dc20_score += _r("dc20", "break_moderate_bonus", sym, chain_name, period)
                         dc_detail["dc20_break_strength"] = "moderate"
                     else:
                         dc_detail["dc20_break_strength"] = "weak"
                 # DC20位置确认（上轨上方运行）
-                if dc20_pos is not None and dc20_pos > 0.7:
-                    dc20_score += 5.0
+                if dc20_pos is not None and dc20_pos > _r("dc20", "pos_upper_threshold", sym, chain_name, period):
+                    dc20_score += _r("dc20", "pos_upper_bonus", sym, chain_name, period)
                     dc_detail["dc20_position"] = "upper_zone"
                 elif dc20_pos is not None and dc20_pos > 0.5:
                     dc_detail["dc20_position"] = "mid_upper"
 
-                # ADX趋势评估：ADX是滞后指标，低ADX不否定突破
-                # ADX>60警示趋势可能衰竭，ADX25-60确认趋势健康，ADX<25中性
-                if adx > 60:
-                    dc20_score -= 5.0  # 极端高位警示
+                # ADX趋势评估
+                if adx > _r("adx", "exhaustion_threshold", sym, chain_name, period):
+                    dc20_score -= _r("adx", "exhaustion_penalty", sym, chain_name, period)
                     dc_detail["adx_signal"] = "exhaustion_warning"
-                elif adx >= 25:
-                    dc20_score += 3.0  # 趋势健康
+                elif adx >= _r("adx", "trend_threshold", sym, chain_name, period):
+                    dc20_score += _r("adx", "trend_bonus", sym, chain_name, period)
                     dc_detail["adx_signal"] = "trend_healthy"
                 else:
-                    dc_detail["adx_signal"] = "neutral"  # ADX低是正常的，趋势可能刚开始
+                    dc_detail["adx_signal"] = "neutral"
 
             elif dc20_break == "down":
-                dc20_score -= 30.0
+                dc20_score -= _r("dc20", "break_base_score", sym, chain_name, period)
                 dc_detail["dc20_direction"] = "down"
                 if dc20_lower and price:
                     distance_pct = (dc20_lower / price - 1) * 100
                     dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
-                    if distance_pct > 1.0:
-                        dc20_score -= 10.0
+                    if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                        dc20_score -= _r("dc20", "break_strong_bonus", sym, chain_name, period)
                         dc_detail["dc20_break_strength"] = "strong"
-                    elif distance_pct > 0.3:
-                        dc20_score -= 5.0
+                    elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                        dc20_score -= _r("dc20", "break_moderate_bonus", sym, chain_name, period)
                         dc_detail["dc20_break_strength"] = "moderate"
                     else:
                         dc_detail["dc20_break_strength"] = "weak"
-                if dc20_pos is not None and dc20_pos < 0.3:
-                    dc20_score -= 5.0
+                if dc20_pos is not None and dc20_pos < _r("dc20", "pos_lower_threshold", sym, chain_name, period):
+                    dc20_score += _r("dc20", "pos_lower_bonus", sym, chain_name, period)  # 负值=减分
                     dc_detail["dc20_position"] = "lower_zone"
                 elif dc20_pos is not None and dc20_pos < 0.5:
                     dc_detail["dc20_position"] = "mid_lower"
-                # ADX趋势评估（同上，方向取反）
-                if adx > 60:
-                    dc20_score += 5.0  # 空头衰竭警示→加分(向零靠拢)
+                if adx > _r("adx", "exhaustion_threshold", sym, chain_name, period):
+                    dc20_score += _r("adx", "exhaustion_penalty", sym, chain_name, period)  # 空头衰竭→向0靠拢
                     dc_detail["adx_signal"] = "exhaustion_warning"
-                elif adx >= 25:
-                    dc20_score -= 3.0  # 空头趋势健康
+                elif adx >= _r("adx", "trend_threshold", sym, chain_name, period):
+                    dc20_score -= _r("adx", "trend_bonus", sym, chain_name, period)
                     dc_detail["adx_signal"] = "trend_healthy"
                 else:
                     dc_detail["adx_signal"] = "neutral"
@@ -201,55 +205,44 @@ class ChannelBreakoutStrategy(BaseStrategy):
 
             # ── A2: DC55 中期通道突破 + 趋势方向 (35% of 75% = 26.25% total) ──
             dc55_score = 0.0
-            # DC55价格位置评分
+            # DC55价格位置评分（遍历配置阈值，从高到低匹配）
             if dc55_pos is not None and price:
-                # 多头侧
-                if dc55_pos > 0.85:
-                    dc55_score += 25.0
-                    dc55_pos_strength = "extreme_upper"
-                elif dc55_pos > 0.7:
-                    dc55_score += 15.0
-                    dc55_pos_strength = "upper"
-                elif dc55_pos > 0.5:
-                    dc55_score += 5.0
-                    dc55_pos_strength = "mid_upper"
-                # 空头侧
-                elif dc55_pos < 0.15:
-                    dc55_score -= 25.0
-                    dc55_pos_strength = "extreme_lower"
-                elif dc55_pos < 0.3:
-                    dc55_score -= 15.0
-                    dc55_pos_strength = "lower"
-                elif dc55_pos < 0.5:
-                    dc55_score -= 5.0
-                    dc55_pos_strength = "mid_lower"
-                else:
-                    dc55_pos_strength = "mid"
+                dc55_pos_strength = "mid"
+                for pt in _r("dc55", "pos_thresholds", sym, chain_name, period):
+                    if "min" in pt and dc55_pos > pt["min"]:
+                        dc55_score += pt["score"]
+                        dc55_pos_strength = pt["label"]
+                        break
+                    if "max" in pt and dc55_pos < pt["max"]:
+                        dc55_score += pt["score"]
+                        dc55_pos_strength = pt["label"]
+                        break
 
                 dc_detail["dc55_position"] = round(dc55_pos, 3)
                 dc_detail["dc55_pos_strength"] = dc55_pos_strength
 
             # DC55趋势方向确认
+            trend_base = _r("dc55", "trend_base_score", sym, chain_name, period)
+            align_bonus = _r("dc55", "trend_alignment_bonus", sym, chain_name, period)
+            divergence = _r("dc55", "divergence_penalty", sym, chain_name, period)
             if dc55_trend == "up":
-                dc55_score += 10.0 if dc55_score >= 0 else -10.0  # 趋势与价格位置冲突对冲
+                dc55_score += trend_base if dc55_score >= 0 else -trend_base
                 dc_detail["dc55_trend"] = "up"
-                # 趋势方向强度
                 if dc55_score >= 0:
-                    dc55_score += 5.0  # 趋势+位置一致加分
+                    dc55_score += align_bonus
                     dc_detail["dc55_trend_aligned"] = True
                 else:
-                    # 价格位置与趋势反向→减分
-                    dc55_score += 10.0  # 向0靠拢
+                    dc55_score += divergence
                     dc_detail["dc55_trend_aligned"] = False
                     dc_detail["dc55_divergence"] = "price_lower_but_trend_up"
             elif dc55_trend == "down":
-                dc55_score -= 10.0 if dc55_score <= 0 else 10.0
+                dc55_score -= trend_base if dc55_score <= 0 else trend_base
                 dc_detail["dc55_trend"] = "down"
                 if dc55_score <= 0:
-                    dc55_score -= 5.0
+                    dc55_score -= align_bonus
                     dc_detail["dc55_trend_aligned"] = True
                 else:
-                    dc55_score -= 10.0
+                    dc55_score -= divergence
                     dc_detail["dc55_trend_aligned"] = False
                     dc_detail["dc55_divergence"] = "price_upper_but_trend_down"
             else:
@@ -270,12 +263,11 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # ── B1: BB带宽扩张/收缩 (10%) ──
             if bb_width_pct is not None:
                 bb_detail["bb_width_pct"] = round(bb_width_pct, 2)
-                # 带宽扩张→波动率上升→趋势可信
-                if bb_width_pct > 4.0:
-                    bb_score += 6.0 if dc_score >= 0 else -6.0
+                if bb_width_pct > _r("bb", "width_high_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "width_high_score", sym, chain_name, period) if dc_score >= 0 else -_r("bb", "width_high_score", sym, chain_name, period)
                     bb_detail["bb_volatility"] = "high"
-                elif bb_width_pct > 2.5:
-                    bb_score += 3.0 if dc_score >= 0 else -3.0
+                elif bb_width_pct > _r("bb", "width_moderate_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "width_moderate_score", sym, chain_name, period) if dc_score >= 0 else -_r("bb", "width_moderate_score", sym, chain_name, period)
                     bb_detail["bb_volatility"] = "moderate"
                 else:
                     bb_detail["bb_volatility"] = "low"
@@ -283,47 +275,41 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # ── B2: BB挤压检测 (5%) ──
             if bb_squeeze is not None:
                 bb_detail["bb_squeeze"] = bb_squeeze
-                # 挤压后往往有突破
                 if bb_squeeze:
-                    # 挤压状态：方向待定，小幅加分（突破前兆预警）
-                    bb_score += 2.0
+                    bb_score += _r("bb", "squeeze_bonus", sym, chain_name, period)
                     bb_detail["bb_squeeze_signal"] = "breakout_pending"
 
             # ── B3: BB %b 位置 (10%) ──
             if bb_pos is not None:
                 bb_detail["bb_pos"] = round(bb_pos, 3)
-                # 上轨上方（极端多头）
-                if bb_pos > 1.05:
-                    bb_score += 6.0
+                if bb_pos > _r("bb", "pos_extreme_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "pos_extreme_score", sym, chain_name, period)
                     bb_detail["bb_overbought"] = "extreme"
-                elif bb_pos > 1.0:
-                    bb_score += 4.0
+                elif bb_pos > _r("bb", "pos_upper_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "pos_upper_score", sym, chain_name, period)
                     bb_detail["bb_overbought"] = "at_upper"
-                # 中部偏上（多头确认）
-                elif bb_pos > 0.7:
-                    bb_score += 2.0
+                elif bb_pos > _r("bb", "pos_mid_upper_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "pos_mid_upper_score", sym, chain_name, period)
                     bb_detail["bb_position"] = "mid_upper"
-                # 中部
                 elif bb_pos > 0.3:
                     bb_detail["bb_position"] = "mid"
-                # 中部偏下
-                elif bb_pos > 0.15:
-                    bb_score -= 2.0
+                elif bb_pos > _r("bb", "pos_mid_lower_threshold", sym, chain_name, period):
+                    bb_score += _r("bb", "pos_mid_lower_score", sym, chain_name, period)
                     bb_detail["bb_position"] = "mid_lower"
-                # 下轨下方（极端空头）
                 elif bb_pos > 0:
-                    bb_score -= 4.0
+                    bb_score += _r("bb", "pos_lower_score", sym, chain_name, period)
                     bb_detail["bb_oversold"] = "at_lower"
                 else:
-                    bb_score -= 6.0
+                    bb_score += _r("bb", "pos_extreme_lower_score", sym, chain_name, period)
                     bb_detail["bb_oversold"] = "extreme"
 
-                # 一致性检查：DC方向与BB位置一致时加分
+                # 一致性检查
+                consistency_bonus = _r("bb", "dc_consistency_bonus", sym, chain_name, period)
                 if dc_score > 0 and bb_pos > 0.5:
-                    bb_score += 2.0
+                    bb_score += consistency_bonus
                     bb_detail["bb_dc_consistency"] = True
                 elif dc_score < 0 and bb_pos < 0.5:
-                    bb_score += 2.0
+                    bb_score += consistency_bonus
                     bb_detail["bb_dc_consistency"] = True
                 else:
                     bb_detail["bb_dc_consistency"] = False
@@ -335,21 +321,20 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # ═══════════════════════════════════════════
             volume_score = 0.0
             vol_detail = {}
-            if volume and df is not None and len(df) > 20:
-                avg_vol_20 = df["volume"].iloc[-20:].mean()
+            if volume and df is not None and len(df) > _r("volume", "ma_period", sym, chain_name, period):
+                avg_vol_20 = df["volume"].iloc[-_r("volume", "ma_period", sym, chain_name, period):].mean()
                 vol_ratio = volume / avg_vol_20 if avg_vol_20 > 0 else 1.0
                 vol_detail["vol_ratio"] = round(vol_ratio, 2)
-                if vol_ratio > 1.5:
-                    volume_score = 10.0 if dc_score >= 0 else -10.0
+                if vol_ratio > _r("volume", "explosive_ratio", sym, chain_name, period):
+                    volume_score = _r("volume", "explosive_score", sym, chain_name, period) if dc_score >= 0 else -_r("volume", "explosive_score", sym, chain_name, period)
                     vol_detail["volume_style"] = "explosive"
-                elif vol_ratio > 1.2:
-                    volume_score = 5.0 if dc_score >= 0 else -5.0
+                elif vol_ratio > _r("volume", "elevated_ratio", sym, chain_name, period):
+                    volume_score = _r("volume", "elevated_score", sym, chain_name, period) if dc_score >= 0 else -_r("volume", "elevated_score", sym, chain_name, period)
                     vol_detail["volume_style"] = "elevated"
-                elif vol_ratio > 0.8:
+                elif vol_ratio > _r("volume", "normal_lower_ratio", sym, chain_name, period):
                     vol_detail["volume_style"] = "normal"
                 else:
-                    # 缩量突破可能不可持续
-                    volume_score = -3.0  # 不论方向，缩量都扣分
+                    volume_score = _r("volume", "weak_penalty", sym, chain_name, period)
                     vol_detail["volume_style"] = "weak"
             else:
                 vol_detail["volume_style"] = "unknown"
@@ -364,14 +349,14 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # 方向
             direction = "bull" if total_score > 0 else ("bear" if total_score < 0 else "neutral")
 
-            # 等级
+            # 等级（阈值来自 config.settings.SIGNAL_GRADE_THRESHOLDS，支持自进化调参）
             grade = "NOISE"
             abs_score = abs(total_score)
-            if abs_score >= 60:
+            if abs_score >= SIGNAL_GRADE_THRESHOLDS["strong"]:
                 grade = "STRONG"
-            elif abs_score >= 40:
+            elif abs_score >= SIGNAL_GRADE_THRESHOLDS["watch"]:
                 grade = "WATCH"
-            elif abs_score >= 20:
+            elif abs_score >= SIGNAL_GRADE_THRESHOLDS["weak"]:
                 grade = "WEAK"
 
             # 阶段（沿用技术阶段）
@@ -382,9 +367,9 @@ class ChannelBreakoutStrategy(BaseStrategy):
 
             # 信号类型（通道突破+布林带确认的统一描述）
             signal_type = "none"
-            if abs(dc20_score) >= 30 and abs(dc_score) >= 20:
+            if abs(dc20_score) >= _r("signal_type", "channel_breakout_dc20_min", sym, chain_name, period) and abs(dc_score) >= _r("signal_type", "channel_breakout_dc_total_min", sym, chain_name, period):
                 signal_type = "channel_breakout"
-            elif abs(dc55_score) >= 15:
+            elif abs(dc55_score) >= _r("signal_type", "trend_confirmation_dc55_min", sym, chain_name, period):
                 signal_type = "trend_confirmation"
             elif bb_squeeze:
                 signal_type = "bb_squeeze_prebreakout"

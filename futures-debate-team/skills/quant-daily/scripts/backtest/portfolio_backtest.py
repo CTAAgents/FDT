@@ -87,7 +87,7 @@ class PortfolioBacktest:
 
                 try:
                     tech = _compute_indicators_numpy(slice_df)
-                except:
+                except Exception:
                     continue
 
                 ma_slope = float(tech.get('MA20_SLOPE', 0))

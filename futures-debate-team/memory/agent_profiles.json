@@ -1,14 +1,151 @@
 {
-  "_meta": {"created_at": "2026-07-06 22:25", "version": "5.2", "last_evolved_at": null, "total_samples": 0, "note": "v5.2架构重构：三类信号替代L1-L4+因子为主信号源，证真/慎思改为动态正反方，ADX角色反转"},
-  "闫判官": {"type": "judge", "evolution": "calibration.json（独立自进化系统）"},
-  "风控明": {"atr_multiplier": 1.5, "max_position_pct_high": 5.0, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "策执远": {"rr_target": 2.0, "position_coefficient": 1.0, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "辩手": {
-    "证真": {"role": "正方(动态)", "strategy": "按signal_type论证", "confidence_boost": 0, "_samples": 0, "note": "v5.2起不固定多空，根据信号方向论证"},
-    "慎思": {"role": "反方(动态)", "strategy": "按signal_type质疑", "confidence_boost": 0, "_samples": 0, "note": "v5.2起不固定多空，根据信号方向质疑"}
+  "_meta": {
+    "created_at": "2026-07-06 22:25",
+    "version": "5.2",
+    "last_evolved_at": "2026-07-07 16:49",
+    "total_samples": 20,
+    "note": "v5.2架构重构：三类信号替代L1-L4+因子为主信号源，证真/慎思改为动态正反方，ADX角色反转"
   },
-  "链证源": {"dedup_threshold": 0.80, "max_chain_reps": 1, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "数技源": {"source_priority": ["通达信TQ-Local", "东方财富", "AKShare"], "retry_limit": 3, "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "探源": {"fundamental_weight": 0.15, "data_source": "data_interface+fundamental-data-collector", "_last_updated": null, "_evolution_log": [], "_stats": {}},
-  "观澜": {"atr_period": 14, "signal_lag_tolerance": 2, "data_source": "data_interface+technical-analysis", "_last_updated": null, "_evolution_log": [], "_stats": {}}
+  "闫判官": {
+    "type": "judge",
+    "evolution": "calibration.json（独立自进化系统）"
+  },
+  "风控明": {
+    "atr_multiplier": 1.5,
+    "max_position_pct_high": 5.0,
+    "_last_updated": "2026-07-07 16:49",
+    "_evolution_log": [
+      {
+        "time": "2026-07-07 16:49",
+        "action": "atr_multiplier",
+        "from": 1.5,
+        "to": 1.5,
+        "reason": "止损触发率5.0%合理, 维持不变"
+      },
+      {
+        "time": "2026-07-07 16:49",
+        "action": "max_position_high",
+        "from": 5.0,
+        "to": 5.0,
+        "reason": "高置信度品种累计盈亏+1.9%合理"
+      }
+    ],
+    "_stats": {
+      "total_validated": 20,
+      "real_stop_hit_rate": 5.0,
+      "gap_stop_rate": 0.0,
+      "avg_realized_pnl_pct": -0.3
+    }
+  },
+  "策执远": {
+    "rr_target": 1.7,
+    "position_coefficient": 1.0,
+    "_last_updated": "2026-07-07 16:49",
+    "_evolution_log": [
+      {
+        "time": "2026-07-07 16:49",
+        "action": "rr_target",
+        "from": 2.0,
+        "to": 1.7,
+        "reason": "真实T1达标率仅0%, RR过高, 下调"
+      },
+      {
+        "time": "2026-07-07 16:49",
+        "action": "position_coefficient",
+        "from": 1.0,
+        "to": 1.0,
+        "reason": "均实现盈亏-0.3%合理"
+      }
+    ],
+    "_stats": {
+      "total_validated": 20,
+      "real_target_hit_rate": 0.0,
+      "avg_realized_pnl_pct": -0.3
+    }
+  },
+  "辩手": {
+    "证真": {
+      "role": "正方(动态)",
+      "strategy": "按signal_type论证",
+      "confidence_boost": 0,
+      "_samples": 0,
+      "note": "v5.2起不固定多空，根据信号方向论证"
+    },
+    "慎思": {
+      "role": "反方(动态)",
+      "strategy": "保守",
+      "confidence_boost": -0.3,
+      "_samples": 18,
+      "note": "v5.2起不固定多空，根据信号方向质疑",
+      "_win_rate": 33.3,
+      "_realized_pnl": -6.5,
+      "_note": "胜率33%或亏损-6.5%, 收敛空头论述"
+    },
+    "_last_updated": "2026-07-07 16:49"
+  },
+  "链证源": {
+    "dedup_threshold": 0.8,
+    "max_chain_reps": 1,
+    "_last_updated": null,
+    "_evolution_log": [],
+    "_stats": {}
+  },
+  "数技源": {
+    "source_priority": [
+      "通达信TQ-Local",
+      "东方财富",
+      "AKShare"
+    ],
+    "retry_limit": 3,
+    "_last_updated": "2026-07-07 16:49",
+    "_evolution_log": [
+      {
+        "time": "2026-07-07 16:49",
+        "action": "retry_limit",
+        "from": 3,
+        "to": 3,
+        "reason": "数据采集流程健康, 维持配置"
+      }
+    ],
+    "_stats": {
+      "data_success_rate": 100.0
+    }
+  },
+  "探源": {
+    "fundamental_weight": 0.15,
+    "data_source": "data_interface+fundamental-data-collector",
+    "_last_updated": null,
+    "_evolution_log": [],
+    "_stats": {}
+  },
+  "观澜": {
+    "atr_period": 16,
+    "signal_lag_tolerance": 3,
+    "data_source": "data_interface+technical-analysis",
+    "_last_updated": "2026-07-07 16:49",
+    "_evolution_log": [
+      {
+        "time": "2026-07-07 16:49",
+        "action": "atr_period",
+        "from": 14,
+        "to": 16,
+        "reason": "强趋势均盈-0.80% < 弱趋势0.48%, 增加ATR周期"
+      }
+    ],
+    "_stats": {
+      "strong_trend_avg_pnl": -0.8,
+      "weak_trend_avg_pnl": 0.48,
+      "strong_n": 12,
+      "weak_n": 8
+    }
+  },
+  "训辩权重": {
+    "weights": {
+      "signal": 40.0,
+      "quality": 25.0,
+      "extreme": 20.0,
+      "data": 10.0,
+      "chain": 5.0
+    }
+  }
 }

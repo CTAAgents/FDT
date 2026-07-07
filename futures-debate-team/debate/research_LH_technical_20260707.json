@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "phase": "P3",
+    "agent_name": "观澜(主管直驱重算-快车道)",
+    "symbol": "LH2609",
+    "note": "客观技术资料，不含多空方向结论。修正MA60数据质量bug：此前误用连续合约(通达信L8=11279.5)或错误AKShare(11372)；现统一为通达信TQ-Local【真实合约LH2609.DCE】K线，MA60=12188.67（与文华财经口径一致）。K线源=通达信TQ-Local真实合约"
+  },
+  "symbol": "LH2609",
+  "price": 12285,
+  "atr": 233.3,
+  "kline_latest": "2026-07-07 15:00",
+  "generated_at": "2026-07-07 18:33",
+  "support_levels": [
+    {
+      "price": 12188.67,
+      "type": "软支撑",
+      "basis": "ma60(60日线,真实合约LH2609)",
+      "volume_ratio": null
+    },
+    {
+      "price": 12035.25,
+      "type": "软支撑",
+      "basis": "ma20(20日线)",
+      "volume_ratio": null
+    },
+    {
+      "price": 12160,
+      "type": "硬支撑",
+      "basis": "四次获撑(摆动点)",
+      "volume_ratio": null
+    },
+    {
+      "price": 11590,
+      "type": "软支撑",
+      "basis": "近期摆动低点(窗口3)",
+      "volume_ratio": 0.8
+    },
+    {
+      "price": 11551,
+      "type": "软支撑",
+      "basis": "布林带下轨",
+      "volume_ratio": null
+    },
+    {
+      "price": 10625,
+      "type": "软支撑",
+      "basis": "近期摆动低点(窗口3)",
+      "volume_ratio": 0.65
+    }
+  ],
+  "resistance_levels": [
+    {
+      "price": 12480,
+      "type": "软阻力",
+      "basis": "近期摆动高点(窗口3)",
+      "volume_ratio": 1.07
+    },
+    {
+      "price": 12519,
+      "type": "软阻力",
+      "basis": "布林带上轨",
+      "volume_ratio": null
+    }
+  ],
+  "volume_price": {
+    "last5d_avg_vol": 186633,
+    "prev20d_avg_vol": 173726,
+    "volume_ratio": 1.07,
+    "description": "近5日均量高于前20日均量(比值1.07)，价跌，呈量能温和"
+  },
+  "trend_structure": {
+    "dc55": "up(向上)",
+    "price_vs_ma60": "价高于ma60(升水约96点/0.79%，几乎贴线)",
+    "ma_alignment": "ma20(12035.25) < ma60(12188.67) → 均线空头排列初期(短均线在长均线下方)",
+    "bb_width_pct": 8.05,
+    "bb_state": "收敛(带宽<10%，待突破)",
+    "summary": "DC55向上趋势确认，布林带收敛变盘在即；但价仅微高于真实MA60(+0.79%)且MA20已落于MA60之下，短期均线结构偏空，属趋势确认中的整理偏弱形态，突破方向需量能确认"
+  },
+  "pattern": "布林带极度收敛(带宽8.05%)，变盘待突破；DC55向上但MA20(12035)<MA60(12188)呈空头排列初期，价12285仅微高于真实MA60(+0.79%)，属趋势确认中的整理偏弱形态，突破方向需量能确认",
+  "bb": {
+    "upper": 12519,
+    "mid": 12035,
+    "lower": 11551,
+    "width_pct": 8.05
+  },
+  "ma": {
+    "ma20": 12035.25,
+    "ma60": 12188.67
+  },
+  "data_source": "通达信TQ-Local真实合约LH2609.DCE（非主力连续L8）；K线截止2026-07-07 15:00；MA60=12188.67与文华财经口径一致"
+}

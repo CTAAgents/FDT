@@ -334,6 +334,12 @@ python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
 │     ├─ 注意：闫判官只能读文件，不得SendMessage给任何Agent
 │     ├─ poll_file_ready(p5_judge.json) ✅
 │
+├─ Step 2.5: spawn 一致性裁判(futures-judge-heldout) — **非阻断审计步**
+│     ├─ 注入 pro_args(证真 p3_zhengzhen.json) + con_args(慎思 p3_zhensi.json) + verdict(闫判官 p5_judge.json)
+│     ├─ prompt 末尾加: "注意：不要向其他Agent发送消息。仅审计，不重写论据"
+│     ├─ poll_file_ready(p5_coherence.json) ✅
+│     ├─ 产出 held_out_judge(coherence_score + rationale) → 供 P6 组装 debate_record
+│
 ├─ Step 3: spawn 策执远(方案)
 │     ├─ spawn prompt中注入闫判官裁决文件路径
 │     ├─ poll_file_ready(p5_trading_plan.json) ✅
@@ -391,7 +397,7 @@ python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
 每次决策完成后，将本轮辩论记录追加到记忆系统。**所有 Agent 按各自 Memory 记录规范自动写入**。我作为团队主管负责最终汇总：
 
 ```python
-from scripts.memory_writer import append_debate_journal, append_debate_index
+from scripts.memory_writer import append_debate_journal, append_debate_index, append_debate_record
 
 # 1. 记录最终决策
 append_debate_journal("futures-debate-team-team-lead", "final_decision", {
@@ -402,6 +408,47 @@ append_debate_journal("futures-debate-team-team-lead", "final_decision", {
 
 # 2. 更新辩论索引
 append_debate_index("RB_20260705", ["RB"], "bear")
+
+# 3. 组装 debate_record（D1 解锁：可审计三元组 + held-out judge 一致性）
+#    从证真/慎思/闫判官产物提取 pro_args/con_args/verdict + 一致性裁判分数，
+#    写入升级后的 debate_record 条目（含 held_out_judge）。
+#    ⚠️ 此步非阻断：一致性裁判不参与辩论，仅审计，不拖延 P5 主流程。
+def _assemble_debate_record(sym, p_zhengzhen, p_zhensi, p_judge, p_coherence):
+    z = _load_json(p_zhengzhen)
+    s = _load_json(p_zhensi)
+    j = _load_json(p_judge)
+    c = _load_json(p_coherence)
+    pro_args = [
+        {"id": f"{sym}-pro{i+1}", "claim": a.get("claim", a.get("point", "")),
+         "evidence": a.get("evidence", a.get("data", "")), "source": a.get("source", "证真")}
+        for i, a in enumerate(z.get("key_arguments", []))
+    ]
+    con_args = [
+        {"id": f"{sym}-con{i+1}", "claim": a.get("claim", a.get("point", "")),
+         "evidence": a.get("evidence", a.get("data", "")), "source": a.get("source", "慎思")}
+        for i, a in enumerate(s.get("key_arguments", []))
+    ]
+    verdict = {
+        "direction": j.get("direction", j.get("winner_direction", "neutral")),
+        "confidence": j.get("confidence", "中"),
+        "winner": j.get("winner", ""),
+        "reasoning": j.get("reasoning", ""),
+    }
+    held_out = c.get("held_out_judge", {})
+    return {
+        "round_id": j.get("round_id", "unknown_round"),
+        "symbol": sym,
+        "variety": sym.split(".")[0].upper(),
+        "signal_type": j.get("signal_type", "channel_breakout"),
+        "pro_args": pro_args,
+        "con_args": con_args,
+        "verdict": verdict,
+        "held_out_judge": held_out,
+        "volatility": {"adx": j.get("adx"), "atr": j.get("atr")},
+    }
+
+# 对每个辩论品种调用（示例 RB）：
+# append_debate_record(_assemble_debate_record("RB", p3_zhengzhen, p3_zhensi, p5_judge, p5_coherence))
 ```
 
 ### 📊 报告完整性铁律（2026-07-06 掌柜确立·不可违反）

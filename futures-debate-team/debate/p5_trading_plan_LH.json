@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "phase": "P5",
+    "agent_name": "策执远(主管直驱兜底)",
+    "symbol": "LH2609",
+    "note": "重跑：基于闫判官裁决合成空头条件单(数据不变)"
+  },
+  "contract": "LH2609",
+  "direction": "bear",
+  "status": "pending_trigger",
+  "trigger_condition": "反弹至12480-12700阻力区且收盘未破12700，或有效跌破12160硬支撑",
+  "entry": 12500,
+  "target1": 12035,
+  "target2": 11590,
+  "stop_loss": 12700,
+  "atr": 240.7,
+  "stop_atr_multiple": 0.83,
+  "position_pct": 1.92,
+  "lots": 6,
+  "rr_t1": 2.33,
+  "rr_t2": 4.55,
+  "plan_b": {
+    "trigger": "有效跌破12160硬支撑",
+    "entry": 12150,
+    "stop_loss": 12650,
+    "target": 11590,
+    "lots": 2,
+    "risk_pct": 1.6
+  },
+  "account": {
+    "equity": 1000000,
+    "margin_rate": "交易所+3%"
+  }
+}

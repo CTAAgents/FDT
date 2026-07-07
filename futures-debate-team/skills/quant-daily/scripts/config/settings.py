@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """配置管理模块（趋势信号发现版）：系统参数、自适应权重、品种阈值、指标配置、打分系统。"""
 
+import os
+import json
+
 # ============================================================
 # 系统配置
 # ============================================================
@@ -300,6 +303,224 @@ MARKET_PARAMS = {
 def get_market_params(chain_name: str) -> dict:
     """根据产业链名称获取市场参数。默认使用commodity参数。"""
     return MARKET_PARAMS.get("commodity", MARKET_PARAMS["commodity"])
+
+
+# ============================================================
+# 通道突破策略 — 信号等级阈值（v1.1 自进化可调）
+# ============================================================
+SIGNAL_GRADE_THRESHOLDS = {
+    "strong": 50,      # STRONG: abs>=50 → 进入辩论流程
+    "watch": 40,       # WATCH: abs>=40 → 观察信号
+    "weak": 20,        # WEAK: abs>=20 → 弱趋势
+    "noise": 0,        # NOISE: <20 → 噪音过滤
+}
+
+
+# ============================================================
+# 通道突破策略完整参数集（v1.2 品种×周期多层次可优化）
+# 所有通道突破策略的评分参数集中在此。
+# 四层回落: per_symbol[sym][period] → per_chain[chain][period] → per_period[period] → default
+# 修改后重启扫描生效。自优化器写 per_symbol / per_chain 层即可。
+# ============================================================
+CHANNEL_BREAKOUT_CONFIG = {
+    # L4 全局默认值 — 兜底，所有新品种/新周期自动继承
+    "default": {
+        "time_window": {
+            "trading_min_per_day": 345,      # 1个交易日的交易分钟数
+            "dc20_period": 20,               # DC20周期（bar数）
+            "dc55_period": 55,               # DC55周期（bar数）
+            "ma60_period": 60,               # MA60周期（bar数）
+            "min_bars_required": 60,         # 品种最小K线要求
+        },
+        "dc20": {
+            "break_base_score": 30.0,        # DC20突破基础分（±）
+            "break_strong_pct": 1.0,         # 大幅突破阈值（%）
+            "break_strong_bonus": 10.0,      # 大幅突破加减分（±）
+            "break_moderate_pct": 0.3,       # 中等突破阈值（%）
+            "break_moderate_bonus": 5.0,     # 中等突破加减分（±）
+            "pos_upper_threshold": 0.7,      # 上轨附近阈值（DC20_POS）
+            "pos_upper_bonus": 5.0,          # 上轨位置加分
+            "pos_lower_threshold": 0.3,      # 下轨附近阈值（DC20_POS）
+            "pos_lower_bonus": -5.0,         # 下轨位置减分
+        },
+        "adx": {
+            "exhaustion_threshold": 60,      # ADX>60→趋势可能衰竭
+            "exhaustion_penalty": 5.0,       # 衰竭惩罚（±，向0靠拢）
+            "trend_threshold": 25,           # ADX≥25→趋势健康
+            "trend_bonus": 3.0,             # 趋势健康加分（±，加大方向）
+        },
+        "dc55": {
+            "pos_thresholds": [
+                {"min": 0.85, "score": 25.0, "label": "extreme_upper"},
+                {"min": 0.70, "score": 15.0, "label": "upper"},
+                {"min": 0.50, "score": 5.0,  "label": "mid_upper"},
+                {"max": 0.15, "score": -25.0,"label": "extreme_lower"},
+                {"max": 0.30, "score": -15.0,"label": "lower"},
+                {"max": 0.50, "score": -5.0, "label": "mid_lower"},
+            ],
+            "trend_base_score": 10.0,
+            "trend_alignment_bonus": 5.0,
+            "divergence_penalty": 10.0,
+        },
+        "bb": {
+            "width_high_threshold": 4.0,
+            "width_high_score": 6.0,
+            "width_moderate_threshold": 2.5,
+            "width_moderate_score": 3.0,
+            "squeeze_bonus": 2.0,
+            "pos_extreme_threshold": 1.05,
+            "pos_extreme_score": 6.0,
+            "pos_upper_threshold": 1.0,
+            "pos_upper_score": 4.0,
+            "pos_mid_upper_threshold": 0.7,
+            "pos_mid_upper_score": 2.0,
+            "pos_mid_lower_threshold": 0.15,
+            "pos_mid_lower_score": -2.0,
+            "pos_lower_score": -4.0,
+            "pos_extreme_lower_score": -6.0,
+            "dc_consistency_bonus": 2.0,
+        },
+        "volume": {
+            "ma_period": 20,
+            "explosive_ratio": 1.5,
+            "explosive_score": 10.0,
+            "elevated_ratio": 1.2,
+            "elevated_score": 5.0,
+            "normal_lower_ratio": 0.8,
+            "weak_penalty": -3.0,
+        },
+        "signal_type": {
+            "channel_breakout_dc20_min": 30,
+            "channel_breakout_dc_total_min": 20,
+            "trend_confirmation_dc55_min": 15,
+        },
+    },
+
+    # L3 周期级覆盖 — 所有品种在此周期下共享
+    "per_period": {},
+
+    # L2 产业链×周期覆盖 — 按产业链分组调优
+    "per_chain": {},
+
+    # L1 品种×周期覆盖 — 最精确，自优化最终写入层
+    "per_symbol": {},
+}
+
+
+# ============================================================
+# 品种→产业链映射（按 symbols.py 分类定义）
+# ============================================================
+SYMBOL_CHAIN_MAP = {
+    # 黑色系 (7)
+    "rb": "黑色系", "hc": "黑色系", "i": "黑色系",
+    "j": "黑色系", "jm": "黑色系", "SF": "黑色系", "SM": "黑色系",
+    # 能源链 (6)
+    "sc": "能源链", "lu": "能源链", "fu": "能源链",
+    "bu": "能源链", "pg": "能源链", "PX": "能源链",
+    # 聚酯链 (5)
+    "TA": "聚酯链", "PF": "聚酯链", "PR": "聚酯链",
+    "eg": "聚酯链", "eb": "聚酯链",
+    # 塑化链 (4)
+    "v": "塑化链", "pp": "塑化链", "l": "塑化链", "MA": "塑化链",
+    # 化工 (3)
+    "SH": "化工", "SA": "化工", "UR": "化工",
+    # 有色金属 (8)
+    "cu": "有色金属", "al": "有色金属", "zn": "有色金属",
+    "pb": "有色金属", "ni": "有色金属", "sn": "有色金属",
+    "ao": "有色金属", "SS": "有色金属",
+    # 贵金属 (2)
+    "au": "贵金属", "ag": "贵金属",
+    # 油脂油料 (8)
+    "a": "油脂油料", "b": "油脂油料", "m": "油脂油料",
+    "y": "油脂油料", "p": "油脂油料", "OI": "油脂油料",
+    "RM": "油脂油料", "PK": "油脂油料",
+    # 农产品 (6)
+    "c": "农产品", "cs": "农产品", "SR": "农产品",
+    "CF": "农产品", "jd": "农产品", "lh": "农产品",
+    # 果蔬 (2)
+    "AP": "果蔬", "CJ": "果蔬",
+    # 建材化工 (6)
+    "FG": "建材化工", "ru": "建材化工", "nr": "建材化工",
+    "br": "建材化工", "sp": "建材化工", "op": "建材化工",
+    # 新能源 (3)
+    "lc": "新能源", "si": "新能源", "ps": "新能源",
+    # 航运 (1)
+    "ec": "航运",
+    # 其他 (1)
+    "rr": "其他",
+}
+
+
+# ── 启动时加载优化参数（来自历史回测的品种级覆盖） ──
+_OPT_PARAMS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "optimizer", "optimized_params.json"
+)
+if os.path.exists(_OPT_PARAMS_PATH):
+    try:
+        with open(_OPT_PARAMS_PATH, "r", encoding="utf-8") as _f:
+            _loaded = json.load(_f)
+        if "per_symbol" in _loaded:
+            for _sym, _sym_cfg in _loaded["per_symbol"].items():
+                if _sym not in CHANNEL_BREAKOUT_CONFIG["per_symbol"]:
+                    CHANNEL_BREAKOUT_CONFIG["per_symbol"][_sym] = {}
+                for _period, _period_cfg in _sym_cfg.items():
+                    CHANNEL_BREAKOUT_CONFIG["per_symbol"][_sym][_period] = _period_cfg
+    except Exception:
+        pass  # 加载失败不影响核心功能
+
+# P0 覆盖层（优化器注入，优先级最高）
+_PARAM_OVERRIDES: dict = {}
+
+def set_param_overrides(overrides: dict):
+    """设置参数覆盖（优化器回测用）。调用后 resolve_param 优先返回覆盖值。"""
+    global _PARAM_OVERRIDES
+    _PARAM_OVERRIDES = overrides
+
+def clear_param_overrides():
+    """清除参数覆盖"""
+    global _PARAM_OVERRIDES
+    _PARAM_OVERRIDES = {}
+
+
+def resolve_param(section: str, key: str, symbol: str = "",
+                  chain: str = "", period: str = "daily") -> object:
+    """四层回落解析通道突破策略参数。
+
+    优先级（从高到低）:
+      P0: _PARAM_OVERRIDES（优化器注入）
+      P1: per_symbol[symbol][period][section][key]
+      P2: per_chain[chain][period][section][key]
+      P3: per_period[period][section][key]
+      P4: default[section][key]（兜底，必须存在）
+    """
+    # P0 — 优化器覆盖（最高优先级）
+    if _PARAM_OVERRIDES and section in _PARAM_OVERRIDES and key in _PARAM_OVERRIDES[section]:
+        return _PARAM_OVERRIDES[section][key]
+
+    cfg = CHANNEL_BREAKOUT_CONFIG
+    # P1
+    if symbol and symbol in cfg.get("per_symbol", {}):
+        sym_cfg = cfg["per_symbol"][symbol]
+        if period in sym_cfg:
+            section_cfg = sym_cfg[period].get(section)
+            if section_cfg is not None and key in section_cfg:
+                return section_cfg[key]
+    # P2
+    if chain and chain in cfg.get("per_chain", {}):
+        chain_cfg = cfg["per_chain"][chain]
+        if period in chain_cfg:
+            section_cfg = chain_cfg[period].get(section)
+            if section_cfg is not None and key in section_cfg:
+                return section_cfg[key]
+    # P3
+    if period in cfg.get("per_period", {}):
+        section_cfg = cfg["per_period"][period].get(section)
+        if section_cfg is not None and key in section_cfg:
+            return section_cfg[key]
+    # P4 — 兜底
+    default = cfg.get("default", {})
+    return default[section][key]
 
 
 # ============================================================

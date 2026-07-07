@@ -1,0 +1,362 @@
+[
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "l",
+    "anchor_price": 7114,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "PX",
+    "anchor_price": 7737,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "MA",
+    "anchor_price": 2463,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "PR",
+    "anchor_price": 6839,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "eg",
+    "anchor_price": 4115,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "pg",
+    "anchor_price": 4562,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": true,
+    "hit_scenario": "price_stop_hit",
+    "outcome": "扫损出局"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "rb",
+    "anchor_price": 3154,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "ni",
+    "anchor_price": 131362,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "au",
+    "anchor_price": 929,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "br",
+    "anchor_price": 12520,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "c",
+    "anchor_price": 2338,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "OI",
+    "anchor_price": 9928,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "hc",
+    "anchor_price": 3375,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "al",
+    "anchor_price": 23421,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "SM",
+    "anchor_price": 5975,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "ps",
+    "anchor_price": 36659,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "sp",
+    "anchor_price": 4843,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "SA",
+    "anchor_price": 1126,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "CF",
+    "anchor_price": 15868,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 15:54:00",
+    "symbol": "SF",
+    "anchor_price": 5676,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "l",
+    "anchor_price": 7114,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "PX",
+    "anchor_price": 7737,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "MA",
+    "anchor_price": 2463,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "PR",
+    "anchor_price": 6839,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "eg",
+    "anchor_price": 4115,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "pg",
+    "anchor_price": 4562,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": true,
+    "hit_scenario": "price_stop_hit",
+    "outcome": "扫损出局"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "rb",
+    "anchor_price": 3154,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "ni",
+    "anchor_price": 131362,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "au",
+    "anchor_price": 929,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "br",
+    "anchor_price": 12520,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "c",
+    "anchor_price": 2338,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "OI",
+    "anchor_price": 9928,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "hc",
+    "anchor_price": 3375,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "al",
+    "anchor_price": 23421,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "SM",
+    "anchor_price": 5975,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "ps",
+    "anchor_price": 36659,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "sp",
+    "anchor_price": 4843,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "SA",
+    "anchor_price": 1126,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "CF",
+    "anchor_price": 15868,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  },
+  {
+    "timestamp": "2026-07-07 16:30:37",
+    "symbol": "SF",
+    "anchor_price": 5676,
+    "anchor_source": "stop_loss_from_verdict",
+    "stop_hit": false,
+    "hit_scenario": "无触发",
+    "outcome": "持仓未触边界"
+  }
+]

@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.3.0
+# Futures Debate Team — 期货交易辩论专家团 v5.4.0
 
-> 🧬 **v5.3.0 通道突破策略里程碑**：唐奇安DC20/DC55+布林带替换三类信号为主信号源，TqSDK live模式盘中实时价，盘中/盘后自适应数据获取，信号检查闸门(无信号早停)，单策略默认(非--dual)，多数据源格式对齐，日盘14:30自动化全流程。
+> 🧬 **v5.4.0 可观测性与自改进里程碑**：在 v5.3 通道突破基础上，新增 APM-CS 五轴评分卡 + Telescope 失败模式聚类（D1–D5 可观测性框架，周一自动触发）；D1/D3/ViBench 历史回放 + held-out 一致性裁判（论据可追溯、可审计）；D2 Acuity 真实计算 + 成本感知 PnL；D4 纪律钳制（仓位上限强制应用）；self_improve 自改进脚手架；全周期 K 线支持（日/周/月/多分钟周期）；多项 bug 修复。今日 5 门禁审计全 100%。
 
 ## 类型
 
@@ -141,6 +141,33 @@ python skills/quant-daily/scripts/scan_all.py --list-strategies
 | `debate-risk-manager` | v4.0.0 | 风控审核(6层引擎) |
 | `debate-trading-planner` | v2.1.0 | 交易方案规划 |
 
+## v5.4 新能力（可观测性与自改进）
+
+v5.4 在 v5.3 通道突破主信号源之上，补齐了**系统级可观测性**与**自动自改进**能力，使专家团的决策质量可被量化、审计与迭代。
+
+### APM-CS 五轴评分卡（D1–D5）
+- **D1 论据一致性**：held-out 一致性裁判评估"裁决是否真正源于辩论论据"（CLQT §6.4.1），非阻断审计。
+- **D2 Acuity 辨识力**：Spearman 秩相关 ρ(PnL, 信息) − ρ(PnL, 噪音)；成本感知 PnL（COST_BPS=2.0）建模交易摩擦。
+- **D3 镇定度**：stop~ADX 回归，≥5 轮辩论自动点亮。
+- **D4 纪律遵守**：R13/R14/R-resonance 仓位上限，落库前 `enforce_discipline.py` 强制钳制。
+- **D5 可靠性**：剔除陈旧基础设施失败后的 fresh 完成率。
+- 触发：每周一自动运行（`scheduler/triggers.py`）。
+
+### Telescope 失败模式聚类
+- `scripts/cluster_failures.py`：7 维特征提取 + 单维/二维交叉/品种方向聚类 + 规则关联诊断 + 严重度评估，输出 `memory/failure_clusters.json`。
+
+### ViBench 历史回放（阶段二）
+- `scripts/run_benchmark.py --replay` + `scripts/replay_harness.py`：按 `(round_id, 品种)` 结构一致性回放，金标准集 `benchmarks/test_cases.json`。
+
+### self_improve 自改进脚手架（阶段三）
+- `scripts/self_improve.py`：消费 APM/failure_clusters/benchmark 生成改进建议（proposal，不直接改 Agent），写入 `memory/self_improve_log.json`。
+
+### 全周期 K 线
+- 日/周/月/240m/60m/15m/5m/1m + 自定义周期（90m/180m），`PERIOD_CONFIG` 统一路由，指标窗口按 `bar_min` 缩放。
+
+### 反馈闭环
+- 自进化前置（validate → calibrate → evolve）全自动；`debate_journal.json` 升级捕获辩手论据 + held-out judge，双副本同步。
+
 ## 核心铁律
 
 | 铁律 | 内容 |
@@ -185,6 +212,7 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v5.4.0** | **2026-07-07** | **🧬 可观测性与自改进里程碑**：APM-CS五轴评分卡(D1-D5)+Telescope失败聚类；D1/D3/ViBench回放+held-out一致性裁判；D2 Acuity真实计算+成本感知PnL(COST_BPS)；D4纪律钳制enforce_discipline(R13/R14/R-resonance仓位上限)；D2信号退化标记/D5陈旧失败过滤/Stage3 self_improve脚手架；全周期K线(日/周/月/240m/60m/15m/5m/1m+自定义)；bug修复(MA60真实合约口径/scan_all原子写入/portfolio_backtest裸except/RuleChecker浮点边界/triggers闭包)；5门禁审计全100% |
 | **v5.3.0** | **2026-07-07** | **🧬 通道突破策略里程碑**：唐奇安DC20/DC55+布林带替换三类信号为主信号源；TqSDK live模式盘中实时价(非backtest)；盘中/盘后自适应数据获取；信号检查闸门(无信号早停)；单策略默认(非--dual)；多数据源格式对齐(TDX/TqSDK/EM/AKShare统一schema)；TDX date字段str()防TypeError；日盘14:30自动化全流程含辩论团P0-P6；管理员手册合并入README；日线跨夜盘说明新增 |
 | **v5.2.1** | **2026-07-07** | **🔧 全面修复**: ADX仅风控不参与评分+Agent输出格式统一+JSON Schema标准导出+时序通信铁律S01-S05+胶水代码清零 |
 | **v5.2** | **2026-07-06** | **🧬 架构重构**: 三类信号替代L1-L4+因子择时为主信号源，全部信号全辩论，ADX角色反转，证真/慎思动态正反方 |

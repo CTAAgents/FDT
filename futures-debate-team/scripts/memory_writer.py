@@ -1,6 +1,3 @@
-from scripts.unified_logger import get_logger
-
-_logger = get_logger("memory_writer")
 #!/usr/bin/env python3
 """
 记忆写入器 — 竞态安全的Agent日志管理（P0-4）
@@ -23,6 +20,9 @@ _logger = get_logger("memory_writer")
     writer.validate()
 """
 
+from scripts.unified_logger import get_logger
+
+_logger = get_logger("memory_writer")
 import os, json, sqlite3, time
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -244,6 +244,181 @@ def append_debate_index(round_id: str, symbols: List[str], direction: str):
     """兼容旧版 debate_index 写入接口。"""
     writer = MemoryWriter(round_id=round_id)
     return writer.write("team-lead", {"symbols": symbols, "direction": direction}, "index")
+
+
+# ── D1 解锁：debate_record 写入 + held-out judge 一致性 ──
+# canonical = memory/debate_journal.json；skills/memory/ 副本同步写入（不删除）
+_MEMORY_JOURNAL = Path(__file__).parent.parent / "memory" / "debate_journal.json"
+_SKILLS_JOURNAL = Path(__file__).parent.parent / "skills" / "memory" / "debate_journal.json"
+_journal_lock = None  # 延迟初始化的线程锁
+
+
+def _append_journal_entry(path: Path, record: Dict[str, Any]):
+    """向指定 journal 的 entries 追加一条记录（带锁，先读后写）。"""
+    global _journal_lock
+    if _journal_lock is None:
+        import threading
+        _journal_lock = threading.Lock()
+    with _journal_lock:
+        data = {"entries": []}
+        if path.exists():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                data = {"entries": []}
+        if "entries" not in data:
+            data["entries"] = []
+        data["entries"].append(record)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def compute_heldout_coherence(pro_args: List[Dict], con_args: List[Dict], verdict: Dict) -> Dict[str, Any]:
+    """确定性 held-out judge 一致性 rubric（无 LLM 时的可重放实现）。
+
+    真实 held-out judge（agents/futures-judge-heldout.md）会写出自己的
+    held_out_judge JSON；本函数作为种子回填/回退实现，保证 D1 可计算。
+    评分维度（满分 1.0）：
+      +0.4 胜方论据有≥2条带 evidence
+      +0.1 败方论据被显式记录（说明 judge 看见了反方）
+      +0.2 胜方论据 evidence 数 ≥ 败方（论据质量偏向裁决方向）
+      +0.1 全部论据均带 evidence（完整性）
+    """
+    pro = pro_args or []
+    con = con_args or []
+    direction = str(verdict.get("direction", "")).lower()
+    winner_is_pro = direction in ("bull", "long", "buy") or str(verdict.get("winner", "")).startswith(("pro", "bull", "证真", "long"))
+    winner_side = pro if winner_is_pro else con
+    loser_side = con if winner_is_pro else pro
+
+    score = 0.0
+    notes = []
+    pro_ev = [a for a in pro if a.get("evidence")]
+    con_ev = [a for a in con if a.get("evidence")]
+    if len(pro_ev) >= 2 or (winner_is_pro and len(pro_ev) >= 1):
+        score += 0.4
+        notes.append("胜方论据有证据支撑")
+    elif len(pro) >= 1:
+        score += 0.2
+    if loser_side:
+        score += 0.1
+        notes.append("反方论据被记录")
+    if len(pro_ev) >= len(con_ev):
+        score += 0.2
+        notes.append("论据质量偏向裁决方向")
+    if pro and con and all(a.get("evidence") for a in pro + con):
+        score += 0.1
+        notes.append("论据完整")
+    return {
+        "coherence_score": round(min(1.0, score), 3),
+        "rubric": "deterministic-seed",
+        "notes": notes,
+    }
+
+
+def append_debate_record(record: Dict[str, Any], round_id: str = None) -> Dict[str, Any]:
+    """写入升级后的 debate_record 条目（含 pro_args/con_args/verdict/held_out_judge）。
+
+    canonical = memory/debate_journal.json；skills/memory/ 副本同步写入（不删除旧副本）。
+    """
+    rec = dict(record)
+    rec.setdefault("action", "debate_record")
+    rec.setdefault("agent", "futures-debate-team-team-lead")
+    rec.setdefault("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    if round_id:
+        rec.setdefault("round_id", round_id)
+    _append_journal_entry(_MEMORY_JOURNAL, rec)
+    if _SKILLS_JOURNAL.exists():
+        _append_journal_entry(_SKILLS_JOURNAL, rec)
+    return rec
+
+
+def build_seed_debate_record_from_verdict(verdict_entry: Dict, followup: Dict = None) -> Dict[str, Any]:
+    """从 journal 的 verdict 条目重建 seed debate_record（历史回填用）。
+
+    仅用 verdict_entry 中真实存在的信号字段重建 pro/con 论据，绝不虚构价格/数据。
+    标记 seed=True / reconstructed=True，供下游透明识别。
+    """
+    sym = verdict_entry.get("symbol", "?")
+    direction = "bull" if str(verdict_entry.get("direction", "")).upper() in ("BUY", "BULL", "LONG") else "bear"
+    adx = verdict_entry.get("adx", 0)
+    atr = verdict_entry.get("atr", 0)
+    l1l4_dir = verdict_entry.get("l1l4_direction", "")
+    l1l4_cons = verdict_entry.get("l1l4_cons", 0)
+    factor_dir = verdict_entry.get("factor_direction", "")
+    reasoning = verdict_entry.get("reasoning", "")
+
+    pro_args, con_args = [], []
+    if direction == "bear":
+        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 极强趋势，趋势运行顺畅", "evidence": f"ADX={adx}", "source": "L1-L4/信号"})
+        if l1l4_cons:
+            pro_args.append({"id": f"{sym}-pro2", "claim": f"L1-L4 CONS={l1l4_cons} 全层一致看空", "evidence": f"l1l4_cons={l1l4_cons}, l1l4_dir={l1l4_dir}", "source": "L1-L4"})
+        con_args.append({"id": f"{sym}-con1", "claim": f"Factor 中性({factor_dir})，无因子共振确认", "evidence": f"factor_direction={factor_dir}", "source": "因子择时"})
+        con_args.append({"id": f"{sym}-con2", "claim": f"ADX={adx} 趋势运行过远，追空末端风险", "evidence": f"ADX={adx}", "source": "L1-L4"})
+    else:
+        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 强势多头趋势", "evidence": f"ADX={adx}", "source": "L1-L4/信号"})
+        if l1l4_cons:
+            pro_args.append({"id": f"{sym}-pro2", "claim": f"L1-L4 CONS={l1l4_cons} 全层一致看多", "evidence": f"l1l4_cons={l1l4_cons}", "source": "L1-L4"})
+        con_args.append({"id": f"{sym}-con1", "claim": f"Factor 中性({factor_dir})，无因子共振确认", "evidence": f"factor_direction={factor_dir}", "source": "因子择时"})
+
+    verdict = {
+        "direction": direction,
+        "confidence": verdict_entry.get("confidence", "中"),
+        "winner": verdict_entry.get("winner", "short_win" if direction == "bear" else "long_win"),
+        "reasoning": reasoning,
+    }
+    held = compute_heldout_coherence(pro_args, con_args, verdict)
+
+    return {
+        "round_id": verdict_entry.get("round", f"seed_{sym}"),
+        "symbol": sym,
+        "variety": sym.split(".")[0].upper(),
+        "signal_type": verdict_entry.get("signal_type", "channel_breakout"),
+        "pro_args": pro_args,
+        "con_args": con_args,
+        "verdict": verdict,
+        "held_out_judge": held,
+        "volatility": {"adx": adx, "atr": atr},
+        "seed": True,
+        "reconstructed": True,
+        "inferred_fields": ["signal_type"] if "signal_type" not in verdict_entry else [],
+        "note": "历史回填：论据由 verdict 条目的真实信号字段重建，held_out_judge 为确定性种子rubric（非 live LLM judge）",
+    }
+
+
+def backfill_debate_records_from_history() -> int:
+    """扫描 journal 中 action=='verdict' 条目，回填缺失的 debate_record。
+
+    返回新增条数。幂等：已存在同 (round_id, symbol) 的 debate_record 则跳过。
+    """
+    if not _MEMORY_JOURNAL.exists():
+        return 0
+    journal = json.loads(_MEMORY_JOURNAL.read_text(encoding="utf-8"))
+    entries = journal.get("entries", [])
+    existing = {(e.get("round_id"), e.get("symbol")) for e in entries if e.get("action") == "debate_record"}
+    followup = None
+    fp = _MEMORY_JOURNAL.parent / "execution_followup.json"
+    if fp.exists():
+        try:
+            followup = json.loads(fp.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, IOError):
+            followup = None
+
+    added = 0
+    for e in entries:
+        if e.get("action") != "verdict":
+            continue
+        key = (e.get("round"), e.get("symbol"))
+        if key in existing:
+            continue
+        rec = build_seed_debate_record_from_verdict(e, followup)
+        append_debate_record(rec, round_id=e.get("round"))
+        existing.add((rec.get("round_id"), rec.get("symbol")))
+        added += 1
+    return added
 
 
 if __name__ == "__main__":

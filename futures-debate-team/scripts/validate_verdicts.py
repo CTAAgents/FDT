@@ -24,109 +24,112 @@ from pathlib import Path
 from collections import defaultdict
 
 
-# ─── 数据获取 — 重构：拉K线序列而非单点价格 ──────────────
-
-def fetch_bar_sequence_tdx(symbol: str, count: int = 10) -> list | None:
-    """通过通达信TQ-Local获取品种最近N根日K线"""
-    try:
-        import requests
-        url = f"http://localhost:7709/tq?symbol={symbol}&type=kline&period=day&count={count}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("code") == 0 and data.get("data"):
-                bars = data["data"]
-                if isinstance(bars, list) and len(bars) > 0:
-                    result = []
-                    for b in bars:
-                        result.append({
-                            "date": b.get("date", ""),
-                            "open": float(b.get("open", 0)),
-                            "high": float(b.get("high", 0)),
-                            "low": float(b.get("low", 0)),
-                            "close": float(b.get("close", 0)),
-                        })
-                    return result
-    except Exception:
-        pass
-    return None
+# ─── 成本模型（成本感知 PnL）───────────────────────────
+# CLQT (arXiv:2606.29771) 核心教训: 回报≠能力, 不建模交易成本会系统性高估策略可交易性。
+# 此处对每条裁决扣除往返交易成本(手续费+滑点), 计算净PnL, 暴露成本盲区。
+# 默认 2 bps 往返(保守估计, 覆盖主流活跃品种); 可通过 --cost-bps 调整。
+# 注: 成本对所有裁决为常量扣除, 不改变 Spearman 秩相关(D2 Acuity 不受影响),
+#      但会改变 near-zero 输出的 correct 判定与均盈读数。
+COST_BPS = 2.0           # 往返交易成本(基点)。1 bp = 0.01%
+DEFAULT_COST_BPS = 2.0
 
 
-def fetch_bar_sequence_em(symbol: str, count: int = 10) -> list | None:
-    """东方财富备用数据源 — 拉K线序列"""
-    try:
-        import requests
-        market_code = _get_em_market_code(symbol)
-        if not market_code:
-            return None
-        url = (f"https://push2his.eastmoney.com/api/qt/stock/kline/get?"
-               f"secid={market_code}&fields1=f1,f2,f3,f4,f5,f6&"
-               f"fields2=f51,f52,f53,f54,f55,f56,f57&klt=101&fqt=1&end=20500101&lmt={count}")
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("data") and data["data"].get("klines"):
-                klines = data["data"]["klines"]
-                result = []
-                for line in klines:
-                    parts = line.split(",")
-                    if len(parts) >= 6:
-                        result.append({
-                            "date": parts[0],
-                            "open": float(parts[1]),
-                            "close": float(parts[2]),
-                            "high": float(parts[3]),
-                            "low": float(parts[4]),
-                        })
-                return result if result else None
-    except Exception:
-        pass
-    return None
+# ─── 数据获取 — 统一经由 quant-daily skill ──────────────
+# 规则铁律: 所有期货数据必须经由 quant-daily skill 获取（futures-debate-team 内置数据模块）。
+# quant-daily 的 MultiSourceAdapter 内部已完成 tdx_local → tqsdk → 东方财富 三层降级，
+# 因此本脚本只调用 quant-daily 单一数据源，不在外部重复直连。
+
+_ADAPTER = None
+_ADAPTER_AVAILABLE = True
 
 
-def _get_em_market_code(symbol: str) -> str | None:
-    """将期货代码转为东方财富market code（大小写不敏感）"""
-    sym_upper = symbol.upper()
-    mapping = {
-        # 上海期货交易所
-        "CU": "113", "AL": "113", "ZN": "113", "PB": "113", "NI": "113",
-        "SN": "113", "AU": "113", "AG": "113", "RB": "113", "HC": "113",
-        "SS": "113", "BU": "113", "RU": "113", "NR": "113", "SP": "113",
-        "BR": "113",
-        # 上海国际能源交易中心
-        "SC": "114", "LU": "114", "FU": "114",
-        "EC": "114",
-        # 大连商品交易所
-        "C": "114", "CS": "114", "A": "114", "B": "114", "M": "114",
-        "Y": "114", "P": "114", "L": "114", "V": "114", "PP": "114",
-        "J": "114", "JM": "114", "I": "114", "EG": "114", "EB": "114",
-        "PG": "114", "RR": "114", "JD": "114", "LH": "114",
-        # 郑州商品交易所
-        "CF": "113", "SR": "113", "TA": "113", "MA": "113", "FG": "113",
-        "SA": "113", "UR": "113", "PF": "113", "PK": "113", "CJ": "113",
-        "AP": "113", "RM": "113", "OI": "113", "SM": "113", "SF": "113",
-        "PR": "113", "PX": "113", "SH": "113",
-        # 广州期货交易所
-        "AO": "117", "SI": "117", "PS": "117",
-    }
-    exchange = mapping.get(sym_upper, "")
-    if not exchange:
+def _qdaily_scripts_dir() -> str:
+    """定位 quant-daily 的 scripts 目录（专家团内置；回退用户级 skill）"""
+    here = Path(__file__).resolve().parent          # .../futures-debate-team/scripts
+    candidate = here.parent / "skills" / "quant-daily" / "scripts"
+    if candidate.exists():
+        return str(candidate)
+    return str(Path.home() / ".workbuddy" / "skills" / "quant-daily" / "scripts")
+
+
+def _get_qdaily_adapter():
+    """懒加载 quant-daily MultiSourceAdapter（单例）"""
+    global _ADAPTER, _ADAPTER_AVAILABLE
+    if _ADAPTER is not None:
+        return _ADAPTER
+    if not _ADAPTER_AVAILABLE:
         return None
-    return f"{exchange}.{symbol}"
+    try:
+        scripts_dir = _qdaily_scripts_dir()
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from data.multi_source_adapter import MultiSourceAdapter
+        _ADAPTER = MultiSourceAdapter()
+        return _ADAPTER
+    except Exception as e:
+        print(f"[validate_verdicts] quant-daily adapter 加载失败: {e}")
+        _ADAPTER_AVAILABLE = False
+        return None
+
+
+def _variety_from_symbol(symbol: str) -> str:
+    """CU.SHF -> CU（quant-daily 用品种代码，不带交易所后缀；数据中小写亦转大写）"""
+    return (symbol or "").split(".")[0].upper().strip()
+
+
+def _norm_date(s: str) -> str:
+    """将任意日期字符串归一为 YYYYMMDD（8位数字），用于K线入场对齐"""
+    digits = "".join(ch for ch in (s or "") if ch.isdigit())
+    return digits[:8] if len(digits) >= 8 else ""
+
+
+# ─── 数据获取 — 统一经由 quant-daily 的 MultiSourceAdapter ──
+
+def fetch_bar_sequence_qdaily(symbol: str, count: int = 10) -> list | None:
+    """通过 quant-daily MultiSourceAdapter 获取 K 线序列（统一数据源）
+
+    quant-daily 内部已做 tdx_local → tqsdk → 东方财富 三层降级，
+    返回最近 days 根日K线。此处返回全部已获取K线（按日期升序），
+    由调用方按裁决日做入场对齐与窗口截取。
+    """
+    adapter = _get_qdaily_adapter()
+    if adapter is None:
+        return None
+    variety = _variety_from_symbol(symbol)
+    try:
+        # days 覆盖最近 N 天；取缓冲天数确保裁决日之后有足够K线
+        res = adapter.get_kline(variety, days=max(count + 5, 20), period="daily")
+        if not res or not res.get("success"):
+            return None
+        data = res.get("data", [])
+        if not data:
+            return None
+        bars = []
+        for d in data:
+            bars.append({
+                "date": str(d.get("date", "")),
+                "open": float(d.get("open", 0) or 0),
+                "high": float(d.get("high", 0) or 0),
+                "low": float(d.get("low", 0) or 0),
+                "close": float(d.get("close", 0) or 0),
+            })
+        bars.sort(key=lambda b: b["date"])
+        return bars
+    except Exception as e:
+        print(f"[validate_verdicts] quant-daily get_kline({symbol}) 失败: {e}")
+        return None
 
 
 def get_bar_sequence(symbol: str, count: int = 10) -> list:
-    """获取品种K线序列（多源降级）"""
-    bars = fetch_bar_sequence_tdx(symbol, count)
+    """获取品种 K 线序列（统一经由 quant-daily skill，内部已含三层降级）
+
+    返回最近 count 根日K线（按日期升序），供 validate_round 做入场对齐。
+    """
+    bars = fetch_bar_sequence_qdaily(symbol, count)
     if bars:
         for b in bars:
-            b["source"] = "通达信TQ-Local"
-        return bars
-    bars = fetch_bar_sequence_em(symbol, count)
-    if bars:
-        for b in bars:
-            b["source"] = "东方财富"
-        return bars
+            b["source"] = "quant-daily"
+        return bars[-count:] if len(bars) >= count else bars
     return []
 
 
@@ -213,12 +216,21 @@ def validate_verdict_intraday(verdict: dict, bars: list) -> dict:
 
     realized_pnl_pct = round(realized * 100, 2)
 
-    # correct = 实现盈亏为正
+    # 成本感知: 扣除往返交易成本, 计算净PnL
+    cost_pct = COST_BPS / 100.0            # COST_BPS(bp) → 百分比
+    net_realized_pct = round(realized * 100 - cost_pct, 2)
+
+    # correct     = 毛方向盈亏为正（方向判断正确性）
+    # correct_net = 扣费后实际可交易盈亏为正（可交易性 / 成本敏感性）
     correct = realized > 0
+    correct_net = (realized * 100 - cost_pct) > 0
 
     return {
         "correct": correct,
+        "correct_net": correct_net,
         "realized_pnl_pct": realized_pnl_pct,
+        "net_pnl_pct": net_realized_pct,
+        "cost_bps": COST_BPS,
         "hit_stop": hit_stop,
         "hit_target1": hit_target1,
         "hit_target2": hit_target2,
@@ -264,9 +276,13 @@ def validate_verdict_fallback(verdict: dict, current_price: float) -> dict:
     else:
         correct = None
     pnl_pct = round(-change_pct if direction == "bear" else change_pct, 2)
+    cost_pct = COST_BPS / 100.0
+    net_pnl_pct = round(pnl_pct - cost_pct, 2)
     return {
-        "correct": correct, "change_pct": change_pct,
+        "correct": correct, "correct_net": net_pnl_pct > 0, "change_pct": change_pct,
         "realized_pnl_pct": pnl_pct,
+        "net_pnl_pct": net_pnl_pct,
+        "cost_bps": COST_BPS,
         "hit_stop": False, "hit_target1": False, "hit_target2": False,
         "gap_stop": False,
         "reason": "旧版验证(无止损检测)",
@@ -281,12 +297,16 @@ def validate_round(record: dict, bar_cache: dict = None) -> dict:
     verdicts = record["verdicts"]
     results = []
     errors = []
-    bar_count = 8  # 拉8根日K线, 确保裁决日之后有足够数据
+    bar_count = 45  # 拉足够长窗口，覆盖裁决日之后，供入场对齐
+    entry_date = _norm_date(record.get("generated_at", ""))  # 裁决日，用于入场对齐
 
     for v in verdicts:
         sym = v["symbol"]
         if sym not in bar_cache:
             bars = get_bar_sequence(sym, bar_count)
+            # 入场日对齐: 仅保留 >= 裁决日的K线，避免用入场前历史误触止损
+            if entry_date and bars:
+                bars = [b for b in bars if _norm_date(b["date"]) >= entry_date]
             bar_cache[sym] = bars
 
         bars = bar_cache[sym]
@@ -316,14 +336,26 @@ def validate_round(record: dict, bar_cache: dict = None) -> dict:
     target_hit = sum(1 for r in results if r.get("hit_target1"))
     gap_hit = sum(1 for r in results if r.get("gap_stop"))
 
+    # 净指标（成本感知）
+    net_correct = sum(1 for r in results if r.get("correct_net") is True)
+    net_wrong = sum(1 for r in results if r.get("correct_net") is False)
+    net_accuracy = round(net_correct / (net_correct + net_wrong) * 100, 1) if (net_correct + net_wrong) > 0 else 0
+    net_vals = [r.get("net_pnl_pct", 0) for r in results if r.get("net_pnl_pct") is not None]
+    net_avg_pnl = round(sum(net_vals) / max(len(net_vals), 1), 2)
+
     return {
         "validated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "cost_bps": COST_BPS,
         "total": total,
         "correct": correct,
         "wrong": wrong,
         "unknown": unknown,
         "accuracy": accuracy,
         "validatable": validatable,
+        "net_correct": net_correct,
+        "net_wrong": net_wrong,
+        "net_accuracy": net_accuracy,
+        "net_avg_pnl_pct": net_avg_pnl,
         "stop_hit_count": stop_hit,
         "target_hit_count": target_hit,
         "gap_stop_count": gap_hit,
@@ -402,10 +434,10 @@ def _build_outcome(r: dict) -> str:
 
 def compute_group_stats(all_records: list) -> dict:
     """对所有已验证记录做分组统计"""
-    by_confidence = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "stop_hit": 0})
-    by_direction = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "stop_hit": 0})
-    by_chain = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "stop_hit": 0})
-    by_adx_range = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "stop_hit": 0})
+    by_confidence = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0, "stop_hit": 0})
+    by_direction = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0, "stop_hit": 0})
+    by_chain = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0, "stop_hit": 0})
+    by_adx_range = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0, "stop_hit": 0})
 
     for record in all_records:
         if not record.get("validated"):
@@ -459,6 +491,10 @@ def compute_group_stats(all_records: list) -> dict:
             by_direction[direction]["pnl_sum"] += r.get("realized_pnl_pct", 0)
             by_chain[chain]["pnl_sum"] += r.get("realized_pnl_pct", 0)
             by_adx_range[adx_range]["pnl_sum"] += r.get("realized_pnl_pct", 0)
+            by_confidence[conf]["net_pnl_sum"] += r.get("net_pnl_pct", 0)
+            by_direction[direction]["net_pnl_sum"] += r.get("net_pnl_pct", 0)
+            by_chain[chain]["net_pnl_sum"] += r.get("net_pnl_pct", 0)
+            by_adx_range[adx_range]["net_pnl_sum"] += r.get("net_pnl_pct", 0)
 
     def _format(stats):
         result = {}
@@ -468,6 +504,7 @@ def compute_group_stats(all_records: list) -> dict:
                 "correct": s["correct"],
                 "accuracy": round(s["correct"] / s["total"] * 100, 1) if s["total"] > 0 else 0,
                 "avg_pnl": round(s["pnl_sum"] / s["total"], 2) if s["total"] > 0 else 0,
+                "net_avg_pnl": round(s["net_pnl_sum"] / s["total"], 2) if s["total"] > 0 else 0,
                 "stop_hit_rate": round(s["stop_hit"] / s["total"] * 100, 1) if s["total"] > 0 else 0,
             }
         return result
@@ -483,13 +520,19 @@ def compute_group_stats(all_records: list) -> dict:
 # ─── 主程序 ───────────────────────────────────────────
 
 def main():
+    global COST_BPS
     import argparse
-    parser = argparse.ArgumentParser(description="裁决验证器")
+    parser = argparse.ArgumentParser(description="裁决验证器（成本感知）")
     parser.add_argument("--t1", action="store_true", help="验证T+1日")
     parser.add_argument("--t3", action="store_true", help="验证T+3日")
     parser.add_argument("--report", action="store_true", help="仅生成汇总报告")
+    parser.add_argument("--force", action="store_true", help="强制重验已验证记录（如数据源修复后）")
+    parser.add_argument("--cost-bps", type=float, default=COST_BPS,
+                        help=f"往返交易成本(基点), 默认 {DEFAULT_COST_BPS}bp")
     parser.add_argument("--followup", default=None, help="execution_followup.json路径")
     args = parser.parse_args()
+
+    COST_BPS = args.cost_bps
 
     if args.followup is None:
         script_dir = Path(__file__).parent.parent
@@ -504,7 +547,7 @@ def main():
 
     updated_count = 0
     for record in followup["records"]:
-        if record.get("validated"):
+        if record.get("validated") and not args.force:
             continue
 
         print(f"\n🔍 验证轮次: {record['round_id']} ({record['generated_at']})")
@@ -516,10 +559,11 @@ def main():
             record["validation_results"] = vr
             updated_count += 1
 
-            print(f"   准确率: {vr['accuracy']}% ({vr['correct']}/{vr['total']}正确)")
+            print(f"   准确率(毛): {vr['accuracy']}% ({vr['correct']}/{vr['total']}正确)")
+            print(f"   准确率(净, {vr['cost_bps']}bp成本): {vr['net_accuracy']}% ({vr['net_correct']}/{vr['total']}正确)")
             print(f"   止损触发: {vr['stop_hit_count']}/{vr['total']} ({vr['gap_stop_count']}跳空扫损)")
             print(f"   止盈达标: {vr['target_hit_count']}/{vr['total']}")
-            print(f"   均实现盈亏: {vr['avg_pnl_pct']:+.2f}%")
+            print(f"   均实现盈亏(毛): {vr['avg_pnl_pct']:+.2f}%  | (净): {vr['net_avg_pnl_pct']:+.2f}%")
             if vr["errors"]:
                 print(f"   错误: {', '.join(vr['errors'])}")
 
@@ -549,7 +593,7 @@ def main():
         print(f"  {group_name}:")
         for key, s in sorted(group_data.items()):
             print(f"    {key:12s}  准确率={s['accuracy']:5.1f}%  ({s['correct']}/{s['total']})  "
-                  f"均盈={s['avg_pnl']:+.2f}%  止损率={s['stop_hit_rate']:.1f}%")
+                  f"均盈(毛)={s['avg_pnl']:+.2f}%  (净)={s['net_avg_pnl']:+.2f}%  止损率={s['stop_hit_rate']:.1f}%")
 
     print(f"\n{'─'*40}")
     print(f"  按产业链:")

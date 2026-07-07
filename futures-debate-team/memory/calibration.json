@@ -1,16 +1,77 @@
 {
-  "confidence": {},
-  "adx_range": {},
-  "rsi_range": {},
-  "conflict": {},
+  "confidence": {
+    "高": {
+      "adj": -10,
+      "samples": 5,
+      "accuracy": 0.0
+    },
+    "中": {
+      "adj": -5,
+      "samples": 9,
+      "accuracy": 44.4
+    },
+    "低": {
+      "adj": 2,
+      "samples": 6,
+      "accuracy": 66.7
+    }
+  },
+  "adx_range": {
+    "ADX≥70": 0,
+    "50≤ADX<70": {
+      "adj": -8,
+      "samples": 9,
+      "accuracy": 33.3
+    },
+    "30≤ADX<50": {
+      "adj": 6,
+      "samples": 5,
+      "accuracy": 80.0
+    },
+    "ADX<30": 0
+  },
+  "rsi_range": {
+    "30≤RSI<35": 0,
+    "RSI<30超卖": 0,
+    "35≤RSI<40": {
+      "adj": -9,
+      "samples": 7,
+      "accuracy": 28.6
+    },
+    "RSI≥45": 0,
+    "40≤RSI<45": 0,
+    "55<RSI≤60": 0
+  },
+  "conflict": {
+    "no_conflict": {
+      "adj": -7,
+      "samples": 19,
+      "accuracy": 36.8
+    },
+    "conflict": 0
+  },
   "direction_bias": 0,
-  "chains": {},
+  "chains": {
+    "油化工": 0,
+    "聚酯链": 0,
+    "煤化工": 0,
+    "能源链": 0,
+    "黑色系": 0,
+    "有色": 0,
+    "贵金属": 0,
+    "橡胶": 0,
+    "谷物软商": 0,
+    "油脂油料": 0,
+    "铁合金": 0,
+    "新能源": 0,
+    "纸浆造纸": 0,
+    "建材": 0
+  },
   "_meta": {
-    "calibrated_at": "2026-07-06 13:47",
-    "total_samples": 0,
+    "calibrated_at": "2026-07-07 16:43",
+    "total_samples": 20,
     "baseline": 0.6,
     "learning_rate": 0.3,
-    "min_samples": 5,
-    "status": "pending — 首次校准需≥5条已验证裁决"
+    "min_samples": 5
   }
 }

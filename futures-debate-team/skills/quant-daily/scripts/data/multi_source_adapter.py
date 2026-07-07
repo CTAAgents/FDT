@@ -301,7 +301,7 @@ class MultiSourceAdapter:
         end_date = datetime.now().strftime("%Y-%m-%d")
 
         # 周期名转TDX格式
-        _period_tdx = {"daily": "1d", "weekly": "1w", "monthly": "1m"}.get(period, period)
+        _period_tdx = {"daily": "1d", "weekly": "1w", "monthly": "1m", "60m": "1h", "240m": "4h"}.get(period, period)
         # 0. 优先尝试通达信本地TDX Collector(最高优先级,priority=0)
         if self.tdx_local_available and self.tdx_collector:
             try:
@@ -782,6 +782,7 @@ class MultiSourceAdapter:
     def _fetch_tqsdk_kline(
         self,
         variety: str,
+        days: int = 120,
         period: str = "daily",
     ) -> Optional[List[Dict]]:
         """Get main contract kline from TqSDK (live mode, close is real-time price)

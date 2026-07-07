@@ -12,6 +12,7 @@ TEST_DIRS = [
     "tests/fundamental-data-collector",
     "tests/technical-analysis",
     "tests/contracts",
+    "tests/fdt-gate",
 ]
 
 python = sys.executable
