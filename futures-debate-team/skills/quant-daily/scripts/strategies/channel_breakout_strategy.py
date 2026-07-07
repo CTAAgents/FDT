@@ -48,6 +48,49 @@ class ChannelBreakoutStrategy(BaseStrategy):
         period: str = "daily",
         window_mode: str = "fixed",
     ) -> dict:
+        # ── 等效时间窗口缩放 ──
+        # 在 time 模式下,将 DC20/DC55/MA60 的窗口从固定bar数缩放为等效天数
+        if window_mode == "time" and df_map:
+            # 计算缩放系数: 1个交易日≈345分钟
+            trading_min_per_day = 345
+            _bar_min = {"1m": 1, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
+                        "60m": 60, "120m": 120, "240m": 240, "daily": 1440}
+            bar_min = _bar_min.get(period, 60)
+            scale = trading_min_per_day / max(bar_min, 1)  # K线数/天
+            _dc20_t = int(20 * scale)
+            _dc55_t = int(55 * scale)
+            _ma60_t = int(60 * scale)
+            # 对每个品种,从 df_map 中重新计算缩放后的 DC/MA 值并覆盖 tech
+            for tech in tech_list:
+                sym = tech.get("symbol", "")
+                df = df_map.get(sym)
+                if df is not None and len(df) >= max(_dc55_t, 60):
+                    closes = df["close"].values.astype(float)
+                    highs = df["high"].values.astype(float)
+                    lows = df["low"].values.astype(float)
+                    import numpy as np
+                    # DC20
+                    dc20_upper = np.max(highs[-_dc20_t:])
+                    dc20_lower = np.min(lows[-_dc20_t:])
+                    tech["DC20_UPPER"] = dc20_upper
+                    tech["DC20_LOWER"] = dc20_lower
+                    tech["DC20_POS"] = (closes[-1] - dc20_lower) / (dc20_upper - dc20_lower + 1e-10)
+                    # DC55
+                    dc55_upper = np.max(highs[-_dc55_t:])
+                    dc55_lower = np.min(lows[-_dc55_t:])
+                    tech["DC55_UPPER"] = dc55_upper
+                    tech["DC55_LOWER"] = dc55_lower
+                    tech["DC55_POS"] = (closes[-1] - dc55_lower) / (dc55_upper - dc55_lower + 1e-10)
+                    # DC55趋势: 比较前一半与后一半的中点
+                    half = _dc55_t // 2
+                    mid_first = (np.max(highs[-_dc55_t:-half]) + np.min(lows[-_dc55_t:-half])) / 2
+                    mid_last = (np.max(highs[-half:]) + np.min(lows[-half:])) / 2
+                    tech["DC55_TREND"] = "up" if mid_last > mid_first else "down"
+                    # MA60 (等效时间)
+                    if len(closes) >= _ma60_t:
+                        ma60 = np.mean(closes[-_ma60_t:])
+                        tech["MA60"] = ma60
+
         results = []
 
         for tech in tech_list:
