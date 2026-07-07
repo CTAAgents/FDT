@@ -280,6 +280,7 @@ class MultiSourceAdapter:
         variety: str,
         days: int = 365,
         period: str = "daily",
+        contract: str = None,
     ) -> Dict[str, Any]:
         """
         获取品种的完整K线历史序列（多数据源降级获取）
@@ -288,6 +289,7 @@ class MultiSourceAdapter:
             variety: 品种代码，如 SC, BU, CU
             days: 获取最近多少天的K线
             period: K线周期 daily(日线) | weekly(周线)
+            contract: 指定合约月份（如 "2609"），不传则用主力连续L8
 
         Returns:
             {"success": bool, "data": [{date, open, close, high, low, volume, oi, settle}, ...],
@@ -301,7 +303,15 @@ class MultiSourceAdapter:
         # 0. 优先尝试通达信本地TDX Collector（最高优先级，priority=0）
         if self.tdx_local_available and self.tdx_collector:
             try:
-                tdx_kline = self.tdx_collector.get_kline(variety, days=days)
+                if contract:
+                    # 指定合约：如 LH2609 → LH2609.DCE
+                    from .collectors.tdx_collector import VARIETY_EXCHANGE, EXCHANGE_SUFFIX
+                    exchange = VARIETY_EXCHANGE.get(variety.upper())
+                    suffix = EXCHANGE_SUFFIX.get(exchange) if exchange else ""
+                    code = f"{variety.upper()}{contract}.{suffix}" if suffix else None
+                    tdx_kline = self.tdx_collector.get_contract_kline(code, days=days) if code else None
+                else:
+                    tdx_kline = self.tdx_collector.get_kline(variety, days=days)
                 if tdx_kline and len(tdx_kline) >= 20:
                     records = []
                     for k in tdx_kline:

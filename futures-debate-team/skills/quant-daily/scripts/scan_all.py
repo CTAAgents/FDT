@@ -43,7 +43,7 @@ from data.multi_source_adapter import MultiSourceAdapter
 from strategies import get_strategy, list_strategies
 
 
-def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None):
+def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None):
     """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。"""
     from datetime import date
 
@@ -52,7 +52,7 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
     kline_data = {}
     for i, (sym, name) in enumerate(symbols):
         try:
-            resp = adapter.get_kline(variety=sym, days=days)
+            resp = adapter.get_kline(variety=sym, days=days, contract=contract)
             if isinstance(resp, dict) and resp.get("success"):
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
@@ -73,6 +73,7 @@ def run_scan(
     strategy_name: str = None,
     dual: bool = False,
     seed: int = None,
+    contract: str = None,
 ) -> dict:
     """执行品种信号扫描，返回结果字典。
 
@@ -203,7 +204,7 @@ def run_scan(
     # ── Step 1: 数据采集 ──
     print("\n[1] 数据采集（通达信本地 → MultiSourceAdapter）...")
     adapter = MultiSourceAdapter()
-    kline_data = collect_kline_for_all(adapter, target_symbols, days=120, min_bars=50)
+    kline_data = collect_kline_for_all(adapter, target_symbols, days=120, min_bars=50, contract=contract)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
 
     # ── Step 2: 指标计算 ──
@@ -644,6 +645,11 @@ if __name__ == "__main__":
         choices=available + [None],
     )
     parser.add_argument(
+        "--contract",
+        help='指定合约月份（如 "2609"），不传则用主力连续L8',
+        default=None,
+    )
+    parser.add_argument(
         "--mode",
         "-m",
         default="dry-run",
@@ -698,6 +704,7 @@ if __name__ == "__main__":
         strategy_name=args.strategy,
         dual=args.dual,
         seed=args.seed,
+        contract=args.contract,
     )
 
     # Walk-Forward 回测模式
