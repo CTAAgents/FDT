@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
-"""
-多源数据适配器
-实现数据源优先级和自动降级机制
-
-数据源优先级（优先级仅决定尝试顺序，所有数据源数据置信度相同）：
-1. TqSdk（实时行情，盘中优先）
-2. 交易所官方API（exchange-futures-data）
-3. 东方财富API（公开HTTP接口）
-4. AKShare（免费数据源）
-5. WebSearch（权威网站）
-6. 历史缓存 - 兜底方案
-
-注意：金十数据 MCP（jin10）是独立的资讯类数据源，不参与价格数据路由。
-金十数据通过 WorkBuddy MCP 工具（mcp__jin10__*）直接调用，专供快讯/资讯/日历查询。
-"""
+# 多源数据适配器
+# 实现数据源优先级和自动降级机制
+#
 
 import json
 import re
@@ -31,7 +19,7 @@ from .data_source_config import DataSourceConfig
 from .data_freshness_monitor import record_data_fetch
 
 # ═══════════════════════════════════════════════
-# 周期标准配置表（统一路由）
+# 周期标准配置表(统一路由)
 # ═══════════════════════════════════════════════
 PERIOD_CONFIG = {
     # key:       {"tdx": TDX周期,  "tqsdk":秒,  "em_klt": klt参数,   "bar_min":分钟值, "label":中文,   "max_bars":单次上限}
@@ -48,11 +36,11 @@ PERIOD_CONFIG = {
     "monthly":  {"tdx": "1M",  "tqsdk": 2592000,  "em_klt": 103,  "bar_min": 43200,"label":"月线",  "max_bars": 500},
 }
 
-# 自定义周期正则：如 "90m" "180m" "360m"
+# 自定义周期正则:如 "90m" "180m" "360m"
 CUSTOM_PERIOD_RE = re.compile(r"^(\d+)m$")
 
 def resolve_period(period: str) -> dict:
-    """解析周期标识，返回 {tdx, tqsdk, em_klt, bar_min, label, max_bars, ...}"""
+    # 解析周期标识,返回 {tdx, tqsdk, em_klt, bar_min, label, max_bars, ...}
     p = period.lower().strip()
     if p in PERIOD_CONFIG:
         return PERIOD_CONFIG[p].copy()
@@ -72,7 +60,7 @@ def resolve_period(period: str) -> dict:
 
 
 class DataSource(Enum):
-    """数据源枚举"""
+    # 数据源枚举
 
     EXCHANGE_API = "exchange_api"  # 交易所官方API
     TQSDK = "tqsdk"  # 天勤量化
@@ -85,21 +73,20 @@ class DataSource(Enum):
 
 
 class DataSourceHealth:
-    """数据源健康状态
+    # 数据源健康状态
 
-    使用 source.value (字符串) 作为内部 key，兼容不同 DataSource enum 类
-    （multi_source_adapter.DataSource 与 data_source_config.DataSource 是不同的 Enum 类）。
-    """
+    使用 source.value (字符串) 作为内部 key,兼容不同 DataSource enum 类
+    (multi_source_adapter.DataSource 与 data_source_config.DataSource 是不同的 Enum 类).
 
     def __init__(self):
         self.status: Dict[str, Dict[str, Any]] = {}
 
     def _key(self, source: DataSource) -> str:
-        """统一 key 提取：无论传入哪个 DataSource enum 类，都用 .value"""
+        # 统一 key 提取:无论传入哪个 DataSource enum 类,都用 .value
         return source.value if hasattr(source, "value") else str(source)
 
     def _ensure_key(self, source: DataSource):
-        """确保 key 存在"""
+        # 确保 key 存在
         k = self._key(source)
         if k not in self.status:
             self.status[k] = {
@@ -112,7 +99,7 @@ class DataSourceHealth:
             }
 
     def record_success(self, source: DataSource, response_ms: float):
-        """记录成功"""
+        # 记录成功
         k = self._key(source)
         self._ensure_key(source)
         self.status[k]["last_success"] = datetime.now()
@@ -121,7 +108,7 @@ class DataSourceHealth:
         self.status[k]["avg_response_ms"] = (old_avg + response_ms) / 2
 
     def record_failure(self, source: DataSource):
-        """记录失败"""
+        # 记录失败
         k = self._key(source)
         self._ensure_key(source)
         self.status[k]["last_failure"] = datetime.now()
@@ -130,15 +117,15 @@ class DataSourceHealth:
             self.status[k]["available"] = False
 
     def is_available(self, source: DataSource) -> bool:
-        """检查是否可用"""
+        # 检查是否可用
         return self.status.get(self._key(source), {}).get("available", True)
 
     def get_confidence(self, source: DataSource) -> float:
-        """获取置信度"""
+        # 获取置信度
         return self.status.get(self._key(source), {}).get("confidence", 1.0)
 
     def get_best_source(self, sources: List[DataSource]) -> DataSource:
-        """获取最佳数据源"""
+        # 获取最佳数据源
         available_sources = [s for s in sources if self.is_available(s)]
         if not available_sources:
             return DataSource.NONE
@@ -146,17 +133,17 @@ class DataSourceHealth:
 
 
 class MultiSourceAdapter:
-    """多源数据适配器（配置驱动）"""
+    # 多源数据适配器(配置驱动)
 
     def __init__(self):
         self.health = DataSourceHealth()
         self.cache_dir = Path.home() / ".workbuddy" / "skills" / "quant-daily" / "data" / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # 数据源配置（从 YAML 加载）
+        # 数据源配置(从 YAML 加载)
         self.config = DataSourceConfig()
 
-        # DuckDB 存储引擎（替换JSON文件缓存）
+        # DuckDB 存储引擎(替换JSON文件缓存)
         try:
             self.db = DuckDBStore()
             self.db_available = True
@@ -169,14 +156,14 @@ class MultiSourceAdapter:
         self._init_data_sources()
 
     def _init_data_sources(self):
-        """初始化数据源（按配置驱动）"""
+        # 初始化数据源(按配置驱动)
         self.collector_available = False
         self.tqsdk_available = False
         self.eastmoney_available = False
         self.tdx_local_available = False
         self.akshare_available = False
 
-        # 1. 交易所官方API（按配置 enabled 决定是否加载）
+        # 1. 交易所官方API(按配置 enabled 决定是否加载)
         if self.config.is_enabled("exchange_api"):
             try:
                 import sys as _sys
@@ -195,7 +182,7 @@ class MultiSourceAdapter:
                 self.exchange_collector = None
                 self.collector_available = False
 
-        # 2. TqSdk（按配置 enabled 决定是否加载，懒加载避免初始化卡住）
+        # 2. TqSdk(按配置 enabled 决定是否加载,懒加载避免初始化卡住)
         if self.config.is_enabled("tqsdk"):
             try:
                 import importlib.util
@@ -207,7 +194,7 @@ class MultiSourceAdapter:
             except Exception:
                 self.tqsdk_available = False
 
-        # 3. 东方财富API — 轻量级公开数据源
+        # 3. 东方财富API - 轻量级公开数据源
         try:
             from .collectors.eastmoney_collector import EastMoneyCollector
 
@@ -219,7 +206,7 @@ class MultiSourceAdapter:
             self.eastmoney_collector = None
             self.eastmoney_available = False
 
-        # 4. 通达信本地HTTP服务（按配置 enabled 决定是否加载）
+        # 4. 通达信本地HTTP服务(按配置 enabled 决定是否加载)
         if self.config.is_enabled("tdx_local"):
             try:
                 from .collectors.tdx_collector import TdxCollector
@@ -250,10 +237,9 @@ class MultiSourceAdapter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        获取行情数据（带降级机制 + 配置驱动的盘中/盘后时间路由）
+        # 获取行情数据(带降级机制 + 配置驱动的盘中/盘后时间路由)
 
-        优先级来源于 data_sources.yaml，支持运行时修改配置后 reload。
+        优先级来源于 data_sources.yaml,支持运行时修改配置后 reload.
 
         Args:
             variety: 品种代码
@@ -263,7 +249,6 @@ class MultiSourceAdapter:
 
         Returns:
             行情数据
-        """
         # 当前时间判断盘中/盘后
         now = datetime.now()
         hour = now.hour
@@ -322,19 +307,17 @@ class MultiSourceAdapter:
         period: str = "daily",
         contract: str = None,
     ) -> Dict[str, Any]:
-        """
-        获取品种的完整K线历史序列（多数据源降级获取）
+        # 获取品种的完整K线历史序列(多数据源降级获取)
 
         Args:
-            variety: 品种代码，如 SC, BU, CU
+            variety: 品种代码,如 SC, BU, CU
             days: 获取最近多少天的K线
             period: K线周期 daily(日线) | weekly(周线) | monthly(月线) | 60m(60分) | 240m(4小时)
-            contract: 指定合约月份（如 "2609"），不传则用主力连续L8
+            contract: 指定合约月份(如 "2609"),不传则用主力连续L8
 
         Returns:
             {"success": bool, "data": [{date, open, close, high, low, volume, oi, settle}, ...],
              "data_source": str, "confidence": float}
-        """
         from datetime import timedelta
 
         start_date = (datetime.now() - timedelta(days=days + 50)).strftime("%Y-%m-%d")
@@ -347,11 +330,11 @@ class MultiSourceAdapter:
         _period_em_klt = pcfg["em_klt"]
         _period_label = pcfg["label"]
 
-        # 0. 优先尝试通达信本地TDX Collector（最高优先级，priority=0）
+        # 0. 优先尝试通达信本地TDX Collector(最高优先级,priority=0)
         if self.tdx_local_available and self.tdx_collector:
             try:
                 if contract:
-                    # 指定合约：如 LH2609 → LH2609.DCE
+                    # 指定合约:如 LH2609 → LH2609.DCE
                     from .collectors.tdx_collector import VARIETY_EXCHANGE, EXCHANGE_SUFFIX
                     exchange = VARIETY_EXCHANGE.get(variety.upper())
                     suffix = EXCHANGE_SUFFIX.get(exchange) if exchange else ""
@@ -390,12 +373,12 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # 1.5 尝试TqSdk获取主力连续K线（live模式盘中可用）
+        # 1.5 尝试TqSdk获取主力连续K线(live模式盘中可用)
         if self.tqsdk_available:
             try:
                 tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days, period=period)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:
-                    # 统一数据格式（对齐TDX/EastMoney输出）
+                    # 统一数据格式(对齐TDX/EastMoney输出)
                     records = []
                     for k in tqsdk_kline:
                         records.append(
@@ -426,7 +409,7 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
 
-        # 2. 尝试东方财富API（支持任意品种的完整K线）
+        # 2. 尝试东方财富API(支持任意品种的完整K线)
         if self.eastmoney_available:
             try:
                 # 获取品种对应的 secid
@@ -448,7 +431,7 @@ class MultiSourceAdapter:
                 if secid:
                     beg = start_date.replace("-", "")
                     end = end_date.replace("-", "")
-                    klt = _period_em_klt  # 从统一路由表获取，不支持的周期=None
+                    klt = _period_em_klt  # 从统一路由表获取,不支持的周期=None
                     klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=klt, fqt=1) if klt else None
                     if klines and len(klines) > 0:
                         records = []
@@ -481,12 +464,12 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 东方财富 get_kline {variety}: {e}")
 
-        # 3. 尝试 AKShare 降级（全量K线）
+        # 3. 尝试 AKShare 降级(全量K线)
         if self.akshare_available:
             try:
                 import akshare as ak
 
-                # AKShare 主力连续合约格式: {品种小写}0，如 bu0, fu0, pg0
+                # AKShare 主力连续合约格式: {品种小写}0,如 bu0, fu0, pg0
                 ak_symbol = variety.lower() + "0"
                 df = ak.futures_zh_daily_sina(symbol=ak_symbol)
                 if df is not None and len(df) > 0:
@@ -537,10 +520,9 @@ class MultiSourceAdapter:
         }
 
     def get_term_structure(self, variety: str) -> Dict[str, Any]:
-        """
-        获取品种的期限结构（优先通达信本地，降级东方财富）
+        # 获取品种的期限结构(优先通达信本地,降级东方财富)
 
-        返回格式：
+        返回格式:
         {
             "success": True/False,
             "variety": "CU",
@@ -551,8 +533,7 @@ class MultiSourceAdapter:
             "contracts": [...],
             "data_source": "tdx_local",
         }
-        """
-        # 0. 优先通达信本地（TdxCollector 通过 get_all_contracts 实时计算）
+        # 0. 优先通达信本地(TdxCollector 通过 get_all_contracts 实时计算)
         if self.tdx_local_available and self.tdx_collector:
             try:
                 ts = self.tdx_collector.get_term_structure(variety)
@@ -599,10 +580,9 @@ class MultiSourceAdapter:
         }
 
     def get_indicators(self, symbol: str) -> Dict[str, Any]:
-        """
-        获取品种的技术指标（优先通达信本地 formula_zb，全部直接获取）。
+        # 获取品种的技术指标(优先通达信本地 formula_zb,全部直接获取).
 
-        覆盖指标（14组公式，与通达信100%一致）：
+        覆盖指标(14组公式,与通达信100%一致):
           趋势类: DMI(ADX/PDI/MDI)、MACD、MA(5/10/20/40/60)、BOLL、TRIX
           震荡类: RSI、CCI、KDJ、MFI、BIAS(6/12/24)
           量能类: OBV、VOL(量/5均/10均)、VR
@@ -610,12 +590,11 @@ class MultiSourceAdapter:
           其他:   PSY、ROC、SAR
 
         Args:
-            symbol: 品种代码（如 rb, cu, SA）
+            symbol: 品种代码(如 rb, cu, SA)
 
         Returns:
             {"success": True, "data": {指标字典}, "data_source": "tdx_local", ...}
             或 {"success": False, "error": "..."}
-        """
         # 0. 优先通达信本地 formula_zb
         if self.tdx_local_available and self.tdx_collector:
             try:
@@ -637,10 +616,10 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_indicators {symbol}: {e}")
 
-        # 1. 降级 numpy 计算（需外部传入K线数据）
+        # 1. 降级 numpy 计算(需外部传入K线数据)
         return {
             "success": False,
-            "error": f"通达信不可用，无法计算 {symbol} 技术指标（需TDX formula_zb或numpy兜底）",
+            "error": f"通达信不可用,无法计算 {symbol} 技术指标(需TDX formula_zb或numpy兜底)",
             "symbol": symbol.upper(),
             "data_source": "none",
         }
@@ -653,7 +632,7 @@ class MultiSourceAdapter:
         start_date: Optional[str],
         end_date: Optional[str],
     ) -> Optional[List[Dict]]:
-        """从指定数据源获取数据"""
+        # 从指定数据源获取数据
         if source == DataSource.EXCHANGE_API:
             return self._fetch_exchange_api(variety, contract_type, start_date, end_date)
         elif source == DataSource.TQSDK:
@@ -677,12 +656,12 @@ class MultiSourceAdapter:
         start_date: Optional[str],
         end_date: Optional[str],
     ) -> Optional[List[Dict]]:
-        """从内嵌的交易所数据采集器获取数据（懒加载实例化）"""
+        # 从内嵌的交易所数据采集器获取数据(懒加载实例化)
         if not self.collector_available:
             return None
 
         try:
-            # 懒实例化：首次使用时才创建（带超时，防止周末预热挂起）
+            # 懒实例化:首次使用时才创建(带超时,防止周末预热挂起)
             if not hasattr(self, "exchange_collector") or self.exchange_collector is None:
                 print("[exchange_api] 懒加载实例化 ExchangeDataCollector...")
                 import threading
@@ -700,7 +679,7 @@ class MultiSourceAdapter:
                 t.start()
                 t.join(timeout=5)  # 最多等5秒
                 if t.is_alive():
-                    print("[exchange_api] ⚠ 实例化超时(5s)，跳过交易所API")
+                    print("[exchange_api] ⚠ 实例化超时(5s),跳过交易所API")
                     return None
                 if result_holder and isinstance(result_holder[0], Exception):
                     raise result_holder[0]
@@ -744,7 +723,7 @@ class MultiSourceAdapter:
         start_date: Optional[str],
         end_date: Optional[str],
     ) -> Optional[List[Dict]]:
-        """从TqSdk获取数据（需要配置快期账户auth）"""
+        # 从TqSdk获取数据(需要配置快期账户auth)
         if not self.tqsdk_available:
             return None
 
@@ -774,9 +753,9 @@ class MultiSourceAdapter:
 
             now = datetime.now()
             records = []
-            # 只查询主力候选合约月（近月+季度月），避免非活跃合约超时阻塞
+            # 只查询主力候选合约月(近月+季度月),避免非活跃合约超时阻塞
             candidate_months = [
-                (now.month + 2, 0),  # 2月后（避开当月/次月交割月）
+                (now.month + 2, 0),  # 2月后(避开当月/次月交割月)
                 (now.month + 3, 0),
                 (now.month + 4, 0),
                 (now.month + 5, 0),
@@ -827,13 +806,12 @@ class MultiSourceAdapter:
         variety: str,
         period: str = "daily",
     ) -> Optional[List[Dict]]:
-        """从 TqSDK 获取主力合约K线（盘中实时模式，close 为实时价）
+        # 从 TqSDK 获取主力合约K线(盘中实时模式,close 为实时价)
 
         Args:
             variety: 品种代码
             days: 获取天数
             period: K线周期 daily(日) / weekly(周) / monthly(月) / 60m(60分) / 240m(4小时)
-        """
 
         Args:
             variety: 品种代码
@@ -841,8 +819,7 @@ class MultiSourceAdapter:
 
         Returns:
             [{"date","open","close","high","low","volume","oi",...}, ...] 或 None
-        """
-        if not self.tqsdk_available:
+        # if not self.tqsdk_available:
             return None
 
         try:
@@ -865,15 +842,15 @@ class MultiSourceAdapter:
 
             continuous_id = f"KQ.m@{exchange_code}.{variety_upper.lower()}"
 
-            # live 模式（非 backtest），盘中最新日线 close 为实时价
+            # live 模式(非 backtest),盘中最新日线 close 为实时价
             api = TqApi(auth=TqAuth(_user, _pass))
 
-            # 周期转TqSDK秒数（从统一路由表获取）
+            # 周期转TqSDK秒数(从统一路由表获取)
             period_sec = _period_tqsdk
             # 订阅K线
             klines = api.get_kline_serial(continuous_id, period_sec, data_length=max(days, 60))
 
-            # 等待数据就绪（最多5秒），确保最新一根日线数据到齐
+            # 等待数据就绪(最多5秒),确保最新一根日线数据到齐
             import time as _time
             deadline = _time.time() + 5
             while _time.time() < deadline:
@@ -937,8 +914,7 @@ class MultiSourceAdapter:
             print(f"[Warning] TqSDK kline fetch error for {variety}: {e}")
             return None
 
-    def _get_exchange(self, variety: str) -> str:
-        """根据品种代码返回交易所"""
+    def _get_exchange(self, variety: str) -> str:根据品种代码返回交易所"""
         exchange_map = {
             "CU": "SHFE",
             "AL": "SHFE",
@@ -1035,12 +1011,11 @@ class MultiSourceAdapter:
         start_date: Optional[str],
         end_date: Optional[str],
     ) -> Optional[List[Dict]]:
-        """从东方财富API获取数据"""
-        if not self.eastmoney_available:
+        """从东方财富API获取数据# if not self.eastmoney_available:
             return None
 
         try:
-            # 优先获取实时行情快照（最快，交易时段内返回最新价）
+            # 优先获取实时行情快照(最快,交易时段内返回最新价)
             quotes = self.eastmoney_collector.get_realtime_quote(variety=variety)
             if quotes and len(quotes) > 0:
                 records = []
@@ -1062,11 +1037,11 @@ class MultiSourceAdapter:
                     )
                 return records
 
-            # 实时行情失败时，尝试获取品种对应的secid（用于查K线）
+            # 实时行情失败时,尝试获取品种对应的secid(用于查K线)
             info_list = self.eastmoney_collector.get_futures_base_info()
             secid = None
             if info_list:
-                # 先精确匹配，再前缀匹配
+                # 先精确匹配,再前缀匹配
                 variety_lower = variety.lower()
                 for item in info_list:
                     if item["code"].lower() == variety_lower:
@@ -1080,7 +1055,7 @@ class MultiSourceAdapter:
                             break
 
             if not secid:
-                # 通过合约列表获取secid（含交易所代码）
+                # 通过合约列表获取secid(含交易所代码)
                 contracts = self.eastmoney_collector.get_contract_list(variety)
                 if contracts and len(contracts) > 0:
                     exchange_code = self._get_exchange_code(variety)
@@ -1119,8 +1094,7 @@ class MultiSourceAdapter:
             print(f"[Warning] EastMoney fetch error: {e}")
             return None
 
-    def _get_exchange_code(self, variety: str) -> int:
-        """根据品种代码返回东方财富交易所代码"""
+    def _get_exchange_code(self, variety: str) -> int:根据品种代码返回东方财富交易所代码"""
         exchange_map = {
             "SHFE": 113,
             "DCE": 114,
@@ -1139,8 +1113,7 @@ class MultiSourceAdapter:
         start_date: Optional[str],
         end_date: Optional[str],
     ) -> Optional[List[Dict]]:
-        """从通达信本地HTTP服务获取数据"""
-        if not self.tdx_local_available:
+        """从通达信本地HTTP服务获取数据# if not self.tdx_local_available:
             return None
         try:
             records = self.tdx_collector.get_quote(variety)
@@ -1149,7 +1122,7 @@ class MultiSourceAdapter:
                     r["data_source"] = "tdx_local"
                     r["confidence"] = 1.0
                 return records
-            # 实时行情失败，尝试K线
+            # 实时行情失败,尝试K线
             days = 365
             if start_date:
                 try:
@@ -1160,7 +1133,7 @@ class MultiSourceAdapter:
                     )
                     days = (datetime.now() - start).days
                 except Exception:
-                    logger.warning("数据源异常（已降级）", exc_info=True)
+                    logger.warning("数据源异常(已降级)", exc_info=True)
             kline_records = self.tdx_collector.get_kline(variety, days=days)
             if kline_records:
                 for r in kline_records:
@@ -1178,15 +1151,13 @@ class MultiSourceAdapter:
         contract_type: str,
         start_date: Optional[str],
         end_date: Optional[str],
-    ) -> Optional[List[Dict]]:
-        """从AKShare获取数据"""
-        if not self.akshare_available:
+    ) -> Optional[List[Dict]]:从AKShare获取数据# if not self.akshare_available:
             return None
 
         try:
             import akshare as ak
 
-            # AKShare 期货日线数据 — 使用 futures_main_sina 获取主力合约
+            # AKShare 期货日线数据 - 使用 futures_main_sina 获取主力合约
             ak_symbol = variety.lower() + "0"
             df = ak.futures_main_sina(symbol=ak_symbol)
 
@@ -1203,7 +1174,7 @@ class MultiSourceAdapter:
                 }
                 # 转换为标准格式
                 records = []
-                for _, row in df.iterrows():  # 返回全部数据（上游需要150天）
+                for _, row in df.iterrows():  # 返回全部数据(上游需要150天)
 
                     def get_val(keys):
                         for k in keys:
@@ -1237,17 +1208,11 @@ class MultiSourceAdapter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> Optional[List[Dict]]:
-        """从WebSearch获取数据（东方财富+新浪API直连兜底）
+        Get kline data via WebSearch (eastmoney + sina fallback).
 
-        当TqSDK/AKShare等主流数据源不可用时，通过stdlib urllib直接调用
-        东方财富push2his API获取K线数据。不依赖任何第三方库。
-        置信度: 0.85（标记为WebSearch降级源）
-
-        策略:
-        1. 东方财富 push2his K线 API (JSON)
-        2. 新浪财经 InnerFuturesNewService K线 API (JSONP)
-        """
-        from urllib.request import Request, urlopen
+        Used when TDX/TqSDK/AKShare all fail.
+        Confidence: 0.85 (marked as WebSearch degraded source)
+        # from urllib.request import Request, urlopen
         from urllib.error import URLError
 
         variety_upper = variety.upper()
@@ -1363,9 +1328,7 @@ class MultiSourceAdapter:
         variety: str,
         start_date: Optional[str],
         end_date: Optional[str],
-    ) -> Optional[List[Dict]]:
-        """从DuckDB缓存获取数据"""
-        if self.db_available and self.db is not None:
+    ) -> Optional[List[Dict]]:从DuckDB缓存获取数据# if self.db_available and self.db is not None:
             try:
                 cached = self.db.get_cached("quote", variety, ttl_hours=4, start_date=start_date, end_date=end_date)
                 if cached:
@@ -1374,7 +1337,7 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[Warning] DuckDB cache read error: {e}")
 
-        # 降级：JSON文件缓存（兼容旧缓存）
+        # 降级:JSON文件缓存(兼容旧缓存)
         cache_file = self.cache_dir / f"{variety}_{start_date or 'latest'}.json"
         if cache_file.exists():
             try:
@@ -1389,16 +1352,14 @@ class MultiSourceAdapter:
                 print(f"[Warning] JSON cache read error: {e}")
         return None
 
-    def save_to_cache(self, variety: str, data: List[Dict]):
-        """保存数据到DuckDB缓存（和JSON文件兜底）"""
-        # 主缓存：DuckDB
+    def save_to_cache(self, variety: str, data: List[Dict]):保存数据到DuckDB缓存(和JSON文件兜底)# # 主缓存:DuckDB
         if self.db_available and self.db is not None:
             try:
                 self.db.set_cached("quote", variety, data, ttl_hours=4)
             except Exception as e:
                 print(f"[Warning] DuckDB cache write error: {e}")
 
-        # 兜底：JSON文件（兼容旧调用者）
+        # 兜底:JSON文件(兼容旧调用者)
         cache_file = self.cache_dir / f"{variety}_latest.json"
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
@@ -1415,8 +1376,7 @@ class MultiSourceAdapter:
         except Exception as e:
             print(f"[Warning] JSON cache write error: {e}")
 
-    def get_health_status(self) -> Dict[str, Any]:
-        """获取健康状态"""
+    def get_health_status(self) -> Dict[str, Any]:获取健康状态"""
         result = {}
         for source in DataSource:
             if source == DataSource.NONE:
@@ -1433,7 +1393,7 @@ class MultiSourceAdapter:
 
 
 def main():
-    """测试函数"""
+    # test function
     print("Multi-Source Adapter Test")
     print("=" * 50)
 
