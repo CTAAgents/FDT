@@ -290,9 +290,7 @@ python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
 3. 无通道突破信号但方向冲突大的品种 → 作为补充辩论
 4. 排除：无通道突破信号且无强方向信号的品种
 5. 链证源产业链分析用于同链去重（一链保留1-2个代表品种）
-6. 指定每个辩论品种的正方方向：
-   - **默认规则（R26）**：direction明确时方向即为正方；direction=neutral时由signal_type隐含方向决定
-   - **指定品种模式**（用户明确指定品种或品种组时采用）：依据价格与MA60的相对位置确定正方方向——若 `price > ma60`（最新价在MA60上方），则正方为**多头**；若 `price <= ma60`（价格在MA60下方或持平），则正方为**空头**。MA60数值从通道突破策略输出的 `extra.ma60` 字段读取。
+6. 指定每个辩论品种的正方方向：依据通道突破信号输出的 `direction` 字段确定——`direction=bull` 时正方为**多头**，`direction=bear` 时正方为**空头**，`direction=neutral` 时由 `signal_type` 隐含方向决定。
 
 ---
 
