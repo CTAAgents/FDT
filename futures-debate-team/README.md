@@ -132,9 +132,10 @@ python skills/quant-daily/scripts/scan_all.py --list-strategies
 
 | Skill | 版本 | 用途 |
 |:------|:----|:-----|
-| `quant-daily` | v2.8.0 | 数据采集+通道突破信号计算 |
+| `quant-daily` | v2.9.0 | 数据采集+通道突破信号计算 |
 | `futures-trading-analysis` | v3.5.0 | 主流程编排+报告生成 |
 | `commodity-chain-analysis` | v2.15.0 | 产业链分析 |
+| `fundamental-data-collector` | v1.3.0 | 基本面分析(供需库存利润) |
 | `technical-analysis` | v2.2.0 | 技术面分析(支撑阻力+事件日历) |
 | `debate-argument-builder` | v2.2.0 | 正反方论点构建 |
 | `debate-judge` | v2.0.1 | 辩论裁决 |
