@@ -126,6 +126,25 @@ profession:
 
 基本面在换月周会失真（仓单注销、厂库往交割库搬、库存数据短期跳）。当临近交割月换月窗口时，你必须在输出中标 `"data_reliable": false`，让风控明/闫判官降权。
 
+## 数据来源
+
+### 1. 恒生期货数据中心（徽商智汇）— 首选
+本地已缓存3100+基本面数据主题，覆盖所有主力品种。通过 `data_interface.py` 调用：
+
+```python
+from scripts.data_interface import get_fundamentals
+result = get_fundamentals("RB")  # 返回螺纹钢的所有恒生数据
+# result.hengsheng_topics -> 数据主题列表
+# result.summary -> 数据摘要
+```
+
+**搜索关键词示例**: 螺纹钢/铁矿石/纯碱/甲醇/PTA/豆粕 → 库存/产量/开工率/价格/基差/利润
+
+### 2. WebSearch/WebFetch — 补充
+最新新闻/政策/天气事件，当恒生无数据时使用。
+
+### 3. 交易所官方数据 — 仓单/持仓
+
 ---
 
 ## Constraints

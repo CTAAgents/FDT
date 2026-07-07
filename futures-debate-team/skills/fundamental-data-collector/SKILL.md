@@ -1,6 +1,6 @@
 ---
 name: fundamental-data-collector
-version: 1.2.0
+version: 1.3.0
 description: 基本面数据采集器 v1.1.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。
 agent_created: true
 user_invocable: false
@@ -219,3 +219,8 @@ print(basis["curve"])  # "backwardation"
 - 继承 researcher_tools.py 的6个 query_* 函数
 - 新增 WebSearch 数据采集路由
 - 数据源可扩展架构
+- **v1.3.0** — 新增恒生期货数据中心(徽商智汇)数据源
+  - 3100+ 基本面数据主题（库存/产量/开工率/价格/基差/供需）
+  - 本地 DuckDB 缓存，`data_interface.py` 提供 `get_fundamentals(symbol)` 接口
+  - 品种中文名搜索映射（覆盖62个主力品种）
+  - 探源通过 `from scripts.data_interface import get_fundamentals` 调用
