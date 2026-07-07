@@ -75,6 +75,7 @@ def run_scan(
     seed: int = None,
     contract: str = None,
     period: str = "daily",
+    window_mode: str = "fixed",
 ) -> dict:
     """执行品种信号扫描，返回结果字典。
 
@@ -325,7 +326,7 @@ def run_scan(
     else:
         # ── 正常模式: 使用指定策略打分 ──
         strategy = get_strategy(strategy_name)
-        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
+        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode)
         print(
             f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
         )
@@ -652,8 +653,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--period",
-        help='K线周期: daily(日线默认) / weekly(周线) / monthly(月线) / 240m(4小时) / 60m(60分钟)',
+        help='K线周期: daily(日线默认) / weekly(周线) / monthly(月线) / 240m(4小时) / 60m(1小时) / 15m / 5m / 1m',
         default="daily",
+    )
+    parser.add_argument(
+        "--window-mode",
+        help='窗口模式: fixed(固定bar数-DC20=20根) / time(等效时间-DC20≈20日线)',
+        default="fixed",
+        choices=["fixed", "time"],
     )
     parser.add_argument(
         "--mode",
@@ -712,6 +719,7 @@ if __name__ == "__main__":
         seed=args.seed,
         contract=args.contract,
         period=args.period,
+        window_mode=args.window_mode,
     )
 
     # Walk-Forward 回测模式

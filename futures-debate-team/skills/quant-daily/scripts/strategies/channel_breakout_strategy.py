@@ -45,6 +45,8 @@ class ChannelBreakoutStrategy(BaseStrategy):
         mode: str = "full",
         kline_data: Optional[dict] = None,
         df_map: Optional[dict] = None,
+        period: str = "daily",
+        window_mode: str = "fixed",
     ) -> dict:
         results = []
 
@@ -417,6 +419,8 @@ class ChannelBreakoutStrategy(BaseStrategy):
                         1 for r in results if r.extra.get("signal_type") == "minor_signal"
                     ),
                 },
+                "period": period,
+                "window_mode": window_mode,
             },
         }
 

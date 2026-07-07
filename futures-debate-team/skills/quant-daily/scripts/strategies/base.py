@@ -92,6 +92,8 @@ class BaseStrategy(ABC):
         mode: str = "full",
         kline_data: Optional[dict] = None,
         df_map: Optional[dict] = None,
+        period: str = "daily",
+        window_mode: str = "fixed",
     ) -> dict:
         """
         对全部品种执行打分。
@@ -101,6 +103,8 @@ class BaseStrategy(ABC):
             mode: "full" | "custom" 控制输出详略
             kline_data: 原始 K 线数据 {sym: (name, [bar_dict, ...])}，可选
             df_map: pandas DataFrame 映射 {sym: DataFrame}，可选
+            period: K线周期标识（如 daily/60m/15m）
+            window_mode: "fixed"(固定bar数) / "time"(等效时间)
 
         返回:
             {
