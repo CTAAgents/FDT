@@ -73,6 +73,16 @@ VARIETY_CN_MAP = {
 }
 
 
+def _get_db_path() -> str:
+    """获取DuckDB路径: 全局优先,工作空间备选"""
+    home = os.path.expanduser("~/.workbuddy/futures_data.duckdb")
+    if os.path.exists(home):
+        return home
+    # 如果~/.workbuddy/没有,说明在后台下载中,用原路径
+    ws = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
+    return ws if os.path.exists(ws) else home
+
+
 def huishang_search(variety_cn: str) -> List[Dict]:
     """从本地 DuckDB 搜索品种基本面数据
 
@@ -86,8 +96,7 @@ def huishang_search(variety_cn: str) -> List[Dict]:
         import duckdb
         db_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "futures_data.duckdb")
         # Fallback to the Documents path
-        alt_path = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
-        target = db_path if os.path.exists(db_path) else alt_path
+        target = _get_db_path()
         if not os.path.exists(target):
             return []
 
@@ -118,7 +127,7 @@ def huishang_data_points(topic_id: int) -> List[Dict]:
     """
     try:
         import duckdb
-        target = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
+        target = _get_db_path()
         if not os.path.exists(target):
             return []
         con = duckdb.connect(target, read_only=True)
@@ -156,7 +165,7 @@ def get_fundamentals(symbol: str) -> Dict:
             if cat in t["name"]:
                 categories[cat].append(t["name"])
 
-    summary_parts = [f"{cn_name}在恒生数据中心有{len(topics)}个数据主题"]
+    summary_parts = [f"{cn_name}在徽商数据中心有{len(topics)}个数据主题"]
     for cat, items in categories.items():
         if items:
             summary_parts.append(f"{cat}:{len(items)}项")
@@ -168,6 +177,42 @@ def get_fundamentals(symbol: str) -> Dict:
         "huishang_count": len(topics),
         "categories": {k: v for k, v in categories.items() if v},
         "data_available": len(topics) > 0,
-        "data_source": "徽商智汇(恒生期货数据中心)",
+        "data_source": "徽商智汇(徽商期货数据中心)",
         "summary": " | ".join(summary_parts),
     }
+
+
+def format_fundamentals_summary(symbol: str) -> str:
+    """生成面向辩论的结构化基本面摘要，供探源直接引用
+
+    Args:
+        symbol: 品种代码（如 "RB", "SA", "MA"）
+
+    Returns:
+        格式化文本，含数据主题概览 + 分类统计
+    """
+    info = get_fundamentals(symbol)
+    cn = info["name"]
+    if not info["data_available"]:
+        return f"【{cn}】徽商数据中心暂无相关数据，建议使用 WebSearch 补充。"
+
+    lines = [
+        f"╔══ {cn} 基本面概况 ══╗",
+        f"  数据源: {info['data_source']}",
+        f"  数据主题: {info['huishang_count']} 个",
+    ]
+    for cat, items in info["categories"].items():
+        names = "、".join(t[:25] for t in items[:3])
+        suffix = f"...等{len(items)}项" if len(items) > 3 else ""
+        lines.append(f"  {cat}: {names}{suffix}")
+
+    # 列出前10个主题供辩手引用
+    lines.append(f"")
+    lines.append(f"  可用主题:")
+    for t in info["huishang_topics"][:10]:
+        lines.append(f"    · {t['name']} (来源:{t.get('source','?')})")
+    if info["huishang_count"] > 10:
+        lines.append(f"    · ... 还有 {info['huishang_count'] - 10} 个主题")
+
+    lines.append(f"╚{'═'*30}╝")
+    return "\n".join(lines)

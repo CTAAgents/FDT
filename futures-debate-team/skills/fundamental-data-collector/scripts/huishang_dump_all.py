@@ -85,7 +85,7 @@ except ImportError:
 
 # Prepare DuckDB
 if duckdb_available:
-    DB_PATH = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
+    DB_PATH = os.path.expanduser("~/.workbuddy/futures_data.duckdb")
     con = duckdb.connect(DB_PATH)
     con.execute("""
         CREATE TABLE IF NOT EXISTS huishang_topics (
@@ -113,16 +113,17 @@ if duckdb_available:
     existing = set(r[0] for r in con.execute("SELECT id FROM huishang_topics").fetchall())
     print(f"Already in DB: {len(existing)} topics")
 else:
-    existing = set(progress.get("downloaded_ids", []))
-    print(f"Already downloaded: {len(existing)} topics (no DuckDB)")
+    existing = set()
 
-downloaded_ids = existing.copy()
+downloaded_ids = set(existing)
 failed_ids = []
 
-for i, topic in enumerate(all_topics):
+# Only download topics that returned topicChart
+valid_topics = [t for t in all_topics if t not in downloaded_ids]
+print(f"Need to download: {len(valid_topics)} new topics")
+
+for idx, topic in enumerate(valid_topics):
     tid = topic["id"]
-    if tid in downloaded_ids:
-        continue
 
     try:
         r = requests.get(
@@ -132,9 +133,10 @@ for i, topic in enumerate(all_topics):
         )
         detail = r.json().get("topicChart")
         if not detail:
-            print(f"  [{i+1}/{len(all_topics)}] ID={tid} {topic.get('name','')[:20]} → no detail")
             failed_ids.append(tid)
-            time.sleep(0.2)
+            if (idx + 1) % 100 == 0:
+                print(f"  [{idx+1}/{len(valid_topics)}] ID={tid} no data, skipped")
+            time.sleep(0.1)
             continue
 
         # Parse options for data points
@@ -184,12 +186,12 @@ for i, topic in enumerate(all_topics):
         downloaded_ids.add(tid)
         progress["downloaded_ids"] = list(downloaded_ids)
 
-        if (i + 1) % 20 == 0:
+        if (idx + 1) % 50 == 0:
             save_progress(progress)
-            pts = f", {len(data_points)} data points" if data_points else ", no data"
-            print(f"  [{i+1}/{len(all_topics)}] ID={tid} {topic.get('name','')[:25]} → OK{pts}")
+            pts = f", {len(data_points)} points" if data_points else ", no data"
+            print(f"  [{idx+1}/{len(valid_topics)}] ID={tid} {topic.get('name','')[:25]} → OK{pts}")
 
-        time.sleep(0.15)  # Rate limit
+        time.sleep(0.12)  # Rate limit
 
     except Exception as e:
         print(f"  [{i+1}/{len(all_topics)}] ID={tid} ERROR: {e}")
