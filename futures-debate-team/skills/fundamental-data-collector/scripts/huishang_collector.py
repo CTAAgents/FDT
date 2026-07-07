@@ -17,15 +17,15 @@ from datetime import datetime
 from pathlib import Path
 
 REQUESTS_AVAILABLE = True
-CACHE_DIR = Path(__file__).parent / "hengsheng_cache"
+CACHE_DIR = Path(__file__).parent / "huishang_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 
-class HengshengAuthError(Exception):
+class HuishangAuthError(Exception):
     pass
 
 
-class HengshengCollector:
+class HuishangCollector:
     """徽商智汇基本面数据采集器"""
 
     def __init__(self):
@@ -58,13 +58,13 @@ class HengshengCollector:
         """获取验证码图片并保存到本地,返回(图片路径, uuid)"""
         r = requests.get(f"{self.base_url}/api/captchaImage", timeout=15, verify=False)
         if r.status_code != 200:
-            raise HengshengAuthError(f"获取验证码失败: HTTP {r.status_code}")
+            raise HuishangAuthError(f"获取验证码失败: HTTP {r.status_code}")
         data = r.json()
         # 徽商智汇返回格式: {"msg":"操作成功","img":"base64...","uuid":"xxx"}
         captcha_base64 = data.get("img") or data.get("data", {}).get("img", "")
         uuid = data.get("uuid") or data.get("data", {}).get("uuid", "")
         if not captcha_base64 or not uuid:
-            raise HengshengAuthError(f"验证码返回格式异常: {str(data)[:200]}")
+            raise HuishangAuthError(f"验证码返回格式异常: {str(data)[:200]}")
         # 保存图片
         img_path = CACHE_DIR / f"captcha_{uuid}.png"
         if "," in captcha_base64:
@@ -86,7 +86,7 @@ class HengshengCollector:
             return True
         if not captcha_text:
             img_path, uuid = self._get_captcha()
-            raise HengshengAuthError(
+            raise HuishangAuthError(
                 f"需要人工输入验证码。验证码图片: {img_path}\n"
                 f"请打开图片查看验证码后,调用 collector.login(captcha_text='xxx', uuid='{uuid}')"
             )
@@ -102,11 +102,11 @@ class HengshengCollector:
             verify=False,
         )
         if r.status_code != 200:
-            raise HengshengAuthError(f"登录失败: HTTP {r.status_code}")
+            raise HuishangAuthError(f"登录失败: HTTP {r.status_code}")
         data = r.json()
         token = data.get("token") or data.get("data", {}).get("token", "")
         if not token:
-            raise HengshengAuthError(f"登录返回无token: {str(data)[:200]}")
+            raise HuishangAuthError(f"登录返回无token: {str(data)[:200]}")
         self._save_token(token)
         return True
 
@@ -127,7 +127,7 @@ class HengshengCollector:
             self.token = None
             if self.token_file.exists():
                 self.token_file.unlink()
-            raise HengshengAuthError("Token已过期,请重新 login()")
+            raise HuishangAuthError("Token已过期,请重新 login()")
         return r.json()
 
     def get_data(self, endpoint: str, params: dict = None) -> dict:
@@ -148,7 +148,7 @@ class HengshengCollector:
 
 def probe_endpoints():
     """登录后探测可用API端点"""
-    collector = HengshengCollector()
+    collector = HuishangCollector()
     if not collector.token:
         print("需要先登录")
         return
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "probe":
         probe_endpoints()
     else:
-        print("Hengsheng Collector Module loaded")
+        print("Huishang Collector Module loaded")
         print("用法:")
         print("  首次登录: 运行后查看验证码图片,调用 login(captcha_text, uuid)")
-        print("  探测端点: python hengsheng_collector.py probe")
+        print("  探测端点: python huishang_collector.py probe")

@@ -4,7 +4,7 @@
 
 数据源：
 1. quant-daily scan_all.py 因子择时输出
-2. 徽商智汇(恒生数据中心) DuckDB 本地缓存 → hengsheng_adapter
+2. 徽商智汇(恒生数据中心) DuckDB 本地缓存 → huishang_adapter
 """
 
 import json, os
@@ -73,7 +73,7 @@ VARIETY_CN_MAP = {
 }
 
 
-def hengsheng_search(variety_cn: str) -> List[Dict]:
+def huishang_search(variety_cn: str) -> List[Dict]:
     """从本地 DuckDB 搜索品种基本面数据
 
     Args:
@@ -94,7 +94,7 @@ def hengsheng_search(variety_cn: str) -> List[Dict]:
         con = duckdb.connect(target, read_only=True)
         rows = con.execute(
             "SELECT id, name, query_ids, charts_type, source, lib_name, lib_id "
-            "FROM hengsheng_topics WHERE name LIKE ? ORDER BY id",
+            "FROM huishang_topics WHERE name LIKE ? ORDER BY id",
             [f"%{variety_cn}%"]
         ).fetchall()
         con.close()
@@ -107,7 +107,7 @@ def hengsheng_search(variety_cn: str) -> List[Dict]:
         return []
 
 
-def hengsheng_data_points(topic_id: int) -> List[Dict]:
+def huishang_data_points(topic_id: int) -> List[Dict]:
     """获取某主题的数据点序列
 
     Args:
@@ -123,7 +123,7 @@ def hengsheng_data_points(topic_id: int) -> List[Dict]:
             return []
         con = duckdb.connect(target, read_only=True)
         rows = con.execute(
-            "SELECT series_name, date_label, value FROM hengsheng_data_points WHERE topic_id = ? ORDER BY series_name, date_label",
+            "SELECT series_name, date_label, value FROM huishang_data_points WHERE topic_id = ? ORDER BY series_name, date_label",
             [topic_id]
         ).fetchall()
         con.close()
@@ -142,12 +142,12 @@ def get_fundamentals(symbol: str) -> Dict:
         {
             "symbol": "...",
             "name": "...",
-            "hengsheng_topics": [...],
+            "huishang_topics": [...],
             "summary": "...",
         }
     """
     cn_name = VARIETY_CN_MAP.get(symbol.upper(), symbol)
-    topics = hengsheng_search(cn_name)
+    topics = huishang_search(cn_name)
 
     # 提取关键数据摘要
     categories = {"库存": [], "产量": [], "开工率": [], "价格": [], "利润": []}
@@ -164,8 +164,8 @@ def get_fundamentals(symbol: str) -> Dict:
     return {
         "symbol": symbol,
         "name": cn_name,
-        "hengsheng_topics": topics,
-        "hengsheng_count": len(topics),
+        "huishang_topics": topics,
+        "huishang_count": len(topics),
         "categories": {k: v for k, v in categories.items() if v},
         "data_available": len(topics) > 0,
         "data_source": "徽商智汇(恒生期货数据中心)",

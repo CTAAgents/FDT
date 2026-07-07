@@ -7,7 +7,7 @@ API端点:
 
 Token管理:
   从浏览器F12→Application→LocalStorage→tokenKey复制,
-  设置环境变量 HS_TOKEN,或保存到 hengsheng_cache/token.txt
+  设置环境变量 HS_TOKEN,或保存到 huishang_cache/token.txt
   失效后重新从浏览器复制
 """
 
@@ -16,14 +16,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict
 
-CACHE_DIR = Path(__file__).parent / "hengsheng_cache"
+CACHE_DIR = Path(__file__).parent / "huishang_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 TOKEN_FILE = CACHE_DIR / "token.txt"
 
 BASE_URL = os.getenv("HS_BASE_URL", "https://hyzx.hsqh.net:5443")
 
 
-class HengshengCollector:
+class HuishangCollector:
     """徽商智汇基本面数据采集器"""
 
     def __init__(self):
@@ -180,7 +180,7 @@ class HengshengCollector:
 
 def probe_variety(variety: str):
     """探测某品种的可用数据"""
-    c = HengshengCollector()
+    c = HuishangCollector()
     if not c.token:
         print("❌ 无Token,请先设置 HS_TOKEN 环境变量")
         return
@@ -195,5 +195,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         probe_variety(sys.argv[1])
     else:
-        print("用法: python hengsheng_collector_v2.py <品种名称>")
-        print("示例: python hengsheng_collector_v2.py 螺纹钢")
+        print("用法: python huishang_collector_v2.py <品种名称>")
+        print("示例: python huishang_collector_v2.py 螺纹钢")

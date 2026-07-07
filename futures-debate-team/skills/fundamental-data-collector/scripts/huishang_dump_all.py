@@ -15,11 +15,11 @@ HEADERS = {
 }
 
 # Progress tracking file
-PROGRESS_FILE = "hengsheng_cache/dump_progress.json"
-TOPICS_CACHE = "hengsheng_cache/topics_list.json"
+PROGRESS_FILE = "huishang_cache/dump_progress.json"
+TOPICS_CACHE = "huishang_cache/topics_list.json"
 
 import pathlib
-CACHE_DIR = pathlib.Path("hengsheng_cache")
+CACHE_DIR = pathlib.Path("huishang_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 
@@ -88,7 +88,7 @@ if duckdb_available:
     DB_PATH = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
     con = duckdb.connect(DB_PATH)
     con.execute("""
-        CREATE TABLE IF NOT EXISTS hengsheng_topics (
+        CREATE TABLE IF NOT EXISTS huishang_topics (
             id INTEGER PRIMARY KEY,
             name VARCHAR,
             query_ids VARCHAR,
@@ -101,7 +101,7 @@ if duckdb_available:
         )
     """)
     con.execute("""
-        CREATE TABLE IF NOT EXISTS hengsheng_data_points (
+        CREATE TABLE IF NOT EXISTS huishang_data_points (
             topic_id INTEGER,
             series_name VARCHAR,
             date_label VARCHAR,
@@ -110,7 +110,7 @@ if duckdb_available:
         )
     """)
     # Check existing IDs
-    existing = set(r[0] for r in con.execute("SELECT id FROM hengsheng_topics").fetchall())
+    existing = set(r[0] for r in con.execute("SELECT id FROM huishang_topics").fetchall())
     print(f"Already in DB: {len(existing)} topics")
 else:
     existing = set(progress.get("downloaded_ids", []))
@@ -162,18 +162,18 @@ for i, topic in enumerate(all_topics):
 
         if duckdb_available:
             # Upsert topic
-            con.execute("DELETE FROM hengsheng_topics WHERE id = ?", [tid])
+            con.execute("DELETE FROM huishang_topics WHERE id = ?", [tid])
             con.execute(
-                "INSERT INTO hengsheng_topics (id, name, query_ids, charts_type, source, lib_name, lib_id, options_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO huishang_topics (id, name, query_ids, charts_type, source, lib_name, lib_id, options_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [tid, detail.get("name", ""), detail.get("queryIds", ""),
                  detail.get("chartsType", ""), detail.get("source", ""),
                  detail.get("libName", ""), detail.get("libId", ""), opts_str]
             )
             # Upsert data points
-            con.execute("DELETE FROM hengsheng_data_points WHERE topic_id = ?", [tid])
+            con.execute("DELETE FROM huishang_data_points WHERE topic_id = ?", [tid])
             if data_points:
                 con.executemany(
-                    "INSERT INTO hengsheng_data_points (topic_id, series_name, date_label, value) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO huishang_data_points (topic_id, series_name, date_label, value) VALUES (?, ?, ?, ?)",
                     [(dp["topic_id"], dp["series_name"], dp["date_label"], dp["value"]) for dp in data_points]
                 )
         else:
@@ -208,7 +208,7 @@ print(f"\n=== Done ===")
 print(f"Success: {len(downloaded_ids)} topics")
 print(f"Failed: {len(failed_ids)} topics")
 if duckdb_available:
-    counts = con.execute("SELECT count(*) FROM hengsheng_topics").fetchone()[0]
-    pts = con.execute("SELECT count(*) FROM hengsheng_data_points").fetchone()[0]
+    counts = con.execute("SELECT count(*) FROM huishang_topics").fetchone()[0]
+    pts = con.execute("SELECT count(*) FROM huishang_data_points").fetchone()[0]
     print(f"DuckDB: {counts} topics, {pts} data points")
     con.close()
