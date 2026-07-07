@@ -161,6 +161,19 @@ def _get_tdx_codes(variety: str) -> List[str]:
     return codes
 
 
+def _period_to_count(days: int, period: str) -> int:
+    """根据天数和K线周期估算需要的数据量（K线条数）"""
+    period_multiplier = {
+        "1d": 1,
+        "1w": 0.2,
+        "1m": 0.05,
+        "60m": 4,
+        "240m": 1,
+    }
+    mult = period_multiplier.get(period, 1)
+    return int(days * mult) + 50
+
+
 class TdxCollector:
     """通达信本地数据采集器 v2.0"""
 
@@ -463,12 +476,14 @@ class TdxCollector:
 
     # ==================== K线查询 ====================
 
-    def get_kline(self, variety: str, days: int = 365) -> Optional[List[Dict]]:
+    def get_kline(self, variety: str, days: int = 365, period: str = "1d") -> Optional[List[Dict]]:
         """
         获取品种K线历史数据。
 
-        自动尝试多个合约月份，取数据量最大的返回。
-        返回最新合约（通常为主力合约）的K线数据。
+        Args:
+            variety: 品种代码
+            days: 获取天数（用于估算数据量）
+            period: K线周期 "1d"(日) / "1w"(周) / "1m"(月) / "60m"(60分) / "240m"(4小时)
         """
         if not self.is_available:
             return None
@@ -476,6 +491,7 @@ class TdxCollector:
         if not codes:
             return None
 
+        count = _period_to_count(days, period)
         best, best_n = None, 0
         for code in codes:
             try:
@@ -483,8 +499,8 @@ class TdxCollector:
                     "get_market_data",
                     {
                         "stock_list": [code],
-                        "period": "1d",
-                        "count": min(days + 50, 2000),
+                        "period": period,
+                        "count": min(count, 2000),
                         "dividend_type": "none",
                     },
                 )
@@ -496,25 +512,24 @@ class TdxCollector:
                 continue
         return best
 
-    def get_contract_kline(self, code: str, days: int = 365) -> Optional[List[Dict]]:
+    def get_contract_kline(self, code: str, days: int = 365, period: str = "1d") -> Optional[List[Dict]]:
         """
         获取指定合约的K线历史数据。
 
         Args:
             code: 完全代码，如 CU2607.SHF, CUL8.SHF
-            days: 获取天数（默认1年）
-
-        Returns:
-            [{"date": "20260623", "open": x, "high": x, "low": x, "close": x, "volume": x, "oi": x}, ...]
+            days: 获取天数（用于估算数据量）
+            period: K线周期 "1d"(日) / "1w"(周) / "1m"(月) / "60m"(60分) / "240m"(4小时)
         """
         if not self.is_available:
             return None
+        count = _period_to_count(days, period)
         r = self._call(
             "get_market_data",
             {
                 "stock_list": [code],
-                "period": "1d",
-                "count": min(days + 50, 2000),
+                "period": period,
+                "count": min(count, 2000),
                 "dividend_type": "none",
             },
         )

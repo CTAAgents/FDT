@@ -43,7 +43,7 @@ from data.multi_source_adapter import MultiSourceAdapter
 from strategies import get_strategy, list_strategies
 
 
-def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None):
+def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
     """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。"""
     from datetime import date
 
@@ -52,7 +52,7 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
     kline_data = {}
     for i, (sym, name) in enumerate(symbols):
         try:
-            resp = adapter.get_kline(variety=sym, days=days, contract=contract)
+            resp = adapter.get_kline(variety=sym, days=days, contract=contract, period=period)
             if isinstance(resp, dict) and resp.get("success"):
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
@@ -74,6 +74,7 @@ def run_scan(
     dual: bool = False,
     seed: int = None,
     contract: str = None,
+    period: str = "daily",
 ) -> dict:
     """执行品种信号扫描，返回结果字典。
 
@@ -204,7 +205,7 @@ def run_scan(
     # ── Step 1: 数据采集 ──
     print("\n[1] 数据采集（通达信本地 → MultiSourceAdapter）...")
     adapter = MultiSourceAdapter()
-    kline_data = collect_kline_for_all(adapter, target_symbols, days=120, min_bars=50, contract=contract)
+    kline_data = collect_kline_for_all(adapter, target_symbols, days=120, min_bars=50, contract=contract, period=period)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
 
     # ── Step 2: 指标计算 ──
@@ -650,6 +651,11 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
+        "--period",
+        help='K线周期: daily(日线默认) / weekly(周线) / monthly(月线) / 240m(4小时) / 60m(60分钟)',
+        default="daily",
+    )
+    parser.add_argument(
         "--mode",
         "-m",
         default="dry-run",
@@ -705,6 +711,7 @@ if __name__ == "__main__":
         dual=args.dual,
         seed=args.seed,
         contract=args.contract,
+        period=args.period,
     )
 
     # Walk-Forward 回测模式

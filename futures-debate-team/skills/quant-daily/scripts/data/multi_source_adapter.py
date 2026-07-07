@@ -288,7 +288,7 @@ class MultiSourceAdapter:
         Args:
             variety: 品种代码，如 SC, BU, CU
             days: 获取最近多少天的K线
-            period: K线周期 daily(日线) | weekly(周线)
+            period: K线周期 daily(日线) | weekly(周线) | monthly(月线) | 60m(60分) | 240m(4小时)
             contract: 指定合约月份（如 "2609"），不传则用主力连续L8
 
         Returns:
@@ -300,6 +300,8 @@ class MultiSourceAdapter:
         start_date = (datetime.now() - timedelta(days=days + 50)).strftime("%Y-%m-%d")
         end_date = datetime.now().strftime("%Y-%m-%d")
 
+        # 周期名转TDX格式
+        _period_tdx = {"daily": "1d", "weekly": "1w", "monthly": "1m"}.get(period, period)
         # 0. 优先尝试通达信本地TDX Collector（最高优先级，priority=0）
         if self.tdx_local_available and self.tdx_collector:
             try:
@@ -309,9 +311,9 @@ class MultiSourceAdapter:
                     exchange = VARIETY_EXCHANGE.get(variety.upper())
                     suffix = EXCHANGE_SUFFIX.get(exchange) if exchange else ""
                     code = f"{variety.upper()}{contract}.{suffix}" if suffix else None
-                    tdx_kline = self.tdx_collector.get_contract_kline(code, days=days) if code else None
+                    tdx_kline = self.tdx_collector.get_contract_kline(code, days=days, period=_period_tdx) if code else None
                 else:
-                    tdx_kline = self.tdx_collector.get_kline(variety, days=days)
+                    tdx_kline = self.tdx_collector.get_kline(variety, days=days, period=_period_tdx)
                 if tdx_kline and len(tdx_kline) >= 20:
                     records = []
                     for k in tdx_kline:
@@ -346,7 +348,7 @@ class MultiSourceAdapter:
         # 1.5 尝试TqSdk获取主力连续K线（live模式盘中可用）
         if self.tqsdk_available:
             try:
-                tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days)
+                tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days, period=period)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:
                     # 统一数据格式（对齐TDX/EastMoney输出）
                     records = []
@@ -401,7 +403,10 @@ class MultiSourceAdapter:
                 if secid:
                     beg = start_date.replace("-", "")
                     end = end_date.replace("-", "")
-                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=101, fqt=1)
+                    # 周期转东方财富klt参数
+                    _klt_map = {"daily": 101, "weekly": 102, "monthly": 103, "60m": 60, "240m": 240}
+                    klt = _klt_map.get(period, 101)
+                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=klt, fqt=1)
                     if klines and len(klines) > 0:
                         records = []
                         for k in klines:
@@ -777,12 +782,15 @@ class MultiSourceAdapter:
     def _fetch_tqsdk_kline(
         self,
         variety: str,
-        days: int = 365,
+        period: str = "daily",
     ) -> Optional[List[Dict]]:
         """从 TqSDK 获取主力合约K线（盘中实时模式，close 为实时价）
 
-        与 _fetch_tqsdk() 不同，本方法使用 get_kline_serial() 获取连续K线。
-        改用 live 模式（非 backtest），盘中取到的最新一根日线的 close 为实时价。
+        Args:
+            variety: 品种代码
+            days: 获取天数
+            period: K线周期 daily(日) / weekly(周) / monthly(月) / 60m(60分) / 240m(4小时)
+        """
 
         Args:
             variety: 品种代码
@@ -817,8 +825,11 @@ class MultiSourceAdapter:
             # live 模式（非 backtest），盘中最新日线 close 为实时价
             api = TqApi(auth=TqAuth(_user, _pass))
 
-            # 订阅日线（86400 秒 = 1日）
-            klines = api.get_kline_serial(continuous_id, 86400, data_length=max(days, 60))
+            # 周期转TqSDK秒数
+            _tqsdk_secs = {"daily": 86400, "weekly": 604800, "monthly": 2592000, "240m": 14400, "60m": 3600}
+            period_sec = _tqsdk_secs.get(period, 86400)
+            # 订阅K线
+            klines = api.get_kline_serial(continuous_id, period_sec, data_length=max(days, 60))
 
             # 等待数据就绪（最多5秒），确保最新一根日线数据到齐
             import time as _time
