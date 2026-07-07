@@ -467,6 +467,23 @@ append_debate_index("RB_20260705", ["RB"], "bear")
 
 > **核验方法**: 报告中所有日期必须包含 `HH:MM`，仅 `YYYY-MM-DD` 视为不通过。
 
+#### 🔴 铁律5：辩论内容完整（2026-07-07 掌柜确立·不可违反）
+
+**所有分析报告——无论全量分析、指定品种、指定品种组——都必须包含完整的多空辩论内容**，不得仅输出摘要或结论。
+
+每个辩论裁决品种必须包含以下逐项内容：
+
+| # | 模块 | 必含内容 | 最低要求 |
+|:-:|:-----|:--------|:--------|
+| 1 | P1信号表 | 价格·方向·总分·等级·信号类型·ADX·RSI·CCI·DC55趋势·BB状态·成交量比 | 全字段 |
+| 2 | P1.5产业链 | 产业链归类·景气度·供给/需求/库存核心数据·数据来源 | ≥3个维度 |
+| 3 | P4正方论据 | ≥3条论据，每条附来源标注（信号字段/WebSearch） | ≥3条+来源 |
+| 4 | P4反方论据 | ≥3条论据，每条附来源标注（信号字段/WebSearch） | ≥3条+来源 |
+| 5 | P5风控方案 | 入场价·止损价·ATR·止损倍数·T1目标·T2目标·仓位% | 7参数完备 |
+| 6 | P6裁决 | execute/hold/watch 明确结论 + 理由 | 结论+理由 |
+
+> **核验方法**: 逐品种检查是否包含上述6个模块，任一缺失则拒绝交付。
+
 ---
 
 ### 🔴 报告核验前置（2026-07-06 新增：在调用 phase3 前强制执行）
@@ -474,7 +491,7 @@ append_debate_index("RB_20260705", ["RB"], "bear")
 在调用 `phase3_generate_report.py` **之前**，必须先执行以下 Python 核验代码，全部通过才能继续：
 
 ```python
-# 报告生成前核验（铁律1-4 前置检查）
+# 报告生成前核验（铁律1-5 前置检查）
 def pre_report_check(debate_results, intermediate_data):
     """返回 (pass: bool, errors: list[str])"""
     errors = []
@@ -507,6 +524,14 @@ def pre_report_check(debate_results, intermediate_data):
         val = debate_results.get(key, "")
         if val and ":" not in val:
             errors.append(f"铁律4失败: {key}={val} 缺少HH:MM")
+    
+    # 铁律5: 每个辩论品种必须包含完整辩论内容（6模块）
+    debate_modules = ["signal_table", "chain_analysis", "bull_args_3plus",
+                      "bear_args_3plus", "risk_params_7", "verdict_reason"]
+    for sym, v in verdicts.items():
+        missing = [m for m in debate_modules if not v.get(m)]
+        if missing:
+            errors.append(f"铁律5失败: {sym} 缺少辩论模块: {', '.join(missing)}")
     
     return len(errors) == 0, errors
 ```
