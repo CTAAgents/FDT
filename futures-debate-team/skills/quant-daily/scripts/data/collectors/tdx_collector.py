@@ -161,17 +161,31 @@ def _get_tdx_codes(variety: str) -> List[str]:
     return codes
 
 
+import re
+
+_PERIOD_BAR_MINUTES = {
+    "1m": 1, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
+    "60m": 60, "120m": 120, "240m": 240,
+    "1d": 1440, "1w": 10080, "1M": 43200,
+}
+_CUSTOM_PERIOD_RE = re.compile(r"^(\d+)m$")
+
 def _period_to_count(days: int, period: str) -> int:
     """根据天数和K线周期估算需要的数据量（K线条数）"""
-    period_multiplier = {
-        "1d": 1,
-        "1w": 0.2,
-        "1m": 0.05,
-        "60m": 4,
-        "240m": 1,
-    }
-    mult = period_multiplier.get(period, 1)
-    return int(days * mult) + 50
+    p = period.lower()
+    if p in _PERIOD_BAR_MINUTES:
+        bar_min = _PERIOD_BAR_MINUTES[p]
+    else:
+        m = _CUSTOM_PERIOD_RE.match(p)
+        bar_min = int(m.group(1)) if m else 1440  # 默认日线
+    # 日线及以上：day/bar_min即可
+    if bar_min >= 1440:
+        rate = 1440 / bar_min
+        return int(days * rate) + 50
+    # 分钟线：按每天345分钟交易时间估算
+    trading_min_per_day = 345
+    count = days * trading_min_per_day // max(bar_min, 1) + 100
+    return min(count, 2000)  # 上限2000
 
 
 class TdxCollector:

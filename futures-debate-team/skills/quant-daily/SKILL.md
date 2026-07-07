@@ -1,6 +1,6 @@
 ---
 name: quant-daily
-version: 2.8.2
+version: 2.9.0
 agent_created: true
 description: 商品期货量化分析skill — 默认策略=channel_breakout（唐奇安DC20/DC55+布林带通道突破）。L1-L4原始指标由研究员按需通过data_interface获取。
 ---

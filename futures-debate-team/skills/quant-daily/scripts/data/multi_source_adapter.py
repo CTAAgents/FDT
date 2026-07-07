@@ -30,6 +30,46 @@ from .duckdb_store import DuckDBStore
 from .data_source_config import DataSourceConfig
 from .data_freshness_monitor import record_data_fetch
 
+# ═══════════════════════════════════════════════
+# 周期标准配置表（统一路由）
+# ═══════════════════════════════════════════════
+PERIOD_CONFIG = {
+    # key:       {"tdx": TDX周期,  "tqsdk":秒,  "em_klt": klt参数,   "bar_min":分钟值, "label":中文,   "max_bars":单次上限}
+    "1m":       {"tdx": "1m",  "tqsdk": 60,       "em_klt": 1,    "bar_min": 1,   "label": "1分钟",  "max_bars": 720},
+    "5m":       {"tdx": "5m",  "tqsdk": 300,      "em_klt": 5,    "bar_min": 5,   "label": "5分钟",  "max_bars": 800},
+    "10m":      {"tdx": "10m", "tqsdk": 600,      "em_klt": None, "bar_min": 10,  "label": "10分钟", "max_bars": 800},
+    "15m":      {"tdx": "15m", "tqsdk": 900,      "em_klt": 15,   "bar_min": 15,  "label": "15分钟", "max_bars": 800},
+    "30m":      {"tdx": "30m", "tqsdk": 1800,     "em_klt": 30,   "bar_min": 30,  "label": "30分钟", "max_bars": 800},
+    "60m":      {"tdx": "60m", "tqsdk": 3600,     "em_klt": 60,   "bar_min": 60,  "label": "1小时",  "max_bars": 800},
+    "120m":     {"tdx": "120m","tqsdk": 7200,     "em_klt": 120,  "bar_min": 120, "label": "2小时",  "max_bars": 800},
+    "240m":     {"tdx": "240m","tqsdk": 14400,    "em_klt": 240,  "bar_min": 240, "label": "4小时",  "max_bars": 800},
+    "daily":    {"tdx": "1d",  "tqsdk": 86400,    "em_klt": 101,  "bar_min": 1440,"label": "日线",   "max_bars": 2000},
+    "weekly":   {"tdx": "1w",  "tqsdk": 604800,   "em_klt": 102,  "bar_min": 10080,"label":"周线",  "max_bars": 1000},
+    "monthly":  {"tdx": "1M",  "tqsdk": 2592000,  "em_klt": 103,  "bar_min": 43200,"label":"月线",  "max_bars": 500},
+}
+
+# 自定义周期正则：如 "90m" "180m" "360m"
+CUSTOM_PERIOD_RE = re.compile(r"^(\d+)m$")
+
+def resolve_period(period: str) -> dict:
+    """解析周期标识，返回 {tdx, tqsdk, em_klt, bar_min, label, max_bars, ...}"""
+    p = period.lower().strip()
+    if p in PERIOD_CONFIG:
+        return PERIOD_CONFIG[p].copy()
+    m = CUSTOM_PERIOD_RE.match(p)
+    if m:
+        mins = int(m.group(1))
+        return {
+            "tdx": f"{mins}m",
+            "tqsdk": mins * 60,
+            "em_klt": None,
+            "bar_min": mins,
+            "label": f"{mins}分钟",
+            "max_bars": min(800, 720 * 60 // max(mins, 1)),
+        }
+    # 默认降级到日线
+    return PERIOD_CONFIG["daily"].copy()
+
 
 class DataSource(Enum):
     """数据源枚举"""
@@ -300,8 +340,13 @@ class MultiSourceAdapter:
         start_date = (datetime.now() - timedelta(days=days + 50)).strftime("%Y-%m-%d")
         end_date = datetime.now().strftime("%Y-%m-%d")
 
-        # 周期名转TDX格式
-        _period_tdx = {"daily": "1d", "weekly": "1w", "monthly": "1m"}.get(period, period)
+        # 统一周期解析
+        pcfg = resolve_period(period)
+        _period_tdx = pcfg["tdx"]
+        _period_tqsdk = pcfg["tqsdk"]
+        _period_em_klt = pcfg["em_klt"]
+        _period_label = pcfg["label"]
+
         # 0. 优先尝试通达信本地TDX Collector（最高优先级，priority=0）
         if self.tdx_local_available and self.tdx_collector:
             try:
@@ -403,10 +448,8 @@ class MultiSourceAdapter:
                 if secid:
                     beg = start_date.replace("-", "")
                     end = end_date.replace("-", "")
-                    # 周期转东方财富klt参数
-                    _klt_map = {"daily": 101, "weekly": 102, "monthly": 103, "60m": 60, "240m": 240}
-                    klt = _klt_map.get(period, 101)
-                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=klt, fqt=1)
+                    klt = _period_em_klt  # 从统一路由表获取，不支持的周期=None
+                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=klt, fqt=1) if klt else None
                     if klines and len(klines) > 0:
                         records = []
                         for k in klines:
@@ -825,9 +868,8 @@ class MultiSourceAdapter:
             # live 模式（非 backtest），盘中最新日线 close 为实时价
             api = TqApi(auth=TqAuth(_user, _pass))
 
-            # 周期转TqSDK秒数
-            _tqsdk_secs = {"daily": 86400, "weekly": 604800, "monthly": 2592000, "240m": 14400, "60m": 3600}
-            period_sec = _tqsdk_secs.get(period, 86400)
+            # 周期转TqSDK秒数（从统一路由表获取）
+            period_sec = _period_tqsdk
             # 订阅K线
             klines = api.get_kline_serial(continuous_id, period_sec, data_length=max(days, 60))
 
