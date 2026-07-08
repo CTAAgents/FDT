@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "futures-debate-team"
+version = "5.4.1"
+description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.4: APM-CS 5-axis scoring + Telescope failure clustering (D1-D5 observability), ViBench replay + held-out judge (D1/D3), self_improve scaffold, full-period K-line, enforce_discipline position caps; v5.3 channel breakout (Donchian DC20/DC55 + BB) + TqSDK live mode + signal check gate"
+readme = "README.md"
+requires-python = ">=3.10"
+
+authors = [
+    {name = "Futures-Debate-Team Contributors"},
+]
+
+dependencies = [
+    # ── 核心依赖 ──
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "python-dateutil>=2.8",
+
+    # ── AI / ML ──
+    "lightgbm>=4.0",
+    "scikit-learn>=1.3",
+
+    # ── 数据获取 ──
+    "akshare>=1.12",
+    "tqdm>=4.65",
+
+    # ── 风控 ──
+    "scipy>=1.11",
+
+    # ── 运维 ──
+    "psutil>=5.9",
+    "requests>=2.31",
+
+    # ── 协议 ──
+    "pydantic>=2.0",
+
+    # ── 可选：分布式 ──
+    # "celery>=5.3",
+    # "redis>=4.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "black>=23.0",
+    "mypy>=1.5",
+    "ruff>=0.1",
+]
+distributed = [
+    "celery>=5.3",
+    "redis>=4.5",
+    "ray>=2.6",
+]
+ml = [
+    "lightgbm>=4.0",
+    "scikit-learn>=1.3",
+    "xgboost>=2.0",
+]
+all = [
+    "futures-debate-team[dev,distributed,ml]",
+]
+
+[tool.setuptools.packages.find]
+include = ["contracts*", "scripts*", "deploy*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests/quant-daily",
+]
+python_files = ["test_*.py"]
+addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311"]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]

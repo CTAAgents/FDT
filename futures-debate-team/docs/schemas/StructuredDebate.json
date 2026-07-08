@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StructuredDebate",
+  "description": "结构化辩词 v3.0",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "3.0"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "证真",
+        "慎思"
+      ]
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "thesis": {
+      "type": "string",
+      "description": "一句话论点（核心叙事）"
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "technical": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EvidenceItem"
+          }
+        },
+        "fundamental": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EvidenceItem"
+          }
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EvidenceItem"
+          }
+        }
+      }
+    },
+    "counter_risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/CounterRisk"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "version",
+    "role",
+    "symbol",
+    "thesis"
+  ]
+}

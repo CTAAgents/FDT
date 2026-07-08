@@ -1,0 +1,42 @@
+{
+  "symbol": "AU",
+  "status": "OK",
+  "timestamp": "2026-07-05 20:31:14",
+  "config": {
+    "forward_days": 10,
+    "min_start": 60,
+    "bars": 415,
+    "fee_rate": 0.0005
+  },
+  "trades": 13,
+  "metrics": {
+    "cumulative_return": -26.15,
+    "annualized_return": -100.0,
+    "sharpe_ratio": -6.449,
+    "max_drawdown": 32.39,
+    "calmar_ratio": -0.81,
+    "win_rate": 53.8,
+    "profit_factor": 0.28,
+    "avg_return": -2.166,
+    "total_trades": 13,
+    "wins": 7,
+    "losses": 6
+  },
+  "dual_signal_breakdown": {
+    "total_dual_signals": 13,
+    "dual_win_rate": 53.8,
+    "l1_only_signals": 0,
+    "l1_win_rate": 0.0
+  },
+  "weight_adjustment": {
+    "note": "样本不足(需要10+交易)",
+    "l_weights": [
+      35,
+      35,
+      20,
+      10
+    ],
+    "f_threshold": 0.2,
+    "adx_min": 25
+  }
+}

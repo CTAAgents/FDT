@@ -1,0 +1,20 @@
+{
+  "symbol": "PK",
+  "records": [
+    {
+      "trade_id": "PK_20260705_194451",
+      "symbol": "PK",
+      "direction": "BUY",
+      "entry_price": 8480,
+      "timestamp": "2026-07-05 19:44:51",
+      "date": "2026-07-05",
+      "reason": "L1-L4多头，分歧品种",
+      "confidence": 0.58,
+      "exit_price": 8350,
+      "pnl_pct": -1.5,
+      "pnl_points": 130,
+      "status": "closed",
+      "close_date": "2026-07-05"
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "name": "futures-debate-team",
+  "version": "4.0.0",
+  "deprecated": false,
+  "description": "Multi-role futures trading debate team v4.0 — 十一角色全景：数技源(数据管道)→量析师(策略层打分)→研究员(供弹)→辩手(开火)→风控(叫停)。策略可插拔(默认L1-L4)，链证源只做景气度不下结论，正反方引用4层证据。",
+  "author": {
+    "name": "WorkBuddy",
+    "email": "support@workbuddy.cn"
+  },
+  "agents": [
+    "./agents/futures-debate-team-team-lead.md",
+    "./agents/futures-fundamental-researcher.md",
+    "./agents/futures-technical-researcher.md",
+    "./agents/futures-datatech.md",
+    "./agents/futures-quant-analyst.md",
+    "./agents/futures-chain-analyst.md",
+    "./agents/futures-affirmative-debater.md",
+    "./agents/futures-opposition-debater.md",
+    "./agents/futures-judge.md",
+    "./agents/futures-risk-manager.md",
+    "./agents/futures-trading-strategist.md"
+  ],
+  "skills": [
+    "./skills/futures-trading-analysis"
+  ],
+  "expertType": "team",
+  "agentName": "futures-debate-team-team-lead",
+  "teamInfo": {
+    "leadAgent": "futures-debate-team-team-lead",
+    "memberAgents": [
+      "futures-fundamental-researcher",
+      "futures-technical-researcher",
+      "futures-datatech",
+      "futures-quant-analyst",
+      "futures-chain-analyst",
+      "futures-affirmative-debater",
+      "futures-opposition-debater",
+      "futures-judge",
+      "futures-risk-manager",
+      "futures-trading-strategist"
+    ]
+  },
+  "displayName": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "profession": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "displayDescription": {
+    "en": "10-agent futures debate team v3.1 — Five roles: DataTech (direction), Researchers (evidence), Affirmative/Opposition Debaters (signal validation), Chain Analyst (risk evidence), Risk Controller (audit). Direction comes from data; debate verifies the signal.",
+    "zh": "10位专家五大角色：数技师定方向→研究员供证据→正反方辩手验证信号→链证源供风控佐证→风控控风险。"
+  },
+  "avatar": "avatars/team.png",
+  "categoryId": "08-FinanceInvestment",
+  "defaultInitPrompt": {
+    "zh": "分析螺纹钢期货的多空博弈情况",
+    "en": "Analyze the bull/bear dynamics of rebar futures"
+  },
+  "plugin": "futures-debate-team",
+  "tags": [
+    {
+      "en": "Futures Trading",
+      "zh": "期货交易"
+    },
+    {
+      "en": "Data-Driven Debate",
+      "zh": "数据驱动辩论"
+    },
+    {
+      "en": "Risk Management",
+      "zh": "风险管理"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "en": "Analyze the bull/bear dynamics of rebar futures",
+      "zh": "分析螺纹钢期货的多空博弈情况"
+    },
+    {
+      "en": "Run full analysis for crude oil futures",
+      "zh": "运行完整分析流程分析原油期货"
+    },
+    {
+      "en": "Compare bullish and bearish arguments for copper futures",
+      "zh": "对比铜期货的多空论点"
+    }
+  ],
+  "members": [
+    {
+      "id": "futures-debate-team-team-lead",
+      "displayName": {
+        "en": "Ming Jianqiu",
+        "zh": "明鉴秋"
+      },
+      "profession": {
+        "en": "Debate Coordinator",
+        "zh": "辩论独立协调员"
+      },
+      "avatar": "avatars/futures-debate-team-team-lead.png",
+      "role": "lead"
+    },
+    {
+      "id": "futures-fundamental-researcher",
+      "displayName": {
+        "en": "Tan Yuan",
+        "zh": "探源"
+      },
+      "profession": {
+        "en": "Fundamental Analyst",
+        "zh": "基本面分析师（供弹者）"
+      },
+      "avatar": "avatars/futures-fundamental-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-technical-researcher",
+      "displayName": {
+        "en": "Guan Lan",
+        "zh": "观澜"
+      },
+      "profession": {
+        "en": "Technical Analyst",
+        "zh": "技术面分析师（供弹者）"
+      },
+      "avatar": "avatars/futures-technical-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-datatech",
+      "displayName": {
+        "en": "Shu Ji Yuan",
+        "zh": "数技源"
+      },
+      "profession": {
+        "en": "Data & Technical Analyst",
+        "zh": "数据与技术信号分析师（库函数模式）"
+      },
+      "avatar": "avatars/futures-datatech.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-chain-analyst",
+      "displayName": {
+        "en": "Lian Zhengyuan",
+        "zh": "链证源"
+      },
+      "profession": {
+        "en": "Industry Chain Analyst",
+        "zh": "产业链分析师"
+      },
+      "avatar": "avatars/futures-chain-analyst.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-affirmative-debater",
+      "displayName": {
+        "en": "Zheng Zhen",
+        "zh": "证真"
+      },
+      "profession": {
+        "en": "Affirmative Debater",
+        "zh": "正方辩手（信号捍卫者）"
+      },
+      "avatar": "avatars/futures-affirmative-debater.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-opposition-debater",
+      "displayName": {
+        "en": "Shen Si",
+        "zh": "慎思"
+      },
+      "profession": {
+        "en": "Opposition Debater",
+        "zh": "反方辩手（信号挑战者）"
+      },
+      "avatar": "avatars/futures-opposition-debater.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-judge",
+      "displayName": {
+        "en": "Yan Panguan",
+        "zh": "闫判官"
+      },
+      "profession": {
+        "en": "Debate Judge",
+        "zh": "辩论裁决官"
+      },
+      "avatar": "avatars/futures-judge.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-risk-manager",
+      "displayName": {
+        "en": "Feng Kongming",
+        "zh": "风控明"
+      },
+      "profession": {
+        "en": "Risk Management Director",
+        "zh": "风险管理总监"
+      },
+      "avatar": "avatars/futures-risk-manager.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-trading-strategist",
+      "displayName": {
+        "en": "Ce Zhiyuan",
+        "zh": "策执远"
+      },
+      "profession": {
+        "en": "Trading Strategist",
+        "zh": "交易策略师"
+      },
+      "avatar": "avatars/futures-trading-strategist.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-quant-analyst",
+      "displayName": {
+        "en": "Quant Analyst",
+        "zh": "量析师"
+      },
+      "profession": {
+        "en": "Quantitative Analyst",
+        "zh": "量化分析师"
+      },
+      "avatar": "avatars/futures-quant-analyst.png",
+      "role": "member"
+    }
+  ]
+}
