@@ -428,18 +428,18 @@ def run_scan(
             d = "多头" if _sv(r,"direction") == "bull" else ("空头" if _sv(r,"direction") == "bear" else "中性")
             src = "NP"
             print(
-                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'l1', 0):>+4.0f} {_sv(r,'l2', 0):>+4.0f} {_sv(r,'l3', 0):>+4.0f} {_sv(r,'l4', 0):>+4.0f} {_sv(r,'l5', 0):>+4.0f} {_sv(r,'l6', 0):>+4.0f} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'z_score'):>5.1f} {_sv(r,'cons'):>3.0f}/6 {_sv(r,'grade'):>6}"
+                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'grade'):>6}"
             )
     else:
         print(
-            f"\n{'#':>3} {'品种':<8} {'方向':<6} {'价格':>8} {'涨跌':>6} {'总分':>5} {'L1':>4} {'L2':>4} {'L3':>4} {'L4':>4} {'否决':>4} {'ADX':>5} {'RSI':>5} {'Z':>5} {'CONS':>4} {'阶段':>8} {'等级':>6} {'源':>4}"
+            f"\n{'#':>3} {'品种':<8} {'方向':<6} {'价格':>8} {'涨跌':>6} {'总分':>5} {'ADX':>5} {'RSI':>5} {'等级':>6}"
         )
-        print("-" * 115)
+        print("-" * 65)
         for i, r in enumerate(all_ranked):
             d = "多头" if _sv(r,"direction") == "bull" else ("空头" if _sv(r,"direction") == "bear" else "中性")
             src = "TDX" if r.get("_tdx_patched") else "NP"
             print(
-                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'l1'):>+3} {_sv(r,'l2'):>+3} {_sv(r,'l3'):>+3} {_sv(r,'l4'):>+3} {_sv(r,'veto'):>+3} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'z_score'):>5.1f} {_sv(r,'cons'):>3.0f}/4 {_sv(r,'stage', '?'):>8} {_sv(r,'grade'):>6} {src:>4}"
+                f"{i + 1:>3} {_sv(r,'symbol'):<8} {d:<6} {_sv(r,'price'):>8.0f} {_sv(r,'change_pct'):>+5.1f}% {_sv(r,'total'):>+4.0f} {_sv(r,'adx'):>5.1f} {_sv(r,'rsi'):>5.1f} {_sv(r,'grade'):>6}"
             )
 
         # ── 写入文件（如指定output_dir） ──
@@ -472,6 +472,7 @@ def run_scan(
         # HTML — 交互式排序表格
         import json as _json
 
+        # ── v2.11.0: 通道突破专用列（L1-L4已退役） ──
         rows_json = _json.dumps(
             [
                 {
@@ -482,16 +483,13 @@ def run_scan(
                     "price": _sv(r,"price"),
                     "chg": _sv(r,"change_pct"),
                     "total": _sv(r,"total"),
-                    "l1": _sv(r,"l1", 0),
-                    "l2": _sv(r,"l2", 0),
-                    "l3": _sv(r,"l3", 0),
-                    "l4": _sv(r,"l4", 0),
-                    "veto": _sv(r,"veto"),
+                    "sig": _sv(r,"signal_type","-"),
+                    "dc20": _sv(r,"dc20","-"),
+                    "dc55": _sv(r,"dc55","-"),
+                    "bb": _sv(r,"bb","-"),
+                    "vol": _sv(r,"vol_score",0),
                     "adx": _sv(r,"adx"),
                     "rsi": _sv(r,"rsi"),
-                    "z": _sv(r,"z_score"),
-                    "cons": _sv(r,"cons"),
-                    "stage": _sv(r,"stage", "?"),
                     "grade": _sv(r,"grade"),
                     "tdx": r.get("_tdx_patched", False),
                 }
@@ -504,8 +502,44 @@ def run_scan(
         n_neutral = results_count - b - bl_sig
         tdx_pct = tdx_ct / results_count * 100 if results_count else 0
 
-        # 构建 HTML（用三引号避免 JS 模板字面量冲突）
-        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种信号 — {today} (v2.18.0)</title>
+        # 构建 HTML（通道突破固定模板，L1-L4已退役）
+        _cols = [
+            ("#",1), ("品种",0), ("名称",0), ("方向",0),
+            ("价格",1), ("涨跌",1), ("总分",1),
+            ("信号类型",0), ("DC20",0), ("DC55",0), ("布林带",0), ("量比",1),
+            ("ADX",1), ("RSI",1), ("等级",0)
+        ]
+        _th = "".join(f'<th onclick="sortBy({i})"{" data-num=\"1\"" if n else ""} style="text-align:{"center" if n else "left"}">{h}</th>' for i,(h,n) in enumerate(_cols))
+        _col_desc = """
+<p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（通道突破策略）</p>
+<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">信号类型</td><td style="padding:3px 8px;color:#9ca3af">channel_breakout(突破) / trend_confirmation(趋势确认) / bb_squeeze_prebreakout(挤压预警)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC20</td><td style="padding:3px 8px;color:#9ca3af">唐奇安20周期通道方向: bull(多头) / bear(空头) / flat(持平)</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC55</td><td style="padding:3px 8px;color:#9ca3af">唐奇安55周期中长期趋势方向</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">布林带</td><td style="padding:3px 8px;color:#9ca3af">Bollinger(20,2)状态: squeeze(收窄) / expand(扩张) / break(突破)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">量比</td><td style="padding:3px 8px;color:#9ca3af">当前成交量/MA5成交量。>1.5放量, <0.5缩量</td><td style="padding:3px 8px;color:#6b7280">0~+</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑。>25有趋势, >50强趋势</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14周期相对强弱。>70超买, <30超卖</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr></table>"""
+        _render_cols_js = """[
+    function(d){return String(d.i);},
+    function(d){return d.sym;},
+    function(d){return d.name;},
+    function(d){return d.dir;},
+    function(d){return d.price;},
+    function(d){return d.chg;},
+    function(d){return d.total;},
+    function(d){return String(d.sig);},
+    function(d){return String(d.dc20);},
+    function(d){return String(d.dc55);},
+    function(d){return String(d.bb);},
+    function(d){return d.vol;},
+    function(d){return d.adx;},
+    function(d){return d.rsi;},
+    function(d){return d.grade;}
+]"""
+
+        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种通道突破信号强度排序 — {today}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
 .hd{{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}}
@@ -526,8 +560,8 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 #si{{color:#6b7280;font-size:12px;margin-left:12px}}
 </style>
 </head><body>
-<div class="hd"><h1>全品种趋势信号强度排序 (v2.18.0)</h1>
-<div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | {summary.get("_meta", {}).get("strategy", "L1-L4")}</span></div></div>
+<div class="hd"><h1>全品种通道突破信号强度排序</h1>
+<div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | channel_breakout</span></div></div>
 <div class="st"><div class="sc b"><div class="n">{b}</div><div class="l">空头</div></div><div class="sc bl"><div class="n">{bl_sig}</div><div class="l">多头</div></div><div class="sc n"><div class="n">{n_neutral}</div><div class="l">中性</div></div></div>
 
 <div class="fb">
@@ -542,25 +576,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 </div>
 
 <table id="tbl"><thead><tr>
-<th onclick="sortBy(0)" data-num="1">#</th>
-<th onclick="sortBy(1)">品种</th>
-<th onclick="sortBy(2)">名称</th>
-<th onclick="sortBy(3)">方向</th>
-<th onclick="sortBy(4)" data-num="1" style="text-align:right">价格</th>
-<th onclick="sortBy(5)" data-num="1" style="text-align:right">涨跌</th>
-<th onclick="sortBy(6)" data-num="1" style="text-align:center">总分</th>
-<th onclick="sortBy(7)" data-num="1" style="text-align:center">L1</th>
-<th onclick="sortBy(8)" data-num="1" style="text-align:center">L2</th>
-<th onclick="sortBy(9)" data-num="1" style="text-align:center">L3</th>
-<th onclick="sortBy(10)" data-num="1" style="text-align:center">L4</th>
-<th onclick="sortBy(11)" data-num="1" style="text-align:center">否决</th>
-<th onclick="sortBy(12)" data-num="1" style="text-align:center">ADX</th>
-<th onclick="sortBy(13)" data-num="1" style="text-align:center">RSI</th>
-<th onclick="sortBy(14)" data-num="1" style="text-align:center">Z</th>
-<th onclick="sortBy(15)" data-num="1" style="text-align:center">CONS</th>
-<th onclick="sortBy(16)">阶段</th>
-<th onclick="sortBy(17)">等级</th>
-<th>指标源</th>
+{_th}
 </tr></thead><tbody id="tb"></tbody></table>
 
 <div style="margin-top:24px;display:flex;gap:14px">
@@ -575,49 +591,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 
 <div style="color:#f59e0b;font-weight:600;font-size:13px;margin-bottom:6px">使用方法 & 栏位说明</div>
 <div style="margin-top:10px;font-size:12px;line-height:1.7">
-<p style="color:#e5e7eb;font-weight:600">使用方法</p>
-<p style="color:#9ca3af">- 总分降序，绝对值越大信号越强。多头(红)只做多、空头(绿)只做空<br>
-- <b>等级</b>: <span style="color:#22c55e">STRONG</span> &ge;75(最强) / <span style="color:#f59e0b">WATCH</span> &ge;60(重点) / <span style="color:#ef4444">WEAK</span> &ge;40(可观察) / <span style="color:#6b7280">NOISE</span> &lt;40(忽略)<br>
-- <b>趋势阶段</b>: <span style="color:#22c55e">launch</span> 刚启动 / <span style="color:#3b82f6">trending</span> 主趋势运行 / <span style="color:#f59e0b">exhausted</span> 衰竭中 / <span style="color:#ef4444">reversal</span> 反转中<br>
-- <b>Z</b>: 方向感知Z-score，绝对值&gt;|1.5|为同方向统计显著</p>
-
-<p style="color:#e5e7eb;font-weight:600;margin-top:10px">Z值解读（方向感知模式）</p>
-<p style="color:#9ca3af">Z值反映品种在<b>同方向内部</b>的偏离程度——<b>不是信号强度本身</b>。理解关键在于方向+符号的组合：</p>
-<table style="width:100%;border-collapse:collapse;font-size:11px">
-<tr style="background:#252940"><th style="padding:4px 8px;text-align:left;color:#9ca3af">品种示例</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">方向</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">总分</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">Z</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">含义</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">操作参考</th></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px">hc 热卷</td><td style="padding:3px 8px"><span style="color:#ef4444">空头</span></td><td style="padding:3px 8px;color:#ef4444">-76</td><td style="padding:3px 8px;color:#22c55e">-1.8</td><td style="padding:3px 8px;color:#9ca3af">比平均空头更强</td><td style="padding:3px 8px;color:#22c55e">✅ 强空头，可信度高</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px">zn 沪锌</td><td style="padding:3px 8px"><span style="color:#ef4444">空头</span></td><td style="padding:3px 8px;color:#ef4444">-39</td><td style="padding:3px 8px;color:#ef4444">+2.5</td><td style="padding:3px 8px;color:#9ca3af">比平均空头弱很多</td><td style="padding:3px 8px;color:#f59e0b">⚠️ 边缘空头，接近中性</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px">b 豆二</td><td style="padding:3px 8px"><span style="color:#22c55e">多头</span></td><td style="padding:3px 8px;color:#22c55e">+76</td><td style="padding:3px 8px;color:#22c55e">+1.3</td><td style="padding:3px 8px;color:#9ca3af">比平均多头更强</td><td style="padding:3px 8px;color:#22c55e">✅ 强多头，可信度高</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px">AP 苹果</td><td style="padding:3px 8px"><span style="color:#22c55e">多头</span></td><td style="padding:3px 8px;color:#22c55e">+51</td><td style="padding:3px 8px;color:#ef4444">-0.9</td><td style="padding:3px 8px;color:#9ca3af">比平均多头更弱</td><td style="padding:3px 8px;color:#f59e0b">⚠️ 弱多头，需谨慎</td></tr>
-</table>
-<p style="color:#9ca3af;margin-top:6px">核心口诀：<b>空头Z负→更强空头，空头Z正→偏弱空头；多头Z正→更强多头，多头Z负→偏弱多头</b>。<br>|Z|越大的品种在同方向内越极端，但一定要结合方向判断。|Z|&gt;1.5 在同方向内统计显著。</p>
-
-<p style="color:#e5e7eb;font-weight:600;margin-top:10px">排序方法</p>
-<p style="color:#9ca3af">- 点击任意列头按该列排序，再次点击切换升降序<br>
-- 筛选按钮可只看空头/多头或特定等级<br>
-- 默认排序：总分降序（按绝对值）</p>
-
-<p style="color:#e5e7eb;font-weight:600;margin-top:10px">趋势阶段含义</p>
-<table style="width:100%;border-collapse:collapse;font-size:11px">
-<tr style="background:#252940"><th style="padding:4px 8px;text-align:left;color:#9ca3af">阶段</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">判断依据</th><th style="padding:4px 8px;text-align:left;color:#9ca3af">操作建议</th></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#22c55e">launch</td><td style="padding:3px 8px;color:#9ca3af">突破DC20通道+Boll收口或DC55同向拐头</td><td style="padding:3px 8px;color:#6b7280">早期布局，空间最大，但需确认信号强度</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#3b82f6">trending</td><td style="padding:3px 8px;color:#9ca3af">DC20通道上半区运行或ADX&ge;25</td><td style="padding:3px 8px;color:#6b7280">趋势确认，顺势持有，核心持仓区</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#f59e0b">exhausted</td><td style="padding:3px 8px;color:#9ca3af">DC20通道极值+RSI极端(多头>75/空头<25)</td><td style="padding:3px 8px;color:#6b7280">趋势末端，减仓或设紧止损。ADX>60时衰竭信号更强</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#ef4444">reversal</td><td style="padding:3px 8px;color:#9ca3af">价格穿越DC55中轨反方向+ADX<35</td><td style="padding:3px 8px;color:#6b7280">方向可能转变，平仓观望。ADX越低反转信号越可信</td></tr>
-</table>
-
-<p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法</p>
-<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">L1+L2+L3+L4+否决</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L1</td><td style="padding:3px 8px;color:#9ca3af">OI/基差/期限/ROC/斜率/HL</td><td style="padding:3px 8px;color:#6b7280">-40~+40</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L2</td><td style="padding:3px 8px;color:#9ca3af">Vortex/CCI/Supertrend/HMA</td><td style="padding:3px 8px;color:#6b7280">-25~+25</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L3</td><td style="padding:3px 8px;color:#9ca3af">RSI健康区/DMI方向/前高前低</td><td style="padding:3px 8px;color:#6b7280">-25~+25</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L4</td><td style="padding:3px 8px;color:#9ca3af">通道突破/均线排列/MACD/DC55</td><td style="padding:3px 8px;color:#6b7280">-10~+10</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">否决</td><td style="padding:3px 8px;color:#9ca3af">ADX/RSI/CCI极端+缩量+偏离</td><td style="padding:3px 8px;color:#6b7280">-20~0</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑</td><td style="padding:3px 8px;color:#6b7280">大于25</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14日相对强弱指数</td><td style="padding:3px 8px;color:#6b7280">大于80 小于20</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">Z</td><td style="padding:3px 8px;color:#9ca3af">方向感知Z-score，多头/空头各自独立计算。<br>空头Z负=强空头，空头Z正=弱空头；<br>多头Z正=强多头，多头Z负=弱多头</td><td style="padding:3px 8px;color:#6b7280">理论无界</td></tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">CONS</td><td style="padding:3px 8px;color:#9ca3af">四层方向一致数</td><td style="padding:3px 8px;color:#6b7280">0-4/4</td></tr></table></div></div>
+{_col_desc}</div></div>
 
 <script>
 var DATA = {rows_json};
@@ -668,26 +642,18 @@ function render() {{
         h += '<td style="font-weight:700">'+d.sym+'</td><td>'+d.name+'</td><td>'+dt+'</td>';
         h += '<td style="text-align:right">'+d.price.toFixed(0)+'</td><td style="text-align:right;color:'+cc+'">'+(d.chg>0?'+':'')+d.chg.toFixed(1)+'%</td>';
         h += '<td style="text-align:center;font-weight:700;color:'+tc+'">'+(d.total>0?'+':'')+d.total+'</td>';
-        h += '<td style="text-align:center;color:#9ca3af">'+(d.l1>0?'+':'')+d.l1+'</td>';
-        h += '<td style="text-align:center;color:#9ca3af">'+(d.l2>0?'+':'')+d.l2+'</td>';
-        h += '<td style="text-align:center;color:#9ca3af">'+(d.l3>0?'+':'')+d.l3+'</td>';
-        h += '<td style="text-align:center;color:#9ca3af">'+(d.l4>0?'+':'')+d.l4+'</td>';
-        h += '<td style="text-align:center;color:#ef4444">'+(d.veto>0?'+':'')+d.veto+'</td>';
-        h += '<td style="text-align:center">'+d.adx.toFixed(1)+'</td><td style="text-align:center">'+d.rsi.toFixed(1)+'</td>';
-        h += '<td style="text-align:center;color:#9ca3af">'+(d.z>0?'+':'')+d.z.toFixed(1)+'</td>';
-        h += '<td style="text-align:center;color:#f59e0b">'+d.cons+'/4</td>';
-        h += '<td style="text-align:center;color:#9ca3af;font-size:11px">'+d.stage+'</td>';
+        // 策略感知渲染（使用_v的列映射）
+        for (var ci=7;ci<_v.length;ci++) {{
+            var val = _v[ci](d);
+            h += '<td style="text-align:center;color:#9ca3af">'+val+'</td>';
+        }}
         h += '<td style="text-align:center"><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:'+gc+'20;color:'+gc+'">'+d.grade+'</span></td>';
         h += '<td style="text-align:center">'+src+'</td></tr>';
     }}
     document.getElementById('tb').innerHTML = h;
 }}
 
-function _val(d,col) {{
-    var a = [d.i, d.sym, d.name, d.dir, d.price, d.chg, d.total, d.l1, d.l2, d.l3, d.l4,
-             d.veto, d.adx, d.rsi, d.z, d.cons, d.stage, d.grade];
-    return a[col];
-}}
+var _v = {_render_cols_js};
 
 function sortBy(col) {{
     if (_sortCol === col) {{ _sortAsc = !_sortAsc; }}
