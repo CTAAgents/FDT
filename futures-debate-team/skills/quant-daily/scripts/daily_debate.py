@@ -147,6 +147,7 @@ p {{ color:#999; font-size:14px; margin:0 0 4px 0; }}
 
 def _debate_report(result: dict, date_str: str) -> str:
     from optimizer.knowledge_bridge import get_symbol_knowledge, get_knowledge_summary
+    from config.settings import SYMBOL_CHAIN_MAP
 
     all_signals = result.get("strong", []) + result.get("watch", [])
     strong_count = len(result.get("strong", []))
@@ -159,9 +160,10 @@ def _debate_report(result: dict, date_str: str) -> str:
         k = get_symbol_knowledge(sym)
         cat = k.get("cycle_category", "")
         dd = k.get("daily_test_accuracy", "?")
-        adx = s.get("ADX", 0); rsi = s.get("RSI14", 50)
+        adx = s.get("ADX", s.get("adx", 0)); rsi = s.get("RSI14", s.get("rsi", 50))
         direction = s.get("direction", "?"); total = s.get("total", 0)
         grade = s.get("grade", "?")
+        sig = s.get("signal_type", "-")
         overfit = " ⚠" if k.get("daily_overfit") else ""
         dir_icon = "🟢" if direction == "bull" else ("🔴" if direction == "bear" else "⚪")
         grade_icon = "🔥" if grade == "STRONG" else "👁"
@@ -172,29 +174,89 @@ def _debate_report(result: dict, date_str: str) -> str:
             <td>{grade_icon} {grade}</td>
             <td>{dir_icon} {direction}</td>
             <td>{total}</td>
+            <td>{sig}</td>
             <td>{adx:.1f}</td>
             <td>{rsi:.0f}</td>
+        </tr>""")
+
+    # ── 多空评分明细表 ──
+    score_rows = []
+    for s in all_signals:
+        sym = s["symbol"]
+        dc20 = s.get("dc20", "-"); dc55 = s.get("dc55", "-")
+        bb = s.get("bb", "-"); vol = s.get("vol_score", 0)
+        adx = s.get("ADX", s.get("adx", 0)); rsi = s.get("RSI14", s.get("rsi", 50))
+        sig = s.get("signal_type", "-")
+        total = s.get("total", 0); direction = s.get("direction", "neutral")
+        grade = s.get("grade", "?")
+        signal_strength = ""
+        if abs(total) >= 50: signal_strength = "🔥 强信号"
+        elif abs(total) >= 40: signal_strength = "👁 可关注"
+        elif abs(total) >= 30: signal_strength = "⚠ 弱信号"
+        else: signal_strength = "⚪ 噪声级"
+
+        dir_color = "#22c55e" if direction == "bull" else "#ef4444"
+        bull_score = abs(total) if direction == "bull" else abs(total) * 0.3
+        bear_score = abs(total) if direction == "bear" else abs(total) * 0.3
+        score_rows.append(f"""<tr>
+            <td><b>{sym}</b></td>
+            <td style="color:{dir_color};font-weight:700">{direction}</td>
+            <td>{grade}</td>
+            <td><b>{total}</b></td>
+            <td>{sig}</td>
+            <td>{dc20}</td><td>{dc55}</td><td>{bb}</td><td>{vol:.1f}</td>
+            <td>{adx:.1f}</td><td>{rsi:.0f}</td>
+            <td style="font-size:11px">{signal_strength}</td>
+        </tr>""")
+
+    # ── 产业链分析摘要 ──
+    chain_signals = {}
+    for s in all_signals:
+        sym = s["symbol"]
+        chain = SYMBOL_CHAIN_MAP.get(sym.lower(), SYMBOL_CHAIN_MAP.get(sym, "其他"))
+        if chain not in chain_signals:
+            chain_signals[chain] = {"bull": 0, "bear": 0, "total": 0, "symbols": []}
+        direction = s.get("direction", "neutral")
+        if direction == "bull": chain_signals[chain]["bull"] += 1
+        elif direction == "bear": chain_signals[chain]["bear"] += 1
+        chain_signals[chain]["total"] += 1
+        chain_signals[chain]["symbols"].append(sym)
+
+    chain_rows = []
+    for chain, cd in sorted(chain_signals.items()):
+        chain_trend = "多头偏强" if cd["bull"] > cd["bear"] else ("空头偏强" if cd["bear"] > cd["bull"] else "多空均衡")
+        trend_color = "#22c55e" if "多头" in chain_trend else "#ef4444"
+        symbols_str = ", ".join(cd["symbols"])
+        chain_rows.append(f"""<tr>
+            <td><b>{chain}</b></td>
+            <td>{cd["total"]}</td>
+            <td style="color:#22c55e">{cd["bull"]}</td>
+            <td style="color:#ef4444">{cd["bear"]}</td>
+            <td style="color:{trend_color};font-weight:600">{chain_trend}</td>
+            <td style="font-size:11px">{symbols_str}</td>
         </tr>""")
 
     debate_rows = []
     for s in all_signals:
         sym = s["symbol"]; direction = s.get("direction", "neutral")
-        total = s.get("total", 0); adx = s.get("ADX", 0); rsi = s.get("RSI14", 50)
+        total = s.get("total", 0); adx = s.get("ADX", s.get("adx", 0)); rsi = s.get("RSI14", s.get("rsi", 50))
+        sig = s.get("signal_type", "-"); dc20 = s.get("dc20", "-"); dc55 = s.get("dc55", "-")
+        bb = s.get("bb", "-"); vol = s.get("vol_score", 0)
         k = get_symbol_knowledge(sym); cat = k.get("cycle_category", "")
         dd = k.get("daily_test_accuracy", 0) or 0
 
         if direction == "bull":
-            bull_args = [f"信号方向:多头(总分{total})", f"ADX={adx:.1f}", f"日线回测准确率{dd}%"]
+            bull_args = [f"信号方向:多头(总分{total})", f"信号类型:{sig}", f"DC20={dc20}", f"DC55={dc55}", f"布林带={bb}", f"ADX={adx:.1f}", f"日线回测{dd}%"]
             bear_args = [f"RSI={rsi:.0f}" + ("(偏高)" if rsi > 70 else "")]
+            if vol < 0.5: bear_args.append(f"量比{vol:.1f}(缩量)")
             if k.get("daily_overfit"): bear_args.append("日线过拟合⚠")
-            bull_args = [a for a in bull_args if a]; bear_args = [a for a in bear_args if a]
             if not bear_args: bear_args.append("无明显反向信号")
             verdict = "偏向多头" if len(bull_args) >= len(bear_args) else "需谨慎"
         else:
-            bear_args = [f"信号方向:空头(总分{abs(total)})", f"日线回测准确率{dd}%", f"ADX={adx:.1f}"]
+            bear_args = [f"信号方向:空头(总分{abs(total)})", f"信号类型:{sig}", f"DC20={dc20}", f"DC55={dc55}", f"布林带={bb}", f"ADX={adx:.1f}", f"日线回测{dd}%"]
             bull_args = [f"RSI={rsi:.0f}" + ("(偏低)" if rsi < 30 else "")]
+            if vol < 0.5: bull_args.append(f"量比{vol:.1f}(缩量)")
             if k.get("daily_overfit"): bull_args.append("日线过拟合⚠")
-            bull_args = [a for a in bull_args if a]; bear_args = [a for a in bear_args if a]
             if not bull_args: bull_args.append("无明显反向信号")
             verdict = "偏向空头" if len(bear_args) >= len(bull_args) else "需谨慎"
 
@@ -244,8 +306,20 @@ tr:hover td {{ background:#f8f9ff; }}
 
 <h2>📡 信号明细</h2>
 <table>
-<tr><th>品种</th><th>周期分类</th><th>日线测试</th><th>等级</th><th>方向</th><th>总分</th><th>ADX</th><th>RSI</th></tr>
+<tr><th>品种</th><th>周期分类</th><th>日线测试</th><th>等级</th><th>方向</th><th>总分</th><th>信号类型</th><th>ADX</th><th>RSI</th></tr>
 {chr(10).join(signal_rows)}
+</table>
+
+<h2>🔬 多空评分明细</h2>
+<table>
+<tr><th>品种</th><th>方向</th><th>等级</th><th>总分</th><th>信号类型</th><th>DC20</th><th>DC55</th><th>布林带</th><th>量比</th><th>ADX</th><th>RSI</th><th>信号强度</th></tr>
+{chr(10).join(score_rows)}
+</table>
+
+<h2>🔗 产业链分析摘要</h2>
+<table>
+<tr><th>产业链</th><th>信号数</th><th>多头</th><th>空头</th><th>链倾向</th><th>涉及品种</th></tr>
+{chr(10).join(chain_rows)}
 </table>
 
 <h2>⚖ 辩论论点（动态正反方）</h2>

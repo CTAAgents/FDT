@@ -180,6 +180,31 @@ def _debate_report(result: dict, date_str: str) -> str:
         </tr>""")
 
     # ── 辩论论点（动态正反方） ──
+    _sv = lambda r, k, d=0: r.get(k, d) if isinstance(r.get(k), (int, float)) else d
+    score_rows = []
+    for s in all_signals:
+        sym = s["symbol"]
+        adx = s.get("adx", s.get("ADX", 0)); rsi = s.get("rsi", s.get("RSI14", 50))
+        total = s.get("total", 0); direction = s.get("direction", "neutral"); grade = s.get("grade", "?")
+        ss = "🔥 强信号" if abs(total) >= 50 else ("👁 可关注" if abs(total) >= 40 else ("⚠ 弱信号" if abs(total) >= 30 else "⚪ 噪声级"))
+        dc = "#22c55e" if direction == "bull" else "#ef4444"
+        score_rows.append(f"""<tr><td><b>{sym}</b></td><td style="color:{dc};font-weight:700">{direction}</td><td>{grade}</td><td><b>{total}</b></td><td>{adx:.1f}</td><td>{rsi:.0f}</td><td style="font-size:11px">{ss}</td></tr>""")
+
+    from config.settings import SYMBOL_CHAIN_MAP
+    chain_signals = {}
+    for s in all_signals:
+        sym = s["symbol"]; chain = SYMBOL_CHAIN_MAP.get(sym.lower(), SYMBOL_CHAIN_MAP.get(sym, "其他"))
+        if chain not in chain_signals: chain_signals[chain] = {"bull": 0, "bear": 0, "total": 0, "symbols": []}
+        d = s.get("direction", "neutral")
+        if d == "bull": chain_signals[chain]["bull"] += 1
+        elif d == "bear": chain_signals[chain]["bear"] += 1
+        chain_signals[chain]["total"] += 1; chain_signals[chain]["symbols"].append(sym)
+    chain_rows = []
+    for chain, cd in sorted(chain_signals.items()):
+        ct = "多头偏强" if cd["bull"] > cd["bear"] else ("空头偏强" if cd["bear"] > cd["bull"] else "多空均衡")
+        tc = "#22c55e" if "多头" in ct else "#ef4444"
+        chain_rows.append(f"""<tr><td><b>{chain}</b></td><td>{cd["total"]}</td><td style="color:#22c55e">{cd["bull"]}</td><td style="color:#ef4444">{cd["bear"]}</td><td style="color:{tc};font-weight:600">{ct}</td><td style="font-size:11px">{", ".join(cd["symbols"])}</td></tr>""")
+
     debate_rows = []
     for s in all_signals:
         sym = s["symbol"]
@@ -267,7 +292,7 @@ tr:hover td {{ background:#f8f9ff; }}
 </style></head><body>
 
 <div class="header">
-  <h1>🔥 小时级辩论报告 — 有信号</h1>
+  <h1>⏰ 小时级辩论报告</h1>
   <div class="sub">{date_str} | 扫描{len(HOURLY_SYMBOLS)}个品种 | STRONG={strong_count} WATCH={watch_count}</div>
 </div>
 
@@ -283,6 +308,18 @@ tr:hover td {{ background:#f8f9ff; }}
 {chr(10).join(signal_rows)}
 </table>
 
+<h2>🔬 多空评分明细</h2>
+<table>
+<tr><th>品种</th><th>方向</th><th>等级</th><th>总分</th><th>ADX</th><th>RSI</th><th>信号强度</th></tr>
+{chr(10).join(score_rows)}
+</table>
+
+<h2>🔗 产业链分析摘要</h2>
+<table>
+<tr><th>产业链</th><th>信号数</th><th>多头</th><th>空头</th><th>链倾向</th><th>涉及品种</th></tr>
+{chr(10).join(chain_rows)}
+</table>
+
 <h2>⚖ 辩论论点（动态正反方）</h2>
 <table>
 <tr><th>品种</th><th>信号方向</th><th>正方论据</th><th>反方论据</th><th>倾向</th></tr>
@@ -292,9 +329,8 @@ tr:hover td {{ background:#f8f9ff; }}
 <div class="kb">{kb_summary.replace(chr(10), '<br>')}</div>
 
 <div class="footer">
-  知识库: 2026-07-07 WF回测优化 | 优化参数已加载 | Commodities/hourly_debate_latest.html
+  知识库:2026-07-07 WF回测优化 | Commodities/hourly_debate_latest.html
 </div>
-
 </body></html>"""
 
 
