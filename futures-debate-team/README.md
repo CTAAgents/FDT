@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.5.0
+# Futures Debate Team — 期货交易辩论专家团 v5.6.0
 
-> 🧬 **v5.5.0 OmniOpt分类法集成**：在 v5.4 可观测性基础上，基于 OmniOpt 论文(arXiv:2607.04033)的分类法和几何统一方法论，为辩论系统引入策略分类体系。新增 F1-F5 论证策略族分类（技术面/基本面/持仓/宏观/套利）、品种×策略族适应性矩阵（`memory/instrument_strategy_matrix.json`，EMA在线更新）、闫判官加权裁决（WEAS族加权预处理）。论据标注→加权裁决→自动更新，全链路闭环。
+> 🛡 **v5.6.0 5层鲁棒性架构**：在 v5.5 OmniOpt 分类法基础上，引入5层防线确保辩论流程在任何异常下不静默断裂。L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py触发文件)+L4路径自发现(phase3 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。
 
 ## 类型
 
@@ -132,8 +132,8 @@ python skills/quant-daily/scripts/scan_all.py --list-strategies
 
 | Skill | 版本 | 用途 |
 |:------|:----|:-----|
-| `quant-daily` | v2.9.0 | 数据采集+通道突破信号计算 |
-| `futures-trading-analysis` | v3.5.0 | 主流程编排+报告生成 |
+| `quant-daily` | v2.12.0 | 数据采集+通道突破信号+信号触发文件 |
+| `futures-trading-analysis` | v3.6.0 | 主流程编排+5层鲁棒性防线+报告生成 |
 | `commodity-chain-analysis` | v2.15.0 | 产业链分析 |
 | `fundamental-data-collector` | v1.3.0 | 基本面分析(供需库存利润) |
 | `technical-analysis` | v2.2.0 | 技术面分析(支撑阻力+事件日历) |
@@ -206,6 +206,8 @@ v5.4 在 v5.3 通道突破主信号源之上，补齐了**系统级可观测性*
 | **辩手禁搜** | 证真/慎思不得自行WebSearch，论据必须来自研究员资料 |
 | **胶水代码零容忍** | 所有操作通过已有skill的CLI/库函数/Agent spawn完成 |
 | **记忆独立** | 专家团记忆仅写入自身memory/目录，不入宿主工作空间 |
+| **鲁棒性防线** | L1-L5五层防线(校验+降级+信号门+路径发现+自检)确保流程不静默断裂 |
+| **P5降级D06** | 闫判官2次spawn失败→明鉴秋基于P3+P4论据独立裁决 |
 
 ## 输出文件结构
 
@@ -240,7 +242,8 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.5.0** | **2026-07-09** | **🧬 OmniOpt 分类法集成**：F1-F5 论证策略族分类系统（技术面/基本面/持仓/宏观/套利）；品种×策略族适应性矩阵(memory/instrument_strategy_matrix.json, EMA在线更新)；scripts/update_matrix.py 更新脚本；闫判官加权裁决(WEAS族加权预处理+族多样性检查)；正反方辩手输出格式扩展(含策略族标签)；裁决reasoning追加WEAS摘要 |
+| **v5.6.0** | **2026-07-09** | **🛡 5层鲁棒性架构**：L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py v2.0触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。|
+| **v5.5.0** | **2026-07-09** | **🧬 OmniOpt 分类法集成**：F1-F5 论证策略族分类系统；品种×策略族适应性矩阵(EMA在线更新)；闫判官加权裁决(WEAS族加权预处理+族多样性检查)；正反方辩手输出格式扩展(含策略族标签) |
 | **v5.4.1** | **2026-07-07** | **🔧 信息源扩充**：新增 `memory/info_portals.md` 定性信息门户目录 — 三层级分类框架(监管/交易所→综合资讯聚合→产业垂直聚合)，合并金瑞期货权威清单与资深交易员实战配置，共30+权威站点，附品种映射速查表；`data_sources.md` 新增定性门户交叉引用节（与 A/B/C/D 定量评级体系隔离）；团队主管 SOP 新增定性信息取证职责 |
 | **v5.4.0** | **2026-07-07** | **🧬 可观测性与自改进里程碑**：APM-CS五轴评分卡(D1-D5)+Telescope失败聚类；D1/D3/ViBench回放+held-out一致性裁判；D2 Acuity真实计算+成本感知PnL(COST_BPS)；D4纪律钳制enforce_discipline(R13/R14/R-resonance仓位上限)；D2信号退化标记/D5陈旧失败过滤/Stage3 self_improve脚手架；全周期K线(日/周/月/240m/60m/15m/5m/1m+自定义)；bug修复(MA60真实合约口径/scan_all原子写入/portfolio_backtest裸except/RuleChecker浮点边界/triggers闭包)；5门禁审计全100% |
 | **v5.3.0** | **2026-07-07** | **🧬 通道突破策略里程碑**：唐奇安DC20/DC55+布林带替换三类信号为主信号源；TqSDK live模式盘中实时价(非backtest)；盘中/盘后自适应数据获取；信号检查闸门(无信号早停)；单策略默认(非--dual)；多数据源格式对齐(TDX/TqSDK/EM/AKShare统一schema)；TDX date字段str()防TypeError；日盘14:30自动化全流程含辩论团P0-P6；管理员手册合并入README；日线跨夜盘说明新增 |
