@@ -22,6 +22,7 @@
 """
 
 import json
+import os
 import re
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
@@ -182,7 +183,11 @@ class MultiSourceAdapter:
                 self.collector_available = False
 
         # 2. TqSdk(按配置 enabled 决定是否加载,懒加载避免初始化卡住)
-        if self.config.is_enabled("tqsdk"):
+        # 🔴 2026-07-09: TQ_SKIP_DISCLAIMER环境变量 → 自动化非交互模式下跳过TqSDK，避免免责声明弹窗阻塞子进程
+        if os.environ.get("TQ_SKIP_DISCLAIMER") == "yes":
+            self.tqsdk_available = False
+            print(f"[MultiSource] TQ_SKIP_DISCLAIMER=yes → 跳过TqSDK初始化，走降级链")
+        elif self.config.is_enabled("tqsdk"):
             try:
                 import importlib.util
 
