@@ -178,3 +178,31 @@ Bug③ 终于拿到60m数据(AKShare分钟,1022根)
 - `skills/quant-daily/scripts/data/multi_source_adapter.py` — 新鲜度检查 + AKShare分钟降级
 - `skills/quant-daily/scripts/scan_all.py` — TqSDK跳过 + period参数传透
 - `skills/quant-daily/scripts/indicators/indicators_legacy.py` — period感知的桥接跳过
+
+---
+
+## 2026-07-09 | 闫判官spawn Write工具不可用Bug（P0）
+
+### 事件摘要
+BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
+- v1(subagent_type: futures-judge): 55s后卡死，未写文件
+- v2(subagent_type: futures-judge精简): 27s后卡死
+- v3(subagent_type: futures-judge独立阅卷): 45s后卡死
+- v4(subagent_type: futures-judge数据全覆盖): 27s后卡死
+- v5(subagent_type: general-purpose长prompt): 被手动停止
+
+### 诊断
+- ✅ general-purpose + 最小prompt测试: Write工具正常工作 → 写入p5_judge_test.json成功
+- ❌ subagent_type: futures-judge: 连续4次全部失败
+
+### 根因
+`subagent_type: "futures-judge"` 作为expert agent spawn时，MD frontmatter中声明的`allowed-tools`可能未被平台正确加载，导致Write工具不可用。与"expert-manager铁律"吻合：自定义专家spawn时Tools为空。
+
+### 修复（P0·立即生效）
+1. **闫判官Agent MD** (`agents/futures-judge.md`): 新增"Spawn方式"段，标注必须用general-purpose
+2. **团队主管MD** (`agents/futures-debate-team-team-lead.md`): 更新D01-D04辩论铁律，所有辩论Agent统一用general-purpose spawn
+3. **辩论流程铁律D05新增**: "辩论Agent必须spawn为general-purpose，不得使用expert subagent_type。角色prompt注入替代expert自动加载。"
+
+### 预防
+- 所有辩论团队Agent(观澜/探源/证真/慎思/闫判官/策执远/风控明)统一使用`subagent_type: "general-purpose"` spawn
+- 不再依赖expert subagent_type的工具加载机制

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-商品期货每日深度分析 — Phase 3: 三报告输出
+商品期货每日深度分析 — Phase 3: 报告输出
+v3.2 (2026-07-09):
+  - 路径参数化: 支持CLI参数或环境变量指定文件路径，解除硬编码
+  - 默认fallback保持向后兼容
 v3.1 (2026-07-09):
   - 新增decisions键检测+fallback适配明鉴秋汇总格式
   - 重写_load_debate_args: glob通配搜索+唯一键名替代硬编码+键碰撞修复
@@ -18,29 +21,57 @@ v3.0 (2026-07-06):
   - bull_args/bear_args 增加基于信号数据的基础面和资金面维度
 """
 
-import sys, os, json, traceback
+import argparse, sys, os, json, traceback
 from html import escape as h_escape
 from datetime import datetime
 
 
-# ==================== 配置 ====================
+# ==================== CLI参数（优先）→ 环境变量 → 默认值 ====================
+parser = argparse.ArgumentParser(description="Phase 3: 辩论报告生成")
+parser.add_argument("--intermediate", "-i", default=os.environ.get("PHASE3_INTERMEDIATE", ""),
+                    help="intermediate_data.json路径")
+parser.add_argument("--debate", "-d", default=os.environ.get("PHASE3_DEBATE_RESULTS", ""),
+                    help="debate_results.json路径")
+parser.add_argument("--output", "-o", default=os.environ.get("PHASE3_OUTPUT_DIR", ""),
+                    help="输出目录")
+parser.add_argument("--output-html", default="", help="输出HTML文件名（不含路径）")
+parser.add_argument("--workspace", "-w", default=os.environ.get("PHASE3_WORKSPACE", os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+                    help="工作空间根目录")
+args = parser.parse_args()
+
 REPORT_DATE = datetime.now().strftime("%Y-%m-%d")
 REPORT_DATE_COMPACT = datetime.now().strftime("%Y%m%d")
 
-REPORT_DIR = os.path.join(
-    os.path.expanduser("~"), "Documents", "WorkBuddy", "Commodities", "Reports", "商品期货深度分析", REPORT_DATE
-)
+# 输出目录优先级: CLI → 环境变量 → 工作空间Commodities目录
+if args.output:
+    REPORT_DIR = args.output
+elif os.environ.get("PHASE3_OUTPUT_DIR"):
+    REPORT_DIR = os.environ["PHASE3_OUTPUT_DIR"]
+else:
+    # 搜索工作空间下的 debate_results.json 来确定目录
+    workspace = args.workspace
+    commodities_dir = os.path.join(workspace, "Commodities")
+    if os.path.isdir(commodities_dir):
+        REPORT_DIR = commodities_dir
+    else:
+        REPORT_DIR = os.path.join(workspace)
 
-INTERMEDIATE_PATH = os.path.join(REPORT_DIR, "intermediate_data.json")
-DEBATE_PATH = os.path.join(REPORT_DIR, "debate_results.json")
+# 文件路径优先级: CLI → 环境变量 → 自动发现 → 默认
+INTERMEDIATE_PATH = args.intermediate or os.environ.get("PHASE3_INTERMEDIATE") or os.path.join(REPORT_DIR, "intermediate_data.json")
+DEBATE_PATH = args.debate or os.environ.get("PHASE3_DEBATE_RESULTS") or os.path.join(workspace, "debate_results.json")
 L1L4_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_l1l4_20260706.json")
 FT_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_factor_timing_20260706.json")
-OUTPUT_DEBATE = os.path.join(REPORT_DIR, f"debate_report_{REPORT_DATE_COMPACT}.html")
+
+output_name = args.output_html or f"debate_report_{REPORT_DATE_COMPACT}.html"
+OUTPUT_DEBATE = os.path.join(REPORT_DIR, output_name)
 OUTPUT_L1L4 = os.path.join(REPORT_DIR, f"l1l4_full_signals_{REPORT_DATE_COMPACT}.html")
 OUTPUT_FT = os.path.join(REPORT_DIR, f"factor_timing_full_signals_{REPORT_DATE_COMPACT}.html")
 
 print(f"{'=' * 60}")
-print(f"Phase 3 v3.0: 三报告生成 — {REPORT_DATE}")
+print(f"Phase 3 v3.2: 报告生成 — {REPORT_DATE}")
+print(f"  中间数据: {INTERMEDIATE_PATH}")
+print(f"  辩论结果: {DEBATE_PATH}")
+print(f"  输出目录: {REPORT_DIR}")
 print(f"{'=' * 60}")
 
 

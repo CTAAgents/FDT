@@ -1,11 +1,12 @@
-"""📅 日线期货辩论系统 — 盘后运行一次
+"""📅 日线期货辩论系统 — 盘后运行一次 · v2.0
 
-只分析适合日线和双周期的品种（共28个），与小时级辩论互补。
-有信号→辩论报告，无信号→简约告知。
+只分析适合日线和双周期的品种（共42个），与小时级辩论互补。
+有信号→写debate_trigger.json→团队主管启动完整P3-P5辩论。无信号→简约告知。
 
 用法:
-  python daily_debate.py               # 扫描+辩论+报告
+  python daily_debate.py               # 扫描+信号触发+轻量报告
   python daily_debate.py --dry-run      # 查看品种列表
+v2.0 (2026-07-09): 信号门机制——WATCH/STRONG信号时写入Commodities/debate_trigger.json供团队主管读取
 """
 
 import sys, os, json, shutil
@@ -104,7 +105,33 @@ def run_daily_debate(dry_run: bool = False) -> dict:
         print("  ⏹ 无STRONG/WATCH信号 → 跳过辩论")
         report = _no_signal_report(date_str)
     else:
-        print(f"  🔥 有{len(strong)+len(watch)}个信号 → 进入辩论")
+        print(f"  🔥 有{len(strong)+len(watch)}个信号 → 进入完整辩论")
+        # 🔴 写入触发文件，由团队主管的自动化读取并触发完整P3-P5辩论
+        trigger_path = os.path.join(COMMODITIES_DIR, "debate_trigger.json")
+        with open(trigger_path, "w", encoding="utf-8") as tf:
+            json.dump({
+                "triggered_at": date_str,
+                "timestamp": timestamp,
+                "signal_count": len(strong) + len(watch),
+                "signals": [
+                    {
+                        "symbol": s["symbol"],
+                        "name": s.get("name", s["symbol"]),
+                        "direction": s.get("direction", "bear"),
+                        "grade": s.get("grade", "WATCH"),
+                        "total": s.get("total", 0),
+                        "adx": s.get("ADX", s.get("adx", 0)),
+                        "rsi": s.get("RSI14", s.get("rsi", 50)),
+                        "price": s.get("price", 0),
+                        "signal_type": s.get("signal_type", ""),
+                    }
+                    for s in (strong + watch)
+                ],
+                "_note": "完整辩论由明鉴秋（团队主管）调度，不走daily_debate.py内建的轻量分析。此文件为触发信号。"
+            }, tf, ensure_ascii=False, indent=2)
+        print(f"  触发文件: {trigger_path}")
+        print(f"  ⚠ 需团队主管读取触发文件后启动完整辩论流程(P3-P5)")
+        # 仍然生成轻量报告作为速览
         report = _debate_report(result, date_str)
 
     # ── 输出 ──
@@ -343,6 +370,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     r = run_daily_debate(dry_run=args.dry_run)
     if r["has_signals"]:
-        print(f"\n【辩论结果】{r['signal_count']}个信号已辩论 → {r['report_path']}")
+        print(f"\n【扫描结果】{r['signal_count']}个信号已写入触发文件 → Commodities/debate_trigger.json")
+        print(f"【下一步】团队主管读取触发文件 → 启动完整P3-P5辩论流程")
+        print(f"【速览】轻量报告 → {r['report_path']}")
     else:
-        print("\n【辩论结果】无STRONG/WATCH信号，无交易建议")
+        print("\n【扫描结果】无STRONG/WATCH信号，无交易建议")

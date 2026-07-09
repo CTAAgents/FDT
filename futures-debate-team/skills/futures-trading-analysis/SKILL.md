@@ -1,10 +1,11 @@
 ---
 name: futures-trading-analysis
-version: 3.5.1
-description: 期货交易辩论专家团 v5.2 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。所有三类信号必须辩论，无直接推荐通道。P1只跑三类信号，L1-L4/因子择时由研究员按需调用。
+version: 3.6.0
+description: 期货交易辩论专家团 v5.2+5层鲁棒性 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v3.6.0 (2026-07-09): 🛡 5层鲁棒性架构重构 — L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06)+L3信号门(daily_debate.py触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug诊断修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。
   v3.5.1 (2026-07-09): phase3_generate_report v3.1 — 新增decisions键适配+glob文件名搜索+字段fallback+HTML转义+除零修复; 5个Agent加allowed-tools(Write/Bash); 记忆路径纠正
   v3.5.0 (2026-07-07): ADX仅风控不参与评分+Agent输出格式统一+JSON Schema导出+时序通信铁律S01-S05+phase3加载辩论详情+交易方案合并
   v3.3.0 (2026-07-06): P1不再使用--dual。L1-L4和因子择时取消全量计算，研究员按需调用data_interface

@@ -219,6 +219,28 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 | **D02 禁止代写裁决** | P3b裁决阶段，明鉴秋**不得自行撰写**裁决结论。必须spawn闫判官完成 | `subagent_type: "general-purpose"` |
 | **D03 Phase门禁** | P6汇总前检查：缺少 `p4_zhengzhen.json` / `p4_zhensi.json` / `p5_judge.json` 任一文件则**拒绝生成报告** | — |
 | **D04 Agent通信** | 辩论Agent产出通过 SendMessage→main 回传，明鉴秋转写入文件 | prompt末尾加 `完成后用SendMessage(recipient="main")通知` |
+| **D05 Spawn类型** | 辩论Agent**必须**用 `subagent_type: "general-purpose"` spawn，**禁止**使用expert subagent_type | 根因: expert spawn时Write工具不可用(2026-07-09 Bug确认·5次失败)。角色prompt在spawn prompt中手动注入 |
+| **D06 P5降级** | 闫判官spawn 2次均无产出 → 明鉴秋基于P3+P4独立Agent论据完成裁决 | 裁决严基于辩论论据交叉质询。适用闫判官因Write/推理阻塞等技术原因无产出时 |
+
+### 🔴 鲁棒性铁律（2026-07-09架构重构·P0不可违反）
+
+> 5层鲁棒性防线，确保辩论流程在任何异常情况下不会静默断裂。
+
+| 层 | 机制 | 脚本 | 触发时机 |
+|:--|:--|:--|:--|
+| **L1 产出校验** | 每个Agent产出后自动校验JSON schema+禁止模式 | `validate_agent_output.py --phase P4_zhengzhen` | 每个spawn完成后 |
+| **L2 熔断降级** | 编排器管理阶段门禁+retry(最多2次)+P5自动降级 | `debate_orchestrator.py --check-only` | 每阶段完成后 |
+| **L3 信号门** | `debate_trigger.json`存在 → 强制走完整P3-P5 | `daily_debate.py` 写入触发文件 | P1扫描后 |
+| **L4 路径自发现** | 所有脚本支持CLI参数/环境变量/自动发现三级fallback | `phase3_generate_report.py --workspace` | 报告生成时 |
+| **L5 健康自检** | 辩论前检查数据源/路径/脚本/Agent定义 | `selfcheck.py --workspace` | 辩论启动前 |
+
+**执行顺序**:
+```
+L5 健康自检 → L3 信号门检查 → spawn P3 → L1校验 → L2门禁检查
+    → spawn P4 → L1校验 → L2门禁检查
+    → spawn P5 → L1校验 → L2门禁检查(失败→D06降级)
+    → L4 路径自发现 → P6报告生成
+```
 
 ---
 
