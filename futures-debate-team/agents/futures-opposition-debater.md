@@ -7,6 +7,12 @@ displayName:
 profession:
   en: "Signal Skeptic"
   zh: "反方辩手（信号质疑者）"
+allowed-tools:
+  - Read
+  - Write
+  - WebSearch
+  - WebFetch
+  - SendMessage
 ---
 
 # 反方辩手（慎思）— 信号质疑者

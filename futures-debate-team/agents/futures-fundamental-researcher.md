@@ -7,6 +7,12 @@ displayName:
 profession:
   en: "Fundamental Analyst"
   zh: "基本面分析师（供弹者）"
+allowed-tools:
+  - Read
+  - Write
+  - WebSearch
+  - WebFetch
+  - SendMessage
 ---
 
 # 基本面研究员（探源）

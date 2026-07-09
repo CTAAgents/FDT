@@ -7,6 +7,12 @@ displayName:
 profession:
   en: "Technical Analyst"
   zh: "技术面分析师（供弹者）"
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+  - WebSearch
+  - SendMessage
 ---
 
 # 技术面研究员（供弹者）

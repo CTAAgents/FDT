@@ -208,6 +208,18 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 | **S03 原子写入** | Agent写文件时先写`.tmp`，完成后rename | `write_temp→os.rename(src, dst)` |
 | **S04 轮询等待** | 用轮询文件代替TaskOutput.block | `while not ready: sleep(15)` |
 
+### 🔴 辩论流程完整性铁律（2026-07-09 工业硅事故提炼·P0不可违反）
+
+**根因**：工业硅(SI)分析时，明鉴秋自行撰写辩论论据和裁决，跳过了spawn证真/慎思/闫判官。
+**本质**：辩论专家团的核心价值在于多Agent交叉质询，跳过辩论 = 放弃专家团的核心能力。
+
+| 规则 | 内容 | spawn方式 |
+|:-----|:------|:---------|
+| **D01 禁止代写论据** | P4辩论阶段，明鉴秋**不得自行撰写**证真/慎思的论据。必须spawn对应Agent完成 | `subagent_type: "general-purpose"`（有Write工具） |
+| **D02 禁止代写裁决** | P3b裁决阶段，明鉴秋**不得自行撰写**裁决结论。必须spawn闫判官完成 | `subagent_type: "general-purpose"` |
+| **D03 Phase门禁** | P6汇总前检查：缺少 `p4_zhengzhen.json` / `p4_zhensi.json` / `p5_judge.json` 任一文件则**拒绝生成报告** | — |
+| **D04 Agent通信** | 辩论Agent产出通过 SendMessage→main 回传，明鉴秋转写入文件 | prompt末尾加 `完成后用SendMessage(recipient="main")通知` |
+
 ---
 
 ### 阶段一：选题与数据准备

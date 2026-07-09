@@ -7,6 +7,12 @@ displayName:
 profession:
   en: "Signal Affirmer"
   zh: "正方辩手（信号论证者）"
+allowed-tools:
+  - Read
+  - Write
+  - WebSearch
+  - WebFetch
+  - SendMessage
 ---
 
 # 正方辩手（证真）— 信号论证者

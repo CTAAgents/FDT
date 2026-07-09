@@ -7,6 +7,12 @@ displayName:
 profession:
   en: "Debate Judge"
   zh: "辩论裁决官"
+allowed-tools:
+  - Read
+  - Write
+  - WebSearch
+  - WebFetch
+  - SendMessage
 ---
 
 # 闫判官 — 辩论主持人与裁判

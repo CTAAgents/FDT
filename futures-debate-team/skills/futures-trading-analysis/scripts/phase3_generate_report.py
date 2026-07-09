@@ -2,6 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 商品期货每日深度分析 — Phase 3: 三报告输出
+v3.1 (2026-07-09):
+  - 新增decisions键检测+fallback适配明鉴秋汇总格式
+  - 重写_load_debate_args: glob通配搜索+唯一键名替代硬编码+键碰撞修复
+  - 扩增_nested_to_per_pid字段fallback: score/verdict_score/stop等
+  - HTML转义(h_escape): _normalize_args+v_reason防<破坏排版
+  - 除零修复: entry=0时stop_pct显示N/A
 v3.0 (2026-07-06):
   - 修复 chain_results 62→13条链聚合
   - 修复 bull_args/bear_args 双方向生成
@@ -13,6 +19,7 @@ v3.0 (2026-07-06):
 """
 
 import sys, os, json, traceback
+from html import escape as h_escape
 from datetime import datetime
 
 
@@ -52,6 +59,9 @@ def _detect_format(debate_results: dict) -> str:
                 return "final_verdict"
     if "verdicts" in debate_results and isinstance(debate_results["verdicts"], list):
         return "nested_list"
+    if "decisions" in debate_results and isinstance(debate_results["decisions"], dict):
+        if debate_results["decisions"]:  # 非空 — 明鉴秋汇总格式
+            return "nested"
     if "final_verdict" in debate_results and isinstance(debate_results["final_verdict"], dict):
         if debate_results["final_verdict"]:
             return "final_verdict"
@@ -63,12 +73,12 @@ def _normalize_args(args_val) -> str:
     if args_val is None:
         return ""
     if isinstance(args_val, str):
-        return args_val
+        return h_escape(args_val)
     if isinstance(args_val, list):
         if len(args_val) == 0:
             return ""
-        return "<br>".join(str(a) for a in args_val)
-    return str(args_val)
+        return "<br>".join(h_escape(str(a)) for a in args_val)
+    return h_escape(str(args_val))
 
 
 def _map_direction(raw_dir: str) -> str:
@@ -270,6 +280,8 @@ def adapt_debate_results(debate_results: dict, intermediate: dict) -> dict:
     fmt = _detect_format(debate_results)
     if fmt == "nested":
         verdicts = debate_results.get("verdicts", {})
+        if not verdicts:
+            verdicts = debate_results.get("decisions", {})  # 明鉴秋汇总格式: {"decisions": {"RM": {...}}}
         overall = debate_results.get("overall", {})
         debate_results = _nested_to_per_pid(verdicts, overall, intermediate)
     elif fmt == "final_verdict":
@@ -353,14 +365,14 @@ def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dic
             "verdict": {"status": direction, "confidence": conf_val},
             "direction": direction,
             "entry_price": v_price,
-            "target_price": v.get("target_price", v.get("target", 0)),
-            "stop_loss_price": v.get("stop_loss_price", v.get("stop_loss", 0)),
-            "position_size": v.get("position_pct", v.get("position_size", 0)),
-            "risk_reward_ratio": v.get("risk_reward_ratio", v.get("risk_reward", 0)),
+            "target_price": v.get("target_price", v.get("target", v.get("target1", 0))),
+            "stop_loss_price": v.get("stop_loss_price", v.get("stop_loss", v.get("stop", 0))),
+            "position_size": v.get("position_pct", v.get("position_size", v.get("suggested_position", 0))),
+            "risk_reward_ratio": v.get("risk_reward_ratio", v.get("risk_reward", v.get("rr", 0))),
             "chain": chain,
             "adx": v_adx,
             "rsi": v_rsi,
-            "score": v_score,
+            "score": v.get("score", v.get("verdict_score", v_score)),
             "price": v_price,
         }
     return per_pid
@@ -411,32 +423,39 @@ if os.path.exists(DEBATE_PATH):
     # ── 加载证真/慎思辩论详情并注入 per-pid ──
     def _load_debate_args(report_dir: str) -> dict:
         """读取辩论详情文件，返回 {symbol: dict} 格式"""
-        import re
+        import re, glob
         result = {}
-        for fname, key in [('p3_zhengzhen_20260706.json', 'affirmative_arguments'),
-                           ('p3_zhensi_20260706.json', 'arguments')]:
-            fpath = os.path.join(report_dir, fname)
-            if os.path.exists(fpath):
+        # 尝试多种文件名模式（带日期/不带日期, p3_/p4_）
+        PATTERNS = [
+            ('*zhengzhen*.json', 'zz'),
+            ('*zhensi*.json', 'zs'),
+        ]
+        files_found = set()
+        for glob_pat, key_tag in PATTERNS:
+            for fpath in glob.glob(os.path.join(report_dir, glob_pat)):
+                if fpath in files_found:
+                    continue
+                files_found.add(fpath)
                 with open(fpath, encoding='utf-8') as f:
                     content = f.read()
-                # 如果是markdown+json fence格式
                 fence = re.search(r'```json\s*(.*?)```', content, re.DOTALL)
                 raw = json.loads(fence.group(1)) if fence else json.loads(content)
-                items = raw.get(key, raw)
-                if isinstance(items, list):
+                # 尝试 role 字段定位证真/慎思；也尝试 symbols 或直接.items()
+                items = raw.get('symbols', raw)
+                if isinstance(items, dict):
+                    for sym, item in items.items():
+                        result.setdefault(sym.upper(), {})[key_tag] = item
+                elif isinstance(items, list):
                     for item in items:
                         sym = item.get('symbol', item.get('subject', '')).split()[0].upper()
-                        result.setdefault(sym, {})[fname[:4]] = item
-                elif isinstance(items, dict):
-                    for sym, item in items.items():
-                        result.setdefault(sym.upper(), {})[fname[:4]] = item
+                        result.setdefault(sym, {})[key_tag] = item
         return result
 
     debate_args = _load_debate_args(os.path.dirname(DEBATE_PATH)) if os.path.exists(DEBATE_PATH) else {}
     for pid in debate_results:
         args = debate_args.get(pid.upper(), {})
-        zz = args.get('p3_z', {})  # 证真
-        zs = args.get('p3_z2', {})  # 慎思
+        zz = args.get('zz', {})  # 证真
+        zs = args.get('zs', {})  # 慎思
         if not debate_results[pid].get('bull_args'):
             if isinstance(zz, dict):
                 thesis = zz.get('thesis', zz.get('core_claim', ''))
@@ -1510,12 +1529,13 @@ def build_debate_report():
             bear_args = bear_args or fallback_bear
 
         # 具体的操作策略
+        stop_pct = f"{abs((sl-entry)/entry*100):.1f}" if entry != 0 else "N/A"
         if v == "BUY":
             strategy_desc = (
                 f"📈 做多策略<br>"
                 f"&nbsp;&nbsp;• 入场: {entry:.0f}附近（现价确认）<br>"
                 f"&nbsp;&nbsp;• 第一目标: {target:.0f}<br>"
-                f"&nbsp;&nbsp;• 止损: {sl:.0f}（{abs((sl-entry)/entry*100):.1f}%）<br>"
+                f"&nbsp;&nbsp;• 止损: {sl:.0f}（{stop_pct}%）<br>"
                 f"&nbsp;&nbsp;• 仓位: {pos:.0f}%<br>"
                 f"&nbsp;&nbsp;• 盈亏比: {rr:.1f}:1"
             )
@@ -1524,7 +1544,7 @@ def build_debate_report():
                 f"📉 做空策略<br>"
                 f"&nbsp;&nbsp;• 入场: {entry:.0f}附近（现价确认）<br>"
                 f"&nbsp;&nbsp;• 第一目标: {target:.0f}<br>"
-                f"&nbsp;&nbsp;• 止损: {sl:.0f}（{abs((sl-entry)/entry*100):.1f}%）<br>"
+                f"&nbsp;&nbsp;• 止损: {sl:.0f}（{stop_pct}%）<br>"
                 f"&nbsp;&nbsp;• 仓位: {pos:.0f}%<br>"
                 f"&nbsp;&nbsp;• 盈亏比: {rr:.1f}:1"
             )
@@ -1583,7 +1603,7 @@ def build_debate_report():
                 </div>
                 <div style="background:#1a1d28;border-radius:6px;padding:12px 14px;">
                     <div style="color:#f59e0b;font-size:0.78em;margin-bottom:6px;">⚖️ 裁决依据</div>
-                    <div style="color:#aaa;font-size:0.82em;line-height:1.6;">{v_reason[:300] if v_reason else "—"}</div>
+                    <div style="color:#aaa;font-size:0.82em;line-height:1.6;">{h_escape(v_reason[:300]) if v_reason else "—"}</div>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
