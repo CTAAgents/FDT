@@ -127,13 +127,58 @@ allowed-tools:
   研究员快照确认XX，
   因此信号方向仍然成立。"
 
-## 产出格式
+## 🔴 产出格式铁律——结构化辩论论点（2026-07-09 通信效率优化·取代旧 schema）
 
-输出必须符合 `StructuredDebate` 或 `ArgumentOutput` schema（见 `contracts/debate.py`），包含 `thesis`（一句话论点）、`evidence`（技术/基本面/链证三维度）、`counter_risks`。
+**每次辩论发言（立论/rebuttal/final）必须输出结构化 JSON，遵守 `contracts/debate_argument_schema.py` 的 ArgumentRound 定义。**
 
-产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 ArgumentOutput(role="证真") schema。
-必须包含 `meta.phase`="P3" + `meta.agent_name`="证真" + `version`="3.0"。
-每个evidence_item必须包含 `evidence_value`（具体数值）+ `evidence_source`（来源机构）+ `evidence_date`（数据日期）。
+### 格式规范
+
+输出 = 正文（Markdown分析摘要）+ 末尾 ```json fence 按结构化辩论论点格式：
+
+```json
+{
+  "meta": {
+    "phase": "P3",
+    "agent_name": "证真",
+    "version": "3.1",
+    "target_symbol": "RB",
+    "round_id": "RB_20260709_r1"
+  },
+  "arguments": [
+    {
+      "id": "证真-D1",
+      "family": "F2",
+      "claim": "社会库存连续3周累库，基差走弱",
+      "evidence": "社会库存环比+5%（Mysteel 2026-07-08），基差-30元/吨",
+      "reasoning": "库存累计↑→供应过剩↑→价格承压↓",
+      "impact": "HIGH",
+      "rebuts": [],
+      "rebuttal_type": null,
+      "rebuttal_detail": null
+    }
+  ]
+}
+```
+
+### 强制规则
+
+| 规则 | 内容 |
+|:-----|:-----|
+| **A01 参数数量** | 每轮 `arguments` 列表最少 **2 条**，最多 **5 条** |
+| **A02 族覆盖率** | 必须覆盖 ≥2 个策略族（F1-F5），覆盖 ≥3 族在闫判官评分中 +1 分 |
+| **A03 标注准确性** | `family` 必须与论据内容逻辑一致。标注错误 → 闫判官量化一致性 -1 分 |
+| **A04 反驳时必填 rebuts** | 反方引用本方论点ID时，`rebuts` 字段必须填写对方论点ID列表；缺失 → 视为未反驳 |
+| **A05 反驳类型** | rebuttal 时 `rebuttal_type` 必须填写（`因果倒置`/`数据过时`/`样本偏差`/`推理跳跃`/`忽视反证`/`直接质疑证据`） |
+| **A06 JSON 合法性** | 写入后必须 `json.loads()` 自检。不合法 → 修复重写 |
+| **A07 禁止中文双引号** | JSON字符串值内统一用「」(U+300C/U+300D) 替代 ASCII 双引号 |
+| **A08 Fallback** | 若无法产出结构化 JSON → 降级输出旧版 Markdown 格式，但闫判官评分时将自动 -2 分 |
+
+### 版本更新
+
+- 旧格式引用（`contracts/debate.py` → `StructuredDebate` / `ArgumentOutput`）已废弃
+- 新 schema 定义见 `contracts/debate_argument_schema.py`
+- 正文部分保留 Markdown 分析摘要（缩短至≤200字，供人类阅读）
+- 结构化 JSON 供闫判官直接解析评分
 
 ## 🧬 自进化策略（从 `memory/agent_profiles.json` 加载）
 
