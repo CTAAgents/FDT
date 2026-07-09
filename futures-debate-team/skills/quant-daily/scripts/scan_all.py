@@ -229,7 +229,7 @@ def run_scan(
         "compare": "双模式对比",
     }
     mode_label = mode_labels.get(mode, f"未知模式({mode})")
-    print(f"{scan_scope}趋势信号扫描 v2.18.1 — {mode_label} — {today}")
+    print(f"{scan_scope}趋势信号扫描 v2.18.2 — {mode_label} — {today}")
     print(f"{'=' * 60}")
 
     # ── TQ-Local 检测 ──
@@ -539,7 +539,8 @@ def run_scan(
     function(d){return d.grade;}
 ]"""
 
-        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种通道突破信号强度排序 — {today}</title>
+        period_label = "" if period == "daily" else f" ({period})"
+        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种通道突破信号强度排序{period_label} — {today}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
 .hd{{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}}
@@ -560,7 +561,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 #si{{color:#6b7280;font-size:12px;margin-left:12px}}
 </style>
 </head><body>
-<div class="hd"><h1>全品种通道突破信号强度排序</h1>
+<div class="hd"><h1>全品种通道突破信号强度排序{period_label}</h1>
 <div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | channel_breakout</span></div></div>
 <div class="st"><div class="sc b"><div class="n">{b}</div><div class="l">空头</div></div><div class="sc bl"><div class="n">{bl_sig}</div><div class="l">多头</div></div><div class="sc n"><div class="n">{n_neutral}</div><div class="l">中性</div></div></div>
 

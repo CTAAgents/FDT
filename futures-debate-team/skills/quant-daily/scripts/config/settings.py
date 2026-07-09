@@ -9,7 +9,7 @@ import json
 # ============================================================
 CONFIG_MANAGER = {
     "system": {
-        "version": "2.13",
+        "version": "2.14",
         "debug": False,
         "log_level": "INFO",
         "max_symbols": 50,
@@ -342,6 +342,8 @@ CHANNEL_BREAKOUT_CONFIG = {
             "pos_upper_bonus": 5.0,          # 上轨位置加分
             "pos_lower_threshold": 0.3,      # 下轨附近阈值（DC20_POS）
             "pos_lower_bonus": -5.0,         # 下轨位置减分
+            "near_breakout_ticks": 5,        # 接近边界：距DC20边界≤N个tick视为"逼近"
+            "near_breakout_score": 15.0,     # 逼近得分（±，突破标准分的50%）
         },
         "adx": {
             "exhaustion_threshold": 60,      # ADX>60→趋势可能衰竭
@@ -393,6 +395,7 @@ CHANNEL_BREAKOUT_CONFIG = {
             "channel_breakout_dc20_min": 30,
             "channel_breakout_dc_total_min": 20,
             "trend_confirmation_dc55_min": 15,
+            "near_breakout_dc20_min": 10,
         },
     },
 
@@ -464,6 +467,49 @@ SYMBOL_CHAIN_MAP = {
 }
 
 
+# ============================================================
+# 品种最小变动价位（tick size）— 用于DC20边界接近判定
+# ============================================================
+SYMBOL_TICK_SIZES = {
+    # 黑色系
+    "rb": 1, "hc": 1, "i": 1, "j": 1, "jm": 1, "SF": 2, "SM": 2,
+    # 能源链
+    "sc": 0.1, "lu": 1, "fu": 1, "bu": 1, "pg": 1, "PX": 2,
+    # 聚酯链
+    "TA": 2, "PF": 2, "PR": 2, "eg": 1, "eb": 1,
+    # 塑化链
+    "v": 1, "pp": 1, "l": 1, "MA": 1,
+    # 化工
+    "SH": 1, "SA": 1, "UR": 1,
+    # 有色金属
+    "cu": 10, "al": 5, "zn": 5, "pb": 5, "ni": 10, "sn": 10, "ao": 1, "SS": 5,
+    # 贵金属
+    "au": 0.02, "ag": 1,
+    # 油脂油料
+    "a": 1, "b": 1, "m": 1, "y": 2, "p": 2, "OI": 1, "RM": 1, "PK": 2,
+    # 农产品
+    "c": 1, "cs": 1, "SR": 1, "CF": 5, "jd": 1, "lh": 1,
+    # 果蔬
+    "AP": 1, "CJ": 5,
+    # 建材化工
+    "FG": 1, "ru": 5, "nr": 5, "br": 5, "sp": 2, "op": 1,
+    # 新能源
+    "lc": 50, "si": 5, "ps": 5,
+    # 航运
+    "ec": 0.1,
+    # 其他
+    "rr": 1,
+}
+
+def get_tick_size(symbol: str) -> float:
+    """获取品种最小变动价位。支持大小写不敏感查找。"""
+    s = symbol.lower()
+    if s in SYMBOL_TICK_SIZES:
+        return SYMBOL_TICK_SIZES[s]
+    if symbol in SYMBOL_TICK_SIZES:
+        return SYMBOL_TICK_SIZES[symbol]
+    return 1.0  # 兜底
+
 # ── 启动时加载优化参数（来自历史回测的品种级覆盖） ──
 _OPT_PARAMS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -512,13 +558,20 @@ def resolve_param(section: str, key: str, symbol: str = "",
         return _PARAM_OVERRIDES[section][key]
 
     cfg = CHANNEL_BREAKOUT_CONFIG
-    # P1
-    if symbol and symbol in cfg.get("per_symbol", {}):
-        sym_cfg = cfg["per_symbol"][symbol]
-        if period in sym_cfg:
-            section_cfg = sym_cfg[period].get(section)
-            if section_cfg is not None and key in section_cfg:
-                return section_cfg[key]
+    # P1 — 大小写不敏感查找（runtime symbol 可能是 "SC"，优化器 key 可能是 "sc"）
+    per_sym = cfg.get("per_symbol", {})
+    sym_cfg = None
+    if symbol and symbol in per_sym:
+        sym_cfg = per_sym[symbol]
+    elif symbol and (symbol_lower := symbol.lower()) in per_sym:
+        sym_cfg = per_sym[symbol_lower]
+    elif symbol and (symbol_upper := symbol.upper()) in per_sym:
+        sym_cfg = per_sym[symbol_upper]
+
+    if sym_cfg is not None and period in sym_cfg:
+        section_cfg = sym_cfg[period].get(section)
+        if section_cfg is not None and key in section_cfg:
+            return section_cfg[key]
     # P2
     if chain and chain in cfg.get("per_chain", {}):
         chain_cfg = cfg["per_chain"][chain]

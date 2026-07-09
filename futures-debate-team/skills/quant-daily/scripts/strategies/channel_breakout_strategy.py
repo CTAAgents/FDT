@@ -1,5 +1,5 @@
 """
-通道突破策略 v1.0 — 唐奇安通道突破 + 布林带确认
+通道突破策略 v1.1 — 唐奇安通道突破 + 布林带确认 + Tick逼近 + 大小写修复
 =============================================
 基于双重通道体系识别趋势启动与延续：
 
@@ -26,7 +26,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 from strategies.base import BaseStrategy, SignalResult
 from strategies.registry import register_strategy
-from config.settings import resolve_param, SYMBOL_CHAIN_MAP, SIGNAL_GRADE_THRESHOLDS
+from config.settings import resolve_param, SYMBOL_CHAIN_MAP, SIGNAL_GRADE_THRESHOLDS, get_tick_size
 
 
 class ChannelBreakoutStrategy(BaseStrategy):
@@ -200,6 +200,30 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     dc_detail["adx_signal"] = "neutral"
             else:
                 dc_detail["dc20_direction"] = "none"
+                # ── tick size 逼近判定：价格距DC20边界≤N个tick → 视为"趋势前夜" ──
+                # （从 df_map 直接计算DC20边界，不依赖 window_mode="time" 的预计算）
+                if price and price > 0:
+                    tick_size = get_tick_size(sym)
+                    near_ticks = _r("dc20", "near_breakout_ticks", sym, chain_name, period)
+                    near_score = _r("dc20", "near_breakout_score", sym, chain_name, period)
+                    if tick_size > 0 and near_ticks > 0 and df is not None and len(df) >= 20:
+                        import numpy as np
+                        closes = df["close"].values.astype(float)
+                        highs = df["high"].values.astype(float)
+                        lows = df["low"].values.astype(float)
+                        _dc20u = np.max(highs[-20:])
+                        _dc20l = np.min(lows[-20:])
+                        if _dc20u > _dc20l:
+                            ticks_to_upper = (_dc20u - price) / tick_size
+                            ticks_to_lower = (price - _dc20l) / tick_size
+                            if 0 < ticks_to_upper <= near_ticks:
+                                dc20_score += near_score
+                                dc_detail["dc20_near_breakout"] = "upper"
+                                dc_detail["dc20_near_ticks"] = round(ticks_to_upper, 1)
+                            elif 0 < ticks_to_lower <= near_ticks:
+                                dc20_score -= near_score
+                                dc_detail["dc20_near_breakout"] = "lower"
+                                dc_detail["dc20_near_ticks"] = round(ticks_to_lower, 1)
 
             dc_detail["dc20_raw_score"] = round(dc20_score, 1)
 
@@ -369,6 +393,8 @@ class ChannelBreakoutStrategy(BaseStrategy):
             signal_type = "none"
             if abs(dc20_score) >= _r("signal_type", "channel_breakout_dc20_min", sym, chain_name, period) and abs(dc_score) >= _r("signal_type", "channel_breakout_dc_total_min", sym, chain_name, period):
                 signal_type = "channel_breakout"
+            elif abs(dc20_score) >= _r("signal_type", "near_breakout_dc20_min", sym, chain_name, period):
+                signal_type = "near_breakout"
             elif abs(dc55_score) >= _r("signal_type", "trend_confirmation_dc55_min", sym, chain_name, period):
                 signal_type = "trend_confirmation"
             elif bb_squeeze:
@@ -437,6 +463,9 @@ class ChannelBreakoutStrategy(BaseStrategy):
                 "signal_types": {
                     "channel_breakout": sum(
                         1 for r in results if r.extra.get("signal_type") == "channel_breakout"
+                    ),
+                    "near_breakout": sum(
+                        1 for r in results if r.extra.get("signal_type") == "near_breakout"
                     ),
                     "trend_confirmation": sum(
                         1 for r in results if r.extra.get("signal_type") == "trend_confirmation"

@@ -1,8 +1,8 @@
 ---
 name: quant-daily
-version: 2.11.0
+version: 2.11.1
 agent_created: true
-description: 商品期货量化分析skill v2.11.0 — 子周期(60m/120m/240m)全量扫描+完整降级链。AKShare分钟→东方财富→TqSDK(15s超时保护)。
+description: 商品期货量化分析skill v2.11.1 — 子周期(60m/120m/240m)全量扫描+完整降级链。AKShare分钟→东方财富→TqSDK(15s超时保护)。v2.11.1新增Tick Size逼近+大小写修复。
 ---
 
 # quant-daily — 商品期货量化分析一体化
@@ -88,7 +88,7 @@ data/   →  indicators/   →   strategies/   →   scan_all.py (入口)
 
 | 策略名 | 文件 | 状态 | 说明 |
 |:-------|:-----|:----|:-----|
-| `channel_breakout` | `strategies/channel_breakout_strategy.py` | ✅ **默认 v1.0** | 唐奇安DC20/DC55 + 布林带确认的双通道突破 |
+| `channel_breakout` | `strategies/channel_breakout_strategy.py` | ✅ **默认 v1.1** | 唐奇安DC20/DC55 + 布林带确认 + Tick逼近 + 大小写修复 |
 | `three_signal` | `strategies/three_signal_strategy.py` | ✅ 可选 | 三类信号(突破/回踩/跳空) |
 | `layered_l1l4` | `strategies/layered_l1l4.py` | ✅ 可选 | L1-L4四层累加(研究员辅助) |
 | `true_layered` | `strategies/true_layered.py` | ⛔ 废弃 | 真分层打分(IC=-0.039不显著) |
@@ -352,6 +352,8 @@ python scripts/scan_all.py -o /path/to/output -p custom_scan --symbols PK,RB
 > **设计原则**：`--symbols` 参数的设计目的就是消灭"为特定品种集写胶水脚本"的需求。任何辩论场景下如需扫描指定品种，应直接调用 `scan_all.py --symbols`，不得自行编写 `phase1_custom_scan.py` 之类的一次性脚本。
 
 ## 版本历史
+
+- **v2.11.1** (2026-07-09): **评分系统修复** — ① `config/settings.py resolve_param` P1层新增大小写不敏感查找(31/44个optimized_params key为小写但运行时传大写→静默失效); ② `channel_breakout_strategy.py` DC20 else分支新增tick size逼近判定(near_breakout), 价格距DC20边界≤N个tick给予15分逼近分; ③ `config/settings.py` 新增 SYMBOL_TICK_SIZES(42品种tick size映射) + get_tick_size(); ④ 策略版本v1.0→v1.1, scan_all v2.18.1→v2.18.2, settings v2.13→v2.14
 
 - **v2.11.0** (2026-07-08): **子周期全量扫描管道修复** — ① `multi_source_adapter.py` 子周期降级链重构: TDX→AKShare分钟→东方财富→TqSDK(原链TqSDK在AKShare分钟前导致每个品种5+s WebSocket); ② TqSDK加15s超时保护(Concurrent Futures), 避免rr等罕见品种死锁; ③ AKShare分钟调用加固(try/except防list index out of range); ④ 移除子周期东方财富/AKShare市场时段闸门(盘中也可走HTTP源); ⑤ scan_all.py/SKILL.md/文档全部补上120m(2小时)周期; ⑥ 120m全量扫描实测通过(61/62品种AKShare分钟, 仅rr无分钟数据)
 
