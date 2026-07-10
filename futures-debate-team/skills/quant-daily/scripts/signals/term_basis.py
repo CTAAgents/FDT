@@ -1,14 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-期限结构与基差分析模块 v2.0
+期限结构与基差分析模块 v2.1
 数据源优先级：
-  1. 通达信本地 (TdxCollector v2.0) — 全合约期限结构 + 跨期价差 + 价差历史Z分数
-  2. futures-data-search DuckDB（原exchange-futures-data）
-  3. AKShare（降级源，置信度-20%）
+  【期限结构】
+    1. 通达信本地 (TdxCollector v2.0) — 全合约期限结构 + 跨期价差 + 价差历史Z分数
+    2. futures-data-search DuckDB（原exchange-futures-data）
+    3. AKShare（降级源，置信度-20%）
+  【现货基准价】  ← v2.1新增
+    1. 100ppi生意社现期表 (日频, 16:30发布, 60+品种, 免费Web版)
+    2. AKShare futures_spot_price（降级源, 置信度-20%）
 
 输出：per-symbol dict，含 term_structure / basis_rate / basis_signal / spread
 供 run_pipeline.py 调用，注入到品种信号中参与置信度计算。
+
+现货数据对齐: 100ppi采集器自动处理单位换算(FG×80, JD÷5, LH÷10),
+  确保所有品种的基差在统一单位(元/吨)下可比.
 """
+
+import os
+import sys
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+# v2.1: 引入100ppi现货采集器
+try:
+    from data.spot_100ppi import fetch_ppi_data, is_covered as ppi_is_covered, UNIT_CONVERSIONS
+    _PPI_AVAILABLE = True
+except ImportError:
+    _PPI_AVAILABLE = False
+    print("[term_basis] 100ppi现货采集器未就绪, 回退到AKShare")
 
 import os
 import sys
@@ -124,13 +144,52 @@ SPOT_PRICE_MAP: Dict[str, dict] = {
 }
 
 
-def _fetch_spot_prices_akshare(trade_date: str = None) -> Dict[str, float]:
+def _fetch_spot_prices_100ppi(symbols: List[str]) -> Dict[str, dict]:
     """
-    通过AKShare获取现货价格。
-    API: futures_spot_price(date='YYYYMMDD', vars_list=['AL','CU',...])
-    返回 {symbol_lower: spot_price}，如 {'rb': 3520, 'i': 780, ...}
-    注意：AKShare是降级数据源，调用失败返回空dict。
+    通过100ppi生意社现期表获取现货基准价 (v2.1, 优先级最高).
+
+    Returns:
+        {symbol_lower: {
+            spot_price: float,        # 换算后的现货价(统一单位)
+            basis_rate: float,        # 基差率
+            data_source: '100ppi(T-1)',
+            spot_note: str,
+        }}
     """
+    if not _PPI_AVAILABLE:
+        return {}
+
+    print("[term_basis] 尝试100ppi现期表获取现货基准价...")
+    result = fetch_ppi_data(symbols)
+
+    if not result or result.get("freshness_ok") is False:
+        freshness = result.get("data_date", "unknown") if result else "N/A"
+        print(f"[term_basis] 100ppi数据新鲜度不合格(freshness_ok=False, date={freshness}), 降级到AKShare")
+        return {}
+
+    items = result.get("items", {})
+    if not items:
+        print("[term_basis] 100ppi无数据, 降级到AKShare")
+        return {}
+
+    spot_data = {}
+    for sym_lower, item in items.items():
+        spot_data[sym_lower] = {
+            "spot_price": item["spot_converted"],
+            "spot_raw": item["spot_raw"],
+            "main_contract": item["main_contract"],
+            "main_price": item["main_price_converted"],
+            "basis_rate": item["basis_rate_pct"] / 100.0 if item["basis_rate_pct"] is not None else None,
+            "data_source": f"100ppi(T-1, {result['data_date']})",
+            "spot_note": item.get("spot_conv_note", ""),
+            "basis_direction": item.get("basis_direction", ""),
+            "warning": item.get("warning", ""),
+        }
+
+    print(f"[term_basis] 100ppi现货获取完成: {len(spot_data)}品种")
+    if result.get("uncovered"):
+        print(f"  100ppi未覆盖: {result['uncovered']}")
+    return spot_data
     try:
         import akshare as ak
         import pandas as pd
@@ -603,6 +662,9 @@ def compute_term_basis(
     if trade_date is None:
         trade_date = datetime.now().strftime("%Y%m%d")
 
+    # v2.1: 100ppi现货元数据(跨作用域)
+    _spot_metadata = {}
+
     # Step 1: 获取期限结构 — 通达信TdxCollector优先
     term_data = _get_term_structure_from_tdx(symbols, trade_date)
 
@@ -614,10 +676,10 @@ def compute_term_basis(
     if not term_data:
         term_data = _get_term_structure_from_akshare(symbols, trade_date)
 
-    # Step 2: 获取现货价格（AKShare，降级源）
-    # 优先从 term_data 中提取（AKShare降级方案已自带现货价）
+    # Step 2: 获取现货价格
+    # v2.1: 优先100ppi, 降级AKShare
     if spot_prices is None:
-        # 先从 term_data 提取已获取的现货价
+        # Step 2a: 先从 term_data 提取已获取的现货价
         extracted_spot = {}
         for pid_lower, td in term_data.items():
             if "spot_price" in td and td["spot_price"] is not None:
@@ -627,7 +689,23 @@ def compute_term_basis(
             print(f"[term_basis] 从期限结构数据中提取现货价: {len(extracted_spot)}品种")
             spot_prices = extracted_spot
         else:
-            spot_prices = _fetch_spot_prices_akshare(trade_date)
+            # Step 2b: 优先尝试100ppi现期表
+            symbol_list = [sym["pid"] for sym in symbols]
+            ppi_data = _fetch_spot_prices_100ppi(symbol_list)
+
+            if ppi_data:
+                # 将100ppi数据转换格式: {'sp': {spot_price, basis_rate, data_source, ...}}
+                spot_prices = {
+                    sym_lower: data["spot_price"]
+                    for sym_lower, data in ppi_data.items()
+                    if data["spot_price"] is not None and data["spot_price"] > 0
+                }
+                # 保存完整信息供后续基差信号计算使用
+                _spot_metadata = ppi_data
+            else:
+                _spot_metadata = {}
+                # Step 2c: 降级到AKShare
+                spot_prices = _fetch_spot_prices_akshare(trade_date)
 
     # Step 3: 组装输出
     result = {}
@@ -698,10 +776,20 @@ def compute_term_basis(
         if pid_lower in spot_prices and near_price and near_price > 0:
             spot = spot_prices[pid_lower]
             entry["spot_price"] = spot
-            entry["data_source_spot"] = "AKShare(降级,-20%)"
 
-            basis_rate = (spot - near_price) / near_price
-            entry["basis_rate"] = round(basis_rate, 4)
+            # v2.1: 100ppi数据源标注
+            ppi_meta = _spot_metadata.get(pid_lower, {})
+            if ppi_meta and ppi_meta.get("data_source", "").startswith("100ppi"):
+                entry["data_source_spot"] = ppi_meta["data_source"]
+                entry["spot_note"] = ppi_meta.get("spot_note", "")
+                entry["basis_direction_ppi"] = ppi_meta.get("basis_direction", "")
+                # 100ppi已自带basis_rate
+                if ppi_meta.get("basis_rate") is not None:
+                    entry["basis_rate"] = ppi_meta["basis_rate"]
+            else:
+                entry["data_source_spot"] = "AKShare(降级,-20%)"
+                basis_rate_raw = (spot - near_price) / near_price
+                entry["basis_rate"] = round(basis_rate_raw, 4)
 
             # 基差信号：现货>期货=低估利多, 现货<期货=高估利空
             if basis_rate > 0.03:
