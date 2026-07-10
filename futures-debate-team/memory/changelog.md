@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-07-10 10:52 — v3.7.0 三大系统性缺陷修复
+
+**版本号**: futures-trading-analysis v3.7.0
+
+**修复1: 辩论自动归档** (`scripts/debate_archiver.py`)
+- `archive_round()`: 辩论完成后自动写入FDT `memory/debate_journal.json` + `memory/debates/INDEX.md`
+- 解决: 每次辩论记忆手动写入工作空间memory的问题
+
+**修复2: Agent产出轮询** (`scripts/agent_waiter.py`)
+- `poll_file_ready()`: S04轮询等待Agent产出文件就绪(15s×60=15min超时)
+- `build_spawn_file_instruction()`: 生成Agent文件输出指令,追加到spawn prompt
+- 解决: background Agent超时无产出
+
+**根因分析**:
+| 问题 | 根因 | 性质 |
+|------|------|------|
+| 胶水代码 | 协调员未使用已有的CLI参数化报告生成器 | 使用缺陷 |
+| 记忆不归档 | FDT缺乏辩论完成后的自动归档钩子 | 设计缺陷 |
+| Agent超时 | 依赖不可靠的background+SendMessage, 无S04轮询 | 实现缺陷 |
+
+---
+
 ## 2026-07-10 10:15 — v2.13.0 子周期TDX对齐+会话感知+R0归一化
 
 **版本号**: quant-daily v2.13.0, scan_all v2.19.0, multi_source_adapter v2.13.0, channel_breakout v1.2
