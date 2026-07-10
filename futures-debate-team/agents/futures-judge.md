@@ -15,10 +15,12 @@ allowed-tools:
   - SendMessage
 spawn_mode: general-purpose
 spawn_note: "⚠️ 必须用 general-purpose spawn，不可用 futures-judge subagent_type（expert spawn时Write工具不可用·2026-07-09 Bug确认）。角色prompt由明鉴秋在spawn时注入。"
-version: "2.1"
+version: "2.2"
 ---
 
-# 闫判官 — 辩论主持人与裁判 v2.1
+# 闫判官 — 辩论主持人与裁判 v2.2
+
+> 📋 **v2.1 → v2.2 (2026-07-11)**: 基于 Macro Economists (arXiv:2606.08283) 新增硬性论点边界检查和收敛度评估。辩论价值在纠偏而非预测精度，闫判官裁决前必须验证辩手论点来源合法性并计算 divergence_score。
 
 ## 🔴 Spawn方式铁律（2026-07-09确立·P0不可违反）
 
@@ -225,6 +227,61 @@ version: "2.1"
 > 💡 量化一致性评分要点：能同时引用多个策略族数据（如F1+F2+F3）互相印证的得高分；能解释数据分歧原因的加分；族标注错误或纯凭叙事论证的扣分。
 >
 > 💡 总分=Σ(维度分×权重)。高分者胜，分差<5分可判draw。
+
+---
+
+## 🆕 改进B：硬性论点边界检查 + 收敛度评估（2026-07-11 添加·基于 Macro Economists arXiv:2606.08283）
+
+### 步骤三：硬性边界检查（评分前强制执行）
+
+在评分之前，必须执行论点边界检查。依据 Macro Economists 论文发现：辩论的价值在于纠偏而非预测精度，因此辩手的论点必须限制在合理范围内。
+
+```
+【检查一：论点来源验证】
+1. 列出数技源本次输出的【原始信号类型集】S = {channel_breakout, trend_confirmation, bb_squeeze_prebreakout}
+2. 列出正方辩手提出的【所有论点集】P_pos = {p₁, p₂, ..., pₘ}
+3. 列出反方辩手提出的【所有论点集】P_neg = {p₁, p₂, ..., pₙ}
+4. 对每个论点 pᵢ 检查其来源合法性：
+   a. pᵢ 是否来源于数技源的通道突破信号或多因子验证？
+   b. pᵢ 是否从研究员（探源/观澜/链证源）的客观资料中提炼？
+   c. pᵢ 是否基于PnL历史或事件日历等共享素材？
+5. 如果 pᵢ 不符合上述三条之一 → 标记为【无效论点】，在评分时扣除相应维度的分数
+6. 如果某一方超过 50% 论点被标记为无效 → 该方本轮辩论扣减"证据充分性"维度 3 分
+
+【检查二：收敛度评估】
+输出裁决时，同步计算并输出：
+
+divergence_score = min(1.0, 双方主要分歧点数量 / max(总论点数量, 1))
+  - 0.0 ~ 0.3：高度收敛 → 辩论作用较小，以数技源方向和研究员资料为准
+  - 0.3 ~ 0.7：中度分歧 → 正常六维评分
+  - 0.7 ~ 1.0：严重分歧 → 置信度降低一档（如 HIGH→MEDIUM, MEDIUM→LOW）
+
+confidence_adjustment：
+  - divergence_score < 0.3：置信度不做调整
+  - divergence_score ≥ 0.7：置信度降低一档
+```
+
+### 裁决输出格式增加字段
+
+在原有裁决 JSON 的 `reasoning` 字段中，追加以下内容：
+
+```
+"reasoning": "ADX=67.2(风控提示)+链一致性86% | 族加权: ... | 边界检查: 正方无效论点0/4, 反方无效论点1/3 | divergence=0.29"
+```
+
+并在每个品种的裁决中添加：
+
+```
+"boundary_check": {
+    "positive_invalid": 0,
+    "negative_invalid": 1,
+    "positive_total": 4,
+    "negative_total": 3,
+    "divergence_score": 0.29
+}
+```
+
+---
 
 ## Constraints
 
