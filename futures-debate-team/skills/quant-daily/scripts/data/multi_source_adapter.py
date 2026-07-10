@@ -392,8 +392,9 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # ── 🐛 v2.11.0: 子周期(60m/120m/240m)降级链重排 ──
-        #    TDX → AKShare分钟(HTTP快) → 东方财富 → TqSDK(WebSocket慢) → AKShare日线
+        # ── 🐛 v2.12.0: 子周期(60m/120m/240m)降级链 — R25排除TqSDK ──
+        #    TDX → AKShare分钟(HTTP快) → 东方财富 → AKShare日线
+        #    TqSDK已排除: 纯时钟窗口(7200s)不识别会话边界, bar跨夜盘/午休
         #    daily/weekly/monthly: TDX → TqSDK → 东方财富 → AKShare日线
         _is_sub_period = period not in ("daily", "weekly", "monthly")
         _is_market_open = _is_trading_session()
@@ -448,8 +449,8 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] AKShare分钟 get_kline {variety}: {e}")
 
-        # 3. 尝试TqSdk (日线/周线/月线首选; 子周期兜底)
-        if self.tqsdk_available:
+        # 3. 尝试TqSdk (日线/周线/月线首选; 子周期已排除 — R25: TqSDK纯时钟窗口不识别会话边界)
+        if self.tqsdk_available and not _is_sub_period:
             try:
                 tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days, period=period)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:

@@ -5,6 +5,39 @@
 
 ---
 
+## 2026-07-10 | 子周期K线会话划分规范确立 + TDX对齐修正 + 降级链净化
+
+### 事件链
+1. **DC20 REF式偏差**: SP从4690跳空至4798, DC20U因包含当前bar膨胀至4816, 判定none→WEAK
+2. **掌柜提供TDX唐奇安通道公式**: 发现REF(HHV,1)+HIGH/LOW检测+初次突破标记三处差异
+3. **子周期会话划分**: 掌柜提供交易所K线周期规范, 确认TDX/AKShare/东方财富为会话感知, TqSDK为纯时钟
+
+### 根因分析
+- DC20通道计算含当前bar → 价格涨通道跟着涨, "突破"越来越难
+- dc20_break使用CLOSE而非HIGH/LOW → 盘中突破被无视
+- TqSDK对子周期使用7200秒固定窗口 → 跨夜盘收盘/午休边界
+- resample_60m_to_120m简单两两合并 → 跨会话幽灵bar
+
+### 改正措施
+| # | 改正 | 文件 |
+|---|------|------|
+| 1 | DC20 REF式通道: max(highs[-21:-1]) + high/low检测 | `120m_resampler.py`, `analyze_targets.py`, `channel_breakout_strategy.py` |
+| 2 | 动量逼近识别: bar振幅≥1.2×ATR → near_breakout分 | `channel_breakout_strategy.py` |
+| 3 | 会话感知resample: gap>120min=新会话 | `120m_resampler.py`, `optimizer/run_120m_wf.py` |
+| 4 | TqSDK子周期排除(R25) | `multi_source_adapter.py` |
+| 5 | FDT记忆固化: session_rules.md, data_sources.md R25 | `memory/session_rules.md`, `memory/data_sources.md` |
+
+### SP评分轨迹
+原始 +28 WEAK → +动量识别 +43 WATCH → +TDX对齐 **+63 STRONG**
+
+### 影响范围
+- 新增STRONG信号: SP(+63), RM(+61), SN(+56)
+- FG WATCH不变(-43)
+- 无品种退化
+> 格式：日期 → 事件 → 根因 → 改正 → 预防
+
+---
+
 ## 2026-07-06 | 专家团独立化中期战略确立
 
 ### 决定
