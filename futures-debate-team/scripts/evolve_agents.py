@@ -666,6 +666,97 @@ def evolve_technical_researcher(verdicts, profile):
     }
 
 
+# ─── 知识萃取（从已验证裁决中提取品种知识）──────────
+
+def extract_knowledge_from_validated_verdicts(followup_path: str) -> int:
+    """从已验证裁决中提取品种知识并写入 knowledge/ 目录。
+
+    在 Agent 进化完成后自动调用。从 debate_journal.json 中查找对应品种的
+    完整辩论记录（含 pro_args/con_args），然后调用 extract_knowledge 入库。
+
+    Returns:
+        成功萃取的知识条目数
+    """
+    script_dir = Path(__file__).parent.parent
+    journal_path = script_dir / "memory" / "debate_journal.json"
+    if not journal_path.exists():
+        return 0
+
+    try:
+        from scripts.extract_knowledge import KnowledgeExtractor
+        extractor = KnowledgeExtractor()
+    except ImportError:
+        print("  ⚠️ extract_knowledge 模块不可用（可能是首次部署），跳过知识萃取")
+        return 0
+
+    # 读取辩论记录
+    journal = load_json(str(journal_path))
+    entries = journal.get("entries", [])
+
+    # 读取已验证裁决
+    if not os.path.exists(followup_path):
+        return 0
+    followup = load_json(followup_path)
+    records = followup.get("records", [])
+
+    # 提取已验证的 round_id + symbol 集合
+    validated_rounds = set()
+    for record in records:
+        vr = record.get("validation_results", {})
+        if vr.get("validatable") and record.get("validated"):
+            for v in record.get("verdicts", []):
+                symbol = v.get("symbol", "").lower()
+                round_id = record.get("round", v.get("round", ""))
+                if symbol and round_id:
+                    validated_rounds.add((round_id, symbol))
+
+    if not validated_rounds:
+        return 0
+
+    # 从 journal 中查找 debate_record 条目
+    extracted_count = 0
+    debate_records_map = {}
+    for entry in entries:
+        if entry.get("action") != "debate_record":
+            continue
+        rid = entry.get("round_id", "")
+        sym = entry.get("symbol", "").lower()
+        if (rid, sym) in validated_rounds:
+            debate_records_map[(rid, sym)] = entry
+
+    for (round_id, symbol), debate_record in debate_records_map.items():
+        verdict = {
+            "round_id": round_id,
+            "direction": debate_record.get("verdict", {}).get("direction", ""),
+            "confidence": debate_record.get("verdict", {}).get("confidence", 0),
+            "winner": debate_record.get("verdict", {}).get("winner", ""),
+            "reasoning": debate_record.get("verdict", {}).get("reasoning", ""),
+        }
+        try:
+            result = extractor.extract_from_debate(
+                variety=symbol,
+                debate_record=debate_record,
+                verdict=verdict,
+                bypass_quality_gate=False,
+            )
+            if result.get("patterns_added", 0) > 0:
+                extracted_count += result["patterns_added"]
+                print(f"  📖 {symbol}: 新增 {result['patterns_added']} 个论证模式")
+            elif result.get("key_levels_added"):
+                extracted_count += 1
+                print(f"  📖 {symbol}: 关键价位已更新")
+            else:
+                reason = result.get("skipped_reason", "无更新")
+                if reason:
+                    print(f"  📖 {symbol}: 跳过萃取 ({reason})")
+        except Exception as e:
+            print(f"  ⚠️ {symbol} 知识萃取异常: {e}")
+
+    if extracted_count > 0:
+        print(f"  ✅ 知识萃取完成: {extracted_count} 条目更新")
+    return extracted_count
+
+
 # ─── 主程序 ───────────────────────────────────────────
 
 def main():
@@ -726,6 +817,11 @@ def main():
 
     save_json(profiles_path, profiles)
     print(f"\n✅ Agent进化配置已保存: {profiles_path}")
+
+    # ── 知识萃取（非阻断） ──
+    print(f"\n{'='*50}")
+    print("📖 品种知识萃取:")
+    extract_knowledge_from_validated_verdicts(followup_path)
 
 
 if __name__ == "__main__":

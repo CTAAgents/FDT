@@ -421,6 +421,87 @@ def backfill_debate_records_from_history() -> int:
     return added
 
 
+# ── 知识库集成 ─────────────────────────────────
+# 从辩论记录中自动提取品种知识并写入 knowledge/ 目录
+
+def append_knowledge_extraction(
+    variety: str,
+    debate_record: Dict[str, Any],
+    verdict: Dict[str, Any],
+    technical_data: Optional[Dict] = None,
+    fundamental_data: Optional[Dict] = None,
+    trading_plan: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """从辩论记录中提取品种知识并写入 knowledge/ 目录。
+
+    由明鉴秋在 P6 汇总后自动调用。
+    质量门控由 extract_knowledge.py 内部管理。
+
+    Args:
+        variety: 品种代码（小写）
+        debate_record: 完整辩论记录（含 pro_args/con_args）
+        verdict: 闫判官裁决
+        technical_data: 观澜产出（可选）
+        fundamental_data: 探源产出（可选）
+        trading_plan: 策执远方案（可选）
+
+    Returns:
+        extract_knowledge.py 的返回 dict（含 patterns_added 等）
+    """
+    try:
+        from scripts.extract_knowledge import KnowledgeExtractor
+        extractor = KnowledgeExtractor()
+        return extractor.extract_from_debate(
+            variety=variety,
+            debate_record=debate_record,
+            verdict=verdict,
+            technical_data=technical_data,
+            fundamental_data=fundamental_data,
+            trading_plan=trading_plan,
+        )
+    except Exception as e:
+        _logger.warning(f"知识萃取失败 {variety}: {e}")
+        return {"skipped_reason": str(e), "error": True}
+
+
+def batch_knowledge_extraction(
+    debate_results: Dict[str, Any],
+) -> Dict[str, List[Dict]]:
+    """从辩论结果中批量提取知识。
+
+    由明鉴秋在 P6 汇总后调用，遍历所有裁决品种。
+
+    Args:
+        debate_results: P6 汇总的 debate_results.json 内容
+
+    Returns:
+        {variety: [result_dict, ...]}
+    """
+    from scripts.extract_knowledge import KnowledgeExtractor
+    extractor = KnowledgeExtractor()
+    results: Dict[str, List[Dict]] = {}
+
+    verdicts = debate_results.get("verdicts", {})
+    for variety, v_data in verdicts.items():
+        debate_record = v_data.get("debate_record", {})
+        verdict = v_data.get("verdict", {})
+        tech = v_data.get("technical", {})
+        fund = v_data.get("fundamental", {})
+        plan = v_data.get("trading_plan", {})
+
+        r = extractor.extract_from_debate(
+            variety=variety,
+            debate_record=debate_record,
+            verdict=verdict,
+            technical_data=tech,
+            fundamental_data=fund,
+            trading_plan=plan,
+        )
+        results.setdefault(variety, []).append(r)
+
+    return results
+
+
 if __name__ == "__main__":
     # 测试
     writer = MemoryWriter(round_id="TEST_20260705")
@@ -430,3 +511,20 @@ if __name__ == "__main__":
     print(f"Merged: {json.dumps(merged, ensure_ascii=False, indent=2)}")
     validation = writer.validate()
     print(f"Validation: {json.dumps(validation, ensure_ascii=False, indent=2)}")
+
+    # 测试知识萃取
+    from scripts.memory_writer import append_knowledge_extraction
+    test_record = {
+        "round_id": "test_mw",
+        "pro_args": [{"claim": "ADX=45趋势确认", "evidence": "ADX=45", "source": "signal"}],
+        "con_args": [{"claim": "RSI接近超买", "evidence": "RSI=68", "source": "signal"}],
+        "volatility": {"adx": 45, "atr": 120},
+    }
+    test_verdict = {
+        "direction": "bull",
+        "confidence": 0.72,
+        "reasoning": "ADX趋势确认+库存下降",
+    }
+    test_plan = {"entry": 3500, "stop_loss": 3420, "target1": 3650, "target2": 3750}
+    r = append_knowledge_extraction("rb", test_record, test_verdict, trading_plan=test_plan)
+    print(f"Knowledge extraction: {json.dumps(r, ensure_ascii=False, indent=2)}")

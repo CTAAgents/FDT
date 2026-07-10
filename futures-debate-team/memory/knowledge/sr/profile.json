@@ -1,0 +1,23 @@
+{
+  "code": "sr",
+  "name": "白糖",
+  "exchange": "CZCE",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,
+    3,
+    5,
+    7,
+    9,
+    11
+  ],
+  "chain": "农产品",
+  "aliases": [
+    "白糖",
+    "郑糖"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

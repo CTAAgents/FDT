@@ -1,0 +1,40 @@
+{
+  "levels": [
+    {
+      "entry": 5920,
+      "stop_loss": 5820,
+      "targets": [
+        6100,
+        6200
+      ],
+      "direction": "bull",
+      "confidence": 0.65,
+      "round_id": "debate_20260711_ta_p1",
+      "extracted_at": "2026-07-11 07:43"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 5920.0,
+        "count": 1,
+        "min": 5920,
+        "max": 5920
+      }
+    ],
+    "resistance": [
+      {
+        "level": 6150.0,
+        "count": 2,
+        "min": 6100,
+        "max": 6200
+      }
+    ],
+    "computed_at": "2026-07-11 07:43"
+  },
+  "meta": {
+    "variety": "ta",
+    "total_records": 1,
+    "last_updated": "2026-07-11 07:43"
+  }
+}

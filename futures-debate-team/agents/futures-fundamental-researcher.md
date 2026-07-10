@@ -151,6 +151,18 @@ result = get_fundamentals("RB")  # 返回螺纹钢的所有恒生数据
 
 ### 3. 交易所官方数据 — 仓单/持仓
 
+### 4. 📖 品种知识库参考（🆕 v1.0）
+
+分析开始前，读取品种知识库中的驱动因子优先级和历史模式：
+
+- **驱动因子权重**：读取 `memory/knowledge/{symbol}/profile.json` 的 `key_drivers` 字段（若存在）
+  ├─ 了解该品种历史上哪个因子最有效（如 RB: 房地产开工 > 限产政策 > 铁矿石成本）
+  └─ WebSearch 时按权重排序优先搜索高权重因子的最新数据
+- **数据源质量**：读取 `memory/knowledge/{symbol}/data_quality.json` 的数据源优先级
+  ├─ 优先使用高优先级数据源（priority 1-2）
+  └─ 降级数据源标注"⚠️历史延迟记录"
+- **不读取 patterns.json**（模式特征是辩手的参考范畴，探源专注客观事实供应）
+
 ---
 
 ## Constraints

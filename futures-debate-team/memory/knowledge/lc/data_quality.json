@@ -1,0 +1,141 @@
+{
+  "sources": {
+    "等级": {
+      "name": "等级",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "a": {
+      "name": "A",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "b": {
+      "name": "B",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "c": {
+      "name": "C",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "d": {
+      "name": "D",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "数据源": {
+      "name": "数据源",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "通达信tq-local_k线": {
+      "name": "通达信TQ-Local K线",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 1
+    },
+    "akshare_oi注入": {
+      "name": "AKShare OI注入",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 4
+    },
+    "通达信期限结构": {
+      "name": "通达信期限结构",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 1
+    },
+    "numpy向量化指标(兜底)": {
+      "name": "numpy向量化指标(兜底)",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "akshare_分钟k线": {
+      "name": "AKShare 分钟K线",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 4
+    },
+    "东方财富实时行情": {
+      "name": "东方财富实时行情",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 3
+    },
+    "akshare现货价格": {
+      "name": "AKShare现货价格",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 4
+    },
+    "交易所库存周报(基化)": {
+      "name": "交易所库存周报(基化)",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 4
+    },
+    "交易所注册仓单": {
+      "name": "交易所注册仓单",
+      "first_seen": "2026-07-11",
+      "last_seen": "2026-07-11",
+      "total_calls": 0,
+      "delayed_days": 0,
+      "delayed_count": 0,
+      "priority": 4
+    }
+  },
+  "last_updated": "2026-07-11 07:21",
+  "variety": "lc"
+}

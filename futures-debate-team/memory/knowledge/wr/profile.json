@@ -1,0 +1,28 @@
+{
+  "code": "wr",
+  "name": "线材",
+  "exchange": "SHFE",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "黑色系",
+  "aliases": [
+    "线材"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

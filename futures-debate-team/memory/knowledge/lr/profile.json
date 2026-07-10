@@ -1,0 +1,22 @@
+{
+  "code": "lr",
+  "name": "晚籼稻",
+  "exchange": "CZCE",
+  "unit": "20t/手",
+  "delivery_months": [
+    1,
+    3,
+    5,
+    7,
+    9,
+    11
+  ],
+  "chain": "农产品",
+  "aliases": [
+    "晚籼稻"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

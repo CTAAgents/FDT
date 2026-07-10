@@ -1,0 +1,29 @@
+[
+  {
+    "pattern_id": "rb-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-11",
+    "last_used": "2026-07-11 07:42",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.78,
+    "structure": "趋势确认",
+    "applicable_conditions": {
+      "adx_range": [
+        52.2,
+        82.2
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "L1-L4"
+    ],
+    "derived_from_debates": [
+      "debate_20260711_rb_p1"
+    ],
+    "confidence": 0.78,
+    "status": "active"
+  }
+]

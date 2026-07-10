@@ -1,0 +1,21 @@
+{
+  "code": "im",
+  "name": "中证1000股指",
+  "exchange": "CFFEX",
+  "unit": "200元×指数点",
+  "delivery_months": [
+    "当月",
+    "下月",
+    "当季",
+    "下季"
+  ],
+  "chain": "金融期货",
+  "aliases": [
+    "IM",
+    "中证1000期货"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

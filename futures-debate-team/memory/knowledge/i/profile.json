@@ -1,0 +1,41 @@
+{
+  "code": "i",
+  "name": "铁矿石",
+  "exchange": "DCE",
+  "unit": "100t/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "黑色系",
+  "aliases": [
+    "铁矿",
+    "铁矿石"
+  ],
+  "strategy_weights": {
+    "F1": 0.68,
+    "F2": 0.72,
+    "F3": 0.38,
+    "F4": 0.25,
+    "F5": 0.48
+  },
+  "strategy_samples": {
+    "F1": 1,
+    "F2": 1,
+    "F3": 1,
+    "F4": 1,
+    "F5": 1
+  },
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

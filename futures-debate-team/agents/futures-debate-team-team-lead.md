@@ -511,6 +511,19 @@ def _assemble_debate_record(sym, p_zhengzhen, p_zhensi, p_judge, p_coherence):
 
 # 对每个辩论品种调用（示例 RB）：
 # append_debate_record(_assemble_debate_record("RB", p3_zhengzhen, p3_zhensi, p5_judge, p5_coherence))
+
+# 4. 品种知识萃取（🆕 v1.0 — P6 汇总后自动触发）
+#    从本论辩论的 debate_record 中提取品种特异性知识，写入 memory/knowledge/{variety}/。
+#    非阻断：萃取失败不影响报告生成。
+from scripts.memory_writer import batch_knowledge_extraction
+
+knowledge_results = batch_knowledge_extraction(debate_results)
+for variety, results in knowledge_results.items():
+    for r in results:
+        if r.get("patterns_added", 0) > 0:
+            print(f"  📖 知识萃取 {variety}: 新增{r['patterns_added']}个论证模式")
+        elif r.get("skipped_reason"):
+            pass  # 静默跳过（如置信度不足）
 ```
 
 ### 📊 报告完整性铁律（2026-07-06 掌柜确立·不可违反）

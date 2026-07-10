@@ -39,6 +39,10 @@ allowed-tools:
 - **资金**：前20席位净持仓变化、多空比、风向标席位
 - **背离**：价量背离、价持仓背离、MACD/KDJ顶底背离
 - **形态**：头肩、三角、旗形、突破/假突破确认
+- **📖 品种知识库参考（🆕 v1.0）**：分析开始前，先读取 `memory/knowledge/{symbol}/key_levels.json`（存在时）
+  ├─ 聚合支撑/阻力位：与当期技术面分析交叉验证，而非直接复用
+  ├─ 历史关键价位区间：作为支撑/阻力判断的参考锚点
+  └─ 读取 `memory/knowledge/{symbol}/profile.json`：波动率基线、季节性
 
 ## Constraints
 

@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "sc-p001",
+    "name": "多头综合驱动型",
+    "first_observed": "2026-07-11",
+    "last_used": "2026-07-11 07:42",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.62,
+    "structure": "布林带带宽处于历史低位，挤压后大概率爆发... → 政策催化",
+    "applicable_conditions": {
+      "adx_range": [
+        10,
+        37
+      ],
+      "signal_type": [
+        "bb_squeeze_prebreakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "探源/基本面",
+      "L1-L4/信号"
+    ],
+    "derived_from_debates": [
+      "debate_20260711_sc_p1"
+    ],
+    "confidence": 0.62,
+    "status": "active"
+  }
+]

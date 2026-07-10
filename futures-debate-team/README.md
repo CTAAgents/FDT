@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.8.0
+# Futures Debate Team — 期货交易辩论专家团 v5.9.0
 
-> 🏗 **v5.8.0 系统架构里程碑**：FDT自包含运行时代理—`fdt_paths.py`单一路径真相源、`memory_enforcer.py`零参数记忆归档、`data/`+`reports/`内部产出目录、A01文件通信协议(tiered降级)。系统边界清晰——产出和记忆在FDT内部，工作空间仅做镜像。Agent MD v5.3(记忆动作清单)、futures-trading-analysis v3.7.1、fdt-spawn-debate v1.1。
+> 🧠 **v5.9.0 品种知识库**：自建品种分析逻辑知识库系统。5层知识体系(L1-L5) + `extract_knowledge.py` 萃取引擎 + 6 Agent 消费端注入 + 老化自动化。详见下方 v5.9 新能力章节。
 
 ## 类型
 
@@ -197,6 +197,74 @@ v5.4 在 v5.3 通道突破主信号源之上，补齐了**系统级可观测性*
 ### 反馈闭环
 - 自进化前置（validate → calibrate → evolve）全自动；`debate_journal.json` 升级捕获辩手论据 + held-out judge，双副本同步。
 
+## v5.9 新能力（品种分析逻辑知识库 v1.0）
+
+v5.9 新增品种知识库系统，使 FDT 可以在辩论过程中自动积累品种特异性分析知识，实现"每轮辩论都让下一次更聪明"。
+
+### 五层知识体系
+
+| 层级 | 内容 | 文件 | 更新方式 |
+|:----|:-----|:-----|:--------|
+| **L1 静态画像** | 品种合约规格、产业链归属、波动率基线 | `profile.json` | 初始化脚本从 `varieties.yaml` 生成 |
+| **L2 驱动因子** | 核心影响因素及权重（如 RB: 地产>限产>铁矿） | `drivers.md` | 每轮辩论后从闫判官推理自动萃取 |
+| **L3 有效论证模式** | 该品种历史有效论证结构及胜率 | `patterns.json` | 每轮辩论后从 debate_record 自动萃取 |
+| **L4 关键价位** | 聚合支撑/阻力位、持仓密集区 | `key_levels.json` | 从策执远交易方案自动提取+聚类 |
+| **L5 数据源质量** | 各数据源可靠性评分、延迟天数 | `data_quality.json` | 每次数据采集后更新 |
+
+### 知识萃取引擎
+
+`scripts/extract_knowledge.py` 是核心引擎，6个关键设计：
+
+```
+质量门控 ── confidence ≥ 0.6 才入库，seed/reconstructed 记录跳过
+原子写入 ── .tmp → rename 确保并发安全
+去重检测 ── 相同模式再次出现时 EMA 更新 win_rate
+老化保护 ── 每品种上限 20 条，超限淘汰最低效
+自动老化 ── 每日 22:00 降级 60 天未使用的模式
+可审计 ── deprecated 模式保留不删除，标注淘汰原因
+```
+
+### 知识消费链路
+
+| Agent | 消费内容 | 用途 |
+|:------|:--------|:-----|
+| ⚪ 闫判官 | `patterns.json` | P2 加载历史有效模式作为方向参考 |
+| 🟢 观澜 | `key_levels.json` + `profile.json` | 支撑/阻力位交叉验证，波动率基线 |
+| 🟢 探源 | `profile.json` 驱动因子权重 + `data_quality.json` | 按权重排序搜索，优先用高质量数据源 |
+| 🔵 证真 | `patterns.json` | 参考历史模式增强论证，禁止复制历史论据 |
+| 🔴 慎思 | `patterns.json` | 找与正方方向相反的历史模式 |
+| 📋 策执远 | `key_levels.json` 聚合支撑/阻力位 | 辅助止损/目标设定 |
+
+知识库仅在 spawn prompt 中注入作为**参考层**，禁止直接复制历史论据。当期数据与知识库矛盾时以当期数据为准。
+
+### 使用接口
+
+```python
+# P6 汇总后自动萃取（已嵌入 team-lead prompt）
+from scripts.memory_writer import batch_knowledge_extraction
+batch_knowledge_extraction(debate_results)
+
+# 手动触发老化
+python scripts/extract_knowledge.py decay
+
+# 初始化/重新初始化知识库
+python scripts/init_knowledge_base.py [--force]
+
+# 查看知识库状态
+cat memory/knowledge/variety_index.json
+```
+
+### 目录结构
+
+```
+memory/knowledge/
+├── variety_index.json           # 84品种索引（含各文件状态）
+├── rb/ → profile.json + drivers.md + data_quality.json
+├── sc/ → profile.json + drivers.md + data_quality.json
+├── ...                          # 84品种各一套
+└── (patterns.json + key_levels.json 在辩论后自动生成)
+```
+
 ## 核心铁律
 
 | 铁律 | 内容 |
@@ -218,6 +286,7 @@ FDT内部 (自包含系统):
   reports/debate_report_*.html             ← HTML报告
   memory/debate_journal.json               ← 辩论执行记录
   memory/debates/INDEX.md                  ← 辩论索引
+  memory/knowledge/{variety}/              ← 品种知识库（v5.9）
   memory/incidents.md                      ← 事故与教训
 
 工作空间镜像 (用户入口):
@@ -246,7 +315,7 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v5.8.0** | **2026-07-10** | **🏗 系统架构里程碑—FDT自包含运行时**：`fdt_paths.py`单一路径真相源(三级fallback自动检测FDT根目录)+`memory_enforcer.py`零参数记忆归档+`data/`+`reports/`内部产出目录+A01文件通信协议(tiered降级)。Agent MD v5.3(开篇动作清单记忆路由)+futures-trading-analysis v3.7.1+fdt-spawn-debate v1.1。系统边界清晰——产出和记忆在FDT内部，工作空间仅做镜像副本。修复：Agent SendMessage在自动化context路由失效(2次事故)→文件优先通信协议永久修复。 |
+| **v5.9.0** | **2026-07-11** | **🧠 品种知识库 v1.0**：自建品种分析逻辑知识库系统。5层知识体系(L1静态画像/L2驱动因子/L3有效模式/L4关键价位/L5数据质量)；`scripts/extract_knowledge.py` 萃取引擎(质量门控confidence≥0.6+原子写入+EMA在线更新+老化保护)；`scripts/init_knowledge_base.py` 初始化脚本(84品种从varieties.yaml+instrument_strategy_matrix批量初始化)；`memory/knowledge/{84品种}/` 目录；P6汇总后自动萃取(team-lead MD)；Agent进化后自动萃取(evolve_agents.py)；6个Agent消费端注入(闫判官/观澜/探源/证真/慎思/策执远)；每日22:00老化维护自动化。| **🏗 系统架构里程碑—FDT自包含运行时**：`fdt_paths.py`单一路径真相源(三级fallback自动检测FDT根目录)+`memory_enforcer.py`零参数记忆归档+`data/`+`reports/`内部产出目录+A01文件通信协议(tiered降级)。Agent MD v5.3(开篇动作清单记忆路由)+futures-trading-analysis v3.7.1+fdt-spawn-debate v1.1。系统边界清晰——产出和记忆在FDT内部，工作空间仅做镜像副本。修复：Agent SendMessage在自动化context路由失效(2次事故)→文件优先通信协议永久修复。 |
 | **v5.7.0** | **2026-07-10** | **🏗 驾驭工程（Harness Engineering）完整落地**: 15项差距全部修复，成熟度4.0→4.7。Phase1正确性修复(G1 Pydantic配置校验/G2 trace_id全链路/G3 pipeline日志统一/G4 bootstrap动态版本)→Phase2测试补齐(G5 pipeline集成10用例/G6 scheduler集成10用例/G7覆盖率扩展到全skill/G8 memory集成9用例)→Phase3运维增强(G9 graceful drain/G10兼容矩阵/G13熔断可配/G14合约版本迁移28条路径)→Phase4体验优化(G11 APM-CS实时看板/G12 HTTP健康端点/G15 JSON结构化日志)。43用例全绿，contracts桥接层统一入口。|
 | **v5.6.0** | **2026-07-09** | **🛡 5层鲁棒性架构**：L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py v2.0触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。|
 | **v5.5.0** | **2026-07-09** | **🧬 OmniOpt 分类法集成**：F1-F5 论证策略族分类系统；品种×策略族适应性矩阵(EMA在线更新)；闫判官加权裁决(WEAS族加权预处理+族多样性检查)；正反方辩手输出格式扩展(含策略族标签) |
