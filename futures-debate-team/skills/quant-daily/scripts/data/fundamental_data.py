@@ -67,22 +67,17 @@ def fetch_warehouse_all(date_str: str = None) -> Dict[str, WarehouseReceipt]:
             print(f"  [{exchange}] 仓单获取失败: {str(e)[:80]}")
             return None
 
-    # 上期所 — 尝试新版API
+    # 上期所 — 回退检测 + AKShare (SHFE WAF拦截时尝试旧日期)
     shfe_date = date_str
-    # 回退检测: 今日仓单可能在15:30后才能获取
     try:
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
         import requests as req
-        test_url = f"https://tsite.shfe.com.cn/data/tradedata/future/dailydata/{date_str}dailystock.dat"
-        r = req.get(test_url, timeout=5, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://tsite.shfe.com.cn/"})
-        if r.status_code != 200 or len(r.text) < 100:
-            yesterday = date.today() - timedelta(days=1)
-            shfe_date = yesterday.strftime("%Y%m%d")
-            print(f"  今日SHFE仓单未发布，尝试 {shfe_date}")
-        else:
-            print(f"  SHFE raw: {r.text[:60]}...")
+        test_url = f"https://www.shfe.com.cn/data/tradedata/future/dailydata/{date_str}dailystock.dat"
+        r = req.get(test_url, timeout=5, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.shfe.com.cn/"})
+        if r.status_code != 200 or len(r.text) < 200:
+            shfe_date = yesterday
     except Exception:
-        yesterday = date.today() - timedelta(days=1)
-        shfe_date = yesterday.strftime("%Y%m%d")
+        shfe_date = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
 
     shfe_data = _try_fetch("SHFE", ak.futures_shfe_warehouse_receipt, date=shfe_date)
     if shfe_data:
@@ -102,72 +97,141 @@ def fetch_warehouse_all(date_str: str = None) -> Dict[str, WarehouseReceipt]:
             wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
             results[sym] = wr
 
-    # 郑商所 — 使用 engine='openpyxl' 避免Excel格式错误
-    czce_data = None
+    # 郑商所 — 盘后才发布当日数据, 盘中回退到前一日
+    czce_date = date_str
+    try:
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        test_url = f"http://www.czce.com.cn/cn/DFSStaticFiles/Future/{date_str[:4]}/{date_str}/FutureDataWhsheet.xlsx"
+        r_test = __import__('requests').get(test_url, verify=False, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        if r_test.status_code != 200:
+            czce_date = yesterday
+    except Exception:
+        czce_date = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+    
     try:
         import requests as req
         from io import BytesIO
-        # 直接下载Excel, 绕过AKShare的引擎问题
-        xlsx_url = f"http://www.czce.com.cn/cn/DFSStaticFiles/Future/{date_str[:4]}/{date_str}/FutureDataWhsheet.xlsx"
+        xlsx_url = f"http://www.czce.com.cn/cn/DFSStaticFiles/Future/{czce_date[:4]}/{czce_date}/FutureDataWhsheet.xlsx"
         r = req.get(xlsx_url, verify=False, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
         if r.status_code == 200 and len(r.content) > 1000:
             czce_df = pd.read_excel(BytesIO(r.content), engine='openpyxl')
-            # 解析: 找到各品种区域
-            variety_idx = czce_df[czce_df.iloc[:, 0].astype(str).str.contains(r'品种：', na=False)].index
+            # 找品种区域 (header格式: "品种：白糖SR     单位：张")
+            variety_idx = czce_df[czce_df.iloc[:, 0].astype(str).str.contains(r'品种：', na=False)].index.tolist()
+            czce_count = 0
             for i, idx in enumerate(variety_idx):
-                header = czce_df.iloc[idx, 0]
-                variety_match = __import__('re').search(r'品种：(\w+)', str(header))
+                header = str(czce_df.iloc[idx, 0])
+                variety_match = __import__('re').search(r'品种：(\w+)', header)
                 if not variety_match:
                     continue
                 variety_code = variety_match.group(1)
-                sym = _variety_to_symbol(variety_code, exchange="CZCE")
+                # CZCE格式: "菜粕RM" → 提取大写符号 "RM"
+                sym_match = __import__('re').search(r'([A-Z]{1,3})$', variety_code)
+                if sym_match:
+                    sym = _variety_to_symbol(sym_match.group(1), exchange="CZCE")
+                else:
+                    sym = _variety_to_symbol(variety_code, exchange="CZCE")
                 if not sym:
                     continue
-                # 找该品种的合计行
+                # CZCE: 每个品种有一个"总计"行 (col[5]=仓单数量, col[6]=当日增减)  
+                # 注意: 棉纱CY等品种列位置不同, 用"总计"行而非"小计"行
                 end_idx = variety_idx[i+1] if i+1 < len(variety_idx) else len(czce_df)
                 section = czce_df.iloc[idx:end_idx]
-                total_row = section[section.iloc[:, 0].astype(str).str.contains('合计', na=False)]
+                total_row = section[section.iloc[:, 0].astype(str).str.strip().eq('总计')]
                 if total_row.empty:
+                    continue
+                # 列名匹配: 支持PTA(完税+保税双列)等特殊情况
+                header_row = section.iloc[1]
+                qty_cols = []; chg_col = None
+                for c in range(9):
+                    h = str(header_row.iloc[c]).strip()
+                    if '仓单数量' in h:
+                        qty_cols.append(c)
+                    elif '当日增减' in h and chg_col is None:
+                        chg_col = c
+                try:
+                    qty = sum(int(total_row.iloc[0, c]) for c in qty_cols if pd.notna(total_row.iloc[0, c]))
+                    chg = int(total_row.iloc[0, chg_col]) if chg_col is not None and pd.notna(total_row.iloc[0, chg_col]) else 0
+                except (ValueError, IndexError, TypeError):
+                    continue
+                if qty == 0:
+                    continue
+                wr = WarehouseReceipt(sym, czce_date)
+                wr.total_registered = qty
+                wr.daily_change = chg
+                wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
+                results[sym] = wr
+                czce_count += 1
+            print(f"  [CZCE] 仓单解析: {czce_count}品种")
+    except Exception as e:
+        print(f"  [CZCE] 仓单获取失败: {str(e)[:80]}")
+    
+    # 上期所 — AKShare直接API (SHFE WAF已拦截 .dat API, AKShare封装层可能绕过)
+    try:
+        shfe_data = ak.futures_shfe_warehouse_receipt(date=shfe_date)
+        if shfe_data and len(shfe_data) > 0:
+            shfe_count = 0
+            for variety_name, df in shfe_data.items():
+                if not isinstance(df, pd.DataFrame) or df.empty:
+                    continue
+                # 提取VARNAME中的品种代码 (如 "纸浆$W" → "纸浆")
+                clean_name = str(variety_name).split("$")[0].strip()
+                sym = _variety_to_symbol(clean_name, exchange="SHFE")
+                if not sym:
+                    continue
+                # 找总计行
+                total_rows = df[df.iloc[:, 0].astype(str).str.contains("总计", na=False)]
+                if total_rows.empty:
                     continue
                 wr = WarehouseReceipt(sym, date_str)
                 try:
-                    # 合计行: 仓单数量在"仓单数量"列, 当日增减在"当日增减"列
-                    wr.total_registered = int(total_row.iloc[0, 5])  # 仓单数量
-                    wr.daily_change = int(total_row.iloc[0, 6])      # 当日增减
+                    wr.total_registered = int(total_rows.iloc[0, -2])
+                    wr.daily_change = int(total_rows.iloc[0, -1])
                 except (ValueError, IndexError):
                     continue
                 wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
                 results[sym] = wr
-            print(f"  [CZCE] 仓单解析: {len([s for s in results if s in [r for r in results]])}品种")
+                shfe_count += 1
+            print(f"  [SHFE] 仓单解析: {shfe_count}品种")
     except Exception as e:
-        print(f"  [CZCE] 仓单获取失败: {str(e)[:80]}")
-
-    # 大商所
-    dce_data = _try_fetch("DCE", ak.futures_warehouse_receipt_dce, date=date_str)
-    if dce_data is not None and not dce_data.empty:
-        # DCE格式: DataFrame含品种代码列
-        for variety_code in dce_data["品种代码"].unique():
-            sym = _variety_to_symbol(variety_code, exchange="DCE")
-            if not sym:
-                continue
-            wr = WarehouseReceipt(sym, date_str)
-            variety_df = dce_data[dce_data["品种代码"] == variety_code]
-            wr.total_registered = int(variety_df["今日仓单量（手）"].sum())
-            wr.daily_change = int(variety_df["增减（手）"].sum())
-            wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-            results[sym] = wr
-
-    # 广期所
-    gfex_data = _try_fetch("GFEX", ak.futures_gfex_warehouse_receipt, date=date_str)
-    if gfex_data:
-        for symbol, df in gfex_data.items():
-            sym = symbol.lower()
-            wr = WarehouseReceipt(sym, date_str)
-            if not df.empty:
-                wr.total_registered = int(df["今日仓单量"].sum())
-                wr.daily_change = int(df["增减"].sum())
+        print(f"  [SHFE] 仓单AKShare失败(可能WAF拦截): {str(e)[:80]}")
+        # 降级: 用东方财富库存数据标注
+        print(f"  [SHFE] 降级到EM库存作为仓单代理...")
+    
+    # 大商所 — AKShare直接API (DCE WAF拦截, 需要Referer)
+    try:
+        dce_data = ak.futures_warehouse_receipt_dce(date=date_str)
+        if dce_data is not None and not dce_data.empty:
+            dce_count = 0
+            for variety_code in dce_data["品种代码"].unique():
+                sym = _variety_to_symbol(str(variety_code), exchange="DCE")
+                if not sym:
+                    continue
+                wr = WarehouseReceipt(sym, date_str)
+                variety_df = dce_data[dce_data["品种代码"] == variety_code]
+                wr.total_registered = int(variety_df["今日仓单量（手）"].sum())
+                wr.daily_change = int(variety_df["增减（手）"].sum())
                 wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-            results[sym] = wr
+                results[sym] = wr
+                dce_count += 1
+            print(f"  [DCE] 仓单解析: {dce_count}品种")
+    except Exception as e:
+        print(f"  [DCE] 仓单AKShare失败(可能WAF拦截): {str(e)[:80]}")
+    
+    # 广期所
+    try:
+        gfex_data = ak.futures_gfex_warehouse_receipt(date=date_str)
+        if gfex_data:
+            for symbol, df in gfex_data.items():
+                sym = symbol.lower()
+                wr = WarehouseReceipt(sym, date_str)
+                if not df.empty:
+                    wr.total_registered = int(df["今日仓单量"].sum())
+                    wr.daily_change = int(df["增减"].sum())
+                    wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
+                results[sym] = wr
+            print(f"  [GFEX] 仓单解析: {len(gfex_data)}品种")
+    except Exception as e:
+        print(f"  [GFEX] 仓单获取失败: {str(e)[:80]}")
 
     print(f"  仓单采集完成: {len(results)}品种")
     return results
@@ -205,24 +269,6 @@ def fetch_inventory(symbols: List[str], days: int = 60) -> Dict[str, dict]:
                 continue
     except Exception as e:
         print(f"  [库存] 东方财富失败: {str(e)[:60]}")
-
-    # 99期货库存(补充)
-    try:
-        for sym in symbols[:5]:  # 限制频率，只补前5个
-            try:
-                df_99 = ak.futures_inventory_99(symbol=sym.upper())
-                if df_99 is not None and not df_99.empty and sym.lower() not in results:
-                    latest = df_99.iloc[-1]
-                    results[sym.lower()] = {
-                        "latest_stock": float(latest.get("库存量", 0)),
-                        "stock_change": None,
-                        "data_source": "99期货(大宗商品库存)",
-                        "unit": "吨",
-                    }
-            except Exception:
-                continue
-    except Exception as e:
-        print(f"  [库存] 99期货失败: {str(e)[:60]}")
 
     print(f"  库存采集完成: {len(results)}品种")
     return results
@@ -378,10 +424,25 @@ def fetch_all_fundamentals(
     snapshots = {}
     for sym in symbols:
         sym_key = sym.lower() if isinstance(sym, str) else sym
+        # 大小写不敏感仓库查找
+        wr_key = sym_key
+        if sym_key not in warehouse:
+            # 尝试其他常见大小写变体
+            for alt in [sym_key.upper(), sym_key.lower(), sym_key.capitalize()]:
+                if alt in warehouse:
+                    wr_key = alt
+                    break
+            else:
+                # 遍历查找
+                for k in warehouse:
+                    if k.lower() == sym_key.lower():
+                        wr_key = k
+                        break
+        wr = warehouse.get(wr_key)
         snap = {
             "symbol": sym_key,
             "trade_date": trade_date,
-            "warehouse": _wr_to_friendly(warehouse.get(sym_key)),
+            "warehouse": _wr_to_friendly(wr),
             "inventory": inventory.get(sym_key),
             "position": position.get(sym_key),
             "delivery": delivery.get(sym_key),
