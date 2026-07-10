@@ -74,9 +74,9 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     highs = df["high"].values.astype(float)
                     lows = df["low"].values.astype(float)
                     import numpy as np
-                    # DC20
-                    dc20_upper = np.max(highs[-_dc20_t:])
-                    dc20_lower = np.min(lows[-_dc20_t:])
+                    # DC20 — TDX对齐: REF(HHV, N) 不含当前bar
+                    dc20_upper = np.max(highs[-_dc20_t-1:-1]) if len(highs) >= _dc20_t+1 else np.max(highs[-_dc20_t:])
+                    dc20_lower = np.min(lows[-_dc20_t-1:-1]) if len(lows) >= _dc20_t+1 else np.min(lows[-_dc20_t:])
                     tech["DC20_UPPER"] = dc20_upper
                     tech["DC20_LOWER"] = dc20_lower
                     tech["DC20_POS"] = (closes[-1] - dc20_lower) / (dc20_upper - dc20_lower + 1e-10)
@@ -200,19 +200,69 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     dc_detail["adx_signal"] = "neutral"
             else:
                 dc_detail["dc20_direction"] = "none"
+                # ── 若上游未填充dc20_break，在此处直接检测（TDX REF式 + HIGH/LOW） ──
+                if df is not None and len(df) >= 21 and dc20_break == "none" and price:
+                    import numpy as np
+                    highs = df["high"].values.astype(float)
+                    lows = df["low"].values.astype(float)
+                    _dc20u_ref = np.max(highs[-21:-1])
+                    _dc20l_ref = np.min(lows[-21:-1])
+                    _c_high = float(highs[-1])
+                    _c_low = float(lows[-1])
+                    if _dc20u_ref > 0 and _c_high >= _dc20u_ref:
+                        dc20_break = "up"
+                        dc20_upper = _dc20u_ref
+                        dc20_lower = _dc20l_ref
+                        dc20_score += _r("dc20", "break_base_score", sym, chain_name, period)
+                        dc_detail["dc20_direction"] = "up"
+                        dc_detail["dc20_break_source"] = "strategy_tdx_ref"
+                        distance_pct = (price / _dc20u_ref - 1) * 100
+                        dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
+                        if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                            dc20_score += _r("dc20", "break_strong_bonus", sym, chain_name, period)
+                            dc_detail["dc20_break_strength"] = "strong"
+                        elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                            dc20_score += _r("dc20", "break_moderate_bonus", sym, chain_name, period)
+                            dc_detail["dc20_break_strength"] = "moderate"
+                        else:
+                            dc_detail["dc20_break_strength"] = "weak"
+                        if adx >= _r("adx", "trend_threshold", sym, chain_name, period):
+                            dc20_score += _r("adx", "trend_bonus", sym, chain_name, period)
+                            dc_detail["adx_signal"] = "trend_healthy"
+                    elif _dc20l_ref > 0 and _c_low <= _dc20l_ref:
+                        dc20_break = "down"
+                        dc20_upper = _dc20u_ref
+                        dc20_lower = _dc20l_ref
+                        dc20_score -= _r("dc20", "break_base_score", sym, chain_name, period)
+                        dc_detail["dc20_direction"] = "down"
+                        dc_detail["dc20_break_source"] = "strategy_tdx_ref"
+                        distance_pct = (_dc20l_ref / price - 1) * 100
+                        dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
+                        if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                            dc20_score -= _r("dc20", "break_strong_bonus", sym, chain_name, period)
+                            dc_detail["dc20_break_strength"] = "strong"
+                        elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                            dc20_score -= _r("dc20", "break_moderate_bonus", sym, chain_name, period)
+                            dc_detail["dc20_break_strength"] = "moderate"
+                        else:
+                            dc_detail["dc20_break_strength"] = "weak"
+                        if adx >= _r("adx", "trend_threshold", sym, chain_name, period):
+                            dc20_score -= _r("adx", "trend_bonus", sym, chain_name, period)
+                            dc_detail["adx_signal"] = "trend_healthy"
+
                 # ── tick size 逼近判定：价格距DC20边界≤N个tick → 视为"趋势前夜" ──
                 # （从 df_map 直接计算DC20边界，不依赖 window_mode="time" 的预计算）
                 if price and price > 0:
                     tick_size = get_tick_size(sym)
                     near_ticks = _r("dc20", "near_breakout_ticks", sym, chain_name, period)
                     near_score = _r("dc20", "near_breakout_score", sym, chain_name, period)
-                    if tick_size > 0 and near_ticks > 0 and df is not None and len(df) >= 20:
+                    if tick_size > 0 and near_ticks > 0 and df is not None and len(df) >= 21:
                         import numpy as np
                         closes = df["close"].values.astype(float)
                         highs = df["high"].values.astype(float)
                         lows = df["low"].values.astype(float)
-                        _dc20u = np.max(highs[-20:])
-                        _dc20l = np.min(lows[-20:])
+                        _dc20u = np.max(highs[-21:-1])
+                        _dc20l = np.min(lows[-21:-1])
                         if _dc20u > _dc20l:
                             ticks_to_upper = (_dc20u - price) / tick_size
                             ticks_to_lower = (price - _dc20l) / tick_size
@@ -229,7 +279,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                         # dc20_break依赖K线内部突破(close>DC20U)，但盘中高波动时
                         # 可能在K线未收盘时已实质突破。若当前bar振幅≥1.2×ATR
                         # 且价格距DC20边界≤2×near_breakout_ticks → 给near_breakout分
-                        if dc20_score == 0 and len(df) >= 20:
+                        if dc20_score == 0 and len(df) >= 21:
                             try:
                                 curr_high = float(df["high"].values[-1])
                                 curr_low = float(df["low"].values[-1])

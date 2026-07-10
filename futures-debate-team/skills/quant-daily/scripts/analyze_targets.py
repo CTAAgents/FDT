@@ -352,12 +352,14 @@ for sym in TARGETS:
         else:
             tech["macd_cross"] = "none"
 
-        # DC break
-        if dc20_u is not None and dc20_l is not None and last_price:
-            u_val, l_val = float(dc20_u[-1]), float(dc20_l[-1])
-            if last_price > u_val:
+        # DC break — TDX对齐: REF(HHV(H,N),1)通道+ HIGH/LOW检测
+        if dc20_u is not None and dc20_l is not None and len(dc20_u) >= 2 and n > 0:
+            # dc20_u[-2] = 前bar通道(不含当前bar) = REF(HHV,1)
+            u_val, l_val = float(dc20_u[-2]), float(dc20_l[-2])
+            curr_high, curr_low = float(h[-1]), float(l[-1])
+            if curr_high >= u_val:
                 tech["dc20_break"] = "up"
-            elif last_price < l_val:
+            elif curr_low <= l_val:
                 tech["dc20_break"] = "down"
             else:
                 tech["dc20_break"] = "none"

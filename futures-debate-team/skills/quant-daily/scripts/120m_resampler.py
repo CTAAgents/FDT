@@ -89,14 +89,16 @@ def score_channel_breakout(tech_list: list, df_map: dict, period: str = "120m") 
         dc20_score = 0.0
         dc_detail = {}
 
-        # dc20_break 检测
+        # dc20_break 检测 — TDX对齐: HIGH>=周期高点(上破) / LOW<=周期低点(下破)
         dc20_upper = tech.get("DC20_UPPER")
         dc20_lower = tech.get("DC20_LOWER")
+        c_high = tech.get("c_high", price)
+        c_low = tech.get("c_low", price)
         dc20_break = "none"
-        if dc20_upper and dc20_lower and price:
-            if price > dc20_upper:
+        if dc20_upper and dc20_lower and c_high and c_low:
+            if c_high >= dc20_upper:
                 dc20_break = "up"
-            elif price < dc20_lower:
+            elif c_low <= dc20_lower:
                 dc20_break = "down"
 
         if dc20_break == "up":
@@ -263,9 +265,9 @@ def run_120m_scan(symbols: list = None, output_prefix: str = "120m_scan") -> dic
         lows = df_120m["low"].values.astype(float)
         volumes = df_120m["volume"].values.astype(float) if "volume" in df_120m.columns else None
 
-        # DC通道
-        dc20_upper = float(np.max(highs[-20:])) if len(highs) >= 20 else 0
-        dc20_lower = float(np.min(lows[-20:])) if len(lows) >= 20 else 0
+        # DC通道 — TDX对齐: REF(HHV, N) 不含当前bar
+        dc20_upper = float(np.max(highs[-21:-1])) if len(highs) >= 21 else (float(np.max(highs[-20:])) if len(highs) >= 20 else 0)
+        dc20_lower = float(np.min(lows[-21:-1])) if len(lows) >= 21 else (float(np.min(lows[-20:])) if len(lows) >= 20 else 0)
         dc55_upper = float(np.max(highs[-55:])) if len(highs) >= 55 else 0
         dc55_lower = float(np.min(lows[-55:])) if len(lows) >= 55 else 0
         half = min(28, len(closes)//2)
@@ -275,6 +277,7 @@ def run_120m_scan(symbols: list = None, output_prefix: str = "120m_scan") -> dic
         tech = {
             "symbol": sym, "name": name,
             "last_price": float(closes[-1]), "price": float(closes[-1]),
+            "c_high": float(highs[-1]), "c_low": float(lows[-1]),
             "change_pct": (closes[-1]/closes[-2]-1)*100 if len(closes)>1 else 0,
             "volume": int(volumes[-1]) if volumes is not None else 0,
             "DC20_UPPER": dc20_upper, "DC20_LOWER": dc20_lower,
