@@ -1,10 +1,11 @@
 ---
 name: futures-trading-analysis
-version: 3.7.1
-description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
+version: 3.8.0
+description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员并行供弹→证真(慎思)动态正反方交叉质询(轮次由信号等级决定)→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v3.8.0 (2026-07-11): ⚡ 时延优化三管齐下 — ①P2研究员并行spawn(串行→并行,省~20min) ②信号分级驱动辩论深度(C1快速裁决/C2两轮/C3四轮/C4不辩) ③闫判官时段表改为等级自适应。加权平均耗时从60min→~12min(C1场景8min, C2场景15min)。
   v3.7.1 (2026-07-10): 🔧 Agent通信链路永久修复 — 自动化context中SendMessage路由不可靠(2次事故:16:25+20:10)。③条修复：①A01铁律"文件优先通信"-Agent只Write文件不使用SendMessage ②明鉴秋poll_file_ready轮询+tiered降级(链证/观澜/探源600s,裁决/策执/风控300s) ③fdt-spawn-debate所有spawn prompt加"禁用SendMessage"指令。降级≠跳过-明鉴秋在降级时自行完成对应分析
   v3.7.0 (2026-07-10): 🔧 三大系统性缺陷修复 — ①scripts/debate_archiver.py: 辩论自动归档到FDT memory/系统(debate_journal.json+debates/INDEX.md); ②scripts/agent_waiter.py: S04轮询等待Agent产出(poll_file_ready)+D06降级; ③phase3_generate_report v3.2已有CLI参数化(未使用导致胶水代码)
   v3.6.0 (2026-07-09): 🛡 5层鲁棒性架构重构 — L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06)+L3信号门(daily_debate.py触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug诊断修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。
@@ -57,9 +58,9 @@ WorkBuddy 自动化协调器 → spawn 明鉴秋(团队主管)
   数技师 scan_all.py --symbols PK,RB → 数据包
     ↓
 [阶段二] 辩论全流程（闫判官主持）:
-  闫判官 spawn 基本面研究员 + 技术面研究员 → 快照广播
+  (P2) 明鉴秋同时 spawn 探源+观澜+链证源（并行并发）→ 三研究员同时产出
     ↓
-  闫判官主持 → 多/空辩手立论→互rebuttal→自由交锋→final
+  闫判官主持 → 多/空辩手立论→互rebuttal→自由交锋→final（轮次由信号等级决定）
     ↓
   闫判官 判胜负 → 传给策略师
     ↓
@@ -522,48 +523,65 @@ def _parse_old(md_text: str, skill_type: str) -> dict | None:
 ### P3 编排代码（明鉴秋执行）
 
 ```python
-# 第一步：牛首轮
-bull_v1_raw = debate_team.run("牛势研", f"{state['data_raw']}\n...",
-    extra_context={"round": 1, "rebuttal_targets": []})
-state["bull_raw"] = bull_v1_raw
-state["bull_obj"] = parse_and_migrate(bull_v1_raw, "bull", "2.0")
+# 🆕 信号分级路由：判断当前品种是否需要全面辩论
+current_symbol = state.get("current_symbol", "")
+tier_info = state.get("signal_tiers", {}).get(current_symbol, {})
+debate_rounds = tier_info.get("rounds", 4)
 
-# 第二步：熊读牛v1后产v1
-bear_v1_raw = debate_team.run("熊谋略", f"{state['data_raw']}\n...",
-    extra_context={
-        "round": 1,
-        "opponent_argument": state["bull_obj"]["summary_4_risk"] if state["bull_obj"] else "",
-        "rebuttal_targets": []
-    })
-state["bear_raw"] = bear_v1_raw
-state["bear_obj"] = parse_and_migrate(bear_v1_raw, "bear", "2.0")
+if debate_rounds == 0:
+    # ──── C1/C4 快速通道：跳过P3辩论，直接进入闫判官裁决 ────
+    state["debate_mode"] = "fast"
+    state["bull_obj"] = None
+    state["bear_obj"] = None
+    state["signal_tier"] = tier_info.get("tier", "C1")
+    # 进入 P3b 闫判官
+    # （明鉴秋在 spawn 闫判官时标注"C1快速通道/无辩论验证"）
+else:
+    # ──── C2/C3 标准辩论通道 ────
+    # 第一步：牛首轮
+    bull_v1_raw = debate_team.run("牛势研", f"{state['data_raw']}\n...",
+        extra_context={"round": 1, "rebuttal_targets": []})
+    state["bull_raw"] = bull_v1_raw
+    state["bull_obj"] = parse_and_migrate(bull_v1_raw, "bull", "2.0")
 
-# 第三步：牛读熊v1后产v2（rebuttal轮）
-rebuttal_targets = (
-    [d["dim"] for d in state["bear_obj"]["dimensions"] if d["confidence"] > 0.6]
-    if state["bear_obj"] else []
-)
-bull_v2_raw = debate_team.run("牛势研", "",
-    extra_context={
-        "round": 2,
-        "opponent_argument": state["bear_obj"]["summary_4_risk"] if state["bear_obj"] else "",
-        "rebuttal_targets": rebuttal_targets
-    })
-state["bull_raw"] += "\n\n---\n\n" + bull_v2_raw
-state["bull_v2_obj"] = parse_and_migrate(bull_v2_raw, "bull", "2.0")
+    # 第二步：熊读牛v1后产v1
+    bear_v1_raw = debate_team.run("熊谋略", f"{state['data_raw']}\n...",
+        extra_context={
+            "round": 1,
+            "opponent_argument": state["bull_obj"]["summary_4_risk"] if state["bull_obj"] else "",
+            "rebuttal_targets": []
+        })
+    state["bear_raw"] = bear_v1_raw
+    state["bear_obj"] = parse_and_migrate(bear_v1_raw, "bear", "2.0")
 
-# 第四步：自适应终止
-def should_continue_debate(bull_obj, bear_obj):
-    if not bull_obj or not bear_obj:
-        return False
-    conceded = sum(1 for d in bull_obj.get("dimensions", [])
-                   if "成立" in d.get("evidence", ""))
-    return conceded < 3
+    # 第三步：rebuttal 轮（仅当辩论轮次 >= 2 时执行）
+    if debate_rounds >= 2:
+        rebuttal_targets = (
+            [d["dim"] for d in state["bear_obj"]["dimensions"] if d["confidence"] > 0.6]
+            if state["bear_obj"] else []
+        )
+        bull_v2_raw = debate_team.run("牛势研", "",
+            extra_context={
+                "round": 2,
+                "opponent_argument": state["bear_obj"]["summary_4_risk"] if state["bear_obj"] else "",
+                "rebuttal_targets": rebuttal_targets
+            })
+        state["bull_raw"] += "\n\n---\n\n" + bull_v2_raw
+        state["bull_v2_obj"] = parse_and_migrate(bull_v2_raw, "bull", "2.0")
 
-if should_continue_debate(state.get("bull_v2_obj"), state.get("bear_obj")):
-    bear_v2_raw = debate_team.run("熊谋略", "", extra_context={...})
-    state["bear_raw"] += "\n\n---\n\n" + bear_v2_raw
-    state["bear_obj"] = parse_and_migrate(bear_v2_raw, "bear", "2.0")
+    # 第四步：自适应终止（仅 C3 执行满4轮）
+    if debate_rounds >= 4:
+        def should_continue_debate(bull_obj, bear_obj):
+            if not bull_obj or not bear_obj:
+                return False
+            conceded = sum(1 for d in bull_obj.get("dimensions", [])
+                           if "成立" in d.get("evidence", ""))
+            return conceded < 3
+
+        if should_continue_debate(state.get("bull_v2_obj"), state.get("bear_obj")):
+            bear_v2_raw = debate_team.run("熊谋略", "", extra_context={...})
+            state["bear_raw"] += "\n\n---\n\n" + bear_v2_raw
+            state["bear_obj"] = parse_and_migrate(bear_v2_raw, "bear", "2.0")
 
 # 进P4时传给风控明的是结构化对象（model_dump），不是文本
 import yaml
@@ -786,20 +804,119 @@ P1完成后，明鉴秋必须将 `scan_all.py` 的产出保存为 intermediate_d
 }
 ```
 
-**Phase 2 串行** — spawn 链证源（只传 `state["data"].key_prices + state["tech"].verdicts`，不传全文）
-```
-角色: 产业链验证分析师。你的工作方法由 commodity-chain-analysis 的"辩论专家团产业链验证接口"定义，请加载并执行。
-边界: 不做行情数据采集（那是数聚石的事），不做信号分析（那是技研锋的事），不做交易计划（那是策执远的事）。可使用 WebSearch/WebFetch 搜索产业链新闻/供需数据验证。
-前序数据（按需可见）: 各品种 key_prices + 信号裁决 verdicts
-产出 schema: ChainOutput（见主 skill 接口契约章节）
-产出方式: 按 ChainOutput schema 产出 typed 对象 → SendMessage → main
-产出 schema: ChainAnalysisOutput（contracts/chain_analysis.py）
+**Phase 2 并行**（2026-07-11 改串行为并行） — 三个研究员同时 spawn，节省 ~20min
+
+明鉴秋同时发起三个研究员 Agent（并发 spawn，非串行）：
+
+```python
+# 并发 spawn 三个研究员，互不依赖
+import threading
+
+results = {}
+
+def spawn_researcher(name, prompt):
+    raw = debate_team.run(name, prompt)
+    results[name] = raw
+
+threads = []
+for name in ["探源", "观澜", "链证源"]:
+    t = threading.Thread(target=spawn_researcher, args=(name, "..."))
+    threads.append(t)
+    t.start()
+
+# 等所有研究员就绪（至少2/3成功才继续，超时600s降级）
+for t in threads:
+    t.join(timeout=600)
+
+state["tanyuan"] = parse_and_migrate(results.get("探源"), "fundamental", "2.0")
+state["guanlan"] = parse_and_migrate(results.get("观澜"), "technical", "2.0")
+state["chain"] = parse_and_migrate(results.get("链证源"), "chain", "2.0")
+
+# ✅ 如果某个研究员超时/失败 → 明鉴秋降级处理：标注"降级"但流程继续
 ```
 
-→ state["chain"] = ChainOutput
-→ 明鉴秋控：进入 P3
+若某个研究员超时（600s）或产出校验失败：明鉴秋做降级标注（`state["降级研究员列表"]`），但不阻塞流程。
 
-**Phase 3 交叉质询（v2.4 新增·3 跳）**
+**三个研究员的 spawn prompt**（并发注入，互不依赖）：
+
+**探源（基本面研究员）**：
+```
+角色: 基本面研究员（探源）。由 futures-data-search 的"基本面分析接口"定义。
+边界: 不做行情数据采集（那是数聚石的事），不做信号分析（那是技研锋的事）。
+前序数据: 各品种 key_prices + 最新基本面状态向量
+任务: 为辩论品种提供基本面维度的事实依据（供需/库存/利润/政策）。
+产出方式: 正文+```json fence → main
+```
+
+**观澜（技术面研究员）**：
+```
+角色: 技术面研究员（观澜）。由 commodity-trend-signal 的"技术面分析接口"定义。
+边界: 不做数据采集，不做产业链分析。
+前序数据: 各品种 ADX/RSI/支撑阻力/趋势判定
+任务: 为辩论品种提供技术面维度的客观事实（支撑阻力/趋势阶段/量价关系）。
+产出方式: 正文+```json fence → main
+```
+
+**链证源（产业链研究员）**：
+```
+角色: 产业链验证分析师。由 commodity-chain-analysis 的"辩论专家团产业链验证接口"定义。
+边界: 不做行情数据采集（那是数聚石的事），不做信号分析（那是技研锋的事）。
+前序数据: 各品种 key_prices + 信号裁决 verdicts
+任务: 为辩论品种提供产业链上下游的事实验证（上下游结构/一致性问题/关键矛盾）。
+产出方式: 正文+```json fence → main
+```
+
+→ 明鉴秋等待全部研究员产出（`wait_all` + timeout=600s + min_success=2）→ 进入信号分级路由 → P3
+
+---
+
+### 🆕 信号分级驱动辩论深度（2026-07-11 新增·时延优化 Step 2+3）
+
+**背景**：全流程60分钟对C1强信号过于冗长。信号清晰时可直接快速裁决。
+
+明鉴秋在P2完成后、进入P3前对每个品种做信号分级：
+
+```python
+from scripts.signal_classifier import classify_signal, tier_to_debate_rounds, SignalTier, tier_to_profile
+
+# 对每个辩论品种做信号分级
+state["signal_tiers"] = {}
+for symbol in state["tech"]["verdicts"]:
+    signal_data = {
+        "adx": ...,
+        "rsi": ...,
+        "signal_type": ...,
+        ...
+    }
+    tier = classify_signal(signal_data)
+    state["signal_tiers"][symbol] = {
+        "tier": tier,
+        "profile": tier_to_profile(tier),
+        "rounds": tier_to_debate_rounds(tier)
+    }
+```
+
+**路由规则**：
+
+| 等级 | 条件 | 辩论轮次 | 预期耗时 |
+|:----:|:-----|:--------:|:--------:|
+| **C1** | ADX>40 + RSI非极端 + BB扩张 + 链一致性高 + 放量 | **0轮**（快速裁决→闫判官直出） | **~8min** |
+| **C2** | 2-3个条件达标 | **2轮**（辩手并行立论 + 1轮rebuttal） | **~15min** |
+| **C3** | 信号矛盾/因子分歧 | **4轮**（标准流程） | **~30min** |
+| **C4** | 无信号 | **不辩论** | — |
+
+**C1/C4 快速通道**：跳过P3辩论，直接从P1数据进入闫判官裁决。
+- 闫判官基于数技源信号 + 研究员资料直接出裁决
+- 不经过证真/慎思辩论
+- 裁决标记 `"signal_tier": "C1", "debate_mode": "fast"` 供风控明参考
+
+**C2-C3** 按对应轮次执行标准辩论流程（见下方）。
+
+---
+
+**Phase 3 交叉质询**（v2.4 新增·轮次由信号分级决定）
+
+> ⏱ 本节标准版本（C3）为 **4轮辩论**。C2版本为**2轮**。C1/C4版本跳过本节。
 
 **步 1 — spawn 证真**（证真写 v1 + 注入慎思论点=空）:
 ```
