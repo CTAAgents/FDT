@@ -2051,7 +2051,7 @@ def main():
     import os
 
     output_path = os.path.join(data_dir, "technical_indicators.json")
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     print(f"\n{'=' * 60}")

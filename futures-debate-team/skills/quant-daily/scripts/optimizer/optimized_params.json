@@ -162,13 +162,13 @@
           "exhaustion_threshold": 50
         },
         "volume": {
-          "explosive_ratio": 2.5
+          "explosive_ratio": 1.3
         },
         "dc20": {
           "break_base_score": 20.0
         },
         "dc55": {
-          "trend_base_score": 5.0
+          "trend_base_score": 10.0
         }
       },
       "60m": {
@@ -177,6 +177,20 @@
         },
         "volume": {
           "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.5
         },
         "dc20": {
           "break_base_score": 20.0
@@ -254,13 +268,13 @@
           "exhaustion_threshold": 75
         },
         "volume": {
-          "explosive_ratio": 2.0
+          "explosive_ratio": 2.5
         },
         "dc20": {
           "break_base_score": 40.0
         },
         "dc55": {
-          "trend_base_score": 20.0
+          "trend_base_score": 15.0
         }
       },
       "60m": {
@@ -275,6 +289,20 @@
         },
         "dc55": {
           "trend_base_score": 10.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
         }
       }
     },
@@ -322,6 +350,20 @@
         "dc55": {
           "trend_base_score": 5.0
         }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 10.0
+        }
       }
     },
     "pg": {
@@ -343,16 +385,16 @@
     "PF": {
       "daily": {
         "adx": {
-          "exhaustion_threshold": 50
+          "exhaustion_threshold": 75
         },
         "volume": {
-          "explosive_ratio": 1.3
+          "explosive_ratio": 2.5
         },
         "dc20": {
           "break_base_score": 20.0
         },
         "dc55": {
-          "trend_base_score": 5.0
+          "trend_base_score": 20.0
         }
       }
     },
@@ -448,6 +490,20 @@
         "dc55": {
           "trend_base_score": 15.0
         }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
       }
     },
     "l": {
@@ -477,6 +533,20 @@
         },
         "dc55": {
           "trend_base_score": 5.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
         }
       }
     },
@@ -523,6 +593,20 @@
         },
         "dc55": {
           "trend_base_score": 20.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
         }
       }
     },
@@ -609,16 +693,16 @@
     "TA": {
       "daily": {
         "adx": {
-          "exhaustion_threshold": 75
+          "exhaustion_threshold": 50
         },
         "volume": {
-          "explosive_ratio": 2.0
+          "explosive_ratio": 1.3
         },
         "dc20": {
-          "break_base_score": 40.0
+          "break_base_score": 20.0
         },
         "dc55": {
-          "trend_base_score": 10.0
+          "trend_base_score": 20.0
         }
       },
       "60m": {
@@ -633,6 +717,20 @@
         },
         "dc55": {
           "trend_base_score": 20.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 10.0
         }
       }
     },
@@ -682,6 +780,20 @@
         "dc55": {
           "trend_base_score": 10.0
         }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
+        }
       }
     },
     "lc": {
@@ -730,6 +842,20 @@
         "dc55": {
           "trend_base_score": 15.0
         }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 15.0
+        }
       }
     },
     "FG": {
@@ -755,6 +881,20 @@
         },
         "volume": {
           "explosive_ratio": 2.5
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
+        }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
         },
         "dc20": {
           "break_base_score": 20.0
@@ -810,6 +950,20 @@
         "dc55": {
           "trend_base_score": 15.0
         }
+      },
+      "120m": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
+        }
       }
     },
     "op": {
@@ -841,6 +995,214 @@
         },
         "dc55": {
           "trend_base_score": 20.0
+        }
+      }
+    },
+    "HC": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 75
+        },
+        "volume": {
+          "explosive_ratio": 2.5
+        },
+        "dc20": {
+          "break_base_score": 25.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "LU": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "FU": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "V": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
+        }
+      }
+    },
+    "C": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 75
+        },
+        "volume": {
+          "explosive_ratio": 2.5
+        },
+        "dc20": {
+          "break_base_score": 35.0
+        },
+        "dc55": {
+          "trend_base_score": 15.0
+        }
+      }
+    },
+    "JD": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 5.0
+        }
+      }
+    },
+    "LH": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 25.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "NR": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.5
+        },
+        "dc20": {
+          "break_base_score": 25.0
+        },
+        "dc55": {
+          "trend_base_score": 10.0
+        }
+      }
+    },
+    "BR": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "SP": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 75
+        },
+        "volume": {
+          "explosive_ratio": 2.5
+        },
+        "dc20": {
+          "break_base_score": 40.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "CS": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 20.0
+        },
+        "dc55": {
+          "trend_base_score": 20.0
+        }
+      }
+    },
+    "RU": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 75
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 40.0
+        },
+        "dc55": {
+          "trend_base_score": 10.0
+        }
+      }
+    },
+    "A": {
+      "daily": {
+        "adx": {
+          "exhaustion_threshold": 50
+        },
+        "volume": {
+          "explosive_ratio": 1.3
+        },
+        "dc20": {
+          "break_base_score": 30.0
+        },
+        "dc55": {
+          "trend_base_score": 10.0
         }
       }
     }

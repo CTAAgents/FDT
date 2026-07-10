@@ -145,7 +145,7 @@ class DirectionClassifier:
         if hasattr(self.model, "save_model"):
             self.model.save_model(path)
         else:
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump({"fallback": True, "feature_names": self.feature_names}, f)
 
     def load(self, path: str):
@@ -155,7 +155,7 @@ class DirectionClassifier:
 
             self.model = lgb.Booster(model_file=path)
         except Exception:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             self.model = data
         self.model_path = path

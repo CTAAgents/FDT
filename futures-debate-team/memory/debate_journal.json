@@ -245,6 +245,40 @@
         "Commodities/120m_debate_20260710.html",
         "debate_results.json"
       ]
+    },
+    {
+      "timestamp": "2026-07-10 16:55",
+      "agent": "futures-debate-team-team-lead",
+      "action": "debate_round_120m_afternoon",
+      "round_id": "debate_20260710_120m_afternoon",
+      "symbols": ["PX", "L"],
+      "period": "120m",
+      "verdicts": {
+        "PX": "SELL (WATCH +41, PTA负荷52%需求塌陷+港口库存+18%+期货溢价7-10%, 三方死锁, 空方61:39)",
+        "L": "HOLD (WATCH +41, 深贴水364-974安全边际 vs 农膜开工13%需求现实, 7104-7288区间均衡)"
+      },
+      "agents_spawned": {
+        "zhengzhen": "completed",
+        "zhensi": "completed",
+        "judge": "completed",
+        "coherence_judge": "completed",
+        "trading_strategist": "completed",
+        "risk_manager": "completed"
+      },
+      "degraded": false,
+      "degraded_reason": null,
+      "output_files": [
+        "debate_report_120m_afternoon_20260710.html",
+        "debate_results.json"
+      ],
+      "files_generated": [
+        "p4_zhengzhen_PX.json", "p4_zhensi_PX.json",
+        "p4_zhengzhen_L.json", "p4_zhensi_L.json",
+        "p5_judge_PX.json", "p5_judge_L.json",
+        "p5_coherence_PX.json", "p5_coherence_L.json",
+        "p5_trading_plan_PX.json", "p5_trading_plan_L.json",
+        "p5_risk_review_PX.json", "p5_risk_review_L.json"
+      ]
     }
   ]
 }

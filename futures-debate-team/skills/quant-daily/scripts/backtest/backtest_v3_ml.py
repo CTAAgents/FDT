@@ -276,7 +276,7 @@ def load_model() -> Optional[DirectionClassifier]:
     try:
         model = DirectionClassifier()
         model.load(MODEL_PATH)
-        with open(FEATURE_NAMES_PATH) as f:
+        with open(FEATURE_NAMES_PATH, encoding="utf-8") as f:
             model.feature_names = json.load(f)
         return model
     except Exception as e:
@@ -582,7 +582,7 @@ def main():
             model = DirectionClassifier()
             model.train(X_train, y_train, X_val, y_val, feature_names=feat_names)
             model.save(MODEL_PATH)
-            with open(FEATURE_NAMES_PATH, "w") as f:
+            with open(FEATURE_NAMES_PATH, "w", encoding="utf-8") as f:
                 json.dump(feat_names, f)
             print(f"  ✅ 模型已保存: {MODEL_PATH}")
         else:
@@ -619,7 +619,7 @@ def main():
         )
 
         json_path = os.path.join(out_dir, f"backtest_ml_{sym}_{today}.json")
-        with open(json_path, "w") as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
         html_path = os.path.join(out_dir, f"backtest_ml_{sym}_{today}.html")
         with open(html_path, "w") as f:
