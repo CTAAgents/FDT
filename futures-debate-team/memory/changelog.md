@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-07-10 11:05 — channel_breakout v1.3 ADX从评分移除
+
+**版本号**: channel_breakout_strategy v1.3, 120m_resampler同步
+
+**根因**: ADX是趋势跟踪指标, 用于过滤突破策略信号属范式错配。突破信号不需要趋势强度的配合——最佳突破往往发生在ADX低位（盘整被打破）, ADX高位突破更可能是衰竭。专家团v5.2 prompt要求的"ADX低位鼓励/高位警示"与代码实际行为完全相反。
+
+**修改**:
+- `channel_breakout_strategy.py`: 移除4处ADX scoring (2处up-break + 2处strategy_tdx_ref)
+- `120m_resampler.py`: 移除2处ADX scoring  
+- `config/settings.py`: ADX段标记deprecated, exhaustion_penalty/trend_bonus置0
+- ADX保留为display-only指标, `adx_signal`字段改为`info_only`
+
+**影响**: SN -3分(56→53,仍STRONG); SP/RM/FG不变。factor_timing策略中ADX保留(该策略为趋势跟踪, 适用)。
+
+---
+
 ## 2026-07-10 10:52 — v3.7.0 三大系统性缺陷修复
 
 **版本号**: futures-trading-analysis v3.7.0
