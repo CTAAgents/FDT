@@ -1,10 +1,11 @@
 ---
 name: futures-trading-analysis
-version: 3.7.0
-description: 期货交易辩论专家团 v5.2+5层鲁棒性 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。
+version: 3.7.1
+description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员供弹→证真(慎思)动态正反方交叉质询→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v3.7.1 (2026-07-10): 🔧 Agent通信链路永久修复 — 自动化context中SendMessage路由不可靠(2次事故:16:25+20:10)。③条修复：①A01铁律"文件优先通信"-Agent只Write文件不使用SendMessage ②明鉴秋poll_file_ready轮询+tiered降级(链证/观澜/探源600s,裁决/策执/风控300s) ③fdt-spawn-debate所有spawn prompt加"禁用SendMessage"指令。降级≠跳过-明鉴秋在降级时自行完成对应分析
   v3.7.0 (2026-07-10): 🔧 三大系统性缺陷修复 — ①scripts/debate_archiver.py: 辩论自动归档到FDT memory/系统(debate_journal.json+debates/INDEX.md); ②scripts/agent_waiter.py: S04轮询等待Agent产出(poll_file_ready)+D06降级; ③phase3_generate_report v3.2已有CLI参数化(未使用导致胶水代码)
   v3.6.0 (2026-07-09): 🛡 5层鲁棒性架构重构 — L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06)+L3信号门(daily_debate.py触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug诊断修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。
   v3.5.1 (2026-07-09): phase3_generate_report v3.1 — 新增decisions键适配+glob文件名搜索+字段fallback+HTML转义+除零修复; 5个Agent加allowed-tools(Write/Bash); 记忆路径纠正

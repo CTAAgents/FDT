@@ -5,6 +5,45 @@
 
 ---
 
+## 2026-07-10 20:10 | Agent SendMessage在自动化中路由失效（第2次）
+
+### 事件
+日线盘后自动化(20:10)中，spawn了3个研究员Agent(链证源/观澜/探源)，全部成功启动但SendMessage产出均未送达。明鉴秋降级为WebSearch→直接执行→完成辩论。
+
+上午(16:25)同问题导致5次spawn失败。
+
+### 根因（2026-07-10 20:56 掌柜要求一次性修好→诊断确认）
+**自动化context中，main agent处于单次执行模式，没有持续的消息监听循环。**
+流程: Agent完成分析→调用SendMessage(recipient="main")→消息入队→main不在监听状态→消息永不送达→Agent静默结束。
+
+这不是Agent能力问题（Agent都能WebSearch+Write），是平台自动化环境的消息路由架构限制。
+
+### 改正（v3.7.1 永久修复）
+
+**A01铁律：文件优先通信协议**
+- Agent产出**只写文件，不使用SendMessage**
+- 明鉴秋只用 `poll_file_ready()` 轮询文件就绪后读取
+- 所有spawn prompt末尾加：「完成後用Write直接寫入文件，不使用SendMessage」
+
+**tiered降级机制**
+| 阶段 | 超时 | 降级动作 |
+|:-----|:----|:--------|
+| P1.5 链证源 | 600s | 明鉴秋WebSearch自行完成 |
+| P3 观澜/探源 | 600s | 明鉴秋WebSearch自行完成 |
+| P4 证真/慎思 | 600s | 明鉴秋基于数据构建论据 |
+| P5 闫判官 | 300s | D06降级→独立裁决 |
+| P5 策执远 | 300s | ATR公式计算 |
+| P5 风控明 | 300s | 基于规则审核 |
+
+**修改文件**：
+1. `skills/fdt-spawn-debate/SKILL.md`: 新增规则10(A01)+自动化环境特殊处理+Spawn prompt全量更新
+2. `skills/futures-trading-analysis/SKILL.md`: v3.7.0→v3.7.1 changelog
+
+### 预防
+下次自动化执行时，Agent产出路径=文件轮询而非消息监听。如果Agent不写文件→超时→明鉴秋降级直行。不会再有"等待Agent消息→永远等不到"的死锁。
+
+---
+
 ## 2026-07-10 10:30 | 辩论Agent超时+胶水代码+记忆越界
 
 ### 事件

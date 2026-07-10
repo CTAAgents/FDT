@@ -644,7 +644,7 @@ function render() {{
         h += '<td style="text-align:right">'+d.price.toFixed(0)+'</td><td style="text-align:right;color:'+cc+'">'+(d.chg>0?'+':'')+d.chg.toFixed(1)+'%</td>';
         h += '<td style="text-align:center;font-weight:700;color:'+tc+'">'+(d.total>0?'+':'')+d.total+'</td>';
         // 策略感知渲染（使用_v的列映射）
-        for (var ci=7;ci<_v.length;ci++) {{
+        for (var ci=7;ci<_v.length-1;ci++) {{
             var val = _v[ci](d);
             h += '<td style="text-align:center;color:#9ca3af">'+val+'</td>';
         }}

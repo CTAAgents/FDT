@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.7.0
+# Futures Debate Team — 期货交易辩论专家团 v5.8.0
 
-> 🏗 **v5.7.0 驾驭工程（Harness Engineering）成熟度 4.7/5.0**：从配置校验(G1)到结构化日志(G15)，15项差距全覆盖。Pydantic schema校验启动即拒非法配置、trace_id全链路贯穿、unified_logger JSON格式切换、43用例回归测试、graceful drain优雅停机、合约版本双向迁移(28条路径)、APM-CS实时看板+HTTP健康端点。4阶段推进，成熟度从4.0提升至4.7。
+> 🏗 **v5.8.0 系统架构里程碑**：FDT自包含运行时代理—`fdt_paths.py`单一路径真相源、`memory_enforcer.py`零参数记忆归档、`data/`+`reports/`内部产出目录、A01文件通信协议(tiered降级)。系统边界清晰——产出和记忆在FDT内部，工作空间仅做镜像。Agent MD v5.3(记忆动作清单)、futures-trading-analysis v3.7.1、fdt-spawn-debate v1.1。
 
 ## 类型
 
@@ -132,14 +132,15 @@ python skills/quant-daily/scripts/scan_all.py --list-strategies
 
 | Skill | 版本 | 用途 |
 |:------|:----|:-----|
-| `quant-daily` | v2.12.0 | 数据采集+通道突破信号+信号触发文件 |
-| `futures-trading-analysis` | v3.6.0 | 主流程编排+5层鲁棒性防线+报告生成 |
+| `quant-daily` | v2.14.0 | 数据采集+通道突破信号+信号触发文件 |
+| `futures-trading-analysis` | v3.7.1 | 主流程编排+5层鲁棒性+A01文件通信+报告生成 |
+| `fdt-spawn-debate` | v1.1 | Agent spawn流程+A01文件通信协议 |
 | `commodity-chain-analysis` | v2.15.0 | 产业链分析 |
 | `fundamental-data-collector` | v1.3.0 | 基本面分析(供需库存利润) |
 | `technical-analysis` | v2.2.0 | 技术面分析(支撑阻力+事件日历) |
-| `debate-argument-builder` | v2.2.0 | 正反方论点构建 |
+| `debate-argument-builder` | v2.3.0 | 正反方论点构建 |
 | `debate-judge` | v2.0.1 | 辩论裁决 |
-| `debate-risk-manager` | v4.0.0 | 风控审核(6层引擎) |
+| `debate-risk-manager` | v4.1.0 | 风控审核(6层引擎) |
 | `debate-trading-planner` | v2.1.0 | 交易方案规划 |
 
 ## v5.5 新能力（OmniOpt 分类法集成）
@@ -212,21 +213,24 @@ v5.4 在 v5.3 通道突破主信号源之上，补齐了**系统级可观测性*
 ## 输出文件结构
 
 ```
-Commodities/Reports/商品期货深度分析/{date}/
-├── full_scan_channel_breakout_{date}.json     ← 通道突破信号
-├── research_snapshots/
-│   ├── p2_chain_{symbol}.json                 ← 链证源产业链分析
-│   ├── p2_judge_direction.json                ← 闫判官决策
-│   ├── p3_technical_{symbol}.json             ← 观澜技术面快照
-│   ├── p3_fundamental_{symbol}.json           ← 探源基本面快照
-│   ├── p3_affirmative_{symbol}.json           ← 证真正方论据
-│   ├── p3_opposition_{symbol}.json            ← 慎思反方论据
-│   ├── p4_trading_plan_{symbol}.json          ← 策执远交易方案
-│   ├── p4_risk_verdict_{symbol}.json          ← 风控明审核
-│   └── p_judge_final_{trace_id}.json          ← 闫判官最终裁决
-├── debate_results.json                        ← 汇总决策记录
-└── debate_results.html                        ← HTML可视化报告
+FDT内部 (自包含系统):
+  data/debate_results.json                 ← 辩论数据
+  reports/debate_report_*.html             ← HTML报告
+  memory/debate_journal.json               ← 辩论执行记录
+  memory/debates/INDEX.md                  ← 辩论索引
+  memory/incidents.md                      ← 事故与教训
+
+工作空间镜像 (用户入口):
+  Commodities/debate_report_*.html         ← 报告副本
+  .workbuddy/memory/YYYY-MM-DD.md          ← 操作摘要 <=5行
 ```
+
+## 系统基础设施
+
+| 模块 | 版本 | 功能 |
+|:-----|:----|:-----|
+| fdt_paths.py | v1.0 | 单一路径真相源，自动检测FDT根目录 |
+| memory_enforcer.py | v1.0 | 零参数记忆归档+工作空间日志校验 |
 
 ## 依赖安装
 
@@ -242,6 +246,7 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v5.8.0** | **2026-07-10** | **🏗 系统架构里程碑—FDT自包含运行时**：`fdt_paths.py`单一路径真相源(三级fallback自动检测FDT根目录)+`memory_enforcer.py`零参数记忆归档+`data/`+`reports/`内部产出目录+A01文件通信协议(tiered降级)。Agent MD v5.3(开篇动作清单记忆路由)+futures-trading-analysis v3.7.1+fdt-spawn-debate v1.1。系统边界清晰——产出和记忆在FDT内部，工作空间仅做镜像副本。修复：Agent SendMessage在自动化context路由失效(2次事故)→文件优先通信协议永久修复。 |
 | **v5.7.0** | **2026-07-10** | **🏗 驾驭工程（Harness Engineering）完整落地**: 15项差距全部修复，成熟度4.0→4.7。Phase1正确性修复(G1 Pydantic配置校验/G2 trace_id全链路/G3 pipeline日志统一/G4 bootstrap动态版本)→Phase2测试补齐(G5 pipeline集成10用例/G6 scheduler集成10用例/G7覆盖率扩展到全skill/G8 memory集成9用例)→Phase3运维增强(G9 graceful drain/G10兼容矩阵/G13熔断可配/G14合约版本迁移28条路径)→Phase4体验优化(G11 APM-CS实时看板/G12 HTTP健康端点/G15 JSON结构化日志)。43用例全绿，contracts桥接层统一入口。|
 | **v5.6.0** | **2026-07-09** | **🛡 5层鲁棒性架构**：L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py v2.0触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。|
 | **v5.5.0** | **2026-07-09** | **🧬 OmniOpt 分类法集成**：F1-F5 论证策略族分类系统；品种×策略族适应性矩阵(EMA在线更新)；闫判官加权裁决(WEAS族加权预处理+族多样性检查)；正反方辩手输出格式扩展(含策略族标签) |

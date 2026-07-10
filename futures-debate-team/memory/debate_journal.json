@@ -19,73 +19,6 @@
       }
     },
     {
-      "timestamp": "2026-07-05 18:51:58",
-      "agent": "chain-analyst-run",
-      "action": "chain_analysis",
-      "date": "2026-07-05",
-      "total_symbols": 62,
-      "l1l4_bull": 6,
-      "l1l4_bear": 56,
-      "chains_analyzed": 13,
-      "strong_bear_chains": 11,
-      "redundant_pairs": 5,
-      "z_extremes": 4,
-      "key_findings": [
-        "12/13 产业链为强势空头/空头趋势",
-        "黑色系RB/HC/I三冗余，建议仅保留HC",
-        "聚酯链PF/TA冗余，建议保留PF",
-        "油脂油料一致性75%，4个Z分数异常品种",
-        "谷物软商品高波动震荡(唯一非空头链)",
-        "全产业链利润压缩至亏损区间"
-      ]
-    },
-    {
-      "timestamp": "2026-07-06 13:30:00",
-      "agent": "futures-judge",
-      "action": "verdict",
-      "round": "RB_20260706",
-      "symbol": "RB",
-      "winner": "short_win",
-      "direction": "SELL",
-      "confidence": "高",
-      "bull_score": 70.25,
-      "short_score": 80.0,
-      "price": 3077.0,
-      "adx": 67.2,
-      "atr": 10.7,
-      "l1l4_direction": "bear",
-      "l1l4_score": -71,
-      "l1l4_cons": 4,
-      "factor_direction": "neutral",
-      "factor_score": 0,
-      "verdict": "维持做空",
-      "reasoning": "ADX=67.2极强趋势+L1-L4 CONS=4/4全层一致看空构成高确定性做空信号。Factor中性仅降置信度不反转方向。"
-    },
-    {
-      "triggered_at": "2026-07-06 17:07",
-      "type": "daily_debate_full",
-      "steps": [
-        "扫描: ✅",
-        "数据: ✅ full_scan_summary_20260705.json",
-        "报告: ✅ 62个品种",
-        "报告: ✅ ============================================================",
-        "输出: ⚠️ 目标目录不存在"
-      ],
-      "report_count": 0
-    },
-    {
-      "triggered_at": "2026-07-06 17:11",
-      "type": "daily_debate_full",
-      "steps": [
-        "扫描: ✅",
-        "数据: ✅ full_scan_summary_20260705.json",
-        "报告: ✅ 62个品种",
-        "报告: ✅ ============================================================",
-        "输出: ⚠️ 目标目录不存在"
-      ],
-      "report_count": 0
-    },
-    {
       "round_id": "RB_20260706",
       "symbol": "RB",
       "variety": "RB",
@@ -149,71 +82,6 @@
       "timestamp": "2026-07-07 17:15:43"
     },
     {
-      "timestamp": "2026-07-07 17:44:00",
-      "agent": "futures-trading-strategist",
-      "action": "trading_plan",
-      "round": "LH_20260707",
-      "symbol": "LH2609",
-      "direction": "bear",
-      "recommendation": "hold",
-      "status": "pending_trigger",
-      "entry": 12500,
-      "entry_range": [
-        12480,
-        12550
-      ],
-      "target1": 12035,
-      "target2": 11590,
-      "stop_loss": 12700,
-      "lots": 6,
-      "position_pct": 1.92,
-      "rr_t1": 2.33,
-      "rr_t2": 4.55,
-      "contract": "LH2609",
-      "source_path": "debate",
-      "judge_params": {
-        "winner": "bear",
-        "total_bear": 63,
-        "total_bull": 56,
-        "rec": "hold",
-        "winning_entry": 12285,
-        "winning_target": 11590,
-        "winning_stop": 12650
-      }
-    },
-    {
-      "timestamp": "2026-07-07 17:50",
-      "agent": "futures-debate-team-team-lead(明鉴秋)",
-      "action": "final_decision",
-      "round": "LH2609_20260707",
-      "symbol": "LH2609",
-      "direction": "bear",
-      "recommendation": "hold",
-      "status": "pending_trigger",
-      "entry": 12500,
-      "entry_range": [
-        12480,
-        12550
-      ],
-      "target1": 12035,
-      "target2": 11590,
-      "stop_loss": 12700,
-      "lots": 6,
-      "position_pct": 1.92,
-      "rr_t1": 2.33,
-      "rr_t2": 4.55,
-      "contract": "LH2609",
-      "source_path": "debate",
-      "judge_params": {
-        "winner": "bear",
-        "bull": 56,
-        "bear": 63
-      },
-      "risk_color": "yellow",
-      "veto": false,
-      "note": "单品种完整辩论。空头胜(63:56)，hold条件触发型空头。P1信号WEAK+23、ADX24.4低位、BB收敛待突破、07-06上轨假突破未守。ma60两源分歧(通达信12623 vs AKShare11372)待数技源核实。观澜Agent卡死,主管直驱技术面计算恢复。"
-    },
-    {
       "timestamp": "2026-07-10 10:52:05",
       "agent": "futures-debate-team-team-lead",
       "action": "debate_round_120m",
@@ -251,7 +119,10 @@
       "agent": "futures-debate-team-team-lead",
       "action": "debate_round_120m_afternoon",
       "round_id": "debate_20260710_120m_afternoon",
-      "symbols": ["PX", "L"],
+      "symbols": [
+        "PX",
+        "L"
+      ],
       "period": "120m",
       "verdicts": {
         "PX": "SELL (WATCH +41, PTA负荷52%需求塌陷+港口库存+18%+期货溢价7-10%, 三方死锁, 空方61:39)",
@@ -272,13 +143,51 @@
         "debate_results.json"
       ],
       "files_generated": [
-        "p4_zhengzhen_PX.json", "p4_zhensi_PX.json",
-        "p4_zhengzhen_L.json", "p4_zhensi_L.json",
-        "p5_judge_PX.json", "p5_judge_L.json",
-        "p5_coherence_PX.json", "p5_coherence_L.json",
-        "p5_trading_plan_PX.json", "p5_trading_plan_L.json",
-        "p5_risk_review_PX.json", "p5_risk_review_L.json"
+        "p4_zhengzhen_PX.json",
+        "p4_zhensi_PX.json",
+        "p4_zhengzhen_L.json",
+        "p4_zhensi_L.json",
+        "p5_judge_PX.json",
+        "p5_judge_L.json",
+        "p5_coherence_PX.json",
+        "p5_coherence_L.json",
+        "p5_trading_plan_PX.json",
+        "p5_trading_plan_L.json",
+        "p5_risk_review_PX.json",
+        "p5_risk_review_L.json"
       ]
+    },
+    {
+      "timestamp": "2026-07-10 21:09",
+      "agent": "futures-debate-team-team-lead",
+      "action": "debate_round_daily",
+      "round_id": "debate_2026-07-10_daily",
+      "symbols": [
+        "J"
+      ],
+      "period": "daily",
+      "verdicts": {
+        "J": "bearish (STRONG -51, 0.72置信)"
+      },
+      "degraded": false,
+      "degraded_reason": null,
+      "output_files": []
+    },
+    {
+      "timestamp": "2026-07-10 21:14",
+      "agent": "futures-debate-team-team-lead",
+      "action": "debate_round_daily",
+      "round_id": "debate_2026-07-10",
+      "symbols": [
+        "J"
+      ],
+      "period": "daily",
+      "verdicts": {
+        "J": "bearish (STRONG -51, 0.72conf)"
+      },
+      "degraded": false,
+      "degraded_reason": null,
+      "output_files": []
     }
   ]
 }

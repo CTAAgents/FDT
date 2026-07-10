@@ -1,0 +1,370 @@
+{
+  "report_date": "2026-07-10",
+  "scan_time": "20:10",
+  "debate_version": "v5.3",
+  "data_manifest": {
+    "kline": {"source": "AKShare(sina)", "latest_bar_date": "20260710", "gap_days": 0, "freshness": "正常"},
+    "indicators": {"method": "numpy向量化(通达信公式对齐)"},
+    "fundamental": [
+      {"fact": "焦炭第十轮提涨(50-55元/吨)发起但未落地", "source": "Mysteel/新浪财经", "date": "2026-07-10"},
+      {"fact": "247家钢厂铁水日均241.27万吨环比-1.98", "source": "Mysteel高炉检修调查", "date": "2026-07-10"},
+      {"fact": "钢厂盈利率40.26%环比-2.60pct", "source": "Mysteel", "date": "2026-07-10"},
+      {"fact": "焦化利润47元/吨", "source": "Mysteel", "date": "2026-07-03"},
+      {"fact": "山西低硫焦煤2021元/吨", "source": "中国煤炭资源网CCI", "date": "2026-07-02"}
+    ]
+  },
+
+  "scan_summary": {
+    "total_scanned": 42,
+    "direction_distribution": {"bear": 37, "bull": 5},
+    "grade_distribution": {"STRONG": 1, "WATCH": 0, "WEAK": 28, "NOISE": 13},
+    "triggered_symbols": ["J"],
+    "triggered_details": [
+      {"symbol": "J", "name": "焦炭", "direction": "bear", "grade": "STRONG", "total": -51, "adx": 17.8, "rsi": 45.1, "price": 1913, "change_pct": -1.65}
+    ],
+    "all_signals": [
+      {"rank": 1, "symbol": "J", "name": "焦炭", "direction": "bear", "total": -51, "grade": "STRONG", "adx": 17.8, "rsi": 45.1, "price": 1913, "change": "-1.6%"},
+      {"rank": 2, "symbol": "FU", "name": "燃油", "direction": "bear", "total": -36, "grade": "WEAK", "adx": 28.9, "rsi": 43.5, "price": 3130, "change": "-0.6%"},
+      {"rank": 3, "symbol": "SP", "name": "纸浆", "direction": "bear", "total": -36, "grade": "WEAK", "adx": 36.2, "rsi": 54.7, "price": 4840, "change": "+2.1%"},
+      {"rank": 4, "symbol": "RB", "name": "螺纹钢", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 21.0, "rsi": 40.5, "price": 3087, "change": "-0.1%"},
+      {"rank": 5, "symbol": "HC", "name": "热卷", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 25.7, "rsi": 37.2, "price": 3291, "change": "-0.2%"},
+      {"rank": 6, "symbol": "LU", "name": "低硫燃油", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 19.5, "rsi": 46.3, "price": 4032, "change": "-0.5%"},
+      {"rank": 7, "symbol": "PG", "name": "LPG", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 27.3, "rsi": 43.4, "price": 4746, "change": "+0.9%"},
+      {"rank": 8, "symbol": "PF", "name": "短纤", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 37.1, "rsi": 40.5, "price": 7014, "change": "-0.5%"},
+      {"rank": 9, "symbol": "EC", "name": "集运指数", "direction": "bear", "total": -34, "grade": "WEAK", "adx": 45.7, "rsi": 30.1, "price": 2427, "change": "+0.6%"},
+      {"rank": 10, "symbol": "BU", "name": "沥青", "direction": "bear", "total": -31, "grade": "WEAK", "adx": 24.5, "rsi": 37.8, "price": 3783, "change": "+0.7%"},
+      {"rank": 11, "symbol": "TA", "name": "PTA", "direction": "bear", "total": -31, "grade": "WEAK", "adx": 28.5, "rsi": 41.4, "price": 5560, "change": "-1.4%"},
+      {"rank": 12, "symbol": "EB", "name": "苯乙烯", "direction": "bear", "total": -31, "grade": "WEAK", "adx": 37.5, "rsi": 47.1, "price": 7776, "change": "-0.5%"},
+      {"rank": 13, "symbol": "LH", "name": "生猪", "direction": "bull", "total": 31, "grade": "WEAK", "adx": 27.3, "rsi": 63.9, "price": 12450, "change": "+1.9%"},
+      {"rank": 14, "symbol": "BR", "name": "丁二烯橡胶", "direction": "bear", "total": -31, "grade": "WEAK", "adx": 36.3, "rsi": 45.8, "price": 12655, "change": "+1.5%"},
+      {"rank": 15, "symbol": "SI", "name": "工业硅", "direction": "bear", "total": -31, "grade": "WEAK", "adx": 25.0, "rsi": 48.1, "price": 8430, "change": "+1.1%"},
+      {"rank": 16, "symbol": "CS", "name": "玉米淀粉", "direction": "bear", "total": -28, "grade": "WEAK", "adx": 13.4, "rsi": 46.1, "price": 2693, "change": "+0.3%"},
+      {"rank": 17, "symbol": "PX", "name": "对二甲苯", "direction": "bear", "total": -26, "grade": "WEAK", "adx": 32.8, "rsi": 42.1, "price": 7742, "change": "-1.2%"},
+      {"rank": 18, "symbol": "PP", "name": "聚丙烯", "direction": "bear", "total": -26, "grade": "WEAK", "adx": 30.8, "rsi": 44.6, "price": 7585, "change": "-0.8%"},
+      {"rank": 19, "symbol": "UR", "name": "尿素", "direction": "bear", "total": -26, "grade": "WEAK", "adx": 13.4, "rsi": 41.5, "price": 1735, "change": "+0.4%"},
+      {"rank": 20, "symbol": "AG", "name": "沪银", "direction": "bear", "total": -24, "grade": "WEAK", "adx": 36.2, "rsi": 40.6, "price": 14656, "change": "+1.8%"},
+      {"rank": 21, "symbol": "RR", "name": "粳米", "direction": "bear", "total": -24, "grade": "WEAK", "adx": 30.3, "rsi": 40.0, "price": 3529, "change": "-0.1%"},
+      {"rank": 22, "symbol": "AO", "name": "氧化铝", "direction": "bear", "total": -24, "grade": "WEAK", "adx": 19.2, "rsi": 37.3, "price": 2715, "change": "-0.2%"},
+      {"rank": 23, "symbol": "C", "name": "玉米", "direction": "bear", "total": -23, "grade": "WEAK", "adx": 21.8, "rsi": 46.7, "price": 2311, "change": "+0.5%"},
+      {"rank": 24, "symbol": "PR", "name": "瓶片", "direction": "bear", "total": -21, "grade": "WEAK", "adx": 33.6, "rsi": 41.4, "price": 6778, "change": "-0.8%"},
+      {"rank": 25, "symbol": "SA", "name": "纯碱", "direction": "bear", "total": -21, "grade": "WEAK", "adx": 28.4, "rsi": 34.9, "price": 1084, "change": "+0.6%"},
+      {"rank": 26, "symbol": "NR", "name": "20号胶", "direction": "bear", "total": -21, "grade": "WEAK", "adx": 17.0, "rsi": 46.9, "price": 14735, "change": "-0.3%"},
+      {"rank": 27, "symbol": "SH", "name": "烧碱", "direction": "bull", "total": 21, "grade": "WEAK", "adx": 15.8, "rsi": 50.6, "price": 1939, "change": "-0.1%"},
+      {"rank": 28, "symbol": "RU", "name": "橡胶", "direction": "bear", "total": -21, "grade": "WEAK", "adx": 19.5, "rsi": 42.9, "price": 16905, "change": "-0.1%"},
+      {"rank": 29, "symbol": "A", "name": "豆一", "direction": "bull", "total": 20, "grade": "WEAK", "adx": 8.3, "rsi": 49.4, "price": 4747, "change": "+0.6%"},
+      {"rank": 30, "symbol": "AU", "name": "沪金", "direction": "bear", "total": -19, "grade": "NOISE", "adx": 36.2, "rsi": 41.7, "price": 898, "change": "-0.1%"},
+      {"rank": 31, "symbol": "JD", "name": "鸡蛋", "direction": "bear", "total": -19, "grade": "NOISE", "adx": 23.1, "rsi": 56.5, "price": 4638, "change": "-0.5%"},
+      {"rank": 32, "symbol": "I", "name": "铁矿石", "direction": "bear", "total": -19, "grade": "NOISE", "adx": 15.0, "rsi": 49.3, "price": 752, "change": "+0.8%"},
+      {"rank": 33, "symbol": "OI", "name": "菜籽油", "direction": "bear", "total": -19, "grade": "NOISE", "adx": 13.3, "rsi": 57.0, "price": 9908, "change": "+0.1%"},
+      {"rank": 34, "symbol": "PS", "name": "多晶硅", "direction": "bull", "total": 18, "grade": "NOISE", "adx": 8.6, "rsi": 51.4, "price": 36350, "change": "+1.6%"},
+      {"rank": 35, "symbol": "PK", "name": "花生", "direction": "bear", "total": -18, "grade": "NOISE", "adx": 20.7, "rsi": 53.9, "price": 8418, "change": "+0.7%"},
+      {"rank": 36, "symbol": "SC", "name": "原油", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 35.5, "rsi": 38.3, "price": 471, "change": "-0.5%"},
+      {"rank": 37, "symbol": "V", "name": "PVC", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 23.7, "rsi": 45.3, "price": 4534, "change": "+0.5%"},
+      {"rank": 38, "symbol": "L", "name": "塑料", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 25.3, "rsi": 46.5, "price": 7196, "change": "-0.2%"},
+      {"rank": 39, "symbol": "MA", "name": "甲醇", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 30.7, "rsi": 41.2, "price": 2480, "change": "-0.3%"},
+      {"rank": 40, "symbol": "CU", "name": "沪铜", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 13.9, "rsi": 51.7, "price": 103710, "change": "+0.5%"},
+      {"rank": 41, "symbol": "P", "name": "棕榈油", "direction": "bear", "total": -16, "grade": "NOISE", "adx": 18.2, "rsi": 44.3, "price": 9222, "change": "-1.4%"},
+      {"rank": 42, "symbol": "AP", "name": "苹果", "direction": "bull", "total": 15, "grade": "NOISE", "adx": 13.0, "rsi": 53.5, "price": 7714, "change": "+1.0%"}
+    ]
+  },
+
+  "debate_varieties": {
+    "J": {
+      "symbol": "J",
+      "name": "焦炭",
+      "direction": "bear",
+      "grade": "STRONG",
+      "total_score": -51,
+      "price": 1913,
+      "chain": "黑色系(焦煤→焦炭→钢厂)",
+      "signal_detail": {
+        "dc20_break": "down",
+        "dc20_break_distance_pct": -1.33,
+        "dc20_break_strength": "weak",
+        "dc55_trend": "down",
+        "adx": 17.8,
+        "rsi": 45.1,
+        "cci": -82.4,
+        "atr": 52.6,
+        "vol_ratio": 0.84,
+        "ma_align": "mixed",
+        "ma60": 1895.3,
+        "bb_width_pct": 12.6,
+        "channel_detail": {
+          "dc20_raw_score": -30,
+          "dc55_raw_score": -15,
+          "bb_raw_score": -6,
+          "vol_score": 0,
+          "dc_total": -45
+        }
+      },
+
+      "chain_analysis": {
+        "chain": "黑色系（焦煤→焦炭→钢厂→成材）",
+        "chain_sentiment": "偏空",
+        "upstream": {
+          "焦煤": "供应偏紧格局延续——山西主产区安监高压，停产煤矿复产缓慢，山西低硫焦煤2021元/吨。蒙煤澳煤进口增量有限。煤矿开工率持续低位。",
+          "供给状况": "紧缺。焦煤供应仍未恢复，复产不复量格局未改。独立焦企炼焦煤库存862万吨(周-23.54)、可用天数12.8天(减0.31)。"
+        },
+        "midstream": {
+          "焦炭": "焦企产能利用率73.16%(周-0.19)，日均产量50.57万吨(减0.14)。焦化利润约47元/吨，处于微利状态。焦煤成本2021元支撑。焦企自律限产30%。",
+          "库存变化": "焦企库存56.92万吨(周+2.55)——由降转增的拐点信号！结束持续去化态势。出货压力加大。"
+        },
+        "downstream": {
+          "钢厂": "铁水日均241.27万吨(环比-1.98，已从高峰243.25回落)。高炉开工率83.84%(降0.15)，产能利用率90.55%(降0.75)。盈利率40.26%(降2.60pct，同比降19.48pct)。超半数钢厂亏损。",
+          "检修计划": "6月以来12+钢厂发布检修计划，河北/山西/江苏检修兑现高峰预计7月中旬。",
+          "终端需求": "高温多雨淡季，成材成交转弱，价格下行。螺纹钢3087(-0.1%)、热卷3291(-0.2%)同步走弱。"
+        },
+        "chain_consistency": "中高——焦煤成本支撑焦炭坚挺，但钢厂端利润崩溃形成负反馈闭环。上游紧+中游微利+下游亏损的三角矛盾正在激化。",
+        "key_contradiction": "焦炭10轮提涨(累计450元)vs钢厂盈利率暴跌至40%的对抗。焦企库存拐点出现是空头最重要的信号。",
+        "negative_feedback_loop": "焦煤供应紧→焦炭成本高→焦炭连续提涨→钢厂利润被挤压→减产检修增多→铁水产量下行→焦炭需求减弱→焦企库存累积→焦炭价格承压",
+        "chain_direction": "bearish"
+      },
+
+      "debate": {
+        "bull_case": {
+          "role": "证真（空头正方）",
+          "summary": "焦炭做空有基本面+技术+产业链三重支撑：库存拐点已现+钢厂减产在即+10轮提涨已是强弩之末。当前1913是好的做空入场点。",
+          "dimensions": [
+            {
+              "dim": "库存拐点（最核心逻辑）",
+              "claim": "焦企库存由降转增标志着供需格局的根本性转变",
+              "evidence": "230家独立焦企焦炭库存56.92万吨，周环比+2.55万吨(增4.69%)，结束持续数月的去库态势。这是3月上涨周期以来的首次累库。焦煤库存862万吨(减23.54)说明焦企不愿补原料——预期转向偏空。",
+              "confidence": 0.85
+            },
+            {
+              "dim": "钢厂利润崩溃→减产铁水下行",
+              "claim": "钢厂亏损面扩大驱动高炉检修→焦炭需求确定性下降",
+              "evidence": "247家钢厂盈利率40.26%，周环比-2.60pct，同比-19.48pct，超半数钢厂亏损。铁水日均241.27万吨，周环比-1.98万吨，已从243.25回落。河北山西江苏12+钢厂发布7月检修计划，检修高峰预计7月中旬。",
+              "confidence": 0.80
+            },
+            {
+              "dim": "第十轮提涨大概率落空",
+              "claim": "10轮提涨已是本轮上涨周期的尾声，不是起点",
+              "evidence": "7月3日焦企发起第10轮提涨(50-55元)，原定7月6日执行。截至7月9日河北山东主流钢厂仍未回应。钢焦博弈空前激烈。Mysteel判断'落地难度大于前九轮'，多家机构认为'7月是全年煤焦高点，8月市场转弱'。",
+              "confidence": 0.75
+            },
+            {
+              "dim": "技术面共振——DC20下破+ADX尾端",
+              "claim": "DC20通道下破确认空头突破信号，即便ADX偏低也不改变方向",
+              "evidence": "DC20下破-1.33%，DC55下行趋势确认。价格1913跌破MA10/MA20。RSI=45.1中性偏弱、CCI=-82.4偏空。ADX=17.8虽低，但在库存拐点+钢厂减产背景下，ADX可能随后加速上升。当前是左侧低波动区的布局良机。",
+              "confidence": 0.70
+            },
+            {
+              "dim": "黑色产业链负反馈闭环",
+              "claim": "从煤到钢的全链条负反馈已启动",
+              "evidence": "焦煤紧缺→焦炭成本高→焦炭提涨→钢厂利润被压缩→钢厂减产→铁水下降→焦炭需求减少→焦企库存累积→焦炭价格下跌。这个闭环的逻辑链条已经完整。同链螺纹钢(-34分WEAK)、热卷(-34分WEAK)、铁矿石(-19分NOISE)全部偏空运行。",
+              "confidence": 0.78
+            }
+          ],
+          "overall_confidence": 0.78,
+          "rebuttal_targets": []
+        },
+        "bear_case": {
+          "role": "慎思（多头反方）",
+          "summary": "焦炭不宜做空——焦煤供给侧支撑强劲+铁水仍处高位+ADX过低趋势不可靠+焦企自律限产托底。当前1900-1950区间更适合观望。",
+          "dimensions": [
+            {
+              "dim": "焦煤供给侧支撑坚如磐石",
+              "claim": "焦煤供应紧张短期无法缓解，成本端为焦炭提供刚性底部支撑",
+              "evidence": "山西主产区安监仍在高压状态，停产煤矿复产缓慢，可流通原煤数量不足。山西低硫焦煤2021元/吨。焦煤价格同比上涨超50%。焦企原料煤库存862万吨(-23.54)且可用天数仅12.8天——不是不愿补，是补不到。焦煤供应约束至少延续到Q3。",
+              "confidence": 0.85
+            },
+            {
+              "dim": "铁水需求仍在绝对高位",
+              "claim": "241万吨铁水日产量虽有回落但仍是历史高位，短期需求支撑充足",
+              "evidence": "铁水日均241.27万吨虽环比-1.98，但同比仍+1.46万吨。高炉开工率83.84%同比+0.69pct。检修计划是预期而非已兑现。季节性淡季铁水降幅历来温和，不会出现断崖式下跌。",
+              "confidence": 0.80
+            },
+            {
+              "dim": "ADX=17.8——趋势不存在",
+              "claim": "趋势强度极度偏弱，任何方向性信号都不可信",
+              "evidence": "ADX=17.8远低于25的'存在趋势'阈值。在无趋势市场中，DC20突破可能只是噪声波动。MA排列mixed也印证方向不清晰。此时做空可能被随机波动止损出局。1913价格仍在MA60(1895)上方，均线支撑有效。",
+              "confidence": 0.85
+            },
+            {
+              "dim": "焦企自律限产30%——供给收缩托底价格",
+              "claim": "焦企主动限产限制了下行空间",
+              "evidence": "山西独立焦化企业主动将限产比例提升至30%。产能利用率73.16%处于偏低水平。焦企日均产量50.57万吨环比下降。在低开工率的背景下，即便需求走弱，焦炭也缺乏大幅下跌的供给弹性。",
+              "confidence": 0.75
+            },
+            {
+              "dim": "期货贴水现货——空头基差风险",
+              "claim": "焦炭期货价格1913低于现货(含第十轮提涨后约2230)，做空面临基差亏损",
+              "evidence": "焦炭主力合约收盘1913元。现货方面：吕梁准一级冶金焦(CCI)1690+450累计涨幅≈2140，日照港准一级≈2230元。期货深度贴水约200+元。一旦第十轮提涨落地，期货有补涨修复基差的风险。做空在贴水品种上的盈亏比比多头不利。",
+              "confidence": 0.80
+            }
+          ],
+          "overall_confidence": 0.81,
+          "rebuttal_targets": []
+        },
+        "bull_case_rebuttal": {
+          "role": "证真 rebuttal（反驳慎思论点）",
+          "summary": "慎思的五大质疑均能合理回应，核心做空逻辑不变。焦煤支撑≠焦炭不跌；铁水高位正在松动；ADX低是机会而非风险；限产托底在需求下坡面前不堪一击；贴水不是bug而是feature。",
+          "dimensions": [
+            {
+              "dim": "焦煤成本支撑——被证伪",
+              "claim": "焦煤紧≠焦炭易涨。焦煤供应紧张推高成本的同时，若钢厂不接涨价，焦企只能自己吞成本，利润转负后被动减产再降价",
+              "evidence": "焦化利润仅47元/吨已微薄。若第10轮提涨落空而焦煤不降，焦化利润将转为亏损。历史上焦煤高价+焦企亏损=焦炭被动减产+降价出货去库存(因为停产损失大于降价损失)。焦煤成本支撑的逻辑在需求坍塌时是无效的。",
+              "confidence": 0.80
+            },
+            {
+              "dim": "铁水高位——正在松动",
+              "claim": "241万吨是本周数据，下周大概率跌破240。检修高峰在7月中旬兑现",
+              "evidence": "铁水已从243.25→241.27连续回落。盈利率40%且在加速下滑→减产只是时间和幅度问题。12+钢厂已发布检修计划、高炉开工率和产能利用率都在下降——铁水继续下行是确定性事件而非猜测。",
+              "confidence": 0.82
+            },
+            {
+              "dim": "ADX低——是机会而非风险",
+              "claim": "ADX=17.8配合库存拐点+钢厂减产，恰是低波动布局窗口。ADX突破20往往伴随着100+点行情",
+              "evidence": "ADX周期性行为：17.8处于ADX波动周期底部，历史上ADX从15区域启动上升时，通常伴随100+点趋势行情。库存拐点+钢厂减产催化下，ADX有望在未来1-2周加速上行。在ADX低位入场，止损更窄(仅需2ATR=105点)，盈亏比更优。",
+              "confidence": 0.72
+            },
+            {
+              "dim": "焦企限产30%——效应递减",
+              "claim": "焦企限产30%已price in，库存仍在累积说明限产不够",
+              "evidence": "产能利用率73.16%已限产，但库存仍在增长(+2.55万吨)。说明需求下降速度超过供给收缩速度。若铁水继续下行，即便焦企再降开工率也无法阻止库存累积。限产只能延缓下跌速度，不能逆转方向。",
+              "confidence": 0.78
+            },
+            {
+              "dim": "期货贴水——下跌趋势中贴水是常态",
+              "claim": "深度贴水恰恰说明市场对远期价格悲观，contango结构确认空头逻辑",
+              "evidence": "焦炭期货1913 vs 现货≈2230，贴水~317元说明市场预期未来焦炭价格将大幅回落。贴水在下跌周期的初期阶段是再正常不过的现象。历史上焦炭从高点回落时，期货贴水往往在100-300元之间持续数月，直到现货追跌才收敛。",
+              "confidence": 0.75
+            }
+          ],
+          "overall_confidence": 0.77,
+          "rebuttal_targets": ["焦煤供给侧支撑坚如磐石", "铁水需求仍在绝对高位", "ADX=17.8——趋势不存在", "焦企自律限产30%托底", "期货贴水现货——空头基差风险"]
+        }
+      },
+
+      "judge_verdict": {
+        "judge": "闫判官",
+        "verdicts": [
+          {
+            "dim": "库存拐点",
+            "ruling": "include",
+            "winner": "bull",
+            "rebuttal_quality": "接住",
+            "reason": "焦企库存由降转增(+2.55万吨)是客观数据、无可反驳。慎思未对此提出有效质疑。这是最有力的空头证据。"
+          },
+          {
+            "dim": "钢厂利润/铁水下行",
+            "ruling": "include",
+            "winner": "bull",
+            "rebuttal_quality": "接住",
+            "reason": "盈利率40.26%(周-2.60pct)、铁水从243→241、检修计划密集——慎思称'铁水仍高位'但承认'in decline'，证真证明了下行趋势方向。"
+          },
+          {
+            "dim": "第十轮提涨落空预期",
+            "ruling": "include",
+            "winner": "bull",
+            "rebuttal_quality": "接住",
+            "reason": "截至7月9日主流钢厂未回应、Mysteel判断落地难度大——实际事实验证了证真论点。"
+          },
+          {
+            "dim": "ADX低趋势弱",
+            "ruling": "watch",
+            "winner": "bear",
+            "rebuttal_quality": "部分接住",
+            "reason": "慎思指出ADX=17.8趋势不可靠是完全正确的事实。证真以'低位布局ADX将回升'回应，有一定道理但属左侧预判。风险标注：做空品种中如果ADX始终<20，空头信号可能被市场否定。"
+          },
+          {
+            "dim": "焦煤供给侧支撑",
+            "ruling": "watch",
+            "winner": "null",
+            "rebuttal_quality": "部分接住",
+            "reason": "双方都有道理——焦煤确实在支撑焦炭成本，但证真反驳的'支撑在需求下坡面前无效'也成立。此维度不改变方向判断，但对做空的风险评估有影响。"
+          },
+          {
+            "dim": "期货贴水基差",
+            "ruling": "watch",
+            "winner": "bull",
+            "rebuttal_quality": "接住",
+            "reason": "证真有效反驳：下跌趋势中贴水是常态而非做多信号。慎思的担忧已被化解。"
+          }
+        ],
+        "overall": {
+          "tendency": "bearish",
+          "confidence": 0.72,
+          "core_conflict": "多空分歧本质：库存拐点+钢厂减产(空)vs焦煤成本支撑+ADX过低(多)。裁决倾向空头因为：①库存拐点是领先指标(领先价格2-4周)，②钢厂减产已开始兑现而非预期，③焦煤支撑在需求拐点面前惯性不足。但ADX=17.8大幅降低做空置信度——建议中等仓位、紧密止损。",
+          "suggested_position_pct": 4.0,
+          "right_side_confirmation_trigger": "①焦炭日线收于MA60(1895)下方 ②ADX回升至20以上 ③铁水跌破240万吨 ④第10轮提涨正式被钢厂拒绝或搁置。上述条件满足2项即可确认右侧。"
+        }
+      },
+
+      "risk_review": {
+        "risk_manager": "风控明",
+        "risks": [
+          {
+            "risk": "焦煤供给侧尾部风险（黑天鹅级）",
+            "severity": "高",
+            "detail": "山西煤矿安监高压持续，若再发生重大安全事故导致大范围停产，焦煤价格可能暴涨200-300元/吨，驱动焦炭成本推动型上涨。目前70+座煤矿停产中，供给侧弹性接近零。",
+            "mitigation": "设置硬止损2ATR=105点(止损价2018)；跟踪山西煤矿复产新闻；如焦煤期货单日涨超3%，立即减半仓。"
+          },
+          {
+            "risk": "第十轮提涨意外落地+钢厂接受",
+            "severity": "中",
+            "detail": "若7月中旬钢厂迫于补库压力接受第十轮提涨，焦炭期货可能从贴水1900-向现货2000+补涨修复基差，短期100点涨幅打穿止损。",
+            "mitigation": "等待提涨正式被拒/搁置后再开仓；止损设在前高+1ATR上方。"
+          },
+          {
+            "risk": "ADX过低→震荡止损",
+            "severity": "中",
+            "detail": "ADX=17.8意味趋势不存在。即便方向正确，价格可能在1800-1950区间震荡数周，2ATR止损(105点)在震荡市中容易被刷到。",
+            "mitigation": "建议采用分批建仓(一半仓位1900附近入场、一半等ADX>20后再加)；或使用宽止损(3ATR=158点)。"
+          },
+          {
+            "risk": "宏观情绪扰动",
+            "severity": "低-中",
+            "detail": "美伊临时协议落地缓解地缘风险，但全球宏观不确定性仍高。若突发降息预期升温，商品可能集体反弹拖累焦炭空头。",
+            "mitigation": "如美股/原油大幅反弹+黑色跟随，减仓30%。"
+          },
+          {
+            "risk": "产业链集中度风险",
+            "severity": "低",
+            "detail": "黑色系空头重叠：J焦炭空头+RB螺纹钢(-34)空头+HC热卷(-34)空头+I铁矿石(-19)全部偏空。如果煤焦反弹，整个做空方向可能同时受损。",
+            "mitigation": "建议J单独做空，不同时空黑色系其他品种。总黑色系敞口不超过5%。"
+          }
+        ],
+        "risk_level": "YELLOW",
+        "max_position": 4.0,
+        "verdict": "pass_with_conditions——同意做空方向，但仓位必须控制在4%以内，设紧止损2ATR。等待右侧确认（MA60跌破+ADX>20）后再加仓。"
+      },
+
+      "trading_plan": {
+        "strategist": "策执远",
+        "plans": {
+          "保守方案": {
+            "entry": "等待右侧确认：日线收于MA60(1895)下方，且ADX≥20。若本周触发，入场价约1890-1900",
+            "stop_loss": "2018 (2 ATR=105点入场止损)，或前高1950+跳空",
+            "target": "T1: 1865 (1:1盈亏比，100点)，T2: 1820 (1:2.4盈亏比，250点)",
+            "position": "1手(3%仓位)，约5.7万元保证金",
+            "risk_reward": "1:2.4",
+            "validity": "本周内有效。下周需根据ADX+铁水数据重新评估"
+          },
+          "中性方案（推荐）": {
+            "entry": "当前1913附近分批建仓——50%仓位即刻入场，50%等待价格收于1900下方再加",
+            "stop_loss": "2018 (2 ATR=105点)，若触发止损亏损约5250元",
+            "target": "T1: 1890 (MA60支撑区，25点保本减半仓)，T2: 1865-1854 (100-120点)，T3: 1820 (200点)",
+            "position": "1手(4%仓位)，约7.6万元保证金",
+            "risk_reward": "1:2~1:3",
+            "validity": "2-3周持仓周期。止损收紧为追踪止损：价格每跌50点，止损下移40点"
+          },
+          "进取方案": {
+            "entry": "1913一次性建仓，持续监控铁水数据",
+            "stop_loss": "1950 (前高+心理关口，约37点)",
+            "target": "T1: 1880 (MA60，33点减半)，T2: 1830 (83点清仓)",
+            "position": "1手(4%仓位)",
+            "risk_reward": "1:2.2",
+            "validity": "仅在ADX回升至20+或铁水跌破240后启用。风险较高，需盯盘"
+          }
+        },
+        "recommended": "中性方案",
+        "recommendation_reason": "库存拐点+钢厂减产提供方向确定性，但ADX过低需兼顾攻守。分批建仓降低震荡止损风险；T1目标设为MA60(1895)保本减仓确保'不亏'底线。"
+      }
+    }
+  },
+
+  "verdict": "J焦炭 做空 | execute 高置信 | 中性方案: 1913分批建仓 止损2018 目标1865-1820 | 仓位4% | ADX低需等待右侧确认(MA60跌破) | 严控黑色系敞口"
+}
