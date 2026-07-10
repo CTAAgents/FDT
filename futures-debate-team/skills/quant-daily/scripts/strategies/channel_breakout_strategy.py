@@ -225,6 +225,38 @@ class ChannelBreakoutStrategy(BaseStrategy):
                                 dc_detail["dc20_near_breakout"] = "lower"
                                 dc_detail["dc20_near_ticks"] = round(ticks_to_lower, 1)
 
+                        # ── 动量逼近识别 v2.3: 当前bar动量显著+逼近DC20边界 → "结构性突破" ──
+                        # dc20_break依赖K线内部突破(close>DC20U)，但盘中高波动时
+                        # 可能在K线未收盘时已实质突破。若当前bar振幅≥1.2×ATR
+                        # 且价格距DC20边界≤2×near_breakout_ticks → 给near_breakout分
+                        if dc20_score == 0 and len(df) >= 20:
+                            try:
+                                curr_high = float(df["high"].values[-1])
+                                curr_low = float(df["low"].values[-1])
+                                curr_close = float(df["close"].values[-1])
+                                if atr > 0:
+                                    bar_range = curr_high - curr_low
+                                    bar_range_atr = bar_range / atr
+                                    # 振幅显著（≥1.2×ATR）或单边运行显著（|close-open|≥0.6×ATR）
+                                    bar_impulse = abs(curr_close - float(df["open"].values[-1]))
+                                    bar_impulse_atr = bar_impulse / atr
+                                    if bar_range_atr >= 1.2 or bar_impulse_atr >= 0.6:
+                                        gap_near_ticks = near_ticks * 2 if near_ticks else 10
+                                        if 0 < ticks_to_upper <= gap_near_ticks:
+                                            dc20_score += near_score
+                                            dc_detail["dc20_momentum_breakout"] = "upper"
+                                            dc_detail["dc20_bar_range_atr"] = round(bar_range_atr, 2)
+                                            dc_detail["dc20_bar_impulse_atr"] = round(bar_impulse_atr, 2)
+                                            dc_detail["dc20_near_ticks"] = round(ticks_to_upper, 1)
+                                        elif 0 < ticks_to_lower <= gap_near_ticks:
+                                            dc20_score -= near_score
+                                            dc_detail["dc20_momentum_breakout"] = "lower"
+                                            dc_detail["dc20_bar_range_atr"] = round(bar_range_atr, 2)
+                                            dc_detail["dc20_bar_impulse_atr"] = round(bar_impulse_atr, 2)
+                                            dc_detail["dc20_near_ticks"] = round(ticks_to_lower, 1)
+                            except (IndexError, ValueError, TypeError):
+                                pass
+
             dc_detail["dc20_raw_score"] = round(dc20_score, 1)
 
             # ── A2: DC55 中期通道突破 + 趋势方向 (35% of 75% = 26.25% total) ──
