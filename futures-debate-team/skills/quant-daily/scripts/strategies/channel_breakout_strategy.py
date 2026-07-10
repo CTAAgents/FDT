@@ -1,5 +1,5 @@
 """
-通道突破策略 v1.2 — 唐奇安通道突破 + 布林带确认 + TDX REF式通道 + HIGH/LOW检测 + 动量逼近 + 会话感知
+通道突破策略 v1.3 — TDX REF式通道 + HIGH/LOW检测 + 动量逼近 + 会话感知 + ADX移除评分
 =============================================
 基于双重通道体系识别趋势启动与延续：
 
@@ -161,16 +161,8 @@ class ChannelBreakoutStrategy(BaseStrategy):
                 elif dc20_pos is not None and dc20_pos > 0.5:
                     dc_detail["dc20_position"] = "mid_upper"
 
-                # ADX趋势评估
-                if adx > _r("adx", "exhaustion_threshold", sym, chain_name, period):
-                    dc20_score -= _r("adx", "exhaustion_penalty", sym, chain_name, period)
-                    dc_detail["adx_signal"] = "exhaustion_warning"
-                elif adx >= _r("adx", "trend_threshold", sym, chain_name, period):
-                    dc20_score += _r("adx", "trend_bonus", sym, chain_name, period)
-                    dc_detail["adx_signal"] = "trend_healthy"
-                else:
-                    dc_detail["adx_signal"] = "neutral"
-
+                # ADX不作为通道突破评分依据（v1.3: 突破策略不应被趋势强度过滤）
+                dc_detail["adx_signal"] = "info_only"
             elif dc20_break == "down":
                 dc20_score -= _r("dc20", "break_base_score", sym, chain_name, period)
                 dc_detail["dc20_direction"] = "down"
@@ -190,14 +182,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                     dc_detail["dc20_position"] = "lower_zone"
                 elif dc20_pos is not None and dc20_pos < 0.5:
                     dc_detail["dc20_position"] = "mid_lower"
-                if adx > _r("adx", "exhaustion_threshold", sym, chain_name, period):
-                    dc20_score += _r("adx", "exhaustion_penalty", sym, chain_name, period)  # 空头衰竭→向0靠拢
-                    dc_detail["adx_signal"] = "exhaustion_warning"
-                elif adx >= _r("adx", "trend_threshold", sym, chain_name, period):
-                    dc20_score -= _r("adx", "trend_bonus", sym, chain_name, period)
-                    dc_detail["adx_signal"] = "trend_healthy"
-                else:
-                    dc_detail["adx_signal"] = "neutral"
+                dc_detail["adx_signal"] = "info_only"
             else:
                 dc_detail["dc20_direction"] = "none"
                 # ── 若上游未填充dc20_break，在此处直接检测（TDX REF式 + HIGH/LOW） ──
@@ -226,9 +211,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                             dc_detail["dc20_break_strength"] = "moderate"
                         else:
                             dc_detail["dc20_break_strength"] = "weak"
-                        if adx >= _r("adx", "trend_threshold", sym, chain_name, period):
-                            dc20_score += _r("adx", "trend_bonus", sym, chain_name, period)
-                            dc_detail["adx_signal"] = "trend_healthy"
+                        dc_detail["adx_signal"] = "info_only"
                     elif _dc20l_ref > 0 and _c_low <= _dc20l_ref:
                         dc20_break = "down"
                         dc20_upper = _dc20u_ref
@@ -246,9 +229,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
                             dc_detail["dc20_break_strength"] = "moderate"
                         else:
                             dc_detail["dc20_break_strength"] = "weak"
-                        if adx >= _r("adx", "trend_threshold", sym, chain_name, period):
-                            dc20_score -= _r("adx", "trend_bonus", sym, chain_name, period)
-                            dc_detail["adx_signal"] = "trend_healthy"
+                        dc_detail["adx_signal"] = "info_only"
 
                 # ── tick size 逼近判定：价格距DC20边界≤N个tick → 视为"趋势前夜" ──
                 # （从 df_map 直接计算DC20边界，不依赖 window_mode="time" 的预计算）

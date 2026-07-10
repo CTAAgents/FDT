@@ -346,10 +346,11 @@ CHANNEL_BREAKOUT_CONFIG = {
             "near_breakout_score": 15.0,     # 逼近得分（±，突破标准分的50%）
         },
         "adx": {
-            "exhaustion_threshold": 60,      # ADX>60→趋势可能衰竭
-            "exhaustion_penalty": 5.0,       # 衰竭惩罚（±，向0靠拢）
-            "trend_threshold": 25,           # ADX≥25→趋势健康
-            "trend_bonus": 3.0,             # 趋势健康加分（±，加大方向）
+            "_deprecated": "v1.3: ADX已从通道突破评分中移除, 仅保留显示。突破策略不应被趋势强度过滤。",
+            "exhaustion_threshold": 60,
+            "exhaustion_penalty": 0.0,       # 已禁用
+            "trend_threshold": 25,
+            "trend_bonus": 0.0,              # 已禁用
         },
         "dc55": {
             "pos_thresholds": [

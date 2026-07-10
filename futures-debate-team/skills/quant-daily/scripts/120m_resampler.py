@@ -154,11 +154,7 @@ def score_channel_breakout(tech_list: list, df_map: dict, period: str = "120m") 
                 dc20_score += _r("dc20","break_moderate_bonus",sym,chain_name,period)
             if dc20_pos is not None and dc20_pos > _r("dc20","pos_upper_threshold",sym,chain_name,period):
                 dc20_score += _r("dc20","pos_upper_bonus",sym,chain_name,period)
-            if adx_val > _r("adx","exhaustion_threshold",sym,chain_name,period):
-                dc20_score -= _r("adx","exhaustion_penalty",sym,chain_name,period)
-            elif adx_val >= _r("adx","trend_threshold",sym,chain_name,period):
-                dc20_score += _r("adx","trend_bonus",sym,chain_name,period)
-            dc_detail["adx_signal"] = "trend_healthy" if adx_val >= _r("adx","trend_threshold",sym,chain_name,period) else "neutral"
+            dc_detail["adx_signal"] = "info_only"
         elif dc20_break == "down":
             dc20_score -= _r("dc20","break_base_score",sym,chain_name,period)
             dc_detail["dc20_direction"] = "down"
@@ -169,10 +165,7 @@ def score_channel_breakout(tech_list: list, df_map: dict, period: str = "120m") 
                 dc20_score -= _r("dc20","break_moderate_bonus",sym,chain_name,period)
             if dc20_pos is not None and dc20_pos < _r("dc20","pos_lower_threshold",sym,chain_name,period):
                 dc20_score += _r("dc20","pos_lower_bonus",sym,chain_name,period)
-            if adx_val > _r("adx","exhaustion_threshold",sym,chain_name,period):
-                dc20_score += _r("adx","exhaustion_penalty",sym,chain_name,period)
-            elif adx_val >= _r("adx","trend_threshold",sym,chain_name,period):
-                dc20_score -= _r("adx","trend_bonus",sym,chain_name,period)
+            dc_detail["adx_signal"] = "info_only"
         else:
             dc_detail["dc20_direction"] = "none"
 
