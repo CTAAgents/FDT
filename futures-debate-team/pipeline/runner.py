@@ -12,26 +12,23 @@
 """
 
 import json
-import logging
 import os
 import subprocess
 import sys
 import traceback
 from datetime import datetime, timezone
 
-# ── 日志配置 ────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger("auto_pipeline")
+# ── 统一日志 + 链路追踪 ──────────────────────────────────
+_PIPELINE_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_DIR = os.path.dirname(_PIPELINE_DIR)
+sys.path.insert(0, _PROJECT_DIR)
+
+from scripts.unified_logger import get_logger
+from scripts.trace_id import new_trace, current_trace, inject_trace_to_env
 
 # ── 路径常量 ────────────────────────────────────────────
 HOME = os.path.expanduser("~")
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_DIR = _PROJECT_DIR
 SKILLS_DIR = os.path.join(PROJECT_DIR, "skills")
 QDAILY_DIR = os.path.join(SKILLS_DIR, "quant-daily", "scripts")
 COMMODITY_DIR = os.path.join(SKILLS_DIR, "commodity-chain-analysis", "scripts")
@@ -60,6 +57,12 @@ REPORT_DIR = os.path.join(
     DATE_STR,
 )
 
+# ── 流水线日志（统一使用 unified_logger） ──────────────
+_log_dir = os.path.join(
+    os.path.dirname(REPORT_DIR),  # .../Reports/商品期货深度分析/../
+)
+logger = get_logger("pipeline", log_dir=_log_dir)
+
 
 def python_exe() -> str:
     """获取 Python 可执行路径"""
@@ -85,7 +88,7 @@ def run_cmd(cmd: list, desc: str, check: bool = True) -> subprocess.CompletedPro
             encoding="utf-8", errors="replace",
             timeout=600,
             check=check,
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env=inject_trace_to_env({"PYTHONIOENCODING": "utf-8"}),
         )
         if result.stdout:
             for line in result.stdout.strip().split("\n")[-20:]:
@@ -384,16 +387,15 @@ def main():
     """全自动管道主流程"""
     clean_xgboost_warning()
 
+    # 生成 trace_id（贯穿全链路，注入子进程环境变量）
+    trace_id = new_trace("daily")
+
     # 确保报告目录存在
     os.makedirs(REPORT_DIR, exist_ok=True)
 
-    # 添加文件日志
-    fh = logging.FileHandler(log_path(), encoding="utf-8")
-    fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-    logger.addHandler(fh)
-
     logger.info("=" * 60)
     logger.info(f"🤖 期货辩论专家团 — 全自动流水线")
+    logger.info(f"   Trace: {trace_id}")
     logger.info(f"   日期: {DATE_STR}")
     logger.info(f"   项目: {PROJECT_DIR}")
     logger.info(f"   报告: {REPORT_DIR}")
@@ -441,7 +443,8 @@ def main():
         all_ok = False
 
     logger.info(f"\n{'✅ 流水线完成' if all_ok else '⚠️ 部分步骤有警告'}")
-    logger.info(f"   日志: {log_path()}")
+    logger.info(f"   Trace: {current_trace()}")
+    logger.info(f"   日志: {_log_dir}")
     logger.info(f"   报告: {REPORT_DIR}")
 
     return 0 if all_ok else 1

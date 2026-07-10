@@ -13,7 +13,7 @@ from contracts import (
     TechnicalOutput,
     ChainAnalysisOutput,
 )
-from contracts.migrations import apply_migration
+from contracts import apply_migration
 from datetime import datetime
 
 
@@ -273,10 +273,19 @@ class TestMigrations:
         assert "risk_level" not in migrated
 
     def test_unknown_migration_raises(self):
+        """未注册迁移路径 → ValueError"""
         import pytest
 
+        # MIGRATION_REGISTRY 已全覆盖，用不存在的目标版本触发错误
         with pytest.raises(ValueError):
-            apply_migration("bull", {"version": "2.0", "role": "证真"}, "3.0")
+            apply_migration("bull", {"version": "2.0", "role": "证真"}, "99.0")
+
+    def test_fundamental_no_migration_needed(self):
+        """单版本型号 (fundamental_state) 直接返回"""
+        data = {"version": "1.0", "value": 42}
+        result = apply_migration("fundamental_state", data, "1.0")
+        assert result["version"] == "1.0"
+        assert result["value"] == 42
 
 
 class TestDataCollection:
@@ -424,7 +433,7 @@ class TestIntegrationMatrix:
         # risk — use version-appropriate schema
         risk_data = make_mock_risk(risk_v)
         if risk_v == "2.1":
-            from contracts.risk import RiskOutputV21
+            from contracts import RiskOutputV21
 
             obj = RiskOutputV21.model_validate(risk_data)
         else:
@@ -437,7 +446,7 @@ class TestIntegrationMatrix:
         assert obj.version == plan_v
 
         # 迁移验证（仅对v2.x运行，v3.0兼容）
-        from contracts.migrations import apply_migration
+        from contracts import apply_migration
 
         if risk_v.startswith("2."):
             migrated = apply_migration("risk", risk_data, "2.0")

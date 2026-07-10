@@ -86,47 +86,54 @@ class SchedulerEngine:
         self.heartbeat_interval = heartbeat_interval
         self.max_tasks_per_beat = max_tasks_per_beat
         self._running = False
+        self._draining = False
+        self._drain_deadline = 0.0
+        self._in_flight = False  # 当前心跳有任务在执行
 
     def check_and_run(self) -> list[dict]:
         """
         单次检查：检查所有触发器，运行匹配的任务。
         返回触发记录列表。
         """
-        now = datetime.now()
-        triggered = []
+        self._in_flight = True
+        try:
+            now = datetime.now()
+            triggered = []
 
-        for trigger in self.triggers:
-            should_fire, reason = trigger.check(now)
-            if not should_fire:
-                continue
+            for trigger in self.triggers:
+                should_fire, reason = trigger.check(now)
+                if not should_fire:
+                    continue
 
-            task = get_task(trigger.task_name)
-            if task is None:
-                _log(f"⚠️  任务未注册: {trigger.task_name}")
-                continue
+                task = get_task(trigger.task_name)
+                if task is None:
+                    _log(f"⚠️  任务未注册: {trigger.task_name}")
+                    continue
 
-            _log(f"🔔  触发: {trigger.task_name} — {reason}")
-            try:
-                result = task()
-                status = "✅" if result.success else "❌"
-                _log(f"  {status} 完成: {result.summary[:120]}")
-            except Exception as e:
-                _log(f"  ❌ 异常: {e}")
-                result = None
+                _log(f"🔔  触发: {trigger.task_name} — {reason}")
+                try:
+                    result = task()
+                    status = "✅" if result.success else "❌"
+                    _log(f"  {status} 完成: {result.summary[:120]}")
+                except Exception as e:
+                    _log(f"  ❌ 异常: {e}")
+                    result = None
 
-            _set_triggered(trigger.task_name)
-            triggered.append({
-                "trigger": trigger.task_name,
-                "reason": reason,
-                "success": result.success if result else False,
-                "time": datetime.now().strftime("%H:%M:%S"),
-            })
+                _set_triggered(trigger.task_name)
+                triggered.append({
+                    "trigger": trigger.task_name,
+                    "reason": reason,
+                    "success": result.success if result else False,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                })
 
-            if len(triggered) >= self.max_tasks_per_beat:
-                _log(f"⏸ 本心跳已达上限({self.max_tasks_per_beat})，停止检查")
-                break
+                if len(triggered) >= self.max_tasks_per_beat:
+                    _log(f"⏸ 本心跳已达上限({self.max_tasks_per_beat})，停止检查")
+                    break
 
-        return triggered
+            return triggered
+        finally:
+            self._in_flight = False
 
     def _daemonize(self):
         """衍生后台进程，当前进程立即返回"""
@@ -181,16 +188,32 @@ class SchedulerEngine:
         _log(f"🚀 调度器启动 | 心跳={self.heartbeat_interval}s | {len(self.triggers)}个触发器")
         _log(f"   可用任务: {', '.join(t for t in _get_task_names() if t)}")
 
-        # 注册信号处理
+        # 注册信号处理 — 优雅排空
         def _handle_sig(sig, frame):
-            self._running = False
-            _log("📴 收到停止信号，调度器退出")
+            if not self._draining:
+                self._running = False
+                self._draining = True
+                self._drain_deadline = time.time() + 300  # 最多等 5 分钟
+                sig_name = signal.Signals(sig).name
+                _log(f"📴 收到 {sig_name}，进入排空模式（最多等 5 分钟）")
+            else:
+                _log("⏭ 已在排空中，忽略重复信号")
 
         signal.signal(signal.SIGINT, _handle_sig)
         signal.signal(signal.SIGTERM, _handle_sig)
 
         heartbeat_count = 0
-        while self._running:
+        while self._running or (self._draining and self._in_flight):
+            if self._draining and not self._running:
+                # 排空模式：只等 in-flight 任务完成，不发起新心跳
+                elapsed = 300 - (self._drain_deadline - time.time())
+                _log(f"⏳ 等待 in-flight 任务完成... ({elapsed:.0f}s / 300s)")
+                if time.time() >= self._drain_deadline:
+                    _log("⏰ 排空超时，强制退出")
+                    break
+                time.sleep(5)
+                continue
+
             heartbeat_count += 1
             _log(f"\n--- 心跳 #{heartbeat_count} @ {datetime.now().strftime('%H:%M:%S')} ---")
 
@@ -204,7 +227,8 @@ class SchedulerEngine:
             if self._running:
                 time.sleep(self.heartbeat_interval)
 
-        _log(f"调度器停止（共运行{heartbeat_count}次心跳）")
+        _log(f"🛑 调度器优雅停止（共运行{heartbeat_count}次心跳）")
+        save_heartbeat()
 
 
 def _get_task_names() -> list[str]:

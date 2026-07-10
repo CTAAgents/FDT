@@ -47,6 +47,40 @@ def build_spawn_file_instruction(output_path: str, agent_name: str) -> str:
 """
 
 
+def from_config(config: dict | None = None) -> dict:
+    """
+    从 team_config.json 读取 Agent 产出的熔断参数。
+
+    优先级: 传入 config > team_config.json > 硬编码默认值
+
+    Args:
+        config: 可选的 team_config 字典，不传则自动读取文件
+
+    Returns:
+        {"timeout": int, "poll_interval": int, "stable_seconds": int, "max_retries": int}
+    """
+    defaults = {"timeout": 900, "poll_interval": 15, "stable_seconds": 5, "max_retries": 2}
+
+    if config is None:
+        try:
+            root = Path(__file__).resolve().parent.parent
+            tc_path = root / "config" / "team_config.json"
+            if tc_path.exists():
+                with open(tc_path, encoding="utf-8") as f:
+                    config = json.load(f)
+        except Exception:
+            config = {}
+
+    waiter_cfg = config.get("agent_waiter", {}) if config else {}
+
+    return {
+        "timeout": waiter_cfg.get("timeout_seconds", defaults["timeout"]),
+        "poll_interval": waiter_cfg.get("poll_interval_seconds", defaults["poll_interval"]),
+        "stable_seconds": waiter_cfg.get("stable_seconds", defaults["stable_seconds"]),
+        "max_retries": waiter_cfg.get("max_retries", defaults["max_retries"]),
+    }
+
+
 def poll_file_ready(
     filepath: str,
     timeout: int = 900,

@@ -19,5 +19,11 @@
     "locked": "requirements.lock",
     "note": "依赖已冻结，新环境直接 pip install -r requirements.lock，勿每次现装"
   },
+  "agent_waiter": {
+    "timeout_seconds": 900,
+    "poll_interval_seconds": 15,
+    "stable_seconds": 5,
+    "max_retries": 2
+  },
   "note": "本文件为环境优化配置，不改变核心SOP逻辑。团队主管(明鉴秋)在执行单品种模式时应用本配置。"
 }

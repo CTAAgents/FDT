@@ -53,10 +53,21 @@ def load_memory():
     print(f"  🛠️  技能: {len(skills)}个")
 
 
+def _get_version() -> str:
+    """从 pyproject.toml 动态读取版本号（唯一版本源）。"""
+    import tomllib
+    try:
+        with open(_ROOT / "pyproject.toml", "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:
+        return "unknown"
+
+
 def print_banner():
+    version = _get_version()
     print()
     print("╔══════════════════════════════════════════╗")
-    print("║    期货交易辩论专家团 v5.1               ║")
+    print(f"║    期货交易辩论专家团 v{version:<14} ║")
     print("║    Futures Trading Debate Team           ║")
     print("╚══════════════════════════════════════════╝")
     print()

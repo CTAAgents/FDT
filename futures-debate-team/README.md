@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.6.0
+# Futures Debate Team — 期货交易辩论专家团 v5.7.0
 
-> 🛡 **v5.6.0 5层鲁棒性架构**：在 v5.5 OmniOpt 分类法基础上，引入5层防线确保辩论流程在任何异常下不静默断裂。L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py触发文件)+L4路径自发现(phase3 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。
+> 🏗 **v5.7.0 驾驭工程（Harness Engineering）成熟度 4.7/5.0**：从配置校验(G1)到结构化日志(G15)，15项差距全覆盖。Pydantic schema校验启动即拒非法配置、trace_id全链路贯穿、unified_logger JSON格式切换、43用例回归测试、graceful drain优雅停机、合约版本双向迁移(28条路径)、APM-CS实时看板+HTTP健康端点。4阶段推进，成熟度从4.0提升至4.7。
 
 ## 类型
 
@@ -242,6 +242,7 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v5.7.0** | **2026-07-10** | **🏗 驾驭工程（Harness Engineering）完整落地**: 15项差距全部修复，成熟度4.0→4.7。Phase1正确性修复(G1 Pydantic配置校验/G2 trace_id全链路/G3 pipeline日志统一/G4 bootstrap动态版本)→Phase2测试补齐(G5 pipeline集成10用例/G6 scheduler集成10用例/G7覆盖率扩展到全skill/G8 memory集成9用例)→Phase3运维增强(G9 graceful drain/G10兼容矩阵/G13熔断可配/G14合约版本迁移28条路径)→Phase4体验优化(G11 APM-CS实时看板/G12 HTTP健康端点/G15 JSON结构化日志)。43用例全绿，contracts桥接层统一入口。|
 | **v5.6.0** | **2026-07-09** | **🛡 5层鲁棒性架构**：L1产出校验(validate_agent_output.py)+L2熔断降级(debate_orchestrator.py+D06铁律)+L3信号门(daily_debate.py v2.0触发文件)+L4路径自发现(phase3 v3.2 CLI参数化)+L5健康自检(selfcheck.py)。D05-D06辩论完整性铁律。闫判官spawn Bug修复(futures-judge.md v2.1)。JSON产出规范J01-J03注入慎思+证真Agent MD。|
 | **v5.5.0** | **2026-07-09** | **🧬 OmniOpt 分类法集成**：F1-F5 论证策略族分类系统；品种×策略族适应性矩阵(EMA在线更新)；闫判官加权裁决(WEAS族加权预处理+族多样性检查)；正反方辩手输出格式扩展(含策略族标签) |
 | **v5.4.1** | **2026-07-07** | **🔧 信息源扩充**：新增 `memory/info_portals.md` 定性信息门户目录 — 三层级分类框架(监管/交易所→综合资讯聚合→产业垂直聚合)，合并金瑞期货权威清单与资深交易员实战配置，共30+权威站点，附品种映射速查表；`data_sources.md` 新增定性门户交叉引用节（与 A/B/C/D 定量评级体系隔离）；团队主管 SOP 新增定性信息取证职责 |

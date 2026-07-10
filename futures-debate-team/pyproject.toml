@@ -4,8 +4,8 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "5.5.1"
-description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.5.1: Multi-Agent communication efficiency — structured argument schema (contracts/debate_argument_schema.py, P0), differentiated info dispatch (P1), two-phase risk control (pre-risk+post-risk, P2). v5.5: OmniOpt taxonomy integration. v5.4: APM-CS 5-axis scoring + Telescope failure clustering (D1-D5 observability), ViBench replay + held-out judge (D1/D3), self_improve scaffold, full-period K-line, enforce_discipline position caps. v5.3: channel breakout (Donchian DC20/DC55 + BB) + TqSDK live mode + signal check gate"
+version = "5.7.0"
+description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.7: Harness Engineering maturity 4.7/5.0 — Pydantic config schema, trace_id贯穿, unified_logger JSON, pipeline集成测试(43用例), graceful drain, 合约版本迁移, 监控看板+健康端点. v5.6: harness engineering baseline + 4 P0 fixes. v5.5.1: structured argument schema (P0), differentiated info dispatch (P1), two-phase risk control (P2). v5.5: OmniOpt taxonomy. v5.4: APM-CS 5-axis + Telescope, ViBench + held-out judge. v5.3: channel breakout + TqSDK live mode"
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -71,9 +71,16 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = [
     "tests/quant-daily",
+    "tests/commodity-chain",
+    "tests/contracts",
+    "tests/debate-argument-builder",
+    "tests/debate-risk-manager",
+    "tests/fdt-gate",
+    "tests/fundamental-data-collector",
+    "tests/technical-analysis",
 ]
 python_files = ["test_*.py"]
-addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
+addopts = "--cov=skills --cov=pipeline --cov=scheduler --cov=scripts --cov-report=term-missing"
 
 [tool.black]
 line-length = 120
