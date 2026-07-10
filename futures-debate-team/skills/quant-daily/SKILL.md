@@ -1,8 +1,8 @@
 ---
 name: quant-daily
-version: 2.12.1
+version: 2.13.0
 agent_created: true
-description: 商品期货量化分析skill v2.12.1 — 子周期(60m/120m/240m)全量扫描+完整降级链+信号触发文件+TQ_SKIP_DISCLAIMER自动跳过TqSDK防阻塞。AKShare分钟→东方财富→TqSDK(15s超时保护)。
+description: 商品期货量化分析skill v2.13.0 — TDX对齐DC20(REF式+HIGH/LOW)+会话感知子周期+动量识别+R0归一化+TqSDK盘中优先。AKShare分钟→东方财富→TqSDK(15s超时保护)。
 ---
 
 # quant-daily — 商品期货量化分析一体化

@@ -229,7 +229,7 @@ def run_scan(
         "compare": "双模式对比",
     }
     mode_label = mode_labels.get(mode, f"未知模式({mode})")
-    print(f"{scan_scope}趋势信号扫描 v2.18.2 — {mode_label} — {today}")
+    print(f"{scan_scope}趋势信号扫描 v2.19.0 — {mode_label} — {today}")
     print(f"{'=' * 60}")
 
     # ── TQ-Local 检测 ──
@@ -586,7 +586,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 <p style="color:#9ca3af;font-size:12px;margin-top:6px">ADX/RSI/CCI/MACD/MA/BOLL/OBV 来自通达信实盘公式</p></div>
 <div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
 <span style="color:#22c55e;font-weight:600">数据: </span><span style="color:#e5e7eb">通达信本地 → MultiSourceAdapter</span>
-<p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.18.0 | {today_str} | 方向感知Z-score</p></div></div>
+<p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.19.0 | {today_str} | 方向感知Z-score</p></div></div>
 
 <div style="margin-top:14px;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
 

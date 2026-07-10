@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-07-10 10:15 — v2.13.0 子周期TDX对齐+会话感知+R0归一化
+
+**版本号**: quant-daily v2.13.0, scan_all v2.19.0, multi_source_adapter v2.13.0, channel_breakout v1.2
+
+**新规则**:
+- **R0**: 子周期K线切片以通达信/文华/博易为标准，不一致→转换
+- **R25**: TqSDK子周期需经R0归一化后使用（盘中优先，盘后兜底）
+- **R26**: 所有OHLCV消费者（技术分析/指标/回测/策略）必须使用会话感知K线
+
+**DC20 TDX对齐**（`channel_breakout_strategy.py` v1.2）:
+- REF式通道: `max(highs[-21:-1])` 不含当前bar（原含当前bar→通道随价格膨胀）
+- HIGH/LOW检测: `c_high >= dc20_upper` 替代原 `close > dc20_upper`
+- 动量逼近识别: bar振幅≥1.2×ATR + 距边界≤2×near_ticks → near_breakout分
+- Strategy层兜底: 上游未填充dc20_break时直接REF式检测+评分
+
+**会话感知resample**（`120m_resampler.py`, `optimizer/run_120m_wf.py`）:
+- gap>120min检测会话边界，会话内两两合并
+- 覆盖全部品种类型: 23:00/01:00/02:30收盘/无夜盘
+
+**降级链优化**（`multi_source_adapter.py` v2.13.0）:
+- 盘中: TDX → TqSDK(归一化) → AKShare → 东方财富
+- 盘后: TDX → AKShare → 东方财富 → TqSDK(归一化)
+- `normalize_sub_period_bars()` 归一化守卫
+
+**FDT记忆固化**:
+- 新建 `memory/session_rules.md`
+- 更新 `memory/data_sources.md` (R0/R25/R26)
+- 更新 `memory/incidents.md`
+
+**SP评分轨迹**: +28 WEAK → +43 WATCH(动量) → +63 STRONG(TDX对齐)
+
+---
+
 ## 2026-07-07 20:00 — v5.4.0 可观测性与自改进
 
 **版本号同步**：pyproject.toml / .codebuddy-plugin/plugin.json / .version_history.json / README.md 统一升至 **5.4.0**。
