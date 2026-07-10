@@ -453,14 +453,44 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # ── 🐛 v2.12.0: 子周期(60m/120m/240m)降级链 — R25排除TqSDK ──
-        #    TDX → AKShare分钟(HTTP快) → 东方财富 → AKShare日线
-        #    TqSDK已排除: 纯时钟窗口(7200s)不识别会话边界, bar跨夜盘/午休
+        # ── 🐛 v2.12.1: 盘中子周期降级链 — TqSDK恢复入链+R0归一化 ──
+        #    盘中: TDX → TqSDK(tick级新鲜度,归一化) → AKShare分钟 → 东方财富 → AKShare日线
+        #    盘后: TDX → AKShare分钟 → 东方财富 → TqSDK(归一化) → AKShare日线
         #    daily/weekly/monthly: TDX → TqSDK → 东方财富 → AKShare日线
         _is_sub_period = period not in ("daily", "weekly", "monthly")
         _is_market_open = _is_trading_session()
 
-        # 2. 尝试AKShare分钟K线(子周期HTTP快源)
+        # 2. 盘中优先TqSDK(子周期: tick级实时数据, 命中后R0归一化)
+        if _is_sub_period and _is_market_open and self.tqsdk_available:
+            try:
+                tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days, period=period)
+                if tqsdk_kline and len(tqsdk_kline) >= 20:
+                    records = []
+                    for k in tqsdk_kline:
+                        records.append({
+                            "date": str(k.get("date", "")),
+                            "open": float(k.get("open", 0)),
+                            "close": float(k.get("close", 0)),
+                            "high": float(k.get("high", 0)),
+                            "low": float(k.get("low", 0)),
+                            "volume": int(k.get("volume", 0)),
+                            "oi": int(k.get("oi", k.get("open_interest", 0))),
+                            "settle": float(k.get("settle", 0) or 0),
+                            "data_source": "tqsdk",
+                            "confidence": 1.0,
+                        })
+                    # R0归一化: TqSDK纯时钟窗口→会话感知
+                    records = normalize_sub_period_bars(records, period)
+                    print(f"[MultiSource] get_kline({variety}) → tqsdk→归一化, {len(records)}条")
+                    try:
+                        record_data_fetch(variety, "tqsdk", success=True, count=len(records))
+                    except Exception:
+                        pass
+                    return {"success": True, "data": records, "data_source": "tqsdk_normalized", "confidence": 1.0}
+            except Exception as e:
+                print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
+
+        # 3. 尝试AKShare分钟K线(子周期HTTP快源)
         if _is_sub_period:
             try:
                 import akshare as ak
@@ -510,8 +540,8 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] AKShare分钟 get_kline {variety}: {e}")
 
-        # 3. 尝试TqSdk (日线/周线/月线首选; 子周期已排除 — R25: TqSDK纯时钟窗口不识别会话边界)
-        if self.tqsdk_available and not _is_sub_period:
+        # 4. 尝试TqSdk (日线/周线/月线; 盘后子周期兜底,命中后R0归一化)
+        if self.tqsdk_available and (not _is_sub_period or not _is_market_open):
             try:
                 tqsdk_kline = self._fetch_tqsdk_kline(variety, days=days, period=period)
                 if tqsdk_kline and len(tqsdk_kline) >= 20:
@@ -529,9 +559,11 @@ class MultiSourceAdapter:
                             "data_source": "tqsdk",
                             "confidence": 1.0,
                         })
+                    if _is_sub_period:
+                        records = normalize_sub_period_bars(records, period)
                     print(f"[MultiSource] get_kline({variety}) → tqsdk, {len(records)}条")
                     try:
-                        record_data_fetch(variety, "tqsdk", success=True, count=len(tqsdk_kline))
+                        record_data_fetch(variety, "tqsdk", success=True, count=len(records))
                     except Exception:
                         pass
                     return {"success": True, "data": records, "data_source": "tqsdk", "confidence": 1.0}
