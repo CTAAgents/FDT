@@ -19,7 +19,18 @@
 - 主流软件 = 交易所会话感知切分（详见 `memory/session_rules.md`）
 - 任何数据源若切片方式与主流软件不一致，**必须在数据适配层转换为会话感知格式后方可使用**
 - 转换方式: 检测bar间时间间隔，gap>120min识别会话边界，按会话重新聚合
-- 已实施: TqSDK子周期排除(R25)即为本条执行；未来新增数据源需在接入时验证会话一致性
+- 已实施: TqSDK子周期命中后强制`normalize_sub_period_bars()`归一化
+
+## 🔴 R26 所有OHLCV消费者必须遵守会话划分（2026-07-10 掌柜确立）
+
+**凡涉及子周期OHLCV数据的技术分析、指标计算、回测、策略评分——均须使用会话感知K线。**
+
+- 数据入口: `multi_source_adapter.get_kline(period=60m/120m/240m)` → 已内置R0归一化
+- 策略层: channel_breakout / layered_l1l4 / factor_timing / three_signal — 均从tech dict读取预计算指标 ✓
+- 技术分析skill: `data_interface.py` 通过multi_source_adapter间接访问 ✓
+- 回测/优化器: `backtest/` `optimizer/` 使用预采集数据 ✓
+- **禁止**: 任何模块直接调用akshare/tqsdk/tdx原始接口获取子周期OHLCV后直接使用
+- **例外**: `indicators/calc_core.py` 为纯函数公式库，不涉及数据访问，豁免
 
 ## 🔴 子周期技术指标数据源规则（2026-07-08 掌柜确立·R19-R23）
 
