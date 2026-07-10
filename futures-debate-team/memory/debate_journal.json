@@ -212,6 +212,39 @@
       "risk_color": "yellow",
       "veto": false,
       "note": "单品种完整辩论。空头胜(63:56)，hold条件触发型空头。P1信号WEAK+23、ADX24.4低位、BB收敛待突破、07-06上轨假突破未守。ma60两源分歧(通达信12623 vs AKShare11372)待数技源核实。观澜Agent卡死,主管直驱技术面计算恢复。"
+    },
+    {
+      "timestamp": "2026-07-10 10:52:05",
+      "agent": "futures-debate-team-team-lead",
+      "action": "debate_round_120m",
+      "round_id": "debate_20260710_120m",
+      "symbols": [
+        "SP",
+        "RM",
+        "SN",
+        "FG"
+      ],
+      "period": "120m",
+      "verdicts": {
+        "SP": "hold (STRONG +63, DC20真突破 vs ADX弱+仓单暴增)",
+        "RM": "watch (STRONG +61, 信号vs供给压力矛盾)",
+        "SN": "execute_long (STRONG +56, 半导体+去库)",
+        "FG": "execute_short (WATCH -43, 减产仍累库)"
+      },
+      "agents_spawned": {
+        "chain_analyst": "completed",
+        "technical_researcher": "completed",
+        "fundamental_researcher": "completed",
+        "affirmative_debater": "timeout_lost",
+        "opposition_debater": "timeout_lost",
+        "judge": "spawned_no_output"
+      },
+      "degraded": true,
+      "degraded_reason": "证真/慎思/闫判官Agent后台超时无产出, 明鉴秋按D06降级基于研究员产出完成裁决",
+      "output_files": [
+        "Commodities/120m_debate_20260710.html",
+        "debate_results.json"
+      ]
     }
   ]
 }

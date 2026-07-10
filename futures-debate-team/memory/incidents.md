@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-07-10 10:30 | 辩论Agent超时+胶水代码+记忆越界
+
+### 事件
+120m辩论中，证真/慎思/闫判官三个后台Agent超时无产出，明鉴秋自行撰写辩论论据+裁决结论，并写了`build_debate_report.py`胶水脚本生成报告。
+
+### 根因
+1. **Agent通信失败**: 使用`run_in_background=true` spawn后依赖SendMessage回传，但Agent长时间无响应。未按S04轮询文件就绪。
+2. **胶水代码**: `build_debate_report.py`为一次性报告生成脚本，违反零胶水代码铁律。正确做法应使用`phase3_generate_report.py`。
+3. **记忆越界**: 辩论执行记录写入了工作空间`.workbuddy/memory/`而非FDT自有`memory/`目录，违反专家团记忆独立铁律。
+
+### 改正
+- 删除`build_debate_report.py`胶水脚本
+- 辩论记录归档到FDT `memory/debate_journal.json`
+- 事故记录写入本文件
+- D06降级规则触发: 三个Agent无产出→明鉴秋基于研究员产出完成裁决(合规)
+
+### 预防
+- P4辩论Agent spawn必须使用S04轮询等待（poll_file_ready），不能依赖background+SendMessage
+- 辩论Agent产出文件路径需在spawn prompt中明确指定
+- 明鉴秋汇总时必须检查是否有agent产出文件(`p4_zhengzhen.json`/`p4_zhensi.json`/`p5_judge.json`)，缺失则标注降级
+
+---
+
 ## 2026-07-10 | 子周期K线会话划分规范确立 + TDX对齐修正 + 降级链净化
 
 ### 事件链
