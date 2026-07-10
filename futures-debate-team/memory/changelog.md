@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-07-10 11:06 — 今日版本汇总
+
+| 模块 | 版本 | 关键变更 |
+|------|------|----------|
+| quant-daily | **2.14.0** | ADX从通道突破评分移除 |
+| scan_all | **2.20.0** | ADX移除+TDX对齐+会话感知 |
+| channel_breakout_strategy | **1.3** | TDX REF式+HIGH/LOW+动量识别+ADX移除 |
+| multi_source_adapter | **2.13.0** | R0归一化+TqSDK盘中优先 |
+| 120m_resampler | **同步v1.3** | 会话感知resample+ADX移除 |
+| settings | **2.15** | ADX段deprecated |
+| futures-trading-analysis | **3.7.0** | 辩论自动归档+Agent轮询+报告CLI |
+| debate_archiver | 🆕 **1.0** | 辩论自动归档到FDT memory |
+| agent_waiter | 🆕 **1.0** | S04 Agent产出轮询等待 |
+| session_rules.md | 🆕 | 子周期K线会话划分规则 |
+| R0 | 🆕 | 子周期以通达信/文华/博易为准 |
+| R25 | 🔄 | TqSDK子周期归一化后使用 |
+| R26 | 🆕 | 所有OHLCV消费者须会话感知 |
+
+---
+
 ## 2026-07-10 11:05 — channel_breakout v1.3 ADX从评分移除
 
 **版本号**: channel_breakout_strategy v1.3, 120m_resampler同步

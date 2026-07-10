@@ -9,7 +9,7 @@ import json
 # ============================================================
 CONFIG_MANAGER = {
     "system": {
-        "version": "2.14",
+        "version": "2.15",
         "debug": False,
         "log_level": "INFO",
         "max_symbols": 50,
