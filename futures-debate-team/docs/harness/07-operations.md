@@ -172,8 +172,8 @@ cat memory/schedule_state.json
   3. tail scheduler/daemon.log → 查看最后输出
 
 处理:
-  - 进程不存在 → python bootstrap.py daemon (重启)
-  - 进程存在但不工作 → taskkill /PID {pid} /F → 重启
+  - 进程不存在 → `python bootstrap.py daemon` (重启)
+  - 进程存在但不工作 → `python scheduler/engine.py stop` → 等待优雅停机 → 重启
   - 日志报错 → 修复错误后重启
 ```
 
@@ -251,10 +251,30 @@ cat memory/schedule_state.json
 | 日志无异常 | 每日 | `tail ~/Documents/WorkBuddy/Logs/fdb_{date}.log` |
 | 辩论归档完整 | 每周 | `cat memory/debates/INDEX.md` |
 | APM 评分 | 每周 | `cat memory/apm_scorecard.json` |
-| 测试通过 | 每周 | `python run_all_tests.py` |
+| 测试通过 | 每周 | `python -m pytest tests/pipeline/ tests/scheduler/ tests/memory/ tests/contracts/ --no-cov` |
+| APM 监控看板 | 实时 | `python scripts/dashboard.py` → 浏览器打开 `dashboard.html` |
+| 健康端点 | 实时 | `python scripts/health_server.py &` → `curl 127.0.0.1:8910/health` |
 | 依赖更新 | 每月 | `pip list --outdated` |
 | 磁盘空间 | 每月 | 检查 `Commodities/Reports/` 目录大小 |
-| 版本同步 | 每月 | `git log --oneline -10` |
+| 版本同步 | 每月 | `python C:/Users/yangd/quant-bare/sync_experts_to_github.py` |
+
+#### 新增运维工具（v5.7）
+
+```bash
+# 生成实时监控看板
+python scripts/dashboard.py
+
+# 持续监视模式（每30秒刷新）
+python scripts/dashboard.py --watch
+
+# 启动健康检查服务器
+python scripts/health_server.py                # 默认 127.0.0.1:8910
+python scripts/health_server.py --port 9000    # 自定义端口
+
+# 检查系统状态
+curl http://127.0.0.1:8910/health    # 组件状态 + uptime
+curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
+```
 
 ## 5. 版本管理
 
@@ -262,15 +282,15 @@ cat memory/schedule_state.json
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `README.md` | v5.6.0 | 语义化版本 (MAJOR.MINOR.PATCH) |
-| `plugin.json` | 5.5.1 | 语义化版本 |
-| `pyproject.toml` | 5.5.1 | 语义化版本 |
-| `bootstrap.py` | v5.1 (banner) | ⚠️ 与 README 不一致 |
+| `pyproject.toml` | 5.7.0 | **唯一版本源**（`bootstrap.py` 用 `tomllib` 动态读取） |
+| `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
+| `README.md` | v5.7.0 | 与 pyproject.toml 同步 |
 
 ### 5.2 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
+| v5.7.0 | 2026-07-10 | 驾驭工程（Harness Engineering）完整落地：15项差距修复，成熟度4.7/5.0 |
 | v5.6.0 | 2026-07-09 | 5层鲁棒性架构 (L1-L5) |
 | v5.5.0 | 2026-07-09 | OmniOpt 分类法集成 (F1-F5) |
 | v5.4.0 | 2026-07-07 | 可观测性与自改进里程碑 |

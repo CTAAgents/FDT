@@ -196,25 +196,22 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | debate-risk-manager | ✅ | — | ✅ | ✅ | — |
 | fundamental-data-collector | ✅ | — | — | — | — |
 | technical-analysis | ✅ | — | — | — | — |
-| contracts | — | — | ✅ | — | — |
+| contracts | ✅ | — | ✅ | — | — | 14 用例 (G14) |
 | fdt-gate (L1-L5) | — | — | — | ✅ | — |
-| pipeline (runner) | — | ❌ | — | — | — |
-| scheduler (engine) | — | ❌ | — | — | — |
-| memory (writer/archiver) | — | ❌ | — | — | — |
+| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 (G5) |
+| scheduler (engine) | ✅ | ✅ | — | — | — | 10 用例 (G6) |
+| memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 (G8) |
 
-> ❌ = 缺失，需要补充
+> ✅ 全部补齐，43 用例全绿。2026-07-10 完成。
 
-### 8.2 测试执行命令
+### 8.2 测试执行命令（v5.7 更新）
 
 ```bash
-# 全部测试
-python run_all_tests.py
+# 全部 Harness 测试
+python -m pytest tests/pipeline/ tests/scheduler/ tests/memory/ tests/contracts/ -v --no-cov
 
-# 单目录测试
-python -m pytest tests/quant-daily/ -v
-
-# 带覆盖率
-python -m pytest tests/quant-daily/ --cov=skills/quant-daily/scripts/signals --cov-report=html
+# 带覆盖率（已扩展到全 skill）
+python -m pytest tests/ --cov=skills --cov=pipeline --cov=scheduler --cov=scripts --cov-report=term-missing
 
 # 仅门禁测试
 python -m pytest tests/fdt-gate/ -v
@@ -222,3 +219,12 @@ python -m pytest tests/fdt-gate/ -v
 # ViBench 回放
 python scripts/run_benchmark.py --replay
 ```
+
+## 9. 测试统计（G7 覆盖率扩展后）
+
+| 指标 | v5.6 初始 | v5.7 最终 | 变化 |
+|:-----|:--------:|:--------:|:----:|
+| 测试文件数 | 23 | 26 | +3 (pipeline/scheduler/memory) |
+| Harness 测试用例 | 0 | 43 | +43 |
+| 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展 |
+| 测试目录数 | 8 | 11 | +3 |
