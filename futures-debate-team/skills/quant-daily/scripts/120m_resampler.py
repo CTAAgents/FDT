@@ -39,26 +39,69 @@ _BAR_MIN_MAP = {"1m":1,"5m":5,"10m":10,"15m":15,"30m":30,"60m":60,"120m":120,"24
 
 
 def resample_60m_to_120m(df_60m: pd.DataFrame) -> pd.DataFrame:
-    """60m→120m合并"""
+    """60m→120m合并 — 会话感知: 仅在同一交易时段内合并, 不跨夜盘/午休边界
+
+    交易所默认120m划分规则(以主力品种夜盘23:00收盘为例):
+      夜盘:   21:00-23:00 → 60m bar×2 → 合并为1根120m bar
+      上午:   9:00-11:30  → 60m bar×2 → 合并为1根120m bar
+      下午:   13:30-15:00 → 60m bar×2 → 合并为1根120m bar
+
+    检测方式: 相邻bar时间差>120分钟 → 会话边界 → 不合并
+    """
     if df_60m is None or len(df_60m) < 2:
         return pd.DataFrame()
     df = df_60m.copy()
     if "datetime" in df.columns:
-        df["date"] = pd.to_datetime(df["datetime"])
-    elif "date" not in df.columns:
+        df["_dt"] = pd.to_datetime(df["datetime"])
+    elif "date" in df.columns:
+        df["_dt"] = pd.to_datetime(df["date"])
+    else:
         return pd.DataFrame()
-    df = df.sort_values("date").reset_index(drop=True)
-    n = len(df) // 2 * 2
-    df = df.iloc[:n].copy()
+    df = df.sort_values("_dt").reset_index(drop=True)
+
+    # ── 按会话分组: 时间差>120min → 新会话 ──
+    sessions = []
+    current_session = [0]
+    for i in range(1, len(df)):
+        gap_min = (df["_dt"].iloc[i] - df["_dt"].iloc[i-1]).total_seconds() / 60
+        if gap_min > 120:
+            sessions.append(current_session)
+            current_session = [i]
+        else:
+            current_session.append(i)
+    sessions.append(current_session)
+
+    # ── 每个会话内两两合并 ──
     bars = []
-    for i in range(0, n, 2):
-        b1, b2 = df.iloc[i], df.iloc[i+1]
-        bars.append({"date":b1["date"],"open":float(b1["open"]),
-                     "high":max(float(b1["high"]),float(b2["high"])),
-                     "low":min(float(b1["low"]),float(b2["low"])),
-                     "close":float(b2["close"]),
-                     "volume":float(b1["volume"])+float(b2["volume"]),
-                     "oi":float(b2.get("oi",0)),"settle":float(b2.get("settle",0))})
+    for sess_indices in sessions:
+        n = len(sess_indices)
+        m = (n // 2) * 2
+        for j in range(0, m, 2):
+            b1 = df.iloc[sess_indices[j]]
+            b2 = df.iloc[sess_indices[j+1]]
+            bars.append({
+                "date": b1["_dt"],
+                "open": float(b1["open"]),
+                "high": max(float(b1["high"]), float(b2["high"])),
+                "low": min(float(b1["low"]), float(b2["low"])),
+                "close": float(b2["close"]),
+                "volume": float(b1.get("volume", 0)) + float(b2.get("volume", 0)),
+                "oi": float(b2.get("oi", b2.get("hold", 0))),
+                "settle": float(b2.get("settle", 0)),
+            })
+        # 会话内单数个bar → 最后一根保留原样
+        if n % 2 == 1:
+            b = df.iloc[sess_indices[-1]]
+            bars.append({
+                "date": b["_dt"],
+                "open": float(b["open"]),
+                "high": float(b["high"]),
+                "low": float(b["low"]),
+                "close": float(b["close"]),
+                "volume": float(b.get("volume", 0)),
+                "oi": float(b.get("oi", b.get("hold", 0))),
+                "settle": float(b.get("settle", 0)),
+            })
     return pd.DataFrame(bars)
 
 
