@@ -188,14 +188,18 @@
       "degraded": false,
       "degraded_reason": null,
       "output_files": []
-    }
-    ,
+    },
     {
       "timestamp": "2026-07-11 18:24",
       "agent": "futures-debate-team-team-lead",
       "action": "debate_round_daily_weekend_override",
       "round_id": "FDT_20260711_1824",
-      "symbols": ["ZN","RM","J","JD"],
+      "symbols": [
+        "ZN",
+        "RM",
+        "J",
+        "JD"
+      ],
       "period": "daily",
       "note": "周六非交易日，掌柜指令不跳过强制执行；数据基准2026-07-10收盘",
       "verdicts": {
@@ -208,8 +212,32 @@
       "knowledge_ingest": "ZN/RM入品种库(conf>=0.6)；J/JD跳过(conf0.52<0.6质量门控, 未加--bypass)",
       "degraded": false,
       "degraded_reason": null,
-      "agents_spawned": {"zhengzhen":8,"zhensi":8,"judge":4,"coherence":4,"plan":4,"risk":4},
-      "output_files": ["debate_results.json","Commodities/debate_report_20260711.html","scan_daily_1824_20260711.json","scan_daily_1824_ranking_20260711.html"]
+      "agents_spawned": {
+        "zhengzhen": 8,
+        "zhensi": 8,
+        "judge": 4,
+        "coherence": 4,
+        "plan": 4,
+        "risk": 4
+      },
+      "output_files": [
+        "debate_results.json",
+        "Commodities/debate_report_20260711.html",
+        "scan_daily_1824_20260711.json",
+        "scan_daily_1824_ranking_20260711.html"
+      ]
+    },
+    {
+      "round_id": "FDT_20260711_2047_rerun",
+      "time": "2026-07-11 21:43",
+      "type": "rerun_recovery",
+      "note": "自动化20:47重跑：scan_monitored.py卡死(~50min无产出, PID1766)。根因=周六TDX本地客户端关闭时scan_all取数无超时阻塞。恢复=复用18:24扫描(2026-07-10收盘等价数据)+复用18:24辩论4品种p4/p5产物(冻结数据辩论结论不变)，run_debate.py finalize重汇编+报告。",
+      "verdicts": {
+        "ZN": "做多0.70/15%",
+        "RM": "做多0.65/10%",
+        "J": "观望0.52/0%",
+        "JD": "观望0.52/0%"
+      }
     }
   ]
 }

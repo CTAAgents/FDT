@@ -674,7 +674,7 @@ class MultiSourceAdapter:
                 ak_period = _period_map.get(period, "60")
                 ak_symbol = variety.upper() + "0"
                 try:
-                    df = ak.futures_zh_minute_sina(symbol=ak_symbol, period=ak_period)
+                    df = self._safe_akshare(lambda: ak.futures_zh_minute_sina(symbol=ak_symbol, period=ak_period))
                 except Exception as _ak_e:
                     print(f"[MultiSource] AKShare分钟 {variety}: 无数据({_ak_e})")
                     df = None
@@ -807,7 +807,7 @@ class MultiSourceAdapter:
 
                 # AKShare 主力连续合约格式: {品种小写}0,如 bu0, fu0, pg0
                 ak_symbol = variety.lower() + "0"
-                df = ak.futures_zh_daily_sina(symbol=ak_symbol)
+                df = self._safe_akshare(lambda: ak.futures_zh_daily_sina(symbol=ak_symbol))
                 if df is not None and len(df) > 0:
                     records = []
                     for _, row in df.iterrows():
@@ -1138,6 +1138,27 @@ class MultiSourceAdapter:
         except Exception as e:
             print(f"[Warning] TqSDK fetch error: {e}")
             return None
+
+    def _safe_akshare(self, fn, timeout: int = 15):
+        """🐛 v5.12.1: 线程+超时包裹 AKShare 调用（对齐 TqSDK 做法）
+
+        AKShare 内部 requests 不设超时，数据源慢/不可达时会无限阻塞。
+        TDX 离线触发降级链触达 AKShare 时必须可超时返回 None，
+        否则整轮扫描挂死（2026-07-11 周六盘后扫描事故根因）。
+        """
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
+        _executor = ThreadPoolExecutor(max_workers=1)
+        _future = _executor.submit(fn)
+        try:
+            return _future.result(timeout=timeout)
+        except _FutureTimeout:
+            print(f"[Warning] AKShare fetch timeout ({timeout}s)")
+            return None
+        except Exception as _e:
+            print(f"[Warning] AKShare fetch error: {_e}")
+            return None
+        finally:
+            _executor.shutdown(wait=False)
 
     def _fetch_tqsdk_kline(
         self,
@@ -1519,7 +1540,7 @@ class MultiSourceAdapter:
 
             # AKShare 期货日线数据 - 使用 futures_main_sina 获取主力合约
             ak_symbol = variety.lower() + "0"
-            df = ak.futures_main_sina(symbol=ak_symbol)
+            df = self._safe_akshare(lambda: ak.futures_main_sina(symbol=ak_symbol))
 
             if df is not None and len(df) > 0:
                 # 中文列名映射

@@ -388,3 +388,28 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 - validate_agent_output 三分支：中→0.6通过 / 0.72→0.72通过 / xyz→exit1拒绝 ✅
 - confidence_utils 单测：中→0.6, 0.72→0.72, label(0.72)→高, is_valid(xyz)→False ✅
 - extract_knowledge.py / validate_agent_output.py py_compile 通过 ✅
+
+---
+
+## 2026-07-11 20:47 | 周六扫描挂死（✅已修复 v5.12.1·AKShare降级调用无超时）
+
+### 现象
+自动化20:47触发scan_monitored.py(34日线监测品种)，进程存活但~50分钟零产出，无落盘。Kill -9 PID1766后恢复。
+
+### 根因（代码核实·已更正）
+**不是TDX无超时**（两路TDX均有超时：tdx_bridge urlopen(timeout=15)、tdx_collector urlopen(timeout=10)）。
+真正漏洞在**降级链末端的AKShare**：`multi_source_adapter.get_kline` 的 daily 路径在 TDX 离线时降级到 AKShare（`ak.futures_zh_daily_sina` / `ak.futures_main_sina` 等），这些调用**既无 requests timeout，也未被 ThreadPoolExecutor 超时包裹**（而 TqSDK 有 `timeout=10` 包裹、东方财富有 `urlopen(timeout=15)`）。
+机制：18:24 轮 TDX 在线→`get_kline` 直接走 TDX 路径返回，**根本不触达 AKShare**→成功；20:47 轮 TDX 离线→降级链触达 AKShare→Sina 端点在收盘后慢/不可达→`ak.*` 无限阻塞→34品种逐个卡死。
+属"TDX可用性间歇 + AKShare降级路径无超时守护"双重因素。
+
+### 影响
+**每日风险**：盘后自动化每天20:15运行（工作日无周末门控保护），若彼时 TDX 本地客户端未运行（收盘后常关），必触发降级链→AKShare无超时→整轮无限挂起、无产出、进程空占直到手动 kill -9。周末手动重跑同理。
+
+### 修复（2026-07-11 22:07 已实施·掌柜授权"改"）
+- **根因修复（v5.12.1, plugins/marketplaces/.../data/multi_source_adapter.py）**：新增 `_safe_akshare(fn, timeout=15)` 方法（线程+超时，对齐 TqSDK 范式），将 3 处 AKShare 调用（`futures_zh_minute_sina` / `futures_zh_daily_sina` / `futures_main_sina`）统一包裹。超时返回 None 走下一降级源（numpy/EastMoney），不再无限阻塞。
+- **即时止损（workspace层 scan_monitored.py）**：`subprocess.run(cmd, timeout=1200)`，超时即中止并输出明确原因（退出码124），杜绝无限挂。
+- **验证**：py_compile 通过；超时机制单测——模拟30s无响应数据源在3s被拦截返回None（elapsed≈3s）。备份：`C:/Users/yangd/backups_fdt_akshare_timeout_20260711/`
+- **版本**：pyproject.toml 5.12.0 → 5.12.1
+
+### 本次处置
+复用18:24扫描(同2026-07-10收盘基准)+复用18:24辩论4品种产物，run_debate.py finalize重汇编debate_results.json并再生报告。数据等价，结论一致。
