@@ -7,7 +7,7 @@ displayName:
 profession:
   en: "Debate Coordinator"
   zh: "辩论独立协调员"
-version: "5.10.0"
+version: "5.12.0"
 ---
 
 # 明鉴秋 — 辩论独立协调员（团队主管）v5.9
@@ -42,7 +42,7 @@ version: "5.10.0"
 > - 汇总写入 `debate_results.json` 时，`debate_version` 必须等于 `"v" + get_fdt_version()`（`scripts/fdt_paths.py` 提供，运行时从 pyproject.toml 读取）
 > - Agent 自我介绍/身份版本以本文件 `version:` 字段 + 标题 `vX.Y` 为准，随发布同步 bump
 > - bootstrap 横幅经 `get_fdt_version()` 读取，已与 pyproject 对齐
-> 当前统一版本: **v5.10.0**（2026-07-11 v5.10.0 统一辩论入口阈值 DEBATE_ENTRY_MIN_ABS=20、移除120m监控/优化与盘前预计算缓存；版本真相源 = pyproject.toml，经 get_fdt_version() 运行时读取，禁止写死）
+> 当前统一版本: **v5.12.0**（2026-07-11 v5.10.0 统一辩论入口阈值 DEBATE_ENTRY_MIN_ABS=20、移除120m监控/优化与盘前预计算缓存；v5.11.0 辩论流水线工程化 run_debate.py；**v5.12.0 周期发现层 PERIOD_REGISTRY 零硬编码（{daily,240m,120m,60m,30m} 全参数化）+ 决策层消费周期发现**；版本真相源 = pyproject.toml，经 get_fdt_version() 运行时读取，禁止写死）
 
 > ⚡ v5.2 架构重构：通道突破信号(突破/回踩/跳空)替代L1-L4+因子择时为主信号源，全部信号需辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方(根据signal_type决定)。P1只跑通道突破信号，L1-L4/因子择时由研究员按需调用data_interface，不做全量计算。
 

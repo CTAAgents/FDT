@@ -695,3 +695,51 @@ def get_atr_adaptive_thresholds(chain_name: str, atr_pct: float) -> dict:
 
     base = {"strong_bullish": 30, "weak_bullish": 10, "strong_bearish": -30, "weak_bearish": -10}
     return {k: v * factor for k, v in base.items()}
+
+
+# ============================================================
+# 周期能力注册表（v5.11.0 FDT 周期发现层 — 单一真相源）
+# ============================================================
+# 【铁律】任何"有哪些周期 / 周期衍生属性"一律读本表，禁止在别处硬编码周期清单。
+# 新增/停用周期 = 改本表一行 enabled，全链路（扫描/评分/发现/决策）自动跟随。
+#   wf_key : 指向 knowledge_bridge.get_symbol_knowledge() 的 WF 测试准确率字段；
+#            None 表示该周期暂无 WF 数据 → 发现层自动退化（wf 维权重归零，靠 signal/gap 维）。
+#   gap_sensitive : 该周期是否对跳空敏感（决定默认执行风格）。
+#   exec_default : 默认执行风格键（见 EXEC_STYLE_MAP）。
+PERIOD_REGISTRY = {
+    "daily": {"enabled": True,  "minutes": 1440, "min_bars": 60,  "wf_key": "daily_test_accuracy", "gap_sensitive": True,  "exec_default": "limit_order"},
+    "240m":  {"enabled": True,  "minutes": 240,  "min_bars": 90,  "wf_key": None,                  "gap_sensitive": False, "exec_default": "next_bar_market"},
+    "120m":  {"enabled": True,  "minutes": 120,  "min_bars": 120, "wf_key": None,                  "gap_sensitive": False, "exec_default": "next_bar_market"},
+    "60m":   {"enabled": True,  "minutes": 60,   "min_bars": 120, "wf_key": "h_test_accuracy",     "gap_sensitive": False, "exec_default": "next_bar_market"},
+    "30m":   {"enabled": True,  "minutes": 30,   "min_bars": 200, "wf_key": None,                  "gap_sensitive": False, "exec_default": "next_bar_market"},
+}
+
+# 辩论主周期 / 60m 副周期（语义化常量，单一来源，禁止在编排脚本写死字面量）
+PRIMARY_PERIOD = "daily"
+HOURLY_PERIOD = "60m"
+
+# 周期发现适配分权重（可配置，不写死在引擎里）
+PERIOD_FITNESS_WEIGHTS = {
+    "wf_acc": 0.35,           # WF 测试准确率（有数据周期才生效）
+    "signal_strength": 0.45,  # 通道突破信号强度 |total|
+    "gap_risk": 0.20,         # 跳空/缺口风险（越低越好，1-gap 计入）
+}
+
+# 缺口风险 → 执行风格映射
+EXEC_STYLE_MAP = {
+    "limit_order": "限价单（避免跳空滑点）",
+    "next_bar_market": "次根市价（缺口不敏感）",
+}
+
+
+def enabled_periods() -> list:
+    """返回启用周期列表，按分钟数从大到小（大周期优先遍历，语义清晰）。"""
+    return sorted(
+        [p for p, c in PERIOD_REGISTRY.items() if c.get("enabled")],
+        key=lambda p: -PERIOD_REGISTRY[p]["minutes"],
+    )
+
+
+def period_meta(period: str) -> dict:
+    """取周期配置；未知周期安全回退 daily。"""
+    return PERIOD_REGISTRY.get(period, PERIOD_REGISTRY["daily"])

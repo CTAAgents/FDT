@@ -197,6 +197,19 @@ version: "2.2"
 ⑥ 更新各角色表现 → 追加到 `memory/debater_profiles.md`
 ```
 
+### 🆕 周期发现消费（v5.12.0 周期适配层 · 决策层读取）
+
+> 周期发现引擎（`skills/quant-daily/scripts/signals/period_fitness.py`）在 `daily_debate.py` 对候选品种算出 `period_fitness_{date}.json`，路径写入 `debate_trigger.json.period_fitness_path`。闫判官在准备期可加载该文件，把 `best_period` / `exec_style` / `gap_risk` 作为**上下文参考**（非硬指令）注入裁决：
+
+1. **准备期加载**：若 `debate_trigger.json.period_fitness_path` 存在 → 读取 `period_fitness_{date}.json`，按 `symbol` 取 `best_period`(最优交易周期)、`exec_style`(执行方式：限价单/次根市价)、`gap_risk`(跳空风险档)。
+2. **裁决追加字段**（与 direction/confidence 并列落库）：
+   - `recommended_period`：该品种更适合交易的周期（来自周期发现，非辩手自定）
+   - `exec_style`：建议执行方式（限价单 / 次根市价），由 `gap_risk` + 周期 `gap_sensitive` 决定
+3. **降级规则**：`period_fitness` 缺失/无信号 → `recommended_period` 默认 `"daily"`、`exec_style` 默认 `"limit_order"`，不报错、不阻断辩论。
+4. **中立约束**：周期发现是客观数据层结果，`best_period` 仅供辩手/策执远/风控明参考——**不得**在研究员中立层（证真/慎思）内生成或解读，否则违反研究员中立铁律。
+
+> 💡 周期发现解决"在哪个周期交易该品种更优"，与方向判断正交：方向由辩论决定，周期由数据适配分决定。
+
 ## 评分模型（通道突破信号+多因子视角+族加权+结构化输入）
 
 ### 🆕 步骤零：解析结构化论点（2026-07-09 通信效率优化）

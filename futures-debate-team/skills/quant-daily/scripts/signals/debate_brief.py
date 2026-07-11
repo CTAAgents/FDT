@@ -406,7 +406,7 @@ def _extract_factor(entry: dict) -> dict:
     }
 
 
-def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
+def build_signal_summary(l1l4_path: str, factor_path: str, period_fitness_path: str = None) -> dict:
     """
     构建双策略信号汇总表。
 
@@ -434,6 +434,13 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
     factor_map = {e["symbol"]: e for e in factor_data.get("all_ranked", [])}
     all_symbols = sorted(set(list(l1l4_map.keys()) + list(factor_map.keys())))
 
+    # 周期发现客观事实（如有）— 作为数据呈现，不做判断（研究员中立铁律）
+    pf_map = {}
+    if period_fitness_path and os.path.exists(period_fitness_path):
+        pf_data = _load_json(period_fitness_path)
+        for rec in pf_data.get("records", []):
+            pf_map[rec["symbol"]] = rec
+
     symbols = []
     for sym in all_symbols:
         l_entry = l1l4_map.get(sym, {"symbol": sym, "total": 0, "direction": "neutral", "grade": "NOISE", "name": sym})
@@ -447,6 +454,7 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
                 "l1l4": _extract_l1l4(l_entry),
                 "factor_timing": _extract_factor(f_entry),
                 "risk_input": _extract_risk_input(l_entry, f_entry),
+                "period_context": pf_map.get(sym),  # 客观周期发现事实，None 则无
             }
         )
 
@@ -458,6 +466,7 @@ def build_signal_summary(l1l4_path: str, factor_path: str) -> dict:
             "type": "signal_summary",
             "version": "1.0.0",
             "source": "quant-daily (纯数据输出, 不做判断)",
+            "period_fitness": "injected" if pf_map else "none",
             "total_symbols": len(symbols),
             "l1l4_strategy": l1l4_meta.get("strategy", "layered_l1l4"),
             "factor_strategy": factor_meta.get("strategy", "factor_timing"),
@@ -905,13 +914,14 @@ if __name__ == "__main__":
     parser.add_argument("factor_path", help="factor_timing 策略 JSON 路径")
     parser.add_argument("-o", "--output-dir", help="输出目录", default=".")
     parser.add_argument("-p", "--prefix", help="文件名前缀", default="signal_summary")
+    parser.add_argument("--period-fitness", help="周期发现结果JSON路径（可选，注入period_context）", default=None)
     parser.add_argument("--select-debate", help="链映射JSON路径，启用辩论品种精选", default=None)
     parser.add_argument("--min-count", type=int, help="最少辩论品种数", default=20)
     parser.add_argument("--min-chains", type=int, help="最少覆盖产业链数", default=12)
     parser.add_argument("--history-path", help="历史反馈JSON路径（可选）", default=None)
     args = parser.parse_args()
 
-    summary = build_signal_summary(args.l1l4_path, args.factor_path)
+    summary = build_signal_summary(args.l1l4_path, args.factor_path, period_fitness_path=args.period_fitness)
     os.makedirs(args.output_dir, exist_ok=True)
 
     json_path = os.path.join(args.output_dir, f"{args.prefix}.json")

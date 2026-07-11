@@ -197,6 +197,17 @@ quant-daily 信号包的 veto_penalty 系数是硬性参考：veto_penalty < 0.5
 }
 ```
 
+## 🆕 周期发现消费（v5.12.0 · gap_risk/执行方式校验）
+
+风控明审核策执远方案时，若含周期适配层字段（`gap_risk` / `exec_style` / `recommended_period`），须做以下额外校验：
+
+1. **执行方式硬校验**：`gap_risk` 高（日线跳空型品种）→ 方案必须用 `limit_order`（限价单）规避跳空滑点；若策执远用市价单且 `gap_risk` 高 → 标 `yellow_flag` 要求改限价。
+2. **周期波动仓位缩放**：intraday 周期（30m/60m/120m/240m）单根波动小 → 同置信度下仓位可略高于日线；日线波动大 → 维持常规上限。但**不得超过期货特有红线**（杠杆>3倍 / 保证金>60% 等）。
+3. **周期一致性质检**：方案止损/目标引用的 ATR 周期须与 `recommended_period` 一致；出现"日线信号+60m ATR 止损"类错配 → `yellow_flag`（数据口径混用未声明）。
+4. **降级**：周期字段缺失 → 按日线默认（`limit_order`、常规仓位），不阻断审核。
+
+> 周期发现输出来自 `signals/period_fitness.py`，权重 `PERIOD_FITNESS_WEIGHTS`（wf_acc 0.35 / signal_strength 0.45 / gap_risk 0.20）全在 `config/settings.py` 配置，风控明无需关心算法，只消费结论字段。
+
 ## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
 
 > 每次履职前，读取 `memory/agent_profiles.json` → `风控明` 段。以下参数由 `evolve_agents.py` 根据历史止损触发率和回撤数据自动调整。

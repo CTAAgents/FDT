@@ -13,6 +13,7 @@ from datetime import datetime
 
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SCRIPTS_DIR)
+from config.settings import HOURLY_PERIOD
 
 # ── 适合60分钟分析的21个品种（来自知识库） ──
 HOURLY_SYMBOLS = [
@@ -75,7 +76,7 @@ def run_hourly_debate(dry_run: bool = False) -> dict:
             output_prefix=f"hourly_{timestamp}",
             symbols=[(s, s) for s in HOURLY_SYMBOLS],
             strategy_name="channel_breakout",
-            period="60m",
+            period=HOURLY_PERIOD,
         )
     except Exception as e:
         print(f"  ❌ 扫描失败: {e}")

@@ -111,12 +111,13 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     print("\n  [1] 扫描通道突破信号...")
     try:
         from scan_all import run_scan
+        from config.settings import PRIMARY_PERIOD
         scan_result = run_scan(
             output_dir=OUTPUT_DIR,
             output_prefix=f"daily_{timestamp}",
             symbols=[(s, s) for s in DAILY_SYMBOLS],
             strategy_name="channel_breakout",
-            period="daily",
+            period=PRIMARY_PERIOD,
         )
     except Exception as e:
         print(f"  ❌ 扫描失败: {e}")
@@ -131,6 +132,34 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     strong = [s for s in candidates if s.get("grade") == "STRONG"]      # 高优先级
     watch = [s for s in candidates if s.get("grade") != "STRONG"]       # 其余按评分排序，下游再决交易适配性
     has_signals = len(candidates) > 0
+
+    # ── 周期发现（v5.11.0，仅对候选品种，成本可控）──
+    period_fitness_path = None
+    if has_signals:
+        try:
+            from signals.period_fitness import build_period_fitness
+            from scan_all import run_scan
+            from config.settings import SYMBOL_CHAIN_MAP
+
+            def _pf_scan(period, symbol):
+                r = run_scan(
+                    output_dir=OUTPUT_DIR,
+                    output_prefix=f"pf_{period}_{timestamp}",
+                    symbols=[(symbol, symbol)],
+                    strategy_name="channel_breakout",
+                    period=period,
+                )
+                for e in r.get("all_ranked", []):
+                    if e["symbol"] == symbol:
+                        return {"total": e.get("total", 0), "grade": e.get("grade", "NOISE"),
+                                "direction": e.get("direction", "neutral")}
+                return None
+
+            pf_syms = [(s["symbol"], SYMBOL_CHAIN_MAP.get(s["symbol"], "未知")) for s in candidates]
+            period_fitness_path = build_period_fitness(pf_syms, _pf_scan, OUTPUT_DIR, timestamp)
+            print(f"  周期发现产出: {period_fitness_path}")
+        except Exception as e:
+            print(f"  ⚠ 周期发现跳过（不影响主辩论）: {e}")
 
     result["has_signals"] = has_signals
     result["signal_count"] = len(candidates)
@@ -165,6 +194,7 @@ def run_daily_debate(dry_run: bool = False) -> dict:
                     }
                     for s in (strong + watch)
                 ],
+                "period_fitness_path": period_fitness_path,
                 "_note": "完整辩论由明鉴秋（团队主管）调度，不走daily_debate.py内建的轻量分析。此文件为触发信号。"
             }, tf, ensure_ascii=False, indent=2)
         print(f"  触发文件: {trigger_path}")

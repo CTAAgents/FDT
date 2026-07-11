@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-07-11 20:52 — 版本发布 v5.12.0 + 周期发现层
+
+- **版本号**：`pyproject.toml` 5.11.0 → **5.12.0**（唯一真相源，`get_fdt_version()` 运行时读取）；`.version_history.json` 追加 v5.12.0 条目；`team-lead.md` frontmatter/正文版本 `5.10.0`→`5.12.0`（补 5.11.0 遗漏）。
+- **周期发现引擎**：新增 `skills/quant-daily/scripts/signals/period_fitness.py`（discover() 纯函数 + build_period_fitness() 批量产出 `period_fitness_{date}.json`），零硬编码、全参数化；`config/settings.py` 新增 `PERIOD_REGISTRY`（{daily,240m,120m,60m,30m} 单一真相源）、`enabled_periods()`/`period_meta()`/`PERIOD_FITNESS_WEIGHTS`/`EXEC_STYLE_MAP`。
+- **编排接入**：`daily_debate.py` 对候选品种算周期发现并写入 `debate_trigger.json.period_fitness_path`；`debate_brief.build_signal_summary` 注入 `period_context`；`hourly_debate.py` 读 `HOURLY_PERIOD`。
+- **决策层消费**：`futures-judge.md`/`futures-trading-strategist.md`/`futures-risk-manager.md` 各新增「周期发现消费」段（best_period/exec_style/gap_risk 与方向正交、非硬指令、缺失降级日线）。
+- **验证**：Demo 用合成 cu/lc 数据验证 discover() —— cu→daily(限价单)、lc→60m(次根市价)、无信号优雅降级 has_signal=False；py_compile 通过。
+
+---
+
+## 2026-07-11 19:08 — 版本发布 v5.11.0 + GitHub 推送
+
+- **版本号**：`pyproject.toml` 5.10.0 → **5.11.0**（唯一真相源，`get_fdt_version()` 运行时读取=5.11.0 已验证对齐）；`.version_history.json` 追加 v5.11.0 条目。
+- **README.md**：标题/版本说明更新至 v5.11.0 + 新增「一键辩论驱动（run_debate.py）」章节（plan/assemble/extract/report 用法 + data_benchmark 约定）。
+- **文档**：`docs/optimization/fdt_debate_redesign_20260711.md` 状态由"设计稿"标为"✅已实施并验证通过"。
+- **GitHub**：`sync_experts_to_github.py` 推送 `futures-debate-team/` 全目录 → CTAAgents/experts (main)，Commit `dd245c6`（含 v5.11.0 + 上一轮 zn/rm 知识萃取产物）。
+
+---
+
 ## 2026-07-11 19:05 — 辩论流水线 redesign 实施（B/D/E/G/C/F 全落地）
 
 | 模块 | 文件 | 关键变更 |
