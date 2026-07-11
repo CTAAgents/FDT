@@ -1066,13 +1066,17 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
         # ===== 使用calc_position_risk做真实风控计算 =====
         if _risk_engine_loaded and entry and sl:
             try:
+                def _pv(v, d=0.0):
+                    return v.get("price", d) if isinstance(v, dict) else (v if isinstance(v, (int, float)) else d)
+                entry_n = _pv(entry)
+                sl_n = _pv(sl)
                 lot_size = 10
                 if pid.lower() in ("au", "ag"): lot_size = 1000
                 elif pid.lower() == "sc": lot_size = 1000
                 elif pid.lower() == "ec": lot_size = 50
-                stop_points = abs(entry - sl)
+                stop_points = abs(entry_n - sl_n)
                 risk_result = calc_position_risk(
-                    price=entry, lot_size=lot_size, margin_rate=0.10,
+                    price=entry_n, lot_size=lot_size, margin_rate=0.10,
                     equity=1000000, stop_loss_points=stop_points, lots=1
                 )
                 if risk_result:
@@ -1128,8 +1132,15 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
             if risk_level == "green": risk_level = "yellow"
 
         # 盈亏比合理性检查（基于支撑压力位的判断）
-        stop_pct = abs(entry - sl) / entry * 100 if entry else 0
-        target_pct = abs(target - entry) / entry * 100 if entry else 0
+        def _num(v, d=0):
+            """从 dict 或数值中提取价格数值"""
+            return v.get("price", d) if isinstance(v, dict) else (v if isinstance(v, (int, float)) else d)
+
+        entry_n = _num(entry)
+        sl_n = _num(sl)
+        target_n = _num(target)
+        stop_pct = abs(entry_n - sl_n) / entry_n * 100 if entry_n else 0
+        target_pct = abs(target_n - entry_n) / entry_n * 100 if entry_n else 0
         actual_rr = target_pct / stop_pct if stop_pct > 0 else 0
         if actual_rr < 1.5:
             flags.append(f"🔴 盈亏比{actual_rr:.1f}:1<1.5:1，风险回报不合理，建议放弃或调目标位")
@@ -1554,9 +1565,12 @@ def build_debate_report():
             v_conf = d.get("confidence", "")
 
         # 交易方案
-        entry = d.get("entry_price", 0)
-        target = d.get("target_price", 0)
-        sl = d.get("stop_loss_price", 0)
+        def _p(v, d=0):
+            return v.get("price", d) if isinstance(v, dict) else (v if isinstance(v, (int, float)) else d)
+
+        entry = _p(d.get("entry_price", 0))
+        target = _p(d.get("target_price", 0))
+        sl = _p(d.get("stop_loss_price", 0))
         pos = d.get("position_size", 0)
         rr = d.get("risk_reward_ratio", 0)
         chain = d.get("chain", "")
@@ -1573,6 +1587,16 @@ def build_debate_report():
             bear_args = bear_args or fallback_bear
 
         # 具体的操作策略
+        def _nz(v, d=0):
+            """None → 默认值"""
+            return v if v is not None else d
+
+        entry = _nz(entry)
+        target = _nz(target)
+        sl = _nz(sl)
+        pos = _nz(pos)
+        rr = _nz(rr)
+
         stop_pct = f"{abs((sl-entry)/entry*100):.1f}" if entry != 0 else "N/A"
         if v == "BUY":
             strategy_desc = (

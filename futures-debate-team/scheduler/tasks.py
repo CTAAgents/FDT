@@ -338,6 +338,69 @@ def ml_training_check() -> TaskResult:
     )
 
 
+# ─── 自优化增强：四技能流水线任务 ────────────────────
+
+
+@register_task("self_optimize_analysis")
+def self_optimize_analysis() -> TaskResult:
+    """SkillAdaptor 归因分析 —— 解析 debate_results.json → 步级故障归因"""
+    start = datetime.now()
+    _log("🔍 自优化分析（SkillAdaptor 归因）")
+
+    success, summary = _run_script(
+        "scripts/self_improve.py", "--mode=analyze", timeout=120
+    )
+
+    return TaskResult(
+        task_name="self_optimize_analysis",
+        success=success,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if success else summary,
+    )
+
+
+@register_task("self_optimize_evolve")
+def self_optimize_evolve() -> TaskResult:
+    """Skillevolver 技能层进化 —— 高置信度故障 → Agent MD 补丁"""
+    start = datetime.now()
+    _log("🧬 自优化进化（Skillevolver 技能层）")
+
+    success, summary = _run_script(
+        "scripts/skillevolver_evolution.py", timeout=180
+    )
+
+    return TaskResult(
+        task_name="self_optimize_evolve",
+        success=success,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if success else summary,
+    )
+
+
+@register_task("self_optimize_verify")
+def self_optimize_verify() -> TaskResult:
+    """Autoresearch A/B 验证 —— 对比 baseline vs evolved"""
+    start = datetime.now()
+    _log("✅ 自优化验证（Autoresearch A/B）")
+
+    success, summary = _run_script(
+        "scripts/verify_evolution.py", "--ab-test", timeout=120
+    )
+
+    return TaskResult(
+        task_name="self_optimize_verify",
+        success=success,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if success else summary,
+    )
+
+
 # ─── 直接运行（模拟调度） ──────────────────────────────
 
 if __name__ == "__main__":

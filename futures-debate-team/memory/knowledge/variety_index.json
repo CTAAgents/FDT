@@ -23,10 +23,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 1,
-      "effective_patterns": 1,
+      "total_debates": 2,
+      "effective_patterns": 2,
       "key_levels_updated": "2026-07-11 07:43",
-      "drivers_updated": "2026-07-11 07:43"
+      "drivers_updated": "2026-07-12 01:14",
+      "patterns_updated": "2026-07-12 01:13"
     },
     "ag": {
       "name": "白银",
@@ -124,10 +125,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 3,
+      "total_debates": 5,
       "effective_patterns": 1,
-      "key_levels_updated": "2026-07-11 07:42",
-      "drivers_updated": "2026-07-11 07:42"
+      "key_levels_updated": "2026-07-11 22:52",
+      "drivers_updated": "2026-07-12 01:13",
+      "patterns_updated": "2026-07-11 22:52"
     },
     "hc": {
       "name": "热轧卷板",
@@ -135,11 +137,13 @@
       "chain": "黑色系",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "ss": {
       "name": "不锈钢",
@@ -147,11 +151,13 @@
       "chain": "黑色系",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "ru": {
       "name": "天然橡胶",
@@ -231,11 +237,13 @@
       "chain": "有色金属",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "ad": {
       "name": "铸造铝合金",
@@ -279,11 +287,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "m": {
       "name": "豆粕",
@@ -291,11 +301,14 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
-      "key_levels": false,
+      "patterns": true,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 2,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 00:15",
+      "key_levels_updated": "2026-07-12 01:12",
+      "drivers_updated": "2026-07-12 01:12"
     },
     "y": {
       "name": "豆油",
@@ -303,11 +316,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "p": {
       "name": "棕榈油",
@@ -315,11 +330,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "c": {
       "name": "玉米",
@@ -327,11 +344,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "cs": {
       "name": "玉米淀粉",
@@ -464,11 +483,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 1,
-      "effective_patterns": 1,
-      "patterns_updated": "2026-07-11 08:29",
+      "total_debates": 2,
+      "effective_patterns": 2,
+      "patterns_updated": "2026-07-12 01:13",
       "key_levels_updated": "2026-07-11 08:29",
-      "drivers_updated": "2026-07-11 08:30"
+      "drivers_updated": "2026-07-12 01:13"
     },
     "lh": {
       "name": "生猪",
@@ -488,11 +507,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "bb": {
       "name": "胶合板",
@@ -572,11 +593,13 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "fg": {
       "name": "玻璃",
@@ -584,11 +607,13 @@
       "chain": "建材",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "sa": {
       "name": "纯碱",
@@ -596,11 +621,13 @@
       "chain": "能源化工",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:13",
+      "drivers_updated": "2026-07-12 01:13"
     },
     "sh": {
       "name": "烧碱",
@@ -853,11 +880,13 @@
       "chain": "新能源",
       "profile": true,
       "drivers": true,
-      "patterns": false,
+      "patterns": true,
       "key_levels": false,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 1,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-12 01:14",
+      "drivers_updated": "2026-07-12 01:14"
     },
     "ps": {
       "name": "多晶硅",
@@ -904,10 +933,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 1,
-      "effective_patterns": 1,
+      "total_debates": 2,
+      "effective_patterns": 2,
       "key_levels_updated": "2026-07-11 07:42",
-      "drivers_updated": "2026-07-11 07:42"
+      "drivers_updated": "2026-07-12 01:13",
+      "patterns_updated": "2026-07-12 01:13"
     },
     "lu": {
       "name": "低硫燃料油",

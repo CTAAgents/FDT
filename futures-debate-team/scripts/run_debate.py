@@ -43,7 +43,8 @@ from pathlib import Path
 # ── FDT 根目录（本文件在 scripts/ 下）──
 ROOT = Path(__file__).resolve().parent.parent
 QUANT_DAILY = ROOT / "skills" / "quant-daily" / "scripts"
-FTA_SCRIPTS = ROOT / "skills" / "futures-trading-analysis" / "scripts"
+# extract_knowledge.py 在 scripts/ 下，不在 futures-trading-analysis/ 下
+SCRIPTS = ROOT / "scripts"
 
 
 # ─────────────────────────────────────────────
@@ -137,13 +138,17 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
         p5_c = ws / f"p5_coherence_{sym}.json"
         p5_r = ws / f"p5_risk_review_{sym}.json"
 
-        # 证真（正方 = 信号方向）
+        # 证真（正方 = 信号方向）—— 输出格式必须严格匹配以下Schema
+        _p4_schema = ('{"symbol":"str","direction":"str","agent":"zhengzhen","generated_at":"YYYY-MM-DD HH:MM",'
+                      '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
+                      '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
         zhengzhen_prompt = (
             f"你是证真(正方)辩手，论证品种 {sym} 的{direction}信号({grade})有效性。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"从研究员/链证源资料中提炼≥3条{direction}论据，每条附来源标注。\n"
-            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_z}（key_arguments 列表，每项含 claim/evidence/source）。"
+            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema}\n"
+            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_z}"
         )
         # 慎思（反方）
         zhensi_prompt = (
@@ -151,32 +156,50 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"从研究员/链证源资料中提炼≥3条反向论据，每条附来源标注。\n"
-            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_s}（key_arguments 列表，每项含 claim/evidence/source）。"
+            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema}\n"
+            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_s}"
         )
-        # 闫判官
+        # 闫判官输出Schema
+        _p5j_schema = ('{"agent":"judge","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
+                       '"verdict":"bull/bear/neutral","confidence":"高/中/低",'
+                       '"bull_score":0-100,"bear_score":0-100,"winner":"zhengzhen/zhensi",'
+                       '"reasoning":"str",'
+                       '"score_breakdown":{"technical":{"bull":0,"bear":0},"fundamental":{...},"sentiment":{...},'
+                       '"risk_reward":{...},"timing":{...},"chain_resonance":{...}}}')
         judge_prompt = (
             f"你是闫判官，裁决品种 {sym}（方向信号 {direction}/{grade}）。\n"
             f"{_adx_reversal_rule()}\n"
-            f"读取 {p4_z} 与 {p4_s}，主持交叉质询后输出裁决到 {p5_j}：\n"
-            f"final_direction( bull/bear/neutral )、confidence(0-1数值或高/中/低)、reasoning、score_breakdown(6维0-100)。\n"
+            f"读取 {p4_z} 与 {p4_s}，主持交叉质询后输出裁决到 {p5_j}。\n"
+            f"【重要】输出JSON必须严格匹配以下Schema：\n{_p5j_schema}\n"
             f"禁止向其他 Agent 发消息，仅读文件。"
         )
-        # 策执远
+        # 策执远输出Schema
+        _p5t_schema = ('{"agent":"trading_planner","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
+                       '"direction":"bull/bear","action":"buy_long/sell_short","timeframe":"str",'
+                       '"contract":"str",'
+                       '"entry":{"type":"limit/market","price":0.0,"condition":"str"},'
+                       '"stop_loss":{"price":0.0,"type":"fixed/trailing/atr","atr_multiple":0},'
+                       '"targets":[{"level":1,"price":0.0,"position_reduce_pct":50}],'
+                       '"position_pct":0.0,"risk_reward_ratio":0.0}')
         plan_prompt = (
-            f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案，写入 {p5_t}：\n"
-            f"entry/stop_loss/target_1/target_2/position_pct/contract。\n"
+            f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案，写入 {p5_t}。\n"
+            f"【重要】输出JSON必须严格匹配以下Schema（entry和stop_loss是dict类型，不是纯数字）：\n{_p5t_schema}\n"
             f"监控条件不以ADX为首要触发，价格突破+量确认排第一。"
         )
-        # 一致性裁判（非阻断审计）
+        # 一致性裁判
         coherence_prompt = (
             f"你是一致性裁判，审计 {sym} 裁决是否真正源于辩论论据（不重写论据）。\n"
             f"读取 {p4_z}/{p4_s}/{p5_j}，输出 coherence_score(0-100)+rationale 到 {p5_c}。"
         )
-        # 风控明
+        # 风控明输出Schema
+        _p5r_schema = ('{"agent":"risk_manager","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
+                       '"risk_level":"高/中/低","veto":false,'
+                       '"risk_items":[{"category":"str","description":"str","mitigation":"str"}],'
+                       '"recommendation":"str"}')
         risk_prompt = (
             f"你是风控明，审核 {sym} 方案 {p5_t}。\n"
             f"ADX风险标记降级为辅助参考，不独立构成否决理由。\n"
-            f"输出 risk_level(高/中/低)/veto/risk_items 到 {p5_r}。"
+            f"【重要】输出JSON必须严格匹配以下Schema：\n{_p5r_schema}"
         )
 
         plan["symbols"].append({
@@ -222,6 +245,15 @@ def poll_file_ready(path: str, timeout: int = 900, stable_seconds: int = 5) -> b
 # ─────────────────────────────────────────────
 # 组装 debate_results.json（per_pid，含 data_benchmark）
 # ─────────────────────────────────────────────
+def _extract_price(val, default=0):
+    """从 p5_trading_plan 提取数值价格。entry/stop_loss 可能是 dict 或纯数字。"""
+    if isinstance(val, dict):
+        return val.get("price", val.get("entry", default))
+    if isinstance(val, (int, float)):
+        return val
+    return default
+
+
 def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
     ws = Path(workspace)
     verdicts = {}
@@ -229,39 +261,53 @@ def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
     for item in plan["symbols"]:
         sym = item["symbol"]
         f = item["files"]
+        p4z = p4s = p5j = p5t = p5r = None
         try:
-            p4z = json.load(open(f["p4_zhengzhen"], encoding="utf-8"))
-            p4s = json.load(open(f["p4_zhensi"], encoding="utf-8"))
-            p5j = json.load(open(f["p5_judge"], encoding="utf-8"))
-            p5t = json.load(open(f["p5_trading_plan"], encoding="utf-8"))
-            p5r = json.load(open(f["p5_risk_review"], encoding="utf-8"))
-        except FileNotFoundError as e:
-            print(f"  ⚠️ {sym} 缺文件: {e.filename}，跳过组装")
+            if os.path.exists(f["p4_zhengzhen"]):
+                p4z = json.load(open(f["p4_zhengzhen"], encoding="utf-8"))
+            if os.path.exists(f["p4_zhensi"]):
+                p4s = json.load(open(f["p4_zhensi"], encoding="utf-8"))
+            if os.path.exists(f["p5_judge"]):
+                p5j = json.load(open(f["p5_judge"], encoding="utf-8"))
+            if os.path.exists(f["p5_trading_plan"]):
+                p5t = json.load(open(f["p5_trading_plan"], encoding="utf-8"))
+            if os.path.exists(f["p5_risk_review"]):
+                p5r = json.load(open(f["p5_risk_review"], encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+
+        if not p5j:
+            print(f"  ⚠️ {sym} 缺 p5_judge，跳过")
             continue
 
         jv = p5j.get("judge_verdict", p5j)
+        direction = str(jv.get("final_direction", jv.get("verdict", jv.get("direction", "")))).upper() or "NEUTRAL"
+        entry = _extract_price(p5t.get("entry")) if p5t else 0
+        sl = _extract_price(p5t.get("stop_loss")) if p5t else 0
+        target = _extract_price(p5t.get("targets", [{}])[0]) if p5t and p5t.get("targets") else 0
+
         verdicts[sym] = {
             "symbol": sym,
             "name": sym,
-            "direction": str(jv.get("final_direction", p5j.get("direction", ""))).upper(),
-            "verdict": str(jv.get("final_direction", p5j.get("direction", ""))).upper(),
+            "direction": direction,
+            "verdict": direction,
             "confidence": jv.get("confidence", p5j.get("confidence")),
             "reasoning": jv.get("reasoning", p5j.get("reasoning")),
             "signal_type": scan_signal_type(scan, sym),
             "grade": item["grade"],
             "total_score": next((s.get("total") for s in scan.get("all_ranked", []) if s.get("symbol") == sym), None),
             "winner": jv.get("winner", p5j.get("winner", "")),
-            "price": p5t.get("entry"),
+            "price": entry,
             "atr": scan_atr(scan, sym),
             "adx": scan_adx(scan, sym),
             "rsi": scan_rsi(scan, sym),
             "cci": scan_cci(scan, sym),
-            "chain": p5t.get("chain") or scan_chain(scan, sym),
-            "entry_price": p5t.get("entry"),
-            "target_price": p5t.get("target_1"),
-            "stop_loss_price": p5t.get("stop_loss"),
-            "position_size": p5t.get("position_pct"),
-            "contract": p5t.get("contract"),
+            "chain": (p5t.get("chain") if p5t else None) or scan_chain(scan, sym),
+            "entry_price": entry,
+            "target_price": target,
+            "stop_loss_price": sl,
+            "position_size": p5t.get("position_pct") if p5t else None,
+            "contract": p5t.get("contract") if p5t else None,
             "judge_verdict": {
                 "final_direction": jv.get("final_direction"),
                 "confidence": jv.get("confidence"),
@@ -270,12 +316,14 @@ def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
                 "score_breakdown": jv.get("score_breakdown"),
             },
             "bull_args": [f"{sym}-pro{i+1}: {a.get('claim', a.get('point', ''))}"
-                         for i, a in enumerate(p4z.get("key_arguments", []))],
+                         for i, a in enumerate((p4z or {}).get("key_arguments", []))],
             "bear_args": [f"{sym}-con{i+1}: {a.get('claim', a.get('point', ''))}"
-                         for i, a in enumerate(p4s.get("key_arguments", []))],
-            "trading_plan": p5t,
-            "risk_review": p5r,
+                         for i, a in enumerate((p4s or {}).get("key_arguments", []))],
+            "trading_plan": p5t or {},
+            "risk_review": p5r or {},
         }
+        has_plan = "完整" if (p5t and p5r) else "仅裁决"
+        print(f"  ✅ {sym} {direction}（{has_plan}）")
 
     out = {
         "round_id": f"FDT_{datetime.now().strftime('%Y%m%d')}_auto",
@@ -329,7 +377,7 @@ def run_extract(workspace: str) -> int:
         print(f"✗ 未找到 {dr}")
         return 1
     cmd = [sys.executable,
-            str(FTA_SCRIPTS / "extract_knowledge.py"), "ingest_from",
+            str(SCRIPTS / "extract_knowledge.py"), "ingest_from",
             "--from", str(dr)]
     print(f"🔍 知识萃取（批量，conf<0.6 自动跳过）: {' '.join(cmd)}")
     return subprocess.call(cmd)
@@ -341,7 +389,7 @@ def run_extract(workspace: str) -> int:
 def run_report(workspace: str) -> int:
     ws = Path(workspace)
     cmd = [sys.executable,
-            str(FTA_SCRIPTS / "phase3_generate_report.py"),
+            str(ROOT / "skills" / "futures-trading-analysis" / "scripts" / "phase3_generate_report.py"),
             "--debate", str(ws / "debate_results.json"),
             "--workspace", str(ws)]
     print(f"📊 生成辩论报告: {' '.join(cmd)}")

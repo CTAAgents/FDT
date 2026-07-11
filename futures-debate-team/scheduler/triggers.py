@@ -329,4 +329,26 @@ def get_default_triggers() -> list:
             hour=8,
             minute=45,
         ),
+        # 11. 自优化分析：每次新辩论记录触发 SkillAdaptor 归因
+        DataTrigger(
+            task_name="self_optimize_analysis",
+            data_path="memory/debate_journal.json",
+            count_key="entries",
+            threshold=1,
+            cooldown_minutes=360,  # 6小时冷却
+        ),
+        # 12. 自优化进化：每日15:35（收盘后）Skillevolver 技能层进化
+        TimeTrigger(
+            task_name="self_optimize_evolve",
+            weekdays=[0, 1, 2, 3, 4],  # 工作日
+            hour=15,
+            minute=35,
+        ),
+        # 13. 自优化验证：每周一08:50（discipline_enforce 后）Autoresearch A/B
+        TimeTrigger(
+            task_name="self_optimize_verify",
+            weekdays=[0],  # 仅周一
+            hour=8,
+            minute=50,
+        ),
     ]

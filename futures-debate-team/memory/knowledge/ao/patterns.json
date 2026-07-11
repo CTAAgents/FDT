@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "ao-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-12",
+    "last_used": "2026-07-12 01:13",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "趋势确认 → 趋势确认 → 趋势确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

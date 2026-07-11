@@ -1,24 +1,27 @@
 """
-FDT Stage 3 自改进脚手架 (self_improve)
-========================================
-消费三类诊断输入，产出"改进建议清单"（CLQT 阶段三：harness 自改进 的最小骨架）。
-不直接修改 Agent / skill 定义 —— 仅生成 proposal，待人工审阅或 ≥5 轮数据后接入自动执行。
+FDT Stage 3 自改进脚手架 (self_improve) — 增强版
+===================================================
+消费三类诊断输入，产出"改进建议清单"（CLQT 阶段三）。
 
-输入：
-  - memory/apm_scorecard.json    五轴诊断（D4 违规、D2 退化信号）
-  - memory/failure_clusters.json 阶段一 Telescope 失败模式聚类
-  - benchmarks/benchmark_replay.json  ViBench 回放结果
+已集成四技能流水线（v2026-07-11）：
+  1. SkillAdaptor → 步级故障归因（替代模糊 proposal）
+  2. Skillevolver → 高置信度故障自动生成 Agent MD 补丁
+  3. EmbodiSkill → 四种反思分类（discovery/optimization/defect/lapse）
+  4. Autoresearch → A/B 验证 + 自动驳回回滚
 
-输出：
-  - memory/self_improve_log.json  append 模式，保存每次生成的建议
-
-用法：
-  python scripts/self_improve.py
+工作流：
+  L2 诊断数据 → SkillAdaptor 步级归因 → 置信度≥0.8 → Skillevolver 补丁 → Autoresearch 验证 → deploy/rollback
+                                                                 置信度<0.8 → proposal（人工介入）
 """
 
 import json
 from datetime import datetime
 from pathlib import Path
+
+from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
+from scripts.embodiskill_reflect import EmbodiSkillReflector
+from scripts.skillevolver_evolution import SkillEvolver
+from scripts.verify_evolution import EvolutionVerifier
 
 PROJECT_ROOT = Path(__file__).parent.parent
 MEMORY_DIR = PROJECT_ROOT / "memory"
@@ -106,12 +109,105 @@ def generate_improvement_suggestions(sc, clusters, replay):
     return suggestions
 
 
+def enhanced_generate_with_evolution(sc, clusters, replay):
+    """增强版建议生成：集成四技能流水线。
+
+    与 ``generate_improvement_suggestions`` 并存的增强入口。
+
+    **执行流程**：
+    1. SkillAdaptor 步级归因（从 debate_results.json 解析轨迹）
+    2. EmbodiSkill 四种反思分类
+    3. 高置信度(≥0.8) → 自动触发 Skillevolver 进化 + Autoresearch 验证
+    4. 低置信度(<0.8) → 保持 proposal 状态
+    """
+    suggestions = generate_improvement_suggestions(sc, clusters, replay)
+
+    # ── 1) SkillAdaptor: 轨迹解析 + 故障归因 ──
+    analyzer = TrajectoryAnalyzer(PROJECT_ROOT)
+    attributor = FaultAttributor()
+    reflector = EmbodiSkillReflector(PROJECT_ROOT)
+    evolver = SkillEvolver(PROJECT_ROOT)
+    verifier = EvolutionVerifier(PROJECT_ROOT)
+
+    debate_results_path = PROJECT_ROOT / "data" / "debate_results.json"
+    if debate_results_path.exists():
+        try:
+            data = json.loads(debate_results_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    else:
+        data = {}
+
+    trajectory = analyzer.parse({"debate_results": data})
+    if not trajectory:
+        return suggestions  # fallback to original proposals
+
+    # ── 2) 故障归因 ──
+    faults = attributor.attribute(trajectory)
+
+    # ── 3) EmbodiSkill 反思 ──
+    for step in trajectory:
+        reflector.reflect_on_trajectory([step], "")
+
+    # ── 4) 分类处理 ──
+    for fault in faults:
+        confidence = fault.get("confidence", 0.0)
+        if confidence >= 0.8:
+            # 自动进化流水线
+            updates = evolver.run_evolution_cycle(faults=[fault], dry_run=False)
+            for u in updates:
+                if u.get("status") == "ready":
+                    # Autoresearch A/B 验证
+                    ab_result = verifier.verify(
+                        "baseline (current config)",
+                        f"evolved ({fault.get('fault_agent', '?')})",
+                    )
+                    suggestion = {
+                        "source": "skill_adaptor+skillevolver",
+                        "priority": "P0",
+                        "target_file": u.get("target_file", ""),
+                        "patch": u.get("patch", ""),
+                        "fault_type": fault.get("fault_type", ""),
+                        "fault_agent": fault.get("fault_agent", ""),
+                        "fault_step": fault.get("fault_step_id", ""),
+                        "confidence": confidence,
+                        "ab_verdict": ab_result.get("verdict", "rejected"),
+                        "ab_delta": ab_result.get("delta", 0.0),
+                        "status": "approved" if ab_result.get("verdict") == "approved" else "pending_manual",
+                    }
+                    suggestions.append(suggestion)
+                else:
+                    suggestions.append({
+                        "source": "skillevolver",
+                        "priority": "P1",
+                        "fault_agent": fault.get("fault_agent", ""),
+                        "fault_type": fault.get("fault_type", ""),
+                        "status": "rejected_audit",
+                        "confidence": confidence,
+                        "audit_failures": u.get("audit_failures", []),
+                    })
+        else:
+            # 低置信度 → proposal（人工介入）
+            suggestions.append({
+                "source": "skill_adaptor",
+                "priority": "P1",
+                "fault_type": fault.get("fault_type", ""),
+                "agent": fault.get("fault_agent", ""),
+                "step": fault.get("fault_step_id", ""),
+                "evidence": fault.get("evidence", "")[:200],
+                "confidence": confidence,
+                "status": "proposal",
+            })
+
+    return suggestions
+
+
 def main():
     sc = _load("apm_scorecard.json")
     clusters = _load("failure_clusters.json")
     replay = _load("benchmark_replay.json")
 
-    suggestions = generate_improvement_suggestions(sc, clusters, replay)
+    suggestions = enhanced_generate_with_evolution(sc, clusters, replay)
 
     log_path = MEMORY_DIR / "self_improve_log.json"
     log = []
@@ -124,7 +220,7 @@ def main():
             log = []
     entry = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "status": "proposal",
+        "status": "enhanced",
         "n_suggestions": len(suggestions),
         "suggestions": suggestions,
     }
@@ -132,15 +228,31 @@ def main():
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump({"entries": log}, f, ensure_ascii=False, indent=2)
 
+    # Print summary
+    prio_counts = {}
+    for s in suggestions:
+        p = s.get("priority", "?")
+        st = s.get("status", "proposal")
+        key = f"{p}_{st}"
+        prio_counts[key] = prio_counts.get(key, 0) + 1
+
     print("=" * 64)
-    print("  Stage 3 自改进脚手架 — 改进建议清单 (proposal)")
+    print("  Stage 3 自改进 — 增强版 (四技能流水线)")
     print("=" * 64)
     print(f"  建议总数: {len(suggestions)}")
+    for key, count in sorted(prio_counts.items()):
+        print(f"    {key}: {count}")
     print()
-    for i, s in enumerate(suggestions, 1):
-        print(f"  [{s['priority']}] ({s['source']}) {s['text']}")
-    print()
-    print(f"  已写入: {log_path}")
+
+    auto_deployed = [s for s in suggestions if s.get("status") == "approved"]
+    proposals = [s for s in suggestions if s.get("status") == "proposal"]
+    if auto_deployed:
+        print(f"  ✅ 自动部署: {len(auto_deployed)}")
+        for s in auto_deployed:
+            print(f"    {s.get('fault_agent', '?')} → {s.get('target_file', '?')}")
+    if proposals:
+        print(f"  📋 待人工审阅: {len(proposals)}")
+    print(f"\n  已写入: {log_path}")
 
 
 if __name__ == "__main__":

@@ -823,6 +823,41 @@ def main():
     print("📖 品种知识萃取:")
     extract_knowledge_from_validated_verdicts(followup_path)
 
+    # ── 技能层进化（Skillevolver，非阻断） ──
+    print(f"\n{'='*50}")
+    print("🧬 技能层进化 (Skillevolver):")
+    try:
+        from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
+        from scripts.skillevolver_evolution import SkillEvolver
+
+        debate_json = script_dir / "data" / "debate_results.json"
+        if debate_json.exists():
+            debate_data = load_json(str(debate_json))
+            analyzer = TrajectoryAnalyzer(script_dir)
+            attributor = FaultAttributor()
+            evolver = SkillEvolver(script_dir)
+
+            trajectory = analyzer.parse({"debate_results": debate_data})
+            if trajectory:
+                faults = attributor.attribute(trajectory)
+                high_conf = [f for f in faults if f.get("confidence", 0) >= 0.8]
+
+                if high_conf:
+                    print(f"  High-confidence faults detected: {len(high_conf)}")
+                    validated = evolver.run_evolution_cycle(faults=high_conf, dry_run=True)
+                    ready = [u for u in validated if u.get("status") == "ready"]
+                    print(f"  Patches generated: {len(ready)}")
+                    for r in ready:
+                        print(f"    → {r.get('target_file', '?')}")
+                else:
+                    print(f"  No high-confidence faults (total: {len(faults)})")
+            else:
+                print("  No trajectory data.")
+    except ImportError as exc:
+        print(f"  ⏭ 技能层进化模块未就绪: {exc}")
+    except Exception as exc:
+        print(f"  ⚠️ 技能层进化异常(非阻断): {exc}")
+
 
 if __name__ == "__main__":
     main()
