@@ -137,10 +137,21 @@ class ChannelBreakoutStrategy(BaseStrategy):
             dc_score = 0.0
             dc_detail = {}
 
+            # ── A1-0: 量能确认前置（E 修复：无量突破不授 DC20 base 分）──
+            _vol_ok = True
+            if volume and df is not None and len(df) > _r("volume", "ma_period", sym, chain_name, period):
+                _avg_vol_20 = df["volume"].iloc[-_r("volume", "ma_period", sym, chain_name, period):].mean()
+                _vol_ratio = volume / _avg_vol_20 if _avg_vol_20 > 0 else 1.0
+                _vol_ok = _vol_ratio >= _r("volume", "normal_lower_ratio", sym, chain_name, period)
+
             # ── A1: DC20 短期通道突破 (40% of 75% = 30% total) ──
             dc20_score = 0.0
             if dc20_break == "up":
-                dc20_score += _r("dc20", "break_base_score", sym, chain_name, period)
+                if _vol_ok:
+                    dc20_score += _r("dc20", "break_base_score", sym, chain_name, period)
+                else:
+                    dc_detail["volume_confirm"] = "weak_no_base"
+                    dc_detail["dc20_break_strength"] = "weak_no_vol"
                 dc_detail["dc20_direction"] = "up"
                 # 突破幅度确认
                 if dc20_upper and price:
@@ -164,7 +175,11 @@ class ChannelBreakoutStrategy(BaseStrategy):
                 # ADX不作为通道突破评分依据（v1.3: 突破策略不应被趋势强度过滤）
                 dc_detail["adx_signal"] = "info_only"
             elif dc20_break == "down":
-                dc20_score -= _r("dc20", "break_base_score", sym, chain_name, period)
+                if _vol_ok:
+                    dc20_score -= _r("dc20", "break_base_score", sym, chain_name, period)
+                else:
+                    dc_detail["volume_confirm"] = "weak_no_base"
+                    dc_detail["dc20_break_strength"] = "weak_no_vol"
                 dc_detail["dc20_direction"] = "down"
                 if dc20_lower and price:
                     distance_pct = (dc20_lower / price - 1) * 100

@@ -716,6 +716,54 @@ if __name__ == "__main__":
         )
         print(json.dumps(r, ensure_ascii=False, indent=2))
 
+    elif cmd == "ingest_from":
+        import argparse as _ap
+        _a = _ap.ArgumentParser()
+        _a.add_argument("--from", dest="from_path", required=True, help="debate_results.json 路径")
+        _a.add_argument("--bypass", action="store_true", help="绕过质量门控（仅初始化/回填用）")
+        _ns = _a.parse_args(sys.argv[2:])
+        _dr = json.load(open(_ns.from_path, encoding="utf-8"))
+        _skipped = 0
+        _ingested = 0
+        for _sym, _v in _dr.get("verdicts", {}).items():
+            # 方向归一：BUY→bull / SELL→bear / HOLD→neutral
+            _dir = str(_v.get("direction", _v.get("judge_verdict", {}).get("final_direction", ""))).lower()
+            _dir = {"buy": "bull", "sell": "bear", "hold": "neutral"}.get(_dir, _dir)
+            # debate_results.json 的 bull_args/bear_args 为字符串列表，
+            # extract_from_debate 的 _extract_patterns 需要 dict(claim/evidence/source)，故在此归一
+            _pro_args = [a if isinstance(a, dict) else {"claim": str(a), "evidence": "", "source": "debate_results"}
+                          for a in _v.get("bull_args", [])]
+            _con_args = [a if isinstance(a, dict) else {"claim": str(a), "evidence": "", "source": "debate_results"}
+                          for a in _v.get("bear_args", [])]
+            _rec = {
+                "symbol": _sym,
+                "signal_type": _v.get("signal_type", ""),
+                "pro_args": _pro_args,
+                "con_args": _con_args,
+            }
+            _verdict = {
+                "direction": _dir,
+                "confidence": _v.get("confidence",
+                                 _v.get("judge_verdict", {}).get("confidence", 0)),
+                "winner": _v.get("winner", ""),
+                "reasoning": _v.get("judge_verdict", {}).get("reasoning", ""),
+            }
+            # 复用既有 extract_from_debate（内置 conf<0.6 质量门控，自动跳过）
+            _r = extractor.extract_from_debate(
+                variety=_sym.lower(),
+                debate_record=_rec,
+                verdict=_verdict,
+                trading_plan=_v.get("trading_plan"),
+                bypass_quality_gate=_ns.bypass,
+            )
+            if _r.get("skipped_reason"):
+                _skipped += 1
+                print(f"  ⏭️ {_sym}: 跳过（{_r['skipped_reason']}）")
+            else:
+                _ingested += 1
+                print(f"  ✅ {_sym}: 入库成功")
+        print(f"\n📚 批量萃取完成：入库 {_ingested} / 跳过 {_skipped}")
+
     elif cmd == "test":
         # 快速自测
         test_record = {

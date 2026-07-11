@@ -70,11 +70,14 @@
       "chain": "有色金属",
       "profile": true,
       "drivers": true,
-      "patterns": false,
-      "key_levels": false,
+      "patterns": true,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 2,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-11 18:37",
+      "key_levels_updated": "2026-07-11 19:02",
+      "drivers_updated": "2026-07-11 19:02"
     },
     "pb": {
       "name": "铅",
@@ -715,11 +718,14 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
-      "key_levels": false,
+      "patterns": true,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 2,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-11 18:37",
+      "key_levels_updated": "2026-07-11 19:02",
+      "drivers_updated": "2026-07-11 19:02"
     },
     "rs": {
       "name": "菜籽",

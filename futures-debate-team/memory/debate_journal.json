@@ -189,5 +189,27 @@
       "degraded_reason": null,
       "output_files": []
     }
+    ,
+    {
+      "timestamp": "2026-07-11 18:24",
+      "agent": "futures-debate-team-team-lead",
+      "action": "debate_round_daily_weekend_override",
+      "round_id": "FDT_20260711_1824",
+      "symbols": ["ZN","RM","J","JD"],
+      "period": "daily",
+      "note": "周六非交易日，掌柜指令不跳过强制执行；数据基准2026-07-10收盘",
+      "verdicts": {
+        "ZN": "execute_long (STRONG +61, 0.70置信, 15%仓位, 风控中/需谨慎)",
+        "RM": "execute_long (STRONG +51, 0.65置信, 10%仓位, 风控中/需谨慎)",
+        "J": "hold (WATCH -41, 0.52置信, 0%仓位, 风控中/需谨慎, CCI超卖+焦煤供给侧尾部风险)",
+        "JD": "hold (WATCH +41, 0.52置信, 0%仓位, 风控低/可执行观望, 平量未确认)"
+      },
+      "l1_validation": "P4×8 / P5_JUDGE×4 / P5_PLAN×4 / P5_RISK×4 全部通过(R29)",
+      "knowledge_ingest": "ZN/RM入品种库(conf>=0.6)；J/JD跳过(conf0.52<0.6质量门控, 未加--bypass)",
+      "degraded": false,
+      "degraded_reason": null,
+      "agents_spawned": {"zhengzhen":8,"zhensi":8,"judge":4,"coherence":4,"plan":4,"risk":4},
+      "output_files": ["debate_results.json","Commodities/debate_report_20260711.html","scan_daily_1824_20260711.json","scan_daily_1824_ranking_20260711.html"]
+    }
   ]
 }

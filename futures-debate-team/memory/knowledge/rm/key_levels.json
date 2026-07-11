@@ -1,0 +1,39 @@
+{
+  "levels": [
+    {
+      "entry": 2325,
+      "stop_loss": 2252,
+      "targets": [],
+      "direction": "",
+      "confidence": 0.65,
+      "round_id": "",
+      "extracted_at": "2026-07-11 18:37"
+    },
+    {
+      "entry": 2325,
+      "stop_loss": 2252,
+      "targets": [],
+      "direction": "bull",
+      "confidence": 0.65,
+      "round_id": "",
+      "extracted_at": "2026-07-11 19:02"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 2325.0,
+        "count": 1,
+        "min": 2325,
+        "max": 2325
+      }
+    ],
+    "resistance": [],
+    "computed_at": "2026-07-11 19:02"
+  },
+  "meta": {
+    "variety": "rm",
+    "total_records": 2,
+    "last_updated": "2026-07-11 19:02"
+  }
+}

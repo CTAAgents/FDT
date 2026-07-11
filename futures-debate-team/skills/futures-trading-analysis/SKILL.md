@@ -1105,7 +1105,7 @@ for symbol in state["tech"]["verdicts"]:
    }
    # phase3_generate_report.py 的 adapt_debate_results() 会自动从新格式提取旧字段
    ```
-2. 运行 `python ~/.workbuddy/skills/futures-trading-analysis/scripts/phase3_generate_report.py`
+2. 运行 `python ~/.workbuddy/skills/futures-trading-analysis/scripts/phase3_generate_report.py --debate {YYYY-MM-DD}/debate_results.json --workspace {YYYY-MM-DD}`（单/多品种通用，自动读 data_benchmark，禁止改回手写 HTML；本轮回退手写属错误指引已纠正）
 3. 运行 `python ~/.workbuddy/skills/futures-trading-analysis/scripts/debate_feedback.py inject`
 4. TeamDelete
 5. SendMessage(recipient="main", content="报告路径 + ≤200字摘要")

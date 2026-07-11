@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.10.0
+# Futures Debate Team — 期货交易辩论专家团 v5.11.0
 
-> 🧠 **v5.10.0 信号体系统一与能力裁剪**：辩论入口阈值统一为 `config/settings.DEBATE_ENTRY_MIN_ABS=20`（单一真相源，过滤NOISE级）；移除 120m(2小时) 信号监控与参数优化能力、删除盘前预计算缓存（死缓存）。品种知识库(v5.9)等能力保留，详见下方章节。
+> 🧠 **v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`（扫描→识别触发品种→标准化 spawn 计划→assemble/extract/report，替代手写胶水代码）；`phase3_generate_report.py --debate` 子集辩论正式可用（兼容 reasoning 顶层/嵌套两格式、不再硬依赖全量 `intermediate_data.json`、报告渲染数据基准时间戳）；`extract_knowledge.py` 增 `ingest_from --from debate_results.json` 批量萃取；通道突破信号加量能前置门（`vol_ratio≥normal_lower_ratio` 才授 DC20 base 分）。配套 SKILL.md 指引修正与 `config.settings` 阈值位置漂移修复。
 
 ## 类型
 
@@ -66,6 +66,29 @@ P6  汇总输出                      明鉴秋
 | **策执远** | strategist | | | | | | ● 交易方案 |
 | **风控明** | risk | | | | | | ● 6层风控审核 |
 | **明鉴秋** | team-lead | ● 启动+调度 | | | ● 轮询传递 | ● 调度 | ● 归档+报告 |
+
+## 一键辩论驱动（run_debate.py）
+
+> 编排收敛层：把每轮「扫描 → 识别触发品种 → 标准化 spawn 计划 → assemble/extract/report」的易碎手工步骤收进单一脚本。**spawn 仍是团队主管（WorkBuddy Agent）的固有职责**，脚本产出标准化的 spawn 计划 JSON 供主管执行，不替代 Agent 调度。
+
+```bash
+# 1) 扫描 → 按 DEBATE_ENTRY_MIN_ABS=20 识别触发品种 → 输出 spawn 计划 JSON
+python scripts/run_debate.py plan \
+  --scan {YYYY-MM-DD}/scan_daily_*.json --workspace {YYYY-MM-DD}/
+
+# 2) 主管按 spawn 计划执行各阶段 Agent，产物落 {YYYY-MM-DD}/
+
+# 3) 组装 debate_results.json（含顶层 data_benchmark 数据基准字段）
+python scripts/run_debate.py assemble --workspace {YYYY-MM-DD}/
+
+# 4) 批量知识萃取（复用内置质量门控，conf<0.6 自动跳过，不加 --bypass）
+python scripts/run_debate.py extract --workspace {YYYY-MM-DD}/
+
+# 5) 生成辩论报告（统一调 phase3 --debate，单/多品种通用）
+python scripts/run_debate.py report --workspace {YYYY-MM-DD}/
+```
+
+**关键约定**：`data_benchmark`（数据基准时间戳，如 `2026-07-11 15:00 收盘`）由 `assemble` 写入 `debate_results.json` 顶层，`phase3 --debate` 渲染到报告「数据基准」字段，便于判别行情时效。
 
 ## 10 角色详情
 

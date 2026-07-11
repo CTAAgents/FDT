@@ -387,7 +387,11 @@ def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dic
             "judge_verdict": {
                 "final_direction": direction,
                 "confidence": conf_val,
-                "reasoning": v.get("reasoning", v.get("judge_verdict", "")),
+                # G 修复：兼容 reasoning 顶层 与 嵌套 judge_verdict.reasoning 两种格式
+                "reasoning": (v.get("reasoning")
+                             or (v.get("judge_verdict", {}).get("reasoning", "")
+                                if isinstance(v.get("judge_verdict"), dict) else "")
+                             or ""),
             },
             "category": overall.get("tendency", ""),
             "risk_detail": overall.get("core_conflict", ""),
@@ -437,18 +441,27 @@ def _per_pid_normalize(debate_results: dict, intermediate: dict) -> dict:
 
 
 # ==================== 数据读取 ====================
+# G/C 修复：--debate 子集辩论模式不以全量 intermediate_data.json 为硬前置，
+# 缺省时以 debate_results.json 为准（intermediate 置空），避免误 exit(1)
 if not os.path.exists(INTERMEDIATE_PATH):
-    print(f"✗ 未找到中间数据: {INTERMEDIATE_PATH}")
-    sys.exit(1)
-
-with open(INTERMEDIATE_PATH, "r", encoding="utf-8") as f:
-    intermediate = json.load(f)
+    if getattr(args, "debate", None):
+        print(f"⚠️ 未找到中间数据: {INTERMEDIATE_PATH}（--debate 模式：以 debate_results 为准）")
+        intermediate = {}
+    else:
+        print(f"✗ 未找到中间数据: {INTERMEDIATE_PATH}")
+        sys.exit(1)
+else:
+    with open(INTERMEDIATE_PATH, "r", encoding="utf-8") as f:
+        intermediate = json.load(f)
 
 debate_results = {}
+DATA_BENCHMARK = intermediate.get("data_benchmark", "")
 if os.path.exists(DEBATE_PATH):
     with open(DEBATE_PATH, "r", encoding="utf-8") as f:
-        debate_results = json.load(f)
-    debate_results = adapt_debate_results(debate_results, intermediate)
+        _raw_dr = json.load(f)
+    # G 项：data_benchmark 在 adapt 重铸为 per_pid 时丢失，须从原始 debate_results.json 捕获
+    DATA_BENCHMARK = _raw_dr.get("data_benchmark", DATA_BENCHMARK)
+    debate_results = adapt_debate_results(_raw_dr, intermediate)
     print(f"✓ 辩论结果: {len(debate_results)} 个品种")
     
     # ── 加载证真/慎思辩论详情并注入 per-pid ──
@@ -1666,7 +1679,7 @@ def build_debate_report():
         <div class="subtitle">多维度量化分析 · 技术+基本面融合 · 具体交易建议</div>
         <div class="meta">
             <div class="meta-item"><span class="label">报告日期</span> <span class="value">{REPORT_DATE}</span></div>
-            <div class="meta-item"><span class="label">数据基准</span> <span class="value">{intermediate.get("data_benchmark", "")}</span></div>
+            <div class="meta-item"><span class="label">数据基准</span> <span class="value">{DATA_BENCHMARK}</span></div>
             <div class="meta-item"><span class="label">辩论品种</span> <span class="value">{len(debate_results)}</span></div>
             <div class="meta-item"><span class="label">数据源</span> <span class="value">{data_source_used}</span></div>
             <div class="meta-item"><span class="label">指标来源</span> <span class="value">{indicator_source}</span></div>
@@ -1941,7 +1954,7 @@ print(f"📊 因子择时全信号: {OUTPUT_FT}")
 # 保存analysis_data.json
 results = {
     "report_date": REPORT_DATE,
-    "data_benchmark": intermediate.get("data_benchmark", ""),
+    "data_benchmark": DATA_BENCHMARK,
     "data_source": data_source_used,
     "filtered_signals": filtered_signals,
     "T1_count": len(T1_signals),

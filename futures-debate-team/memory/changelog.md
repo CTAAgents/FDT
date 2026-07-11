@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-07-11 19:05 — 辩论流水线 redesign 实施（B/D/E/G/C/F 全落地）
+
+| 模块 | 文件 | 关键变更 |
+|------|------|----------|
+| 新增 B | `scripts/run_debate.py` | 主动驱动层：识别触发品种(经 importlib 按路径读 quant-daily `config/settings.py:DEBATE_ENTRY_MIN_ABS`，不写死)、产出标准化 spawn 计划 JSON(含 ADX角色反转/WATCH语义/置信度归一 固定注入)、`assemble`(读 p4/p5→per_pid debate_results.json 含 data_benchmark)/`extract`(批量)/`report`(phase3 --debate) 子命令 |
+| 修改 D | `scripts/extract_knowledge.py` | 增 `ingest_from --from debate_results.json` 批量模式；复用 `extract_from_debate` 内置 conf<0.6 质量门控自动跳过；字符串 bull_args/bear_args 归一成 dict |
+| 修改 E | `skills/quant-daily/scripts/strategies/channel_breakout_strategy.py` | 量能确认前置：仅 `vol_ratio >= normal_lower_ratio`(已存在=0.8) 才授 DC20 break_base 分，否则记 `weak_no_vol` 不授 base（压低无量伪突破直达 STRONG/WATCH 比例）|
+| 修改 G | `skills/futures-trading-analysis/scripts/phase3_generate_report.py` | ① 顶层捕获 `DATA_BENCHMARK`(adapt 重铸前从原始 debate_results.json 取，否则 per_pid 丢失) 并渲染「数据基准」；② `adapt_debate_results` 兼容 reasoning 顶层与嵌套 judge_verdict.reasoning 两种格式；③ `--debate` 子集模式不再硬依赖全量 intermediate_data.json（缺则 intermediate={}，去掉误 sys.exit(1)) |
+| 修改 C | `skills/futures-trading-analysis/SKILL.md` | 报告指引统一为 `phase3_generate_report.py --debate debate_results.json`（单/多品种通用，禁止改回手写 HTML）|
+| 修改 F | `skills/fdt-spawn-debate/SKILL.md` | 澄清 confidence：0-1 数值 或 高/中/低 标签均可（confidence_utils 归一化，标签非非法）|
+| **发现** | 架构漂移 | `DEBATE_ENTRY_MIN_ABS` 真实位置在 `skills/quant-daily/scripts/config/settings.py:330`，FDT 根 `config/settings.py` **不存在**（根 config/ 仅 schema.py+team_config.json）；run_debate.py 经 importlib 按路径加载该常量(读真相源、不写死) |
+| **验证** | — | py_compile 4 文件通过；B 生成 6 品种 spawn 计划；D 批量萃取 ZN/RM 入库、J/JD 因 conf0.52<0.6 跳过；G 报告渲染「数据基准 2026-07-10 15:00 收盘」且子集无 intermediate 也能出报告 |
+
+**验证**：4 文件 py_compile 通过；B/D/G 端到端跑通；E 编译通过(全量重扫待实时数据)。
+
+## 2026-07-11 18:15 — v5.10.0 信号体系统一与能力裁剪（文档/版本/推送）
+
+| 模块 | 版本 | 关键变更 |
+|------|------|----------|
+| FDT系统 | **5.10.0** | 辩论入口阈值统一 DEBATE_ENTRY_MIN_ABS=20（单一真相源）+ 移除120m监控/优化 + 删除盘前预计算缓存 |
+| pyproject.toml | 5.9.0→5.10.0 | 版本真相源 bump + description 追加 v5.10 |
+| team-lead agent | 5.9.0→5.10.0 | frontmatter + 正文"当前统一版本"同步 bump |
+| README.md | 🆕 v5.10章节 | 标题/闸门描述(无STRONG→DEBATE_ENTRY_MIN_ABS) + v5.10能力章节 |
+| futures-trading-analysis SKILL | 3.8.0文档修正 | v3.8.0 changelog 去盘前缓存卖点；"预计算缓存路由"章节→"P1实时全量扫描" |
+| quant-daily README | 标注 | 120m 监控自动化已废弃（scan_all 仍支持手动 --period 120m） |
+| docs | 标注废弃 | latency-optimization(盘前缓存)/wf-universe(120m监测) 加 ⚠️ 已废弃 |
+| 代码清理 | — | 删 scripts/precompute_cache.py + cache/precompute_20260711.json（死缓存收尾） |
+| 同步 | ✅ | sync_experts_to_github.py → CTAAgents/experts(main) commit 2ecbc14 |
+
 ## 2026-07-10 21:15 — v5.8.0 系统架构里程碑
 
 | 模块 | 版本 | 关键变更 |

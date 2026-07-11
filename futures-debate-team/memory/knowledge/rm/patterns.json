@@ -1,0 +1,24 @@
+[
+  {
+    "pattern_id": "rm-p001",
+    "name": "多头趋势驱动型",
+    "first_observed": "2026-07-11",
+    "last_used": "2026-07-11 19:02",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.755,
+    "structure": "趋势确认 → CCI=107.1已越过100超买门槛，... → 菜粕多头驱动非独占，受豆粕供给（大豆到港... → 趋势确认 → 需求旺季与天气扰动利好已被部分定价，后续...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ]
+    },
+    "key_evidence_sources": [],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.65,
+    "status": "active"
+  }
+]
