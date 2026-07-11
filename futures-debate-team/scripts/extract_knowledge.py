@@ -30,6 +30,11 @@ _INDEX_PATH = _KNOWLEDGE_DIR / "variety_index.json"
 
 # ── 门控参数 ──────────────────────────────────
 MIN_CONFIDENCE = 0.6           # 最低置信度
+
+# 置信度归一化统一委托给 confidence_utils（#5修复·单一来源，避免语义漂移）
+# 别名保留，历史调用点 _normalize_confidence(...) 无需改动
+from confidence_utils import normalize_confidence as _normalize_confidence
+
 MAX_PATTERNS_PER_VARIETY = 20  # 每品种有效模式上限
 PATTERN_TTL_DAYS = 60          # 模式未使用自动降级天数
 DECAY_WIN_THRESHOLD = 3        # 连续失败次数 → deprecated
@@ -116,7 +121,7 @@ class KnowledgeExtractor:
              "skipped_reason": str | None}
         """
         variety = variety.strip().lower()
-        confidence = verdict.get("confidence", 0)
+        confidence = _normalize_confidence(verdict.get("confidence", 0))
 
         # 质量门控
         if not bypass_quality_gate:
@@ -176,7 +181,7 @@ class KnowledgeExtractor:
         patterns_path = variety_dir / "patterns.json"
         existing_patterns = self._load_json(patterns_path, [])
 
-        confidence = verdict.get("confidence", 0)
+        confidence = _normalize_confidence(verdict.get("confidence", 0))
         winner = verdict.get("winner", "")
         winner_side = "pro" if verdict.get("direction", "").lower() in ("bull", "long", "buy") else "con"
         winner_is_bull = winner_side == "pro"
@@ -681,6 +686,35 @@ if __name__ == "__main__":
         dry = "--dry-run" in sys.argv
         result = extractor.run_decay(dry_run=dry)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    elif cmd == "ingest":
+        import argparse
+        ap = argparse.ArgumentParser()
+        ap.add_argument("--symbol", required=True)
+        ap.add_argument("--pro", required=True)
+        ap.add_argument("--con", required=True)
+        ap.add_argument("--judge", required=True)
+        ap.add_argument("--plan", default=None)
+        ap.add_argument("--bypass", action="store_true")
+        args = ap.parse_args(sys.argv[2:])
+        pro = json.load(open(args.pro, encoding="utf-8"))
+        con = json.load(open(args.con, encoding="utf-8"))
+        judge = json.load(open(args.judge, encoding="utf-8"))
+        plan = json.load(open(args.plan, encoding="utf-8")) if args.plan else None
+        rec = {
+            "symbol": args.symbol,
+            "signal_type": judge.get("signal_type"),
+            "pro_args": pro.get("key_arguments", []),
+            "con_args": con.get("key_arguments", []),
+        }
+        r = extractor.extract_from_debate(
+            variety=args.symbol.lower(),
+            debate_record=rec,
+            verdict=judge,
+            trading_plan=plan,
+            bypass_quality_gate=args.bypass,
+        )
+        print(json.dumps(r, ensure_ascii=False, indent=2))
 
     elif cmd == "test":
         # 快速自测

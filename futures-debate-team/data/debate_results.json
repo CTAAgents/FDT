@@ -1,7 +1,7 @@
 {
   "report_date": "2026-07-10",
   "scan_time": "20:10",
-  "debate_version": "v5.3",
+  "debate_version": "v5.9.0",
   "data_manifest": {
     "kline": {"source": "AKShare(sina)", "latest_bar_date": "20260710", "gap_days": 0, "freshness": "正常"},
     "indicators": {"method": "numpy向量化(通达信公式对齐)"},

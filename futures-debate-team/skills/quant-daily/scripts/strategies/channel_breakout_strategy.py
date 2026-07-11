@@ -465,6 +465,12 @@ class ChannelBreakoutStrategy(BaseStrategy):
             else:
                 signal_type = "minor_signal"
 
+            # 🔴 事实优先于评分（2026-07-11 JD告警）：价格已实际突破DC20时，
+            # 即使dc20_score未达channel_breakout阈值(30)，signal_type也必须反映事实。
+            # 评分低只影响grade(WATCH/STRONG)，不能歪曲事实说"未突破"。
+            if dc20_break in ("up", "down") and signal_type == "near_breakout":
+                signal_type = "channel_breakout"
+
             result = SignalResult(
                 symbol=sym,
                 name=name,

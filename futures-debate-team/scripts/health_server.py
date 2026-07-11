@@ -93,7 +93,10 @@ class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/health"):
             comps = _check_components()
-            all_ok = all(v in ("running", "active", "available", "unknown")
+            # P3修复（2026-07-11）：仅 "running"/"active"/"available" 视为健康；
+            # "unknown"/"stopped"/"unreachable"/"unavailable" 一律判为降级 → 返回 503，
+            # 使外部监控系统能真实感知组件不可用（此前 "unknown" 被误判为健康 → 恒返回 200）。
+            all_ok = all(v in ("running", "active", "available")
                         for v in comps.values())
             self._json(200 if all_ok else 503, {
                 "status": "ok" if all_ok else "degraded",

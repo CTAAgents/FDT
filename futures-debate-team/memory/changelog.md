@@ -209,3 +209,72 @@
 | 进化依赖间接代理 | P2 | 已修复：真实指标替代代理 |
 | 无执行层 | P2 | 待修：摩擦成本未完全注入验证结果 |
 | 数据流衔接缺口 | P2→**确认BUG** | 已修复：runner调record_verdicts |
+
+---
+
+## 2026-07-11 16:52 — FDT 机制修正：quant-daily 负向过滤 + 全量监控
+
+**根因**：原 `daily_debate.py`/`hourly_debate.py` 信号门仅放行 `STRONG(≥50)`/`WATCH(≥40)`，使 quant-daily 异化为"硬排除门槛"，弱信号品种无法进入辩论，违背 FDT"quant-daily 仅输出信号与方向初始值、降低辩论压力"的设计初衷。掌柜裁定：quant-daily 应**筛掉不适宜辩论的品种（负向过滤）**，而非**筛入评分最高品种（正向选择）**；"适合交易"由下游 辩论→策略→风控→裁决 决定。
+
+**改动文件**：
+- `config/settings.py`：新增 `DEBATE_ENTRY_MIN_ABS = 1`（任意非零方向信号即进候选；如需噪音兜底可调 20）
+- `daily_debate.py`：① `_load_daily_symbols()` 改取 monitoring_symbols.json 所有周期 symbol_list **并集**（全量 62 品种，含 lc/m/y/p/RM/SR 等原"无日线优化参数"大趋势品种）；② 信号门改为 `candidates = [s for s in all_ranked if abs(total) >= DEBATE_ENTRY_MIN_ABS]`，grade 仅作优先级标签
+- `hourly_debate.py`：同步放松信号门（品种池保留 60m 21 品种）
+- `fdt-spawn-debate/SKILL.md`：适用范围改为"全量监控 + 任意方向性信号进候选，评分仅作优先级"
+- `signals/debate_brief.py`：`MIN_DIVERGENCE_SIGNAL` 30→0（弱分歧不再硬性排除）
+
+**验证**：4 文件 py_compile 通过；`DAILY_SYMBOLS=62`（含 lc/m）；mock 测试确认 WEAK/NOISE 进候选、纯零(total=0)被负向过滤。两个 `--dry-run` 正常。
+
+**备份**：`C:\Users\yangd\Documents\WorkBuddy\Claw\.workbuddy\backup_fdt_20260711_164721\`
+
+---
+
+## 2026-07-11 17:36 — 辩论入口阈值统一配置（单一真相源）+ 删除死代码
+
+**根因（掌柜架构铁律）**：是否可辩论的阈值此前分散在多处（team-lead 写死 STRONG(abs>=60)、fdt-spawn-debate 写死 |total|≥1、L3 信号门写死 STRONG、settings.py 单值），且 signal_classifier.py 的 C4"跳过"是第三套无人执行的口径。掌柜裁定：阈值应统一配置、不分散；不适合辩论的品种不走辩论，需辩论的品种必须走完整流程匹配策略与风控。
+
+**改动文件**：
+- `config/settings.py`：`DEBATE_ENTRY_MIN_ABS = 1 → 20`（过滤 NOISE 级 |total|<20，仅 WEAK 及以上进辩论候选）；注释升级为"统一配置·单一真相源·禁止写死"
+- `agents/futures-debate-team-team-lead.md`：信号检查闸门 prose 移除写死 STRONG(abs>=60)，改为读 `DEBATE_ENTRY_MIN_ABS`
+- `skills/fdt-spawn-debate/SKILL.md`：阈值引用改为 `DEBATE_ENTRY_MIN_ABS`；新增"无候选→不 spawn 任何辩论 Agent，直接回报无信号"
+- `docs/harness/04-resilience.md`：L3 信号门两处写死 `grade=="STRONG"(abs>=60)` 改为读 `DEBATE_ENTRY_MIN_ABS`（当前=20）
+- 删除 `scripts/signal_classifier.py`（C4 死代码，未被任何模块 import，report.py 自带本地 `_classify_signal`）
+
+**验证**：grep 全包无写死阈值残留（changelog 历史除外）；`DEBATE_ENTRY_MIN_ABS=20` 生效；删除后无 import 断裂。
+
+---
+
+## 2026-07-11 17:42 — 消除最后一处分散：离线 WF 回测优化器统一读 DEBATE_ENTRY_MIN_ABS
+
+**根因（延续掌柜铁律）**：上一轮已统一 daily_debate/hourly_debate/team-lead/SKILL.md/L3信号门 + 删死代码，但离线 WF 回测优化器仍写死 `("STRONG","WATCH","WEAK")` 元组过滤 NOISE，与 `DEBATE_ENTRY_MIN_ABS` 不联动。掌柜"修"授权消除最后一处分散。
+
+**改动文件**：
+- `skills/quant-daily/scripts/optimizer/backtest_optimizer.py`：① import 加 `DEBATE_ENTRY_MIN_ABS`；② 3 处 `if grade not in ("STRONG","WATCH","WEAK"): continue` 改为 `if abs(total) < DEBATE_ENTRY_MIN_ABS: continue`（327 用 item["total"]，455/509 用 result_item["total"]）
+- `skills/quant-daily/scripts/optimizer/run_120m_wf.py`：① import 加 `DEBATE_ENTRY_MIN_ABS`；② 2 处 `if res["grade"] not in ("STRONG","WATCH","WEAK"): continue` 改为 `if abs(res["total"]) < DEBATE_ENTRY_MIN_ABS: continue`（410/443）
+
+**验证**：2 文件 py_compile 通过；grep 全包无任何 `("STRONG","WATCH","WEAK")` 写死元组残留（changelog 历史除外）；`DEBATE_ENTRY_MIN_ABS` 现被 6 文件统一引用（settings / daily_debate / hourly_debate / fdt-spawn-debate/SKILL.md / backtest_optimizer / run_120m_wf）。
+
+**现状**：阈值全包单一真相源 = `config/settings.py:DEBATE_ENTRY_MIN_ABS`（当前=20，仅 WEAK 及以上进辩论候选）。日后调阈值只改一处。
+
+---
+
+## 2026-07-11 17:56 — 120m(2小时线)信号监控整体废弃：删自动化 + 删盘前缓存 + 参数自优化仅保留日线
+
+**根因（掌柜决策）**：120分钟信号监控已无必要；盘前预计算缓存为"设计了但读取端从未接入"的死缓存（全包 grep 无 import，缓存目录恒空）；参数自优化里的2小时线分支同样废弃。掌柜"A方案 + 只保留日线优化"授权执行。
+
+**删除的自动化任务（5个，均用 automation_update 软删）**：
+- `automation-1783603689493` 120m信号-上午开盘9:15
+- `automation-1783603695470` 120m信号-上午收盘11:15
+- `automation-1783555974126` 120m信号监控-下午14:40
+- `automation-1783603700956` 120m信号-夜盘开盘21:15
+- `automation-1783723277478` FDT盘前预计算缓存刷新（死缓存，无读取端）
+
+**改动文件（plugins/marketplaces/ 生产目录）**：
+- `skills/quant-daily/scripts/optimizer/run.py`：`cmd_update_monitoring_config` 改仅日线——① 去掉 `from optimizer.run_120m_wf import ...`；② `TIER_THRESHOLDS` 推导 `("daily","120m")`→`("daily",)`；③ 删 `run_120m_wf()` 函数；④ `build_monitoring_config` 签名去 `results_120m`、去掉120m块产出与 `_comment` 的120m描述；⑤ 调用点去掉 `r120_rv`/`run_120m_wf()` 回填分支；⑥ `_light_load_results` 去掉 `per=="120m"` 死分支
+- `skills/quant-daily/scripts/optimizer/backtest_optimizer.py`：① 删 `WF_CONFIG["tiers"]["120m"]`；② docstring `period: 'daily' | '120m'`→`'daily'`
+- 删除 `skills/quant-daily/scripts/optimizer/run_120m_wf.py`（120m专用，删前 grep 确认全包无 import）
+- `C:/Users/yangd/Documents/Signal/config/monitoring_symbols.json`：pop `120m` 块，仅留 `daily`（62品种）
+
+**参数自优化自动化任务**：`automation-1783404492691` 改名"参数自优化 - 日线(每4周)"，prompt 修正路径（原 `<FDT>/scripts/optimizer/run.py` 缺 `quant-daily/scripts` 段，已修正为 `<FDT>/skills/quant-daily/scripts/optimizer/run.py`）+ 明确 `--period daily`、不含120m。
+
+**验证**：run.py / backtest_optimizer.py py_compile 通过；grep 全包（除 changelog 历史）无功能性120m残留；monitoring_symbols.json 有效，顶层键 `[version, _comment, daily]`，daily 62品种；run_120m_wf.py 删除后全包无 import 断裂。

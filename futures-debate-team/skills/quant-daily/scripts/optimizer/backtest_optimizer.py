@@ -30,6 +30,7 @@ from config.settings import (
     CHANNEL_BREAKOUT_CONFIG,
     set_param_overrides,
     clear_param_overrides,
+    DEBATE_ENTRY_MIN_ABS,
 )
 from data.multi_source_adapter import MultiSourceAdapter
 from scan_all import collect_kline_for_all
@@ -65,13 +66,81 @@ PRIMARY_PARAMS = [
     ("dc55", "trend_base_score"),
 ]
 
-# Walk-Forward 配置
-WF_TRAIN_PCT = 0.7   # 前70%数据用于训练
-WF_TEST_PCT = 0.3    # 后30%用于测试
-SAMPLE_INTERVAL = 5  # 每 N 根K线采样一个截面
-LOOKAHEAD_BARS = 5   # 信号发出后看多少根K线评估方向正确性
-MIN_BARS = 80        # 最小K线要求（含指标预热）
-DAYS_OF_DATA = 400   # 拉取历史K线天数
+# ─── Walk-Forward 结构配置（冻结 + 版本化）───
+# ⚠ 结构变更铁律: 任何结构常量(窗口/采样/前瞻/阈值/分级/滞后)的修改,
+#    视为"结构变更", 必须全量重基线 + 更新下方 WF_CHANGELOG, 否则相邻两次
+#    wf_accuracy 不可比(尺子被换)。版本号须递增。
+WF_CONFIG_VERSION = "1.0.0"
+
+WF_CONFIG = {
+    "version": WF_CONFIG_VERSION,
+    "data": {
+        "days_of_data": 400,
+        "min_bars": 80,
+        "sample_interval": 5,
+    },
+    "walk_forward": {
+        "train_pct": 0.7,
+        "test_pct": 0.3,
+        "lookahead_bars": 5,
+    },
+    # 分级阈值(准确率下限% , 基于置信下界判定)
+    "tiers": {
+        "daily": {"good": 50, "medium": 40},
+    },
+    "hysteresis_weeks": 3,           # 纳入/剔除需连续 N 周一致才生效
+    "ci_z": 1.96,                    # 置信区间 z 值 (95% CI)
+    "min_test_signals_for_ci": 10,   # 测试信号数低于此 → 定级 unknown(未知带)
+    "core_universe": [               # 稳定核心宇宙(结构适合趋势跟踪, 永不自动剔除)
+        "rb", "hc", "i", "j", "jm", "sc", "fu", "bu", "lu", "pg",
+        "ta", "ma", "v", "pp", "l", "eg", "cu", "al", "zn", "au",
+        "ag", "c", "m", "y", "p", "a", "rm", "oi", "sr", "cf", "ru", "sp",
+    ],
+}
+WF_CHANGELOG = [
+    "1.0.0 (2026-07-11): 初始冻结版本。整合原分散常量 + 新增滞后确认/置信下界定级/稳定核心宇宙。",
+]
+
+# ─── 向后兼容别名(旧代码/其他模块引用) ───
+DAYS_OF_DATA = WF_CONFIG["data"]["days_of_data"]
+MIN_BARS = WF_CONFIG["data"]["min_bars"]
+SAMPLE_INTERVAL = WF_CONFIG["data"]["sample_interval"]
+WF_TRAIN_PCT = WF_CONFIG["walk_forward"]["train_pct"]
+WF_TEST_PCT = WF_CONFIG["walk_forward"]["test_pct"]
+LOOKAHEAD_BARS = WF_CONFIG["walk_forward"]["lookahead_bars"]
+
+
+def wilson_ci_lower(successes: int, n: int, z: float = 1.96) -> float:
+    """Wilson 置信区间下界 (返回 0-1)。小样本下比 ±正态近似 更保守。"""
+    if n == 0:
+        return 0.0
+    phat = successes / n
+    denom = 1.0 + z * z / n
+    center = (phat + z * z / (2 * n)) / denom
+    margin = (z * math.sqrt(phat * (1 - phat) / n + z * z / (4 * n * n))) / denom
+    return max(0.0, center - margin)
+
+
+def classify_tier(period: str, accuracy: float, test_signals: int,
+                  wf_config: dict = WF_CONFIG) -> str:
+    """基于置信下界(而非点估计)定级, 小样本落入 unknown(未知带)。
+
+    period: 'daily'
+    accuracy: 0-1 测试集准确率点估计
+    test_signals: 测试集有效信号数
+    """
+    t = wf_config["tiers"][period]
+    if test_signals < wf_config["min_test_signals_for_ci"]:
+        return "unknown"
+    lower = wilson_ci_lower(int(round(accuracy * test_signals)), test_signals,
+                            wf_config["ci_z"])
+    lower_pct = lower * 100.0
+    if lower_pct >= t["good"]:
+        return "good"
+    elif lower_pct >= t["medium"]:
+        return "medium"
+    else:
+        return "weak"
 
 
 def _build_tech(close, high, low, volume, open_price, symbol, name):
@@ -255,8 +324,9 @@ def evaluate_signal_accuracy(all_ranked, snapshots_dict) -> dict:
         direction = item.get("direction", "neutral")
         grade = item.get("grade", "NOISE")
 
-        # 只看有意义的信号（WEAK 及以上）
-        if grade not in ("STRONG", "WATCH", "WEAK"):
+        # 仅保留达到统一辩论入口阈值(DEBATE_ENTRY_MIN_ABS)的信号, 过滤 NOISE 级
+        # 阈值由 config/settings.py 统一配置, 禁止在此写死 grade 元组
+        if abs(total) < DEBATE_ENTRY_MIN_ABS:
             continue
 
         # 找到对应的 snapshot（按 bar_idx 最近的）
@@ -383,7 +453,8 @@ def walk_forward_optimize(
             grade = result_item.get("grade", "NOISE")
             direction = result_item.get("direction", "neutral")
 
-            if grade not in ("STRONG", "WATCH", "WEAK"):
+            # 仅保留达到统一辩论入口阈值(DEBATE_ENTRY_MIN_ABS)的信号, 过滤 NOISE 级
+            if abs(result_item.get("total", 0)) < DEBATE_ENTRY_MIN_ABS:
                 continue
 
             train_total += 1
@@ -437,7 +508,8 @@ def walk_forward_optimize(
         grade = result_item.get("grade", "NOISE")
         direction = result_item.get("direction", "neutral")
 
-        if grade not in ("STRONG", "WATCH", "WEAK"):
+        # 仅保留达到统一辩论入口阈值(DEBATE_ENTRY_MIN_ABS)的信号, 过滤 NOISE 级
+        if abs(result_item.get("total", 0)) < DEBATE_ENTRY_MIN_ABS:
             continue
 
         test_total += 1

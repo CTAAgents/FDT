@@ -33,6 +33,7 @@
 """
 
 import json
+import math
 import os
 import re
 from typing import Dict, List, Optional, Any
@@ -196,6 +197,167 @@ def normalize_sub_period_bars(records: list, period: str) -> list:
 
     except Exception:
         return records  # 归一化失败不阻断数据流
+
+
+# ═══════════════════════════════════════════
+# 🔴 P0-1 / P0-2 数据污染防御（2026-07-11 压力测试暴露·生产级修复）
+# ═══════════════════════════════════════════
+
+# 单根K线相对前一根收盘的收益率绝对值上限。
+# 期货单根涨跌停通常 ≤ ±13%，单根 >50% 跳变必为脏数据/伪造spike（如100×伪造突破）。
+_SPIKE_RETURN_CAP = 0.5
+
+# 已知交易所白名单（用于品种映射交叉校验，P1）
+_KNOWN_EXCHANGES = {"SHFE", "DCE", "CZCE", "GFEX", "INE", "CFFEX"}
+
+
+def _safe_float(value, default=0.0):
+    """P0-1：拒绝非有限值(inf/nan)与不可转换值，返回 default。
+
+    阻断 ``inf/nan`` 经 ``float(row.get(k, 0) or 0)`` 直穿信号引擎，
+    是数据污染的第一道防线。
+    """
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return default
+    if not math.isfinite(v):
+        return default
+    return v
+
+
+def _is_finite_num(x) -> bool:
+    try:
+        return math.isfinite(float(x))
+    except (ValueError, TypeError):
+        return False
+
+
+def _detect_spikes(closes: list, cap: float) -> set:
+    """孤立异常值检测（对趋势/连续跳空稳健，专治单根伪造突破）。
+
+    判定为 spike 的充要条件（中间bar）：
+      - 左右两根邻居处于相近水位  max/min(邻居) <= 1+cap
+      - 但本根相对邻居偏离超过 (1+cap)：close > max(neighbor)*(1+cap) 或 close < min(neighbor)/(1+cap)
+    即「邻居彼此相近、唯独本根突兀」才是孤立spike；趋势/跳空（邻居本身差异大）不误判。
+    首/末根用前向return兜底，且末根仅当前一根非spike时才判（避免被前一根spike牵连）。
+    """
+    n = len(closes)
+    if n < 3:
+        return set()
+    spikes = set()
+    for i in range(n):
+        if i == 0:
+            if closes[1] > 0 and abs(closes[0] / closes[1] - 1.0) > cap:
+                spikes.add(i)
+            continue
+        if i == n - 1:
+            if closes[i - 1] > 0 and abs(closes[i] / closes[i - 1] - 1.0) > cap and (i - 1) not in spikes:
+                spikes.add(i)
+            continue
+        a, b = closes[i - 1], closes[i + 1]
+        if a <= 0 or b <= 0:
+            continue
+        if max(a, b) / min(a, b) > (1 + cap):
+            continue  # 邻居本身差异大 → 非孤立spike（趋势/跳空），跳过
+        c = closes[i]
+        if c > max(a, b) * (1 + cap) or c < min(a, b) / (1 + cap):
+            spikes.add(i)
+    return spikes
+
+
+def _sanitize_kline(records: list, period: str = "daily"):
+    """P0-1 + P0-2 统一清洗：有限性守卫 + 单根spike隔离。
+
+    返回 ``(cleaned_records, report_dict)``。
+    - 非有限 OHLCV → 置 0（不破坏序列长度，避免 NaN 传播到 DC 窗口）
+    - 单根收益率超阈值 → 该 bar 视为 spike，用前后 bar 线性插值还原
+      OHLC，避免 100× spike 伪造 DC20 突破，同时保留序列长度不破坏 DC 窗口。
+
+    这是扫描层最关键的污染清洁闸门（覆盖 P0-1 + P0-2）。
+    """
+    if not records:
+        return records, {"sanitized": False, "spike_corrected": 0, "nonfinite_fields": 0}
+
+    cleaned = []
+    nonfinite = 0
+    for r in records:
+        raws = {k: r.get(k, 0) for k in ("open", "high", "low", "close", "volume", "oi")}
+        if any(not _is_finite_num(v) for v in raws.values()):
+            nonfinite += 1
+        new_r = dict(r)
+        for k in ("open", "high", "low", "close", "volume", "oi"):
+            new_r[k] = _safe_float(raws[k])
+        cleaned.append(new_r)
+
+    # ── 单根 spike 检测（滑窗中位数，对连续spike稳健）──
+    closes = [r["close"] for r in cleaned]
+    spike_idx = _detect_spikes(closes, _SPIKE_RETURN_CAP)
+
+    # ── 插值修复 spike bar（用前后最近有效 bar 中点）──
+    for i in sorted(spike_idx):
+        lo, hi = i - 1, i + 1
+        while lo in spike_idx and lo >= 0:
+            lo -= 1
+        while hi in spike_idx and hi < len(closes):
+            hi += 1
+        if lo >= 0 and hi < len(closes):
+            a, b = closes[lo], closes[hi]
+            interp = (a + b) / 2.0
+            cleaned[i].update(
+                {"open": interp, "close": interp, "high": max(a, b),
+                 "low": min(a, b), "_spike_corrected": True}
+            )
+        elif lo >= 0:
+            cleaned[i].update(
+                {"open": closes[lo], "close": closes[lo], "high": closes[lo],
+                 "low": closes[lo], "_spike_corrected": True}
+            )
+        elif hi < len(closes):
+            cleaned[i].update(
+                {"open": closes[hi], "close": closes[hi], "high": closes[hi],
+                 "low": closes[hi], "_spike_corrected": True}
+            )
+
+    return cleaned, {
+        "sanitized": (len(spike_idx) > 0 or nonfinite > 0),
+        "spike_corrected": len(spike_idx),
+        "nonfinite_records": nonfinite,
+    }
+
+
+# 数据新鲜度阈值（天）。超过则视为过期，触发降级而非信任来历不明的数据。
+# 日线/周线/月线覆盖周末+短假；子周期沿用 v2.9.1 的 7d 规则。
+_STALE_CAP_DAYS = {"daily": 7, "weekly": 14, "monthly": 60, "60m": 7, "120m": 7, "240m": 7}
+
+
+def _parse_bar_date(datestr) -> Optional[datetime]:
+    """P1 解析 bar 日期（兼容 2026-07-11 / 20260711 / 2026-07-11 15:00 等）→ datetime"""
+    if not datestr:
+        return None
+    digits = re.sub(r"\D", "", str(datestr))[:8]
+    if len(digits) != 8:
+        return None
+    try:
+        return datetime.strptime(digits, "%Y%m%d")
+    except Exception:
+        return None
+
+
+def _kline_is_stale(records: list, period: str = "daily") -> bool:
+    """P1 新鲜度闸门：最后一根 bar 距今超过阈值 → True(过期,应降级)。
+
+    无法解析日期时保守视为过期（触发降级而非信任来历不明的数据）。
+    """
+    if not records:
+        return True
+    last = records[-1].get("date")
+    dt = _parse_bar_date(last)
+    if dt is None:
+        return True
+    age_days = (datetime.now() - dt).days
+    cap = _STALE_CAP_DAYS.get(period, 7)
+    return age_days > cap
 
 
 class MultiSourceAdapter:
@@ -372,6 +534,27 @@ class MultiSourceAdapter:
             "confidence": 0,
         }
 
+    def _return_kline(self, records, source, period):
+        """P0-1 + P0-2 统一出口：清洗 K 线 → 返回标准 dict。
+
+        所有 get_kline 分支的数据在返回前都经 _sanitize_kline 清洗，
+        确保 inf/nan 被置零、单根 spike 被插值隔离，杜绝污染进入信号层。
+        """
+        cleaned, report = _sanitize_kline(records, period)
+        if report.get("sanitized"):
+            print(
+                f"[Sanitize] {source} K线清洗: spike修正{report.get('spike_corrected', 0)}根, "
+                f"非有限字段{report.get('nonfinite_records', 0)}处",
+                flush=True,
+            )
+        return {
+            "success": True,
+            "data": cleaned,
+            "data_source": source,
+            "confidence": 1.0,
+            "_sanitize_report": report,
+        }
+
     def get_kline(
         self,
         variety: str,
@@ -429,32 +612,15 @@ class MultiSourceAdapter:
                             }
                         )
                     print(f"[MultiSource] get_kline({variety}) → 通达信本地, {len(records)}条")
-                    # ── 🐛 v2.9.1 新鲜度检查：子周期K线最后日期必须≤7天 ──
-                    _tdx_fresh = True
-                    try:
-                        _last_date_str = records[-1]["date"][:10].replace("-", "")
-                        if len(_last_date_str) == 8 and _last_date_str.isdigit():
-                            from datetime import datetime as _dt
-                            _last_dt = _dt.strptime(_last_date_str, "%Y%m%d")
-                            _days_stale = (_dt.now() - _last_dt).days
-                            if period not in ("daily", "weekly", "monthly") and _days_stale > 7:
-                                print(f"  [⚠️ 新鲜度检查] 通达信{period}数据最后{_last_date_str}，距今{_days_stale}d→放弃，尝试降级")
-                                _tdx_fresh = False
-                    except Exception:
-                        pass
-                    if not _tdx_fresh:
-                        pass  # 不return → 继续降级链
+                    # ── P1 新鲜度闸门（日线/子周期过期均触发降级）──
+                    if _kline_is_stale(records, period):
+                        print(f"  [⚠️ 新鲜度检查] 通达信{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
                     else:
                         try:
                             record_data_fetch(variety, "tdx_local", success=True, count=len(records))
                         except Exception:
                             pass
-                        return {
-                        "success": True,
-                        "data": records,
-                        "data_source": "tdx_local",
-                        "confidence": 1.0,
-                    }
+                        return self._return_kline(records, "tdx_local", period)
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
@@ -487,11 +653,14 @@ class MultiSourceAdapter:
                     # R0归一化: TqSDK纯时钟窗口→会话感知
                     records = normalize_sub_period_bars(records, period)
                     print(f"[MultiSource] get_kline({variety}) → tqsdk→归一化, {len(records)}条")
-                    try:
-                        record_data_fetch(variety, "tqsdk", success=True, count=len(records))
-                    except Exception:
-                        pass
-                    return {"success": True, "data": records, "data_source": "tqsdk_normalized", "confidence": 1.0}
+                    if _kline_is_stale(records, period):
+                        print(f"  [⚠️ 新鲜度检查] TqSDK{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
+                    else:
+                        try:
+                            record_data_fetch(variety, "tqsdk", success=True, count=len(records))
+                        except Exception:
+                            pass
+                        return self._return_kline(records, "tqsdk_normalized", period)
             except Exception as e:
                 print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
 
@@ -537,11 +706,14 @@ class MultiSourceAdapter:
                                 continue
                         if records:
                             print(f"[MultiSource] get_kline({variety}) → AKShare分钟, {len(records)}条 (至{records[-1]['date']})")
-                            try:
-                                record_data_fetch(variety, "akshare_minute", success=True, count=len(records))
-                            except Exception:
-                                pass
-                            return {"success": True, "data": records, "data_source": "akshare_minute", "confidence": 1.0}
+                            if _kline_is_stale(records, period):
+                                print(f"  [⚠️ 新鲜度检查] AKShare分钟{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
+                            else:
+                                try:
+                                    record_data_fetch(variety, "akshare_minute", success=True, count=len(records))
+                                except Exception:
+                                    pass
+                                return self._return_kline(records, "akshare_minute", period)
             except Exception as e:
                 print(f"[MultiSource] AKShare分钟 get_kline {variety}: {e}")
 
@@ -567,11 +739,14 @@ class MultiSourceAdapter:
                     if _is_sub_period:
                         records = normalize_sub_period_bars(records, period)
                     print(f"[MultiSource] get_kline({variety}) → tqsdk, {len(records)}条")
-                    try:
-                        record_data_fetch(variety, "tqsdk", success=True, count=len(records))
-                    except Exception:
-                        pass
-                    return {"success": True, "data": records, "data_source": "tqsdk", "confidence": 1.0}
+                    if _kline_is_stale(records, period):
+                        print(f"  [⚠️ 新鲜度检查] TqSDK{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
+                    else:
+                        try:
+                            record_data_fetch(variety, "tqsdk", success=True, count=len(records))
+                        except Exception:
+                            pass
+                        return self._return_kline(records, "tqsdk", period)
             except Exception as e:
                 print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
 
@@ -614,11 +789,14 @@ class MultiSourceAdapter:
                                 "confidence": 1.0,
                             })
                         print(f"[MultiSource] get_kline({variety}) → 东方财富, {len(records)}条")
-                        try:
-                            record_data_fetch(variety, "eastmoney", success=True, count=len(records))
-                        except Exception:
-                            pass
-                        return {"success": True, "data": records, "data_source": "eastmoney", "confidence": 1.0}
+                        if _kline_is_stale(records, period):
+                            print(f"  [⚠️ 新鲜度检查] 东方财富{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
+                        else:
+                            try:
+                                record_data_fetch(variety, "eastmoney", success=True, count=len(records))
+                            except Exception:
+                                pass
+                            return self._return_kline(records, "eastmoney", period)
             except Exception as e:
                 print(f"[MultiSource] 东方财富 get_kline {variety}: {e}")
 
@@ -652,16 +830,14 @@ class MultiSourceAdapter:
                             continue
                     if records:
                         print(f"[MultiSource] get_kline({variety}) → AKShare, {len(records)}条")
-                        try:
-                            record_data_fetch(variety, "akshare", success=True, count=len(records))
-                        except Exception:
-                            pass
-                        return {
-                            "success": True,
-                            "data": records,
-                            "data_source": "akshare",
-                            "confidence": 1.0,
-                        }
+                        if _kline_is_stale(records, period):
+                            print(f"  [⚠️ 新鲜度检查] AKShare{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
+                        else:
+                            try:
+                                record_data_fetch(variety, "akshare", success=True, count=len(records))
+                            except Exception:
+                                pass
+                            return self._return_kline(records, "akshare", period)
             except Exception as e:
                 print(f"[MultiSource] AKShare get_kline {variety}: {e}")
 
@@ -1235,6 +1411,8 @@ class MultiSourceAdapter:
                 contracts = self.eastmoney_collector.get_contract_list(variety)
                 if contracts and len(contracts) > 0:
                     exchange_code = self._get_exchange_code(variety)
+                    if not exchange_code:
+                        return None  # P1 品种映射校验失败 → 放弃该源
                     for c in contracts:
                         if c["code"][-1] not in ("m", "s", "i"):
                             secid = f"{exchange_code}.{c['code']}"
@@ -1281,7 +1459,9 @@ class MultiSourceAdapter:
             "GFEX": 225,
         }
         exchange_name = self._get_exchange(variety)
-        return exchange_map.get(exchange_name, 113)
+        if exchange_name not in _KNOWN_EXCHANGES:
+            return None  # P1 品种映射校验：未知品种拒绝默认映射,交由调用方降级/报错
+        return exchange_map.get(exchange_name)
 
     def _fetch_tdx(
         self,
@@ -1411,6 +1591,8 @@ class MultiSourceAdapter:
         # URL: https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=113.RB0&...
         try:
             exchange_code = self._get_exchange_code(variety_upper)
+            if not exchange_code:
+                return None  # P1 品种映射校验失败 → 放弃该源
             secid = f"{exchange_code}.{variety_upper}0"
 
             beg = (start_date or "20250101").replace("-", "")

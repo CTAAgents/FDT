@@ -771,9 +771,10 @@ def select_debate_symbols(
     candidates = []
     covered_chains = set()
 
-    # 第一轮：分歧品种（仅纳入至少一边信号强度 >= MODERATE 的品种）
-    # 低于此阈值的分歧标记为弱分歧，不进入候选池——避免为辩论而辩论
-    MIN_DIVERGENCE_SIGNAL = 30  # 对应 MODERATE 阈值
+    # 第一轮：分歧品种（全量纳入；评分仅作优先级，交易适配性由下游辩论/策略/风控/裁决决定）
+    # 不再按弱信号硬性排除(原 MIN_DIVERGENCE_SIGNAL=30)：quant-daily 只做负向过滤，
+    # 弱分歧亦进入候选池，由协调员按优先级/容量降载。
+    MIN_DIVERGENCE_SIGNAL = 0  # 0=不排除任何分歧; 如需降载可上调(如15)
     skipped_weak_divergence = 0
     for item in divergence:
         strength_l1l4 = abs(item["l1l4_total"])

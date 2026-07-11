@@ -1,0 +1,393 @@
+# ══════════════════════════════════════════════════════════════
+# WF 优化频率/稳定性重构 — 完整 Diff 对比报告 (方案 A+B+C)
+# 基线: C:/Users/yangd/backups_wf_universe_20260711_0949 (方案B整合后状态)
+# 新版: C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/skills/quant-daily/scripts/optimizer
+# 新增: regime.py (日频regime轻量指标, C)
+# ══════════════════════════════════════════════════════════════
+
+════════════════ backtest_optimizer.py ════════════════
+--- C:/Users/yangd/backups_wf_universe_20260711_0949/backtest_optimizer.py	2026-07-11 09:52:42.098443800 +0800
++++ C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/skills/quant-daily/scripts/optimizer/backtest_optimizer.py	2026-07-11 09:52:58.409688900 +0800
+@@ -65,13 +65,82 @@
+     ("dc55", "trend_base_score"),
+ ]
+ 
+-# Walk-Forward 配置
+-WF_TRAIN_PCT = 0.7   # 前70%数据用于训练
+-WF_TEST_PCT = 0.3    # 后30%用于测试
+-SAMPLE_INTERVAL = 5  # 每 N 根K线采样一个截面
+-LOOKAHEAD_BARS = 5   # 信号发出后看多少根K线评估方向正确性
+-MIN_BARS = 80        # 最小K线要求（含指标预热）
+-DAYS_OF_DATA = 400   # 拉取历史K线天数
++# ─── Walk-Forward 结构配置（冻结 + 版本化）───
++# ⚠ 结构变更铁律: 任何结构常量(窗口/采样/前瞻/阈值/分级/滞后)的修改,
++#    视为"结构变更", 必须全量重基线 + 更新下方 WF_CHANGELOG, 否则相邻两次
++#    wf_accuracy 不可比(尺子被换)。版本号须递增。
++WF_CONFIG_VERSION = "1.0.0"
++
++WF_CONFIG = {
++    "version": WF_CONFIG_VERSION,
++    "data": {
++        "days_of_data": 400,
++        "min_bars": 80,
++        "sample_interval": 5,
++    },
++    "walk_forward": {
++        "train_pct": 0.7,
++        "test_pct": 0.3,
++        "lookahead_bars": 5,
++    },
++    # 分级阈值(准确率下限% , 基于置信下界判定)
++    "tiers": {
++        "daily": {"good": 50, "medium": 40},
++        "120m":  {"good": 55, "medium": 50},
++    },
++    "hysteresis_weeks": 3,           # 纳入/剔除需连续 N 周一致才生效
++    "ci_z": 1.96,                    # 置信区间 z 值 (95% CI)
++    "min_test_signals_for_ci": 10,   # 测试信号数低于此 → 定级 unknown(未知带)
++    "core_universe": [               # 稳定核心宇宙(结构适合趋势跟踪, 永不自动剔除)
++        "rb", "hc", "i", "j", "jm", "sc", "fu", "bu", "lu", "pg",
++        "ta", "ma", "v", "pp", "l", "eg", "cu", "al", "zn", "au",
++        "ag", "c", "m", "y", "p", "a", "rm", "oi", "sr", "cf", "ru", "sp",
++    ],
++}
++WF_CHANGELOG = [
++    "1.0.0 (2026-07-11): 初始冻结版本。整合原分散常量 + 新增滞后确认/置信下界定级/稳定核心宇宙。",
++]
++
++# ─── 向后兼容别名(旧代码/其他模块引用) ───
++DAYS_OF_DATA = WF_CONFIG["data"]["days_of_data"]
++MIN_BARS = WF_CONFIG["data"]["min_bars"]
++SAMPLE_INTERVAL = WF_CONFIG["data"]["sample_interval"]
++WF_TRAIN_PCT = WF_CONFIG["walk_forward"]["train_pct"]
++WF_TEST_PCT = WF_CONFIG["walk_forward"]["test_pct"]
++LOOKAHEAD_BARS = WF_CONFIG["walk_forward"]["lookahead_bars"]
++
++
++def wilson_ci_lower(successes: int, n: int, z: float = 1.96) -> float:
++    """Wilson 置信区间下界 (返回 0-1)。小样本下比 ±正态近似 更保守。"""
++    if n == 0:
++        return 0.0
++    phat = successes / n
++    denom = 1.0 + z * z / n
++    center = (phat + z * z / (2 * n)) / denom
++    margin = (z * math.sqrt(phat * (1 - phat) / n + z * z / (4 * n * n))) / denom
++    return max(0.0, center - margin)
++
++
++def classify_tier(period: str, accuracy: float, test_signals: int,
++                  wf_config: dict = WF_CONFIG) -> str:
++    """基于置信下界(而非点估计)定级, 小样本落入 unknown(未知带)。
++
++    period: 'daily' | '120m'
++    accuracy: 0-1 测试集准确率点估计
++    test_signals: 测试集有效信号数
++    """
++    t = wf_config["tiers"][period]
++    if test_signals < wf_config["min_test_signals_for_ci"]:
++        return "unknown"
++    lower = wilson_ci_lower(int(round(accuracy * test_signals)), test_signals,
++                            wf_config["ci_z"])
++    lower_pct = lower * 100.0
++    if lower_pct >= t["good"]:
++        return "good"
++    elif lower_pct >= t["medium"]:
++        return "medium"
++    else:
++        return "weak"
+ 
+ 
+ def _build_tech(close, high, low, volume, open_price, symbol, name):
+
+════════════════ run.py ════════════════
+--- C:/Users/yangd/backups_wf_universe_20260711_0949/run.py	2026-07-11 09:52:42.018485500 +0800
++++ C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/skills/quant-daily/scripts/optimizer/run.py	2026-07-11 09:54:02.517558600 +0800
+@@ -131,10 +131,18 @@
+ 
+     _OPT_DIR = os.path.dirname(os.path.abspath(__file__))  # scripts/optimizer
+ 
++    # 结构单一来源: 从 backtest_optimizer.WF_CONFIG 派生(冻结+版本化)
++    from optimizer.backtest_optimizer import (
++        WF_CONFIG, WF_CONFIG_VERSION, classify_tier,
++    )
+     TIER_THRESHOLDS = {
+-        "daily": {"good": 50, "medium": 40, "weak": 0},
+-        "120m":  {"good": 55, "medium": 50, "weak": 0},
++        per: {"good": WF_CONFIG["tiers"][per]["good"],
++              "medium": WF_CONFIG["tiers"][per]["medium"]}
++        for per in ("daily", "120m")
+     }
++    CORE_UNIVERSE = set(WF_CONFIG["core_universe"])
++    HYSTERESIS_WEEKS = WF_CONFIG["hysteresis_weeks"]
++    _STATE_PATH = os.path.join(os.path.dirname(config_out), "monitoring_state.json")
+ 
+     def _get_name(sym):
+         for s, n in ALL_SYMBOLS:
+@@ -142,14 +150,26 @@
+                 return n
+         return sym
+ 
+-    def _tier(per, acc):
+-        t = TIER_THRESHOLDS[per]
+-        if acc >= t["good"]:
+-            return "good"
+-        elif acc >= t["medium"]:
+-            return "medium"
+-        else:
++    def _tier(per, acc, signals=0, use_ci=True):
++        """基于置信下界定级(替代点估计); 小样本→unknown。
++        use_ci=False 时退回点估计(供 --light 重建路径使用)。"""
++        if not use_ci:
++            t = TIER_THRESHOLDS[per]
++            if acc >= t["good"]:
++                return "good"
++            elif acc >= t["medium"]:
++                return "medium"
+             return "weak"
++        return classify_tier(per, acc / 100.0, signals)
++
++    def _tier_label(per, tier):
++        t = TIER_THRESHOLDS[per]
++        return {
++            "good": f"优质（≥{t['good']}%）",
++            "medium": f"中等（{t['medium']}-{t['good']-1}%）",
++            "weak": f"弱信号（<{t['medium']}%）",
++            "unknown": f"未知（样本不足{WF_CONFIG['min_test_signals_for_ci']}）",
++        }.get(tier, tier)
+ 
+     def _build_full_symbol_list():
+         return [(s, n) for s, n in ALL_SYMBOLS]
+@@ -171,8 +191,11 @@
+         rv = {}
+         for r in results:
+             sym = r["symbol"]
+-            acc = round(r.get("test_metrics", {}).get("accuracy", 0) * 100)
+-            rv[sym] = {"accuracy": acc, "tier": _tier("daily", acc), "name": _get_name(sym)}
++            tm = r.get("test_metrics", {})
++            acc = round(tm.get("accuracy", 0) * 100)
++            sig = tm.get("signals", 0)
++            rv[sym] = {"accuracy": acc, "signals": sig,
++                       "tier": _tier("daily", acc, sig), "name": _get_name(sym)}
+         written = sum(1 for r in results if r.get("test_metrics", {}).get("accuracy", 0) > 0.5)
+         print(f"\n  日线完成: {len(results)}/62 品种有结果, {written} 个写入per_symbol\n")
+         return rv
+@@ -202,63 +225,121 @@
+             sym = r["symbol"]
+             tst = r.get("test_metrics", {})
+             acc = round(tst.get("accuracy", 0) * 100)
+-            rv[sym] = {"accuracy": acc, "tier": _tier("120m", acc), "name": _get_name(sym), "has_signal": True}
++            sig = tst.get("signals", 0)
++            rv[sym] = {"accuracy": acc, "signals": sig,
++                       "tier": _tier("120m", acc, sig), "name": _get_name(sym), "has_signal": True}
+         for s, n in ALL_SYMBOLS:
+             if s not in processed_syms:
+                 rv[s] = {"accuracy": 0, "tier": "n/a", "name": n, "has_signal": False}
+         print(f"\n  120m完成: {len(processed_syms)}/{len(ALL_SYMBOLS)} 品种有结果, {len(good)} 个≥55%\n")
+         return rv
+ 
++    def _load_state():
++        if os.path.exists(_STATE_PATH):
++            try:
++                with open(_STATE_PATH, encoding="utf-8") as f:
++                    return json.load(f)
++            except Exception:
++                pass
++        return {"version": WF_CONFIG_VERSION, "included": {}, "history": {}}
++
++    def _save_state(state):
++        with open(_STATE_PATH, "w", encoding="utf-8") as f:
++            json.dump(state, f, ensure_ascii=False, indent=2)
++
++    def _resolve_inclusion(period, results, state):
++        """稳定核心宇宙 + 滞后确认: 返回最终 symbol_list 与 tiers 分组。
++
++        滞后确认: 单周 tier 翻转不直接生效, 需连续 HYSTERESIS_WEEKS 周一致才增删,
++        否则维持现状 —— 直接消掉小样本 WF 噪声造成的宇宙抖动。
++        unknown(样本不足) → 维持现状, 不触发任何增删。
++        """
++        if not state.get("included"):
++            cur = set()
++            if os.path.exists(config_out):
++                try:
++                    with open(config_out, encoding="utf-8") as f:
++                        cur = set(json.load(f).get(period, {}).get("symbol_list", []))
++                except Exception:
++                    pass
++            for s, _ in ALL_SYMBOLS:
++                state["included"][s] = (s in cur)
++                state["history"].setdefault(s, [])
++        new_included = {}
++        tiers = {"good": [], "medium": [], "weak": [], "unknown": []}
++        for s, n in ALL_SYMBOLS:
++            info = results.get(s, {"accuracy": 0, "tier": "weak", "signals": 0})
++            tier = info["tier"]
++            tiers.setdefault(tier, []).append(s)
++            is_core = s.lower() in CORE_UNIVERSE
++            cur_in = state["included"].get(s, False)
++            desired = cur_in if tier == "unknown" else (tier in ("good", "medium"))
++            hist = state["history"].get(s, [])
++            if desired == cur_in:
++                new_included[s] = cur_in
++                state["history"][s] = []
++            else:
++                hist.append(desired)
++                state["history"][s] = hist[-HYSTERESIS_WEEKS:]
++                if (len(state["history"][s]) >= HYSTERESIS_WEEKS
++                        and all(h == desired for h in state["history"][s])):
++                    new_included[s] = desired
++                    state["history"][s] = []
++                else:
++                    new_included[s] = cur_in  # 未达滞后阈值, 维持现状
++            if is_core:  # 稳定核心宇宙: 永不自动剔除
++                new_included[s] = True
++        state["included"] = new_included
++        return [s for s in new_included if new_included[s]], tiers
++
+     def build_monitoring_config(daily_results, results_120m):
+         today = datetime.now().strftime("%Y-%m-%d")
+-        daily_all, daily_sym_list, daily_tiers = [], [], {"good": [], "medium": [], "weak": []}
++        state = _load_state()
++
++        daily_sym_list, daily_tiers = _resolve_inclusion("daily", daily_results, state)
++        m120_sym_list, m120_tiers = _resolve_inclusion("120m", results_120m, state)
++        _save_state(state)
++
++        daily_all = []
+         for s, n in ALL_SYMBOLS:
+-            info = daily_results.get(s, {"accuracy": 0, "tier": "weak"})
+-            acc, tier = info["accuracy"], info["tier"]
+-            daily_all.append({"symbol": s, "name": n, "wf_accuracy": acc, "tier": tier})
+-            if acc > 0:
+-                daily_sym_list.append(s)
+-                daily_tiers[tier].append(s)
++            info = daily_results.get(s, {"accuracy": 0, "tier": "weak", "signals": 0})
++            daily_all.append({"symbol": s, "name": n, "wf_accuracy": info["accuracy"],
++                              "tier": info["tier"], "in_monitor": s in daily_sym_list})
+         daily_config = {
+             "all": daily_all,
+             "symbol_list": daily_sym_list,
+-            "tiers": {
+-                "good": {"label": f"优质（≥{TIER_THRESHOLDS['daily']['good']}%）", "symbols": daily_tiers["good"]},
+-                "medium": {"label": f"中等（{TIER_THRESHOLDS['daily']['medium']}-{TIER_THRESHOLDS['daily']['good']-1}%）", "symbols": daily_tiers["medium"]},
+-                "weak": {"label": f"弱信号（<{TIER_THRESHOLDS['daily']['medium']}%）", "symbols": daily_tiers["weak"]},
+-            },
++            "tiers": {k: {"label": _tier_label("daily", k), "symbols": daily_tiers.get(k, [])}
++                      for k in ("good", "medium", "weak", "unknown")},
+         }
+-        m120_all, m120_sym_list, m120_tiers = [], [], {"good": [], "medium": [], "weak": []}
++        m120_all = []
+         for s, n in ALL_SYMBOLS:
+-            info = results_120m.get(s, {"accuracy": 0, "tier": "n/a", "has_signal": False})
+-            acc, tier, has_signal = info["accuracy"], info["tier"], info["has_signal"]
+-            m120_all.append({"symbol": s, "name": n, "wf_accuracy": acc, "tier": tier, "has_signal": has_signal})
+-            if has_signal and acc >= 50:
+-                m120_sym_list.append(s)
+-                if tier != "n/a":
+-                    m120_tiers[tier].append(s)
++            info = results_120m.get(s, {"accuracy": 0, "tier": "n/a", "has_signal": False, "signals": 0})
++            m120_all.append({"symbol": s, "name": n, "wf_accuracy": info["accuracy"],
++                             "tier": info["tier"], "has_signal": info.get("has_signal", False),
++                             "in_monitor": s in m120_sym_list})
+         m120_config = {
+             "all": m120_all,
+             "symbol_list": m120_sym_list,
+-            "tiers": {
+-                "good": {"label": f"优质（≥{TIER_THRESHOLDS['120m']['good']}%）", "symbols": m120_tiers["good"]},
+-                "medium": {"label": f"中等（{TIER_THRESHOLDS['120m']['medium']}-{TIER_THRESHOLDS['120m']['good']-1}%）", "symbols": m120_tiers["medium"]},
+-                "weak": {"label": "弱信号（<50%或无信号）", "symbols": m120_tiers["weak"]},
+-            },
++            "tiers": {k: {"label": _tier_label("120m", k), "symbols": m120_tiers.get(k, [])}
++                      for k in ("good", "medium", "weak", "unknown")},
+         }
+         config = {
+             "version": today,
+-            "_comment": "自动监测品种配置 — 每周WF优化后自动更新，自动化任务从此文件读取。每日更新: scan_monitored.py --period daily | 120m更新: scan_monitored.py --period 120m",
++            "wf_config_version": WF_CONFIG_VERSION,
++            "_comment": "自动监测品种配置 — WF优化后更新。稳定核心宇宙+滞后确认(连续3周一致才增删), 结构冻结见 WF_CONFIG。每日更新: scan_monitored.py --period daily | 120m: scan_monitored.py --period 120m",
+             "daily": daily_config,
+             "120m": m120_config,
+         }
+         with open(config_out, "w", encoding="utf-8") as f:
+             json.dump(config, f, ensure_ascii=False, indent=2)
++        core_n = sum(1 for s, _ in ALL_SYMBOLS if s.lower() in CORE_UNIVERSE)
+         print(f"✅ monitoring_symbols.json 已重建 ({today}) -> {config_out}")
+-        print(f"   日线监测: {len(daily_sym_list)}/{len(ALL_SYMBOLS)} 品种")
+-        print(f"     good={len(daily_tiers['good'])}, medium={len(daily_tiers['medium'])}, weak={len(daily_tiers['weak'])}")
++        print(f"   日线监测: {len(daily_sym_list)}/{len(ALL_SYMBOLS)} 品种 (核心宇宙 {core_n} 强制包含)")
++        print(f"     good={len(daily_tiers.get('good', []))}, medium={len(daily_tiers.get('medium', []))}, "
++              f"weak={len(daily_tiers.get('weak', []))}, unknown={len(daily_tiers.get('unknown', []))}")
+         print(f"   120m监测: {len(m120_sym_list)}/{len(ALL_SYMBOLS)} 品种")
+-        print(f"     good={len(m120_tiers['good'])}, medium={len(m120_tiers['medium'])}, weak={len(m120_tiers['weak'])}")
++        print(f"     good={len(m120_tiers.get('good', []))}, medium={len(m120_tiers.get('medium', []))}, "
++              f"weak={len(m120_tiers.get('weak', []))}, unknown={len(m120_tiers.get('unknown', []))}")
+         return config
+ 
+     def _light_load_results(per):
+@@ -290,7 +371,8 @@
+                 acc = TIER_THRESHOLDS[per]["good"] + 5 if period_cfg else 0
+             rv[s] = {
+                 "accuracy": acc,
+-                "tier": _tier(per, acc) if acc > 0 else ("n/a" if per == "120m" else "weak"),
++                "signals": 999,  # light 重建路径: 视为可靠, 退回点估计
++                "tier": _tier(per, acc, use_ci=False) if acc > 0 else ("n/a" if per == "120m" else "weak"),
+                 "name": n,
+                 "has_signal": acc > 0 if per == "120m" else True,
+             }
+@@ -328,6 +410,33 @@
+     build_monitoring_config(daily_rv, r120_rv)
+ 
+ 
++def cmd_regime(symbol: str, period: str = "daily", out_path: str = None,
++               from_json: str = None):
++    """计算单品种日频 regime 权重(轻量指标, 仅用于信号权重, 不参与纳入/剔除)
++
++    设计意图: 趋势跟踪"当下是否值得跟"应由当前市况(regime)决定, 而非每周重写
++    监测宇宙。本命令用低成本指标(ADX 长期分位 / 波动率比值 / 价格斜率)估算
++    regime, 输出权重乘数(0.5~1.5)供 scan_monitored 后续乘到信号总分。
++    """
++    from optimizer.regime import compute_regime, build_regime_from_kline
++    if from_json:
++        with open(from_json, encoding="utf-8") as f:
++            data = json.load(f)
++        adx = data.get("adx", [])
++        atr_pct = data.get("atr_pct", [])
++        slope = data.get("slope", 0.0)
++    else:
++        adx, atr_pct, slope = build_regime_from_kline(symbol, period)
++    regime, weight = compute_regime(adx, atr_pct, slope)
++    result = {"symbol": symbol, "period": period, "regime": regime,
++              "weight": weight, "adx_len": len(adx)}
++    print(json.dumps(result, ensure_ascii=False, indent=2))
++    if out_path:
++        with open(out_path, "w", encoding="utf-8") as f:
++            json.dump(result, f, ensure_ascii=False, indent=2)
++    return result
++
++
+ def main():
+     parser = argparse.ArgumentParser(description="品种×周期参数自优化器")
+     parser.add_argument("--symbol", "-s", type=str, default=None,
+@@ -348,6 +457,12 @@
+                         help="monitoring_symbols.json 输出路径(Signal运行配置)")
+     parser.add_argument("--light", action="store_true",
+                         help="(仅--update-config) 轻量模式: 不重跑WF, 从已有数据重建配置")
++    parser.add_argument("--regime", action="store_true",
++                        help="计算单品种日频regime权重(轻量, 不参与纳入/剔除)")
++    parser.add_argument("--regime-out", type=str, default=None,
++                        help="regime结果输出路径(JSON)")
++    parser.add_argument("--from-json", type=str, default=None,
++                        help="(仅--regime) 从JSON读取预计算序列{adx[],atr_pct[],slope}")
+ 
+     args = parser.parse_args()
+ 
+@@ -357,6 +472,10 @@
+         if not args.config_out:
+             parser.error("--update-config 需要配合 --config-out <path>")
+         cmd_update_monitoring_config(args.config_out, args.period, args.light)
++    elif args.regime:
++        if not args.symbol:
++            parser.error("--regime 需要配合 --symbol <代码>")
++        cmd_regime(args.symbol, args.period, args.regime_out, args.from_json)
+     elif args.backtest:
+         cmd_backtest(args.symbol, args.period, args.auto_write)
+     elif args.optimize:

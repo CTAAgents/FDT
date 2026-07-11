@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.9.0
+# Futures Debate Team — 期货交易辩论专家团 v5.10.0
 
-> 🧠 **v5.9.0 品种知识库**：自建品种分析逻辑知识库系统。5层知识体系(L1-L5) + `extract_knowledge.py` 萃取引擎 + 6 Agent 消费端注入 + 老化自动化。详见下方 v5.9 新能力章节。
+> 🧠 **v5.10.0 信号体系统一与能力裁剪**：辩论入口阈值统一为 `config/settings.DEBATE_ENTRY_MIN_ABS=20`（单一真相源，过滤NOISE级）；移除 120m(2小时) 信号监控与参数优化能力、删除盘前预计算缓存（死缓存）。品种知识库(v5.9)等能力保留，详见下方章节。
 
 ## 类型
 
@@ -28,7 +28,7 @@ Team 型（10角色多角色协作团队，全Agent自进化）
      ▼
 P1  通道突破全量扫描               数技源(quant-daily - channel_breakout策略)
      │                           产出: full_scan_channel_breakout_*.json
-     │                           信号检查闸门：无STRONG信号则提前终止
+     │                           信号检查闸门：无候选信号(|total| < DEBATE_ENTRY_MIN_ABS，当前=20)则提前终止
      ▼
 P1.5 产业链分析                    链证源(commodity-chain-analysis)
      │                           产出: 产业链景气度快照 + redundant_pairs
@@ -196,6 +196,27 @@ v5.4 在 v5.3 通道突破主信号源之上，补齐了**系统级可观测性*
 
 ### 反馈闭环
 - 自进化前置（validate → calibrate → evolve）全自动；`debate_journal.json` 升级捕获辩手论据 + held-out judge，双副本同步。
+
+## v5.10 新能力（信号体系统一 + 能力裁剪）
+
+v5.10 聚焦「信号口径统一」与「去除无效能力」两项治理，不改变既有分析能力。
+
+### 辩论入口阈值统一（单一真相源）
+- 阈值定义收敛到 **`config/settings.DEBATE_ENTRY_MIN_ABS`**（当前 = 20），全链路统一引用：`daily_debate.py` / `hourly_debate.py` / `fdt-spawn-debate` / `backtest_optimizer.py` / `04-resilience.md`。
+- 语义：**`|total| ≥ 20`（WEAK 及以上）才进入辩论候选**；NOISE 级（< 20）被过滤，不 spawn 任何辩论 Agent，直接回报无信号。
+- 删除 `signal_classifier.py` 死代码（第三套无人执行的「无信号」口径）。
+- 禁止任何位置写死阈值（team-lead / SKILL.md / 文档均改为读配置），日后调阈值只改 `settings.py` 一处。
+
+### 移除 120m(2小时) 信号监控与参数优化
+- 删除 4 个 120m 信号监控自动化（9:15 / 11:15 / 14:40 / 21:15）。
+- 删除盘前预计算缓存自动化（读取端从未接入主流程，属死缓存）。
+- 代码层：`scripts/optimizer/run_120m_wf.py` 删除；`run.py` 去 120m 分支；`backtest_optimizer.py` 去 120m tiers；`monitoring_symbols.json` 去 120m 块。
+- 参数自优化自动化改名「参数自优化 - 日线(每4周)」，`run.py --update-config --period daily` 仅重建日线监测宇宙。
+
+### 能力不变
+- 品种知识库(v5.9)、OmniOpt 分类法(v5.5)、可观测性与自改进(v5.4)、通道突破主信号源(v5.3) 等既有能力均保留。
+
+---
 
 ## v5.9 新能力（品种分析逻辑知识库 v1.0）
 

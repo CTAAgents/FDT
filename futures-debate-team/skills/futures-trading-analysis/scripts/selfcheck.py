@@ -4,7 +4,7 @@
 FDT 鲁棒性 Layer 5: 健康自检 v1.0
 辩论前运行，检查所有前置条件。不通过→拒绝启动+报告原因。
 
-用法: python selfcheck.py --workspace C:\path\to\Signal
+用法: python selfcheck.py --workspace C:/path/to/Signal
 """
 
 import json, os, sys, subprocess
@@ -20,15 +20,15 @@ def check_python() -> tuple:
         return False, "Python不可用"
 
 def check_data_source(ds_name="通达信TQ-Local") -> tuple:
-    """检查数据源可用性"""
+    """检查数据源可用性（诚实化：仅校验基础分析库是否可导入，不伪称已连接 ds_name）"""
     try:
         import importlib.util
         spec = importlib.util.find_spec("pandas")
         if spec:
-            return True, f"pandas可用"
-        return True, "基础库可用"
-    except:
-        return False, "pandas不可用"
+            return True, f"基础分析库(pandas)可用（数据源 {ds_name} 的连接由运行时实际探测）"
+        return False, "pandas不可用（基础分析库缺失）"
+    except Exception as e:
+        return False, f"基础库检查异常: {e}"
 
 def check_path_writable(path: str) -> tuple:
     """检查路径是否可写"""
@@ -96,7 +96,7 @@ def check_signal_file(workspace: str) -> tuple:
     else:
         return False, "无扫描报告+无触发文件"
 
-def run_selfcheck(workspace: str, fdt_root: str = None) -> dict:
+def run_selfcheck(workspace: str, fdt_root: str = None, fdt_root_explicit: bool = False) -> dict:
     """
     执行完整健康自检。
     返回: {"pass": bool, "checks": [...], "errors": [...]}
@@ -125,6 +125,20 @@ def run_selfcheck(workspace: str, fdt_root: str = None) -> dict:
     run("工作空间可写", check_path_writable, workspace)
     run("辩论脚本", check_debate_scripts, scripts_dir)
     run("Agent定义", check_agent_defs, agents_dir)
+
+    # F2修复（2026-07-11）：显式提供的 --fdt-root 必须指向真实FDT根目录，
+    # 否则视为假阳性（此前即便给了错误路径也可能因巧合匹配子目录而通过）。
+    if fdt_root_explicit:
+        sentinel_agent = os.path.join(agents_dir, "futures-judge.md")
+        sentinel_script = os.path.join(scripts_dir, "validate_agent_output.py")
+        if not (os.path.exists(sentinel_agent) and os.path.exists(sentinel_script)):
+            errors.append(
+                f"--fdt-root 无效: 提供的路径不是FDT根目录 ({fdt_root})，"
+                f"缺少 {sentinel_agent} 或 {sentinel_script}"
+            )
+            checks.append({"name": "fdt-root校验", "pass": False,
+                           "msg": f"提供的 --fdt-root 不是有效FDT根目录: {fdt_root}"})
+
     signal_ok, signal_msg = check_signal_file(workspace)
     checks.append({"name": "信号文件", "pass": signal_ok, "msg": signal_msg})
 
@@ -150,7 +164,8 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true", help="JSON输出")
     args = parser.parse_args()
 
-    result = run_selfcheck(args.workspace, args.fdt_root)
+    result = run_selfcheck(args.workspace, args.fdt_root,
+                            fdt_root_explicit=(args.fdt_root is not None))
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

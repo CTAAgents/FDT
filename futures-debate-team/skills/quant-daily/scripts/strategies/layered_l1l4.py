@@ -43,6 +43,7 @@ class LayeredL1L4Strategy(BaseStrategy):
         mode: str = "full",
         kline_data: Optional[dict] = None,
         df_map: Optional[dict] = None,
+        **kwargs,
     ) -> dict:
         """
         执行 L1-L4 分层打分。

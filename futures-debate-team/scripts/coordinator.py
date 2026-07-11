@@ -214,15 +214,22 @@ class Coordinator:
         return ordered
 
     def _execute_agent(self, agent_id: str, inject_data: Optional[dict] = None) -> dict:
-        """执行单个 Agent（占位——实际调用对应的 skill/spawn 函数）"""
+        """
+        调度单个 Agent（诚实化 F4 修复 2026-07-11）。
+
+        Coordinator 是【纯调度/拓扑层】，不执行任何 Agent 业务逻辑。
+        真实 Agent 执行由 spawn 机制在外部完成。此处仅记录"已调度"，
+        绝不伪称"已完成"——此前 status=completed_by_coordinator 会误导上游以为 Agent 已产出。
+        """
         agent_cfg = self.agents_config.get(agent_id, {})
 
         return {
             "agent_id": agent_id,
             "agent_type": agent_cfg.get("type", "unknown"),
             "description": agent_cfg.get("description", ""),
-            "status": "completed_by_coordinator",
-            "note": "实际 Agent 执行由 spawn 机制完成。Coordinator 负责调度和拓扑管理。",
+            "status": "delegated_to_spawn",
+            "note": "Coordinator 仅完成拓扑调度，不执行 Agent 逻辑；"
+                    "实际执行与产出由 spawn 机制在外部完成。本状态表示'已调度'，不代表已完成。",
         }
 
     def _check_continuation(self, agent_id: str) -> bool:
@@ -256,12 +263,14 @@ if __name__ == "__main__":
     coord = Coordinator(config_path)
     result = coord.run(profile=profile)
 
+    scheduled = sum(1 for t in result["tasks"].values() if t["status"] == "delegated_to_spawn")
     print(f"\n=== 协调层执行报告 ===")
     print(f"Profile: {result['profile']}")
     print(f"模式: {result['mode']}")
-    print(f"Agent: {result['completed']}/{result['total_agents']} completed")
+    print(f"Agent: {scheduled}/{result['total_agents']} 已调度(delegated) | {result['failed']} 失败 | {result['skipped']} 跳过")
     print(f"耗时: {result['total_duration']}s")
+    print(f"注意: Coordinator 仅做拓扑调度，不代表 Agent 已执行/产出（真实执行由 spawn 完成）")
 
     for aid, task in result["tasks"].items():
-        icon = {"completed": "✅", "failed": "❌", "skipped": "⏭️", "pending": "⏳"}
-        print(f"  {icon.get(task['status'], '❓')} {aid}: {task['status']} ({task.get('duration', '?')}s)")
+        icon = {"delegated_to_spawn": "📋", "failed": "❌", "skipped": "⏭️", "pending": "⏳"}
+        print(f"  {icon.get(task['status'], '❓')} {aid}: {task['status']}")

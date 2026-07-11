@@ -11,7 +11,11 @@ description: "FDT内部流程说明书 v1.1 — 禁止裁剪的完整多Agent辩
 
 ## 适用范围
 
-当盘中信号监控检测到`STRONG`（≥50）或`WATCH`（≥40）信号时，执行本流程。
+quant-daily 仅做负向过滤：排除无数据/无市场的品种，全量监控其余品种。
+监控到方向性信号（|total| ≥ DEBATE_ENTRY_MIN_ABS，当前=20 即 WEAK 及以上，已过滤 NOISE 级）即进入辩论候选池；
+评分仅作方向初始值与辩论优先级，不作为排除辩论的硬性门槛。
+哪些品种更适合交易，由辩论→策略→风控→裁决环节决定。
+🔴 **无信号跳过辩论（统一阈值）**：若扫描后 `candidates` 为空（全品种 `|total| < DEBATE_ENTRY_MIN_ABS`）→ **不 spawn 任何辩论 Agent**，直接回报"无有效信号，跳过辩论"。阈值唯一真相源 = `config/settings.py:DEBATE_ENTRY_MIN_ABS`，本文件禁止写死。
 
 ## 核心规则
 
@@ -27,6 +31,9 @@ description: "FDT内部流程说明书 v1.1 — 禁止裁剪的完整多Agent辩
 | 8 | **Phase门禁**：P6汇总前检查是否有缺失的产出文件。缺失则拒绝生成报告 | D03 |
 | 9 | **D06降级**：闫判官spawn 2次均无产出 → 基于证真/慎思论据独立裁决 | D06 |
 | 10 | **🔴 文件优先通信（2026-07-10确立·P0）**：Agent产出**只写文件，不使用SendMessage**。明鉴秋只用poll_file_ready轮询文件就绪后读取。SendMessage在自动化context中路由不可靠——Agent完成但消息永不送达 | A01 |
+| 11 | **🔴 ADX角色反转（2026-07-11确立·P0）**
+| 12 | **🔴 L1产出校验（2026-07-11确立·P0）**：每个Agent写文件→poll_file_ready就绪后，必须调用 `validate_agent_output.py --file <path> --phase <P4/P5_JUDGE/P5_PLAN/P5_RISK>` 做JSON解析+结构校验。校验失败（exit≠0，多为裸引号致JSON损坏）→ 立即重spawn该Agent（最多2次）。未校验不得进入下一阶段 | R29 |
+| 13 | **🔴 Spawn 重试协议（2026-07-11 #3修复·P0）**：调用 Agent 工具 spawn 子Agent 时若返回工具错误（如 402 Insufficient Balance 等**瞬时**错误），立即用相同参数重试同款 spawn 最多2次（间隔5s），仍失败才进入降级（D06/明鉴秋直行）。禁止因单次瞬时错误放弃该阶段辩论 | R32 |：ADX低位鼓励趋势启动确认、高位警示趋势过热。所有spawn prompt中必须注入ADX角色反转规则——不得以ADX<20作为"无趋势=不做"的首要理由。裁决reasoning中ADX提及占比≤1/3。监控条件不得以ADX为首要触发标准 | R11 |
 
 ## 根因
 
@@ -75,6 +82,41 @@ if not poll_file_ready(output_path, timeout=900, stable_seconds=5):
     inline_analysis(sym)
 else:
     data = read_json(output_path)
+    # ── L1产出校验（R29：防止裸引号等JSON损坏静默流入下游）──
+    from pathlib import Path
+    import subprocess, json as _json
+    _vresp = subprocess.run(
+        ["C:/Program Files/Python312/python.exe",
+         "C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/scripts/validate_agent_output.py",
+         "--file", output_path, "--phase", phase],
+        capture_output=True, text=True,
+    )
+    _vresult = _json.loads(_vresp.stdout or "{}")
+    if not _vresult.get("valid"):
+        print(f"[L1-FAIL] {sym} {phase}: {_vresult.get('error')}")
+        # 最多重spawn 2次
+        for _retry in range(2):
+            print(f"[L1-RETRY] {sym} {phase} 第{_retry+1}次重spawn")
+            Agent(  # 复用原spawn参数，prompt追加: 严禁裸引号，JSON必须合法
+                description=f"{phase}-{symbol}-retry{_retry+1}",
+                subagent_type="general-purpose",
+                prompt=orig_prompt + "
+
+🔴 上轮产出JSON损坏（裸引号/未转义），重做：所有字符串禁用任何引号，用括号代替。完成后Write合法JSON。",
+                model="default", max_turns=10,
+            )
+            if poll_file_ready(output_path, timeout=900, stable_seconds=5):
+                _r2 = subprocess.run(
+                    ["C:/Program Files/Python312/python.exe",
+                     "C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/scripts/validate_agent_output.py",
+                     "--file", output_path, "--phase", phase],
+                    capture_output=True, text=True,
+                )
+                if _json.loads(_r2.stdout or "{}").get("valid"):
+                    data = read_json(output_path)
+                    break
+        else:
+            raise RuntimeError(f"[L1-FATAL] {sym} {phase} 校验2次重spawn仍失败")
 ```
 
 ### 降级规则
@@ -89,6 +131,50 @@ else:
 | P5 风控明 | 300s | 明鉴秋基于裁决+风控规则自行审核 |
 
 **关键**: 降级≠跳过。降级时明鉴秋**必须完成该阶段的分析工作**，只是不通过Agent spawn来完成。
+
+## 🔴 Spawn 重试协议（#3修复·2026-07-11）
+
+### 问题
+
+先前盘中自动化出现过 `402 Insufficient Balance` 等**瞬时** spawn 错误——子Agent 实际已运行并写入产物，但 Agent 工具返回报错。当时无重试机制，靠"产物恰好已落盘"侥幸过关，存在静默断裂风险（若当次产物未落盘则整阶段丢失）。
+
+### 永久修复：spawn 工具错误立即重试
+
+明鉴秋（或自动化主循环）在调用 Agent 工具 spawn 子Agent 时，必须包裹重试：
+
+```python
+import time
+
+def spawn_with_retry(spawn_fn, max_retry=2, wait_s=5):
+    """spawn 子Agent，遇工具瞬时错误自动重试。仍失败抛异常交降级处理。"""
+    last_err = None
+    for attempt in range(max_retry + 1):
+        try:
+            return spawn_fn()          # 内部调用 Agent(...) 工具
+        except Exception as e:          # 402 Insufficient Balance 等瞬时错误
+            last_err = e
+            if attempt < max_retry:
+                print(f"[SPAWN-RETRY] 第{attempt+1}次spawn失败({e})，{wait_s}s后重试")
+                time.sleep(wait_s)
+                continue
+    raise RuntimeError(f"[SPAWN-FATAL] spawn 2次重试仍失败: {last_err}")
+
+# 用法：将每个 Agent(...) 调用包进 spawn_with_retry
+spawn_with_retry(lambda: Agent(
+    description=f"证真辩手-{symbol}",
+    subagent_type="general-purpose",
+    prompt=build_prompt(symbol, output_path),
+))
+```
+
+### 与 L1 校验重试的区别
+
+| 层级 | 触发 | 重试对象 | 上限 |
+|:----|:----|:--------|:----|
+| **Spawn重试（#3）** | Agent 工具调用本身报错（402等） | 整个 spawn 动作 | 2次 |
+| **L1校验重试（R29）** | 产物文件JSON损坏/缺字段 | 重spawn该Agent | 2次 |
+
+两者独立：Spawn重试解决"没跑起来"，L1重试解决"跑起来但产出坏"。
 
 ## 完整辩论流程（P3-P6）— 不可裁剪
 
@@ -271,14 +357,22 @@ JSON输出格式：
   "symbol": "{symbol}",
   "generated_at": "...",
   "verdict": "BUY/SELL/HOLD",
-  "confidence": "高/中/低",
+  "confidence": 0.0-1.0 数值（如0.6表示中等，#5修复：必须数值型，禁止"高/中/低"裸字符串）",
+  "confidence_label": "高/中/低（可选，仅人类可读展示用）",
   "bull_score": 0-100,
   "bear_score": 0-100,
   "winner": "bull/bear/tie",
-  "reasoning": "裁决逻辑（不使用引号）",
-  "key_observation": "关键判断",
-  "score_breakdown": {{ "趋势": 0-100, "量价": 0-100, "供需": 0-100, "持仓": 0-100, "宏观": 0-100, "估值": 0-100 }}
+      "reasoning": "裁决逻辑（不使用引号）",
+      "key_observation": "关键判断",
+      "score_breakdown": {{ "趋势": 0-100, "量价": 0-100, "供需": 0-100, "持仓": 0-100, "宏观": 0-100, "估值": 0-100 }}
 }}
+
+🔴 ADX角色反转规则（必须遵守）：
+- ADX低位(<20) = 趋势可能正在启动，关注DC20/DC55通道确认信号，不得据此判定不做
+- ADX高位(≥60) = 趋势可能过热，警示追单风险
+- 裁决中ADX不得成为首要判断依据或致命伤
+- reasoning中ADX提及占比不得超过总论证篇幅的1/3
+- 六维评分中趋势结构维度应将ADX作为通道突破的辅助验证，而非独立主导
 
 输出文件：{judge_path}
 注意：只能读文件，不得SendMessage给任何Agent。
@@ -345,10 +439,16 @@ Agent(
 - SELL裁决: 入场{price}附近, 止损{price}+2*ATR, 目标1{price}-2*ATR, 目标2{price}-3*ATR
 - HOLD裁决: 观望
 
-仓位建议：
-- 置信度高: 正常仓位15-25%
-- 置信度中: 轻仓10-15%
-- 置信度低: 极小仓位5%
+仓位建议（按裁决文件中的 confidence 数值 0-1 映射，#5修复）：
+- confidence ≥ 0.7（高）: 正常仓位15-20%
+- 0.4 ≤ confidence < 0.7（中）: 轻仓10%
+- confidence < 0.4（低）: 极小仓位5%
+- HOLD: 0%仓位，仅给监控方案
+
+🔴 监控条件编写规则（ADX角色反转）：
+- 监控条件排序：价格突破确认+成交量配合排第一，ADX排最后
+- 不得以ADX>20作为首要触发标准
+- HOLD方案格式：先写价格突破+量确认条件，最后写ADX辅助参考
 
 输出文件：{plan_path}。完成后用Write直接写入文件，不使用SendMessage。
 格式：{{ "symbol": "{symbol}", "action": "做多/做空/观望", "entry": {price}, "stop_loss": ..., "target_1": ..., "target_2": ..., "position_size": "...", "timeframe": "120m波段", "note": "..." }}
@@ -404,6 +504,18 @@ python phase3_generate_report.py \
   --output . \
   --output-html debate_report.html
 ```
+
+🔴 P6报告生成（二选一，必须执行）：
+- **全量辩论（多品种）**：调用 `phase3_generate_report.py`（强依赖全量 `intermediate_data.json` + 62/62覆盖铁律）
+- **单品种辩论**：直接Write结构化HTML报告（含P1信号表 / P1.5产业链 / P4多空论据 / P5裁决+方案+风控 / P6结论 六模块），**不依赖全量脚本**（phase3为全量62品种设计，单品种直接套会卡在全量依赖上）
+
+🔴 P6知识萃取强制门禁（2026-07-11确立·不可跳过）：
+组装 `debate_results.json` 后，必须对每个辩论品种调用知识萃取，将本轮辩论写入品种知识库：
+```bash
+python extract_knowledge.py ingest   --symbol {sym}   --pro p4_zhengzhen_{sym}.json   --con p4_zhensi_{sym}.json   --judge p5_judge_{sym}.json   --plan p5_trading_plan_{sym}.json   --bypass
+```
+品种知识库路径：`{FDT_ROOT}/memory/knowledge/{sym}/`（patterns.json / drivers.md / key_levels.json）。
+**缺少知识萃取步骤 → P6不视为完成**（自动化历史断点：辩论跑完但未回填知识库，品种经验无法积累）。
 
 **Phase门禁检查（D03）**：若任一缺少 `p4_zhengzhen_{sym}.json` / `p4_zhensi_{sym}.json` / `p5_judge_{sym}.json` 文件 → **拒绝生成报告**。
 

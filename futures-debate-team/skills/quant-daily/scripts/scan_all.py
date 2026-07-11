@@ -76,6 +76,73 @@ def _split_symbol_contract(sym: str):
     return m.group(1), m.group(2)
 
 
+# ── P0-4 信号重校验门禁常量 ──
+_BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
+_SPIKE_RETURN_CAP_LOCAL = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
+
+
+def _revalidate_breakouts(all_ranked: list, kline_data: dict) -> int:
+    """P0-4：突破类信号重校验门禁（防御伪造突破的最后闸门）。
+
+    对每个突破类信号，用原始K线回验：末根是否真实穿越前20根极值。
+    - 未穿越（末根high/close均未超前20根极值）→ 伪突破
+    - 穿越幅度 >50%（如100×spike漏过sanitize的退化场景）→ 疑似spike伪造
+    命中则降级 signal_type=false_breakout / grade=NOISE / total=0。
+    返回降级计数。
+    """
+    demoted = 0
+    for r in all_ranked:
+        sig = r.get("signal_type", "")
+        if sig not in _BREAKOUT_SIGNALS:
+            continue
+        sym = r.get("symbol", "")
+        if sym not in kline_data:
+            continue
+        _, dlist = kline_data[sym]
+        if len(dlist) < 21:
+            continue
+        prior = dlist[-21:-1]  # 前20根（排除候选突破根本身）
+        last = dlist[-1]
+        try:
+            last_high = float(last.get("high", 0))
+            last_low = float(last.get("low", 0))
+            last_close = float(last.get("close", 0))
+            prior_max_h = max(float(x.get("high", 0)) for x in prior)
+            prior_min_l = min(float(x.get("low", 0)) for x in prior)
+            prior_max_c = max(float(x.get("close", 0)) for x in prior)
+            prior_min_c = min(float(x.get("close", 0)) for x in prior)
+        except (ValueError, TypeError):
+            continue
+        direction = r.get("direction", "")
+        forged = False
+        reason = ""
+        if direction == "bull":
+            broke = (last_high > prior_max_h) or (last_close > prior_max_c)
+            if not broke:
+                forged = True
+                reason = "末根high/close均未超前20根极值(伪突破)"
+            elif prior_max_h > 0 and (last_high / prior_max_h - 1.0) > _SPIKE_RETURN_CAP_LOCAL:
+                forged = True
+                reason = f"末根high超前期{(last_high / prior_max_h - 1) * 100:.0f}%>50%(疑似spike伪造)"
+        elif direction == "bear":
+            broke = (last_low < prior_min_l) or (last_close < prior_min_c)
+            if not broke:
+                forged = True
+                reason = "末根low/close均未破前20根极值(伪突破)"
+            elif prior_min_l > 0 and (prior_min_l / last_low - 1.0) > _SPIKE_RETURN_CAP_LOCAL:
+                forged = True
+                reason = f"末根low破前期{(prior_min_l / last_low - 1) * 100:.0f}%>50%(疑似spike伪造)"
+        if forged:
+            demoted += 1
+            r["signal_type"] = "false_breakout"
+            r["grade"] = "NOISE"
+            r["total"] = 0
+            r["_breakout_revalidated"] = False
+            r["_revalidate_reason"] = reason
+            print(f"  ⛔ [P0-4] {sym} 突破信号被重校验拦截: {reason} → 降级NOISE")
+    return demoted
+
+
 def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
     """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。
 
@@ -405,6 +472,10 @@ def run_scan(
         # ── 正常模式: 使用指定策略打分 ──
         strategy = get_strategy(strategy_name)
         summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode)
+        # ── P0-4 信号重校验门禁（防御伪造突破的最后闸门）──
+        _demoted = _revalidate_breakouts(summary.get("all_ranked", []), kline_data)
+        if _demoted:
+            print(f"\n  [P0-4] 信号重校验门禁: {_demoted} 个伪突破信号被拦截降级为NOISE")
         print(
             f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
         )

@@ -62,6 +62,24 @@ def _detect_fdt_root() -> str:
 FDT_ROOT = _detect_fdt_root()
 
 
+# ─── 版本号（单一真相源 = pyproject.toml）───
+
+def get_fdt_version() -> str:
+    """从 pyproject.toml 读取 FDT 版本号（唯一版本真相源）。
+
+    所有需要展示/写入版本号的地方（bootstrap 横幅、debate_results.json 的
+    debate_version 字段、Agent 身份等）都必须调用本函数，禁止写死版本号，
+    防止版本漂移（历史事故：team-lead 卡在 5.3.0、debate_results 写死 v5.3）。
+    """
+    import tomllib
+    pyproject = os.path.join(FDT_ROOT, "pyproject.toml")
+    try:
+        with open(pyproject, "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:
+        return "unknown"
+
+
 # ─── 目录常量 ───
 
 class FDTDirs:

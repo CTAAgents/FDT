@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-07-11 | ADX反转规则spawn注入强制（v1.1·R11-R18补丁）
+
+**触发来源**: 2026-07-11 JD辩论中闫判官/策执远/风控明均以ADX=17.1为首要依据判HOLD，掌柜质疑为何屡次以ADX为主导。
+**问题诊断**: R11-R18已于2026-07-06写入memory，但fdt-spawn-debate的spawn prompt模板未引用这些规则。Agent拿到裸ADX数据后按传统解读处理。
+**影响范围**: 所有通过fdt-spawn-debate skill spawn的Agent。
+
+| 规则编号 | 规则内容 | 类型 | 优先级 |
+|:--------|:--------|:----|:------|
+| R19 | spawn prompt中必须显式注入ADX角色反转规则（低位鼓励/高位警示），明鉴秋spawn前自检关键词 | 硬约束 | P0 |
+| R20 | 闫判官reasoning中ADX提及占比≤总论证篇幅1/3，不得以ADX<20作为判定HOLD的首要理由 | 硬约束 | P0 |
+| R21 | 策执远/风控明监控条件排序：价格突破+量确认排第一，ADX排最后 | 硬约束 | P0 |
+
 ## 2026-07-06 | ADX角色重定义：趋势过强警示，不做开仓依据（v1.0）
 
 **触发来源**: 掌柜在系统重构中明确ADX的角色定位。
@@ -231,3 +243,34 @@
 - 每次辩论裁决后，明鉴秋逐条检查R06-R10触发情况
 - 任一条触发→裁决标注"⚠️数据质量风险"，风控评级升一级
 - 连续3次无触发→R06-R10标记为"已内化"，降级为P2提示
+
+---
+
+## 2026-07-11 | P6后处理强制门禁（知识萃取 + 单品种报告）
+
+| 规则编号 | 规则内容 | 类型 | 优先级 |
+|:--------|:--------|:----|:------|
+| R26 | P6知识萃取强制门禁：组装debate_results.json后，必须对每个辩论品种调用extract_knowledge.py ingest回填knowledge/{sym}/。缺少萃取步骤→P6不视为完成 | 硬约束 | P0 |
+| R27 | 单品种辩论报告生成：单品种辩论直接Write结构化HTML报告（P1-P6六模块），不套用全量phase3_generate_report.py（该脚本强依赖intermediate_data.json + 62/62覆盖） | 硬约束 | P0 |
+| R28 | 裁决confidence类型统一：闫判官输出confidence统一为数值(0-1)或字符串"高/中/低"；extract_knowledge.py质量门控已兼容两种（_normalize_confidence），但未来spawn模板应统一为数值避免歧义 | 建议 | P1 |
+| R29 | Agent JSON产出裸引号禁止：spawn prompt要求禁用引号，但Agent仍可能写入英文双引号作中文引号→导致JSON损坏。L1产出校验层必须增加JSON.parse校验，解析失败→重spawn | 硬约束 | P0 |
+
+---
+
+## 2026-07-11（续）| L1产出校验强制 + 知识库门控修复
+
+| 规则编号 | 规则内容 | 类型 | 优先级 |
+|:--------|:--------|:----|:------|
+| R30 | L1产出校验强制落地：每个辩论Agent(p4/p5)写文件→poll_file_ready就绪后，必须调用validate_agent_output.py做JSON解析+结构校验。失败(exit≠0)→重spawn该Agent(最多2次)。校验器已真实创建于scripts/validate_agent_output.py，非空壳 | 硬约束 | P0 |
+| R31 | 知识萃取不加--bypass：自动化ingest命令移除--bypass，让置信度质量门控自然过滤低置信度(低<0.6)噪声辩论，避免知识库被弱pattern稀释 | 硬约束 | P1 |
+
+---
+
+## 2026-07-11（续2）| 设计债全修（#3-#6）
+
+| 规则编号 | 规则内容 | 类型 | 优先级 |
+|:--------|:--------|:----|:------|
+| R32 | Spawn 重试协议：调用 Agent 工具 spawn 子Agent 时若返回工具错误（如 402 Insufficient Balance 等瞬时错误），立即用相同参数重试同款 spawn 最多2次（间隔5s），仍失败才降级（D06/明鉴秋直行）。禁止因单次瞬时错误放弃该阶段辩论 | 硬约束 | P0 |
+| R33 | 执行协议单一来源：fdt-spawn-debate 为 spawn/通信/降级/L1/重试 的唯一权威；futures-trading-analysis 仅作概念架构入口。后者内 SendMessage主通道 / debate_team.run / Command(goto) Handoff / repair_phase / PhaseGuard / TeamCreate / 置信度裸字符串 模式一律废弃，自动化以 fdt-spawn-debate 为准 | 硬约束 | P0 |
+| R34 | 置信度类型归一（落实R28建议）：①新建 scripts/confidence_utils.py 为唯一归一化来源，所有消费点从此 import；②闫判官 spawn 模板 confidence 改为数值 0-1（可选 confidence_label 中文标签）；③策执远按数值映射仓位(≥0.7高/0.4-0.7中/<0.4低)；④validate_agent_output.py 增加 confidence 类型校验——非法裸字符串(exit≠0)触发重spawn。R28 由"建议"升级为已落地 | 硬约束 | P0 |
+| R35 | 周末/节假日跳过：自动化prompt新增步骤0交易日检查（weekday<5才继续），周六周日及法定节假日直接结束任务，不扫描不辩论，避免休市期跑无效流程 | 硬约束 | P1 |

@@ -83,21 +83,24 @@ def run_hourly_debate(dry_run: bool = False) -> dict:
         traceback.print_exc()
         return result
 
-    all_ranked = scan_result.get("all_ranked", []) if isinstance(scan_result, dict) else []
-    strong = [s for s in all_ranked if s.get("grade") == "STRONG"]
-    watch = [s for s in all_ranked if s.get("grade") == "WATCH"]
-    has_signals = len(strong) + len(watch) > 0
+    # ── 负向过滤 + 全量监控：任意方向性信号(|total|≥DEBATE_ENTRY_MIN_ABS)即进入辩论候选池 ──
+    # 评分(grade)仅作优先级标签，不作为进入辩论的硬性门槛
+    from config.settings import DEBATE_ENTRY_MIN_ABS
+    candidates = [s for s in all_ranked if abs(s.get("total", 0)) >= DEBATE_ENTRY_MIN_ABS]
+    strong = [s for s in candidates if s.get("grade") == "STRONG"]      # 高优先级
+    watch = [s for s in candidates if s.get("grade") != "STRONG"]       # 其余按评分排序，下游再决交易适配性
+    has_signals = len(candidates) > 0
 
     result["has_signals"] = has_signals
-    result["signal_count"] = len(strong) + len(watch)
+    result["signal_count"] = len(candidates)
     result["strong"] = strong
     result["watch"] = watch
 
-    print(f"  STRONG={len(strong)}  WATCH={len(watch)}")
+    print(f"  辩论候选={len(candidates)} (STRONG={len(strong)} 其余={len(watch)})")
 
     # ── Step 2: 信号门 ──
     if not has_signals:
-        print("  ⏹ 无STRONG/WATCH信号 → 跳过辩论")
+        print("  ⏹ 无方向性信号 → 跳过辩论")
         report = _no_signal_report(date_str)
     else:
         print(f"  🔥 有{len(strong)+len(watch)}个信号 → 进入辩论")
@@ -136,7 +139,7 @@ p {{ color: #999; font-size: 14px; margin: 0 0 4px 0; }}
 <div class="card">
   <div class="icon">🟢</div>
   <h1>无有效信号</h1>
-  <p>21个60分钟适宜品种均无STRONG/WATCH信号</p>
+  <p>60分钟品种均无方向性信号</p>
   <p style="color:#bbb;">不产生交易建议</p>
   <div class="time">{date_str}</div>
 </div>

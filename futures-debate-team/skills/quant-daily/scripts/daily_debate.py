@@ -1,12 +1,13 @@
 """📅 日线期货辩论系统 — 盘后运行一次 · v2.0
 
-只分析适合日线和双周期的品种（共42个），与小时级辩论互补。
+全量监控所有品种（负向过滤无数据/无市场品种），品种池取 config/monitoring_symbols.json 所有周期 symbol_list 并集（自优化WF增删自动生效），与监测扫描保持一致。
 有信号→写debate_trigger.json→团队主管启动完整P3-P5辩论。无信号→简约告知。
 
 用法:
   python daily_debate.py               # 扫描+信号触发+轻量报告
   python daily_debate.py --dry-run      # 查看品种列表
-v2.0 (2026-07-09): 信号门机制——WATCH/STRONG信号时写入Commodities/debate_trigger.json供团队主管读取
+v2.0 (2026-07-09): 信号门机制——检测到方向性信号时写入Commodities/debate_trigger.json供团队主管读取
+v2.1 (2026-07-11): 机制修正——全量监控+负向过滤，评分仅作优先级，不再按STRONG/WATCH硬性排除（详见 fdt-spawn-debate/SKILL.md）
 """
 
 import sys, os, json, shutil
@@ -15,36 +16,69 @@ from datetime import datetime
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SCRIPTS_DIR)
 
-DAILY_SYMBOLS = [
-    # 黑色系
-    "RB", "HC",
-    # 能源链
-    "SC", "LU", "FU", "BU", "PG", "PX",
-    # 聚酯链
-    "TA", "PF", "PR", "EB",
-    # 塑化链
-    "V", "PP", "L", "MA",
-    # 化工
-    "SA", "UR",
-    # 贵金属
-    "AU", "AG",
-    # 农产品
-    "C", "JD", "LH",
-    # 果蔬
-    "AP",
-    # 建材化工
-    "NR", "BR", "SP",
-    # 新能源
-    "PS",
-    # ── 勉强可用（准确率50-55%） ──
-    "EC", "SH", "CS", "CU", "P", "I", "RR", "OI", "AO", "RU", "PK", "A", "J", "SI",
+# 工作空间锚点(供品种池加载器定位 config/monitoring_symbols.json)
+COMMODITIES_DIR = r"C:\Users\yangd\Documents\Signal\Commodities"
+os.makedirs(COMMODITIES_DIR, exist_ok=True)
+
+# ── 日线辩论品种池: 从监测配置动态派生 ──
+# 修复(2026-07-11): 原 DAILY_SYMBOLS 硬编码42品种, 与 config/monitoring_symbols.json
+# 的 daily.symbol_list 脱钩, 导致自优化(WF)剔除的品种(如J焦炭 wf=0)仍被辩论管线扫描,
+# 与监测扫描(scan_monitored.py)结果不一致。现改为从 symbol_list 派生, 使自优化的
+# 增删对「全量扫描 / 日线辩论 / 监测扫描」三套管线同时生效。
+_HARDCODED_DAILY_SYMBOLS = [
+    "RB", "HC", "SC", "LU", "FU", "BU", "PG", "PX", "TA", "PF",
+    "PR", "EB", "V", "PP", "L", "MA", "SA", "UR", "AU", "AG",
+    "C", "JD", "LH", "AP", "NR", "BR", "SP", "PS",
+    "EC", "SH", "CS", "CU", "P", "I", "RR", "OI", "AO", "RU",
+    "PK", "A", "J", "SI",
 ]
+
+
+def _resolve_workspace_root():
+    """定位 Signal 工作空间根目录(含 config/monitoring_symbols.json)。"""
+    candidates = [os.path.dirname(COMMODITIES_DIR)]  # 由硬编码锚点 COMMODITIES_DIR 上溯
+    cur = os.getcwd()
+    for _ in range(6):
+        candidates.append(cur)
+        nxt = os.path.dirname(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    for c in candidates:
+        if os.path.isfile(os.path.join(c, "config", "monitoring_symbols.json")):
+            return c
+    return candidates[0]
+
+
+def _load_daily_symbols():
+    """全量监控品种池: 取监测配置中所有周期(daily/120m/...)的 symbol_list 并集。
+    负向过滤只排除无数据/不可监控品种(由 scan_all 自然处理), 不按评分预筛。"""
+    try:
+        ws = _resolve_workspace_root()
+        cfg_path = os.path.join(ws, "config", "monitoring_symbols.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        symbols = set()
+        for period, pdata in cfg.items():
+            if not isinstance(pdata, dict):
+                continue
+            for x in pdata.get("symbol_list", []):
+                sym = x if isinstance(x, str) else (x.get("symbol") if isinstance(x, dict) else None)
+                if sym:
+                    symbols.add(str(sym).upper())
+        if symbols:
+            print(f"  📋 全量监控品种池: 从监测配置并集派生 {len(symbols)} 个 → {cfg_path}")
+            return sorted(symbols)
+    except Exception as e:
+        print(f"  ⚠ 读取监测配置失败 ({e}), 回退硬编码清单")
+    print(f"  📋 全量监控品种池: 硬编码 {len(_HARDCODED_DAILY_SYMBOLS)} 个 (回退)")
+    return list(_HARDCODED_DAILY_SYMBOLS)
+
+
+DAILY_SYMBOLS = _load_daily_symbols()
 
 OUTPUT_DIR = os.path.join(os.path.dirname(_SCRIPTS_DIR), "reports", "daily")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-COMMODITIES_DIR = r"C:\Users\yangd\Documents\Signal\Commodities"
-os.makedirs(COMMODITIES_DIR, exist_ok=True)
 
 
 def run_daily_debate(dry_run: bool = False) -> dict:
@@ -60,7 +94,7 @@ def run_daily_debate(dry_run: bool = False) -> dict:
 
     print(f"\n{'='*50}")
     print(f"  📅 日线辩论 — {date_str}")
-    print(f"  扫描品种: {len(DAILY_SYMBOLS)}个 (日线适宜+勉强可用)")
+    print(f"  扫描品种: {len(DAILY_SYMBOLS)}个 (全量监控)")
     print(f"{'='*50}")
 
     if dry_run:
@@ -90,20 +124,24 @@ def run_daily_debate(dry_run: bool = False) -> dict:
         return result
 
     all_ranked = scan_result.get("all_ranked", []) if isinstance(scan_result, dict) else []
-    strong = [s for s in all_ranked if s.get("grade") == "STRONG"]
-    watch = [s for s in all_ranked if s.get("grade") == "WATCH"]
-    has_signals = len(strong) + len(watch) > 0
+    # 负向过滤 + 全量监控：任意方向性信号(|total|≥DEBATE_ENTRY_MIN_ABS)即进入辩论候选池
+    # 评分(grade)仅作优先级标签，不作为进入辩论的硬性门槛
+    from config.settings import DEBATE_ENTRY_MIN_ABS
+    candidates = [s for s in all_ranked if abs(s.get("total", 0)) >= DEBATE_ENTRY_MIN_ABS]
+    strong = [s for s in candidates if s.get("grade") == "STRONG"]      # 高优先级
+    watch = [s for s in candidates if s.get("grade") != "STRONG"]       # 其余按评分排序，下游再决交易适配性
+    has_signals = len(candidates) > 0
 
     result["has_signals"] = has_signals
-    result["signal_count"] = len(strong) + len(watch)
+    result["signal_count"] = len(candidates)
     result["strong"] = strong
     result["watch"] = watch
-    print(f"  STRONG={len(strong)}  WATCH={len(watch)}")
+    print(f"  辩论候选={len(candidates)} (STRONG={len(strong)} 其余={len(watch)})")
 
     # ── 信号门 ──
     if not has_signals:
-        print("  ⏹ 无STRONG/WATCH信号 → 跳过辩论")
-        report = _no_signal_report(date_str)
+        print("  ⏹ 无方向性信号 → 跳过辩论")
+        report = _no_signal_report(date_str, len(DAILY_SYMBOLS))
     else:
         print(f"  🔥 有{len(strong)+len(watch)}个信号 → 进入完整辩论")
         # 🔴 写入触发文件，由团队主管的自动化读取并触发完整P3-P5辩论
@@ -148,7 +186,7 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     return result
 
 
-def _no_signal_report(date_str: str) -> str:
+def _no_signal_report(date_str: str, count: int = None) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <title>无信号 — {date_str}</title>
@@ -165,7 +203,7 @@ p {{ color:#999; font-size:14px; margin:0 0 4px 0; }}
 <div class="card">
   <div class="icon">🟢</div>
   <h1>无有效信号</h1>
-  <p>42个日线品种均无STRONG/WATCH信号</p>
+  <p>{count}个日线品种均无方向性信号</p>
   <p style="color:#bbb;">不产生交易建议</p>
   <div class="time">{date_str}</div>
 </div>

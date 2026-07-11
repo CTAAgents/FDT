@@ -18,21 +18,47 @@ import os
 import sys
 import subprocess
 import signal
+import logging
+import logging.handlers
 from pathlib import Path
 from datetime import datetime
 
+
+# ── P2修复：看门狗日志轮转，防止磁盘泄漏（2026-07-11）──
+# 单文件上限 2MB，保留 5 个备份（共约 12MB 上限）。
+# 注意：日志器在 ROOT 定义之后初始化（见下方）。
 
 ROOT = Path(__file__).resolve().parent.parent
 PID_FILE = ROOT / "memory" / "daemon.pid"
 DAEMON_LOG = ROOT / "scheduler" / "daemon.log"
 
 
+def _get_watchdog_logger() -> logging.Logger:
+    logger = logging.getLogger("fdt_watchdog")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    log_dir = ROOT / "scheduler"
+    os.makedirs(str(log_dir), exist_ok=True)
+    log_path = str(log_dir / "watchdog.log")
+    fh = logging.handlers.RotatingFileHandler(
+        log_path, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8"
+    )
+    fh.setFormatter(
+        logging.Formatter("[%(asctime)s] [watchdog] %(message)s", "%Y-%m-%d %H:%M:%S")
+    )
+    logger.addHandler(fh)
+    return logger
+
+
+_watchdog_logger = _get_watchdog_logger()
+
+
 def _log(msg: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] [watchdog] {msg}"
     print(line)
-    with open(str(ROOT / "scheduler" / "watchdog.log"), "a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    _watchdog_logger.info(msg)
 
 
 def is_process_alive(pid: int) -> bool:

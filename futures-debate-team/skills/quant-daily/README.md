@@ -7,7 +7,7 @@
 **quant-daily** 是一套面向中国商品期货市场的量化分析系统，覆盖 **数据采集 → 指标计算 → 策略可插拔打分** 全流程。策略层已独立，新增策略只需新建一个文件。
 
 - 覆盖 **62个主力品种**，14个板块
-- 多周期支持：**日线/周线/月线/240m/120m/60m** 全周期扫描
+- 多周期支持：**日线/周线/月线/240m/120m/60m** 全周期扫描（注：120m 信号监控自动化与 120m 参数优化已移除，scan_all 仍支持 `--period 120m` 手动扫描）
 - 子周期数据源：TDX(120m无数据)→AKShare分钟→东方财富→TqSDK(15s超时保护)
 - 双轨数据源：**通达信TQ-Local**（实盘） + **AKShare**（回测）
 - **策略可插拔**：`strategies/` 目录，`--strategy` 参数切换
@@ -22,7 +22,7 @@ python scripts/scan_all.py
 
 # 子周期扫描（v2.11.0+）
 python scripts/scan_all.py --period 60m    # 1小时
-python scripts/scan_all.py --period 120m   # 2小时
+python scripts/scan_all.py --period 120m   # 2小时（注意：120m 信号监控自动化已废弃，仅保留手动扫描能力）
 python scripts/scan_all.py --period 240m   # 4小时
 
 # 列出可用策略

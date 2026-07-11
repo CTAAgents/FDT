@@ -54,11 +54,10 @@ def load_memory():
 
 
 def _get_version() -> str:
-    """从 pyproject.toml 动态读取版本号（唯一版本源）。"""
-    import tomllib
+    """从 pyproject.toml 动态读取版本号（唯一版本源，经 fdt_paths.get_fdt_version 统一）。"""
     try:
-        with open(_ROOT / "pyproject.toml", "rb") as f:
-            return tomllib.load(f)["project"]["version"]
+        from fdt_paths import get_fdt_version
+        return get_fdt_version()
     except Exception:
         return "unknown"
 

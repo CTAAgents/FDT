@@ -4,8 +4,8 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "5.7.0"
-description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.7: Harness Engineering maturity 4.7/5.0 — Pydantic config schema, trace_id贯穿, unified_logger JSON, pipeline集成测试(43用例), graceful drain, 合约版本迁移, 监控看板+健康端点. v5.6: harness engineering baseline + 4 P0 fixes. v5.5.1: structured argument schema (P0), differentiated info dispatch (P1), two-phase risk control (P2). v5.5: OmniOpt taxonomy. v5.4: APM-CS 5-axis + Telescope, ViBench + held-out judge. v5.3: channel breakout + TqSDK live mode"
+version = "5.10.0"
+description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v5.9: Harness Engineering maturity 4.7/5.0 — Pydantic config schema, trace_id贯穿, unified_logger JSON, pipeline集成测试(43用例), graceful drain, 合约版本迁移, 监控看板+健康端点. v5.6: harness engineering baseline + 4 P0 fixes. v5.5.1: structured argument schema (P0), differentiated info dispatch (P1), two-phase risk control (P2). v5.5: OmniOpt taxonomy. v5.4: APM-CS 5-axis + Telescope, ViBench + held-out judge. v5.3: channel breakout + TqSDK live mode. v5.10: 辩论入口阈值统一(DEBATE_ENTRY_MIN_ABS=20) + 移除120m监控/优化与盘前缓存"
 readme = "README.md"
 requires-python = ">=3.10"
 

@@ -1,0 +1,27 @@
+[
+  {
+    "pattern_id": "jd-p001",
+    "name": "空头突破跟随型",
+    "first_observed": "2026-07-11",
+    "last_used": "2026-07-11 08:29",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "资金验证 → 3月补栏鸡苗7月正集中进入产蛋高峰，叠加... → 淘汰鸡价格7.15元/斤高位坚挺是一把双... → 基本面验证 → 资金验证",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "status": "active"
+  }
+]

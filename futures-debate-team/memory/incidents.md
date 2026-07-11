@@ -3,6 +3,21 @@
 > 专家团自有的事件记录系统。记录每次事故、教训、重要操作。
 > 格式：日期 → 事件 → 根因 → 改正 → 预防
 
+## 2026-07-11 | ADX角色反转规则未注入spawn prompt → JD辩论ADX主导裁决
+
+**事件**: 周六盘后自动化扫描，JD鸡蛋WATCH(+41)触发完整辩论。闫判官裁决以ADX=17.1为"致命伤"判HOLD，策执远监控条件第一条为"ADX>20"，风控明风险表第一项为"ADX趋势强度高"。三个Agent均以ADX为首要判断依据。
+
+**根因**: judgment_revisions.md已有R11-R18关于ADX角色反转的规则（2026-07-06确立），但fdt-spawn-debate/SKILL.md的spawn prompt模板中没有引用这些规则。Agent通过general-purpose spawn时拿到的只是裸数据（ADX=17.1），自然按传统解读处理。
+
+**改正**:
+1. fdt-spawn-debate/SKILL.md: 核心规则表新增#11 ADX角色反转铁律
+2. fdt-spawn-debate/SKILL.md: 闫判官spawn模板新增ADX角色反转规则段
+3. fdt-spawn-debate/SKILL.md: 策执远spawn模板新增监控条件编写规则
+4. futures-judge.md: 新增"ADX角色反转铁律"段（P0不可违反）
+5. futures-trading-strategist.md: Constraints新增ADX监控约束
+6. futures-debate-team-team-lead.md: 新增"ADX角色反转·spawn注入铁律"
+
+**预防**: 每次spawn前，明鉴秋自检prompt是否包含"ADX角色反转"关键词。不包含→拒绝spawn，先修复。
 ---
 
 ## 2026-07-10 20:10 | Agent SendMessage在自动化中路由失效（第2次）
@@ -301,3 +316,75 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 ### 预防
 - 所有辩论团队Agent(观澜/探源/证真/慎思/闫判官/策执远/风控明)统一使用`subagent_type: "general-purpose"` spawn
 - 不再依赖expert subagent_type的工具加载机制
+
+---
+
+## 2026-07-11 | P6后处理三类布线缺失（知识库回填 / P6报告 / JSON裸引号）
+
+### 事件摘要
+2026-07-11 日线盘后扫盘，JD鸡蛋WATCH信号触发完整辩论（v1 08:00 + v2 08:12-08:19两场）。
+辩论Agent产物（证真/慎思/闫判官/策执远/风控明）全部齐全，但跑完即present JSON结束，缺失三件事：
+1. 知识库未更新：knowledge/JD/drivers.md 仍显示"暂无辩论记录"，两场辩论对品种知识库完全不可见
+2. P6最终报告缺失：v2辩论未生成HTML辩论报告，只present了JSON（后于08:23人工补齐）
+3. JSON数据质量bug：p5_judge_JD_v2.json 的reasoning字段含未转义裸引号 "全市场共振"，致JSON解析失败
+
+### 根因
+1. 知识库：extract_knowledge.py有extract_from_debate()方法但无ingest CLI入口；fdt-spawn-debate SKILL Step 8只提phase3_generate_report.py（全量脚本），未钉死单品种报告生成+知识萃取；自动化prompt步骤3仅"FDT记忆→FDT内部"模糊描述，未要求P6汇总/萃取
+2. P6报告：phase3_generate_report.py为全量62品种设计，强依赖intermediate_data.json+62/62覆盖铁律，单品种直接套卡在全量依赖；无现成单品种报告生成器被流程强制调用
+3. JSON裸引号：spawn prompt要求禁用引号但Agent仍写入英文双引号作中文引号用，无JSON产出校验
+
+### 修复（已执行）
+1. extract_knowledge.py：新增 ingest CLI（消费p4证真/p4慎思/p5裁决/p5方案→调extract_from_debate回填知识库）；新增 _normalize_confidence() 兼容字符串型置信度（低0.4/中0.6/高0.8）；回填JD v2辩论→knowledge/JD/ patterns+1 / drivers已更新
+2. fdt-spawn-debate SKILL Step 8 强化：P6报告生成（全量调phase3 / 单品种直接Write HTML）+ 知识萃取强制门禁（缺萃取→P6不完成）
+3. 自动化prompt步骤3 拆为 3.1汇总 / 3.2报告 / 3.3萃取 / 3.4日志（写死，下次自动执行）
+4. p5_judge_JD_v2.json 裸引号 "全市场共振" → 「全市场共振」修复并验证合法
+
+### 预防
+- P6强制门禁：知识萃取步骤不可跳过，否则P6不视为完成
+- 单品种辩论报告走直接Write HTML（不套全量phase3）
+- Agent JSON产出后增加裸引号校验（未来在L1产出校验层加JSON.parse检查）
+
+---
+
+## 2026-07-11（续）| L1产出校验落地 + 知识库质量门控修复
+
+### 问题
+前一轮(08:30)诊断出6类问题并修复，但R29(知识萃取JSON校验)仅在事故记录中提及、**未真正落地**。本轮(08:33用户问潜在问题)深挖发现：
+
+1. **L1校验脚本缺失**：`scripts/validate_agent_output.py` 文件根本不存在。系统prompt声称的L1产出校验(JSON schema+禁止模式)是空壳。JD裁决文件裸引号致JSON损坏全程无任何自动检查拦得住——这是必再犯的活断点。
+2. **自动化 `--bypass` 废掉质量门控**：自动化prompt写死 `ingest --bypass`，所有辩论(含低置信度噪声)无条件灌入知识库，稀释品种经验质量。
+
+### 修复（已执行）
+1. **创建 `validate_agent_output.py`**（真实L1校验器）：
+   - json.loads捕获JSONDecodeError，定位错误行列+上下文（专门catch裸引号类损坏）
+   - 按phase(P4/P5_JUDGE/P5_PLAN/P5_RISK)校验必需字段 + key_arguments子结构
+   - 退出码0=通过 / 1=失败（调用方触发重spawn）
+   - 测试：修复后JD裁决→valid=true exit0；裸引号损坏版→valid=false exit1 且定位L10:21
+2. **SKILL Step规则12 + 轮询就绪后L1代码块**：每个Agent写文件→poll_file_ready→validate；失败立即重spawn(最多2次)，未校验不得进下一阶段
+3. **自动化prompt重写**：步骤3.3移除`--bypass`（让置信度门控生效：低<0.6自然跳过）；新增步骤3.4 L1产出校验强制步
+
+### 验证
+- 无bypass时门控：`中`(0.6)/`高`(0.8)/0.7 通过，`低`(0.4) 跳过 → 知识库只积累中高置信度辩论
+- JD(中)仍会被摄取，低质噪声被过滤
+
+---
+
+## 2026-07-11（续）| 四设计债修复（#3-#6）
+
+### 根因（用户"全修"指令触发）
+上一轮已修复6类问题(L1空壳/--bypass废门控等)，但仍有4项设计债未闭环：
+1. **#3 spawn无重试**：402 Insufficient Balance 等瞬时 spawn 错误无自动重试，依赖产物恰好落盘侥幸过关
+2. **#4 双入口并存**：futures-trading-analysis SKILL 内含 SendMessage主通道/debate_team.run/Handoff/repair_phase/PhaseGuard 等废弃执行代码，与 fdt-spawn-debate(A01文件通信)冲突，下一轮自动化可能误执行旧模式
+3. **#5 confidence类型隐患**：闫判官输出 "高/中/低" 字符串，与系统契约(0-1数值)不一致；validate_agent_output 仅检key存在不检类型
+4. **#6 周末跑**：自动化 DAILY 触发，周六期货休市仍扫描+辩论，产出为过期周五数据
+
+### 修复（已执行）
+1. **#3**：fdt-spawn-debate 新增规则13 + `spawn_with_retry()` 重试协议（瞬时错误重试2次→降级）
+2. **#4**：futures-trading-analysis 顶部插入"执行协议单一来源声明"横幅，列出废弃模式对照表，指明以 fdt-spawn-debate 为唯一权威
+3. **#5**：新建 confidence_utils.py（高0.8/中0.6/低0.4/数值直通）；validate_agent_output.py 增 confidence 类型校验+归一回传；闫判官模板改数值0-1+confidence_label；策执远按数值映射仓位；extract_knowledge.py 改为 import 别名（调用点不变）
+4. **#6**：自动化prompt增步骤0交易日检查（weekday<5才继续，否则跳过）
+
+### 验证
+- validate_agent_output 三分支：中→0.6通过 / 0.72→0.72通过 / xyz→exit1拒绝 ✅
+- confidence_utils 单测：中→0.6, 0.72→0.72, label(0.72)→高, is_valid(xyz)→False ✅
+- extract_knowledge.py / validate_agent_output.py py_compile 通过 ✅
