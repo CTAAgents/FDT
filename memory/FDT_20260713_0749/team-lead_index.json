@@ -1,0 +1,16 @@
+{
+  "round_id": "FDT_20260713_0749",
+  "agent_id": "team-lead",
+  "data_type": "index",
+  "timestamp": "2026-07-13T07:52:16.394102",
+  "data": {
+    "symbols": [
+      "m",
+      "jd",
+      "OI",
+      "lh",
+      "j"
+    ],
+    "direction": "mixed (m NEUTRAL, jd BEAR, OI BEAR, lh BEAR, j NEUTRAL)"
+  }
+}

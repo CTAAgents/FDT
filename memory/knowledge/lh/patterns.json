@@ -31,10 +31,10 @@
     "pattern_id": "lh-p002",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 22:32",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-13 07:51",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.804,
     "structure": "政策催化 → 趋势确认 → 基本面验证 → 资金验证 → lh-con5: 近端供给冲击(1-2周...",
     "applicable_conditions": {
       "adx_range": [

@@ -16,6 +16,40 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-12 22:32"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1895.0,
+        "condition": "等待价格反弹至MA60(1895)上方遇阻确认后入场做空。需量确认：反弹缩量（vol_ratio<0.5）+ 冲高回落K线形态。备选触发：DC20通道向下破位确认可提前入场（无需等待反弹）。若两者均未出现则维持观望。"
+      },
+      "stop_loss": {
+        "price": 1940.0,
+        "type": "fixed",
+        "atr_multiple": 1
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 07:13"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1895.0,
+        "condition": "等待价格反弹至MA60(1895)上方遇阻确认后入场做空。需量确认：反弹缩量（vol_ratio<0.5）+ 冲高回落K线形态。备选触发：DC20通道向下破位确认可提前入场（无需等待反弹）。若两者均未出现则维持观望。"
+      },
+      "stop_loss": {
+        "price": 1940.0,
+        "type": "fixed",
+        "atr_multiple": 1
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 07:51"
     }
   ],
   "aggregated": {
@@ -28,11 +62,11 @@
         "max": 1932.0
       }
     ],
-    "computed_at": "2026-07-12 22:32"
+    "computed_at": "2026-07-13 07:51"
   },
   "meta": {
     "variety": "j",
-    "total_records": 1,
-    "last_updated": "2026-07-12 22:32"
+    "total_records": 3,
+    "last_updated": "2026-07-13 07:51"
   }
 }

@@ -25,5 +25,33 @@
     "confidence": 0.8,
     "consecutive_failures": 0,
     "status": "active"
+  },
+  {
+    "pattern_id": "m-p002",
+    "name": "空头突破跟随型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 07:51",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "m-con1: RSI超买叠加量价背离，... → 技术形态确认 → m-con3: MACD无金叉且均线排列... → 基本面验证",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
   }
 ]

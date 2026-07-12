@@ -53,16 +53,50 @@
       "confidence": "高",
       "round_id": "",
       "extracted_at": "2026-07-12 01:37"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3040.0,
+        "condition": "价格跌破3040短期支撑+成交量>20日均量0.8倍确认放量，拒绝ADX作为首因触发"
+      },
+      "stop_loss": {
+        "price": 3105.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 07:13"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3040.0,
+        "condition": "价格跌破3040短期支撑+成交量>20日均量0.8倍确认放量，拒绝ADX作为首因触发"
+      },
+      "stop_loss": {
+        "price": 3105.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 07:51"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [],
-    "computed_at": "2026-07-12 01:37"
+    "computed_at": "2026-07-13 07:51"
   },
   "meta": {
     "variety": "m",
-    "total_records": 3,
-    "last_updated": "2026-07-12 01:37"
+    "total_records": 5,
+    "last_updated": "2026-07-13 07:51"
   }
 }

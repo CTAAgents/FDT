@@ -1,0 +1,36 @@
+{
+  "round_id": "FDT_20260713_0749",
+  "agent_id": "futures-debate-team-team-lead",
+  "data_type": "debate_round_daily",
+  "timestamp": "2026-07-13T07:52:16.384485",
+  "data": {
+    "round_id": "FDT_20260713_0749",
+    "timestamp": "2026-07-13 07:52",
+    "action": "auto_daily_rerun",
+    "data_benchmark": "2026-07-13 06:45 盘中",
+    "note": "07:49自动化重跑 - 复用06:57扫描(TQ-Local断开)，finalize重建报告",
+    "signal_count": {
+      "STRONG": 0,
+      "WATCH": 2,
+      "WEAK": 3,
+      "NOISE": 57
+    },
+    "triggers": [
+      "m(WATCH+48)",
+      "jd(WATCH+41)",
+      "OI(WEAK+33)",
+      "lh(WEAK+31)",
+      "j(WEAK-24)"
+    ],
+    "verdicts": {
+      "m": "NEUTRAL观望",
+      "jd": "BEAR谨慎观望",
+      "OI": "BEAR观望",
+      "lh": "BEAR观望",
+      "j": "NEUTRAL观望"
+    },
+    "validation_pass": true,
+    "knowledge_extraction": "5/5 completed",
+    "report": "debate_report_20260713.html"
+  }
+}

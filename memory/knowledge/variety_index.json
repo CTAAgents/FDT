@@ -305,11 +305,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 3,
-      "effective_patterns": 1,
-      "patterns_updated": "2026-07-12 00:15",
-      "key_levels_updated": "2026-07-12 01:38",
-      "drivers_updated": "2026-07-12 01:38"
+      "total_debates": 5,
+      "effective_patterns": 2,
+      "patterns_updated": "2026-07-13 07:13",
+      "key_levels_updated": "2026-07-13 07:51",
+      "drivers_updated": "2026-07-13 07:51"
     },
     "y": {
       "name": "豆油",
@@ -388,11 +388,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 1,
+      "total_debates": 3,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 22:32",
-      "key_levels_updated": "2026-07-12 22:32",
-      "drivers_updated": "2026-07-12 22:32"
+      "key_levels_updated": "2026-07-13 07:51",
+      "drivers_updated": "2026-07-13 07:51"
     },
     "jm": {
       "name": "焦煤",
@@ -487,11 +487,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 5,
+      "total_debates": 7,
       "effective_patterns": 3,
       "patterns_updated": "2026-07-12 02:54",
-      "key_levels_updated": "2026-07-12 22:32",
-      "drivers_updated": "2026-07-12 22:32"
+      "key_levels_updated": "2026-07-13 07:51",
+      "drivers_updated": "2026-07-13 07:51"
     },
     "lh": {
       "name": "生猪",
@@ -502,11 +502,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 2,
+      "total_debates": 4,
       "effective_patterns": 2,
       "patterns_updated": "2026-07-12 22:32",
-      "key_levels_updated": "2026-07-12 22:32",
-      "drivers_updated": "2026-07-12 22:32"
+      "key_levels_updated": "2026-07-13 07:51",
+      "drivers_updated": "2026-07-13 07:51"
     },
     "rr": {
       "name": "粳米",
@@ -740,11 +740,14 @@
       "chain": "农产品",
       "profile": true,
       "drivers": true,
-      "patterns": false,
-      "key_levels": false,
+      "patterns": true,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 2,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-13 07:13",
+      "key_levels_updated": "2026-07-13 07:51",
+      "drivers_updated": "2026-07-13 07:51"
     },
     "rm": {
       "name": "菜籽粕",

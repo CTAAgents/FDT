@@ -1756,15 +1756,7 @@ def build_debate_report():
         <div class="card"><div class="card-value">{total}</div><div class="card-label">总信号数</div></div>
         <div class="card"><div class="card-value">{total_buy}</div><div class="card-label" style="color:#22c55e;">做多信号</div></div>
         <div class="card"><div class="card-value">{total_sell}</div><div class="card-label" style="color:#ef4444;">做空信号</div></div>
-        <div class="card"><div class="card-value">{len(chain_active)}</div><div class="card-label">产业链数</div></div>
         <div class="card"><div class="card-value" style="color:{'#ef4444' if sentiment_text=='强烈空头' else '#f59e0b'};">{sentiment_text}</div><div class="card-label">市场情绪</div></div>
-    </div>
-
-    <div class="section">
-        <h2>🔗 产业链全景</h2>
-        <div class="sub-title">{len(chain_active)}条产业链整体趋势 — 排序按平均得分</div>
-        <table><thead><tr><th>产业链</th><th>趋势</th><th class="num">平均分</th><th class="num">品种</th><th class="num">BUY/SELL/HOLD</th><th>龙头</th><th>成员</th></tr></thead>
-        <tbody>{chain_rows}</tbody></table>
     </div>
 
     <div class="section">
