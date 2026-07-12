@@ -25,6 +25,7 @@ class DataSource(Enum):
     TQSDK = "tqsdk"
     EXCHANGE_API = "exchange_api"
     EASTMONEY = "eastmoney"
+    QMT_XTQUANT = "qmt_xtquant"
     AKSHARE = "akshare"
     WEBSEARCH = "websearch"
     CACHE = "cache"

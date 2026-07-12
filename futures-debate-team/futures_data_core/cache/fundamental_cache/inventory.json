@@ -1,0 +1,5 @@
+{
+  "CU": {"social_stock": 28.5, "unit": "万吨", "cached_at": "2026-07-04"},
+  "RB": {"social_stock": 580.0, "unit": "万吨", "cached_at": "2026-07-04"},
+  "AU": {"etf_holding": 1200.0, "unit": "吨", "cached_at": "2026-07-04"}
+}

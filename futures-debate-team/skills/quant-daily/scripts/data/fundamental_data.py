@@ -2,14 +2,14 @@
 """
 统一基本面数据采集器 v1.0
 
-整合 AKShare 全部期货基本面数据接口，为辩论探源/辩手/闫判官提供结构化数据。
+整合 FDC futures_data_core + 100ppi 期货基本面数据接口，为辩论探源/辩手/闫判官提供结构化数据。
 
 数据源优先级:
-  P0 仓单日报: AKShare futures_*_warehouse_receipt (4交易所全覆盖)
-  P1 库存数据: AKShare futures_inventory_* + 生意社 spot_sys
+  P0 仓单日报: FDC futures_data_core get_warrant (4交易所全覆盖)
+  P1 库存数据: FDC futures_data_core get_fundamental + 生意社 spot_sys
   P2 持仓排名: AKShare get_rank_sum_daily + 各交易所排名API
-  P3 交割数据: AKShare futures_delivery_*
-  P4 基差数据: 100ppi现期表(优先) + AKShare futures_spot_price(降级)
+  P3 交割数据: FDC futures_data_core get_fundamental
+  P4 基差数据: 100ppi现期表(优先) + FDC futures_data_core get_basis(降级)
 
 输出格式: 每个品种一个 FundamentalSnapshot dict，包含:
   - warehouse: 仓单快照 (总量/日变化/月趋势/分位/信号)
@@ -38,13 +38,15 @@ from data.spot_100ppi import (
     fetch_ppi_data, calculate_basis, PPI_SYMBOL_MAP as PPI_MAP
 )
 
+# FDC futures_data_core 替代 AKShare（仓单/库存/交割）
+from futures_data_core import get_warrant as fdc_get_warrant
 
 # ============================================================
 # P0: 仓单日报采集
 # ============================================================
 def fetch_warehouse_all(date_str: str = None) -> Dict[str, WarehouseReceipt]:
     """
-    通过AKShare获取4个交易所仓单日报，返回统一格式。
+    通过FDC futures_data_core get_warrant + CZCE爬虫，返回统一格式。
 
     Args:
         date_str: 交易日期 YYYYMMDD, 默认今天
@@ -52,50 +54,48 @@ def fetch_warehouse_all(date_str: str = None) -> Dict[str, WarehouseReceipt]:
     Returns:
         {symbol_lower: WarehouseReceipt}
     """
-    import akshare as ak
-
     if date_str is None:
         date_str = datetime.now().strftime("%Y%m%d")
 
     print(f"[fundamental] 采集仓单日报 ({date_str})...")
     results: Dict[str, WarehouseReceipt] = {}
 
-    def _try_fetch(exchange: str, fn, **kwargs):
-        try:
-            return fn(**kwargs)
-        except Exception as e:
-            print(f"  [{exchange}] 仓单获取失败: {str(e)[:80]}")
-            return None
+    # ── FDC futures_data_core 统一仓单查询（替代原AKShare SHFE/DCE/GFEX） ──
+    import asyncio
 
-    # 上期所 — 回退检测 + AKShare (SHFE WAF拦截时尝试旧日期)
-    shfe_date = date_str
-    try:
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-        import requests as req
-        test_url = f"https://www.shfe.com.cn/data/tradedata/future/dailydata/{date_str}dailystock.dat"
-        r = req.get(test_url, timeout=5, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.shfe.com.cn/"})
-        if r.status_code != 200 or len(r.text) < 200:
-            shfe_date = yesterday
-    except Exception:
-        shfe_date = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-
-    shfe_data = _try_fetch("SHFE", ak.futures_shfe_warehouse_receipt, date=shfe_date)
-    if shfe_data:
-        for variety_name, df in shfe_data.items():
-            sym = _variety_to_symbol(variety_name)
-            if not sym:
+    async def _fetch_warrants_fdc():
+        """逐品种、逐交易所通过FDC获取仓单数据"""
+        fdc_out: Dict[str, WarehouseReceipt] = {}
+        for exchange in ("SHFE", "DCE", "GFEX"):
+            syms = [s for s, (ex, _, _) in EXCHANGE_MAP.items() if ex == exchange]
+            if not syms:
                 continue
-            wr = WarehouseReceipt(sym, date_str)
-            # 总计行
-            total_row = df[df.iloc[:, 0].astype(str).str.contains("总计", na=False)]
-            if not total_row.empty:
+            cnt = 0
+            for s in syms:
                 try:
-                    wr.total_registered = int(total_row.iloc[0, -2]) if len(total_row.columns) >= 2 else 0
-                    wr.daily_change = int(total_row.iloc[0, -1]) if len(total_row.columns) >= 1 else 0
-                except (ValueError, IndexError):
-                    pass
-            wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-            results[sym] = wr
+                    payload = await fdc_get_warrant(s, exchange=exchange, trade_date=date_str)
+                    if not payload or not payload.data:
+                        continue
+                    d = payload.data
+                    total = d.get("total")
+                    if total is None:
+                        continue
+                    wr = WarehouseReceipt(s, date_str)
+                    wr.total_registered = int(total)
+                    wr.daily_change = int(d.get("daily_change", 0) or 0)
+                    wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
+                    fdc_out[s.lower()] = wr
+                    cnt += 1
+                except Exception:
+                    continue
+            if cnt:
+                print(f"  [{exchange}] 仓单解析: {cnt}品种")
+        return fdc_out
+
+    try:
+        results.update(asyncio.run(_fetch_warrants_fdc()))
+    except Exception as e:
+        print(f"  [FDC] 仓单获取失败(降级到CZCE爬虫): {str(e)[:80]}")
 
     # 郑商所 — 盘后才发布当日数据, 盘中回退到前一日
     czce_date = date_str
@@ -165,73 +165,7 @@ def fetch_warehouse_all(date_str: str = None) -> Dict[str, WarehouseReceipt]:
     except Exception as e:
         print(f"  [CZCE] 仓单获取失败: {str(e)[:80]}")
     
-    # 上期所 — AKShare直接API (SHFE WAF已拦截 .dat API, AKShare封装层可能绕过)
-    try:
-        shfe_data = ak.futures_shfe_warehouse_receipt(date=shfe_date)
-        if shfe_data and len(shfe_data) > 0:
-            shfe_count = 0
-            for variety_name, df in shfe_data.items():
-                if not isinstance(df, pd.DataFrame) or df.empty:
-                    continue
-                # 提取VARNAME中的品种代码 (如 "纸浆$W" → "纸浆")
-                clean_name = str(variety_name).split("$")[0].strip()
-                sym = _variety_to_symbol(clean_name, exchange="SHFE")
-                if not sym:
-                    continue
-                # 找总计行
-                total_rows = df[df.iloc[:, 0].astype(str).str.contains("总计", na=False)]
-                if total_rows.empty:
-                    continue
-                wr = WarehouseReceipt(sym, date_str)
-                try:
-                    wr.total_registered = int(total_rows.iloc[0, -2])
-                    wr.daily_change = int(total_rows.iloc[0, -1])
-                except (ValueError, IndexError):
-                    continue
-                wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-                results[sym] = wr
-                shfe_count += 1
-            print(f"  [SHFE] 仓单解析: {shfe_count}品种")
-    except Exception as e:
-        print(f"  [SHFE] 仓单AKShare失败(可能WAF拦截): {str(e)[:80]}")
-        # 降级: 用东方财富库存数据标注
-        print(f"  [SHFE] 降级到EM库存作为仓单代理...")
-    
-    # 大商所 — AKShare直接API (DCE WAF拦截, 需要Referer)
-    try:
-        dce_data = ak.futures_warehouse_receipt_dce(date=date_str)
-        if dce_data is not None and not dce_data.empty:
-            dce_count = 0
-            for variety_code in dce_data["品种代码"].unique():
-                sym = _variety_to_symbol(str(variety_code), exchange="DCE")
-                if not sym:
-                    continue
-                wr = WarehouseReceipt(sym, date_str)
-                variety_df = dce_data[dce_data["品种代码"] == variety_code]
-                wr.total_registered = int(variety_df["今日仓单量（手）"].sum())
-                wr.daily_change = int(variety_df["增减（手）"].sum())
-                wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-                results[sym] = wr
-                dce_count += 1
-            print(f"  [DCE] 仓单解析: {dce_count}品种")
-    except Exception as e:
-        print(f"  [DCE] 仓单AKShare失败(可能WAF拦截): {str(e)[:80]}")
-    
-    # 广期所
-    try:
-        gfex_data = ak.futures_gfex_warehouse_receipt(date=date_str)
-        if gfex_data:
-            for symbol, df in gfex_data.items():
-                sym = symbol.lower()
-                wr = WarehouseReceipt(sym, date_str)
-                if not df.empty:
-                    wr.total_registered = int(df["今日仓单量"].sum())
-                    wr.daily_change = int(df["增减"].sum())
-                    wr.daily_change_pct = _safe_pct(wr.daily_change, wr.total_registered)
-                results[sym] = wr
-            print(f"  [GFEX] 仓单解析: {len(gfex_data)}品种")
-    except Exception as e:
-        print(f"  [GFEX] 仓单获取失败: {str(e)[:80]}")
+    # ── 第二SHFE/DCE/GFEX回退: 已由上方 FDC 统一替代 ──
 
     print(f"  仓单采集完成: {len(results)}品种")
     return results
@@ -247,28 +181,31 @@ def fetch_inventory(symbols: List[str], days: int = 60) -> Dict[str, dict]:
     Returns:
         {symbol: {latest_stock, stock_change, trend_30d, data_source}}
     """
-    import akshare as ak
-
     print(f"[fundamental] 采集库存数据...")
     results = {}
 
-    # 东方财富库存 (逐品种)
-    try:
-        for sym in symbols:
-            try:
-                # futures_inventory_em 使用小写字母品种代码
-                em_df = ak.futures_inventory_em(symbol=sym.lower())
-                if em_df is not None and not em_df.empty:
-                    results[sym.lower()] = {
-                        "latest_stock": float(em_df.iloc[0].get("库存", 0)),
-                        "stock_change": float(em_df.iloc[0].get("增减", 0)),
-                        "data_source": "东方财富(期货库存)",
-                        "unit": "吨",
-                    }
-            except Exception:
-                continue
-    except Exception as e:
-        print(f"  [库存] 东方财富失败: {str(e)[:60]}")
+    # FDC futures_data_core 库存查询（替代原AKShare futures_inventory_em）
+    import asyncio
+    from futures_data_core import get_fundamental as fdc_get_fundamental
+
+    async def _fetch_inv_one(sym: str) -> dict:
+        try:
+            payload = await fdc_get_fundamental(sym, data_type="inventory")
+            return payload.data if payload else {}
+        except Exception:
+            return {}
+
+    for sym in symbols:
+        inv_data = asyncio.run(_fetch_inv_one(sym))
+        if inv_data:
+            latest = inv_data.get("latest_stock") or inv_data.get("inventory")
+            change = inv_data.get("stock_change") or inv_data.get("change")
+            results[sym.lower()] = {
+                "latest_stock": float(latest) if latest is not None else 0,
+                "stock_change": float(change) if change is not None else 0,
+                "data_source": inv_data.get("data_source", "FDC(基本面)"),
+                "unit": inv_data.get("unit", "吨"),
+            }
 
     print(f"  库存采集完成: {len(results)}品种")
     return results
@@ -340,33 +277,27 @@ def fetch_position_ranking(symbols: List[str]) -> Dict[str, dict]:
 # P3: 交割数据采集
 # ============================================================
 def fetch_delivery_stats(symbols: List[str]) -> Dict[str, dict]:
-    """获取历史交割数据作为参考。"""
-    import akshare as ak
-
+    """获取历史交割数据作为参考（FDC替代原AKShare futures_delivery_*）。"""
     print(f"[fundamental] 采集交割统计...")
     results = {}
 
-    for exchange_name, fn in [
-        ("SHFE", ak.futures_delivery_shfe),
-        ("CZCE", ak.futures_delivery_czce),
-        ("DCE", ak.futures_delivery_dce),
-    ]:
+    import asyncio
+    from futures_data_core import get_fundamental as fdc_get_fundamental
+
+    async def _fetch_delivery_one(sym: str) -> dict:
         try:
-            data = fn()
-            if data is None:
-                continue
-            for sym in symbols:
-                sym_upper = sym.upper()
-                if isinstance(data, pd.DataFrame) and not data.empty:
-                    sym_rows = data[data.iloc[:, 0].astype(str).str.upper() == sym_upper]
-                    if not sym_rows.empty:
-                        latest = sym_rows.iloc[-1]
-                        results[sym.lower()] = {
-                            "delivery_volume": float(latest.iloc[1]) if len(latest) > 1 else None,
-                            "data_source": f"{exchange_name}(交割统计)",
-                        }
-        except Exception as e:
-            print(f"  [交割] {exchange_name}失败: {str(e)[:60]}")
+            payload = await fdc_get_fundamental(sym, data_type="delivery")
+            return payload.data if payload else {}
+        except Exception:
+            return {}
+
+    for sym in symbols:
+        deliv_data = asyncio.run(_fetch_delivery_one(sym))
+        if deliv_data:
+            results[sym.lower()] = {
+                "delivery_volume": float(deliv_data.get("delivery_volume", 0)),
+                "data_source": deliv_data.get("data_source", "FDC(交割)"),
+            }
 
     print(f"  交割采集完成: {len(results)}品种")
     return results
@@ -530,7 +461,7 @@ def generate_fundamental_brief(snapshots: Dict[str, dict], for_debate: bool = Tr
         lines.append("---")
         lines.append("")
 
-    lines.append(f"*数据来源: AKShare + 100ppi生意社 | 采集时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}*")
+    lines.append(f"*数据来源: FDC futures_data_core + 100ppi生意社 | 采集时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}*")
     return "\n".join(lines)
 
 

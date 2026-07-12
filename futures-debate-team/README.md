@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v5.12.1
+# Futures Debate Team — 期货交易辩论专家团 v6.0.0
 
-> 🧠 **v5.12.1 版本对齐**：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更。**v5.12.0 周期发现层**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎——周期清单/权重全来自 `config/settings.py:PERIOD_REGISTRY` 与 `PERIOD_FITNESS_WEIGHTS`（wf_acc 0.35 / signal_strength 0.45 / gap_risk 0.20）；`daily_debate.py` 对候选品种算 `period_fitness_{date}.json` 写入 `debate_trigger.json.period_fitness_path`；闫判官/策执远/风控明按各自 MD「周期发现消费」段消费 `best_period`/`exec_style`/`gap_risk`（与方向正交，非硬指令，缺失降级日线）。**v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`（扫描→识别触发品种→标准化 spawn 计划→assemble/extract/report，替代手写胶水代码）；`phase3_generate_report.py --debate` 子集辩论正式可用（兼容 reasoning 顶层/嵌套两格式、不再硬依赖全量 `intermediate_data.json`、报告渲染数据基准时间戳）；`extract_knowledge.py` 增 `ingest_from --from debate_results.json` 批量萃取；通道突破信号加量能前置门（`vol_ratio≥normal_lower_ratio` 才授 DC20 base 分）。配套 SKILL.md 指引修正与 `config.settings` 阈值位置漂移修复。
+> 🚀 **v6.0.0 数据引擎重构**：FDC (futures-data-core) 内嵌为 FDT 自有模块。数据源全面升级——QMT/xtquant 为第一数据源（本地 TCP 直取），TDX 为第二、TqSDK 为备选；AKShare 与东方财富彻底移除，净减 ~700 行依赖代码。**v5.12.0 周期发现层**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎。**v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`。
 
 ## 类型
 

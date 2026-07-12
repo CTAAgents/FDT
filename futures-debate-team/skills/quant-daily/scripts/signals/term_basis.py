@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-期限结构与基差分析模块 v2.1
+期限结构与基差分析模块 v2.2
 数据源优先级：
   【期限结构】
     1. 通达信本地 (TdxCollector v2.0) — 全合约期限结构 + 跨期价差 + 价差历史Z分数
     2. futures-data-search DuckDB（原exchange-futures-data）
-    3. AKShare（降级源，置信度-20%）
-  【现货基准价】  ← v2.1新增
+    3. FDC futures_data_core（降级源），替代原AKShare
+  【现货基准价】  ← v2.1新增, v2.2改为FDC
     1. 100ppi生意社现期表 (日频, 16:30发布, 60+品种, 免费Web版)
-    2. AKShare futures_spot_price（降级源, 置信度-20%）
+    2. FDC futures_data_core get_basis（降级源），替代原AKShare futures_spot_price
 
 输出：per-symbol dict，含 term_structure / basis_rate / basis_signal / spread
 供 run_pipeline.py 调用，注入到品种信号中参与置信度计算。
@@ -28,12 +28,10 @@ try:
     _PPI_AVAILABLE = True
 except ImportError:
     _PPI_AVAILABLE = False
-    print("[term_basis] 100ppi现货采集器未就绪, 回退到AKShare")
+    print("[term_basis] 100ppi现货采集器未就绪")
 
-import os
-import sys
-from datetime import datetime, timedelta
-from typing import Dict, List
+# FDC futures_data_core 替代 AKShare
+from futures_data_core import get_basis as fdc_get_basis, get_term_structure as fdc_get_term_structure
 
 # ============================================================
 # 通达信 TdxCollector 加载
@@ -64,7 +62,7 @@ def _get_tdx_collector():
 
 
 # ============================================================
-# 现货价格映射：品种代码 → AKShare symbol + 现货名称
+# 现货价格映射：品种代码 → FDC symbol + 现货名称
 # 覆盖主流能化、黑色、有色、农产品品种
 # ============================================================
 SPOT_PRICE_MAP: Dict[str, dict] = {
@@ -164,12 +162,12 @@ def _fetch_spot_prices_100ppi(symbols: List[str]) -> Dict[str, dict]:
 
     if not result or result.get("freshness_ok") is False:
         freshness = result.get("data_date", "unknown") if result else "N/A"
-        print(f"[term_basis] 100ppi数据新鲜度不合格(freshness_ok=False, date={freshness}), 降级到AKShare")
+        print(f"[term_basis] 100ppi数据新鲜度不合格(freshness_ok=False, date={freshness}), 降级到FDC")
         return {}
 
     items = result.get("items", {})
     if not items:
-        print("[term_basis] 100ppi无数据, 降级到AKShare")
+        print("[term_basis] 100ppi无数据, 降级到FDC")
         return {}
 
     spot_data = {}
@@ -190,74 +188,39 @@ def _fetch_spot_prices_100ppi(symbols: List[str]) -> Dict[str, dict]:
     if result.get("uncovered"):
         print(f"  100ppi未覆盖: {result['uncovered']}")
     return spot_data
-    try:
-        import akshare as ak
-        import pandas as pd
-    except ImportError:
-        print("[term_basis] AKShare未安装，跳过现货价格获取")
-        return {}
 
+
+async def _fetch_spot_prices_fdc(trade_date: str = None) -> Dict[str, float]:
+    """
+    FDC futures_data_core 现货价格获取 (替代 AKShare futures_spot_price).
+
+    使用 fdc_get_basis() 逐品种查询现货价，覆盖 SPOT_PRICE_MAP 中所有品种。
+
+    Returns:
+        {pid_lower: spot_price}
+    """
     if trade_date is None:
         trade_date = datetime.now().strftime("%Y%m%d")
 
-    spot_prices = {}
+    spot_prices: Dict[str, float] = {}
 
     try:
-        print(f"[term_basis] 正在通过AKShare获取现货价格({trade_date})...")
+        print(f"[term_basis] 正在通过FDC获取现货价格({trade_date})...")
 
-        # 构建vars_list：从SPOT_PRICE_MAP提取ak_symbol并转换为大写品种代码
-        vars_list = []
-        pid_to_spot_symbol = {}
-        for pid, info in SPOT_PRICE_MAP.items():
-            # futures_spot_price的vars_list使用大写品种代码如 AL, CU, RB
-            spot_symbol = pid.upper()
-            vars_list.append(spot_symbol)
-            pid_to_spot_symbol[pid.lower()] = spot_symbol
-
-        # AKShare批量接口: futures_spot_price(date, vars_list)
-        df = ak.futures_spot_price(date=trade_date, vars_list=vars_list)
-
-        if df is not None and not df.empty:
-            print(f"  AKShare现货返回 {len(df)} 行, columns={df.columns.tolist()[:8]}")
-
-            # 列结构: date, symbol, spot_price, near_contract, near_contract_price, ...
-            for _, row in df.iterrows():
-                spot_symbol = str(row.get("symbol", "")).strip().upper()
-                spot_price = row.get("spot_price", None)
-
-                if spot_price is None or pd.isna(spot_price):
-                    # 尝试其他列名
-                    for col in ["现货价", "价格", "price", "value"]:
-                        if col in df.columns:
-                            spot_price = row.get(col)
-                            if spot_price is not None and not pd.isna(spot_price):
-                                break
-
-                if spot_price is not None and not pd.isna(spot_price) and float(spot_price) > 0:
-                    # 反向映射：spot_symbol (如 'AL') → pid_lower (如 'al')
-                    for pid_lower, ss in pid_to_spot_symbol.items():
-                        if ss == spot_symbol:
-                            spot_prices[pid_lower] = float(spot_price)
-                            break
-        else:
-            print("  AKShare现货返回空数据")
-
-    except Exception as e:
-        print(f"  [WARN] AKShare批量现货获取失败: {str(e)[:100]}")
-        # 降级：逐品种查询
-        print("  尝试逐品种查询...")
         for pid, info in SPOT_PRICE_MAP.items():
             try:
-                spot_symbol = pid.upper()
-                df_spot = ak.futures_spot_price(date=trade_date, vars_list=[spot_symbol])
-                if df_spot is not None and not df_spot.empty:
-                    spot_price = df_spot.iloc[0].get("spot_price")
-                    if spot_price is not None and not pd.isna(spot_price) and float(spot_price) > 0:
-                        spot_prices[pid.lower()] = float(spot_price)
+                payload = await fdc_get_basis(pid)
+                if payload and payload.get("data") and payload["data"].get("spot_price") is not None:
+                    spot_price = float(payload["data"]["spot_price"])
+                    if spot_price > 0:
+                        spot_prices[pid.lower()] = spot_price
                         print(f"    [OK] {pid} ({info['spot_name']}) 现货价: {spot_price}")
             except Exception as e2:
                 print(f"    [WARN] {pid} 现货价获取失败: {str(e2)[:60]}")
                 continue
+
+    except Exception as e:
+        print(f"  [WARN] FDC现货获取失败: {str(e)[:100]}")
 
     print(f"[term_basis] 现货价获取完成: {len(spot_prices)}/{len(SPOT_PRICE_MAP)} 品种")
     return spot_prices
@@ -392,67 +355,43 @@ def _get_term_structure_from_tdx(symbols: List[dict], trade_date: str) -> Dict[s
     return term_data
 
 
-def _get_term_structure_from_akshare(symbols: List[dict], trade_date: str) -> Dict[str, dict]:
+async def _get_term_structure_from_akshare(symbols: List[dict], trade_date: str) -> Dict[str, dict]:
     """
-    AKShare降级方案：通过 futures_spot_price 批量获取现货+近月+主力合约价格。
+    FDC futures_data_core 期限结构获取 (替代 AKShare futures_spot_price).
 
-    futures_spot_price(date, vars_list) 返回:
-      spot_price, near_contract, near_contract_price,
-      dominant_contract, dominant_contract_price, near_basis_rate, dom_basis_rate
+    使用 fdc_get_term_structure() 逐品种获取全合约期限曲线，
+    计算 slope = (far_price - near_price) / near_price.
 
-    期限结构 = (dom_price - near_price) / near_price
-    - contango: dom > near (远月升水)
-    - backwardation: dom < near (远月贴水)
-
-    仅在DuckDB不可用时使用（降级源，置信度-20%）。
+    Returns:
+        {pid_lower: {near_month, far_month, near_price, far_price, slope, term_type, ...}}
     """
-    try:
-        import akshare as ak
-        import pandas as pd
-    except ImportError:
-        print("[term_basis] AKShare未安装，跳过期限结构(AKShare降级)")
-        return {}
-
-    print("[term_basis] DuckDB不可用，使用AKShare降级方案(futures_spot_price)...")
+    print("[term_basis] 使用FDC获取期限结构...")
     term_data = {}
 
-    # 构建 vars_list: 从symbols提取大写品种代码
-    pid_to_spot_symbol = {}
     for sym in symbols:
         pid = sym["pid"]
-        spot_sym = pid.upper()
-        pid_to_spot_symbol[spot_sym] = pid.lower()
+        pid_lower = pid.lower()
+        try:
+            payload = await fdc_get_term_structure(pid)
+            if not payload or not payload.get("data"):
+                continue
 
-    vars_list = list(set(pid_to_spot_symbol.keys()))  # 去重
-    print(f"  查询 {len(vars_list)} 个品种...")
+            ts_data = payload["data"]
 
-    try:
-        df = ak.futures_spot_price(date=trade_date, vars_list=vars_list)
+            # 期望 ts_data 包含 near_price, far_price, near_month, far_month, type 等字段
+            near_price = ts_data.get("near_price")
+            far_price = ts_data.get("far_price") or ts_data.get("dominant_price")
 
-        if df is not None and not df.empty:
-            for _, row in df.iterrows():
-                spot_sym = str(row.get("symbol", "")).strip().upper()
-                pid_lower = pid_to_spot_symbol.get(spot_sym)
-                if not pid_lower:
-                    continue
+            if near_price is None or far_price is None:
+                continue
+            if near_price <= 0 or far_price <= 0:
+                continue
 
-                near_price = row.get("near_contract_price")
-                dom_price = row.get("dominant_contract_price")
+            # 期限结构: (远月 - 近月) / 近月
+            slope = (far_price - near_price) / near_price
 
-                if near_price is None or dom_price is None:
-                    continue
-                if pd.isna(near_price) or pd.isna(dom_price):
-                    continue
-
-                near_price = float(near_price)
-                dom_price = float(dom_price)
-
-                if near_price <= 0 or dom_price <= 0:
-                    continue
-
-                # 期限结构: (主力 - 近月) / 近月
-                slope = (dom_price - near_price) / near_price
-
+            term_type = ts_data.get("type", "flat")
+            if term_type == "unknown":
                 if slope > 0.02:
                     term_type = "contango"
                 elif slope < -0.02:
@@ -460,38 +399,37 @@ def _get_term_structure_from_akshare(symbols: List[dict], trade_date: str) -> Di
                 else:
                     term_type = "flat"
 
-                term_data[pid_lower] = {
-                    "near_month": str(row.get("near_contract", "")),
-                    "far_month": str(row.get("dominant_contract", "")),
-                    "near_price": near_price,
-                    "far_price": dom_price,
-                    "slope": round(slope, 4),
-                    "term_type": term_type,
-                    "contracts_count": 2,
-                    "data_source": "AKShare(降级,-20%)",
-                }
+            term_data[pid_lower] = {
+                "near_month": ts_data.get("near_month", ""),
+                "far_month": ts_data.get("far_month", ""),
+                "near_price": near_price,
+                "far_price": far_price,
+                "slope": round(slope, 4),
+                "term_type": term_type,
+                "contracts_count": ts_data.get("contracts_count", 2),
+                "data_source": "FDC(futures_data_core)",
+            }
 
-                # 同时提取基差数据
-                spot_price = row.get("spot_price")
-                if spot_price is not None and not pd.isna(spot_price):
-                    spot_price = float(spot_price)
-                    if spot_price > 0:
-                        basis_rate = (spot_price - near_price) / near_price
-                        term_data[pid_lower]["spot_price"] = round(spot_price, 2)
-                        term_data[pid_lower]["basis_rate"] = round(basis_rate, 4)
-                        term_data[pid_lower]["data_source_spot"] = "AKShare(降级,-20%)"
-                        term_data[pid_lower]["dom_basis_rate"] = row.get("dom_basis_rate")
+            # 同时提取基差数据（如果FDC返回了spot_price）
+            spot_price = ts_data.get("spot_price")
+            if spot_price is not None:
+                spot_price = float(spot_price)
+                if spot_price > 0:
+                    basis_rate = (spot_price - near_price) / near_price
+                    term_data[pid_lower]["spot_price"] = round(spot_price, 2)
+                    term_data[pid_lower]["basis_rate"] = round(basis_rate, 4)
+                    term_data[pid_lower]["data_source_spot"] = "FDC(futures_data_core)"
 
-                term_type_cn = (
-                    "升水" if term_type == "contango" else ("贴水" if term_type == "backwardation" else "平水")
-                )
-                sig = "+" if slope > 0 else ""
-                print(f"  [OK] {pid_lower}: {term_type_cn} 近{near_price}→主{dom_price} ({sig}{slope:.2%})")
-    except Exception as e:
-        print(f"  [ERROR] AKShare futures_spot_price失败: {str(e)[:100]}")
-        return {}
+            term_type_cn = (
+                "升水" if term_type == "contango" else ("贴水" if term_type == "backwardation" else "平水")
+            )
+            sig = "+" if slope > 0 else ""
+            print(f"  [OK] {pid_lower}: {term_type_cn} 近{near_price}→远{far_price} ({sig}{slope:.2%})")
+        except Exception as e:
+            print(f"  [WARN] {pid} 期限结构获取失败: {str(e)[:60]}")
+            continue
 
-    print(f"[term_basis] AKShare期限结构提取完成: {len(term_data)}/{len(symbols)} 品种")
+    print(f"[term_basis] FDC期限结构提取完成: {len(term_data)}/{len(symbols)} 品种")
     return term_data
 
 
@@ -501,8 +439,9 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
     返回 {symbol_lower: {near_month, far_month, near_price, far_price, slope, type}}
 
     数据源由 futures-data-search 统一调度，不硬编码数据库路径。
-    如 DuckDB 不可用或为空，自动降级到 AKShare。
+    如 DuckDB 不可用或为空，自动降级到 FDC futures_data_core。
     """
+    import asyncio
     import duckdb
 
     # 通过已知路径查找 futures-data-search 的 exchange-collector DuckDB。
@@ -520,30 +459,33 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
             print(f"[term_basis] 找到DuckDB: {db_path}")
             break
 
+    def _fallback():
+        return asyncio.run(_get_term_structure_from_akshare(symbols, trade_date))
+
     if db_path is None:
-        print("[term_basis] 未找到futures-data-search DuckDB，降级到AKShare")
-        return _get_term_structure_from_akshare(symbols, trade_date)
+        print("[term_basis] 未找到futures-data-search DuckDB，降级到FDC")
+        return _fallback()
 
     try:
         conn = duckdb.connect(db_path, read_only=True)
     except Exception as e:
-        print(f"[term_basis] DuckDB连接失败: {e}，降级到AKShare")
-        return _get_term_structure_from_akshare(symbols, trade_date)
+        print(f"[term_basis] DuckDB连接失败: {e}，降级到FDC")
+        return _fallback()
 
     # 检查DuckDB是否有当天数据
     try:
         count = conn.execute("SELECT count(*) FROM daily_data WHERE trade_date = ?", [trade_date]).fetchone()[0]
         if count == 0:
-            print(f"[term_basis] DuckDB中无{trade_date}数据(0条)，降级到AKShare")
+            print(f"[term_basis] DuckDB中无{trade_date}数据(0条)，降级到FDC")
             conn.close()
-            return _get_term_structure_from_akshare(symbols, trade_date)
+            return _fallback()
     except Exception:
-        print("[term_basis] DuckDB查询失败，降级到AKShare")
+        print("[term_basis] DuckDB查询失败，降级到FDC")
         try:
             conn.close()
         except Exception:
             pass
-        return _get_term_structure_from_akshare(symbols, trade_date)
+        return _fallback()
 
     term_data = {}
 
@@ -625,7 +567,7 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
     return term_data
 
 
-def compute_term_basis(
+async def compute_term_basis(
     symbols: List[dict],
     trade_date: str = None,
     spot_prices: Dict[str, float] = None,
@@ -636,7 +578,7 @@ def compute_term_basis(
     Args:
         symbols: 品种列表 [{'pid': 'rb', 'exchange': 'SHFE', ...}, ...]
         trade_date: 交易日期 YYYYMMDD，默认今天
-        spot_prices: 预获取的现货价 {pid: price}，跳过AKShare调用
+        spot_prices: 预获取的现货价 {pid: price}，跳过FDC调用
 
     Returns:
         {
@@ -655,7 +597,7 @@ def compute_term_basis(
                 'basis_signal': 0.5,          # -1(高估利空) ~ +1(低估利多)
                 'basis_score': 5,             # basis得分(±10内)
                 'data_source_term': '交易所官方API(DuckDB)',
-                'data_source_spot': 'AKShare(降级,-20%)',  # 或 None
+                'data_source_spot': 'FDC(futures_data_core)',  # 或 None
             },
         }
     """
@@ -672,12 +614,12 @@ def compute_term_basis(
     if not term_data:
         term_data = _get_term_structure_from_duckdb(symbols, trade_date)
 
-    # Step 3: 如果DuckDB仍不可用，降级到AKShare
+    # Step 3: 如果DuckDB仍不可用，降级到FDC
     if not term_data:
-        term_data = _get_term_structure_from_akshare(symbols, trade_date)
+        term_data = await _get_term_structure_from_akshare(symbols, trade_date)
 
     # Step 2: 获取现货价格
-    # v2.1: 优先100ppi, 降级AKShare
+    # v2.1: 优先100ppi, 降级FDC
     if spot_prices is None:
         # Step 2a: 先从 term_data 提取已获取的现货价
         extracted_spot = {}
@@ -704,8 +646,8 @@ def compute_term_basis(
                 _spot_metadata = ppi_data
             else:
                 _spot_metadata = {}
-                # Step 2c: 降级到AKShare
-                spot_prices = _fetch_spot_prices_akshare(trade_date)
+                # Step 2c: 降级到FDC
+                spot_prices = await _fetch_spot_prices_fdc(trade_date)
 
     # Step 3: 组装输出
     result = {}
@@ -787,7 +729,7 @@ def compute_term_basis(
                 if ppi_meta.get("basis_rate") is not None:
                     entry["basis_rate"] = ppi_meta["basis_rate"]
             else:
-                entry["data_source_spot"] = "AKShare(降级,-20%)"
+                entry["data_source_spot"] = "FDC(futures_data_core)"
                 basis_rate_raw = (spot - near_price) / near_price
                 entry["basis_rate"] = round(basis_rate_raw, 4)
 
@@ -819,8 +761,10 @@ def compute_term_basis(
 # ============================================================
 # CLI 入口
 # ============================================================
-def main():
+async def main():
     """独立运行：打印期限结构和基差概览。"""
+    import asyncio
+
     print(f"\n{'=' * 60}")
     print("期限结构与基差分析")
     print(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -829,7 +773,7 @@ def main():
     # 导入品种定义
     from collect_data import FUTURES_SYMBOLS
 
-    result = compute_term_basis(FUTURES_SYMBOLS)
+    result = await compute_term_basis(FUTURES_SYMBOLS)
 
     print(f"\n--- 期限结构 ---")
     for pid_lower, entry in sorted(result.items()):
@@ -852,4 +796,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

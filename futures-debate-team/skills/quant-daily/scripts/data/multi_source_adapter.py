@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-多源数据适配器 v2.13.0
+多源数据适配器 v3.0.0
 实现数据源优先级和自动降级机制
 
-🐛 v2.13.0 盘中TqSDK优先+R0归一化
-  - 盘中子周期: TDX → TqSDK(归一化) → AKShare → 东方财富
-  - TqSDK命中后强制normalize_sub_period_bars()转为会话感知
-  - R0/R26规则: 所有OHLCV消费者必须使用会话感知K线
+🐛 v3.0.0 QMT第一源 + 移除AKShare/东方财富
+  - K线降级链: QMT → TDX → TqSDK → WebSearch裸HTTP
+  - AKShare 和东方财富采集器已移除,不再依赖
+  - QMT本地TCP直取(<5ms),不可用时自动降级TDX
 
 🐛 v2.12.0 子周期K线归一化: 以通达信/文华/博易会话感知切分为基准
   - R0规则: 所有子周期数据源返回的bar须符合交易所会话划分, 不一致则转换
@@ -75,9 +75,8 @@ class DataSource(Enum):
 
     EXCHANGE_API = "exchange_api"  # 交易所官方API
     TQSDK = "tqsdk"  # 天勤量化
-    EASTMONEY = "eastmoney"  # 东方财富公开API
+    QMT_XTQUANT = "qmt_xtquant"  # QMT/xtquant（TCP本地直取）
     TDX_LOCAL = "tdx_local"  # 通达信本地HTTP服务
-    AKSHARE = "akshare"  # AKShare
     WEBSEARCH = "websearch"  # WebSearch
     CACHE = "cache"  # 历史缓存
     NONE = "none"  # 无数据源
@@ -387,9 +386,7 @@ class MultiSourceAdapter:
         # 初始化数据源(按配置驱动)
         self.collector_available = False
         self.tqsdk_available = False
-        self.eastmoney_available = False
         self.tdx_local_available = False
-        self.akshare_available = False
 
         # 1. 交易所官方API(按配置 enabled 决定是否加载)
         if self.config.is_enabled("exchange_api"):
@@ -426,19 +423,7 @@ class MultiSourceAdapter:
             except Exception:
                 self.tqsdk_available = False
 
-        # 3. 东方财富API - 轻量级公开数据源
-        try:
-            from .collectors.eastmoney_collector import EastMoneyCollector
-
-            self.eastmoney_collector = EastMoneyCollector()
-            self.eastmoney_available = True
-            print(f"[DB] 东方财富采集器已加载")
-        except Exception as e:
-            print(f"[Warning] EastMoney collector not available: {e}")
-            self.eastmoney_collector = None
-            self.eastmoney_available = False
-
-        # 4. 通达信本地HTTP服务(按配置 enabled 决定是否加载)
+        # 3. 通达信本地HTTP服务(按配置 enabled 决定是否加载)
         if self.config.is_enabled("tdx_local"):
             try:
                 from .collectors.tdx_collector import TdxCollector
@@ -454,13 +439,13 @@ class MultiSourceAdapter:
                 self.tdx_collector = None
                 self.tdx_local_available = False
 
-        # 5. AKShare
+        # 4. QMT/xtquant（第一数据源，本地 TCP 直取）
         try:
-            import akshare as ak
+            from xtquant import xtdata  # noqa: F401
 
-            self.akshare_available = True
+            self.qmt_available = True
         except ImportError:
-            self.akshare_available = False
+            self.qmt_available = False
 
     def get_quote(
         self,
@@ -582,7 +567,36 @@ class MultiSourceAdapter:
 
         # 周期名转TDX格式
         _period_tdx = {"daily": "1d", "weekly": "1w", "monthly": "1m", "60m": "1h", "120m": "120m", "240m": "4h"}.get(period, period)
-        # 0. 优先尝试通达信本地TDX Collector(最高优先级,priority=0)
+        # 0. 优先尝试QMT/xtquant（TCP本地直取，第一数据源）
+        if self.qmt_available:
+            try:
+                qmt_bars = self._fetch_qmt_kline(variety, period, days)
+                if qmt_bars and len(qmt_bars) >= 20:
+                    records = []
+                    for bar in qmt_bars:
+                        records.append({
+                            "date": bar["date"],
+                            "open": float(bar["open"]),
+                            "close": float(bar["close"]),
+                            "high": float(bar["high"]),
+                            "low": float(bar["low"]),
+                            "volume": int(bar["volume"]),
+                            "oi": int(bar.get("oi", 0)),
+                            "settle": float(bar.get("settle", 0)),
+                            "data_source": "qmt_xtquant",
+                            "confidence": 1.0,
+                        })
+                    print(f"[MultiSource] get_kline({variety}) → QMT第一源, {len(records)}条")
+                    if not _kline_is_stale(records, period):
+                        try:
+                            record_data_fetch(variety, "qmt_xtquant", success=True, count=len(records))
+                        except Exception:
+                            pass
+                        return self._return_kline(records, "qmt_xtquant", period)
+            except Exception as e:
+                print(f"[MultiSource] QMT第一源 get_kline {variety}: {e}")
+
+        # 1. 尝试通达信本地TDX Collector
         if self.tdx_local_available and self.tdx_collector:
             try:
                 if contract:
@@ -624,10 +638,10 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_kline {variety}: {e}")
 
-        # ── 🐛 v2.12.1: 盘中子周期降级链 — TqSDK恢复入链+R0归一化 ──
-        #    盘中: TDX → TqSDK(tick级新鲜度,归一化) → AKShare分钟 → 东方财富 → AKShare日线
-        #    盘后: TDX → AKShare分钟 → 东方财富 → TqSDK(归一化) → AKShare日线
-        #    daily/weekly/monthly: TDX → TqSDK → 东方财富 → AKShare日线
+        # ── 🐛 v2.12.1: 盘中子周期降级链 — QMT第一源 + TqSDK恢复入链+R0归一化 ──
+        #    盘中: QMT → TDX → TqSDK(tick级新鲜度,归一化) → AKShare分钟 → 东方财富 → AKShare日线
+        #    盘后: QMT → TDX → AKShare分钟 → 东方财富 → TqSDK(归一化) → AKShare日线
+        #    daily/weekly/monthly: QMT → TDX → TqSDK → 东方财富 → AKShare日线
         _is_sub_period = period not in ("daily", "weekly", "monthly")
         _is_market_open = _is_trading_session()
 
@@ -664,59 +678,6 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
 
-        # 3. 尝试AKShare分钟K线(子周期HTTP快源)
-        if _is_sub_period:
-            try:
-                import akshare as ak
-                import pandas as _pd
-                from datetime import datetime as _dt
-                _period_map = {"60m": "60", "120m": "120", "240m": "240"}
-                ak_period = _period_map.get(period, "60")
-                ak_symbol = variety.upper() + "0"
-                try:
-                    df = self._safe_akshare(lambda: ak.futures_zh_minute_sina(symbol=ak_symbol, period=ak_period))
-                except Exception as _ak_e:
-                    print(f"[MultiSource] AKShare分钟 {variety}: 无数据({_ak_e})")
-                    df = None
-                if df is not None and len(df) > 0:
-                    df["_dt"] = _pd.to_datetime(df["datetime"])
-                    now = _dt.now()
-                    df = df[df["_dt"] <= _pd.Timestamp(now)]
-                    if len(df) == 0:
-                        print(f"[MultiSource] AKShare分钟 {variety}: 全部数据在未来→放弃")
-                    else:
-                        records = []
-                        for _, row in df.iterrows():
-                            try:
-                                dt_val = row["_dt"]
-                                date_str = dt_val.strftime("%Y%m%d")
-                                records.append({
-                                    "date": date_str,
-                                    "open": float(row.get("open", 0)),
-                                    "close": float(row.get("close", 0)),
-                                    "high": float(row.get("high", 0)),
-                                    "low": float(row.get("low", 0)),
-                                    "volume": int(row.get("volume", 0)),
-                                    "oi": int(row.get("hold", 0)),
-                                    "settle": 0,
-                                    "data_source": "akshare_minute",
-                                    "confidence": 1.0,
-                                })
-                            except (ValueError, TypeError):
-                                continue
-                        if records:
-                            print(f"[MultiSource] get_kline({variety}) → AKShare分钟, {len(records)}条 (至{records[-1]['date']})")
-                            if _kline_is_stale(records, period):
-                                print(f"  [⚠️ 新鲜度检查] AKShare分钟{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
-                            else:
-                                try:
-                                    record_data_fetch(variety, "akshare_minute", success=True, count=len(records))
-                                except Exception:
-                                    pass
-                                return self._return_kline(records, "akshare_minute", period)
-            except Exception as e:
-                print(f"[MultiSource] AKShare分钟 get_kline {variety}: {e}")
-
         # 4. 尝试TqSdk (日线/周线/月线; 盘后子周期兜底,命中后R0归一化)
         if self.tqsdk_available and (not _is_sub_period or not _is_market_open):
             try:
@@ -749,97 +710,6 @@ class MultiSourceAdapter:
                         return self._return_kline(records, "tqsdk", period)
             except Exception as e:
                 print(f"[MultiSource] TqSDK get_kline {variety}: {e}")
-
-        # 4. 尝试东方财富API(盘中/盘后均可用)
-        if self.eastmoney_available:
-            try:
-                info_list = self.eastmoney_collector.get_futures_base_info()
-                secid = None
-                if info_list:
-                    for item in info_list:
-                        if item["code"].lower() == variety.lower():
-                            secid = item["secid"]
-                            break
-                if not secid:
-                    contracts = self.eastmoney_collector.get_contract_list(variety)
-                    if contracts and len(contracts) > 0:
-                        for c in contracts:
-                            if c["code"][-1] not in ("m", "s", "i"):
-                                secid = f"113.{c['code']}"
-                                break
-                if secid:
-                    beg = start_date.replace("-", "")
-                    end = end_date.replace("-", "")
-                    _klt_map = {"daily": 101, "weekly": 102, "monthly": 103, "60m": 60, "120m": 120, "240m": 240}
-                    klt = _klt_map.get(period, 101)
-                    klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=klt, fqt=1)
-                    if klines and len(klines) > 0:
-                        records = []
-                        for k in klines:
-                            records.append({
-                                "date": k.get("date", ""),
-                                "open": k.get("open", 0),
-                                "close": k.get("close", 0),
-                                "high": k.get("high", 0),
-                                "low": k.get("low", 0),
-                                "volume": k.get("volume", 0),
-                                "oi": int(k.get("hold", k.get("open_interest", 0))),
-                                "settle": 0,
-                                "data_source": "eastmoney",
-                                "confidence": 1.0,
-                            })
-                        print(f"[MultiSource] get_kline({variety}) → 东方财富, {len(records)}条")
-                        if _kline_is_stale(records, period):
-                            print(f"  [⚠️ 新鲜度检查] 东方财富{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
-                        else:
-                            try:
-                                record_data_fetch(variety, "eastmoney", success=True, count=len(records))
-                            except Exception:
-                                pass
-                            return self._return_kline(records, "eastmoney", period)
-            except Exception as e:
-                print(f"[MultiSource] 东方财富 get_kline {variety}: {e}")
-
-        # 5. 尝试AKShare日线降级(仅盘后)
-        if self.akshare_available and not _is_market_open:
-            try:
-                import akshare as ak
-
-                # AKShare 主力连续合约格式: {品种小写}0,如 bu0, fu0, pg0
-                ak_symbol = variety.lower() + "0"
-                df = self._safe_akshare(lambda: ak.futures_zh_daily_sina(symbol=ak_symbol))
-                if df is not None and len(df) > 0:
-                    records = []
-                    for _, row in df.iterrows():
-                        try:
-                            records.append(
-                                {
-                                    "date": str(row.get("date", "")),
-                                    "open": float(row.get("open", 0)),
-                                    "close": float(row.get("close", 0)),
-                                    "high": float(row.get("high", 0)),
-                                    "low": float(row.get("low", 0)),
-                                    "volume": int(row.get("volume", 0)),
-                                    "oi": int(row.get("hold", row.get("open_interest", 0))),
-                                    "settle": float(row.get("settle", 0) or 0),
-                                    "data_source": "akshare",
-                                    "confidence": 1.0,
-                                }
-                            )
-                        except (ValueError, TypeError):
-                            continue
-                    if records:
-                        print(f"[MultiSource] get_kline({variety}) → AKShare, {len(records)}条")
-                        if _kline_is_stale(records, period):
-                            print(f"  [⚠️ 新鲜度检查] AKShare{period}最后{records[-1].get('date', '')}→过期,放弃,尝试降级")
-                        else:
-                            try:
-                                record_data_fetch(variety, "akshare", success=True, count=len(records))
-                            except Exception:
-                                pass
-                            return self._return_kline(records, "akshare", period)
-            except Exception as e:
-                print(f"[MultiSource] AKShare get_kline {variety}: {e}")
 
         try:
             record_data_fetch(variety, "none", success=False, error=f"所有数据源均无法获取 {variety} K线数据")
@@ -885,21 +755,6 @@ class MultiSourceAdapter:
                     return {"success": True, **ts}
             except Exception as e:
                 print(f"[MultiSource] 通达信 term_structure {variety}: {e}")
-
-        # 1. 降级东方财富
-        try:
-            if self.eastmoney_available:
-                ts = self.eastmoney_collector.get_term_structure(variety)
-                if ts:
-                    contract_count = len(ts.get("contracts", []))
-                    print(f"[MultiSource] get_term_structure({variety}) → 东方财富, {ts['type']} (斜率{ts['slope']}%)")
-                    try:
-                        record_data_fetch(variety, "eastmoney", success=True, count=contract_count)
-                    except Exception:
-                        pass
-                    return {"success": True, **ts}
-        except Exception as e:
-            print(f"[MultiSource] 东方财富 term_structure {variety}: {e}")
 
         return {
             "success": False,
@@ -1139,26 +994,37 @@ class MultiSourceAdapter:
             print(f"[Warning] TqSDK fetch error: {e}")
             return None
 
-    def _safe_akshare(self, fn, timeout: int = 15):
-        """🐛 v5.12.1: 线程+超时包裹 AKShare 调用（对齐 TqSDK 做法）
+    def _fetch_qmt_kline(self, variety: str, period: str, days: int) -> Optional[list[dict]]:
+        """通过 FDC futures_data_core.get_kline() 获取 K 线（QMT TCP 直取）。
 
-        AKShare 内部 requests 不设超时，数据源慢/不可达时会无限阻塞。
-        TDX 离线触发降级链触达 AKShare 时必须可超时返回 None，
-        否则整轮扫描挂死（2026-07-11 周六盘后扫描事故根因）。
+        委托给 FDC 的数据引擎，自动使用 QMT(0)→TDX(1)→TqSDK(2) 降级链。
+        返回 debate-team 标准 bar dict 格式。
         """
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
-        _executor = ThreadPoolExecutor(max_workers=1)
-        _future = _executor.submit(fn)
         try:
-            return _future.result(timeout=timeout)
-        except _FutureTimeout:
-            print(f"[Warning] AKShare fetch timeout ({timeout}s)")
+            import asyncio
+            from futures_data_core import get_kline as fdc_get_kline
+
+            payload = asyncio.run(fdc_get_kline(variety, period=period, days=days))
+            if payload is None or payload.meta.get("data_grade") == "UNAVAILABLE":
+                return None
+            bars_raw = payload.data.get("bars", [])
+            if not bars_raw:
+                return None
+            result = []
+            for b in bars_raw:
+                result.append({
+                    "date": str(b.get("date", "")),
+                    "open": float(b.get("open", 0)),
+                    "high": float(b.get("high", 0)),
+                    "low": float(b.get("low", 0)),
+                    "close": float(b.get("close", 0)),
+                    "volume": float(b.get("volume", 0)),
+                    "oi": float(b.get("open_interest", b.get("oi", 0))),
+                    "settle": float(b.get("settle", 0)),
+                })
+            return result[-days:] if result and len(result) > days else result
+        except Exception:
             return None
-        except Exception as _e:
-            print(f"[Warning] AKShare fetch error: {_e}")
-            return None
-        finally:
-            _executor.shutdown(wait=False)
 
     def _fetch_tqsdk_kline(
         self,
@@ -1376,211 +1242,6 @@ class MultiSourceAdapter:
         }
         return exchange_map.get(variety.upper(), "")
 
-    def _fetch_eastmoney(
-        self,
-        variety: str,
-        contract_type: str,
-        start_date: Optional[str],
-        end_date: Optional[str],
-    ) -> Optional[List[Dict]]:
-        # 从东方财富API获取数据
-        if not self.eastmoney_available:
-            return None
-
-        try:
-            # 优先获取实时行情快照(最快,交易时段内返回最新价)
-            quotes = self.eastmoney_collector.get_realtime_quote(variety=variety)
-            if quotes and len(quotes) > 0:
-                records = []
-                for q in quotes:
-                    records.append(
-                        {
-                            "code": q.get("code", ""),
-                            "name": q.get("name", ""),
-                            "price": q.get("price", 0),
-                            "change_pct": q.get("change_pct", 0),
-                            "volume": q.get("volume", 0),
-                            "oi": q.get("oi", 0),
-                            "open": q.get("open", 0),
-                            "high": q.get("high", 0),
-                            "low": q.get("low", 0),
-                            "data_source": "eastmoney",
-                            "confidence": 1.0,
-                        }
-                    )
-                return records
-
-            # 实时行情失败时,尝试获取品种对应的secid(用于查K线)
-            info_list = self.eastmoney_collector.get_futures_base_info()
-            secid = None
-            if info_list:
-                # 先精确匹配,再前缀匹配
-                variety_lower = variety.lower()
-                for item in info_list:
-                    if item["code"].lower() == variety_lower:
-                        secid = item["secid"]
-                        break
-                if not secid:
-                    # 前缀匹配: cu 匹配 cu2706, cu2701...
-                    for item in info_list:
-                        if item["code"].lower().startswith(variety_lower):
-                            secid = item["secid"]
-                            break
-
-            if not secid:
-                # 通过合约列表获取secid(含交易所代码)
-                contracts = self.eastmoney_collector.get_contract_list(variety)
-                if contracts and len(contracts) > 0:
-                    exchange_code = self._get_exchange_code(variety)
-                    if not exchange_code:
-                        return None  # P1 品种映射校验失败 → 放弃该源
-                    for c in contracts:
-                        if c["code"][-1] not in ("m", "s", "i"):
-                            secid = f"{exchange_code}.{c['code']}"
-                            break
-
-            if secid:
-                beg = "20200101"
-                if start_date:
-                    beg = start_date.replace("-", "")
-                end = end_date.replace("-", "") if end_date else None
-                klines = self.eastmoney_collector.get_kline_history(secid, beg=beg, end=end, klt=101, fqt=1)
-                if klines:
-                    records = []
-                    for k in klines:
-                        records.append(
-                            {
-                                "date": k.get("date", ""),
-                                "open": k.get("open", 0),
-                                "high": k.get("high", 0),
-                                "low": k.get("low", 0),
-                                "close": k.get("close", 0),
-                                "volume": k.get("volume", 0),
-                                "change_pct": k.get("change_pct", 0),
-                                "data_source": "eastmoney",
-                                "confidence": 1.0,
-                            }
-                        )
-                    return records
-
-            return None
-
-        except Exception as e:
-            print(f"[Warning] EastMoney fetch error: {e}")
-            return None
-
-    def _get_exchange_code(self, variety: str) -> int:
-        # 根据品种代码返回东方财富交易所代码
-        exchange_map = {
-            "SHFE": 113,
-            "DCE": 114,
-            "CZCE": 115,
-            "CFFEX": 8,
-            "INE": 142,
-            "GFEX": 225,
-        }
-        exchange_name = self._get_exchange(variety)
-        if exchange_name not in _KNOWN_EXCHANGES:
-            return None  # P1 品种映射校验：未知品种拒绝默认映射,交由调用方降级/报错
-        return exchange_map.get(exchange_name)
-
-    def _fetch_tdx(
-        self,
-        variety: str,
-        contract_type: str,
-        start_date: Optional[str],
-        end_date: Optional[str],
-    ) -> Optional[List[Dict]]:
-        # 从通达信本地HTTP服务获取数据
-        if not self.tdx_local_available:
-            return None
-        try:
-            records = self.tdx_collector.get_quote(variety)
-            if records and len(records) > 0:
-                for r in records:
-                    r["data_source"] = "tdx_local"
-                    r["confidence"] = 1.0
-                return records
-            # 实时行情失败,尝试K线
-            days = 365
-            if start_date:
-                try:
-                    start = (
-                        datetime.strptime(start_date, "%Y-%m-%d")
-                        if "-" in start_date
-                        else datetime.strptime(start_date, "%Y%m%d")
-                    )
-                    days = (datetime.now() - start).days
-                except Exception:
-                    logger.warning("数据源异常(已降级)", exc_info=True)
-            kline_records = self.tdx_collector.get_kline(variety, days=days)
-            if kline_records:
-                for r in kline_records:
-                    r["data_source"] = "tdx_local"
-                    r["confidence"] = 1.0
-                return kline_records
-            return None
-        except Exception as e:
-            print(f"[Warning] TDX fetch error: {e}")
-            return None
-
-    def _fetch_akshare(
-        self,
-        variety: str,
-        contract_type: str,
-        start_date: Optional[str],
-        end_date: Optional[str],
-    ) -> Optional[List[Dict]]:
-        # 从AKShare获取数据
-        if not self.akshare_available:
-            return None
-
-        try:
-            import akshare as ak
-
-            # AKShare 期货日线数据 - 使用 futures_main_sina 获取主力合约
-            ak_symbol = variety.lower() + "0"
-            df = self._safe_akshare(lambda: ak.futures_main_sina(symbol=ak_symbol))
-
-            if df is not None and len(df) > 0:
-                # 中文列名映射
-                cn_map = {
-                    "日期": "date",
-                    "开盘价": "open",
-                    "最高价": "high",
-                    "最低价": "low",
-                    "收盘价": "close",
-                    "成交量": "volume",
-                    "持仓量": "open_interest",
-                }
-                # 转换为标准格式
-                records = []
-                for _, row in df.iterrows():  # 返回全部数据(上游需要150天)
-
-                    def get_val(keys):
-                        for k in keys:
-                            v = row.get(k)
-                            if v is not None:
-                                return v
-                        return 0
-
-                    records.append(
-                        {
-                            "date": str(get_val(["日期", "date"])),
-                            "open": float(get_val(["开盘价", "open"])),
-                            "high": float(get_val(["最高价", "high"])),
-                            "low": float(get_val(["最低价", "low"])),
-                            "close": float(get_val(["收盘价", "close"])),
-                            "volume": int(get_val(["成交量", "volume"])),
-                            "oi": int(get_val(["持仓量", "open_interest", "hold"])),
-                            "data_source": "AKShare",
-                            "confidence": 1.0,
-                        }
-                    )
-                return records
-        except Exception as e:
-            print(f"[Warning] AKShare error: {e}")
-            return None
 
     def _fetch_websearch(
         self,

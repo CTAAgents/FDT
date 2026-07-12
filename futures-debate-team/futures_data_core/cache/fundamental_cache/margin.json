@@ -1,0 +1,5 @@
+{
+  "CU": {"smelting_margin": -350.0, "unit": "元/吨", "cached_at": "2026-07-04"},
+  "RB": {"rebar_margin": 80.0, "unit": "元/吨", "cached_at": "2026-07-04"},
+  "AU": {"processing_margin": 5.2, "unit": "元/克", "cached_at": "2026-07-04"}
+}

@@ -131,6 +131,7 @@ def generate_markdown_report(
     """生成Markdown报告（置信度优先排序）。"""
     date_str = time.strftime("%Y-%m-%d")
     source_label = {
+        "qmt_xtquant": "QMT/xtquant（本地TCP直取）",
         "tqsdk": "TqSdk（实时行情+技术指标）",
         "akshare": "AKShare（futures_main_sina）",
         "exchange": "交易所官方API（DCE/SHFE/CZCE/CFFEX/GFEX）",
@@ -263,6 +264,7 @@ def generate_html_report(
 
     date_str = time.strftime("%Y-%m-%d")
     source_label = {
+        "qmt_xtquant": "QMT/xtquant（本地TCP直取）",
         "tqsdk": "TqSdk（实时行情+技术指标）",
         "akshare": "AKShare（futures_main_sina）",
         "exchange": "交易所官方API（DCE/SHFE/CZCE/CFFEX/GFEX）",

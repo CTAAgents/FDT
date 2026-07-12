@@ -1,0 +1,332 @@
+# 期货品种映射表 (真实品种代码)
+# multiplier: 合约乘数(每手吨数或倍数), tick_size: 最小变动价位
+# category: 板块分类
+
+symbols:
+  # ── 上海期货交易所 SHFE ──
+  - symbol: CU
+    name: 铜
+    exchange: SHFE
+    multiplier: 5
+    tick_size: 10
+    category: 金属
+  - symbol: AL
+    name: 铝
+    exchange: SHFE
+    multiplier: 5
+    tick_size: 5
+    category: 金属
+  - symbol: ZN
+    name: 锌
+    exchange: SHFE
+    multiplier: 5
+    tick_size: 5
+    category: 金属
+  - symbol: PB
+    name: 铅
+    exchange: SHFE
+    multiplier: 5
+    tick_size: 5
+    category: 金属
+  - symbol: NI
+    name: 镍
+    exchange: SHFE
+    multiplier: 1
+    tick_size: 10
+    category: 金属
+  - symbol: SN
+    name: 锡
+    exchange: SHFE
+    multiplier: 1
+    tick_size: 10
+    category: 金属
+  - symbol: AU
+    name: 黄金
+    exchange: SHFE
+    multiplier: 1000
+    tick_size: 0.02
+    category: 贵金属
+  - symbol: AG
+    name: 白银
+    exchange: SHFE
+    multiplier: 15
+    tick_size: 1
+    category: 贵金属
+  - symbol: RB
+    name: 螺纹钢
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 1
+    category: 黑色
+  - symbol: HC
+    name: 热轧卷板
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 1
+    category: 黑色
+  - symbol: SS
+    name: 不锈钢
+    exchange: SHFE
+    multiplier: 5
+    tick_size: 5
+    category: 黑色
+  - symbol: BU
+    name: 石油沥青
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 2
+    category: 能化
+  - symbol: RU
+    name: 天然橡胶
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 5
+    category: 能化
+  - symbol: FU
+    name: 燃料油
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 1
+    category: 能化
+  - symbol: SP
+    name: 纸浆
+    exchange: SHFE
+    multiplier: 10
+    tick_size: 2
+    category: 软商品
+
+  # ── 大连商品交易所 DCE ──
+  - symbol: A
+    name: 豆一
+    exchange: DCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: M
+    name: 豆粕
+    exchange: DCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: Y
+    name: 豆油
+    exchange: DCE
+    multiplier: 10
+    tick_size: 2
+    category: 农产品
+  - symbol: C
+    name: 玉米
+    exchange: DCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: P
+    name: 棕榈油
+    exchange: DCE
+    multiplier: 10
+    tick_size: 2
+    category: 农产品
+  - symbol: JD
+    name: 鸡蛋
+    exchange: DCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: L
+    name: 聚乙烯
+    exchange: DCE
+    multiplier: 5
+    tick_size: 1
+    category: 能化
+  - symbol: V
+    name: PVC
+    exchange: DCE
+    multiplier: 5
+    tick_size: 1
+    category: 能化
+  - symbol: PP
+    name: 聚丙烯
+    exchange: DCE
+    multiplier: 5
+    tick_size: 1
+    category: 能化
+  - symbol: J
+    name: 焦炭
+    exchange: DCE
+    multiplier: 100
+    tick_size: 0.5
+    category: 黑色
+  - symbol: JM
+    name: 焦煤
+    exchange: DCE
+    multiplier: 60
+    tick_size: 0.5
+    category: 黑色
+  - symbol: I
+    name: 铁矿石
+    exchange: DCE
+    multiplier: 100
+    tick_size: 0.5
+    category: 黑色
+  - symbol: EG
+    name: 乙二醇
+    exchange: DCE
+    multiplier: 10
+    tick_size: 1
+    category: 能化
+  - symbol: EB
+    name: 苯乙烯
+    exchange: DCE
+    multiplier: 5
+    tick_size: 1
+    category: 能化
+  - symbol: PG
+    name: 液化石油气
+    exchange: DCE
+    multiplier: 20
+    tick_size: 1
+    category: 能化
+
+  # ── 郑州商品交易所 CZCE ──
+  - symbol: TA
+    name: PTA
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 能化
+  - symbol: MA
+    name: 甲醇
+    exchange: CZCE
+    multiplier: 10
+    tick_size: 1
+    category: 能化
+  - symbol: FG
+    name: 玻璃
+    exchange: CZCE
+    multiplier: 20
+    tick_size: 1
+    category: 建材
+  - symbol: SR
+    name: 白糖
+    exchange: CZCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: CF
+    name: 棉花
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 5
+    category: 农产品
+  - symbol: RM
+    name: 菜粕
+    exchange: CZCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: OI
+    name: 菜油
+    exchange: CZCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: AP
+    name: 苹果
+    exchange: CZCE
+    multiplier: 10
+    tick_size: 1
+    category: 农产品
+  - symbol: CJ
+    name: 红枣
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 5
+    category: 农产品
+  - symbol: UR
+    name: 尿素
+    exchange: CZCE
+    multiplier: 20
+    tick_size: 1
+    category: 能化
+  - symbol: SA
+    name: 纯碱
+    exchange: CZCE
+    multiplier: 20
+    tick_size: 1
+    category: 能化
+  - symbol: PF
+    name: 短纤
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 能化
+
+  # ── 上海国际能源交易中心 INE ──
+  - symbol: SC
+    name: 原油
+    exchange: INE
+    multiplier: 1000
+    tick_size: 0.1
+    category: 能化
+  - symbol: LU
+    name: 低硫燃料油
+    exchange: INE
+    multiplier: 10
+    tick_size: 1
+    category: 能化
+  - symbol: NR
+    name: 20号胶
+    exchange: INE
+    multiplier: 10
+    tick_size: 5
+    category: 能化
+  - symbol: BC
+    name: 国际铜
+    exchange: INE
+    multiplier: 5
+    tick_size: 10
+    category: 金属
+  - symbol: EC
+    name: 集运指数
+    exchange: INE
+    multiplier: 50
+    tick_size: 0.1
+    category: 指数
+
+  # ── 中国金融期货交易所 CFFEX ──
+  - symbol: IF
+    name: 沪深300
+    exchange: CFFEX
+    multiplier: 300
+    tick_size: 0.2
+    category: 股指
+  - symbol: IH
+    name: 上证50
+    exchange: CFFEX
+    multiplier: 300
+    tick_size: 0.2
+    category: 股指
+  - symbol: IC
+    name: 中证500
+    exchange: CFFEX
+    multiplier: 200
+    tick_size: 0.2
+    category: 股指
+  - symbol: IM
+    name: 中证1000
+    exchange: CFFEX
+    multiplier: 200
+    tick_size: 0.2
+    category: 股指
+  - symbol: T
+    name: 10年国债
+    exchange: CFFEX
+    multiplier: 10000
+    tick_size: 0.005
+    category: 国债
+  - symbol: TF
+    name: 5年国债
+    exchange: CFFEX
+    multiplier: 10000
+    tick_size: 0.005
+    category: 国债
