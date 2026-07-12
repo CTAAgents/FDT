@@ -543,45 +543,42 @@ def run_scan(
         # HTML — 交互式排序表格
         import json as _json
 
-        # ── v2.11.0: 通道突破专用列（L1-L4已退役） ──
-        rows_json = _json.dumps(
-            [
-                {
-                    "i": i + 1,
-                    "sym": _sv(r,"symbol"),
-                    "name": _sv(r,"name"),
-                    "dir": _sv(r,"direction"),
-                    "price": _sv(r,"price"),
-                    "chg": _sv(r,"change_pct"),
-                    "total": _sv(r,"total"),
-                    "sig": _sv(r,"signal_type","-"),
-                    "dc20": _sv(r,"dc20","-"),
-                    "dc55": _sv(r,"dc55","-"),
-                    "bb": _sv(r,"bb","-"),
-                    "vol": _sv(r,"vol_score",0),
-                    "adx": _sv(r,"adx"),
-                    "rsi": _sv(r,"rsi"),
-                    "grade": _sv(r,"grade"),
-                    "tdx": r.get("_tdx_patched", False),
-                }
-                for r in all_ranked
-            ],
-            ensure_ascii=False,
-        )
+        # ── 策略感知列模板：根据实际策略输出字段动态选择 ──
+        _actual_strategy = meta.get("strategy", strategy_name or "layered_l1l4")
 
-        b, bl_sig = len(bear), len(bull)
-        n_neutral = results_count - b - bl_sig
-        tdx_pct = tdx_ct / results_count * 100 if results_count else 0
-
-        # 构建 HTML（通道突破固定模板，L1-L4已退役）
-        _cols = [
-            ("#",1), ("品种",0), ("名称",0), ("方向",0),
-            ("价格",1), ("涨跌",1), ("总分",1),
-            ("信号类型",0), ("DC20",0), ("DC55",0), ("布林带",0), ("量比",1),
-            ("ADX",1), ("RSI",1), ("等级",0)
-        ]
-        _th = "".join(f'<th onclick="sortBy({i})"{" data-num=\"1\"" if n else ""} style="text-align:{"center" if n else "left"}">{h}</th>' for i,(h,n) in enumerate(_cols))
-        _col_desc = """
+        if _actual_strategy in ("channel_breakout", "three_signal"):
+            # ── 通道突破/三类信号专用列 ──
+            rows_json = _json.dumps(
+                [
+                    {
+                        "i": i + 1,
+                        "sym": _sv(r,"symbol"),
+                        "name": _sv(r,"name"),
+                        "dir": _sv(r,"direction"),
+                        "price": _sv(r,"price"),
+                        "chg": _sv(r,"change_pct"),
+                        "total": _sv(r,"total"),
+                        "sig": _sv(r,"signal_type","-"),
+                        "dc20": _sv(r,"dc20","-"),
+                        "dc55": _sv(r,"dc55","-"),
+                        "bb": _sv(r,"bb","-"),
+                        "vol": _sv(r,"vol_score",0),
+                        "adx": _sv(r,"adx"),
+                        "rsi": _sv(r,"rsi"),
+                        "grade": _sv(r,"grade"),
+                        "tdx": r.get("_tdx_patched", False),
+                    }
+                    for r in all_ranked
+                ],
+                ensure_ascii=False,
+            )
+            _cols = [
+                ("#",1), ("品种",0), ("名称",0), ("方向",0),
+                ("价格",1), ("涨跌",1), ("总分",1),
+                ("信号类型",0), ("DC20",0), ("DC55",0), ("布林带",0), ("量比",1),
+                ("ADX",1), ("RSI",1), ("等级",0)
+            ]
+            _col_desc = """
 <p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（通道突破策略）</p>
 <table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
@@ -592,7 +589,7 @@ def run_scan(
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">量比</td><td style="padding:3px 8px;color:#9ca3af">当前成交量/MA5成交量。>1.5放量, <0.5缩量</td><td style="padding:3px 8px;color:#6b7280">0~+</td></tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑。>25有趋势, >50强趋势</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14周期相对强弱。>70超买, <30超卖</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr></table>"""
-        _render_cols_js = """[
+            _render_cols_js = """[
     function(d){return String(d.i);},
     function(d){return d.sym;},
     function(d){return d.name;},
@@ -609,9 +606,93 @@ def run_scan(
     function(d){return d.rsi;},
     function(d){return d.grade;}
 ]"""
+            _strategy_label = "channel_breakout"
+
+        else:
+            # ── L1-L4 / layered / true_layered 专用列 ──
+            rows_json = _json.dumps(
+                [
+                    {
+                        "i": i + 1,
+                        "sym": _sv(r,"symbol"),
+                        "name": _sv(r,"name"),
+                        "dir": _sv(r,"direction"),
+                        "price": _sv(r,"price"),
+                        "chg": _sv(r,"change_pct"),
+                        "total": _sv(r,"total"),
+                        "l1": _sv(r,"l1",0),
+                        "l2": _sv(r,"l2",0),
+                        "l3": _sv(r,"l3",0),
+                        "l4": _sv(r,"l4",0),
+                        "z_score": _sv(r,"z_score",0),
+                        "cons": _sv(r,"cons",0),
+                        "macd": _sv(r,"macd_cross","-"),
+                        "dc20b": _sv(r,"dc20_break","-"),
+                        "stage": _sv(r,"stage","-"),
+                        "adx": _sv(r,"adx"),
+                        "rsi": _sv(r,"rsi"),
+                        "grade": _sv(r,"grade"),
+                        "tdx": r.get("_tdx_patched", False),
+                    }
+                    for r in all_ranked
+                ],
+                ensure_ascii=False,
+            )
+            _cols = [
+                ("#",1), ("品种",0), ("名称",0), ("方向",0),
+                ("价格",1), ("涨跌",1), ("总分",1),
+                ("L1",1), ("L2",1), ("L3",1), ("L4",1), ("Z",1), ("一致性",1),
+                ("MACD",0), ("DC20突破",0), ("阶段",0),
+                ("ADX",1), ("RSI",1), ("等级",0)
+            ]
+            _col_desc = """
+<p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（L1-L4分层策略）</p>
+<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">L1+L2+L3+L4加权累加(带方向符号)</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L1</td><td style="padding:3px 8px;color:#9ca3af">趋势动量+持仓(权重35%): MA20斜率+MACD交叉+DC20突破</td><td style="padding:3px 8px;color:#6b7280">-35~+35</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L2</td><td style="padding:3px 8px;color:#9ca3af">量价配合(权重35%): 成交量变化+ADX趋势强度+CCI超买超卖</td><td style="padding:3px 8px;color:#6b7280">-35~+35</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L3</td><td style="padding:3px 8px;color:#9ca3af">价格结构(权重20%): MA均线排列+RSI位置+趋势成熟度</td><td style="padding:3px 8px;color:#6b7280">-20~+20</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">L4</td><td style="padding:3px 8px;color:#9ca3af">确认信号(权重10%): 均线发散+连续方向+持仓验证</td><td style="padding:3px 8px;color:#6b7280">-10~+10</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">Z</td><td style="padding:3px 8px;color:#9ca3af">方向感知Z-score: (总分-均值)/标准差, 衡量相对偏离度</td><td style="padding:3px 8px;color:#6b7280">-3~+3</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">一致性</td><td style="padding:3px 8px;color:#9ca3af">L1-L4各层方向一致的数量(4=全一致最强)</td><td style="padding:3px 8px;color:#6b7280">0~4</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">MACD</td><td style="padding:3px 8px;color:#9ca3af">MACD交叉状态: gold_cross(金叉)/dead_cross(死叉)/none(无)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC20突破</td><td style="padding:3px 8px;color:#9ca3af">唐奇安20周期突破: up(向上)/down(向下)/none(无)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">阶段</td><td style="padding:3px 8px;color:#9ca3af">趋势成熟度: emerging(萌芽)/launch(启动)/accelerate(加速)/mature(成熟)/exhaust(衰竭)/unknown</td><td style="padding:3px 8px;color:#6b7280">六种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑。>25有趋势, >50强趋势</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14周期相对强弱。>70超买, <30超卖</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr></table>"""
+            _render_cols_js = """[
+    function(d){return String(d.i);},
+    function(d){return d.sym;},
+    function(d){return d.name;},
+    function(d){return d.dir;},
+    function(d){return d.price;},
+    function(d){return d.chg;},
+    function(d){return d.total;},
+    function(d){return d.l1;},
+    function(d){return d.l2;},
+    function(d){return d.l3;},
+    function(d){return d.l4;},
+    function(d){return d.z_score;},
+    function(d){return d.cons;},
+    function(d){return String(d.macd);},
+    function(d){return String(d.dc20b);},
+    function(d){return String(d.stage);},
+    function(d){return d.adx;},
+    function(d){return d.rsi;},
+    function(d){return d.grade;}
+]"""
+            _strategy_label = _actual_strategy
+
+        b, bl_sig = len(bear), len(bull)
+        n_neutral = results_count - b - bl_sig
+        tdx_pct = tdx_ct / results_count * 100 if results_count else 0
+
+        # 构建 HTML（策略感知模板）
+        _th = "".join(f'<th onclick="sortBy({i})"{" data-num=\"1\"" if n else ""} style="text-align:{"center" if n else "left"}">{h}</th>' for i,(h,n) in enumerate(_cols))
 
         period_label = "" if period == "daily" else f" ({period})"
-        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种通道突破信号强度排序{period_label} — {today}</title>
+        _title_label = "L1-L4分层信号强度排序" if _strategy_label != "channel_breakout" else "通道突破信号强度排序"
+        html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种{_title_label}{period_label} — {today}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
 .hd{{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}}
@@ -632,8 +713,8 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 #si{{color:#6b7280;font-size:12px;margin-left:12px}}
 </style>
 </head><body>
-<div class="hd"><h1>全品种通道突破信号强度排序{period_label}</h1>
-<div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | channel_breakout</span></div></div>
+<div class="hd"><h1>全品种{_title_label}{period_label}</h1>
+<div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | {_strategy_label}</span></div></div>
 <div class="st"><div class="sc b"><div class="n">{b}</div><div class="l">空头</div></div><div class="sc bl"><div class="n">{bl_sig}</div><div class="l">多头</div></div><div class="sc n"><div class="n">{n_neutral}</div><div class="l">中性</div></div></div>
 
 <div class="fb">

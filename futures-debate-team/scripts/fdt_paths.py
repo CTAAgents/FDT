@@ -114,10 +114,8 @@ class FDTFiles:
 # ─── 工作空间镜像 ───
 
 def workspace_commodities_dir() -> str:
-    """推测工作空间的 Commodities/ 目录（用户访问入口）"""
-    # 工作空间通常在FDT_ROOT的上上上级
-    # FDT_ROOT = ~/.workbuddy/plugins/.../futures-debate-team
-    # workspace = ~/Documents/Signal 或 CWD
+    """推测工作空间的 Commodities/ 目录（用户访问入口）。
+    v2.2: 废弃，工作空间由 cwds 参数传入，不再依赖外部仓库。"""
     cwd = os.getcwd()
     return os.path.join(cwd, "Commodities")
 

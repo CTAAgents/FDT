@@ -17,23 +17,40 @@
       "confidence": 0.7,
       "round_id": "",
       "extracted_at": "2026-07-11 19:02"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 0.0,
+        "condition": "价格有效突破DC20上轨(约24960)且收盘确认，同时vol_ratio>1.0放量确认。核心逻辑：裁决指出\"价量配合缺席是最显著隐患——真正的通道突破通常需要>1%涨幅+vol_ratio>1.0\"，因此入场必须等待量价双确认。当前价格24865距DC20上轨约-0.38%(94点/ATR=325的0.29倍)属有效接近，但不可在缩量状态下提前入场。监控优先级：价格突破(24960) + 量确认(vol_ratio>1.0) > MA60支撑(24478) > ADX上升确认"
+      },
+      "stop_loss": {
+        "price": 24470.0,
+        "type": "trailing",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
     }
   ],
   "aggregated": {
     "support": [
       {
-        "level": 24865.0,
-        "count": 1,
-        "min": 24865,
-        "max": 24865
+        "level": 12432.5,
+        "count": 2,
+        "min": 0.0,
+        "max": 24865.0
       }
     ],
     "resistance": [],
-    "computed_at": "2026-07-11 19:02"
+    "computed_at": "2026-07-12 22:32"
   },
   "meta": {
     "variety": "zn",
-    "total_records": 2,
-    "last_updated": "2026-07-11 19:02"
+    "total_records": 3,
+    "last_updated": "2026-07-12 22:32"
   }
 }

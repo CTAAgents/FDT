@@ -24,8 +24,9 @@ HOURLY_SYMBOLS = [
 OUTPUT_DIR = os.path.join(os.path.dirname(_SCRIPTS_DIR), "reports", "hourly")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# 报告同步到Commodities
-COMMODITIES_DIR = r"C:\Users\yangd\Documents\Signal\Commodities"
+# 报告同步到FDT内部data目录（v2.2: 移除Signal依赖）
+_FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_SCRIPTS_DIR))))
+COMMODITIES_DIR = os.path.join(_FDT_ROOT, "data", "hourly_debate")
 os.makedirs(COMMODITIES_DIR, exist_ok=True)
 
 

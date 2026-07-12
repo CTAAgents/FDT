@@ -3,10 +3,10 @@
     "pattern_id": "lc-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:14",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-12 01:40",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "趋势确认 → lc-con2: WATCH级别信号自身... → 技术形态确认",
     "applicable_conditions": {
       "adx_range": [

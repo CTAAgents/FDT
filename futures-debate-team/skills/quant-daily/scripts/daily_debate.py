@@ -1,13 +1,14 @@
-"""📅 日线期货辩论系统 — 盘后运行一次 · v2.0
+"""📅 日线期货辩论系统 — 盘后运行一次 · v2.2
 
-全量监控所有品种（负向过滤无数据/无市场品种），品种池取 config/monitoring_symbols.json 所有周期 symbol_list 并集（自优化WF增删自动生效），与监测扫描保持一致。
+全量监控所有品种（负向过滤无数据/无市场品种），品种池取 FDT 内部 config/symbols.py 的 ALL_SYMBOLS。
 有信号→写debate_trigger.json→团队主管启动完整P3-P5辩论。无信号→简约告知。
 
 用法:
   python daily_debate.py               # 扫描+信号触发+轻量报告
   python daily_debate.py --dry-run      # 查看品种列表
 v2.0 (2026-07-09): 信号门机制——检测到方向性信号时写入Commodities/debate_trigger.json供团队主管读取
-v2.1 (2026-07-11): 机制修正——全量监控+负向过滤，评分仅作优先级，不再按STRONG/WATCH硬性排除（详见 fdt-spawn-debate/SKILL.md）
+v2.1 (2026-07-11): 机制修正——全量监控+负向过滤，评分仅作优先级，不再按STRONG/WATCH硬性排除
+v2.2 (2026-07-12): 内化——移除 Signal 仓库依赖，品种池从 FDT 内部 ALL_SYMBOLS 派生，输出目录自包含
 """
 
 import sys, os, json, shutil
@@ -16,63 +17,23 @@ from datetime import datetime
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SCRIPTS_DIR)
 
-# 工作空间锚点(供品种池加载器定位 config/monitoring_symbols.json)
-COMMODITIES_DIR = r"C:\Users\yangd\Documents\Signal\Commodities"
+# FDT 内部输出目录（自包含，不依赖外部仓库）
+_FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_SCRIPTS_DIR))))
+COMMODITIES_DIR = os.path.join(_FDT_ROOT, "data", "daily_debate")
 os.makedirs(COMMODITIES_DIR, exist_ok=True)
-
-# ── 日线辩论品种池: 从监测配置动态派生 ──
-# 修复(2026-07-11): 原 DAILY_SYMBOLS 硬编码42品种, 与 config/monitoring_symbols.json
-# 的 daily.symbol_list 脱钩, 导致自优化(WF)剔除的品种(如J焦炭 wf=0)仍被辩论管线扫描,
-# 与监测扫描(scan_monitored.py)结果不一致。现改为从 symbol_list 派生, 使自优化的
-# 增删对「全量扫描 / 日线辩论 / 监测扫描」三套管线同时生效。
-_HARDCODED_DAILY_SYMBOLS = [
-    "RB", "HC", "SC", "LU", "FU", "BU", "PG", "PX", "TA", "PF",
-    "PR", "EB", "V", "PP", "L", "MA", "SA", "UR", "AU", "AG",
-    "C", "JD", "LH", "AP", "NR", "BR", "SP", "PS",
-    "EC", "SH", "CS", "CU", "P", "I", "RR", "OI", "AO", "RU",
-    "PK", "A", "J", "SI",
-]
-
-
-def _resolve_workspace_root():
-    """定位 Signal 工作空间根目录(含 config/monitoring_symbols.json)。"""
-    candidates = [os.path.dirname(COMMODITIES_DIR)]  # 由硬编码锚点 COMMODITIES_DIR 上溯
-    cur = os.getcwd()
-    for _ in range(6):
-        candidates.append(cur)
-        nxt = os.path.dirname(cur)
-        if nxt == cur:
-            break
-        cur = nxt
-    for c in candidates:
-        if os.path.isfile(os.path.join(c, "config", "monitoring_symbols.json")):
-            return c
-    return candidates[0]
 
 
 def _load_daily_symbols():
-    """全量监控品种池: 取监测配置中所有周期(daily/120m/...)的 symbol_list 并集。
+    """全量监控品种池: 从 FDT 内部 ALL_SYMBOLS 派生。
     负向过滤只排除无数据/不可监控品种(由 scan_all 自然处理), 不按评分预筛。"""
     try:
-        ws = _resolve_workspace_root()
-        cfg_path = os.path.join(ws, "config", "monitoring_symbols.json")
-        with open(cfg_path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        symbols = set()
-        for period, pdata in cfg.items():
-            if not isinstance(pdata, dict):
-                continue
-            for x in pdata.get("symbol_list", []):
-                sym = x if isinstance(x, str) else (x.get("symbol") if isinstance(x, dict) else None)
-                if sym:
-                    symbols.add(str(sym).upper())
-        if symbols:
-            print(f"  📋 全量监控品种池: 从监测配置并集派生 {len(symbols)} 个 → {cfg_path}")
-            return sorted(symbols)
+        from config.symbols import ALL_SYMBOLS
+        symbols = sorted(set(s[0].upper() for s in ALL_SYMBOLS if s and s[0]))
+        print(f"  📋 全量监控品种池: FDT内部 ALL_SYMBOLS → {len(symbols)} 个")
+        return symbols
     except Exception as e:
-        print(f"  ⚠ 读取监测配置失败 ({e}), 回退硬编码清单")
-    print(f"  📋 全量监控品种池: 硬编码 {len(_HARDCODED_DAILY_SYMBOLS)} 个 (回退)")
-    return list(_HARDCODED_DAILY_SYMBOLS)
+        print(f"  ⚠ 读取 ALL_SYMBOLS 失败 ({e}), 回退空列表")
+        return []
 
 
 DAILY_SYMBOLS = _load_daily_symbols()

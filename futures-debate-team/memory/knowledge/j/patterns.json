@@ -1,13 +1,13 @@
 [
   {
-    "pattern_id": "sa-p001",
+    "pattern_id": "j-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:40",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.72,
-    "structure": "SA-con1: WATCH等级置信度不... → 趋势确认 → 趋势确认 → SA-con4: 夜盘收涨+0.56%出... → 技术形态确认",
+    "last_used": "2026-07-12 22:32",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "j-con1: 总分-41仅比WEAK上... → 趋势确认 → 技术形态确认 → 技术形态确认",
     "applicable_conditions": {
       "adx_range": [
         35,

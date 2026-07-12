@@ -17,6 +17,23 @@
       "confidence": 0.65,
       "round_id": "",
       "extracted_at": "2026-07-11 19:02"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0.0,
+        "condition": "价格放量突破DC20上轨（当前价+0.64%以上），且成交量>20日均量1.2倍；或MACD日线金叉确认。两个条件满足其一即可入场。入场前需确认ADX>20（趋势强度达标），若无则继续等待。"
+      },
+      "stop_loss": {
+        "price": 0.0,
+        "type": "atr",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
     }
   ],
   "aggregated": {
@@ -24,16 +41,16 @@
       {
         "level": 2325.0,
         "count": 1,
-        "min": 2325,
-        "max": 2325
+        "min": 2325.0,
+        "max": 2325.0
       }
     ],
     "resistance": [],
-    "computed_at": "2026-07-11 19:02"
+    "computed_at": "2026-07-12 22:32"
   },
   "meta": {
     "variety": "rm",
-    "total_records": 2,
-    "last_updated": "2026-07-11 19:02"
+    "total_records": 3,
+    "last_updated": "2026-07-12 22:32"
   }
 }

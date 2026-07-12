@@ -1,0 +1,38 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3990.0,
+        "condition": "价格向下跌破4000整数关口(前低支撑区)且15分钟K线成交量>20日均量1.2倍确认放量突破; 若价格直接跳空低开跌破3980则改为市价入场"
+      },
+      "stop_loss": {
+        "price": 4140.0,
+        "type": "atr",
+        "atr_multiple": 1.2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 3990.0,
+        "count": 1,
+        "min": 3990.0,
+        "max": 3990.0
+      }
+    ],
+    "computed_at": "2026-07-12 22:32"
+  },
+  "meta": {
+    "variety": "lu",
+    "total_records": 1,
+    "last_updated": "2026-07-12 22:32"
+  }
+}

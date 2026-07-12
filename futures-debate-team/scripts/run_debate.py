@@ -369,6 +369,203 @@ def scan_chain(scan, sym):
 
 
 # ─────────────────────────────────────────────
+# 中间数据生成（给 phase3_generate_report.py 喂 all_actionable / chain_results / symbols_summary）
+# ─────────────────────────────────────────────
+def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
+    """从 scan 数据生成 phase3 报告器依赖的 intermediate_data.json"""
+    ws = Path(workspace)
+    ranked = scan.get("all_ranked", [])
+
+    # 品种→产业链映射（scan没有chain字段时兜底）
+    # 覆盖国内商品期货76+品种的核心产业链归属
+    SYMBOL_CHAIN_MAP = {
+        # 黑色系（钢铁产业链）
+        "rb": "螺纹钢", "hc": "热卷", "i": "铁矿石", "jm": "焦煤", "j": "焦炭",
+        "SF": "铁合金", "SM": "铁合金", "si": "工业硅",
+        # 有色金属
+        "cu": "有色金属", "al": "有色金属", "zn": "有色金属", "pb": "有色金属",
+        "ni": "有色金属", "sn": "有色金属", "ao": "有色金属",
+        # 贵金属
+        "au": "贵金属", "ag": "贵金属",
+        # 能源化工
+        "sc": "原油", "bu": "沥青", "fu": "燃料油", "lu": "低硫燃料油", "pg": "液化气",
+        "ru": "橡胶", "nr": "20号胶", "br": "丁二烯橡胶",
+        "SH": "化工", "v": "化工", "pp": "化工", "l": "化工", "eb": "化工", "eg": "化工",
+        "MA": "化工", "UR": "化工", "SA": "化工", "FG": "化工",
+        "PX": "聚酯链", "TA": "聚酯链", "PF": "聚酯链", "PR": "聚酯链", "ec": "聚酯链",
+        # 农产品
+        "a": "豆类", "b": "豆类", "m": "豆类", "y": "豆类",
+        "RM": "菜籽", "OI": "菜籽",
+        "c": "玉米", "cs": "玉米",
+        "p": "油脂", "PK": "油脂",
+        "SR": "软商品", "CF": "软商品",
+        "ap": "苹果", "CJ": "红枣", "lc": "碳酸锂",
+        "rr": "畜牧", "lh": "畜牧", "jd": "畜牧",
+        # 其他
+        "sp": "纸浆", "ps": "聚苯乙烯",
+    }
+
+    def _get_chain(sym: str) -> str:
+        """获取品种所属产业链"""
+        # 先试 scan 内置 chain 字段
+        for s in ranked:
+            c = s.get("chain", "")
+            if c and s.get("symbol") == sym:
+                return c
+        # 再试映射表
+        return SYMBOL_CHAIN_MAP.get(sym, "")
+
+    # symbols_summary = 全量品种数据
+    symbols_summary = []
+    for s in ranked:
+        symbols_summary.append({
+            "symbol": s.get("symbol", ""),
+            "pid": s.get("symbol", ""),
+            "product_name": s.get("name", s.get("symbol", "")),
+            "price": s.get("price", 0),
+            "change_pct": s.get("change_pct", 0),
+            "volume": s.get("volume", 0),
+            "total": s.get("total", 0),
+            "abs": s.get("abs", 0),
+            "direction": s.get("direction", ""),
+            "grade": s.get("grade", "NOISE"),
+            "adx": s.get("adx", 0),
+            "rsi": s.get("rsi", 50),
+            "cci": s.get("cci", 0),
+            "ma_slope": s.get("ma_slope", 0),
+            "macd_cross": s.get("macd_cross", "none"),
+            "dc20_break": s.get("dc20_break", "none"),
+            "ma_align": s.get("ma_align", "mixed"),
+            "z_score": s.get("z_score", 0),
+            "stage": s.get("stage", ""),
+            "atr": s.get("atr", 0),
+            "dc20": s.get("dc20", 0),
+            "dc55": s.get("dc55", 0),
+            "bb": s.get("bb", 0),
+            "vol_score": s.get("vol_score", 0),
+            "signal_type": s.get("signal_type", ""),
+            "dc55_trend": s.get("dc55_trend", ""),
+            "ma60": s.get("ma60", 0),
+            "channel_detail": s.get("channel_detail", {}),
+            "bb_detail": s.get("bb_detail", {}),
+            "vol_detail": s.get("vol_detail", {}),
+            "chain": _get_chain(s.get("symbol", "")),
+        })
+
+    # all_actionable = 有信号的品种（STRONG/WATCH/WEAK），转换为 phase3 格式
+    # 每项需 pid / confidence / decision / product_name / price / stage / adx / signal_type 等
+    all_actionable = []
+    # 已有辩论结果的，从 debate_results.json 中取裁决
+    debate_path = ws / "debate_results.json"
+    debate_data = {}
+    if debate_path.exists():
+        try:
+            debate_data_raw = json.load(open(debate_path, encoding="utf-8"))
+            debate_data = debate_data_raw.get("verdicts", {})
+        except (json.JSONDecodeError, Exception):
+            debate_data = {}
+
+    for s in ranked:
+        sym = s.get("symbol", "")
+        grade = s.get("grade", "NOISE")
+        if grade == "NOISE":
+            continue  # 噪声品种跳过
+
+        direction = s.get("direction", "")
+        total = s.get("total", 0)
+        abs_score = s.get("abs", 0)
+
+        # 方向映射
+        if direction == "bull":
+            decision = "BUY" if total > 0 else "HOLD"
+        elif direction == "bear":
+            decision = "SELL" if total < 0 else "HOLD"
+        else:
+            decision = "HOLD"
+
+        # 置信度：abs总分归一化到 0-1 区间（max 参考 60~80）
+        confidence = min(1.0, max(0.1, abs_score / 80.0))
+
+        entry = s.get("price", 0)
+        adx_val = s.get("adx", 0)
+
+        # 若有辩论结果，用辩论中的交易参数覆盖
+        verdict_entry = debate_data.get(sym, {})
+        chain_name = verdict_entry.get("chain", "") or _get_chain(sym)
+        entry_price = verdict_entry.get("entry_price", entry) or entry
+        target_price = verdict_entry.get("target_price", s.get("target_price", 0))
+        stop_loss = verdict_entry.get("stop_loss_price", s.get("stop_loss_price", 0))
+        pos_size = verdict_entry.get("position_size", s.get("position_size", 0))
+        rr = verdict_entry.get("risk_reward_ratio", s.get("risk_reward_ratio", 0))
+
+        all_actionable.append({
+            "pid": sym,
+            "product_name": s.get("name", sym),
+            "confidence": confidence,
+            "decision": decision,
+            "direction": direction,
+            "price": entry,
+            "entry_price": entry_price,
+            "target_price": target_price,
+            "stop_loss_price": stop_loss,
+            "position_size": pos_size,
+            "risk_reward_ratio": rr,
+            "stage": s.get("stage", ""),
+            "adx": adx_val,
+            "signal_type": s.get("signal_type", ""),
+            "grade": grade,
+            "total": total,
+            "abs": abs_score,
+            "chain": chain_name,
+            "last_price": entry,
+        })
+
+    # chain_results — 从品种映射表构建产业链
+    chain_results = {}
+    # 先收集每个品种的链
+    for s in ranked:
+        sym = s.get("symbol", "")
+        chain = _get_chain(sym)
+        if chain:
+            if chain not in chain_results:
+                chain_results[chain] = {
+                    "chain": chain,
+                    "chain_name": chain,
+                    "chain_members": [],
+                    "members": [],
+                    "term_structure": "flat",
+                }
+            chain_results[chain]["chain_members"].append(sym)
+            chain_results[chain]["members"].append(sym)
+    # 如果链条数为0，至少把所有品种归到"未分类"
+    if not chain_results:
+        chain_results["未分类"] = {
+            "chain": "未分类",
+            "chain_name": "未分类",
+            "chain_members": [s.get("symbol", "") for s in ranked if s.get("symbol")],
+            "members": [s.get("symbol", "") for s in ranked if s.get("symbol")],
+            "term_structure": "flat",
+        }
+
+    # 组装中间数据
+    meta = scan.get("_meta", {})
+    intermediate = {
+        "data_benchmark": data_benchmark,
+        "data_source": meta.get("data_source", scan.get("data_source", "unknown")),
+        "_meta": meta,
+        "all_actionable": all_actionable,
+        "chain_results": chain_results,
+        "symbols_summary": symbols_summary,
+    }
+
+    out_path = ws / "intermediate_data.json"
+    with open(out_path, "w", encoding="utf-8") as fp:
+        json.dump(intermediate, fp, ensure_ascii=False, indent=2, default=str)
+    print(f"✅ 中间数据 intermediate_data.json: {out_path}（{len(all_actionable)} 信号，{len(chain_results)} 链）")
+    return intermediate
+
+
+# ─────────────────────────────────────────────
 # 萃取（D 项：批量 --from）
 # ─────────────────────────────────────────────
 def run_extract(workspace: str) -> int:
@@ -391,6 +588,7 @@ def run_report(workspace: str) -> int:
     cmd = [sys.executable,
             str(ROOT / "skills" / "futures-trading-analysis" / "scripts" / "phase3_generate_report.py"),
             "--debate", str(ws / "debate_results.json"),
+            "--intermediate", str(ws / "intermediate_data.json"),
             "--workspace", str(ws)]
     print(f"📊 生成辩论报告: {' '.join(cmd)}")
     return subprocess.call(cmd)
@@ -439,6 +637,7 @@ def main():
 
     elif args.cmd == "assemble":
         assemble(scan, str(ws), data_benchmark)
+        generate_intermediate_data(scan, str(ws), data_benchmark)
 
     elif args.cmd == "extract":
         run_extract(str(ws))
@@ -448,6 +647,7 @@ def main():
 
     elif args.cmd == "finalize":
         assemble(scan, str(ws), data_benchmark)
+        generate_intermediate_data(scan, str(ws), data_benchmark)
         run_extract(str(ws))
         run_report(str(ws))
 

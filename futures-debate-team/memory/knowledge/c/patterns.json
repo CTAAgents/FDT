@@ -3,10 +3,10 @@
     "pattern_id": "c-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:13",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-12 01:39",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "c-con1: 价格行为与信号方向直接矛... → c-con2: RSI=48.3处于中性... → 趋势确认 → c-con4: Z-score=-0.9... → c-con5: MACD无死叉确认，均线...",
     "applicable_conditions": {
       "adx_range": [

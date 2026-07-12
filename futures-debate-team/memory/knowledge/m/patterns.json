@@ -3,10 +3,10 @@
     "pattern_id": "m-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:12",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.86,
+    "last_used": "2026-07-12 01:37",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.902,
     "structure": "RSI+CCI双指标同时进入超买区域，短... → 趋势确认 → Z-score=2.2处于统计极端分位，...",
     "applicable_conditions": {
       "adx_range": [

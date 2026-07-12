@@ -35,16 +35,34 @@
       "confidence": "高",
       "round_id": "",
       "extracted_at": "2026-07-12 01:12"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3035,
+        "condition": "等待价格回调至3035附近确认支撑有效后入场。当前价3049，夜盘-0.1%微调。ADX=16.2+stage=launch，趋势启动初期适合利用回调建仓。止损触发条件：价格有效跌破2986（ATR 1.5倍下轨）"
+      },
+      "stop_loss": {
+        "price": 2986,
+        "type": "fixed",
+        "atr_multiple": 1.5,
+        "reasoning": "ATR=32.6，1.5倍ATR=48.9≈49点。ADX<20的launch阶段趋势尚未充分展开，1.5倍ATR可在给趋势足够喘息空间的同时控制单笔损失在可接受范围。若被扫止损，显示launch失败或假突破，应及时离场"
+      },
+      "targets": [],
+      "direction": "",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-12 01:37"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [],
-    "computed_at": "2026-07-12 01:12"
+    "computed_at": "2026-07-12 01:37"
   },
   "meta": {
     "variety": "m",
-    "total_records": 2,
-    "last_updated": "2026-07-12 01:12"
+    "total_records": 3,
+    "last_updated": "2026-07-12 01:37"
   }
 }

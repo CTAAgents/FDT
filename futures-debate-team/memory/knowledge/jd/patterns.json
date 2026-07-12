@@ -28,11 +28,39 @@
     "pattern_id": "jd-p002",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:13",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-12 01:38",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "趋势确认 → 趋势确认 → 技术形态确认 → 趋势确认 → jd-con5: 正方'饲料成本改善+板...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  },
+  {
+    "pattern_id": "jd-p003",
+    "name": "多头趋势驱动型",
+    "first_observed": "2026-07-12",
+    "last_used": "2026-07-12 22:32",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.804,
+    "structure": "趋势确认 → 基本面验证 → 基本面验证",
     "applicable_conditions": {
       "adx_range": [
         35,

@@ -59,8 +59,8 @@ else:
 # 文件路径优先级: CLI → 环境变量 → 自动发现 → 默认
 INTERMEDIATE_PATH = args.intermediate or os.environ.get("PHASE3_INTERMEDIATE") or os.path.join(REPORT_DIR, "intermediate_data.json")
 DEBATE_PATH = args.debate or os.environ.get("PHASE3_DEBATE_RESULTS") or os.path.join(workspace, "debate_results.json")
-L1L4_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_l1l4_20260706.json")
-FT_SCAN_PATH = os.path.join(REPORT_DIR, "full_scan_factor_timing_20260706.json")
+L1L4_SCAN_PATH = os.path.join(REPORT_DIR, f"full_scan_l1l4_{REPORT_DATE_COMPACT}.json")
+FT_SCAN_PATH = os.path.join(REPORT_DIR, f"full_scan_factor_timing_{REPORT_DATE_COMPACT}.json")
 
 output_name = args.output_html or f"debate_report_{REPORT_DATE_COMPACT}.html"
 OUTPUT_DEBATE = os.path.join(REPORT_DIR, output_name)
@@ -516,7 +516,7 @@ if os.path.exists(DEBATE_PATH):
                     debate_results[pid]['bear_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
 
     # ── 加载策执远交易方案并注入 per-pid（合约/入场/止损/目标） ──
-    for fname in ['p5_trading_plan_20260706.json', 'p5_trading_plan.json']:
+    for fname in [f'p5_trading_plan_{REPORT_DATE_COMPACT}.json', 'p5_trading_plan.json']:
         fpath = os.path.join(os.path.dirname(DEBATE_PATH), fname) if os.path.exists(DEBATE_PATH) else ''
         if not fpath or not os.path.exists(fpath):
             continue
@@ -559,8 +559,8 @@ print(f"✓ 有效方案: {len(all_actionable)}")
 
 
 # ==================== 构建13链聚合（从62条per-pid链数据中聚合） ====================
-def aggregate_chains(chain_results: dict, all_actionable: list) -> dict:
-    """将62条per-pid链数据聚合为13条链"""
+def aggregate_chains(chain_results: dict, all_actionable: list, symbols_summary: list = None) -> dict:
+    """按产业链聚合指标：品种数=全链品种数，多空分布=全链品种分布，平均分=信号品种均分"""
     # 先按链名分组
     chain_groups = {}
     pid_to_chain = _build_chain_lookup({"chain_results": chain_results})
@@ -583,69 +583,107 @@ def aggregate_chains(chain_results: dict, all_actionable: list) -> dict:
 
     # 如果没聚合到链，从 symbols_summary 的链字段构建
     if not chain_members_map:
-        for s in all_actionable:
-            chain_info = s.get("chain_info", "")
-            pid = s.get("pid", "").lower()
-            if chain_info and pid:
-                cn = chain_info if isinstance(chain_info, str) else chain_info.get("chain", "")
-                if cn:
-                    if cn not in chain_members_map:
-                        chain_members_map[cn] = set()
-                    chain_members_map[cn].add(pid)
+        if symbols_summary:
+            for s in symbols_summary:
+                chain_info = s.get("chain_info", "") or s.get("chain", "")
+                pid = s.get("symbol", s.get("pid", "")).lower()
+                if chain_info and pid:
+                    cn = chain_info if isinstance(chain_info, str) else chain_info.get("chain", "")
+                    if cn:
+                        if cn not in chain_members_map:
+                            chain_members_map[cn] = set()
+                        chain_members_map[cn].add(pid)
+        else:
+            for s in all_actionable:
+                chain_info = s.get("chain_info", "")
+                pid = s.get("pid", "").lower()
+                if chain_info and pid:
+                    cn = chain_info if isinstance(chain_info, str) else chain_info.get("chain", "")
+                    if cn:
+                        if cn not in chain_members_map:
+                            chain_members_map[cn] = set()
+                        chain_members_map[cn].add(pid)
+
+    # 建立全量 pid→方向/总分 映射
+    all_directions = {}  # pid.lower() → "BUY"/"SELL"/"HOLD"
+    all_scores = {}      # pid.lower() → abs(total)
+    if symbols_summary:
+        for s in symbols_summary:
+            pid = (s.get("symbol") or s.get("pid", "")).lower()
+            if pid:
+                raw_dir = s.get("direction", "")
+                if raw_dir in ("bull",):
+                    all_directions[pid] = "BUY"
+                elif raw_dir in ("bear",):
+                    all_directions[pid] = "SELL"
+                else:
+                    all_directions[pid] = "HOLD"
+                all_scores[pid] = abs(s.get("total", s.get("abs", 0)))
+    # 也补上 all_actionable 中有但 symbols_summary 没有的
+    for s in all_actionable:
+        pid = s.get("pid", "").lower()
+        if pid and pid not in all_directions:
+            raw_dir = s.get("direction", s.get("decision", ""))
+            if raw_dir in ("bull", "BUY"):
+                all_directions[pid] = "BUY"
+            elif raw_dir in ("bear", "SELL"):
+                all_directions[pid] = "SELL"
+            else:
+                all_directions[pid] = "HOLD"
+            all_scores[pid] = all_scores.get(pid) or abs(s.get("total", s.get("abs", 0)))
 
     # 计算每链的指标
     aggregated = {}
     for chain_name, member_set in chain_members_map.items():
-        chain_signals = [s for s in all_actionable if s.get("pid", "").lower() in member_set]
-        if chain_signals:
-            dc = {}
-            for s in chain_signals:
-                d = s.get("direction", "HOLD")
-                dc[d] = dc.get(d, 0) + 1
+        # 全链品种
+        members_list = sorted(member_set)
+        total_count = len(members_list)
 
-            buy_cnt = dc.get("BUY", 0)
-            sell_cnt = dc.get("SELL", 0)
+        # 全链方向分布
+        dc = {}
+        for pid in members_list:
+            d = all_directions.get(pid, "HOLD")
+            dc[d] = dc.get(d, 0) + 1
 
-            if sell_cnt > buy_cnt * 2:
-                overall_trend = "强势空头"
-            elif sell_cnt > buy_cnt:
-                overall_trend = "偏空震荡"
-            elif buy_cnt > sell_cnt * 2:
-                overall_trend = "强势多头"
-            elif buy_cnt > sell_cnt:
-                overall_trend = "偏多震荡"
-            else:
-                overall_trend = "高波动震荡"
+        # 平均分：全链信号品种的平均分
+        chain_signal_scores = [all_scores.get(pid, 0) for pid in members_list if all_directions.get(pid) in ("BUY", "SELL")]
+        avg_score = sum(chain_signal_scores) / len(chain_signal_scores) if chain_signal_scores else 0
 
-            avg_score = (
-                sum(abs(s.get("confidence", 0) * 100) for s in chain_signals) / len(chain_signals)
-                if chain_signals else 0
-            )
-            leader = max(chain_signals, key=lambda s: s.get("confidence", 0)) if chain_signals else None
+        # 龙头：全链中信号分最高的品种
+        best_pid = max(members_list, key=lambda p: all_scores.get(p, 0)) if members_list else None
+        leader_name = best_pid.upper() if best_pid else "—"
+        if symbols_summary:
+            for s in symbols_summary:
+                if (s.get("symbol") or s.get("pid", "")).lower() == best_pid:
+                    leader_name = s.get("name", s.get("product_name", best_pid.upper()))
+                    break
 
-            aggregated[chain_name] = {
-                "count": len(chain_signals),
-                "avg_score": avg_score,
-                "direction_counts": dc,
-                "leader": f"{leader.get('product_name', leader.get('pid', ''))}" if leader else "—",
-                "overall_trend": overall_trend,
-                "members": list(member_set),
-                "term_structure": chain_term_map.get(chain_name, "flat"),
-            }
+        buy_cnt = dc.get("BUY", 0)
+        sell_cnt = dc.get("SELL", 0)
+        if sell_cnt > buy_cnt * 2:
+            overall_trend = "强势空头"
+        elif sell_cnt > buy_cnt:
+            overall_trend = "偏空震荡"
+        elif buy_cnt > sell_cnt * 2:
+            overall_trend = "强势多头"
+        elif buy_cnt > sell_cnt:
+            overall_trend = "偏多震荡"
         else:
-            aggregated[chain_name] = {
-                "count": 0,
-                "avg_score": 0,
-                "direction_counts": {"BUY": 0, "SELL": 0, "HOLD": 0},
-                "leader": "—",
-                "overall_trend": "未覆盖",
-                "members": list(member_set),
-                "term_structure": chain_term_map.get(chain_name, "flat"),
-            }
+            overall_trend = "高波动震荡"
+
+        aggregated[chain_name] = {
+            "count": total_count,
+            "avg_score": round(avg_score, 1),
+            "direction_counts": dc,
+            "leader": leader_name,
+            "overall_trend": overall_trend,
+            "members": members_list,
+            "term_structure": chain_term_map.get(chain_name, "flat"),
+        }
     return aggregated
 
 
-aggregated_chains = aggregate_chains(chain_results, all_actionable)
+aggregated_chains = aggregate_chains(chain_results, all_actionable, symbols_summary)
 chain_results_agg = aggregated_chains
 print(f"✓ 产业链聚合: {len(chain_results_agg)} 条链")
 
@@ -1515,6 +1553,8 @@ def build_debate_report():
                 t_key, ti, tt = key, icon, t_raw
                 break
         dc = info.get("direction_counts", {})
+        members = info.get("members", [])
+        members_str = "、".join(sorted(m.upper() for m in members))
         return f"""<tr>
             <td>{name}</td>
             <td><span class="trend-{t_key.lower()}">{ti} {tt}</span></td>
@@ -1522,6 +1562,7 @@ def build_debate_report():
             <td class="num">{info.get("count", 0)}</td>
             <td class="num">{dc.get("BUY", 0)}/{dc.get("SELL", 0)}/{dc.get("HOLD", 0)}</td>
             <td>{info.get("leader", "—")}</td>
+            <td style="font-size:0.82em;color:#888;max-width:200px;">{members_str}</td>
         </tr>"""
 
     all_rows = ""
@@ -1531,7 +1572,8 @@ def build_debate_report():
         all_rows = '<tr><td colspan="9" style="text-align:center;color:#888;">⚠️ 无有效信号</td></tr>'
 
     chain_rows = ""
-    for name, info in sorted(chain_results_agg.items(), key=lambda x: x[1].get("avg_score", 0), reverse=True):
+    chain_active = [(n, i) for n, i in chain_results_agg.items() if i.get("avg_score", 0) > 0 or i.get("count", 0) > 0]
+    for name, info in sorted(chain_active, key=lambda x: x[1].get("avg_score", 0), reverse=True):
         chain_rows += chain_row(name, info)
 
     # 辩论详情
@@ -1714,14 +1756,14 @@ def build_debate_report():
         <div class="card"><div class="card-value">{total}</div><div class="card-label">总信号数</div></div>
         <div class="card"><div class="card-value">{total_buy}</div><div class="card-label" style="color:#22c55e;">做多信号</div></div>
         <div class="card"><div class="card-value">{total_sell}</div><div class="card-label" style="color:#ef4444;">做空信号</div></div>
-        <div class="card"><div class="card-value">{len(chain_results_agg)}</div><div class="card-label">产业链数</div></div>
+        <div class="card"><div class="card-value">{len(chain_active)}</div><div class="card-label">产业链数</div></div>
         <div class="card"><div class="card-value" style="color:{'#ef4444' if sentiment_text=='强烈空头' else '#f59e0b'};">{sentiment_text}</div><div class="card-label">市场情绪</div></div>
     </div>
 
     <div class="section">
         <h2>🔗 产业链全景</h2>
-        <div class="sub-title">{len(chain_results_agg)}条产业链整体趋势 — 排序按平均得分</div>
-        <table><thead><tr><th>产业链</th><th>趋势</th><th class="num">平均分</th><th class="num">品种</th><th class="num">BUY/SELL/HOLD</th><th>龙头</th></tr></thead>
+        <div class="sub-title">{len(chain_active)}条产业链整体趋势 — 排序按平均得分</div>
+        <table><thead><tr><th>产业链</th><th>趋势</th><th class="num">平均分</th><th class="num">品种</th><th class="num">BUY/SELL/HOLD</th><th>龙头</th><th>成员</th></tr></thead>
         <tbody>{chain_rows}</tbody></table>
     </div>
 

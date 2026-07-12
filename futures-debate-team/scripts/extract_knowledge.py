@@ -396,11 +396,23 @@ class KnowledgeExtractor:
         if not levels:
             return {"support": [], "resistance": []}
 
-        # 提取多头和空头的价格点
-        bull_entries = [l["entry"] for l in levels if l.get("direction", "").lower() in ("bull", "long", "buy") and l.get("entry")]
-        bull_targets = [t for l in levels if l.get("direction", "").lower() in ("bull", "long", "buy") for t in l.get("targets", []) if t]
-        bear_entries = [l["entry"] for l in levels if l.get("direction", "").lower() in ("bear", "short", "sell") and l.get("entry")]
-        bear_targets = [t for l in levels if l.get("direction", "").lower() in ("bear", "short", "sell") for t in l.get("targets", []) if t]
+        # 提取多头和空头的价格点（兼容 dict 和纯数字两种格式）
+        def _to_price(val):
+            """entry/target 可能是纯数字或 {"price": 4700, ...} 格式。"""
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, dict) and "price" in val:
+                return float(val["price"])
+            return None
+
+        bull_entries = [_to_price(l["entry"]) for l in levels if l.get("direction", "").lower() in ("bull", "long", "buy") and l.get("entry")]
+        bull_entries = [p for p in bull_entries if p is not None]
+        bull_targets = [_to_price(t) for l in levels if l.get("direction", "").lower() in ("bull", "long", "buy") for t in l.get("targets", []) if t]
+        bull_targets = [p for p in bull_targets if p is not None]
+        bear_entries = [_to_price(l["entry"]) for l in levels if l.get("direction", "").lower() in ("bear", "short", "sell") and l.get("entry")]
+        bear_entries = [p for p in bear_entries if p is not None]
+        bear_targets = [_to_price(t) for l in levels if l.get("direction", "").lower() in ("bear", "short", "sell") for t in l.get("targets", []) if t]
+        bear_targets = [p for p in bear_targets if p is not None]
 
         # 多头入场价 + 空头目标价 → 支撑区
         support_prices = bull_entries + bear_targets
@@ -411,12 +423,18 @@ class KnowledgeExtractor:
             """按价格区间聚类。"""
             if not prices:
                 return []
+            # 防御：所有价格为0，直接归为1个聚类
+            if all(p == 0 for p in prices):
+                return [{"level": 0.0, "count": len(prices), "min": 0.0, "max": 0.0}]
             sorted_p = sorted(prices)
             clusters = []
             current_cluster = [sorted_p[0]]
 
             for p in sorted_p[1:]:
                 avg = sum(current_cluster) / len(current_cluster)
+                if avg == 0:
+                    current_cluster.append(p)
+                    continue
                 if abs(p - avg) / avg <= threshold_pct:
                     current_cluster.append(p)
                 else:

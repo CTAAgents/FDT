@@ -3,10 +3,10 @@
     "pattern_id": "rb-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-11",
-    "last_used": "2026-07-12 01:13",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.846,
+    "last_used": "2026-07-12 01:38",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.892,
     "structure": "趋势确认",
     "applicable_conditions": {
       "adx_range": [
@@ -24,7 +24,7 @@
       "debate_20260711_rb_p1",
       "unknown"
     ],
-    "confidence": 0.69,
+    "confidence": 0.645,
     "status": "active",
     "consecutive_failures": 0
   },

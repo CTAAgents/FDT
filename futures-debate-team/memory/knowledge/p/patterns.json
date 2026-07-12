@@ -3,10 +3,10 @@
     "pattern_id": "p-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:13",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-12 01:40",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "趋势确认 → p-con2: 总分-63在WATCH等... → 政策催化 → 趋势确认 → p-con5: 同期相关品种出现bull...",
     "applicable_conditions": {
       "adx_range": [

@@ -238,6 +238,67 @@
         "J": "观望0.52/0%",
         "JD": "观望0.52/0%"
       }
+    },
+    {
+      "round_id": "FDT_20260712_auto",
+      "timestamp": "2026-07-12 01:37",
+      "action": "auto_daily_scan",
+      "data_benchmark": "2026-07-11 23:54 收盘",
+      "signal_count": {
+        "STRONG": 1,
+        "WATCH": 16
+      },
+      "symbols": [
+        "m",
+        "SS",
+        "hc",
+        "b",
+        "rr",
+        "rb",
+        "jd",
+        "CJ",
+        "ao",
+        "c",
+        "y",
+        "FG",
+        "sc",
+        "SA",
+        "p",
+        "au",
+        "lc"
+      ],
+      "knowledge_extraction": "17/17 completed",
+      "l1_validation": "53/53 pass",
+      "notes": "周日自动化复用早期测试产出,知识萃取补全全部16 WATCH品种"
+    },
+    {
+      "round_id": "debate_20260712_0327",
+      "date": "2026-07-12",
+      "time": "03:27",
+      "data_source": "2026-07-11 23:54 收盘（周五夜盘）",
+      "trigger_count": 7,
+      "triggers": [
+        "zn(STRONG)",
+        "RM(STRONG)",
+        "j(WATCH)",
+        "jd(WATCH)",
+        "lh(WEAK)",
+        "SS(WEAK)",
+        "lu(WEAK)"
+      ],
+      "verdicts": {
+        "zn": "BULL",
+        "RM": "NEUTRAL",
+        "j": "BEAR",
+        "jd": "BULL",
+        "lh": "BEAR",
+        "SS": "BEAR",
+        "lu": "BEAR"
+      },
+      "agent_count": 42,
+      "validation_pass": true,
+      "knowledge_extraction": "skipped (ZeroDivisionError bug)",
+      "report": "debate_report_20260712.html"
     }
   ]
 }
