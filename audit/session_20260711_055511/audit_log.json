@@ -1,0 +1,88 @@
+[
+  {
+    "timestamp": "2026-07-11T05:55:11.327146",
+    "agent": "数技源",
+    "action": "lock_acquired",
+    "proposal": {
+      "agent_name": "数技源",
+      "intent": "定论点",
+      "required_resources": [],
+      "estimated_cost_tokens": 500,
+      "priority": 5
+    },
+    "result": null,
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-07-11T05:55:11.327271",
+    "agent": "探源",
+    "action": "pipeline_busy",
+    "proposal": {
+      "agent_name": "探源",
+      "intent": "宏观资料",
+      "required_resources": [],
+      "estimated_cost_tokens": 300,
+      "priority": 5
+    },
+    "result": null,
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-07-11T05:55:11.327384",
+    "agent": "数技源",
+    "action": "completed",
+    "proposal": null,
+    "result": {
+      "agent_name": "数技源",
+      "success": true,
+      "duration_seconds": 2.5,
+      "output_path": "output.json",
+      "error": null,
+      "token_used": 500
+    },
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-07-11T05:55:11.630830",
+    "agent": "探源",
+    "action": "lock_acquired",
+    "proposal": {
+      "agent_name": "探源",
+      "intent": "宏观资料",
+      "required_resources": [],
+      "estimated_cost_tokens": 300,
+      "priority": 5
+    },
+    "result": null,
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-07-11T05:55:12.633282",
+    "agent": "探源",
+    "action": "pipeline_busy",
+    "proposal": {
+      "agent_name": "探源",
+      "intent": "宏观资料",
+      "required_resources": [],
+      "estimated_cost_tokens": 300,
+      "priority": 5
+    },
+    "result": null,
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-07-11T05:55:12.633282",
+    "agent": "探源",
+    "action": "completed",
+    "proposal": null,
+    "result": {
+      "agent_name": "探源",
+      "success": true,
+      "duration_seconds": 3.0,
+      "output_path": "research.json",
+      "error": null,
+      "token_used": 0
+    },
+    "metadata": {}
+  }
+]

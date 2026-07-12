@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "fg-p001",
+    "name": "空头综合驱动型",
+    "first_observed": "2026-07-12",
+    "last_used": "2026-07-12 01:39",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "FG-con1: 价格矛盾：当日收涨+0... → FG-con2: 关键确认指标全体缺失：... → FG-con3: Z-score仅-0.... → FG-con4: RSI=40.5处于中...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

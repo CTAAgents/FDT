@@ -1,0 +1,70 @@
+{
+  "levels": [
+    {
+      "entry": 3077,
+      "stop_loss": 3154,
+      "targets": [
+        2892,
+        2853
+      ],
+      "direction": "bear",
+      "confidence": 0.78,
+      "round_id": "debate_20260711_rb_p1",
+      "extracted_at": "2026-07-11 07:42"
+    },
+    {
+      "entry": 3500,
+      "stop_loss": 3420,
+      "targets": [
+        3650,
+        3750
+      ],
+      "direction": "bull",
+      "confidence": 0.72,
+      "round_id": "test_extract",
+      "extracted_at": "2026-07-11 22:52"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 2872.5,
+        "count": 2,
+        "min": 2853,
+        "max": 2892
+      },
+      {
+        "level": 3500.0,
+        "count": 1,
+        "min": 3500,
+        "max": 3500
+      }
+    ],
+    "resistance": [
+      {
+        "level": 3077.0,
+        "count": 1,
+        "min": 3077,
+        "max": 3077
+      },
+      {
+        "level": 3650.0,
+        "count": 1,
+        "min": 3650,
+        "max": 3650
+      },
+      {
+        "level": 3750.0,
+        "count": 1,
+        "min": 3750,
+        "max": 3750
+      }
+    ],
+    "computed_at": "2026-07-11 22:52"
+  },
+  "meta": {
+    "variety": "rb",
+    "total_records": 2,
+    "last_updated": "2026-07-11 22:52"
+  }
+}

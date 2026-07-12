@@ -1,0 +1,41 @@
+{
+  "code": "hc",
+  "name": "热轧卷板",
+  "exchange": "SHFE",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "黑色系",
+  "aliases": [
+    "热卷",
+    "热轧"
+  ],
+  "strategy_weights": {
+    "F1": 0.68,
+    "F2": 0.6,
+    "F3": 0.42,
+    "F4": 0.28,
+    "F5": 0.52
+  },
+  "strategy_samples": {
+    "F1": 1,
+    "F2": 1,
+    "F3": 1,
+    "F4": 1,
+    "F5": 1
+  },
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

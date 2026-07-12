@@ -1,0 +1,38 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1932.0,
+        "condition": "价格反弹至1930-1935阻力区(前低支撑转换压力位),15分钟K线成交量>5日均量1.2倍确认放量,且收出长上影线或看跌吞没K线形态确认阻力有效;若价格直接跌破MA60(1891)并放量(>1.3倍)则改为市价入场"
+      },
+      "stop_loss": {
+        "price": 1982.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 1932.0,
+        "count": 1,
+        "min": 1932.0,
+        "max": 1932.0
+      }
+    ],
+    "computed_at": "2026-07-12 22:32"
+  },
+  "meta": {
+    "variety": "j",
+    "total_records": 1,
+    "last_updated": "2026-07-12 22:32"
+  }
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "event": "acquire",
+    "agent": "数技源",
+    "intent": "定论点",
+    "timestamp": "2026-07-11T05:55:11.327146"
+  },
+  {
+    "event": "release",
+    "agent": "数技源",
+    "success": true,
+    "duration": 2.5,
+    "timestamp": "2026-07-11T05:55:11.327384"
+  },
+  {
+    "event": "acquire",
+    "agent": "探源",
+    "intent": "宏观资料",
+    "timestamp": "2026-07-11T05:55:11.630830"
+  },
+  {
+    "event": "release",
+    "agent": "探源",
+    "success": true,
+    "duration": 3.0,
+    "timestamp": "2026-07-11T05:55:12.633282"
+  }
+]

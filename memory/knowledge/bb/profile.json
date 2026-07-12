@@ -1,0 +1,28 @@
+{
+  "code": "bb",
+  "name": "胶合板",
+  "exchange": "DCE",
+  "unit": "500张/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "农产品",
+  "aliases": [
+    "胶合板"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

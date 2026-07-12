@@ -1,0 +1,38 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 14350,
+        "condition": "等待价格反弹至成本线14350区域，确认成交量放大(vol_ratio>1.0)后入场；若不反弹直接下行则不追空"
+      },
+      "stop_loss": {
+        "price": 14460,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 14350.0,
+        "count": 1,
+        "min": 14350.0,
+        "max": 14350.0
+      }
+    ],
+    "computed_at": "2026-07-12 22:32"
+  },
+  "meta": {
+    "variety": "ss",
+    "total_records": 1,
+    "last_updated": "2026-07-12 22:32"
+  }
+}

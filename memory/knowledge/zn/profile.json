@@ -1,0 +1,41 @@
+{
+  "code": "zn",
+  "name": "锌",
+  "exchange": "SHFE",
+  "unit": "5t/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "有色金属",
+  "aliases": [
+    "锌",
+    "沪锌"
+  ],
+  "strategy_weights": {
+    "F1": 0.48,
+    "F2": 0.58,
+    "F3": 0.6,
+    "F4": 0.72,
+    "F5": 0.68
+  },
+  "strategy_samples": {
+    "F1": 1,
+    "F2": 1,
+    "F3": 1,
+    "F4": 1,
+    "F5": 1
+  },
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

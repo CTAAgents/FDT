@@ -1,0 +1,29 @@
+[
+  {
+    "pattern_id": "m-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-12",
+    "last_used": "2026-07-12 01:37",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.902,
+    "structure": "RSI+CCI双指标同时进入超买区域，短... → 趋势确认 → Z-score=2.2处于统计极端分位，...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ]
+    },
+    "key_evidence_sources": [
+      "MACD(12,26,9)=none, DC20_break=none, ma_align=mixed, l1=28/l2=19/l3=20/l4=8",
+      "z_score=2.2, price=3049, change_pct=-0.1%, z_mu_bull=43.9, z_sigma=14.1",
+      "RSI(14)=66.6, CCI(20)=154.2, change_pct=-0.1%"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.8,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

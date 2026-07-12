@@ -1,0 +1,18 @@
+[
+  {
+    "session_id": "20260711_055511",
+    "agent": "数技源",
+    "tokens": 500,
+    "duration": 2.5,
+    "success": true,
+    "timestamp": "2026-07-11T05:55:11.327384"
+  },
+  {
+    "session_id": "20260711_055511",
+    "agent": "探源",
+    "tokens": 0,
+    "duration": 3.0,
+    "success": true,
+    "timestamp": "2026-07-11T05:55:12.633282"
+  }
+]

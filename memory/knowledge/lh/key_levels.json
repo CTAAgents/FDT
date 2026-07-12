@@ -1,0 +1,55 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0,
+        "condition": "当前不设入场条件，待以下升级信号出现后再评估：①猪粮比突破5.5:1盈亏线且持续3天；②屠宰开工率周环比回升>5%确认需求改善；③二育集中出栏压力消化后现货价站稳12元/公斤以上"
+      },
+      "stop_loss": {
+        "price": 0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 02:54"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 12500.0,
+        "condition": "价格反弹至产业套保压力区12500附近+15分钟K线出现放量滞涨/上影线确认"
+      },
+      "stop_loss": {
+        "price": 12750.0,
+        "type": "atr",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-12 22:32"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 12500.0,
+        "count": 1,
+        "min": 12500.0,
+        "max": 12500.0
+      }
+    ],
+    "computed_at": "2026-07-12 22:32"
+  },
+  "meta": {
+    "variety": "lh",
+    "total_records": 2,
+    "last_updated": "2026-07-12 22:32"
+  }
+}

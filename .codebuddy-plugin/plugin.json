@@ -1,0 +1,221 @@
+{
+  "name": "futures-debate-team",
+  "version": "5.5.1",
+  "deprecated": false,
+  "description": "Multi-role futures trading debate team v5.5.1 — 在v5.5 OmniOpt分类法基础上新增：Multi-Agent通信效率优化 — 结构化辩论论点Schema(P0: contracts/debate_argument_schema.py)、闫判官差异化信息分发(P1: 按Agent类型精简下发)、两阶段风控(P2: 前置品种级审核+后置方案级审核)。累计删减约35%冗余上下文传递。",
+  "author": {
+    "name": "WorkBuddy",
+    "email": "support@workbuddy.cn"
+  },
+  "agents": [
+    "./agents/futures-debate-team-team-lead.md",
+    "./agents/futures-fundamental-researcher.md",
+    "./agents/futures-technical-researcher.md",
+    "./agents/futures-datatech.md",
+    "./agents/futures-chain-analyst.md",
+    "./agents/futures-affirmative-debater.md",
+    "./agents/futures-opposition-debater.md",
+    "./agents/futures-judge.md",
+    "./agents/futures-risk-manager.md",
+    "./agents/futures-trading-strategist.md"
+  ],
+  "skills": [
+    "./skills/quant-daily",
+    "./skills/futures-trading-analysis"
+  ],
+  "expertType": "team",
+  "agentName": "futures-debate-team-team-lead",
+  "teamInfo": {
+    "leadAgent": "futures-debate-team-team-lead",
+    "memberAgents": [
+      "futures-fundamental-researcher",
+      "futures-technical-researcher",
+      "futures-datatech",
+      "futures-chain-analyst",
+      "futures-affirmative-debater",
+      "futures-opposition-debater",
+      "futures-judge",
+      "futures-risk-manager",
+      "futures-trading-strategist"
+    ]
+  },
+  "displayName": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "profession": {
+    "en": "Futures Trading Debate Team",
+    "zh": "期货交易辩论专家团"
+  },
+  "displayDescription": {
+    "en": "10-role futures debate team v5.5.1 — Multi-Agent communication efficiency: structured argument schema (P0: contracts/debate_argument_schema.py), differentiated info dispatch (P1: -35% context noise), two-phase risk control (P2). Plus channel breakout (Donchian DC20/DC55 + BB) primary source, OmniOpt F1-F5 taxonomy, instrument×strategy adaptability matrix, WEAS judge weighting. TqSDK live mode, adaptive data sourcing, signal check gate, 10-Agent evolution + self-circulating closed-loop.",
+    "zh": "10角色期货辩论专家团v5.5.1 — Multi-Agent通信效率优化：结构化辩论论点Schema(P0)、差异化信息分发(P1:下行上下文减少约35%)、两阶段风控(P2:前置品种级+后置方案级)。v5.5: OmniOpt分类法集成(F1-F5族+品种矩阵+加权裁决)。通道突破(唐奇安DC20/DC55+布林带)主信号源，TqSDK live模式，10Agent全进化+自循环闭环。"
+  },
+  "avatar": "avatars/team.png",
+  "categoryId": "08-FinanceInvestment",
+  "defaultInitPrompt": {
+    "zh": "分析螺纹钢期货的多空博弈情况",
+    "en": "Analyze the bull/bear dynamics of rebar futures"
+  },
+  "plugin": "futures-debate-team",
+  "tags": [
+    {
+      "en": "Futures Trading",
+      "zh": "期货交易"
+    },
+    {
+      "en": "Data-Driven Debate",
+      "zh": "数据驱动辩论"
+    },
+    {
+      "en": "Fundamental Research",
+      "zh": "基本面研究"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "en": "Analyze the bull/bear dynamics of rebar futures",
+      "zh": "分析螺纹钢期货的多空博弈情况"
+    },
+    {
+      "en": "Run full analysis for crude oil futures",
+      "zh": "运行完整分析流程分析原油期货"
+    },
+    {
+      "en": "Compare bullish and bearish arguments for copper futures",
+      "zh": "对比铜期货的多空论点"
+    }
+  ],
+  "members": [
+    {
+      "id": "futures-debate-team-team-lead",
+      "displayName": {
+        "en": "Ming Jianqiu",
+        "zh": "明鉴秋"
+      },
+      "profession": {
+        "en": "Debate Coordinator",
+        "zh": "辩论独立协调员"
+      },
+      "avatar": "avatars/futures-debate-team-team-lead.png",
+      "role": "lead"
+    },
+    {
+      "id": "futures-fundamental-researcher",
+      "displayName": {
+        "en": "Tan Yuan",
+        "zh": "探源"
+      },
+      "profession": {
+        "en": "Fundamental Analyst",
+        "zh": "基本面分析师"
+      },
+      "avatar": "avatars/futures-fundamental-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-technical-researcher",
+      "displayName": {
+        "en": "Guan Lan",
+        "zh": "观澜"
+      },
+      "profession": {
+        "en": "Technical Analyst",
+        "zh": "技术面分析师"
+      },
+      "avatar": "avatars/futures-technical-researcher.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-datatech",
+      "displayName": {
+        "en": "Shu Ji Yuan",
+        "zh": "数技源"
+      },
+      "profession": {
+        "en": "Data Technician",
+        "zh": "数据技师（纯数据输出）"
+      },
+      "avatar": "avatars/futures-datatech.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-chain-analyst",
+      "displayName": {
+        "en": "Lian Zhengyuan",
+        "zh": "链证源"
+      },
+      "profession": {
+        "en": "Industry Chain Analyst",
+        "zh": "产业链分析师"
+      },
+      "avatar": "avatars/futures-chain-analyst.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-affirmative-debater",
+      "displayName": {
+        "en": "Zheng Zhen",
+        "zh": "证真"
+      },
+      "profession": {
+        "en": "Signal Affirmer",
+        "zh": "正方辩手（信号论证者）"
+      },
+      "avatar": "avatars/futures-affirmative-debater.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-opposition-debater",
+      "displayName": {
+        "en": "Shen Si",
+        "zh": "慎思"
+      },
+      "profession": {
+        "en": "Signal Skeptic",
+        "zh": "反方辩手（信号质疑者）"
+      },
+      "avatar": "avatars/futures-opposition-debater.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-judge",
+      "displayName": {
+        "en": "Yan Panguan",
+        "zh": "闫判官"
+      },
+      "profession": {
+        "en": "Debate Judge",
+        "zh": "辩论裁决官"
+      },
+      "avatar": "avatars/futures-judge.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-risk-manager",
+      "displayName": {
+        "en": "Feng Kongming",
+        "zh": "风控明"
+      },
+      "profession": {
+        "en": "Risk Manager",
+        "zh": "风险管理总监"
+      },
+      "avatar": "avatars/futures-risk-manager.png",
+      "role": "member"
+    },
+    {
+      "id": "futures-trading-strategist",
+      "displayName": {
+        "en": "Ce Zhiyuan",
+        "zh": "策执远"
+      },
+      "profession": {
+        "en": "Trading Strategist",
+        "zh": "交易策略师"
+      },
+      "avatar": "avatars/futures-trading-strategist.png",
+      "role": "member"
+    }
+  ]
+}

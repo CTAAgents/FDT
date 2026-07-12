@@ -1,0 +1,29 @@
+[
+  {
+    "pattern_id": "ta-p001",
+    "name": "多头综合驱动型",
+    "first_observed": "2026-07-11",
+    "last_used": "2026-07-11 07:43",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.65,
+    "structure": "PTA加工差已压缩至低位，检修预期增加... → 聚酯开工率维持高位，需求韧性好...",
+    "applicable_conditions": {
+      "adx_range": [
+        13,
+        43
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "探源/基本面"
+    ],
+    "derived_from_debates": [
+      "debate_20260711_ta_p1"
+    ],
+    "confidence": 0.65,
+    "status": "active"
+  }
+]

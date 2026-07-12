@@ -1,0 +1,46 @@
+{
+  "levels": [
+    {
+      "entry": 785,
+      "stop_loss": 805,
+      "targets": [
+        745,
+        725
+      ],
+      "direction": "bear",
+      "confidence": 0.82,
+      "round_id": "debate_20260711_i_p1",
+      "extracted_at": "2026-07-11 07:43"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 725.0,
+        "count": 1,
+        "min": 725,
+        "max": 725
+      },
+      {
+        "level": 745.0,
+        "count": 1,
+        "min": 745,
+        "max": 745
+      }
+    ],
+    "resistance": [
+      {
+        "level": 785.0,
+        "count": 1,
+        "min": 785,
+        "max": 785
+      }
+    ],
+    "computed_at": "2026-07-11 07:43"
+  },
+  "meta": {
+    "variety": "i",
+    "total_records": 1,
+    "last_updated": "2026-07-11 07:43"
+  }
+}

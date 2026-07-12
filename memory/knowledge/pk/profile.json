@@ -1,0 +1,23 @@
+{
+  "code": "pk",
+  "name": "花生",
+  "exchange": "CZCE",
+  "unit": "5t/手",
+  "delivery_months": [
+    1,
+    3,
+    4,
+    5,
+    10,
+    11,
+    12
+  ],
+  "chain": "农产品",
+  "aliases": [
+    "花生"
+  ],
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "claim_id": {
+      "type": "string"
+    },
+    "point": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "观澜",
+        "探源",
+        "链证源"
+      ]
+    },
+    "evidence_value": {
+      "type": "string"
+    },
+    "evidence_source": {
+      "type": "string"
+    },
+    "evidence_date": {
+      "type": "string"
+    },
+    "impact_level": {
+      "type": "string",
+      "enum": [
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
+    }
+  },
+  "required": [
+    "point",
+    "source"
+  ]
+}

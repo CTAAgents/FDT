@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "lu-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-12",
+    "last_used": "2026-07-12 22:32",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "技术形态确认 → 趋势确认 → lu-con3: 同板块油品品种均未确认...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "minor_signal"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

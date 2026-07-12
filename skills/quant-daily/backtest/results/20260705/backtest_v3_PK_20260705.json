@@ -1,0 +1,42 @@
+{
+  "symbol": "PK",
+  "status": "OK",
+  "timestamp": "2026-07-05 20:59:55",
+  "config": {
+    "forward_days": 10,
+    "min_start": 60,
+    "bars": 230,
+    "fee_rate": 0.0005
+  },
+  "trades": 6,
+  "metrics": {
+    "cumulative_return": -3.9,
+    "annualized_return": -81.0,
+    "sharpe_ratio": -4.321,
+    "max_drawdown": 4.38,
+    "calmar_ratio": -0.89,
+    "win_rate": 33.3,
+    "profit_factor": 0.48,
+    "avg_return": -0.637,
+    "total_trades": 6,
+    "wins": 2,
+    "losses": 4
+  },
+  "dual_signal_breakdown": {
+    "total_dual_signals": 5,
+    "dual_win_rate": 40.0,
+    "l1_only_signals": 1,
+    "l1_win_rate": 0.0
+  },
+  "weight_adjustment": {
+    "note": "样本不足(需要10+交易)",
+    "l_weights": [
+      35,
+      35,
+      20,
+      10
+    ],
+    "f_threshold": 0.2,
+    "adx_min": 25
+  }
+}

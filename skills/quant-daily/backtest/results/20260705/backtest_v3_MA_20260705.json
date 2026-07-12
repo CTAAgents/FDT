@@ -1,0 +1,42 @@
+{
+  "symbol": "MA",
+  "status": "OK",
+  "timestamp": "2026-07-05 20:48:44",
+  "config": {
+    "forward_days": 10,
+    "min_start": 60,
+    "bars": 415,
+    "fee_rate": 0.0005
+  },
+  "trades": 22,
+  "metrics": {
+    "cumulative_return": 21.02,
+    "annualized_return": 789.0,
+    "sharpe_ratio": 2.195,
+    "max_drawdown": 20.54,
+    "calmar_ratio": 1.02,
+    "win_rate": 59.1,
+    "profit_factor": 1.51,
+    "avg_return": 1.257,
+    "total_trades": 22,
+    "wins": 13,
+    "losses": 9
+  },
+  "dual_signal_breakdown": {
+    "total_dual_signals": 19,
+    "dual_win_rate": 57.9,
+    "l1_only_signals": 3,
+    "l1_win_rate": 66.7
+  },
+  "weight_adjustment": {
+    "note": "样本不足(需要10+交易)",
+    "l_weights": [
+      35,
+      35,
+      20,
+      10
+    ],
+    "f_threshold": 0.2,
+    "adx_min": 25
+  }
+}

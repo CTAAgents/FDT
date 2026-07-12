@@ -1,0 +1,46 @@
+{
+  "levels": [
+    {
+      "entry": 2380,
+      "stop_loss": 2340,
+      "targets": [
+        2450,
+        2500
+      ],
+      "direction": "bull",
+      "confidence": 0.71,
+      "round_id": "debate_20260711_au_p1",
+      "extracted_at": "2026-07-11 07:42"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 2380.0,
+        "count": 1,
+        "min": 2380,
+        "max": 2380
+      }
+    ],
+    "resistance": [
+      {
+        "level": 2450.0,
+        "count": 1,
+        "min": 2450,
+        "max": 2450
+      },
+      {
+        "level": 2500.0,
+        "count": 1,
+        "min": 2500,
+        "max": 2500
+      }
+    ],
+    "computed_at": "2026-07-11 07:42"
+  },
+  "meta": {
+    "variety": "au",
+    "total_records": 1,
+    "last_updated": "2026-07-11 07:42"
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "by_confidence": {
+    "高": {
+      "total": 5,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.31,
+      "net_avg_pnl": -1.33,
+      "stop_hit_rate": 0.0
+    },
+    "中": {
+      "total": 9,
+      "correct": 4,
+      "accuracy": 44.4,
+      "avg_pnl": -0.39,
+      "net_avg_pnl": -0.41,
+      "stop_hit_rate": 11.1
+    },
+    "低": {
+      "total": 6,
+      "correct": 4,
+      "accuracy": 66.7,
+      "avg_pnl": 0.72,
+      "net_avg_pnl": 0.7,
+      "stop_hit_rate": 0.0
+    }
+  },
+  "by_direction": {
+    "bear": {
+      "total": 18,
+      "correct": 6,
+      "accuracy": 33.3,
+      "avg_pnl": -0.36,
+      "net_avg_pnl": -0.38,
+      "stop_hit_rate": 5.6
+    },
+    "bull": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 100.0,
+      "avg_pnl": 0.4,
+      "net_avg_pnl": 0.38,
+      "stop_hit_rate": 0.0
+    }
+  },
+  "by_chain": {
+    "油化工": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.7,
+      "net_avg_pnl": -1.71,
+      "stop_hit_rate": 0.0
+    },
+    "聚酯链": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.08,
+      "net_avg_pnl": -1.1,
+      "stop_hit_rate": 0.0
+    },
+    "煤化工": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.01,
+      "net_avg_pnl": -1.03,
+      "stop_hit_rate": 0.0
+    },
+    "能源链": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -2.49,
+      "net_avg_pnl": -2.51,
+      "stop_hit_rate": 100.0
+    },
+    "黑色系": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 100.0,
+      "avg_pnl": 0.29,
+      "net_avg_pnl": 0.28,
+      "stop_hit_rate": 0.0
+    },
+    "有色": {
+      "total": 2,
+      "correct": 1,
+      "accuracy": 50.0,
+      "avg_pnl": -0.11,
+      "net_avg_pnl": -0.13,
+      "stop_hit_rate": 0.0
+    },
+    "贵金属": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 100.0,
+      "avg_pnl": 0.79,
+      "net_avg_pnl": 0.77,
+      "stop_hit_rate": 0.0
+    },
+    "橡胶": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -0.29,
+      "net_avg_pnl": -0.31,
+      "stop_hit_rate": 0.0
+    },
+    "谷物软商": {
+      "total": 2,
+      "correct": 1,
+      "accuracy": 50.0,
+      "avg_pnl": -0.11,
+      "net_avg_pnl": -0.13,
+      "stop_hit_rate": 0.0
+    },
+    "油脂油料": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.28,
+      "net_avg_pnl": -1.3,
+      "stop_hit_rate": 0.0
+    },
+    "铁合金": {
+      "total": 2,
+      "correct": 1,
+      "accuracy": 50.0,
+      "avg_pnl": -0.06,
+      "net_avg_pnl": -0.08,
+      "stop_hit_rate": 0.0
+    },
+    "新能源": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -0.24,
+      "net_avg_pnl": -0.26,
+      "stop_hit_rate": 0.0
+    },
+    "纸浆造纸": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 100.0,
+      "avg_pnl": 1.26,
+      "net_avg_pnl": 1.24,
+      "stop_hit_rate": 0.0
+    },
+    "建材": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 100.0,
+      "avg_pnl": 3.08,
+      "net_avg_pnl": 3.06,
+      "stop_hit_rate": 0.0
+    }
+  },
+  "by_adx_range": {
+    "ADX≥70": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0,
+      "avg_pnl": -1.52,
+      "net_avg_pnl": -1.54,
+      "stop_hit_rate": 0.0
+    },
+    "50≤ADX<70": {
+      "total": 9,
+      "correct": 3,
+      "accuracy": 33.3,
+      "avg_pnl": -0.56,
+      "net_avg_pnl": -0.58,
+      "stop_hit_rate": 11.1
+    },
+    "30≤ADX<50": {
+      "total": 5,
+      "correct": 4,
+      "accuracy": 80.0,
+      "avg_pnl": 0.84,
+      "net_avg_pnl": 0.82,
+      "stop_hit_rate": 0.0
+    },
+    "ADX<30": {
+      "total": 3,
+      "correct": 1,
+      "accuracy": 33.3,
+      "avg_pnl": -0.12,
+      "net_avg_pnl": -0.14,
+      "stop_hit_rate": 0.0
+    }
+  }
+}

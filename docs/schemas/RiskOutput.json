@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RiskOutput",
+  "description": "风控明输出",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "3.0"
+      ]
+    },
+    "variant": {
+      "type": "string",
+      "enum": [
+        "risk"
+      ]
+    },
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/VerdictItem"
+      },
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "overall": {
+      "$ref": "#/definitions/OverallJudgment"
+    },
+    "full_report": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "verdicts",
+    "overall"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "code": "rb",
+  "name": "螺纹钢",
+  "exchange": "SHFE",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "chain": "黑色系",
+  "aliases": [
+    "螺纹",
+    "螺纹钢",
+    "钢"
+  ],
+  "strategy_weights": {
+    "F1": 0.7,
+    "F2": 0.65,
+    "F3": 0.45,
+    "F4": 0.3,
+    "F5": 0.55
+  },
+  "strategy_samples": {
+    "F1": 1,
+    "F2": 1,
+    "F3": 1,
+    "F4": 1,
+    "F5": 1
+  },
+  "init_at": "2026-07-11 07:22",
+  "source": "varieties.yaml + instrument_strategy_matrix.json"
+}

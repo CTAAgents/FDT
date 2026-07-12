@@ -1,0 +1,35 @@
+{
+  "runs": [
+    {
+      "date": "2026-07-12",
+      "type": "debate_run",
+      "mode": "test_friday_close",
+      "scan_success": true,
+      "symbols_scanned": 62,
+      "strength_strong": [
+        "m"
+      ],
+      "strength_watch": [
+        "SS",
+        "hc",
+        "b",
+        "rr",
+        "rb",
+        "jd",
+        "CJ",
+        "ao",
+        "c",
+        "y",
+        "FG",
+        "sc",
+        "SA",
+        "p",
+        "au",
+        "lc"
+      ],
+      "symbols_debated": 17,
+      "data_source": "TDX_local_friday_close",
+      "result": "full_debate_completed"
+    }
+  ]
+}

@@ -1,0 +1,721 @@
+"""
+ML训练自动化框架 — TrainingOrchestrator
+=======================================
+
+自主决定训练时机 + 自己跑训练 + 自己评审 + 自己决定是否上线。
+
+自动级别:
+  - L3 (全自动): 辩论评分规则、历史反馈
+  - L2 (半自动): 争议度ML、方向分类器增量训练
+  - L0 (全手动): 首次模型选择和架构设计
+
+安全兜底:
+  - 部署前自动备份生产模型
+  - 每次部署记录 AUC/Precision/F1 快照
+  - 部署后3天性能下降>10% → 切回备份
+  - --force-retrain 强制重训
+"""
+
+import json
+import logging
+import os
+import pickle
+import shutil
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# ─── 配置 ─────────────────────────────────────────────────
+
+_TRAINING_DIR = os.environ.get(
+    "TRAINING_ORCHESTRATOR_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "ml_models"),
+)
+
+
+class TrainingOrchestrator:
+    """
+    训练调度中心 — 自主决策是否训练、何时训练、是否上线。
+
+    Attributes:
+        model_dir: 模型存储目录
+        min_new_samples: 触发训练的最小新样本数
+        max_days_since_train: 距上次训练最大天数
+        perf_decline_threshold: 触发训练的性能下降阈值 (百分比)
+        auto_deploy: 是否自动部署新模型
+    """
+
+    def __init__(
+        self,
+        model_dir: str = None,
+        min_new_samples: int = 50,
+        max_days_since_train: int = 7,
+        perf_decline_threshold: float = 5.0,
+        auto_deploy: bool = True,
+    ):
+        self.model_dir = model_dir or _TRAINING_DIR
+        self.min_new_samples = min_new_samples
+        self.max_days_since_train = max_days_since_train
+        self.perf_decline_threshold = perf_decline_threshold
+        self.auto_deploy = auto_deploy
+
+        os.makedirs(self.model_dir, exist_ok=True)
+        self._state_file = os.path.join(self.model_dir, "orchestrator_state.json")
+        self._production_dir = os.path.join(self.model_dir, "production")
+        self._backup_dir = os.path.join(self.model_dir, "backup")
+        self._candidate_dir = os.path.join(self.model_dir, "candidate")
+        for d in [self._production_dir, self._backup_dir, self._candidate_dir]:
+            os.makedirs(d, exist_ok=True)
+
+    # ─── 状态管理 ────────────────────────────────────────
+
+    def _load_state(self) -> dict:
+        try:
+            with open(self._state_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {
+                "last_train_date": None,
+                "total_trained": 0,
+                "total_deployed": 0,
+                "total_rollback": 0,
+                "production_perf": None,
+            }
+
+    def _save_state(self, state: dict):
+        os.makedirs(os.path.dirname(self._state_file), exist_ok=True)
+        with open(self._state_file, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2, default=str)
+
+    # ─── 触发条件检查 ────────────────────────────────────
+
+    def check_conditions(self, new_samples_count: int, current_perf: dict = None) -> list:
+        """
+        检查是否需要训练。
+
+        Args:
+            new_samples_count: 自上次训练以来的新样本数
+            current_perf: 当前生产模型在最新验证集上的性能
+
+        Returns:
+            触发的条件列表 [str, ...]，空列表表示不需要训练
+        """
+        state = self._load_state()
+        triggered = []
+
+        # 条件 1: 新样本累积 ≥ N 条
+        if new_samples_count >= self.min_new_samples:
+            triggered.append(f"新样本累积{new_samples_count}条≥{self.min_new_samples}")
+
+        # 条件 2: 距上次训练 ≥ X 天（非首次时）
+        last_train = state.get("last_train_date")
+        if last_train:
+            last_dt = datetime.fromisoformat(last_train) if isinstance(last_train, str) else last_train
+            # 确保为 aware datetime
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            days_since = (datetime.now(timezone.utc) - last_dt).days
+            if days_since >= self.max_days_since_train:
+                triggered.append(f"距上次训练{days_since}天≥{self.max_days_since_train}")
+
+        # 首次训练：需要样本数足够 + 从未训练过
+        if new_samples_count >= self.min_new_samples and state.get("total_trained", 0) == 0:
+            triggered.append("首次训练")
+            # 去重（避免与条件1重复）
+            if f"新样本累积{new_samples_count}条≥{self.min_new_samples}" in triggered:
+                triggered.remove(f"新样本累积{new_samples_count}条≥{self.min_new_samples}")
+
+        # 条件 3: 模型性能下降 > X%
+        if current_perf and state.get("production_perf"):
+            for metric in ["auc", "precision", "f1", "recall"]:
+                old_val = state["production_perf"].get(metric, 0)
+                new_val = current_perf.get(metric, 0)
+                if old_val > 0 and new_val > 0:
+                    decline = (old_val - new_val) / old_val * 100
+                    if decline > self.perf_decline_threshold:
+                        triggered.append(f"{metric}下降{decline:.1f}%(>{self.perf_decline_threshold}%)")
+
+        return triggered
+
+    # ─── 增量训练 ────────────────────────────────────────
+
+    def run_incremental_train(
+        self, X_train, y_train, X_val=None, y_val=None, model_type="lightgbm", force: bool = False
+    ) -> dict:
+        """
+        执行增量训练。
+
+        Args:
+            X_train: 训练特征
+            y_train: 训练标签 (0/1)
+            X_val: 验证特征（可选）
+            y_val: 验证标签（可选）
+            model_type: 模型类型
+            force: 是否强制重训（绕过条件检查）
+
+        Returns:
+            {"success": bool, "metrics": {...}, "model_path": str}
+        """
+        if not force:
+            conditions = self.check_conditions(len(X_train) if hasattr(X_train, "__len__") else 0)
+            if not conditions:
+                logger.info("无需训练：未触发任何条件")
+                return {"success": False, "reason": "条件未触发", "conditions": []}
+
+        if model_type == "lightgbm":
+            return self._train_lightgbm(X_train, y_train, X_val, y_val)
+        elif model_type == "xgboost":
+            return self._train_xgboost(X_train, y_train, X_val, y_val)
+        elif model_type == "sklearn":
+            return self._train_sklearn(X_train, y_train, X_val, y_val)
+        else:
+            raise ValueError(f"不支持的模型类型: {model_type}")
+
+    def _train_lightgbm(self, X_train, y_train, X_val=None, y_val=None) -> dict:
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            logger.error("lightgbm 未安装，请执行 pip install lightgbm")
+            return {"success": False, "reason": "lightgbm 未安装"}
+
+        params = {
+            "objective": "binary",
+            "metric": "auc",
+            "boosting_type": "gbdt",
+            "num_leaves": 31,
+            "learning_rate": 0.05,
+            "feature_fraction": 0.8,
+            "bagging_fraction": 0.8,
+            "bagging_freq": 5,
+            "verbose": -1,
+            "random_state": 42,
+        }
+
+        train_data = lgb.Dataset(X_train, label=y_train)
+        val_sets = [train_data]
+
+        if X_val is not None and y_val is not None:
+            val_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
+            val_sets = [train_data, val_data]
+
+        model = lgb.train(
+            params,
+            train_data,
+            valid_sets=val_sets,
+            num_boost_round=200,
+            callbacks=[lgb.early_stopping(20), lgb.log_evaluation(0)],
+        )
+
+        # 评估
+        metrics = {}
+        if X_val is not None and y_val is not None:
+            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+
+            y_pred = (model.predict(X_val) > 0.5).astype(int)
+            y_prob = model.predict(X_val)
+            metrics = {
+                "auc": round(roc_auc_score(y_val, y_prob), 4),
+                "precision": round(precision_score(y_val, y_pred, zero_division=0), 4),
+                "recall": round(recall_score(y_val, y_pred, zero_division=0), 4),
+                "f1": round(f1_score(y_val, y_pred, zero_division=0), 4),
+                "train_samples": len(X_train),
+                "val_samples": len(X_val),
+            }
+
+        # 保存候选模型
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        candidate_path = os.path.join(self._candidate_dir, f"model_{timestamp}.pkl")
+        with open(candidate_path, "wb") as f:
+            pickle.dump(model, f)
+
+        return {
+            "success": True,
+            "metrics": metrics,
+            "model_path": candidate_path,
+            "model_type": "lightgbm",
+            "timestamp": timestamp,
+        }
+
+    def _train_xgboost(self, X_train, y_train, X_val=None, y_val=None) -> dict:
+        try:
+            import xgboost as xgb
+        except ImportError:
+            logger.error("xgboost 未安装")
+            return {"success": False, "reason": "xgboost 未安装"}
+
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        params = {
+            "objective": "binary:logistic",
+            "eval_metric": "auc",
+            "max_depth": 6,
+            "eta": 0.05,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "verbosity": 0,
+        }
+        evals = [(dtrain, "train")]
+        if X_val is not None and y_val is not None:
+            dval = xgb.DMatrix(X_val, label=y_val)
+            evals.append((dval, "val"))
+
+        model = xgb.train(
+            params, dtrain, num_boost_round=200, evals=evals, early_stopping_rounds=20, verbose_eval=False
+        )
+
+        metrics = {}
+        if X_val is not None and y_val is not None:
+            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+
+            dval = xgb.DMatrix(X_val, label=y_val)
+            y_prob = model.predict(dval)
+            y_pred = (y_prob > 0.5).astype(int)
+            metrics = {
+                "auc": round(roc_auc_score(y_val, y_prob), 4),
+                "precision": round(precision_score(y_val, y_pred, zero_division=0), 4),
+                "recall": round(recall_score(y_val, y_pred, zero_division=0), 4),
+                "f1": round(f1_score(y_val, y_pred, zero_division=0), 4),
+                "train_samples": len(X_train),
+                "val_samples": len(X_val),
+            }
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        candidate_path = os.path.join(self._candidate_dir, f"xgb_model_{timestamp}.pkl")
+        with open(candidate_path, "wb") as f:
+            pickle.dump(model, f)
+
+        return {
+            "success": True,
+            "metrics": metrics,
+            "model_path": candidate_path,
+            "model_type": "xgboost",
+            "timestamp": timestamp,
+        }
+
+    def _train_sklearn(self, X_train, y_train, X_val=None, y_val=None) -> dict:
+        from sklearn.ensemble import RandomForestClassifier
+
+        model = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            random_state=42,
+            class_weight="balanced",
+            n_jobs=-1,
+        )
+        model.fit(X_train, y_train)
+
+        metrics = {}
+        if X_val is not None and y_val is not None:
+            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+
+            y_pred = model.predict(X_val)
+            y_prob = model.predict_proba(X_val)[:, 1]
+            metrics = {
+                "auc": round(roc_auc_score(y_val, y_prob), 4),
+                "precision": round(precision_score(y_val, y_pred, zero_division=0), 4),
+                "recall": round(recall_score(y_val, y_pred, zero_division=0), 4),
+                "f1": round(f1_score(y_val, y_pred, zero_division=0), 4),
+                "train_samples": len(X_train),
+                "val_samples": len(X_val),
+            }
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        candidate_path = os.path.join(self._candidate_dir, f"rf_model_{timestamp}.pkl")
+        with open(candidate_path, "wb") as f:
+            pickle.dump(model, f)
+
+        return {
+            "success": True,
+            "metrics": metrics,
+            "model_path": candidate_path,
+            "model_type": "random_forest",
+            "timestamp": timestamp,
+        }
+
+    # ─── 自动评审 ────────────────────────────────────────
+
+    def evaluate_model(self, train_result: dict, X_val=None, y_val=None) -> dict:
+        """
+        自动评审候选模型 vs 生产模型。
+
+        Args:
+            train_result: run_incremental_train() 的返回
+            X_val: 验证特征
+            y_val: 验证标签
+
+        Returns:
+            {"decision": "deploy"/"skip"/"flag", "reason": str, "comparison": {...}}
+        """
+        state = self._load_state()
+        candidate_metrics = train_result.get("metrics", {})
+
+        # 无生产模型 → 直接部署
+        if state.get("production_perf") is None:
+            return {
+                "decision": "deploy",
+                "reason": "首次部署（无对比基线）",
+                "comparison": {"candidate": candidate_metrics, "production": None},
+            }
+
+        production_perf = state["production_perf"]
+        comparison = {}
+        decisions = []
+        deploy_count = 0
+        skip_count = 0
+        flag_count = 0
+
+        for metric in ["auc", "precision", "recall", "f1"]:
+            c_val = candidate_metrics.get(metric, 0)
+            p_val = production_perf.get(metric, 0)
+            if c_val and p_val:
+                diff = c_val - p_val
+                comparison[metric] = {"candidate": c_val, "production": p_val, "diff": round(diff, 4)}
+
+                if diff >= 0.01:
+                    deploy_count += 1
+                    decisions.append(f"{metric}提升{abs(diff):.4f}")
+                elif diff >= -0.02:
+                    skip_count += 1
+                    decisions.append(f"{metric}变化不大({diff:+.4f})")
+                else:
+                    flag_count += 1
+                    decisions.append(f"{metric}下降{abs(diff):.4f}⚠️")
+
+        # 决策逻辑
+        if flag_count >= 2:
+            # 至少2个指标显著下降 → 标记
+            decision = "flag"
+            reason = "候选模型在多个指标上显著下降"
+        elif deploy_count >= skip_count and flag_count == 0:
+            decision = "deploy" if self.auto_deploy else "flag"
+            reason = "候选模型表现更优或相当"
+        else:
+            decision = "skip" if not flag_count else "flag"
+            reason = "候选模型无明显优势" if not flag_count else "部分指标下降"
+
+        return {
+            "decision": decision,
+            "reason": " | ".join(decisions) if decisions else reason,
+            "comparison": comparison,
+            "candidate_metrics": candidate_metrics,
+        }
+
+    # ─── 决策与部署 ──────────────────────────────────────
+
+    def deploy_model(self, train_result: dict, eval_result: dict) -> dict:
+        """
+        执行模型部署。
+
+        Args:
+            train_result: run_incremental_train() 的返回
+            eval_result: evaluate_model() 的返回
+
+        Returns:
+            {"success": bool, "deployed_path": str, "backup_path": str}
+        """
+        state = self._load_state()
+
+        # 1. 备份生产模型
+        production_files = os.listdir(self._production_dir)
+        backup_info = None
+        if production_files:
+            for fname in production_files:
+                src = os.path.join(self._production_dir, fname)
+                ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                dst = os.path.join(self._backup_dir, f"backup_{ts}_{fname}")
+                shutil.copy2(src, dst)
+                backup_info = dst
+
+        # 2. 部署候选模型
+        candidate_path = train_result.get("model_path", "")
+        if candidate_path and os.path.exists(candidate_path):
+            fname = os.path.basename(candidate_path)
+            deployed_path = os.path.join(self._production_dir, fname)
+            shutil.copy2(candidate_path, deployed_path)
+        else:
+            return {"success": False, "reason": "候选模型文件不存在"}
+
+        # 3. 更新状态
+        metrics = train_result.get("metrics", {})
+        state["last_train_date"] = datetime.now(timezone.utc).isoformat()
+        state["total_trained"] = state.get("total_trained", 0) + 1
+        state["total_deployed"] = state.get("total_deployed", 0) + 1
+        if metrics:
+            state["production_perf"] = metrics
+            state["eval_decision"] = eval_result.get("decision", "deploy")
+        self._save_state(state)
+
+        logger.info(f"模型已部署: {deployed_path}")
+        return {
+            "success": True,
+            "deployed_path": deployed_path,
+            "backup_path": backup_info,
+        }
+
+    # ─── 自动回滚 ────────────────────────────────────────
+
+    def check_rollback(self, current_perf: dict) -> dict:
+        """
+        检查是否需要自动回滚。
+
+        Args:
+            current_perf: 当前生产模型在最新验证集上的性能
+
+        Returns:
+            {"rollback": bool, "reason": str, "restored_path": str}
+        """
+        state = self._load_state()
+        last_perf = state.get("production_perf")
+
+        if not last_perf or not current_perf:
+            return {"rollback": False, "reason": "无基线可比较"}
+
+        # 检查是否部署后 >= 3 天
+        last_train = state.get("last_train_date")
+        if last_train:
+            last_dt = datetime.fromisoformat(last_train) if isinstance(last_train, str) else last_train
+            # 确保为 aware datetime（存储时可能丢失时区信息）
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            days_since = (datetime.now(timezone.utc) - last_dt).days
+            if days_since < 3:
+                return {"rollback": False, "reason": f"部署后仅{days_since}天，尚未到3天回滚检查窗口"}
+
+        # 检查性能下降是否 > 10%
+        degraded = []
+        for metric in ["auc", "precision", "f1", "recall"]:
+            old_val = last_perf.get(metric, 0)
+            new_val = current_perf.get(metric, 0)
+            if old_val > 0 and new_val > 0:
+                decline = (old_val - new_val) / old_val * 100
+                if decline > 10:
+                    degraded.append(f"{metric}下降{decline:.1f}%")
+
+        if not degraded:
+            return {"rollback": False, "reason": "性能稳定"}
+
+        # 执行回滚
+        backup_files = sorted(os.listdir(self._backup_dir), reverse=True)
+        restored_path = None
+        for bf in backup_files:
+            src = os.path.join(self._backup_dir, bf)
+            if os.path.isfile(src):
+                restored_path = os.path.join(self._production_dir, bf)
+                shutil.copy2(src, restored_path)
+                break
+
+        state["total_rollback"] = state.get("total_rollback", 0) + 1
+        self._save_state(state)
+
+        return {
+            "rollback": True,
+            "reason": " | ".join(degraded),
+            "restored_path": restored_path,
+        }
+
+    # ─── 一站式流程 ──────────────────────────────────────
+
+    def run_daily_check(
+        self,
+        X_train=None,
+        y_train=None,
+        X_val=None,
+        y_val=None,
+        new_samples_count: int = 0,
+        current_perf: dict = None,
+        force: bool = False,
+    ) -> dict:
+        """
+        每日收盘后执行的全自动决策流程。
+
+        Args:
+            X_train: 训练特征
+            y_train: 训练标签
+            X_val: 验证特征
+            y_val: 验证标签
+            new_samples_count: 新样本数
+            current_perf: 当前性能
+            force: 强制重训
+
+        Returns:
+            完整的决策日志
+        """
+        result = {
+            "date": datetime.now(timezone.utc).isoformat(),
+            "steps": [],
+            "final_decision": None,
+        }
+
+        # Step 1: 检查触发条件
+        conditions = self.check_conditions(new_samples_count, current_perf)
+        result["steps"].append({"step": "check_conditions", "triggered": conditions})
+        if not conditions and not force:
+            result["final_decision"] = "skip_no_trigger"
+            logger.info("训练调度: 无触发条件，静默跳过")
+            return result
+
+        # Step 2: 增量训练
+        if X_train is not None and y_train is not None:
+            train_result = self.run_incremental_train(X_train, y_train, X_val, y_val, force=force)
+            result["steps"].append(
+                {"step": "train", "success": train_result["success"], "metrics": train_result.get("metrics")}
+            )
+            if not train_result["success"]:
+                result["final_decision"] = "train_failed"
+                return result
+
+            # Step 3: 自动评审
+            eval_result = self.evaluate_model(train_result, X_val, y_val)
+            result["steps"].append(
+                {"step": "evaluate", "decision": eval_result["decision"], "reason": eval_result["reason"]}
+            )
+
+            # Step 4: 决策
+            if eval_result["decision"] == "deploy":
+                deploy_result = self.deploy_model(train_result, eval_result)
+                result["steps"].append({"step": "deploy", **deploy_result})
+                result["final_decision"] = "deployed"
+            elif eval_result["decision"] == "flag":
+                result["final_decision"] = "flagged_need_review"
+                logger.warning(f"训练调度: 模型需要人工审查 - {eval_result['reason']}")
+            else:
+                result["final_decision"] = "skipped"
+                logger.info(f"训练调度: 模型跳过 - {eval_result['reason']}")
+        else:
+            result["final_decision"] = "no_training_data"
+
+        return result
+
+    def get_status(self) -> dict:
+        """获取当前 orchestrator 状态摘要。"""
+        state = self._load_state()
+        production_files = os.listdir(self._production_dir)
+        backup_files = os.listdir(self._backup_dir)
+
+        return {
+            "model_dir": self.model_dir,
+            "last_train_date": state.get("last_train_date"),
+            "total_trained": state.get("total_trained", 0),
+            "total_deployed": state.get("total_deployed", 0),
+            "total_rollback": state.get("total_rollback", 0),
+            "production_models": production_files,
+            "backup_count": len(backup_files),
+            "production_perf": state.get("production_perf"),
+            "config": {
+                "min_new_samples": self.min_new_samples,
+                "max_days_since_train": self.max_days_since_train,
+                "perf_decline_threshold": self.perf_decline_threshold,
+                "auto_deploy": self.auto_deploy,
+            },
+        }
+
+
+# ─── 争议度预测（C-Phase 4） ──────────────────────────────
+
+
+class DisputePredictor:
+    """
+    辩论争议度预测模型。
+
+    使用 LightGBM 预测品种的辩论价值，
+    基于五维评分 + 历史反馈指标 + 品种波动率 + 时间特征。
+
+    需要 100+ 条辩论历史积累后启用。
+    """
+
+    def __init__(self, model_path: str = None):
+        self.model = None
+        self.model_path = model_path
+
+    def extract_features(self, debate_entry: dict, history_feedback: dict = None) -> list:
+        """
+        从辩论条目中提取特征向量。
+
+        Features:
+            - 五维评分 (5): signal, quality, extreme, data, chain
+            - 方向分歧标志 (1): 是否分歧
+            - 历史辩论次数 (1)
+            - 历史胜率 (1)
+            - 历史平均置信度 (1)
+            - 品种链权重 (1)
+            - ADX (1)
+            - RSI (1)
+            - cons (1)
+
+        Returns:
+            [float, ...] 特征向量
+        """
+        breakdown = debate_entry.get("breakdown", {})
+        features = [
+            breakdown.get("signal", 0) / 40.0,  # 归一化 0-1
+            breakdown.get("quality", 0) / 25.0,  # 归一化 0-1
+            breakdown.get("extreme", 0) / 20.0,  # 归一化 0-1
+            breakdown.get("data", 0) / 10.0,  # 归一化 0-1
+            breakdown.get("chain", 0) / 5.0,  # 归一化 0-1
+            1.0 if debate_entry.get("conflict", False) else 0.0,
+        ]
+
+        # 历史反馈
+        sym = debate_entry.get("symbol", "")
+        hist = {}
+        if history_feedback and sym:
+            hist = history_feedback.get(sym.upper(), {})
+        features.extend(
+            [
+                min(1.0, hist.get("debate_count", 0) / 20.0),
+                hist.get("win_rate", 0.5) if hist.get("win_rate") is not None else 0.5,
+                hist.get("avg_judge_confidence", 50) / 100.0,
+            ]
+        )
+
+        # 品种特征
+        features.extend(
+            [
+                min(1.0, abs(debate_entry.get("adx", 0)) / 60.0),
+                min(1.0, abs(debate_entry.get("l1l4_total", 0)) / 100.0),
+                min(1.0, abs(debate_entry.get("factor_total", 0)) / 100.0),
+            ]
+        )
+
+        return features
+
+    def train(self, X, y) -> dict:
+        """训练 LightGBM 模型。"""
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            return {"success": False, "reason": "lightgbm 未安装"}
+
+        params = {
+            "objective": "binary",
+            "metric": "auc",
+            "boosting_type": "gbdt",
+            "num_leaves": 15,
+            "learning_rate": 0.05,
+            "feature_fraction": 0.8,
+            "verbose": -1,
+            "random_state": 42,
+        }
+
+        train_data = lgb.Dataset(X, label=y)
+        self.model = lgb.train(params, train_data, num_boost_round=100)
+
+        # 保存
+        if self.model_path:
+            with open(self.model_path, "wb") as f:
+                pickle.dump(self.model, f)
+
+        from sklearn.metrics import roc_auc_score
+
+        y_prob = self.model.predict(X)
+        auc = roc_auc_score(y, y_prob)
+
+        return {"success": True, "train_auc": round(auc, 4), "samples": len(X)}
+
+    def predict(self, features: list) -> float:
+        """预测辩论价值概率 [0,1]"""
+        if self.model is None:
+            return 0.5
+        import numpy as np
+
+        return float(self.model.predict(np.array([features]))[0])

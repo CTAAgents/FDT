@@ -1,0 +1,8 @@
+{
+  "agent": "futures-judge",
+  "symbol": "JD",
+  "verdict": "HOLD",
+  "confidence": "zhong",
+  "reasoning": "ADX偏低, 但量价配合不足, 趋势"未确认"导致信号弱",
+  "winner": "tie"
+}
