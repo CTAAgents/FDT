@@ -38,3 +38,17 @@ def add_fdt_paths(test_file: str, *extra_dirs, skip_root: bool = False) -> None:
     for p in reversed(to_add):
         if p not in sys.path:
             sys.path.insert(0, p)
+
+
+def cleanup_scripts_modules() -> None:
+    """清理 sys.modules 中的 scripts.* 模块，防止测试间污染。
+
+    在 conftest 的 teardown 中调用：
+        @pytest.fixture(autouse=True)
+        def _cleanup():
+            yield
+            cleanup_scripts_modules()
+    """
+    targets = [k for k in list(sys.modules.keys()) if k == "scripts" or k.startswith("scripts.")]
+    for k in targets:
+        sys.modules.pop(k, None)
