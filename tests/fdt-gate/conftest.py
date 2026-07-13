@@ -54,6 +54,12 @@ def clamped(modules):
                 verdicts.append(r["verdicts"])
     before = modules["apm_scorecard"].RuleChecker().check_all(verdicts)
     _chg, fu2 = modules["enforce_discipline"].clamp_verdicts(copy.deepcopy(fu))
-    verdicts2 = [v for r in fu2["records"] for v in r["verdicts"]]
+    verdicts2 = []
+    for r in fu2["records"]:
+        if "verdicts" in r:
+            if isinstance(r["verdicts"], list):
+                verdicts2.extend(r["verdicts"])
+            else:
+                verdicts2.append(r["verdicts"])
     after = modules["apm_scorecard"].RuleChecker().check_all(verdicts2)
     return before, after

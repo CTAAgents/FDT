@@ -25,7 +25,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from replay_harness import run_replay as _run_replay
+from scripts.replay_harness import run_replay as _run_replay
 
 
 def _norm_variety(sym: str) -> str:
