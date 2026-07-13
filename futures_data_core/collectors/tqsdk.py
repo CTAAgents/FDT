@@ -34,10 +34,10 @@ _PERIOD_SECONDS = {
 
 
 class TqSdkCollector(BaseCollector):
-    """天勤 TqSDK 采集器（priority=2，备选数据源）。"""
+    """天勤 TqSDK 采集器（priority=1，第二数据源）。"""
 
     name = "tqsdk"
-    priority = 2
+    priority = 1
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 

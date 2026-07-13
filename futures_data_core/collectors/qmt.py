@@ -36,10 +36,10 @@ _PERIOD_MAP: dict[str, str] = {
 
 
 class QMTCollector(BaseCollector):
-    """QMT/xtquant 采集器（priority=1，第二数据源）。"""
+    """QMT/xtquant 采集器（priority=2，第三数据源）。"""
 
     name = "qmt_xtquant"
-    priority = 1
+    priority = 2
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
