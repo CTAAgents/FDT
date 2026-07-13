@@ -10,8 +10,9 @@ _skill = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.ab
 if _skill not in sys.path:
     sys.path.append(_skill)
 
-# 排除因 scripts 包冲突无法收集的测试
-collect_ignore = ["test_debate_brief.py", "test_coverage_boost.py"]
+# 排除因 scripts 包冲突无法收集的测试（debate_engine.py已修复from scripts.unified_logger导入）
+# 如仍报错，取消下面注释
+# collect_ignore = ["test_debate_brief.py", "test_coverage_boost.py"]
 @pytest.fixture
 def sample_l1l4_entry():
     return {

@@ -1,3 +1,14 @@
+import os
+import sys
+
+# unified_logger 在 FDT_ROOT/scripts/ 下，与当前文件不在同一 scripts 包
+# 使用绝对路径导入避免同名 scripts 包冲突
+_self_path = os.path.dirname(os.path.abspath(__file__))
+_fdt_root = os.path.normpath(os.path.join(_self_path, '..', '..', '..', '..'))
+_scripts_dir = os.path.join(_fdt_root, 'scripts')
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("debate_engine")

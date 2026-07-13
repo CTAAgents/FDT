@@ -31,6 +31,10 @@ def modules():
             mods[name] = _load(name, rel)
         except Exception:
             pass
+    # 清理所有被加载的 scripts.* 模块，避免污染其他测试
+    for mod_name in list(sys.modules.keys()):
+        if mod_name.startswith("scripts.") or mod_name in ("scheduler.triggers",):
+            sys.modules.pop(mod_name, None)
     return mods
 
 
