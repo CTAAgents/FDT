@@ -93,6 +93,10 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 ```
 每次分析请求
     │
+    ├─ 0. 加载自检自修 skill → Skill("fdt-self-heal")
+    │      执行 Pre-flight 检查（P1路径/P2信号/P3边距）
+    │      已知故障自动修复（F01路径/F02标签/F03 Schema等）
+    │
     ├─ 1. 检查 execution_followup.json 是否有未验证裁决
     │      └─ 有 → 自动运行 validate_verdicts.py（拉最新K线验证方向）
     │
@@ -264,6 +268,7 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 
 | 层 | 机制 | 脚本 | 触发时机 |
 |:--|:--|:--|:--|
+| **L0 自检自修** | 辩论启动前加载 `fdt-self-heal` skill，执行Pre-flight + 已知故障自动修复 | `Skill("fdt-self-heal")` + 内联修复逻辑 | `自进化前置流程` 第0步 |
 | **L1 产出校验** | 每个Agent产出后自动校验JSON schema+禁止模式 | `validate_agent_output.py --phase P4_zhengzhen` | 每个spawn完成后 |
 | **L2 熔断降级** | 编排器管理阶段门禁+retry(最多2次)+P5自动降级 | `debate_orchestrator.py --check-only` | 每阶段完成后 |
 | **L3 信号门** | `debate_trigger.json`存在 → 强制走完整P3-P5 | `daily_debate.py` 写入触发文件 | P1扫描后 |
@@ -272,11 +277,11 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 
 **执行顺序**:
 ```
-L5 健康自检 → L3 信号门检查 → spawn P3 → L1校验 → L2门禁检查
+L0 自检自修(加载skill+preflight) → L5 健康自检 → L3 信号门检查 → spawn P3 → L1校验 → L2门禁检查
     → spawn P4 → L1校验 → L2门禁检查
     → spawn P5 → L1校验 → L2门禁检查(失败→D06降级)
     → L4 路径自发现 → P6报告生成
-```
+    → 自检 Review（按 fdt-self-heal 模板输出）
 
 ---
 

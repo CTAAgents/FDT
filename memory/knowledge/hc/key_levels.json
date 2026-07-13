@@ -1,0 +1,127 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3308,
+        "condition": "str"
+      },
+      "stop_loss": {
+        "price": 3358,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3308,
+          "condition": "优先策略：等待价格反弹至3300-3310区间（DC20下轨附近+约1.4x ATR反弹幅度），需满足：①15分钟K线收阴  ②vol_ratio恢复至≥1.0  ③反弹过程中价格未突破DC20中轨(3350以上)",
+          "rationale": "DC20未有效突破(near_breakout)意味着当前追空风险高，ADX=62.2过热衰竭后技术反弹需求积聚，等待反弹至DC20下轨阻力位确认压制有效后入场，获更优R:R。直接现价3272入场安全边际不足3个tick。"
+        },
+        "secondary": {
+          "type": "market",
+          "price_range": "3230-3240",
+          "condition": "若价格放量(vol_ratio>1.3)直接跌破3230前低支撑并站稳3240下方，可轻仓跟空。仅设为目标1仓位的50%。若伴随持仓量大幅下降则放弃跟空(多头止损盘引发的下跌不可持续)",
+          "rationale": "放量下破前低意味着空头力度超预期，但当前CCI=-96.2已近极端超卖区(-100)，需防急跌后空头回补反弹"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3358,
+          "type": "atr",
+          "atr_multiple": 2,
+          "condition": "入场后若价格反弹突破3358(2x ATR=50点)，空头逻辑失效，止损离场。此价位低于MA60(3372.6)，若突破MA60则中期空头结构被破坏",
+          "rationale": "2x ATR缓冲避免被正常波动扫损，3358上方进入DC20中轨区域，突破后空头压制不再有效"
+        },
+        "hard_stop": {
+          "price": 3375,
+          "type": "absolute",
+          "condition": "绝对硬止损线：价格触及3375无条件平仓。无论何种入场方式均适用",
+          "rationale": "MA60所在区域(约3372.6)，突破则DC20/55中期空头结构完全失效。该位置高于入场价仅0.2x ATR额外缓冲，属于空中防线的最终保障"
+        }
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:39"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3308,
+          "condition": "优先策略：等待价格反弹至3300-3310区间（DC20下轨附近+约1.4x ATR反弹幅度），需满足：①15分钟K线收阴  ②vol_ratio恢复至≥1.0  ③反弹过程中价格未突破DC20中轨(3350以上)",
+          "rationale": "DC20未有效突破(near_breakout)意味着当前追空风险高，ADX=62.2过热衰竭后技术反弹需求积聚，等待反弹至DC20下轨阻力位确认压制有效后入场，获更优R:R。直接现价3272入场安全边际不足3个tick。"
+        },
+        "secondary": {
+          "type": "market",
+          "price_range": "3230-3240",
+          "condition": "若价格放量(vol_ratio>1.3)直接跌破3230前低支撑并站稳3240下方，可轻仓跟空。仅设为目标1仓位的50%。若伴随持仓量大幅下降则放弃跟空(多头止损盘引发的下跌不可持续)",
+          "rationale": "放量下破前低意味着空头力度超预期，但当前CCI=-96.2已近极端超卖区(-100)，需防急跌后空头回补反弹"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3358,
+          "type": "atr",
+          "atr_multiple": 2,
+          "condition": "入场后若价格反弹突破3358(2x ATR=50点)，空头逻辑失效，止损离场。此价位低于MA60(3372.6)，若突破MA60则中期空头结构被破坏",
+          "rationale": "2x ATR缓冲避免被正常波动扫损，3358上方进入DC20中轨区域，突破后空头压制不再有效"
+        },
+        "hard_stop": {
+          "price": 3375,
+          "type": "absolute",
+          "condition": "绝对硬止损线：价格触及3375无条件平仓。无论何种入场方式均适用",
+          "rationale": "MA60所在区域(约3372.6)，突破则DC20/55中期空头结构完全失效。该位置高于入场价仅0.2x ATR额外缓冲，属于空中防线的最终保障"
+        }
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3272.0,
+        "condition": "建议等待DC20通道真正跌破确认后再入场。当前ADX=62.2过热(趋势末端信号), RSI=32.8逼近超卖区30阈值, 价格偏离MA60达-3%均值回归风险显著。若DC20确认跌破且量能放大(vol_ratio>1.5), 可入场做空; 若价格反弹至MA60(3373)附近受阻回落, 可视为更优入场点"
+      },
+      "stop_loss": {
+        "price": 3340.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:46"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 3290.0,
+        "count": 2,
+        "min": 3272.0,
+        "max": 3308.0
+      }
+    ],
+    "computed_at": "2026-07-13 20:46"
+  },
+  "meta": {
+    "variety": "hc",
+    "total_records": 4,
+    "last_updated": "2026-07-13 20:46"
+  }
+}

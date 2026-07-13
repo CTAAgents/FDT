@@ -1,5 +1,0 @@
-# fundamental-data-collector
-# 核心模块无额外依赖
-# 数据采集依赖：
-# - futures-data-search（DuckDB 统一数据存储）
-# - WebSearch/WebFetch（外部工具，由 Agent 框架提供）

@@ -29,6 +29,28 @@ from futures_data_core.collectors.base import (
 )
 from futures_data_core.core.types import KlineBar, KlineData, QuoteData, SymbolInfo, TickBar, TickData
 
+# ── wait_update 泵送辅助 ──
+def _pump(api, data_obj, min_rows=1, max_wait=5.0):
+    """泵送 wait_update，等待 data_obj 有足够数据。
+
+    TqSDK 的 get_kline_serial/get_tick_serial 只创建 DataFrame 结构，
+    实际数据要通过 WebSocket 推送 + wait_update 驱动事件循环才能灌入。
+    不加 wait_update 返回的是空 DataFrame → _parse_kline 返回0行 → 数据获取失败。
+    """
+    import time
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        try:
+            api.wait_update(timeout=0.5)
+        except Exception:
+            break
+        try:
+            if len(data_obj) >= min_rows:
+                return True
+        except (TypeError, AttributeError):
+            pass
+    return bool(data_obj is not None and (hasattr(data_obj, '__len__') and len(data_obj) >= min_rows))
+
 # ── pd_isna helper ──
 def _pd_isna(v) -> bool:
     try:
@@ -118,13 +140,39 @@ class TqSdkCollector(BaseCollector):
     def _resolve_tqsdk_symbol(self, symbol: str, contract: str | None = None) -> str:
         return contract or self._resolve_continuous(symbol)
 
-    def _api(self):
-        """获取或创建 TqApi 实例（连接复用）。"""
-        if self._api_instance is None:
-            with self._api_lock:
-                if self._api_instance is None:
-                    from tqsdk import TqApi, TqAuth
-                    self._api_instance = TqApi(auth=TqAuth(self._user(), self._pass()))
+    def _api(self, timeout: float = 15.0):
+        """获取或创建 TqApi 实例（连接复用）。
+
+        Args:
+            timeout: 首次建连超时秒数；超时抛出 CollectorUnavailableError。
+
+        🛡️ 超时保护：首次 ``TqApi()`` 建连（WebSocket）在非交互/自动化模式下
+        可能无限挂起。用 ``concurrent.futures`` 线程池 + 超时兜底，超时后
+        标记为不可用并抛出异常，不阻塞整个降级链。
+        """
+        if self._api_instance is not None:
+            return self._api_instance
+        with self._api_lock:
+            if self._api_instance is not None:
+                return self._api_instance
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
+            from tqsdk import TqApi, TqAuth
+
+            _executor = ThreadPoolExecutor(max_workers=1)
+            _future = _executor.submit(lambda: TqApi(auth=TqAuth(self._user(), self._pass())))
+            try:
+                self._api_instance = _future.result(timeout=timeout)
+            except _FutureTimeout:
+                # 超时后标记不可用，避免后续重试
+                self._api_instance = None
+                raise CollectorUnavailableError(
+                    self.name, f"TqSDK 建连超时({timeout}s) — 环境变量 TQSDK_USERNAME/PASSWORD 可能无效或网络不通"
+                )
+            except Exception as exc:
+                self._api_instance = None
+                raise CollectorUnavailableError(self.name, f"TqSDK 建连失败: {exc}")
+            finally:
+                _executor.shutdown(wait=False)
         return self._api_instance
 
     # ═══════════════════════════════════════════════════════════
@@ -133,19 +181,65 @@ class TqSdkCollector(BaseCollector):
     async def get_kline(
         self, symbol: str, period: str = "daily", days: int = 120, contract: str | None = None
     ) -> KlineData:
-        """获取 K 线数据（向后拉取 N 根）。"""
+        """获取 K 线数据（向后拉取 N 根）。
+
+        🛡️ ``asyncio.wait_for(timeout=25.0)`` — 即便建连成功，拉取 K 线也可能
+        因 WebSocket 推送延迟挂起；超时后抛出 CollectorUnavailableError，
+        降级链自动跳过 TqSDK。
+        """
         eff = self._resolve_tqsdk_symbol(symbol, contract)
         dur = _PERIOD_SECONDS.get(period, 86400)
-        df = await asyncio.to_thread(self._klines_sync, eff, dur, days)
+        try:
+            df = await asyncio.wait_for(
+                asyncio.to_thread(self._klines_sync, eff, dur, days),
+                timeout=25.0,
+            )
+        except asyncio.TimeoutError:
+            raise CollectorUnavailableError(
+                self.name, f"TqSDK get_kline 超时(25s) — {eff}"
+            )
+        except CollectorUnavailableError:
+            raise
+        except Exception as exc:
+            raise CollectorUnavailableError(self.name, str(exc)) from exc
         bars = self._parse_kline(df, days)
         return KlineData(symbol=symbol, period=period, source=self.name, bars=bars, contract=eff)
 
-    def _klines_sync(self, sym: str, dur: int, days: int):
-        api = self._api()
+    def _close_api(self) -> None:
+        """关闭 TqApi 连接并重置缓存，防止跨 asyncio.run() 边界复用损坏实例。
+
+        当外部调用方（如 data/multi_source_adapter）用 ``asyncio.run()`` 逐品种
+        调用 ``get_kline()`` 时，每次 ``asyncio.run()`` 结束后其事件循环被关闭，
+        TqApi 内部 10 余个 WebSocket 守护任务随之损坏。若不关闭重建，下一个品种
+        调用时 ``get_kline_serial`` 会因 ``RuntimeError: Event loop is closed`` 挂死。
+
+        见 2026-07-13 17:44 故障诊断。
+        """
+        with self._api_lock:
+            if self._api_instance is not None:
+                try:
+                    self._api_instance.close()
+                except Exception:
+                    pass
+                self._api_instance = None
+
+    def _klines_sync(self, sym: str, dur: int, days: int, _retry_event_loop: bool = True):
+        """_retry_event_loop: 首次因事件循环损坏失败后关闭实例并重试一次。"""
         try:
-            return api.get_kline_serial(sym, dur, data_length=days)
+            api = self._api()
+            klines = api.get_kline_serial(sym, dur, data_length=days)
+            _pump(api, klines, min_rows=min(days, 5))
+            return klines
+        except (RuntimeError, Exception) as _e:
+            if _retry_event_loop and ("Event loop" in str(_e) or "event loop" in str(_e) or "no running event" in str(_e)):
+                # 事件循环损坏 → 关闭实例，重试一次（_api() 会重建）
+                self._close_api()
+                return self._klines_sync(sym, dur, days, _retry_event_loop=False)
+            raise
         finally:
-            pass  # 连接复用，close()集中管理
+            # 每次调用后关闭连接，防止跨 asyncio.run() 边界复用损坏的 TqApi。
+            # 下次调用 _api() 会重建（~1s），保证实例与当前事件循环生命周期一致。
+            self._close_api()
 
     async def get_kline_data_series(
         self, symbol: str, period: str = "daily",
@@ -164,9 +258,12 @@ class TqSdkCollector(BaseCollector):
     def _kline_series_sync(self, sym: str, dur: int, sd: datetime, ed: datetime):
         api = self._api()
         try:
-            return api.get_kline_data_series(sym, dur, start_dt=sd, end_dt=ed)
+            klines = api.get_kline_data_series(sym, dur, start_dt=sd, end_dt=ed)
+            if klines is not None:
+                _pump(api, klines, min_rows=5)
+            return klines
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     @staticmethod
     def _parse_kline(df, days: int) -> list[KlineBar]:
@@ -241,16 +338,21 @@ class TqSdkCollector(BaseCollector):
     def _ticks_sync(self, sym: str, days: int):
         api = self._api()
         try:
-            return api.get_tick_serial(sym, data_length=days)
+            ticks = api.get_tick_serial(sym, data_length=days)
+            _pump(api, ticks, min_rows=min(days, 5))
+            return ticks
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     def _tick_series_sync(self, sym: str, sd: datetime, ed: datetime):
         api = self._api()
         try:
-            return api.get_tick_data_series(sym, start_dt=sd, end_dt=ed)
+            ticks = api.get_tick_data_series(sym, start_dt=sd, end_dt=ed)
+            if ticks is not None:
+                _pump(api, ticks, min_rows=5)
+            return ticks
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     # ═══════════════════════════════════════════════════════════
     # 3. 行情快照
@@ -274,7 +376,7 @@ class TqSdkCollector(BaseCollector):
         try:
             return api.get_quote(sym)
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def query_quotes(
         self, ins_class: str | None = None, exchange_id: str | None = None,
@@ -294,7 +396,7 @@ class TqSdkCollector(BaseCollector):
                 product_id=product_id, expired=expired, has_night=has_night,
             ))
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     @staticmethod
     def _gf(obj, key: str) -> Optional[float]:
@@ -348,7 +450,7 @@ class TqSdkCollector(BaseCollector):
                 exchange_id=exchange_id, product_id=product_id, has_night=has_night,
             ))
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def query_his_cont_quotes(self, symbol: str, n: int = 200) -> list:
         """查询主力连续合约的历史标的切换记录。"""
@@ -372,7 +474,7 @@ class TqSdkCollector(BaseCollector):
         try:
             return api.query_his_cont_quotes(sym, n=n)
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def query_symbol_ranking(
         self, symbol: str, ranking_type: str = "volume",
@@ -403,7 +505,7 @@ class TqSdkCollector(BaseCollector):
         try:
             return api.query_symbol_ranking(sym, ranking_type=rtype, days=days, start_dt=sd)
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def query_symbol_settlement(
         self, symbol: str, days: int = 1, start_dt: str | None = None,
@@ -440,7 +542,7 @@ class TqSdkCollector(BaseCollector):
         try:
             return api.query_symbol_settlement(sym, days=days, start_dt=sd)
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     # ═══════════════════════════════════════════════════════════
     # 4b. EDB 非价量基本面数据
@@ -564,7 +666,7 @@ class TqSdkCollector(BaseCollector):
         except AttributeError:
             return None
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     # ═══════════════════════════════════════════════════════════
     # 5. 交易
@@ -585,7 +687,7 @@ class TqSdkCollector(BaseCollector):
                 "profit": float(getattr(acct, "profit", 0) or 0),
             }
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def get_position(self, symbol: str | None = None) -> list:
         """获取持仓信息。"""
@@ -609,7 +711,7 @@ class TqSdkCollector(BaseCollector):
                 return results
             return []
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def insert_order(
         self, symbol: str, direction: str, volume: int,
@@ -628,7 +730,7 @@ class TqSdkCollector(BaseCollector):
                                      volume=volume, limit_price=limit_price)
             return str(getattr(order, "order_id", ""))
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def cancel_order(self, order_id: str) -> None:
         """撤单。"""
@@ -639,7 +741,7 @@ class TqSdkCollector(BaseCollector):
         try:
             api.cancel_order(order_id)
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def get_order(self, order_id: str | None = None) -> list:
         """查询委托单。"""
@@ -665,7 +767,7 @@ class TqSdkCollector(BaseCollector):
                 return results
             return []
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     async def get_trade(self, trade_id: str | None = None) -> list:
         """查询成交记录。"""
@@ -689,7 +791,7 @@ class TqSdkCollector(BaseCollector):
                 return results
             return []
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()
 
     # ═══════════════════════════════════════════════════════════
     # 6. 工具
@@ -706,4 +808,4 @@ class TqSdkCollector(BaseCollector):
         except Exception:
             return False
         finally:
-            pass  # 连接复用，close()集中管理
+            self._close_api()

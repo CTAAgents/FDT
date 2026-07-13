@@ -63,6 +63,10 @@ def _get_qdaily_adapter():
         scripts_dir = _qdaily_scripts_dir()
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
+        # FDT 根目录优先，确保 futures_data_core 指向 FDT 内部副本
+        fdt_root = str(Path(scripts_dir).parent.parent.parent)
+        if fdt_root not in sys.path:
+            sys.path.insert(0, fdt_root)
         from data.multi_source_adapter import MultiSourceAdapter
         _ADAPTER = MultiSourceAdapter()
         return _ADAPTER

@@ -84,6 +84,40 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 09:26"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 4800.0,
+        "condition": "价格反弹至4800附近但成交量不能有效放大(vol_ratio<1.5)，15分钟K线出现滞涨信号(长上影/看跌吞没/CCI从+100上方回落至+100以下)时入场做空"
+      },
+      "stop_loss": {
+        "price": 4910.0,
+        "type": "fixed",
+        "atr_multiple": 1.1
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 09:27"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 4800.0,
+        "condition": "价格反弹至4800附近但成交量不能有效放大(vol_ratio<1.5)，15分钟K线出现滞涨信号(长上影/看跌吞没/CCI从+100上方回落至+100以下)时入场做空"
+      },
+      "stop_loss": {
+        "price": 4910.0,
+        "type": "fixed",
+        "atr_multiple": 1.1
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 10:20"
     }
   ],
   "aggregated": {
@@ -98,16 +132,16 @@
     "resistance": [
       {
         "level": 4800.0,
-        "count": 3,
+        "count": 5,
         "min": 4800.0,
         "max": 4800.0
       }
     ],
-    "computed_at": "2026-07-13 09:26"
+    "computed_at": "2026-07-13 10:20"
   },
   "meta": {
     "variety": "jd",
-    "total_records": 5,
-    "last_updated": "2026-07-13 09:26"
+    "total_records": 7,
+    "last_updated": "2026-07-13 10:20"
   }
 }

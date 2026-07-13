@@ -16,6 +16,57 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-12 22:32"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 14875.0,
+        "condition": "str"
+      },
+      "stop_loss": {
+        "price": 15367.0,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 14875.0,
+        "condition": "价格反弹至MA60阻力策略为首要触发条件。等待价格反弹至MA60(14875)区域遇阻: 60分钟K线收长上影线或吞没形态确认MA60压制有效，同时vol_ratio≥1.0放量辅助确认空头压制。ADX不作为首触发器。当前价格(约14260)距MA60尚有615点(2.5ATR)反弹空间，需耐心等待反弹到位。备选: 若价格直接放量(vol_ratio>1.3)跌破14200整数关口且DC20有效突破，可追空但仓位降至2%且设置更紧止损。"
+      },
+      "stop_loss": {
+        "price": 15367.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:39"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 14875.0,
+        "condition": "价格反弹至MA60阻力策略为首要触发条件。等待价格反弹至MA60(14875)区域遇阻: 60分钟K线收长上影线或吞没形态确认MA60压制有效，同时vol_ratio≥1.0放量辅助确认空头压制。ADX不作为首触发器。当前价格(约14260)距MA60尚有615点(2.5ATR)反弹空间，需耐心等待反弹到位。备选: 若价格直接放量(vol_ratio>1.3)跌破14200整数关口且DC20有效突破，可追空但仓位降至2%且设置更紧止损。"
+      },
+      "stop_loss": {
+        "price": 15367.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
     }
   ],
   "aggregated": {
@@ -28,11 +79,11 @@
         "max": 14350.0
       }
     ],
-    "computed_at": "2026-07-12 22:32"
+    "computed_at": "2026-07-13 19:00"
   },
   "meta": {
     "variety": "ss",
-    "total_records": 1,
-    "last_updated": "2026-07-12 22:32"
+    "total_records": 4,
+    "last_updated": "2026-07-13 19:00"
   }
 }

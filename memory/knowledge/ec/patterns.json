@@ -1,0 +1,58 @@
+[
+  {
+    "pattern_id": "ec-p001",
+    "name": "空头综合驱动型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 19:00",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.804,
+    "structure": "ec-con1: DC20未破位——空头... → ec-con2: CCI深度超卖(-12... → 资金验证 → ec-con4: 价格偏离MA60达-1...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_confirmation"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  },
+  {
+    "pattern_id": "ec-p002",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 20:46",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "趋势确认 → ec-con2: -31点跌幅后价格可能... → 趋势确认 → 趋势确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_confirmation"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

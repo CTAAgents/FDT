@@ -1,0 +1,11 @@
+{
+  "round_id": "20260713",
+  "agent_id": "futures-debate-team-team-lead",
+  "data_type": "final_decision",
+  "timestamp": "2026-07-13T20:47:15.855147",
+  "data": {
+    "round": "debate_20260713_2040",
+    "decision": "hold_all",
+    "reason": "盘后扫描15品种辩论完成。m BULL/SA BEAR/ao BEAR有执行方案，但盘后非交易时段建议观望"
+  }
+}

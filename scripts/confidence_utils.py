@@ -22,7 +22,7 @@ import math
 from typing import Union
 
 # 中文标签 -> 数值映射（系统唯一标准）
-CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8}
+CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8, "LOW": 0.4, "MEDIUM": 0.6, "HIGH": 0.8}
 DEFAULT_CONFIDENCE = 0.5
 
 # 数值阈值 -> 标签（用于仓位映射/展示）

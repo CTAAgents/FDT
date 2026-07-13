@@ -438,6 +438,79 @@ CHANNEL_BREAKOUT_CONFIG = {
 }
 
 
+# ═══════════════════════════════════════════════════════════
+# 制度感知参数预设 — 市场制度变化时切换的整组参数
+# 优先级: 主结构 P0(PARAM_OVERRIDES) → P1~P4 不变
+#         制度预设作为 P4(default) 的替换基底
+# 用法: apply_regime("trend") 将预设注入 P0
+# ═══════════════════════════════════════════════════════════
+REGIME_PARAMS = {
+    # ── 趋势市 ── 放大通道突破信号, 给足趋势加分
+    "trend": {
+        "dc20": {
+            "break_base_score": 40.0,
+            "break_strong_bonus": 15.0,
+        },
+        "dc55": {
+            "trend_base_score": 20.0,
+            "trend_alignment_bonus": 10.0,
+        },
+        "volume": {
+            "explosive_ratio": 2.0,
+            "explosive_score": 12.0,
+            "weak_penalty": -2.0,
+        },
+        "bb": {
+            "squeeze_bonus": 1.0,
+            "dc_consistency_bonus": 3.0,
+        },
+    },
+    # ── 震荡市 ── 压低突破分, 加重缩量惩罚, 加强布林挤压识别
+    "range": {
+        "dc20": {
+            "break_base_score": 20.0,
+            "break_strong_bonus": 5.0,
+        },
+        "dc55": {
+            "trend_base_score": 5.0,
+            "trend_alignment_bonus": 2.0,
+        },
+        "volume": {
+            "explosive_ratio": 1.3,
+            "explosive_score": 8.0,
+            "weak_penalty": -5.0,
+        },
+        "bb": {
+            "squeeze_bonus": 5.0,
+            "width_high_score": 10.0,
+        },
+    },
+    # ── 高波动市 ── 适度保守, 阈值适当放宽但不激进
+    "volatile": {
+        "dc20": {
+            "break_base_score": 25.0,
+            "break_strong_bonus": 8.0,
+        },
+        "dc55": {
+            "trend_base_score": 10.0,
+            "trend_alignment_bonus": 3.0,
+        },
+        "volume": {
+            "explosive_ratio": 1.8,
+            "explosive_score": 10.0,
+            "weak_penalty": -3.0,
+        },
+        "bb": {
+            "squeeze_bonus": 3.0,
+            "width_high_score": 8.0,
+        },
+    },
+}
+
+# 未识别/混合制度 — 用全局 default（无覆盖，相当于清除）
+MIXED_REGIME_KEY = "default"
+
+
 # ============================================================
 # 品种→产业链映射（按 symbols.py 分类定义）
 # ============================================================
@@ -557,12 +630,39 @@ def clear_param_overrides():
     _PARAM_OVERRIDES = {}
 
 
+# ═══ 制度感知参数切换 ═══
+_CURRENT_REGIME: str = ""
+
+def apply_regime(regime: str):
+    """注入制度预设到 P0 覆盖层（替换全局默认参数基底）
+
+    制度预设仅覆盖少数关键参数（dc20/dc55/volume/bb），其余保持 default。
+    调用 set_param_overrides 注入，resolve_param 自动回落。
+    制度为 "default"/"mixed"/"unknown" 时相当于清空覆盖。
+    """
+    global _CURRENT_REGIME
+    _CURRENT_REGIME = regime
+    if regime in ("default", "mixed", "unknown", ""):
+        clear_param_overrides()
+        return
+    preset = REGIME_PARAMS.get(regime)
+    if preset:
+        set_param_overrides(preset)
+    else:
+        clear_param_overrides()
+
+
+def current_regime() -> str:
+    """返回当前生效的市场制度"""
+    return _CURRENT_REGIME
+
+
 def resolve_param(section: str, key: str, symbol: str = "",
                   chain: str = "", period: str = "daily") -> object:
-    """四层回落解析通道突破策略参数。
+    """四层回落解析通道突破策略参数（制度感知 v2.0）。
 
     优先级（从高到低）:
-      P0: _PARAM_OVERRIDES（优化器注入）
+      P0: _PARAM_OVERRIDES（优化器注入 / 制度预设 apply_regime）
       P1: per_symbol[symbol][period][section][key]
       P2: per_chain[chain][period][section][key]
       P3: per_period[period][section][key]

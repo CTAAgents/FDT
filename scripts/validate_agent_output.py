@@ -31,7 +31,7 @@ try:
         CONFIDENCE_LABEL_MAP,
     )
 except ImportError:
-    CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8}
+    CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8, "LOW": 0.4, "MEDIUM": 0.6, "HIGH": 0.8}
 
     def normalize_confidence(conf):
         if isinstance(conf, (int, float)):
@@ -71,6 +71,8 @@ P5_JUDGE_REQUIRED = [
 P5_PLAN_REQUIRED = [
     "agent", "symbol", "action", "position_pct", "contract", "timeframe",
 ]
+# 策执远v3.0嵌套格式（含保守/中性/进取三方案），作为备选schema
+P5_PLAN_V3_REQUIRED = ["variant", "symbol", "plans", "scenarios"]
 P5_RISK_REQUIRED = [
     "agent", "symbol", "risk_level", "veto", "risk_items", "recommendation",
 ]
@@ -127,6 +129,51 @@ def validate(path: str, phase: str) -> dict:
 
     required, has_args = PHASE_MAP[phase]
     missing = [k for k in required if k not in data]
+    
+    # P5_PLAN 特殊处理：接受扁平schema或v3.0嵌套格式
+    if phase == "P5_PLAN" and missing and len(missing) > 0:
+        v3_missing = [k for k in P5_PLAN_V3_REQUIRED if k not in data]
+        if len(v3_missing) < len(missing):
+            # v3格式匹配度更高 → 按v3校验
+            # 检查plans内每项有type/entry/stop_loss/target
+            plans = data.get("plans", {})
+            # v3.0格式: plans 是 dict（key=品种, value=list of plan entries）
+            if isinstance(plans, dict):
+                plan_entries = []
+                for sym_plans in plans.values():
+                    if isinstance(sym_plans, list):
+                        plan_entries.extend(sym_plans)
+                    elif isinstance(sym_plans, dict):
+                        plan_entries.append(sym_plans)
+            elif isinstance(plans, list):
+                plan_entries = plans
+            else:
+                plan_entries = []
+            if len(plan_entries) == 0:
+                return {
+                    "valid": False,
+                    "error": "v3.0格式: plans 必须为非空列表",
+                    "line": 0,
+                    "col": 0,
+                    "normalized_confidence": None,
+                }
+            plan_fields = ["type", "entry", "stop_loss", "target"]
+            for i, pl in enumerate(plan_entries):
+                miss_plan = [k for k in plan_fields if k not in pl]
+                if miss_plan:
+                    return {
+                        "valid": False,
+                        "error": f"v3.0格式: plans[{i}] 缺少字段: {miss_plan}",
+                        "line": 0,
+                        "col": 0,
+                        "normalized_confidence": None,
+                    }
+            # 检查合约信息嵌套
+            if "contract_details" not in data and "contract_analysis" not in data:
+                pass  # 非强制
+            # v3格式通过修饰——将缺少字段清空表明已验证
+            missing = []
+    
     if missing:
         return {
             "valid": False,

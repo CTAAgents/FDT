@@ -50,23 +50,210 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 09:26"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9960.0,
+        "condition": "价格跌破10000整数关口且成交量>20日均量1.2倍确认突破有效性;若放量跌破则调整为市价入场"
+      },
+      "stop_loss": {
+        "price": 10080.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 09:27"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9960.0,
+        "condition": "价格跌破10000整数关口且成交量>20日均量1.2倍确认突破有效性;若放量跌破则调整为市价入场"
+      },
+      "stop_loss": {
+        "price": 10080.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 10:20"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 10:55"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 12:36"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 14:39"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 15:14"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 17:56"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 17:56"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9950.0,
+        "condition": "价格反弹至DC20上轨(约9960)附近受阻后入场做空；若放量跌破MA60(9765)可追空"
+      },
+      "stop_loss": {
+        "price": 10050.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:27"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9940.0,
+        "condition": "优先策略：价格反弹至DC20上轨(约9960)附近遇阻入场做空；若价格直接跌破MA60(9765)下沿支撑，可在9765-9780区间追空入场"
+      },
+      "stop_loss": {
+        "price": 10060.0,
+        "type": "fixed",
+        "logic": "超过DC20上轨(9960)+突破整数关口10000，反弹结构失败，空头逻辑不成立"
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:39"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9940.0,
+        "condition": "优先策略：价格反弹至DC20上轨(约9960)附近遇阻入场做空；若价格直接跌破MA60(9765)下沿支撑，可在9765-9780区间追空入场"
+      },
+      "stop_loss": {
+        "price": 10060.0,
+        "type": "fixed",
+        "logic": "超过DC20上轨(9960)+突破整数关口10000，反弹结构失败，空头逻辑不成立"
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 9960.0,
-        "count": 3,
-        "min": 9960.0,
+        "level": 9954.5,
+        "count": 11,
+        "min": 9950.0,
         "max": 9960.0
       }
     ],
-    "computed_at": "2026-07-13 09:26"
+    "computed_at": "2026-07-13 19:00"
   },
   "meta": {
     "variety": "oi",
-    "total_records": 3,
-    "last_updated": "2026-07-13 09:26"
+    "total_records": 14,
+    "last_updated": "2026-07-13 19:00"
   }
 }

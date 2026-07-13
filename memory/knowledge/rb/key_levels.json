@@ -23,6 +23,131 @@
       "confidence": 0.72,
       "round_id": "test_extract",
       "extracted_at": "2026-07-11 22:52"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3054.0,
+        "condition": "当前市价入场"
+      },
+      "stop_loss": {
+        "price": 3105.0,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3085,
+          "condition": "优先策略：等待价格反弹至3080-3090区间（近期小平台阻力+成本底上方缓冲带），15分钟K线收阴+vol_ratio>1.0确认空头压制有效后入场。",
+          "rationale": "反弹至阻力位入场可获得更优风险回报比，避免在当前3054低位追空而被成本支撑反弹夹伤"
+        },
+        "secondary": {
+          "type": "market",
+          "price_range": "3020-3030",
+          "condition": "若价格放量(vol_ratio>1.3)跌破3050成本支撑观察区并站稳3030下方，可轻仓跟空，但仅设为目标1仓位的50%",
+          "rationale": "跌破成本支撑意味着空头力度超预期，但贴近3000整数关口仍是潜在反弹区，不宜重仓"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3130,
+          "type": "price_level",
+          "atr_multiple": null,
+          "condition": "入场后若价格反弹突破3130（近期反弹高点+DC20上轨区域），空头逻辑失效，止损离场",
+          "rationale": "3130上方进入成本区间下沿(3170-3250)，基本面多头将获得有力支撑"
+        },
+        "hard_stop": {
+          "price": 3150,
+          "type": "absolute",
+          "atr_multiple": null,
+          "condition": "绝对硬止损线，价格触及3150无条件平仓",
+          "rationale": "突破3150意味着DC20/55空头结构被破坏，且进入成本支撑区，多空格局可能逆转"
+        }
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:38"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3085,
+          "condition": "优先策略：等待价格反弹至3080-3090区间（近期小平台阻力+成本底上方缓冲带），15分钟K线收阴+vol_ratio>1.0确认空头压制有效后入场。",
+          "rationale": "反弹至阻力位入场可获得更优风险回报比，避免在当前3054低位追空而被成本支撑反弹夹伤"
+        },
+        "secondary": {
+          "type": "market",
+          "price_range": "3020-3030",
+          "condition": "若价格放量(vol_ratio>1.3)跌破3050成本支撑观察区并站稳3030下方，可轻仓跟空，但仅设为目标1仓位的50%",
+          "rationale": "跌破成本支撑意味着空头力度超预期，但贴近3000整数关口仍是潜在反弹区，不宜重仓"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3130,
+          "type": "price_level",
+          "atr_multiple": null,
+          "condition": "入场后若价格反弹突破3130（近期反弹高点+DC20上轨区域），空头逻辑失效，止损离场",
+          "rationale": "3130上方进入成本区间下沿(3170-3250)，基本面多头将获得有力支撑"
+        },
+        "hard_stop": {
+          "price": 3150,
+          "type": "absolute",
+          "atr_multiple": null,
+          "condition": "绝对硬止损线，价格触及3150无条件平仓",
+          "rationale": "突破3150意味着DC20/55空头结构被破坏，且进入成本支撑区，多空格局可能逆转"
+        }
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:59"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3054,
+        "condition": "分批建仓策略：批次1(50%)限价单3054-3060区间入场；批次2(30%)价格放量跌破3030(量比>1.2)确认后加仓；批次3(20%)跌破3000整数关口后加仓。注：DC20突破强度weak+RSI=32.8逼近超卖，分批降低假突破冲击"
+      },
+      "stop_loss": {
+        "price": 3100,
+        "type": "fixed",
+        "atr_multiple": 1.8
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:34"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3054,
+        "condition": "分批建仓策略：批次1(50%)限价单3054-3060区间入场；批次2(30%)价格放量跌破3030(量比>1.2)确认后加仓；批次3(20%)跌破3000整数关口后加仓。注：DC20突破强度weak+RSI=32.8逼近超卖，分批降低假突破冲击"
+      },
+      "stop_loss": {
+        "price": 3100,
+        "type": "fixed",
+        "atr_multiple": 1.8
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:45"
     }
   ],
   "aggregated": {
@@ -30,41 +155,41 @@
       {
         "level": 2872.5,
         "count": 2,
-        "min": 2853,
-        "max": 2892
+        "min": 2853.0,
+        "max": 2892.0
       },
       {
         "level": 3500.0,
         "count": 1,
-        "min": 3500,
-        "max": 3500
+        "min": 3500.0,
+        "max": 3500.0
       }
     ],
     "resistance": [
       {
-        "level": 3077.0,
-        "count": 1,
-        "min": 3077,
-        "max": 3077
+        "level": 3059.8,
+        "count": 4,
+        "min": 3054.0,
+        "max": 3077.0
       },
       {
         "level": 3650.0,
         "count": 1,
-        "min": 3650,
-        "max": 3650
+        "min": 3650.0,
+        "max": 3650.0
       },
       {
         "level": 3750.0,
         "count": 1,
-        "min": 3750,
-        "max": 3750
+        "min": 3750.0,
+        "max": 3750.0
       }
     ],
-    "computed_at": "2026-07-11 22:52"
+    "computed_at": "2026-07-13 20:45"
   },
   "meta": {
     "variety": "rb",
-    "total_records": 2,
-    "last_updated": "2026-07-11 22:52"
+    "total_records": 7,
+    "last_updated": "2026-07-13 20:45"
   }
 }

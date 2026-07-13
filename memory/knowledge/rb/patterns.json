@@ -3,10 +3,10 @@
     "pattern_id": "rb-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-11",
-    "last_used": "2026-07-12 01:38",
-    "use_count": 3,
-    "win_count": 3,
-    "win_rate": 0.892,
+    "last_used": "2026-07-13 20:45",
+    "use_count": 7,
+    "win_count": 7,
+    "win_rate": 0.974,
     "structure": "趋势确认",
     "applicable_conditions": {
       "adx_range": [
@@ -24,7 +24,7 @@
       "debate_20260711_rb_p1",
       "unknown"
     ],
-    "confidence": 0.645,
+    "confidence": 0.603,
     "status": "active",
     "consecutive_failures": 0
   },
@@ -55,5 +55,33 @@
     "status": "deprecated",
     "last_failure": "2026-07-11 22:53",
     "deprecated_reason": "连续3次验证失败"
+  },
+  {
+    "pattern_id": "rb-p003",
+    "name": "空头突破跟随型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 21:28",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "技术形态确认 → rb-con2: 价格严重偏离MA60均... → rb-con3: 钢铁产业链上下游信号不... → 技术形态确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
   }
 ]

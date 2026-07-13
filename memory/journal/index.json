@@ -30,6 +30,83 @@
       "symbols_debated": 17,
       "data_source": "TDX_local_friday_close",
       "result": "full_debate_completed"
+    },
+    {
+      "date": "2026-07-13",
+      "type": "debate_run",
+      "mode": "auto_0925",
+      "scan_success": true,
+      "symbols_scanned": 62,
+      "strength_strong": [],
+      "strength_watch": [
+        "m",
+        "jd"
+      ],
+      "strength_weak": [
+        "OI",
+        "lh",
+        "j"
+      ],
+      "symbols_debated": 5,
+      "executable": 0,
+      "hold": 0,
+      "wait": 5,
+      "extract_success": true,
+      "extract_count": 5,
+      "report_generated": "debate_report_20260713.html",
+      "note": "TQ-Local断开，复用06:57扫描。全部观望无执行。数据源待恢复。"
+    },
+    {
+      "date": "2026-07-13",
+      "type": "debate_run",
+      "mode": "auto_1234_rerun",
+      "scan_success": false,
+      "scan_reused": "scan_daily_1013_20260713.json",
+      "symbols_scanned": 0,
+      "strength_strong": [
+        "m"
+      ],
+      "strength_watch": [
+        "j",
+        "RM"
+      ],
+      "strength_weak": [
+        "OI"
+      ],
+      "symbols_debated": 4,
+      "executable": 2,
+      "hold": 0,
+      "wait": 2,
+      "extract_success": true,
+      "extract_count": 3,
+      "report_generated": "debate_report_20260713.html",
+      "note": "新扫描失败(TQ-Local全空)，复用10:32扫描。m/RM可执行，j/OI观望。"
+    },
+    {
+      "date": "2026-07-13",
+      "type": "debate_run",
+      "mode": "auto_1432_revalidate",
+      "scan_success": false,
+      "scan_reused": "scan_daily_1013_20260713.json",
+      "symbols_scanned": 0,
+      "strength_strong": [
+        "m"
+      ],
+      "strength_watch": [
+        "j",
+        "RM"
+      ],
+      "strength_weak": [
+        "OI"
+      ],
+      "symbols_debated": 4,
+      "executable": 2,
+      "hold": 0,
+      "wait": 2,
+      "extract_success": true,
+      "extract_count": 3,
+      "report_generated": "debate_report_20260713.html",
+      "note": "自动化14:32触发。新扫描TQ-Local+全部数据源不可用，复验已有辩论结果+L1校验+知识萃取。结果与12:35一致。"
     }
   ]
 }

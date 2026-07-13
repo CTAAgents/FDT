@@ -1,0 +1,599 @@
+{
+  "version": "2026-07-13",
+  "wf_config_version": "1.0.0",
+  "_comment": "自动监测品种配置 — WF优化后更新。稳定核心宇宙+滞后确认(连续3周一致才增删), 结构冻结见 WF_CONFIG。每日更新: scan_monitored.py --period daily",
+  "daily": {
+    "all": [
+      {
+        "symbol": "rb",
+        "name": "螺纹钢",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "hc",
+        "name": "热卷",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "i",
+        "name": "铁矿石",
+        "wf_accuracy": 71,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "j",
+        "name": "焦炭",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "jm",
+        "name": "焦煤",
+        "wf_accuracy": 0,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SF",
+        "name": "硅铁",
+        "wf_accuracy": 40,
+        "tier": "medium",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SM",
+        "name": "锰硅",
+        "wf_accuracy": 56,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "sc",
+        "name": "原油",
+        "wf_accuracy": 67,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "lu",
+        "name": "低硫燃油",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "fu",
+        "name": "燃油",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "bu",
+        "name": "沥青",
+        "wf_accuracy": 62,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "pg",
+        "name": "LPG",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "PX",
+        "name": "对二甲苯",
+        "wf_accuracy": 58,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "TA",
+        "name": "PTA",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "PF",
+        "name": "短纤",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "PR",
+        "name": "瓶片",
+        "wf_accuracy": 71,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "eg",
+        "name": "乙二醇",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "eb",
+        "name": "苯乙烯",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "v",
+        "name": "PVC",
+        "wf_accuracy": 57,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "pp",
+        "name": "聚丙烯",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "l",
+        "name": "塑料",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "MA",
+        "name": "甲醇",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SH",
+        "name": "烧碱",
+        "wf_accuracy": 53,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SA",
+        "name": "纯碱",
+        "wf_accuracy": 57,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "UR",
+        "name": "尿素",
+        "wf_accuracy": 57,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "cu",
+        "name": "沪铜",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "al",
+        "name": "沪铝",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "zn",
+        "name": "沪锌",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "pb",
+        "name": "沪铅",
+        "wf_accuracy": 33,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ni",
+        "name": "沪镍",
+        "wf_accuracy": 43,
+        "tier": "medium",
+        "in_monitor": true
+      },
+      {
+        "symbol": "sn",
+        "name": "沪锡",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ao",
+        "name": "氧化铝",
+        "wf_accuracy": 31,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SS",
+        "name": "不锈钢",
+        "wf_accuracy": 29,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "au",
+        "name": "沪金",
+        "wf_accuracy": 80,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ag",
+        "name": "沪银",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "a",
+        "name": "豆一",
+        "wf_accuracy": 25,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "b",
+        "name": "豆二",
+        "wf_accuracy": 31,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "m",
+        "name": "豆粕",
+        "wf_accuracy": 60,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "y",
+        "name": "豆油",
+        "wf_accuracy": 60,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "p",
+        "name": "棕榈油",
+        "wf_accuracy": 57,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "OI",
+        "name": "菜籽油",
+        "wf_accuracy": 25,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "RM",
+        "name": "菜粕",
+        "wf_accuracy": 43,
+        "tier": "medium",
+        "in_monitor": true
+      },
+      {
+        "symbol": "PK",
+        "name": "花生",
+        "wf_accuracy": 38,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "c",
+        "name": "玉米",
+        "wf_accuracy": 57,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "cs",
+        "name": "玉米淀粉",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "SR",
+        "name": "白糖",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "CF",
+        "name": "棉花",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "jd",
+        "name": "鸡蛋",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "lh",
+        "name": "生猪",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "AP",
+        "name": "苹果",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "CJ",
+        "name": "红枣",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "FG",
+        "name": "玻璃",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ru",
+        "name": "橡胶",
+        "wf_accuracy": 43,
+        "tier": "medium",
+        "in_monitor": true
+      },
+      {
+        "symbol": "nr",
+        "name": "20号胶",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "br",
+        "name": "丁二烯橡胶",
+        "wf_accuracy": 58,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "sp",
+        "name": "纸浆",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "op",
+        "name": "双胶纸",
+        "wf_accuracy": 0,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "lc",
+        "name": "碳酸锂",
+        "wf_accuracy": 53,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "si",
+        "name": "工业硅",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ps",
+        "name": "多晶硅",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "ec",
+        "name": "集运指数",
+        "wf_accuracy": 50,
+        "tier": "good",
+        "in_monitor": true
+      },
+      {
+        "symbol": "bc",
+        "name": "国际铜",
+        "wf_accuracy": 0,
+        "tier": "weak",
+        "in_monitor": true
+      },
+      {
+        "symbol": "rr",
+        "name": "粳米",
+        "wf_accuracy": 46,
+        "tier": "medium",
+        "in_monitor": true
+      }
+    ],
+    "symbol_list": [
+      "rb",
+      "hc",
+      "i",
+      "j",
+      "jm",
+      "SF",
+      "SM",
+      "sc",
+      "lu",
+      "fu",
+      "bu",
+      "pg",
+      "PX",
+      "TA",
+      "PF",
+      "PR",
+      "eg",
+      "eb",
+      "v",
+      "pp",
+      "l",
+      "MA",
+      "SH",
+      "SA",
+      "UR",
+      "cu",
+      "al",
+      "zn",
+      "pb",
+      "ni",
+      "sn",
+      "ao",
+      "SS",
+      "au",
+      "ag",
+      "a",
+      "b",
+      "m",
+      "y",
+      "p",
+      "OI",
+      "RM",
+      "PK",
+      "c",
+      "cs",
+      "SR",
+      "CF",
+      "jd",
+      "lh",
+      "AP",
+      "CJ",
+      "FG",
+      "ru",
+      "nr",
+      "br",
+      "sp",
+      "op",
+      "lc",
+      "si",
+      "ps",
+      "ec",
+      "bc",
+      "rr"
+    ],
+    "tiers": {
+      "good": {
+        "label": "优质（≥50%）",
+        "symbols": [
+          "rb",
+          "hc",
+          "i",
+          "j",
+          "SM",
+          "sc",
+          "lu",
+          "fu",
+          "bu",
+          "pg",
+          "PX",
+          "TA",
+          "PF",
+          "PR",
+          "eg",
+          "eb",
+          "v",
+          "pp",
+          "l",
+          "MA",
+          "SH",
+          "SA",
+          "UR",
+          "cu",
+          "al",
+          "zn",
+          "sn",
+          "au",
+          "ag",
+          "m",
+          "y",
+          "p",
+          "c",
+          "cs",
+          "SR",
+          "CF",
+          "jd",
+          "lh",
+          "AP",
+          "CJ",
+          "FG",
+          "nr",
+          "br",
+          "sp",
+          "lc",
+          "si",
+          "ps",
+          "ec"
+        ]
+      },
+      "medium": {
+        "label": "中等（40-49%）",
+        "symbols": [
+          "SF",
+          "ni",
+          "RM",
+          "ru",
+          "rr"
+        ]
+      },
+      "weak": {
+        "label": "弱信号（<40%）",
+        "symbols": [
+          "jm",
+          "pb",
+          "ao",
+          "SS",
+          "a",
+          "b",
+          "OI",
+          "PK",
+          "op",
+          "bc"
+        ]
+      },
+      "unknown": {
+        "label": "未知（样本不足10）",
+        "symbols": []
+      }
+    }
+  }
+}

@@ -5,7 +5,7 @@
 全部失败时回退到缓存（Postgres / Redis / Memory）；仍无则标记 ``UNAVAILABLE``。
 
 数据等级约定：
-    - ``tqsdk`` 成功 -> ``PRIMARY``
+    - ``tdx_tq_local`` / ``tqsdk`` 成功 -> ``PRIMARY``
     - 其它实时源成功 -> ``DAILY``
     - 缓存命中 -> ``CACHED``
     - 全部失败 -> ``UNAVAILABLE``
@@ -31,12 +31,19 @@ from futures_data_core.core.cache_store import CacheStore
 
 
 def _default_collectors() -> list[BaseCollector]:
-    """构建默认采集器列表（按优先级升序）。"""
+    """构建默认采集器列表（按优先级升序）。
+
+    🔴 数据源优先级（2026-07-13 掌柜明示）：
+        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源）
+        2. TqSdkCollector — 天勤量化（24h可用，降级）
+        3. QMTCollector — QMT/xtquant
+        4. WebFallbackCollector — 东方财富+新浪（兜底）
+    """
     return select_by_priority(
         [
-            TqSdkCollector(),       # 第一数据源：TqSDK免费版（24h可用，无需本地服务）
+            TDXCollector(),         # 第一数据源：通达信TQ-Local
+            TqSdkCollector(),       # 降级：TqSDK免费版（24h可用）
             QMTCollector(),         # 降级：QMT/xtquant
-            TDXCollector(),         # 降级：通达信TQ-Local
             WebFallbackCollector(), # 最后兜底：东方财富+新浪
         ]
     )

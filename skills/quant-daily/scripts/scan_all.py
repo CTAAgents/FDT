@@ -17,32 +17,33 @@
 """
 
 import sys, os, json, re, random, pandas as pd
+import asyncio
 from datetime import date
 
-# ── 路径自举（quant-daily scripts/ 目录 + 父级） ──
+# ── Windows 路径规范化：/x/... → X:/...（Git Bash → Python 原生） ──
+if os.name == "nt":
+    def _normalize_path(p: str) -> str:
+        """将 Git Bash 风格的 /d/... 路径转为 Windows 原生 D:/... 格式"""
+        if p and len(p) > 2 and p[0] == '/' and p[2] == '/':
+            m = re.match(r'^/([a-zA-Z])/(.*)', p)
+            if m:
+                return f"{m.group(1).upper()}:/{m.group(2)}"
+        return os.path.normpath(p) if p else p
+else:
+    def _normalize_path(p: str) -> str:
+        return os.path.normpath(p) if p else p
+
+# ── 路径自举（quant-daily scripts/ 目录 + 父级 + FDT 根） ──
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 PARENT_DIR = os.path.dirname(SKILL_DIR)  # 包含 scripts/ 作为包名
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
-
-
-# ── S03 原子写入工具：避免 Windows 残留 .tmp 阻止 rename 报 FileExistsError ──
-def _atomic_write(path, data, mode="json"):
-    """先写 .tmp，清理可能残留的旧 .tmp/目标后 os.replace 落盘（Windows 安全）。"""
-    tmp = path + ".tmp"
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    if os.path.exists(path):
-        os.remove(path)
-    if mode == "json":
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    else:
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(data)
-    os.replace(tmp, path)
+# FDT 根目录（包含 futures_data_core/ 包），插到 sys.path[0] 以覆盖 D:\FDT2 的版
+FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(SKILL_DIR)))
+if FDT_ROOT not in sys.path:
+    sys.path.insert(0, FDT_ROOT)
 
 try:
     from indicators.core import assess_trend_maturity
@@ -54,7 +55,64 @@ except ImportError:
     from indicators.indicators_legacy import _compute_indicators_numpy
     from indicators.tdx_bridge import get_bridge
     from config.symbols import ALL_SYMBOLS
-from data.multi_source_adapter import MultiSourceAdapter
+
+# ── FDC 统一数据引擎（取代 data.multi_source_adapter.MultiSourceAdapter） ──
+from futures_data_core import get_kline as _fdc_get_kline
+
+def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
+    """同步包装 FDC get_kline，供 scan_all.py 的遍历循环使用。
+
+    2026-07-13 重构：取代 data/multi_source_adapter MultiSourceAdapter.get_kline()。
+    TqSDK collector 已修复 `_close_api()`（每调用关闭 TqApi 实例），
+    不会跨 asyncio.run() 边界损坏，可安全逐品种调用。
+    """
+    try:
+        payload = asyncio.run(_fdc_get_kline(variety, period=period, days=days))
+        meta = payload.meta
+        grade = meta.get("data_grade_label", "")
+        if grade in ("UNAVAILABLE", "STALE"):
+            return {"success": False, "data": [], "data_source": grade, "error": f"FDC grade={grade}"}
+        bars_raw = payload.data.get("bars", [])
+        if not bars_raw:
+            return {"success": False, "data": [], "data_source": meta.get("source", "fdc"), "error": "FDC 返回空 K 线"}
+        records = []
+        for b in bars_raw:
+            records.append({
+                "date": b.get("date", ""),
+                "open": float(b.get("open", 0)),
+                "high": float(b.get("high", 0)),
+                "low": float(b.get("low", 0)),
+                "close": float(b.get("close", 0)),
+                "volume": int(b.get("volume", 0)),
+                "oi": int(b.get("oi", 0) if b.get("oi") else 0),
+                "settle": float(b.get("settle", 0) if b.get("settle") else 0),
+                "data_source": meta.get("source", "fdc"),
+                "confidence": 1.0,
+            })
+        sources = meta.get("sources", ["fdc"])
+        source_label = sources[0] if isinstance(sources, list) else str(sources)
+        return {"success": True, "data": records, "data_source": source_label, "confidence": 1.0}
+    except Exception as e:
+        return {"success": False, "data": [], "data_source": "fdc_error", "error": str(e)}
+
+
+def _atomic_write(path: str, content, mode: str = "json"):
+    """原子写入：写 .tmp → rename，防止写半截文件"""
+    import tempfile, shutil
+    tmp = path + ".tmp_" + str(os.getpid())
+    try:
+        if mode == "json":
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(content, f, ensure_ascii=False, indent=2, default=str)
+        else:
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
 
 # ── 策略可插拔层 ──
 from strategies import get_strategy, list_strategies
@@ -143,11 +201,14 @@ def _revalidate_breakouts(all_ranked: list, kline_data: dict) -> int:
     return demoted
 
 
-def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
-    """通用K线数据采集，供 scan_all.py 和 full_scan_debate.py 共享。
+def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
+    """通用K线数据采集（FDC 直驱，取代 data.multi_source_adapter）。
 
     合约解析：symbol 若带月份后缀(如 LH2609)自动提取 contract 并取真实合约K线；
     不带后缀则用主力连续L8。显式传入的 contract 参数优先于 symbol 内嵌后缀。
+
+    2026-07-13 重构：改用 ``_fdc_get_kline_sync()`` 直调 futures_data_core，
+    不再经过 data.multi_source_adapter.MultiSourceAdapter。
     """
     from datetime import date
 
@@ -158,7 +219,7 @@ def collect_kline_for_all(adapter, symbols, days=120, min_bars=50, today_str=Non
         variety, sym_contract = _split_symbol_contract(sym)
         eff_contract = contract or sym_contract
         try:
-            resp = adapter.get_kline(variety=variety, days=days, contract=eff_contract, period=period)
+            resp = _fdc_get_kline_sync(variety=variety, days=days, period=period)
             if isinstance(resp, dict) and resp.get("success"):
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
@@ -309,23 +370,16 @@ def run_scan(
     target_symbols = symbols if symbols else ALL_SYMBOLS
     print(f"  品种数: {len(target_symbols)}")
 
-    # ── Step 1: 数据采集 ──
-    print("\n[1] 数据采集（通达信本地 → MultiSourceAdapter）...")
-    adapter = MultiSourceAdapter()
-    # 🐛 v2.10.0: 非交互环境自动接受TqSDK免责声明（代替v2.9.1的跳过逻辑）
-    #   之前：isatty()→False时一刀切跳过TqSDK→切断60m降级链
-    #   现在：设TQ_SKIP_DISCLAIMER→TqSDK静默运行→降级链完整
-    #   tqsdk_available已由multi_source_adapter.__init__()自动检测(importlib.find_spec)
-    if not sys.stdin.isatty():
-        os.environ["TQ_SKIP_DISCLAIMER"] = "yes"
-    kline_data = collect_kline_for_all(adapter, target_symbols, days=120, min_bars=50, contract=contract, period=period)
+    # ── Step 1: 数据采集（FDC 统一数据引擎，取代 MSA）──
+    print(f"\n[1] 数据采集（FDC futures_data_core → TqSDK/TDX/QMT 降级链）...")
+    kline_data = collect_kline_for_all(target_symbols, days=120, min_bars=50, contract=contract, period=period)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
     # ── R24 全局闸门：如果没有任何品种有有效数据，拒绝整次扫描 ──
     if not kline_data:
         _fail_reasons = []
         for s in target_symbols:
             try:
-                _r = adapter.get_kline(s[0], days=1, contract=contract, period=period)
+                _r = _fdc_get_kline_sync(variety=s[0], days=1, period=period)
                 if not _r.get("success"):
                     _fail_reasons.append(f"{s[0]}: {_r.get('data_source','?')} → {_r.get('error','无数据')}")
             except Exception as _e:
@@ -470,18 +524,61 @@ def run_scan(
         summary = summary_merged
     else:
         # ── 正常模式: 使用指定策略打分 ──
+        # ── 制度感知: 计算全市场制度 → 注入制度预设参数 ──
+        try:
+            from optimizer.regime import compute_market_regime
+            from config.settings import apply_regime, current_regime
+            mr = compute_market_regime(period=period)
+            if mr["regime"] not in ("unknown",):
+                apply_regime(mr["regime"])
+                print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
+        except Exception:
+            pass  # regime 不可用时不阻断
         strategy = get_strategy(strategy_name)
         summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode)
+        # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
+        try:
+            from config.settings import clear_param_overrides
+            clear_param_overrides()
+        except Exception:
+            pass
         # ── P0-4 信号重校验门禁（防御伪造突破的最后闸门）──
         _demoted = _revalidate_breakouts(summary.get("all_ranked", []), kline_data)
         if _demoted:
             print(f"\n  [P0-4] 信号重校验门禁: {_demoted} 个伪突破信号被拦截降级为NOISE")
+        # ── 方向三：信号验证管道（稳定性检查 + 拥挤度压制）──
+        _signal_stats = {}
+        try:
+            from validate_signals import validate_all
+            _all_ranked = summary.get("all_ranked", [])
+            _filtered, _signal_stats = validate_all(_all_ranked)
+            summary["all_ranked"] = _filtered
+            # 也过滤 bear/bull 信号列表
+            for _side in ("bear_signals", "bull_signals"):
+                _sig_ids = {r["symbol"]
+                            for r in _filtered
+                            if r.get("grade") not in ("NOISE",)
+                            and r.get("direction") == _side.replace("_signals", "")}
+                summary[_side] = [r for r in summary.get(_side, [])
+                                  if r.get("symbol") in _sig_ids]
+        except Exception:
+            pass
+        if _signal_stats.get("total_suppressed", 0) > 0:
+            sd = _signal_stats["stability_demoted"]
+            cs = _signal_stats["crowding_suppressed"]
+            print(f"\n  [信号验证] 稳定性降级{sd} + 拥挤压制{cs} = "
+                  f"共{_signal_stats['total_suppressed']}个噪声被剔除 "
+                  f"({_signal_stats['active_signals_before']}→{_signal_stats['active_signals_after']})")
         print(
             f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
         )
 
     # ── 从 summary 提取数据 ──
     all_ranked = summary.get("all_ranked", [])
+    # ── 同步 level 字段到 all_ranked（兼容旧版下游只读 level 不读 grade）──
+    for _r in all_ranked:
+        if _r.get("level") is None and _r.get("grade"):
+            _r["level"] = _r["grade"]
     bear = summary.get("bear_signals", [])
     bull = summary.get("bull_signals", [])
     meta = summary.get("_meta", {})
@@ -737,7 +834,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 <span style="color:#f59e0b;font-weight:600">指标来源: </span><span style="color:#f59e0b">TQ-Local formula_zb ({tdx_ct}/{results_count}品种, {tdx_pct:.0f}%)</span>
 <p style="color:#9ca3af;font-size:12px;margin-top:6px">ADX/RSI/CCI/MACD/MA/BOLL/OBV 来自通达信实盘公式</p></div>
 <div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
-<span style="color:#22c55e;font-weight:600">数据: </span><span style="color:#e5e7eb">通达信本地 → MultiSourceAdapter</span>
+<span style="color:#22c55e;font-weight:600">数据: </span><span style="color:#e5e7eb">FDC 统一数据引擎</span>
 <p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.20.0 | {today_str} | 方向感知Z-score</p></div></div>
 
 <div style="margin-top:14px;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
@@ -920,7 +1017,7 @@ if __name__ == "__main__":
     else:
         custom_symbols = None
 
-    OUT = args.output
+    OUT = _normalize_path(args.output) if args.output else None
     if not OUT:
         workspace = os.path.expanduser("~/Documents/WorkBuddy")
         OUT = os.path.join(workspace, "Commodities", "Reports", "商品期货深度分析", date.today().strftime("%Y-%m-%d"))

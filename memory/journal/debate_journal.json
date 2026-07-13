@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": "2026-07-13 15:07",
+    "event": "automation_trigger_afternoon",
+    "scan": "复用10:32扫描_scan_daily_1013 (15:07新扫描失败: FDC 0/62)",
+    "signals": "m(+66 STRONG), j(-49 WATCH), RM(+48 WATCH), OI(+23 WEAK)",
+    "debate": "p4/p5完存·24文件L1校验通过·extract 3/4入库",
+    "outcome": "报告推送 debate_report_20260713.html",
+    "note": "FDC数据管道持续不可用(CZCE合约FDC符号注册表缺失), TQ-Local[TQ-Local]仍不可用"
+  },
+  {
+    "timestamp": "2026-07-13 16:46",
+    "event": "automation_trigger_after_market_close",
+    "scan": "复用10:32扫描 (新扫描失败: TqSDK挂起+TDX HTTP拒连)",
+    "signals": "m(+66 STRONG)→execute, RM(+48 WATCH)→execute, j(-49 WATCH)→wait, OI(+23 WEAK)→wait",
+    "debate": "复用12:35辩论, 24文件L1校验通过, knowledge已萃取",
+    "outcome": "排名报告+辩论报告已推送",
+    "note": "连续第6次自动化:TQ-Local数据获取不可用，TqSDK asyncio初始化在非交互模式挂起"
+  },
+  {
+    "timestamp": "2026-07-13 20:40",
+    "event": "automation-2104夜盘扫盘",
+    "scan": "TQ-Local可用, 60品种, 39伪突破拦截",
+    "signals": "14品种触发 (7 STRONG + 7 WEAK)",
+    "debate": "98Agent全流程完成, F03/F02多轮修复",
+    "outcome": "报告推送 debate_report_20260713.html + scan_daily_2104_ranking_20260713.html",
+    "note": "b被P0-4伪突破拦截降NOISE(原20:40轮+51STRONG)"
+  }
+]

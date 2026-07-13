@@ -59,13 +59,9 @@ else:
 # 文件路径优先级: CLI → 环境变量 → 自动发现 → 默认
 INTERMEDIATE_PATH = args.intermediate or os.environ.get("PHASE3_INTERMEDIATE") or os.path.join(REPORT_DIR, "intermediate_data.json")
 DEBATE_PATH = args.debate or os.environ.get("PHASE3_DEBATE_RESULTS") or os.path.join(workspace, "debate_results.json")
-L1L4_SCAN_PATH = os.path.join(REPORT_DIR, f"full_scan_l1l4_{REPORT_DATE_COMPACT}.json")
-FT_SCAN_PATH = os.path.join(REPORT_DIR, f"full_scan_factor_timing_{REPORT_DATE_COMPACT}.json")
 
 output_name = args.output_html or f"debate_report_{REPORT_DATE_COMPACT}.html"
 OUTPUT_DEBATE = os.path.join(REPORT_DIR, output_name)
-OUTPUT_L1L4 = os.path.join(REPORT_DIR, f"l1l4_full_signals_{REPORT_DATE_COMPACT}.html")
-OUTPUT_FT = os.path.join(REPORT_DIR, f"factor_timing_full_signals_{REPORT_DATE_COMPACT}.html")
 
 print(f"{'=' * 60}")
 print(f"Phase 3 v3.2: 报告生成 — {REPORT_DATE}")
@@ -688,23 +684,6 @@ chain_results_agg = aggregated_chains
 print(f"✓ 产业链聚合: {len(chain_results_agg)} 条链")
 
 
-# ==================== 读取L1L4和因子择时扫描数据 ====================
-def load_scan_signals(scan_path: str, label: str) -> list:
-    """从 scan_all.py 输出的 JSON 中提取信号数据"""
-    if not os.path.exists(scan_path):
-        print(f"  ⚠ {label} 扫描数据不存在: {scan_path}")
-        return []
-    with open(scan_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    ranked = data.get("all_ranked", [])
-    print(f"  ✓ {label}: {len(ranked)} 品种")
-    return ranked
-
-
-l1l4_signals = load_scan_signals(L1L4_SCAN_PATH, "L1-L4")
-ft_signals = load_scan_signals(FT_SCAN_PATH, "因子择时")
-
-
 # ==================== Step 3: 智能筛选 ====================
 print("\n[Step 3] 智能筛选...")
 
@@ -762,6 +741,17 @@ for s in all_actionable:
     stop_loss_price = debate.get("stop_loss_price", s.get("stop_loss_price", s.get("price", 0)))
     risk_reward = debate.get("risk_reward_ratio", s.get("risk_reward_ratio", 0))
     position = debate.get("position_size", s.get("position_size", 0))
+
+    # 若原始盈亏比为0，从entry/target/stop自行计算（CTP就绪必须要有RR）
+    if not risk_reward and entry_price and stop_loss_price and target_price:
+        direction = s.get("decision", "HOLD")
+        if direction == "BUY":
+            stop_pct = (entry_price - stop_loss_price) / entry_price if entry_price != stop_loss_price else 0
+            target_pct = (target_price - entry_price) / entry_price if target_price != entry_price else 0
+        else:
+            stop_pct = (stop_loss_price - entry_price) / entry_price if entry_price != stop_loss_price else 0
+            target_pct = (entry_price - target_price) / entry_price if target_price != entry_price else 0
+        risk_reward = round(target_pct / stop_pct, 2) if stop_pct > 0 else 0
 
     # 链名
     pid_to_chain = _build_chain_lookup({"chain_results": chain_results})
@@ -1251,7 +1241,7 @@ EXCHANGE_MAP = {
 }
 
 
-def _select_top5_strategies(all_signals: list) -> list:
+def _select_top5_strategies(all_signals: list, risk_level_map: dict = None) -> list:
     """策执远：从裁决信号中精选不超过5个最可执行策略
     精选规则：
     1. 优先选择置信度最高的品种
@@ -1259,17 +1249,24 @@ def _select_top5_strategies(all_signals: list) -> list:
     3. ADX<15的排除（无趋势）
     4. 多空平衡（如果有BUY信号优先保留）
     5. 按conf*|total|综合排序
-    6. 必须包含明确的entry/target/stop
+    6. 必须包含明确的entry/target/stop（CTP就绪检查）
+    7. 必须包含仓位建议(position_size>0)和盈亏比(risk_reward>0)
+    8. 风控red的品种不入选（risk_level_map参数）
     """
     # 按链分组去重
     chain_selected = {}
     for s in all_signals:
         pid = s.get("product_id", "")
+        # 风控red过滤
+        if risk_level_map and risk_level_map.get(pid.lower(), "green") == "red":
+            continue
         chain = s.get("chain", "")
         entry = s.get("entry", 0)
         target = s.get("target", 0)
         sl = s.get("stop_loss", 0)
-        if not entry or not target or not sl:
+        pos = s.get("position_size", 0)
+        rr = s.get("risk_reward", 0)
+        if not entry or not target or not sl or not pos or not rr:
             continue
         if entry == target or entry == sl:
             continue
@@ -1396,7 +1393,7 @@ def _build_strategy_cards(strategies: list) -> str:
                 </div>
                 <div class="sc-item">
                     <div class="sc-label">盈亏比</div>
-                    <div class="sc-value">{rr:.1f}:1</div>
+                    <div class="sc-value">{rr:.2f}:1</div>
                 </div>
                 <div class="sc-item">
                     <div class="sc-label">仓位</div>
@@ -1417,10 +1414,14 @@ def _build_strategy_cards(strategies: list) -> str:
     return cards
 
 
-# 精选Top5策略
-top5_strategies = _select_top5_strategies(filtered_signals)
+# 精选Top5策略（先全量风控→过滤red→再选）
+risk_reviews_full = _generate_risk_review(filtered_signals, all_actionable)
+risk_level_map = {r["pid"].lower(): r["risk_level"] for r in risk_reviews_full}
+top5_strategies = _select_top5_strategies(filtered_signals, risk_level_map=risk_level_map)
 strategy_cards_html = _build_strategy_cards(top5_strategies)
-risk_reviews = _generate_risk_review(top5_strategies, all_actionable)
+# 仅展示Top5的风控审核（过滤掉非Top5的）
+top5_pids = {s.get("product_id","").lower() for s in top5_strategies}
+risk_reviews = [r for r in risk_reviews_full if r["pid"].lower() in top5_pids]
 risk_html = ""
 if risk_reviews:
     risk_html = '<div style="display:flex;flex-direction:column;gap:8px;">'
@@ -1449,7 +1450,7 @@ for r in risk_reviews:
 print(f"\n[策执远] 精选Top5可执行策略:")
 for s in top5_strategies:
     icon = "🟢" if s["direction"] == "BUY" else "🔴"
-    print(f"  {icon} #{top5_strategies.index(s)+1} {s['product_name']}({s['product_id']}) {s['direction']} 入场{s['entry']:.0f} 目标{s['target']:.0f} 止损{s['stop_loss']:.0f} RR={s['risk_reward']:.1f}")
+    print(f"  {icon} #{top5_strategies.index(s)+1} {s['product_name']}({s['product_id']}) {s['direction']} 入场{s['entry']:.0f} 目标{s['target']:.0f} 止损{s['stop_loss']:.0f} RR={s['risk_reward']:.2f}")
 
 
 # ==================== Step 4: HTML报告生成 ====================
@@ -1536,7 +1537,7 @@ def build_debate_report():
             <td class="num">{s["entry"]:.0f}</td>
             <td class="num">{s["target"]:.0f}</td>
             <td class="num">{s["stop_loss"]:.0f}</td>
-            <td class="num">{s["risk_reward"]:.1f}:1</td>
+            <td class="num">{s["risk_reward"]:.2f}:1</td>
             <td class="num">{s.get("position_size", 0):.0f}%</td>
             <td><span class="tier-{"t3" if "T3" in s.get("tier", "") else "t2" if "T2" in s.get("tier", "") else "t1"}">{s.get("tier", "")}</span></td>
         </tr>
@@ -1571,9 +1572,22 @@ def build_debate_report():
 
     all_rows = ""
     for s in T3_signals + T2_signals + T1_signals:
+        pid = s.get("product_id", "").lower()
+        # CTP就绪检查：风控通过 + 交易参数完备
+        if risk_level_map.get(pid, "green") == "red":
+            continue
+        entry = s.get("entry", 0)
+        target = s.get("target", 0)
+        sl = s.get("stop_loss", 0)
+        pos = s.get("position_size", 0)
+        rr = s.get("risk_reward", 0)
+        if not entry or not target or not sl or not pos or not rr:
+            continue
+        if entry == target or entry == sl:
+            continue
         all_rows += signal_row(s)
     if not all_rows:
-        all_rows = '<tr><td colspan="9" style="text-align:center;color:#888;">⚠️ 无有效信号</td></tr>'
+        all_rows = '<tr><td colspan="9" style="text-align:center;color:#888;">⚠️ 无CTP就绪信号——本轮辩论信号均未通过风控审核或交易参数不完整</td></tr>'
 
     chain_rows = ""
     chain_active = [(n, i) for n, i in chain_results_agg.items() if i.get("avg_score", 0) > 0 or i.get("count", 0) > 0]
@@ -1708,7 +1722,7 @@ def build_debate_report():
                     <div style="color:#ccc;font-size:0.85em;line-height:1.7;">
                         ADX={adx:.1f} | RSI={rsi:.1f}<br>
                         信号分={score:.0f} | 仓位={pos:.0f}%<br>
-                        RR={rr:.1f}:1
+                        RR={rr:.2f}:1
                     </div>
                 </div>
                 <div style="background:#1a1d28;border-radius:6px;padding:12px 14px;">
@@ -1811,207 +1825,12 @@ def build_debate_report():
     return html
 
 
-# ==================== 报告2: L1-L4 全信号HTML ====================
-def build_l1l4_report():
-    """L1-L4策略全部信号"""
-    if not l1l4_signals:
-        return "<html><body><h1>L1-L4数据不可用</h1></body></html>"
-
-    def grade_color(g):
-        m = {"STRONG": "#22c55e", "WATCH": "#f59e0b", "WEAK": "#ef4444", "NOISE": "#6b7280"}
-        return m.get(g, "#888")
-
-    def stage_color(s):
-        m = {"launch": "#22c55e", "trending": "#3b82f6", "exhausted": "#f59e0b", "reversal": "#ef4444"}
-        return m.get(s, "#888")
-
-    total = len(l1l4_signals)
-    bull = sum(1 for r in l1l4_signals if r.get("direction") == "bull")
-    bear = sum(1 for r in l1l4_signals if r.get("direction") == "bear")
-    neutral = total - bull - bear
-
-    rows = ""
-    for i, r in enumerate(l1l4_signals):
-        direc = r.get("direction", "neutral")
-        dt = "🟢多头" if direc == "bull" else ("🔴空头" if direc == "bear" else "⚪中性")
-        dc = "#22c55e" if direc == "bull" else ("#ef4444" if direc == "bear" else "#9ca3af")
-        tc = "#22c55e" if r.get("total", 0) > 0 else ("#ef4444" if r.get("total", 0) < 0 else "#9ca3af")
-        gc = grade_color(r.get("grade", ""))
-        sc = stage_color(r.get("stage", ""))
-        rows += f"""<tr>
-            <td class="num">{i+1}</td>
-            <td style="font-weight:bold">{r['symbol']}</td>
-            <td>{r.get('name','')}</td>
-            <td style="color:{dc}">{dt}</td>
-            <td class="num">{r.get('price',0):.0f}</td>
-            <td class="num" style="color:{"#22c55e" if r.get("change_pct",0)>0 else "#ef4444"}">{r.get("change_pct",0):+.1f}%</td>
-            <td class="num" style="font-weight:bold;color:{tc}">{r.get("total",0):+d}</td>
-            <td class="num">{r.get("l1",0):+d}</td>
-            <td class="num">{r.get("l2",0):+d}</td>
-            <td class="num">{r.get("l3",0):+d}</td>
-            <td class="num">{r.get("l4",0):+d}</td>
-            <td class="num" style="color:#ef4444">{r.get("veto",0):+d}</td>
-            <td class="num">{r.get("adx",0):.1f}</td>
-            <td class="num">{r.get("rsi",0):.1f}</td>
-            <td class="num">{r.get("z_score",0):.1f}</td>
-            <td class="num">{r.get("cons",0)}/4</td>
-            <td style="color:{sc}">{r.get("stage","?")}</td>
-            <td style="color:{gc}">{r.get("grade","")}</td>
-            <td style="color:#f59e0b">{'TDX' if r.get('_tdx_patched') else 'NP'}</td>
-        </tr>"""
-
-    html = f"""<!DOCTYPE html><html lang="zh-CN"><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>L1-L4全信号 | {REPORT_DATE}</title>
-    <style>{COMMON_CSS}
-    .filter-bar {{ display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }}
-    .filter-bar button {{ background:#252940; border:1px solid #2a2d3a; color:#9ca3af; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; transition:all .15s; }}
-    .filter-bar button:hover {{ border-color:#f59e0b; color:#e5e7eb; }}
-    .filter-bar button.act {{ background:#f59e0b20; border-color:#f59e0b; color:#f59e0b; font-weight:600; }}
-    </style></head><body><div class="container">
-
-    <div class="header">
-        <h1>📊 L1-L4 全品种信号排名</h1>
-        <div class="subtitle">分层累加打分系统 — 四层方向一致性+否决项检查</div>
-        <div class="meta">
-            <div class="meta-item"><span class="label">报告日期</span> <span class="value">{REPORT_DATE}</span></div>
-            <div class="meta-item"><span class="label">策略</span> <span class="value">L1-L4分层累加</span></div>
-            <div class="meta-item"><span class="label">品种</span> <span class="value">{total}</span></div>
-            <div class="meta-item"><span class="label">多头</span> <span class="value" style="color:#22c55e;">{bull}</span></div>
-            <div class="meta-item"><span class="label">空头</span> <span class="value" style="color:#ef4444;">{bear}</span></div>
-            <div class="meta-item"><span class="label">中性</span> <span class="value" style="color:#888;">{neutral}</span></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>全品种信号列表</h2>
-        <div class="sub-title">总分=L1+L2+L3+L4+否决 | CONC=四层方向一致数 | 点击列头排序</div>
-        <table id="tbl"><thead><tr>
-            <th class="num">#</th><th>品种</th><th>名称</th><th>方向</th>
-            <th class="num">价格</th><th class="num">涨跌</th>
-            <th class="num">总分</th><th class="num">L1</th><th class="num">L2</th><th class="num">L3</th><th class="num">L4</th>
-            <th class="num">否决</th><th class="num">ADX</th><th class="num">RSI</th><th class="num">Z</th><th class="num">CONS</th>
-            <th>阶段</th><th>等级</th><th>源</th>
-        </tr></thead><tbody>{rows}</tbody></table>
-    </div>
-
-    <div class="footer">
-        <p>L1-L4全信号报告 | {REPORT_DATE} | 数据源: {data_source_used}</p>
-        <p>L1=仓差/基差/期限 | L2=Vortex/CCI/Supertrend | L3=RSI/DMI/前高前低 | L4=通道/均线/MACD</p>
-        <p>等级: <span style="color:#22c55e">STRONG</span> ≥75 / <span style="color:#f59e0b">WATCH</span> ≥60 / <span style="color:#ef4444">WEAK</span> ≥40 / <span style="color:#6b7280">NOISE</span> &lt;40</p>
-    </div>
-    </div></body></html>"""
-    return html
-
-
-# ==================== 报告3: 因子择时全信号HTML ====================
-def build_factor_timing_report():
-    """因子择时策略全部信号"""
-    if not ft_signals:
-        return "<html><body><h1>因子择时数据不可用</h1></body></html>"
-
-    def grade_color(g):
-        m = {"STRONG": "#22c55e", "WATCH": "#f59e0b", "WEAK": "#ef4444", "NOISE": "#6b7280"}
-        return m.get(g, "#888")
-
-    def stage_color(s):
-        m = {"launch": "#22c55e", "trending": "#3b82f6", "exhausted": "#f59e0b", "reversal": "#ef4444"}
-        return m.get(s, "#888")
-
-    total = len(ft_signals)
-    bull = sum(1 for r in ft_signals if r.get("direction") == "bull")
-    bear = sum(1 for r in ft_signals if r.get("direction") == "bear")
-    neutral = total - bull - bear
-
-    rows = ""
-    for i, r in enumerate(ft_signals):
-        direc = r.get("direction", "neutral")
-        dt = "🟢多头" if direc == "bull" else ("🔴空头" if direc == "bear" else "⚪中性")
-        dc = "#22c55e" if direc == "bull" else ("#ef4444" if direc == "bear" else "#9ca3af")
-        tc = "#22c55e" if r.get("total", 0) > 0 else ("#ef4444" if r.get("total", 0) < 0 else "#9ca3af")
-        gc = grade_color(r.get("grade", ""))
-        sc = stage_color(r.get("stage", ""))
-        vote_net = r.get("vote_net", 0)
-        vote_conf = r.get("vote_confidence", 0)
-        resonance = r.get("resonance", 0)
-        g_group = r.get("g_group", "?")
-        rows += f"""<tr>
-            <td class="num">{i+1}</td>
-            <td style="font-weight:bold">{r['symbol']}</td>
-            <td>{r.get('name','')}</td>
-            <td style="color:{dc}">{dt}</td>
-            <td class="num">{r.get('price',0):.0f}</td>
-            <td class="num" style="color:{"#22c55e" if r.get("change_pct",0)>0 else "#ef4444"}">{r.get("change_pct",0):+.1f}%</td>
-            <td class="num" style="font-weight:bold;color:{tc}">{r.get("total",0):+d}</td>
-            <td class="num">{r.get("l1",0):+d}</td>
-            <td class="num">{r.get("l2",0):+d}</td>
-            <td class="num">{r.get("l3",0):+d}</td>
-            <td class="num">{r.get("l4",0):+d}</td>
-            <td class="num">{vote_net:+d}</td>
-            <td class="num">{vote_conf:.1f}</td>
-            <td class="num">{resonance}</td>
-            <td>{g_group}</td>
-            <td class="num">{r.get("adx",0):.1f}</td>
-            <td style="color:{sc}">{r.get("stage","?")}</td>
-            <td style="color:{gc}">{r.get("grade","")}</td>
-        </tr>"""
-
-    html = f"""<!DOCTYPE html><html lang="zh-CN"><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>因子择时全信号 | {REPORT_DATE}</title>
-    <style>{COMMON_CSS}</style></head><body><div class="container">
-
-    <div class="header">
-        <h1>📊 因子择时全品种信号排名</h1>
-        <div class="subtitle">十分组投票系统 — 因子动量+期限结构+成交量综合</div>
-        <div class="meta">
-            <div class="meta-item"><span class="label">报告日期</span> <span class="value">{REPORT_DATE}</span></div>
-            <div class="meta-item"><span class="label">策略</span> <span class="value">因子择时 v2.3.1</span></div>
-            <div class="meta-item"><span class="label">品种</span> <span class="value">{total}</span></div>
-            <div class="meta-item"><span class="label">多头</span> <span class="value" style="color:#22c55e;">{bull}</span></div>
-            <div class="meta-item"><span class="label">空头</span> <span class="value" style="color:#ef4444;">{bear}</span></div>
-            <div class="meta-item"><span class="label">中性</span> <span class="value" style="color:#888;">{neutral}</span></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>全品种信号列表</h2>
-        <div class="sub-title">总分=L1+L2+L3+L4 | vote_net=净投票数 | resonance=共振因子数 | g_group=十分组</div>
-        <table><thead><tr>
-            <th class="num">#</th><th>品种</th><th>名称</th><th>方向</th>
-            <th class="num">价格</th><th class="num">涨跌</th>
-            <th class="num">总分</th><th class="num">L1</th><th class="num">L2</th><th class="num">L3</th><th class="num">L4</th>
-            <th class="num">净票</th><th class="num">置信</th><th class="num">共振</th><th>分组</th>
-            <th class="num">ADX</th><th>阶段</th><th>等级</th>
-        </tr></thead><tbody>{rows}</tbody></table>
-    </div>
-
-    <div class="footer">
-        <p>因子择时全信号报告 | {REPORT_DATE} | 数据源: {data_source_used}</p>
-        <p>策略说明: 基于10个因子（动量/期限/成交量/COT等）的十分组投票系统</p>
-    </div>
-    </div></body></html>"""
-    return html
-
-
-# ==================== 生成三份报告 ====================
+# ==================== 生成报告 ====================
 # 报告1: 辩论详情
 html_debate = build_debate_report()
 with open(OUTPUT_DEBATE, "w", encoding="utf-8") as f:
     f.write(html_debate)
 print(f"📊 辩论报告: {OUTPUT_DEBATE}")
-
-# 报告2: L1-L4全信号
-html_l1l4 = build_l1l4_report()
-with open(OUTPUT_L1L4, "w", encoding="utf-8") as f:
-    f.write(html_l1l4)
-print(f"📊 L1-L4全信号: {OUTPUT_L1L4}")
-
-# 报告3: 因子择时全信号
-html_ft = build_factor_timing_report()
-with open(OUTPUT_FT, "w", encoding="utf-8") as f:
-    f.write(html_ft)
-print(f"📊 因子择时全信号: {OUTPUT_FT}")
 
 # 保存analysis_data.json
 results = {
@@ -2032,8 +1851,6 @@ with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
 print(f"\n{'=' * 60}")
 print(f"✅ Phase 3 v3.0 完成！")
 print(f"📊 辩论报告: {OUTPUT_DEBATE}")
-print(f"📊 L1-L4全信号: {OUTPUT_L1L4}")
-print(f"📊 因子择时全信号: {OUTPUT_FT}")
 print(f"🔴 信号: T1={len(T1_signals)}, T2={len(T2_signals)}, T3={len(T3_signals)}")
 print(f"🔗 产业链: {len(chain_results_agg)}")
 print(f"{'=' * 60}")

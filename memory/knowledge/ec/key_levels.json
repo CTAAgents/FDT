@@ -1,0 +1,98 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0.0,
+        "condition": "bounce_to_ma_short",
+        "notes": "当前CCI=-122.5极度超卖、价格偏离MA60达-11.4%，不宜追空。等待价格反弹至短期均线(MA5/MA10)附近再入场，以改善入场赔率。若直接跌破而不反弹，则放弃本次交易。"
+      },
+      "stop_loss": {
+        "price": 0.0,
+        "type": "atr",
+        "atr_multiple": 2,
+        "anchor": "bounce_high",
+        "notes": "止损设于反弹高点上方1ATR处。若入场后价格未反弹(直接跌)，则使用入场价上方2ATR固定止损。"
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:27"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0,
+        "condition": "等待价格反弹至MA5/MA10附近(距当前价约1.5-2.0倍ATR反弹幅度)，15分钟K线收阴+vol_ratio>1.05确认反弹衰竭后入场。若直接放量(vol_ratio>1.3)跌破前低则改为追空入场，但仓位降至8%。",
+        "notes": "CCI=-122.5极度超卖+偏离MA60达-11.4%，当前追空犹如接飞刀。必须等待1-2根日线反弹修复超卖后，在短期均线遇阻确认时再入场。以改善入场赔率至合理水平。"
+      },
+      "stop_loss": {
+        "price": 0,
+        "type": "atr",
+        "atr_multiple": 2.0,
+        "anchor": "bounce_high",
+        "notes": "止损设于反弹高点上方2.0倍ATR处。若价格未反弹直接破位下跌，使用入场价上方2.5倍ATR固定止损(波动率扩张保护)。若止损被触发，说明反弹力度超出预期，空头逻辑失效。"
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:39"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0,
+        "condition": "等待价格反弹至MA5/MA10附近(距当前价约1.5-2.0倍ATR反弹幅度)，15分钟K线收阴+vol_ratio>1.05确认反弹衰竭后入场。若直接放量(vol_ratio>1.3)跌破前低则改为追空入场，但仓位降至8%。",
+        "notes": "CCI=-122.5极度超卖+偏离MA60达-11.4%，当前追空犹如接飞刀。必须等待1-2根日线反弹修复超卖后，在短期均线遇阻确认时再入场。以改善入场赔率至合理水平。"
+      },
+      "stop_loss": {
+        "price": 0,
+        "type": "atr",
+        "atr_multiple": 2.0,
+        "anchor": "bounce_high",
+        "notes": "止损设于反弹高点上方2.0倍ATR处。若价格未反弹直接破位下跌，使用入场价上方2.5倍ATR固定止损(波动率扩张保护)。若止损被触发，说明反弹力度超出预期，空头逻辑失效。"
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2358.0,
+        "condition": "DC55中期通道明确下行确认, 中期空头趋势结构完整。但WEAK信号等级+cons=0共识不足+ADX=17.4趋势启动早期, 入场后需密切关注均值回归风险。建议分批入场: 首单2358, 若反弹至MA60(2661)受阻回落则加仓"
+      },
+      "stop_loss": {
+        "price": 2520.0,
+        "type": "atr",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:46"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 589.5,
+        "count": 4,
+        "min": 0.0,
+        "max": 2358.0
+      }
+    ],
+    "computed_at": "2026-07-13 20:46"
+  },
+  "meta": {
+    "variety": "ec",
+    "total_records": 4,
+    "last_updated": "2026-07-13 20:46"
+  }
+}

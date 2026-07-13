@@ -86,6 +86,8 @@ ALL_SYMBOLS: List[Tuple[str, str]] = [
     ("ps", "多晶硅"),
     # 航运 (1)
     ("ec", "集运指数"),
+    # 有色金属补充 (1)
+    ("bc", "国际铜"),
     # 其他 (1)
     ("rr", "粳米"),
 ]
@@ -168,6 +170,8 @@ SYMBOL_DETAILS: Dict[str, dict] = {
     "ps": {"exchange": "GFEX", "tdx_code": "ps0"},
     # 航运 (1)
     "ec": {"exchange": "INE", "tdx_code": "ec0"},
+    # 有色金属补充 (1)
+    "bc": {"exchange": "INE", "tdx_code": "bc0"},
     # 其他 (1)
     "rr": {"exchange": "DCE", "tdx_code": "rr0"},
 }
@@ -175,6 +179,6 @@ SYMBOL_DETAILS: Dict[str, dict] = {
 # 提取 pid 集合，用于快速查询
 ALL_PIDS = {sym[0] for sym in ALL_SYMBOLS}
 
-# 58 主力品种 + 4 补充 = 62 品种
-assert len(ALL_SYMBOLS) == 62, f"品种列表长度应为62，实际为{len(ALL_SYMBOLS)}"
-assert len(SYMBOL_DETAILS) == 62, f"品种详情长度应为62，实际为{len(SYMBOL_DETAILS)}"
+# 62 主力品种 + 1 补充 = 63 品种
+assert len(ALL_SYMBOLS) == 63, f"品种列表长度应为63，实际为{len(ALL_SYMBOLS)}"
+assert len(SYMBOL_DETAILS) == 63, f"品种详情长度应为63，实际为{len(SYMBOL_DETAILS)}"

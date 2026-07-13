@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "pf-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 21:29",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "PF-con1: 当日价格实际收涨+1.... → 趋势确认 → 趋势确认 → PF-con4: 价格对MA60偏离-6... → PF-con5: 爆炸性放量(1.47倍...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "minor_signal"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

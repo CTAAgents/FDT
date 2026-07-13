@@ -1,0 +1,129 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3825.0,
+        "condition": "价格突破+量确认排第一。等待日线收盘有效站上DC20上轨(3821)上方确认突破，同时vol_ratio≥1.2放量配合后触发入场。ADX不作为入场首要触发条件，仅作辅助参考。当前价格3782距上轨-1.02%，尚未满足条件，需持续观察。"
+      },
+      "stop_loss": {
+        "price": 3745.0,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3825,
+          "condition": "等待日线收盘有效站上DC20上轨(3821)上方确认突破，同时vol_ratio≥1.2放量配合，且ADX升至22以上作为趋势启动辅助确认。三个条件需同时满足。当前价格3782距上轨-1.02%，尚未满足条件。",
+          "rationale": "DC20突破+量确认+ADX抬头三重过滤，与风控审慎意见一致。中期趋势向上(DC55)提供结构背书，但短期信号确认度不足，需严格过滤降低假突破风险。"
+        },
+        "secondary": {
+          "type": "limit",
+          "price": 3700,
+          "condition": "若价格回调至MA60(3620)以上且CCI回落至+50以下，可提前布局轻仓多单，无需等待DC20突破。需vol_ratio<0.8缩量回踩确认支撑有效性。",
+          "rationale": "MA60(3620)为中期均线支撑位，回调至该区域的风险回报比更优。缩量回踩确认支撑后提前布局，可避免突破后追高风险。"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3745,
+          "type": "atr",
+          "atr_multiple": 1.5,
+          "condition": "入场后若价格跌破3745（DC20通道中轨附近，约1.5倍ATR=70点），则多头突破逻辑失效，止损离场",
+          "rationale": "1.5倍ATR止损兼顾高波动率特性(BB width=11.76%)与风控纪律，低于原计划的2倍ATR以控制单笔风险"
+        },
+        "hard_stop": {
+          "price": 3700,
+          "type": "absolute",
+          "atr_multiple": null,
+          "condition": "绝对硬止损线，价格跌破3700无条件平仓。对应MA60(3620)上方缓冲区间，跌破此线意味着中期趋势结构可能恶化",
+          "rationale": "3700为DC55通道下轨附近，若被有效跌破则DC55中期向上趋势可能转为横盘或下行，bull逻辑根本性破坏"
+        }
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:39"
+    },
+    {
+      "entry": {
+        "primary": {
+          "type": "limit",
+          "price": 3825,
+          "condition": "等待日线收盘有效站上DC20上轨(3821)上方确认突破，同时vol_ratio≥1.2放量配合，且ADX升至22以上作为趋势启动辅助确认。三个条件需同时满足。当前价格3782距上轨-1.02%，尚未满足条件。",
+          "rationale": "DC20突破+量确认+ADX抬头三重过滤，与风控审慎意见一致。中期趋势向上(DC55)提供结构背书，但短期信号确认度不足，需严格过滤降低假突破风险。"
+        },
+        "secondary": {
+          "type": "limit",
+          "price": 3700,
+          "condition": "若价格回调至MA60(3620)以上且CCI回落至+50以下，可提前布局轻仓多单，无需等待DC20突破。需vol_ratio<0.8缩量回踩确认支撑有效性。",
+          "rationale": "MA60(3620)为中期均线支撑位，回调至该区域的风险回报比更优。缩量回踩确认支撑后提前布局，可避免突破后追高风险。"
+        }
+      },
+      "stop_loss": {
+        "primary": {
+          "price": 3745,
+          "type": "atr",
+          "atr_multiple": 1.5,
+          "condition": "入场后若价格跌破3745（DC20通道中轨附近，约1.5倍ATR=70点），则多头突破逻辑失效，止损离场",
+          "rationale": "1.5倍ATR止损兼顾高波动率特性(BB width=11.76%)与风控纪律，低于原计划的2倍ATR以控制单笔风险"
+        },
+        "hard_stop": {
+          "price": 3700,
+          "type": "absolute",
+          "atr_multiple": null,
+          "condition": "绝对硬止损线，价格跌破3700无条件平仓。对应MA60(3620)上方缓冲区间，跌破此线意味着中期趋势结构可能恶化",
+          "rationale": "3700为DC55通道下轨附近，若被有效跌破则DC55中期向上趋势可能转为横盘或下行，bull逻辑根本性破坏"
+        }
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": null,
+        "condition": "裁决bull_signal_unconfirmed：谨慎胜出(8.58:6.58)，DC20突破强度weak+距离-1.02%已回落通道内+vol_ratio=1.0无量+cons=0零共识+当日收跌-0.08%。等待条件：vol_ratio>1.3放量突破且价格站稳DC20上轨后再评估"
+      },
+      "stop_loss": {
+        "price": null,
+        "type": "fixed",
+        "atr_multiple": null
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:45"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 3825.0,
+        "count": 1,
+        "min": 3825.0,
+        "max": 3825.0
+      }
+    ],
+    "resistance": [],
+    "computed_at": "2026-07-13 20:45"
+  },
+  "meta": {
+    "variety": "b",
+    "total_records": 4,
+    "last_updated": "2026-07-13 20:45"
+  }
+}

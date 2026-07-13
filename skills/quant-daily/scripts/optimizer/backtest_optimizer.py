@@ -32,7 +32,7 @@ from config.settings import (
     clear_param_overrides,
     DEBATE_ENTRY_MIN_ABS,
 )
-from data.multi_source_adapter import MultiSourceAdapter
+# MultiSourceAdapter 已废弃 — scan_all.py 直调 FDC
 from scan_all import collect_kline_for_all
 from indicators.calc_core import calculate_tdx_compatible
 from strategies.registry import get_strategy
@@ -227,9 +227,8 @@ def _build_tech(close, high, low, volume, open_price, symbol, name):
 def load_historical_data(symbols_with_names: list, period: str = "daily", days: int = DAYS_OF_DATA) -> dict:
     """加载多品种历史K线数据"""
     print(f"  [加载数据] {period} | 品种: {len(symbols_with_names)} | {days}天")
-    adapter = MultiSourceAdapter()
     from scan_all import collect_kline_for_all
-    kline_data = collect_kline_for_all(adapter, symbols_with_names, days=days, min_bars=MIN_BARS, period=period)
+    kline_data = collect_kline_for_all(symbols_with_names, days=days, min_bars=MIN_BARS, period=period)
     print(f"  [完成] {len(kline_data)}/{len(symbols_with_names)} 品种数据就绪")
     return kline_data
 
@@ -608,17 +607,26 @@ def optimize_period(
             result["period"] = period
             results.append(result)
 
-            # 4. 自动写入
-            if auto_write and result.get("test_metrics", {}).get("accuracy", 0) > 0.5:
+            # 4. 自动写入（要求测试信号数 ≥ min_test_signals_for_ci，防小样本过拟合）
+            tm = result.get("test_metrics", {})
+            test_signals = tm.get("signals", 0)
+            test_accuracy = tm.get("accuracy", 0)
+            if (auto_write and test_accuracy > 0.5
+                    and test_signals >= WF_CONFIG["min_test_signals_for_ci"]):
                 params = result["params"]
                 chain_name = SYMBOL_CHAIN_MAP.get(sym, "其他")
                 _write_to_per_symbol(sym, period, params)
                 if verbose:
-                    print(f"  ✅ 已写入 per_symbol['{sym}']['{period}']")
+                    print(f"  ✅ 已写入 per_symbol['{sym}']['{period}'] (信号{test_signals}个)")
 
-    # 汇总
-    improved = sum(1 for r in results if r.get("test_metrics", {}).get("accuracy", 0) > 0.5)
-    print(f"\n  优化完成: {len(results)}/{len(sym_names)} 品种有结果, {improved} 个写入")
+    # 汇总（与写入条件一致：accuracy>0.5 + signals >= min_test_signals_for_ci）
+    min_sig = WF_CONFIG["min_test_signals_for_ci"]
+    improved = sum(
+        1 for r in results
+        if r.get("test_metrics", {}).get("accuracy", 0) > 0.5
+        and r.get("test_metrics", {}).get("signals", 0) >= min_sig
+    )
+    print(f"\n  优化完成: {len(results)}/{len(sym_names)} 品种有结果, {improved} 个写入（信号≥{min_sig}）")
     return results
 
 

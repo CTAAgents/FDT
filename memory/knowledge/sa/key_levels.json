@@ -1,0 +1,89 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1072,
+        "condition": "优先等待价格反弹至DC20下轨(约1072)遇阻后入场，15分钟K线收阴+vol_ratio>1.05确认空头压制有效。若价格直接放量(vol_ratio>1.3)跌破1060，则改为市价追空。不做ADX过滤。"
+      },
+      "stop_loss": {
+        "price": 1112,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1068,
+        "condition": "等待价格反弹至DC20下轨区域(1065-1070)遇阻: 15分钟K线收阴+vol_ratio>1.05确认空头压制有效; 若直接放量(vol_ratio>1.3)跌破1060整数关口则改为追空入场"
+      },
+      "stop_loss": {
+        "price": 1085,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:38"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1068,
+        "condition": "等待价格反弹至DC20下轨区域(1065-1070)遇阻: 15分钟K线收阴+vol_ratio>1.05确认空头压制有效; 若直接放量(vol_ratio>1.3)跌破1060整数关口则改为追空入场"
+      },
+      "stop_loss": {
+        "price": 1085,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:59"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 1063.0,
+        "condition": "现价入场，SA收盘1063（-1.9%）ADX=54.8强空头趋势"
+      },
+      "stop_loss": {
+        "price": 1095.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:45"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 1067.8,
+        "count": 4,
+        "min": 1063.0,
+        "max": 1072.0
+      }
+    ],
+    "computed_at": "2026-07-13 20:45"
+  },
+  "meta": {
+    "variety": "sa",
+    "total_records": 4,
+    "last_updated": "2026-07-13 20:45"
+  }
+}

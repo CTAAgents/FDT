@@ -104,16 +104,244 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 09:26"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3040.0,
+        "condition": "价格跌破3040短期支撑+成交量>20日均量0.8倍确认放量，拒绝ADX作为首因触发"
+      },
+      "stop_loss": {
+        "price": 3105.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 09:27"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3040.0,
+        "condition": "价格跌破3040短期支撑+成交量>20日均量0.8倍确认放量，拒绝ADX作为首因触发"
+      },
+      "stop_loss": {
+        "price": 3105.0,
+        "type": "fixed",
+        "atr_multiple": 2.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 10:20"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 10:55"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 12:36"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 14:39"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 15:14"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 17:55"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 17:56"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000.0,
+        "condition": "价格回踩MA60(2983)附近企稳+成交量恢复至20日均量80%以上+RSI回落至65以下，确认支撑有效后入场。ADX不作为首要触发标准，价格突破与量确认排第一。"
+      },
+      "stop_loss": {
+        "price": 2940.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:26"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000,
+        "condition": "等待价格回踩MA60(2983.5)附近企稳，三重确认后方可入场：(1)vol_ratio<0.9缩量止跌；(2)RSI回落至60以下再回升；(3)15min K线收出下影线或阳线站回3000上方。避免在3050附近追多——放量滞涨+CCI超买背离条件下追多盈亏比严重失衡。"
+      },
+      "stop_loss": {
+        "price": 2960,
+        "type": "atr",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:38"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3000,
+        "condition": "等待价格回踩MA60(2983.5)附近企稳，三重确认后方可入场：(1)vol_ratio<0.9缩量止跌；(2)RSI回落至60以下再回升；(3)15min K线收出下影线或阳线站回3000上方。避免在3050附近追多——放量滞涨+CCI超买背离条件下追多盈亏比严重失衡。"
+      },
+      "stop_loss": {
+        "price": 2960,
+        "type": "atr",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 18:59"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3058,
+        "condition": "价格反弹至3055-3065区间（DC20上轨附近）且15分钟K线出现反转信号（长上影线/阴线吞没/RSI顶背离）"
+      },
+      "stop_loss": {
+        "price": 3088,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:33"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3050.0,
+        "condition": "回调至3050附近（DC20中轨支撑位）企稳后入场"
+      },
+      "stop_loss": {
+        "price": 3010.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 20:45"
     }
   ],
   "aggregated": {
-    "support": [],
+    "support": [
+      {
+        "level": 3007.1,
+        "count": 7,
+        "min": 3000.0,
+        "max": 3050.0
+      }
+    ],
     "resistance": [],
-    "computed_at": "2026-07-13 09:26"
+    "computed_at": "2026-07-13 20:45"
   },
   "meta": {
     "variety": "m",
-    "total_records": 6,
-    "last_updated": "2026-07-13 09:26"
+    "total_records": 19,
+    "last_updated": "2026-07-13 20:45"
   }
 }

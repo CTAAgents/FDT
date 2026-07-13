@@ -1,0 +1,31 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 7060.0,
+        "condition": "价格回踩至MA20(7053)附近7060±10区间，15分钟K线成交量萎缩至20均量以下(vol_ratio<0.8)确认抛压衰竭后入场。若价格在7060附近出现放量阳线(vol_ratio>1.2)吞没前根阴线，可视为入场强化确认。禁止追高7110以上。"
+      },
+      "stop_loss": {
+        "price": 6920.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 19:00"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [],
+    "computed_at": "2026-07-13 19:00"
+  },
+  "meta": {
+    "variety": "pf",
+    "total_records": 1,
+    "last_updated": "2026-07-13 19:00"
+  }
+}

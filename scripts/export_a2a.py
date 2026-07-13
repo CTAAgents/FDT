@@ -7,10 +7,8 @@ FDT A2A 文件桥 — 将辩论结果包装为 Agent-to-Agent 协议兼容格式
   python scripts/export_a2a.py --workspace <工作空间目录>
   python scripts/export_a2a.py --input debate_results.json --output a2a_results.json
 
-输出: a2a_results.json（符合 A2A Task/Artifact 信封规范）
-       agent-card.json（FDT Agent Card，已存在根目录）
-
-A2A 协议版本: 1.0 (Google Agent-to-Agent Protocol)
+输出: a2a_results.json（A2A Task/Artifact 信封，Content 使用 A2APayload 规范）
+  --payloads 模式额外输出 a2a_payloads.json（纯 A2APayload 数组，无信封）
 """
 from __future__ import annotations
 
@@ -20,6 +18,14 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+
+# A2APayload 数据信封
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from contracts.a2a_payload import (  # type: ignore
+    A2APayload, a2a_debate, a2a_scan_summary,
+    RUNTIME_LLM, RUNTIME_INDEPENDENT,
+    GRADE_PRIMARY, GRADE_LLM,
+)
 
 
 def load_json(path: str | Path) -> dict:
@@ -85,69 +91,45 @@ def build_task(debate: dict, intermediate: dict | None = None) -> dict:
         if not isinstance(v, dict):
             continue
 
-        # 从 verdict 提取基本信息
-        direction = v.get("direction", "")
+        direction = v.get("direction", "NEUTRAL")
         action = v.get("action", "wait")
         confidence = v.get("confidence", "")
+        reasoning = v.get("reasoning", "")
         entry_price = v.get("entry_price")
         stop_loss = v.get("stop_loss_price")
         target = v.get("target_price")
-        pos_size = v.get("position_size")
-        reasoning = v.get("reasoning", "")
-        grade = v.get("grade", "")
 
-        # 若 intermediate 有更完善的决策数据，从此取
         dec = decisions_map.get(sym, verdict_to_decision(direction, action, confidence))
-        if isinstance(dec, dict):
-            decision = dec.get("decision", "HOLD")
-            conf = dec.get("confidence", 0.5)
-            if not entry_price:
-                entry_price = dec.get("entry_price")
-            if not target:
-                target = dec.get("target_price")
-            if not stop_loss:
-                stop_loss = dec.get("stop_loss_price")
-        else:
-            decision = dec
-            conf = 0.5
+        decision = dec.get("decision", "HOLD") if isinstance(dec, dict) else "HOLD"
+        conf = dec.get("confidence", 0.5) if isinstance(dec, dict) else 0.5
+        if not entry_price:
+            entry_price = dec.get("entry_price") if isinstance(dec, dict) else None
+        if not target:
+            target = dec.get("target_price") if isinstance(dec, dict) else None
+        if not stop_loss:
+            stop_loss = dec.get("stop_loss_price") if isinstance(dec, dict) else None
 
-        # 构建 A2A Artifact
+        # A2APayload 内容
+        payload = a2a_debate(
+            symbol=sym,
+            decision=decision,
+            confidence=conf,
+            reasoning=reasoning or "",
+            entry=entry_price if entry_price and entry_price > 0 else None,
+            stop_loss=stop_loss if stop_loss and stop_loss > 0 else None,
+            target=target if target and target > 0 else None,
+            direction=direction,
+        )
+
         artifact = {
             "id": f"verdict-{sym}",
             "name": f"{sym} 裁决",
             "contentType": "application/json",
-            "content": {
-                "symbol": sym,
-                "decision": decision,
-                "direction": direction or "NEUTRAL",
-                "confidence": conf,
-                "grade": grade,
-                "action": action,
-                "reasoning": reasoning[:500] if reasoning else "",
-                "entry": {
-                    "type": "limit",
-                    "price": entry_price if entry_price and entry_price > 0 else None,
-                },
-                "stop_loss": {
-                    "price": stop_loss if stop_loss and stop_loss > 0 else None,
-                },
-                "targets": [
-                    {"level": 1, "price": target if target and target > 0 else None}
-                ],
-                "position_size": pos_size if pos_size and pos_size > 0 else None,
-                "judge_verdict": v.get("verdict", ""),
-                "debate_winner": v.get("winner", ""),
-                "technical_indicators": {
-                    "adx": v.get("adx"),
-                    "rsi": v.get("rsi"),
-                    "total_score": v.get("total_score"),
-                },
-            },
+            "content": payload.to_dict(),
         }
-
         parts.append({"type": "artifact", "artifact": artifact})
 
-    # 若 intermediate 有产业链信息，加入汇总 Artifact
+    # 产业链汇总 Artifact
     if intermediate and intermediate.get("chain_results"):
         chains = []
         for chain_key, chain_data in intermediate["chain_results"].items():
@@ -187,6 +169,8 @@ def main():
 
     ap.add_argument("--output", "-o", help="输出路径（默认: 与 input 同目录的 a2a_results.json）")
     ap.add_argument("--intermediate", help="intermediate_data.json 路径（可选，增强决策数据）")
+    ap.add_argument("--payloads", action="store_true",
+                    help="额外输出 a2a_payloads.json（纯 A2APayload 数组，无信封）")
     args = ap.parse_args()
 
     # ── 确定输入输出路径 ──
@@ -229,10 +213,28 @@ def main():
         json.dump(task, f, ensure_ascii=False, indent=2)
 
     verdict_count = len(debate.get("verdicts", {}))
+    artifact_count = len(task['params']['parts'])
     print(
         f"✅ A2A 导出完成: {output_path}"
-        f"（{verdict_count} 品种裁决，{len(task['params']['parts'])} 个 Artifact）"
+        f"（{verdict_count} 品种裁决，{artifact_count} 个 Artifact）"
     )
+
+    # ── 可选：纯 A2APayload 数组 ──
+    if args.payloads:
+        payloads_path = output_path.parent / "a2a_payloads.json"
+        payloads_data = []
+        for part in task['params']['parts']:
+            art = part.get("artifact", {})
+            payloads_data.append({
+                "type": art.get("content", {}).get("type", "fdt.debate"),
+                "runtime_mode": art.get("content", {}).get("runtime_mode", "llm_enhanced"),
+                "meta": art.get("content", {}).get("meta", {}),
+                "data": art.get("content", {}).get("data", {}),
+                "summary": art.get("content", {}).get("summary", ""),
+            })
+        with open(payloads_path, "w", encoding="utf-8") as f:
+            json.dump(payloads_data, f, ensure_ascii=False, indent=2)
+        print(f"✅ A2A Payloads 导出: {payloads_path}（{len(payloads_data)} 条）")
 
 
 if __name__ == "__main__":

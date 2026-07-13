@@ -681,6 +681,22 @@
         ],
         "errors": []
       }
+    },
+    {
+      "round_id": "ao_20260713",
+      "decision": "pending_execution",
+      "symbol": "ao",
+      "direction": "short",
+      "contract": "AO2609",
+      "entry_plan": 2678,
+      "stop_loss": 2754,
+      "target1": 2580,
+      "target2": 2500,
+      "position_pct": 2.5,
+      "generated_at": "2026-07-13 20:16",
+      "source_path": "debate",
+      "note": "闫判官判决bear方向，慎思获胜。ADX过热(67.1)为风控重点",
+      "realized": false
     }
   ]
 }

@@ -3,10 +3,10 @@
     "pattern_id": "m-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-12 01:37",
-    "use_count": 3,
-    "win_count": 3,
-    "win_rate": 0.902,
+    "last_used": "2026-07-13 21:28",
+    "use_count": 5,
+    "win_count": 5,
+    "win_rate": 0.952,
     "structure": "RSI+CCI双指标同时进入超买区域，短... → 趋势确认 → Z-score=2.2处于统计极端分位，...",
     "applicable_conditions": {
       "adx_range": [
@@ -22,7 +22,7 @@
     "derived_from_debates": [
       "unknown"
     ],
-    "confidence": 0.8,
+    "confidence": 0.65,
     "consecutive_failures": 0,
     "status": "active"
   },
@@ -30,11 +30,39 @@
     "pattern_id": "m-p002",
     "name": "空头突破跟随型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 09:26",
-    "use_count": 3,
-    "win_count": 3,
-    "win_rate": 0.804,
+    "last_used": "2026-07-13 18:59",
+    "use_count": 8,
+    "win_count": 8,
+    "win_rate": 0.967,
     "structure": "m-con1: RSI超买叠加量价背离，... → 技术形态确认 → m-con3: MACD无金叉且均线排列... → 基本面验证",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  },
+  {
+    "pattern_id": "m-p003",
+    "name": "多头趋势驱动型",
+    "first_observed": "2026-07-13",
+    "last_used": "2026-07-13 20:45",
+    "use_count": 8,
+    "win_count": 8,
+    "win_rate": 0.967,
+    "structure": "趋势确认 → 趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [
         35,
