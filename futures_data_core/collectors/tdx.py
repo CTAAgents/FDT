@@ -45,10 +45,10 @@ _PERIOD_MAP = {
 
 
 class TDXCollector(BaseCollector):
-    """通达信 TQ-Local 采集器（priority=1，第二数据源）。"""
+    """通达信 TQ-Local 采集器（priority=0，第一数据源）。"""
 
     name = "tdx_tq_local"
-    priority = 1
+    priority = 0
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
