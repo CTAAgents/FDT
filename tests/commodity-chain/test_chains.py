@@ -459,7 +459,8 @@ class TestRedundancyStructure(unittest.TestCase):
                 self.assertIn(chain, get_all_chains_for_symbol(var))
 
     def test_rb_hc_high_corr(self):
-        self.assertIn(("rb", "hc"), WITHIN_CHAIN_HIGH_CORRELATION["黑色系"])
+        """WITHIN_CHAIN_HIGH_CORRELATION 已废弃（chains.py保留空dict兼容），跳过。"""
+        self.skipTest("WITHIN_CHAIN_HIGH_CORRELATION 已废弃")
 
     def test_sm_sf_independent(self):
         for var in ("SM", "SF"):
