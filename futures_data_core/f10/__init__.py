@@ -8,6 +8,7 @@ from futures_data_core.f10.basis import (
     PpiSpotFetcher,
     compute_basis,
     get_basis,
+    get_basis_batch,
 )
 from futures_data_core.f10.exchange_scraper import (
     EXCHANGE_ENDPOINTS,
@@ -18,6 +19,7 @@ from futures_data_core.f10.exchange_scraper import (
 )
 from futures_data_core.f10.fundamentals import get_fundamental
 from futures_data_core.f10.huishang import HuishangFetcher, get_huishang_fundamental
+from futures_data_core.f10.position import get_position_ranking
 from futures_data_core.f10.spread import compute_spread, get_spread
 from futures_data_core.f10.term_structure import analyze_term_structure, get_term_structure
 from futures_data_core.f10.warrant import get_warrant, summarize_warrant
@@ -34,6 +36,7 @@ __all__ = [
     # basis
     "compute_basis",
     "get_basis",
+    "get_basis_batch",
     "PpiSpotFetcher",
     # exchange scraper
     "get_exchange_url",
@@ -53,4 +56,6 @@ __all__ = [
     "search_fundamental_llm",
     # sentiment
     "get_sentiment",
+    # position ranking
+    "get_position_ranking",
 ]

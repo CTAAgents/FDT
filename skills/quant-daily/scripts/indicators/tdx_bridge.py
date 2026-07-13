@@ -139,7 +139,21 @@ class TDXBridge:
              'boll_upper':6100, 'boll_mid':5921, 'boll_lower':5742,
              'obv':-591967, 'obv_ma':-580000}
         """
-        # 0. 优先委托 TdxCollector（futures-data-search 单源，与 MSA 统一路由）
+        # 0. 优先委托 FDC TDXCollector（统一数据引擎）
+        try:
+            import asyncio as _asyncio
+            from futures_data_core.collectors.tdx import TDXCollector as FdcTDX
+
+            _fdc_tdx = FdcTDX()
+            if _asyncio.run(_fdc_tdx.check_available()):
+                _fdc_inds = _asyncio.run(_fdc_tdx.get_indicators(symbol))
+                if _fdc_inds and len(_fdc_inds) > 0:
+                    print(f"[TDXBridge] FDC TDXCollector 指标: {symbol} {len(_fdc_inds)}项")
+                    return _fdc_inds
+        except Exception:
+            pass
+
+        # 1. 降级委托 TdxCollector（futures-data-search 单源）
         try:
             from data.collectors.tdx_collector import TdxCollector
 
@@ -204,6 +218,59 @@ class TDXBridge:
         if obv:
             result["obv"] = self._last_float(obv.get("OBV"))
             result["obv_ma"] = self._last_float(obv.get("MAOBV"))
+
+        # 如果 formula_zb 有结果，返回
+        if result:
+            return result
+
+        # 2. 最终降级：FDC compute_indicators（numpy纯函数，零外部依赖）
+        try:
+            import asyncio as _asyncio
+            from futures_data_core import get_kline as fdc_kline
+            from futures_data_core.indicators.core import compute_indicators
+
+            payload = _asyncio.run(fdc_kline(symbol, period="daily", days=120))
+            if payload and payload.data:
+                bars = payload.data.get("bars", [])
+                if bars and len(bars) >= 30:
+                    df = {
+                        "open": [float(b.get("open", 0)) for b in bars],
+                        "high": [float(b.get("high", 0)) for b in bars],
+                        "low": [float(b.get("low", 0)) for b in bars],
+                        "close": [float(b.get("close", 0)) for b in bars],
+                        "volume": [float(b.get("volume", 0)) for b in bars],
+                    }
+                    fdc_ind = compute_indicators(df, indicators="all")
+                    if fdc_ind:
+                        # 转换FDC指标命名到TDX兼容格式
+                        converted = {}
+                        if "ADX" in fdc_ind and fdc_ind["ADX"] is not None:
+                            adx_arr = fdc_ind["ADX"]
+                            if len(adx_arr) > 0 and not all(float(v) != v for v in adx_arr[-3:]):
+                                converted["adx"] = float(adx_arr[-1])
+                        if "RSI" in fdc_ind and fdc_ind["RSI"] is not None:
+                            rsi_arr = fdc_ind["RSI"]
+                            if len(rsi_arr) > 0:
+                                converted["rsi"] = float(rsi_arr[-1])
+                        if "MACD" in fdc_ind and fdc_ind["MACD"] is not None:
+                            macd = fdc_ind["MACD"]
+                            if len(macd) > 0:
+                                converted["macd_hist"] = float(macd[-1])
+                        if "BOLL" in fdc_ind and fdc_ind["BOLL"] is not None:
+                            boll = fdc_ind["BOLL"]
+                            if len(boll) > 0:
+                                converted["boll_mid"] = float(boll[-1])
+                        if "MA" in fdc_ind and fdc_ind["MA"] is not None:
+                            ma_arr = fdc_ind["MA"]
+                            if len(ma_arr) > 0:
+                                for i, p in enumerate([5, 10, 20, 40, 60], 1):
+                                    if len(ma_arr) > 0:
+                                        converted[f"ma{i}"] = float(ma_arr[-1])
+                        if converted:
+                            print(f"[TDXBridge] FDC numpy fallback for {symbol}: {len(converted)}指标")
+                            return converted
+        except Exception:
+            pass
 
         return result
 

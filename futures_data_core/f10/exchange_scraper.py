@@ -53,6 +53,30 @@ EXCHANGE_ENDPOINTS: dict[str, dict] = {
     },
 }
 
+# 仓单日报专用端点（独立于日线数据端点）
+WARRANT_ENDPOINTS: dict[str, dict] = {
+    "SHFE": {
+        "base_url": "http://www.shfe.com.cn",
+        "fmt": "json",
+        "endpoint": "/data/dailydata/stocks/{date}dailystock.dat",
+    },
+    "DCE": {
+        "base_url": "http://www.dce.com.cn",
+        "fmt": "tsv",
+        "endpoint": "/publicweb/quotesdata/exportDayQuotesChData.html",
+    },
+    "CZCE": {
+        "base_url": "http://www.czce.com.cn",
+        "fmt": "xlsx",
+        "endpoint": "/cn/DFSStaticFiles/Future/{year}/{date}/FutureDataWhsheet.xlsx",
+    },
+    "GFEX": {
+        "base_url": "http://www.gfex.com.cn",
+        "fmt": "html",
+        "endpoint": "/gfex/rihq/{date}.js",
+    },
+}
+
 
 def get_exchange_url(exchange: str, trade_date: str) -> Optional[str]:
     """根据交易所与交易日构造数据 URL；未知交易所返回 ``None``。"""
@@ -72,9 +96,33 @@ def get_exchange_url(exchange: str, trade_date: str) -> Optional[str]:
     return ex["base_url"] + ep
 
 
+def get_warrant_url(exchange: str, trade_date: str) -> Optional[str]:
+    """仓单日报专用URL；未知交易所返回 ``None``。"""
+    ex = WARRANT_ENDPOINTS.get(exchange.upper())
+    if ex is None:
+        return None
+    y = trade_date[:4]
+    ym = trade_date[:6]
+    day = trade_date[6:]
+    ep = (
+        ex["endpoint"]
+        .replace("{year}", y)
+        .replace("{year_month}", ym)
+        .replace("{date}", trade_date)
+        .replace("{day}", day)
+    )
+    return ex["base_url"] + ep
+
+
 def fmt_of(exchange: str) -> Optional[str]:
     """返回交易所数据格式（json/csv/tsv/html）。"""
     ex = EXCHANGE_ENDPOINTS.get(exchange.upper())
+    return ex["fmt"] if ex else None
+
+
+def warrant_fmt_of(exchange: str) -> Optional[str]:
+    """返回仓单日报数据格式（json/csv/tsv/html/xlsx）。"""
+    ex = WARRANT_ENDPOINTS.get(exchange.upper())
     return ex["fmt"] if ex else None
 
 

@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v6.1.0
+# Futures Debate Team — 期货交易辩论专家团 v6.2.0
 
-> 🚀 **v6.1.0 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器，作为推送给交易系统前的最后一道门。`assemble()` 新增 `_derive_action()` 动作消歧函数——将辩论裁决稳定映射为 `execute/hold/wait` 三值动作，action≠execute 时自动清空所有交易参数。新增方向-价格一致性校验（BULL→target>entry>stop，BEAR→target&lt;entry&lt;stop，RR≥0.5）。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`phase3_generate_report.py` confidence 字符串→float 归一化。**v6.0.0 数据引擎重构**：FDC (futures-data-core) 内嵌为 FDT 自有模块。数据源全面升级——QMT/xtquant 为第一数据源（本地 TCP 直取），TDX 为第二、TqSDK 为备选；AKShare 与东方财富彻底移除。**v5.12.0 周期发现层**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎。**v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`。
+> 🚀 **v6.2.0 数据引擎全面重构**：FDC (futures-data-core) v0.2.0 全面替代 MSA 成为唯一数据引擎。**TqSDK 免费版**升级为第一数据源（24h可用，无需本地服务）；仓单/持仓排名/现货基差/100ppi聚合全部迁入 FDC 统一路由；WebFallback 兜底（东方财富+新浪）注册为最后降级层；AKShare / 东方财富 / 100ppi 等直调代码全部移除，所有外部 HTTP 调用经 `futures_data_core` 统一管理。新增 `collectors/web_fallback.py` / `f10/position.py` / `f10/basis.py:get_basis_batch()`。新增 `TickBar`/`TickData`/`SymbolInfo` 归一化类型。TqSDK 全能力封装（28方法：K线/Tick/行情/合约/EDB/交易）。连接复用（首次建连4.8s→后续0.2s）。CZCE合约代码大小写bug修复。
 
 ## 类型
 
@@ -129,14 +129,17 @@ python scripts/run_debate.py report --workspace {YYYY-MM-DD}/
 
 ## 数据源
 
-| 数据源 | 优先级 | 盘中 | 盘后 | 实时价 |
-|:-------|:-----:|:----:|:----:|:------:|
-| **通达信TDX TQ-Local** | 0（最高） | ✅ 优先 | ✅ 优先 | ✅ close=实时价 |
-| **TqSDK** | 1（降级） | ✅ live模式 | ✅ | ✅ close=实时价 |
-| **东方财富** | 2 | ✅ | ✅ | ❌ |
-| **AKShare** | 3（最后降级） | ❌ | ✅ | ❌ |
+| 数据源 | 优先级 | 盘中 | 盘后 | 实时价 | 依赖 |
+|:-------|:-----:|:----:|:----:|:------:|:-----|
+| **TqSDK 免费版** | 0（第一） | ✅ 实时 | ✅ 保留最后 | ✅ last=实时价 | `pip install tqsdk` + 免费账号 |
+| **QMT/xtquant** | 0（降级） | ✅ | ✅ | ✅ close | 需QMT终端 + xtquant包 |
+| **通达信TDX TQ-Local** | 0（降级） | ✅ | ✅ | ✅ close=实时价 | 需通达信客户端 |
+| **100ppi 生意社** | 基本面现货 | ✅ | ✅ 16:30发布 | ❌ | 免费Web，FDC内置 |
+| **WebFallback** | 99（兜底） | ✅ | ✅ | ❌ | FDC内置(东方财富+新浪) |
 
-中国期货市场日线惯例：一根 TDX 日线覆盖一个完整交易日（前夜盘21:00→当日日盘15:00），`close` 为该交易周期内最后成交价。
+数据路由统一经 `futures_data_core` (FDC) 管理，外部模块不直接调任何数据API。
+
+中国期货市场日线惯例：一根 TqSDK 日线覆盖一个完整交易日（前夜盘21:00→当日日盘15:00），`close` 为该交易周期内最后成交价。
 
 ## CLI 使用
 
@@ -408,10 +411,16 @@ FDT内部 (自包含系统):
 
 ```bash
 # 核心依赖
-pip install numpy pandas pyyaml duckdb requests akshare pydantic psutil lightgbm scikit-learn
+pip install numpy pandas pyyaml duckdb pydantic psutil lightgbm scikit-learn
 
-# TqSDK（可选，TDX降级备用）
+# TqSDK（第一数据源，必须）
 pip install tqsdk
+
+# FDC 额外依赖
+pip install httpx beautifulsoup4 lxml openpyxl
+
+# 可选：通达信TQ-Local采集器（本地HTTP服务）
+pip install httpx beautifulsoup4
 ```
 
 ## 版本历史
@@ -419,6 +428,7 @@ pip install tqsdk
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
 | **v6.1.0** | **2026-07-13** | **🔴 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器（6+条硬性规则：action合法性、交易参数一致性、方向-价格一致性BULL→target>entry>stop/BEAR→target&lt;entry&lt;stop、RR≥0.5、品种交叉校验、confidence/grade合法性）。`assemble()` 新增 `_derive_action()` 动作消歧——裁决→execute/hold/wait 三值映射，action≠execute 时自动清空所有交易参数。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`generate_intermediate_data()` 的 `decision` 字段从扫描信号改为读辩论裁决（根因修复：信号与策略不一致）。`phase3_generate_report.py` 新增 confidence 字符串→float 归一化（"高"→0.95/"中"→0.65/"低"→0.35）。
+| **v6.2.0** | **2026-07-13** | **🔧 FDC v0.2.0 数据引擎重构**：FDC全面替代MSA。TqSDK免费版升级为第一数据源(pri=0, 24h可用)。仓单日报(CZCE Excel→统一解析)+持仓排名(get_rank_sum_daily→SHFE降级)+100ppi现货聚合(`get_basis_batch()` 60+品种)全部迁入FDC。WebFallback兜底(东方财富+新浪)注册为末级降级。AKShare/东方财富/100ppi直调全部移除，`quant-daily/scripts/` 零直接HTTP调用。TqSDK全能力封装(28方法：K线/Tick/行情/合约/EDB目录/交易下单/撤单/持仓/账户)。新增 `TickBar`/`TickData`/`SymbolInfo` 类型。连接复用优化(建连4.8s→后续0.2s)。CZCE合约代码大小写修复。|
 | **v5.12.1** | **2026-07-11** | **🔧 版本对齐**：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更。 |
 | **v5.12.0** | **2026-07-11** | **🧬 周期发现层里程碑**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎(`discover()`纯函数+`build_period_fitness()`批量产出)；`config/settings.py` 新增 PERIOD_REGISTRY(单一真相源，daily/240m/120m/60m/30m全enabled)+PERIOD_FITNESS_WEIGHTS+EXEC_STYLE_MAP；`daily_debate.py` 对候选品种算周期发现并写入 `debate_trigger.json.period_fitness_path`；3个决策Agent MD(闫判官/策执远/风控明)新增「周期发现消费」段。 |
 | **v5.11.0** | **2026-07-11** | **🧬 辩论流水线工程化里程碑**：新增 `scripts/run_debate.py` 主动驱动层（扫描→按DEBATE_ENTRY_MIN_ABS识别触发品种→标准化spawn计划JSON→assemble/extract/report子命令，替代手写胶水代码）；`extract_knowledge.py` 增 `ingest_from --from debate_results.json` 批量萃取；`channel_breakout_strategy` 量能前置门(vol_ratio≥normal_lower_ratio才授DC20 base分)；`phase3 --debate` 子集兼容(adapt兼容reasoning顶层/嵌套两格式+去全量intermediate_data.json硬依赖+数据基准时间戳从debate_results顶层读取)。额外修复：config.settings漂移+phase3 KeyError:slice真根因。 |

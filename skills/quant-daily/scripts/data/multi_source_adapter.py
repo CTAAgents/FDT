@@ -43,11 +43,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from enum import Enum
 
-# 替换JSON文件缓存为 DuckDB
+# FDC统一缓存（CacheStore = Redis + PostgreSQL，Memory兜底）
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from .duckdb_store import DuckDBStore
 from .data_source_config import DataSourceConfig
 from .data_freshness_monitor import record_data_fetch
 
@@ -79,7 +78,6 @@ class DataSource(Enum):
     TQSDK = "tqsdk"  # 天勤量化
     QMT_XTQUANT = "qmt_xtquant"  # QMT/xtquant（TCP本地直取）
     TDX_LOCAL = "tdx_local"  # 通达信本地HTTP服务
-    WEBSEARCH = "websearch"  # WebSearch
     CACHE = "cache"  # 历史缓存
     NONE = "none"  # 无数据源
 
@@ -372,14 +370,15 @@ class MultiSourceAdapter:
         # 数据源配置(从 YAML 加载)
         self.config = DataSourceConfig()
 
-        # DuckDB 存储引擎(替换JSON文件缓存)
+        # FDC CacheStore 统一缓存（Redis + PostgreSQL，Memory 兜底）
         try:
-            self.db = DuckDBStore()
-            self.db_available = True
+            from futures_data_core.core.cache_store import make_cache_store as _make_cache
+            self.cache = _make_cache(ttl_hours=4.0)
+            self.cache_available = True
         except Exception as e:
-            print(f"[Warning] DuckDB not available, falling back to JSON cache: {e}")
-            self.db = None
-            self.db_available = False
+            print(f"[Warning] FDC CacheStore not available: {e}")
+            self.cache = None
+            self.cache_available = False
 
         # 初始化数据源
         self._init_data_sources()
@@ -457,9 +456,7 @@ class MultiSourceAdapter:
         end_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        获取行情数据(带降级机制 + 配置驱动的盘中/盘后时间路由)
-
-        优先级来源于 data_sources.yaml,支持运行时修改配置后 reload.
+        获取行情数据(FDC优先 → 配置驱动的盘中/盘后降级)
 
         Args:
             variety: 品种代码
@@ -470,15 +467,34 @@ class MultiSourceAdapter:
         Returns:
             行情数据
         """
-        # 当前时间判断盘中/盘后
+        # 0. 优先 FDC futures_data_core（统一降级链）
+        try:
+            import asyncio as _asyncio
+            from futures_data_core import get_quote as fdc_quote
+
+            payload = _asyncio.run(fdc_quote(variety))
+            if payload and payload.data:
+                sources = payload.meta.get("sources", ["fdc"])
+                print(f"[MultiSource] get_quote({variety}) → FDC({sources[0]})", flush=True)
+                try:
+                    record_data_fetch(variety, sources[0], success=True)
+                except Exception:
+                    pass
+                return {
+                    "success": True,
+                    "data": payload.data,
+                    "data_source": sources[0],
+                    "confidence": 1.0,
+                }
+        except Exception as e:
+            print(f"[Warning] FDC get_quote {variety}: {e}")
+
+        # 1. 降级 MSA 自有数据源（配置驱动）
         now = datetime.now()
         hour = now.hour
         is_trading_hours = (9 <= hour < 15) or (21 <= hour < 23)
-
-        # 从配置获取优先级列表
         sources = self.config.get_priority_list(is_trading_hour=is_trading_hours)
 
-        # 逐个尝试数据源
         for source in sources:
             if not self.health.is_available(source):
                 continue
@@ -492,7 +508,6 @@ class MultiSourceAdapter:
                     self.health.record_success(source, elapsed)
                     data_count = len(data) if isinstance(data, (list, tuple)) else 1
                     print(f"[MultiSource] get_quote({variety}) → {source.value}, {data_count}条", flush=True)
-                    # 记录数据新鲜度 SLA
                     try:
                         record_data_fetch(variety, source.value, success=True, count=data_count)
                     except Exception as fe:
@@ -501,14 +516,13 @@ class MultiSourceAdapter:
                         "success": True,
                         "data": data,
                         "data_source": source.value,
-                        "confidence": 1.0,  # 所有数据源置信度统一
+                        "confidence": 1.0,
                         "response_ms": elapsed,
                     }
             except Exception as e:
                 print(f"[Warning] {source.value} failed for {variety}: {e}")
                 self.health.record_failure(source)
 
-        # 所有数据源都失败
         try:
             record_data_fetch(variety, "all", success=False, error="所有数据源均不可用")
         except Exception:
@@ -550,10 +564,10 @@ class MultiSourceAdapter:
         contract: str = None,
     ) -> Dict[str, Any]:
         """
-        获取品种的完整K线历史序列(多数据源降级获取)
+        获取品种的完整K线历史序列(FDC统一降级获取)
 
-        降级链委托 FDC futures_data_core → QMT(pri=0) → TDX TQ-Local(pri=1) → TqSDK(pri=2)。
-        FDC 全不可用时回退 Cache + WebSearch 兜底(独有的 fallback 能力)。
+        降级链：FDC futures_data_core（QMT(pri=0) → TDX TQ-Local(pri=1) → TqSDK(pri=2)）
+        始终走FDC，不依赖本地QMT安装状态。FDC全不可用时回退CacheStore + JSON文件兜底。
 
         Args:
             variety: 品种代码,如 SC, BU, CU
@@ -565,37 +579,37 @@ class MultiSourceAdapter:
             {"success": bool, "data": [{date, open, close, high, low, volume, oi, settle}, ...],
              "data_source": str, "confidence": float}
         """
-        # ── 1. 委托 FDC 降级链（QMT → TDX TQ-Local → TqSDK）──
-        if self.qmt_available:
-            try:
-                fdc_bars = self._fetch_qmt_kline(variety, period, days)
-                if fdc_bars and len(fdc_bars) >= 20:
-                    records = []
-                    for bar in fdc_bars:
-                        records.append({
-                            "date": bar["date"],
-                            "open": float(bar["open"]),
-                            "close": float(bar["close"]),
-                            "high": float(bar["high"]),
-                            "low": float(bar["low"]),
-                            "volume": int(bar["volume"]),
-                            "oi": int(bar.get("oi", 0)),
-                            "settle": float(bar.get("settle", 0)),
-                            "data_source": bar.get("data_source", "fdc"),
-                            "confidence": 1.0,
-                        })
-                    source_label = records[0].get("data_source", "fdc")
-                    print(f"[MultiSource] get_kline({variety}) → FDC降级链({source_label}), {len(records)}条")
-                    if not _kline_is_stale(records, period):
-                        try:
-                            record_data_fetch(variety, source_label, success=True, count=len(records))
-                        except Exception:
-                            pass
-                        return self._return_kline(records, source_label, period)
-                else:
-                    print(f"[Warning] get_kline({variety}) qmt_available=True 但 FDC 返回空/不足20条")
-            except Exception as e:
-                print(f"[MultiSource] FDC降级链 get_kline {variety}: {e}")
+        # ── 1. FDC 统一降级链（QMT(pri=0) → TDX TQ-Local(pri=1) → TqSDK(pri=2)）──
+        #    FDC自管理降级，不依赖本地QMT是否安装；QMT不可用时自动尝试TDX→TqSDK
+        try:
+            fdc_bars = self._fetch_qmt_kline(variety, period, days)
+            if fdc_bars and len(fdc_bars) >= 20:
+                records = []
+                for bar in fdc_bars:
+                    records.append({
+                        "date": bar["date"],
+                        "open": float(bar["open"]),
+                        "close": float(bar["close"]),
+                        "high": float(bar["high"]),
+                        "low": float(bar["low"]),
+                        "volume": int(bar["volume"]),
+                        "oi": int(bar.get("oi", 0)),
+                        "settle": float(bar.get("settle", 0)),
+                        "data_source": bar.get("data_source", "fdc"),
+                        "confidence": 1.0,
+                    })
+                source_label = records[0].get("data_source", "fdc")
+                print(f"[MultiSource] get_kline({variety}) → FDC降级链({source_label}), {len(records)}条")
+                if not _kline_is_stale(records, period):
+                    try:
+                        record_data_fetch(variety, source_label, success=True, count=len(records))
+                    except Exception:
+                        pass
+                    return self._return_kline(records, source_label, period)
+            else:
+                print(f"[Warning] get_kline({variety}) FDC返回空/不足20条")
+        except Exception as e:
+            print(f"[MultiSource] FDC降级链 get_kline {variety}: {e}")
 
         # ── 2. Cache 兜底（FDC 没有的回退层）──
         try:
@@ -640,7 +654,7 @@ class MultiSourceAdapter:
 
     def get_term_structure(self, variety: str) -> Dict[str, Any]:
         """
-        获取品种的期限结构(优先通达信本地,降级东方财富)
+        获取品种的期限结构(FDC优先 → 通达信本地降级)
 
         返回格式:
         {
@@ -654,7 +668,29 @@ class MultiSourceAdapter:
             "data_source": "tdx_local",
         }
         """
-        # 0. 优先通达信本地(TdxCollector 通过 get_all_contracts 实时计算)
+        # 0. 优先 FDC futures_data_core（统一降级链）
+        try:
+            import asyncio as _asyncio
+            from futures_data_core import get_term_structure as fdc_term
+
+            payload = _asyncio.run(fdc_term(variety))
+            if payload and payload.data:
+                ts = payload.data
+                contract_count = len(ts.get("contracts", []))
+                sources = payload.meta.get("sources", ["fdc"])
+                print(
+                    f"[MultiSource] get_term_structure({variety}) → FDC({sources[0]}), "
+                    f"{ts.get('type','?')} (斜率{ts.get('slope',0)}%)"
+                )
+                try:
+                    record_data_fetch(variety, sources[0], success=True, count=contract_count)
+                except Exception:
+                    pass
+                return {"success": True, "data_source": sources[0], **ts}
+        except Exception as e:
+            print(f"[Warning] FDC term_structure {variety}: {e}")
+
+        # 1. 降级通达信本地(TdxCollector 通过 get_all_contracts 实时计算)
         if self.tdx_local_available and self.tdx_collector:
             try:
                 ts = self.tdx_collector.get_term_structure(variety)
@@ -687,7 +723,7 @@ class MultiSourceAdapter:
 
     def get_indicators(self, symbol: str) -> Dict[str, Any]:
         """
-        获取品种的技术指标(优先通达信本地 formula_zb,全部直接获取).
+        获取品种的技术指标(FDC compute_indicators → 通达信本地 formula_zb)
 
         覆盖指标(14组公式,与通达信100%一致):
           趋势类: DMI(ADX/PDI/MDI)、MACD、MA(5/10/20/40/60)、BOLL、TRIX
@@ -703,7 +739,7 @@ class MultiSourceAdapter:
             {"success": True, "data": {指标字典}, "data_source": "tdx_local", ...}
             或 {"success": False, "error": "..."}
         """
-        # 0. 优先通达信本地 formula_zb
+        # 0. 优先通达信本地 formula_zb（精度最高，与通达信实盘一致）
         if self.tdx_local_available and self.tdx_collector:
             try:
                 ind = self.tdx_collector.get_indicators(symbol)
@@ -724,10 +760,47 @@ class MultiSourceAdapter:
             except Exception as e:
                 print(f"[MultiSource] 通达信 get_indicators {symbol}: {e}")
 
-        # 1. 降级 numpy 计算(需外部传入K线数据)
+        # 1. 降级 FDC compute_indicators（numpy纯函数，零外部依赖）
+        try:
+            from futures_data_core.indicators.core import compute_indicators, INDICATOR_NAMES
+            # 需要K线数据来计算指标，尝试从FDC获取
+            import asyncio as _asyncio
+            from futures_data_core import get_kline as fdc_kline
+
+            payload = _asyncio.run(fdc_kline(symbol, period="daily", days=120))
+            if payload and payload.data:
+                bars = payload.data.get("bars", [])
+                if bars and len(bars) >= 30:
+                    df = {
+                        "open": [float(b.get("open", 0)) for b in bars],
+                        "high": [float(b.get("high", 0)) for b in bars],
+                        "low": [float(b.get("low", 0)) for b in bars],
+                        "close": [float(b.get("close", 0)) for b in bars],
+                        "volume": [float(b.get("volume", 0)) for b in bars],
+                    }
+                    fdc_ind = compute_indicators(df, indicators="all")
+                    if fdc_ind:
+                        sources = payload.meta.get("sources", ["fdc"])
+                        print(f"[MultiSource] get_indicators({symbol}) → FDC numpy, {len(fdc_ind)}项指标")
+                        try:
+                            record_data_fetch(symbol, sources[0], success=True, count=len(fdc_ind))
+                        except Exception:
+                            pass
+                        return {
+                            "success": True,
+                            "data": fdc_ind,
+                            "data_source": sources[0],
+                            "confidence": 1.0,
+                            "indicator_count": len(fdc_ind),
+                            "method": "fdc_numpy",
+                        }
+        except Exception as e:
+            print(f"[Warning] FDC compute_indicators {symbol}: {e}")
+
+        # 2. 全部失败
         return {
             "success": False,
-            "error": f"通达信不可用,无法计算 {symbol} 技术指标(需TDX formula_zb或numpy兜底)",
+            "error": f"所有数据源均无法计算 {symbol} 技术指标",
             "symbol": symbol.upper(),
             "data_source": "none",
         }
@@ -751,8 +824,6 @@ class MultiSourceAdapter:
             return self._fetch_tdx(variety, contract_type, start_date, end_date)
         elif source == DataSource.AKSHARE:
             return self._fetch_akshare(variety, contract_type, start_date, end_date)
-        elif source == DataSource.WEBSEARCH:
-            return self._fetch_websearch(variety, contract_type, start_date, end_date)
         elif source == DataSource.CACHE:
             return self._fetch_cache(variety, start_date, end_date)
         return None
@@ -1299,17 +1370,19 @@ class MultiSourceAdapter:
         end_date: Optional[str] = None,
         **kwargs,
     ) -> Optional[List[Dict]]:
-        # 从DuckDB缓存获取数据
-        if self.db_available and self.db is not None:
+        # 从FDC CacheStore获取缓存（Redis L1 + PostgreSQL L2，Memory兜底）
+        if self.cache_available and self.cache is not None:
             try:
-                cached = self.db.get_cached("quote", variety, ttl_hours=4, start_date=start_date, end_date=end_date)
-                if cached:
-                    print(f"[Cache] DuckDB hit for {variety}")
+                import asyncio as _asyncio
+                cache_key = f"kline:{variety}:{start_date or 'latest'}"
+                cached = _asyncio.run(self.cache.get(cache_key))
+                if cached is not None:
+                    print(f"[Cache] FDC CacheStore hit for {variety} ({cache_key})")
                     return cached
             except Exception as e:
-                print(f"[Warning] DuckDB cache read error: {e}")
+                print(f"[Warning] FDC CacheStore read error: {e}")
 
-        # 降级:JSON文件缓存(兼容旧缓存)
+        # 降级: JSON文件缓存(兼容旧缓存)
         cache_file = self.cache_dir / f"{variety}_{start_date or 'latest'}.json"
         if cache_file.exists():
             try:
@@ -1325,15 +1398,16 @@ class MultiSourceAdapter:
         return None
 
     def save_to_cache(self, variety: str, data: List[Dict]):
-        # 保存数据到DuckDB缓存(和JSON文件兜底)
-        # 主缓存:DuckDB
-        if self.db_available and self.db is not None:
+        # 保存数据到FDC CacheStore（Redis L1 + PostgreSQL L2，Memory兜底）
+        if self.cache_available and self.cache is not None:
             try:
-                self.db.set_cached("quote", variety, data, ttl_hours=4)
+                import asyncio as _asyncio
+                cache_key = f"kline:{variety}:latest"
+                _asyncio.run(self.cache.set(cache_key, data, ttl_hours=4.0))
             except Exception as e:
-                print(f"[Warning] DuckDB cache write error: {e}")
+                print(f"[Warning] FDC CacheStore write error: {e}")
 
-        # 兜底:JSON文件(兼容旧调用者)
+        # 兜底: JSON文件(兼容旧调用者)
         cache_file = self.cache_dir / f"{variety}_latest.json"
         try:
             with open(cache_file, "w", encoding="utf-8") as f:

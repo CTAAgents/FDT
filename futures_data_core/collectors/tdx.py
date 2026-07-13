@@ -99,9 +99,11 @@ class TDXCollector(BaseCollector):
     # 可用性探测
     # ───────────────────────────────────────────────────────────
     async def check_available(self) -> bool:
-        """探测 TQ-Local 是否可用（轻量 get_stock_list 调用）。"""
+        """探测 TQ-Local 是否可用（轻量 get_stock_list 调用）。
+        🐛 2026-07-13: 缺 list_type=1 参数导致 TQ-Local 返回 ErrorId=10（参数缺少:market/list_type）
+        """
         try:
-            resp = await self._post("get_stock_list", {"market": FUTURES_MARKET})
+            resp = await self._post("get_stock_list", {"market": FUTURES_MARKET, "list_type": 1})
             result = resp.get("Value", resp) if isinstance(resp, dict) else resp
             return isinstance(result, list) and len(result) > 0
         except Exception:
@@ -136,10 +138,12 @@ class TDXCollector(BaseCollector):
         )
 
     async def _load_contracts(self) -> None:
-        """加载期货主力合约映射 ``{品种字母: 合约代码}``。"""
+        """加载期货主力合约映射 ``{品种字母: 合约代码}``。
+        🐛 2026-07-13: 缺 list_type=1 参数导致 TQ-Local 返回 ErrorId=10（合约列表为空）
+        """
         self._contract_cache = {}
         try:
-            resp = await self._post("get_stock_list", {"market": FUTURES_MARKET})
+            resp = await self._post("get_stock_list", {"market": FUTURES_MARKET, "list_type": 1})
             result = resp.get("Value", resp) if isinstance(resp, dict) else resp
             if not isinstance(result, list):
                 return
@@ -281,3 +285,109 @@ class TDXCollector(BaseCollector):
             pre_close=_f("LastClose"),
             volume=_f("Volume"),
         )
+
+    # ───────────────────────────────────────────────────────────
+    # 技术指标（formula_zb）
+    # ───────────────────────────────────────────────────────────
+    async def get_indicators(self, symbol: str) -> Optional[dict]:
+        """通过通达信 formula_zb 获取品种技术指标。
+
+        覆盖指标（与通达信实盘100%一致）：
+          ADX/PDI/MDI(DMI), RSI, CCI, MACD(DIF/DEA/HIST),
+          MA(5/10/20/40/60), BOLL(UB/中轨/LB), OBV
+
+        Args:
+            symbol: 品种代码（如 'rb', 'CU', 'M'）。
+
+        Returns:
+            指标字典如 {'adx': 59.3, 'rsi': 31.6, ...} 或 None。
+        """
+        try:
+            contract = await self._resolve_contract(symbol)
+        except CollectorUnavailableError:
+            return None
+        if not await self._set_data(contract):
+            return None
+
+        result = {}
+
+        dmi = await self._query_formula("DMI", "14,6")
+        if dmi:
+            result["adx"] = self._last_float(dmi.get("ADX"))
+            result["pdi"] = self._last_float(dmi.get("PDI"))
+            result["mdi"] = self._last_float(dmi.get("MDI"))
+
+        rsi = await self._query_formula("RSI", "14,14")
+        if rsi:
+            result["rsi"] = self._last_float(rsi.get("RSI1"))
+
+        cci = await self._query_formula("CCI", "")
+        if cci:
+            result["cci"] = self._last_float(cci.get("CCI"))
+
+        macd = await self._query_formula("MACD", "")
+        if macd:
+            result["macd_dif"] = self._last_float(macd.get("DIF"))
+            result["macd_dea"] = self._last_float(macd.get("DEA"))
+            result["macd_hist"] = self._last_float(macd.get("MACD"))
+
+        ma = await self._query_formula("MA", "")
+        if ma:
+            for i in range(1, 6):
+                v = self._last_float(ma.get(f"MA{i}"))
+                if v is not None:
+                    result[f"ma{i}"] = v
+
+        boll = await self._query_formula("BOLL", "")
+        if boll:
+            result["boll_upper"] = self._last_float(boll.get("UB"))
+            result["boll_mid"] = self._last_float(boll.get("BOLL"))
+            result["boll_lower"] = self._last_float(boll.get("LB"))
+
+        obv = await self._query_formula("OBV", "")
+        if obv:
+            result["obv"] = self._last_float(obv.get("OBV"))
+            result["obv_ma"] = self._last_float(obv.get("MAOBV"))
+
+        return result if result else None
+
+    async def _set_data(self, stock_code: str) -> bool:
+        """设置 formula_zb 的数据上下文。"""
+        try:
+            resp = await self._post(
+                "formula_set_data_info",
+                {
+                    "stock_code": stock_code,
+                    "stock_period": "1d",
+                    "count": 250,
+                    "dividend_type": 0,
+                },
+            )
+            err = resp.get("ErrorId", "") if isinstance(resp, dict) else ""
+            return err in ("", "0")
+        except Exception:
+            return False
+
+    async def _query_formula(self, formula: str, arg: str = "") -> Optional[dict]:
+        """查询单个通达信公式。"""
+        try:
+            resp = await self._post(
+                "formula_zb",
+                {"formula_name": formula, "formula_arg": arg, "xsflag": 2},
+            )
+            return resp.get("Value", resp) if isinstance(resp, dict) else resp
+        except Exception:
+            return None
+
+    @staticmethod
+    def _last_float(arr) -> Optional[float]:
+        """安全提取数组最后一个有效值。"""
+        if not arr:
+            return None
+        for v in reversed(arr):
+            if v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    continue
+        return None

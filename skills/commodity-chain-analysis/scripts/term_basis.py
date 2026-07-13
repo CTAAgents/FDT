@@ -97,17 +97,12 @@ SPOT_PRICE_MAP: Dict[str, dict] = {
 
 def _fetch_spot_prices_akshare(trade_date: str = None) -> Dict[str, float]:
     """
-    通过AKShare获取现货价格。
-    API: futures_spot_price(date='YYYYMMDD', vars_list=['AL','CU',...])
-    返回 {symbol_lower: spot_price}，如 {'rb': 3520, 'i': 780, ...}
-    注意：AKShare是降级数据源，调用失败返回空dict。
+    通过FDC 100ppi现期表聚合获取现货价格 (替代 AKShare futures_spot_price).
+
+    Returns:
+        {pid_lower: spot_price}
     """
-    try:
-        import akshare as ak
-        import pandas as pd
-    except ImportError:
-        print("[term_basis] AKShare未安装，跳过现货价格获取")
-        return {}
+    import asyncio
 
     if trade_date is None:
         trade_date = datetime.now().strftime("%Y%m%d")
@@ -115,63 +110,22 @@ def _fetch_spot_prices_akshare(trade_date: str = None) -> Dict[str, float]:
     spot_prices = {}
 
     try:
-        print(f"[term_basis] 正在通过AKShare获取现货价格({trade_date})...")
+        print(f"[term_basis] 正在通过FDC获取现货价格({trade_date})...")
+        from futures_data_core.f10.basis import get_basis_batch as fdc_basis_batch
 
-        # 构建vars_list：从SPOT_PRICE_MAP提取ak_symbol并转换为大写品种代码
-        vars_list = []
-        pid_to_spot_symbol = {}
-        for pid, info in SPOT_PRICE_MAP.items():
-            # futures_spot_price的vars_list使用大写品种代码如 AL, CU, RB
-            spot_symbol = pid.upper()
-            vars_list.append(spot_symbol)
-            pid_to_spot_symbol[pid.lower()] = spot_symbol
-
-        # AKShare批量接口: futures_spot_price(date, vars_list)
-        df = ak.futures_spot_price(date=trade_date, vars_list=vars_list)
-
-        if df is not None and not df.empty:
-            print(f"  AKShare现货返回 {len(df)} 行, columns={df.columns.tolist()[:8]}")
-
-            # 列结构: date, symbol, spot_price, near_contract, near_contract_price, ...
-            for _, row in df.iterrows():
-                spot_symbol = str(row.get("symbol", "")).strip().upper()
-                spot_price = row.get("spot_price", None)
-
-                if spot_price is None or pd.isna(spot_price):
-                    # 尝试其他列名
-                    for col in ["现货价", "价格", "price", "value"]:
-                        if col in df.columns:
-                            spot_price = row.get(col)
-                            if spot_price is not None and not pd.isna(spot_price):
-                                break
-
-                if spot_price is not None and not pd.isna(spot_price) and float(spot_price) > 0:
-                    # 反向映射：spot_symbol (如 'AL') → pid_lower (如 'al')
-                    for pid_lower, ss in pid_to_spot_symbol.items():
-                        if ss == spot_symbol:
-                            spot_prices[pid_lower] = float(spot_price)
-                            break
-        else:
-            print("  AKShare现货返回空数据")
-
+        payload = asyncio.run(fdc_basis_batch(symbols=list(SPOT_PRICE_MAP.keys())))
+        if payload and payload.data:
+            items = payload.data.get("items", {})
+            for pid_lower, item in items.items():
+                spot_price = item.get("spot_price")
+                if spot_price is not None and spot_price > 0:
+                    spot_prices[pid_lower] = spot_price
+                    info = SPOT_PRICE_MAP.get(pid_lower, {})
+                    print(f"    [OK] {pid_lower} ({info.get('spot_name','?')}) 现货价: {spot_price}")
     except Exception as e:
-        print(f"  [WARN] AKShare批量现货获取失败: {str(e)[:100]}")
-        # 降级：逐品种查询
-        print("  尝试逐品种查询...")
-        for pid, info in SPOT_PRICE_MAP.items():
-            try:
-                spot_symbol = pid.upper()
-                df_spot = ak.futures_spot_price(date=trade_date, vars_list=[spot_symbol])
-                if df_spot is not None and not df_spot.empty:
-                    spot_price = df_spot.iloc[0].get("spot_price")
-                    if spot_price is not None and not pd.isna(spot_price) and float(spot_price) > 0:
-                        spot_prices[pid.lower()] = float(spot_price)
-                        print(f"    [OK] {pid} ({info['spot_name']}) 现货价: {spot_price}")
-            except Exception as e2:
-                print(f"    [WARN] {pid} 现货价获取失败: {str(e2)[:60]}")
-                continue
+        print(f"  [WARN] FDC现货获取失败: {str(e)[:100]}")
 
-    print(f"[term_basis] 现货价获取完成: {len(spot_prices)}/{len(SPOT_PRICE_MAP)} 品种")
+    print(f"[term_basis] 现货价获取完成: {len(spot_prices)}/{len(SPOT_PRICE_MAP)} 品种 (FDC)")
     return spot_prices
 
 

@@ -5,7 +5,7 @@
 全部失败时回退到缓存（Postgres / Redis / Memory）；仍无则标记 ``UNAVAILABLE``。
 
 数据等级约定：
-    - ``qmt_xtquant`` / ``tdx_tq_local`` 成功 -> ``PRIMARY``
+    - ``tqsdk`` 成功 -> ``PRIMARY``
     - 其它实时源成功 -> ``DAILY``
     - 缓存命中 -> ``CACHED``
     - 全部失败 -> ``UNAVAILABLE``
@@ -26,6 +26,7 @@ from futures_data_core.collectors.base import (
 from futures_data_core.collectors.qmt import QMTCollector
 from futures_data_core.collectors.tdx import TDXCollector
 from futures_data_core.collectors.tqsdk import TqSdkCollector
+from futures_data_core.collectors.web_fallback import WebFallbackCollector
 from futures_data_core.core.cache_store import CacheStore
 
 
@@ -33,9 +34,10 @@ def _default_collectors() -> list[BaseCollector]:
     """构建默认采集器列表（按优先级升序）。"""
     return select_by_priority(
         [
-            QMTCollector(),
-            TDXCollector(),
-            TqSdkCollector(),
+            TqSdkCollector(),       # 第一数据源：TqSDK免费版（24h可用，无需本地服务）
+            QMTCollector(),         # 降级：QMT/xtquant
+            TDXCollector(),         # 降级：通达信TQ-Local
+            WebFallbackCollector(), # 最后兜底：东方财富+新浪
         ]
     )
 
@@ -122,7 +124,7 @@ class MultiSourceAdapter:
 
     async def _wrap_kline(self, collector: BaseCollector, data, tried: list[str]) -> A2APayload:
         """将成功的 KlineData 包装为 A2APayload 并写入缓存。"""
-        grade = "PRIMARY" if collector.name in ("tdx_tq_local", "qmt_xtquant") else "DAILY"
+        grade = "PRIMARY" if collector.name in ("tqsdk", "tdx_tq_local", "qmt_xtquant") else "DAILY"
         payload = A2APayload(
             type=DATA_TYPES["KLINE"],
             runtime_mode="independent",

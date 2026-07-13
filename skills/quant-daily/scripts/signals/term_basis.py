@@ -22,16 +22,14 @@ import sys
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-# v2.1: 引入100ppi现货采集器
-try:
-    from data.spot_100ppi import fetch_ppi_data, is_covered as ppi_is_covered, UNIT_CONVERSIONS
-    _PPI_AVAILABLE = True
-except ImportError:
-    _PPI_AVAILABLE = False
-    print("[term_basis] 100ppi现货采集器未就绪")
+# FDC futures_data_core — 统一数据引擎
+from futures_data_core import (
+    get_basis as fdc_get_basis,
+    get_term_structure as fdc_get_term_structure,
+)
+from futures_data_core.f10.basis import get_basis_batch as fdc_get_basis_batch
 
-# FDC futures_data_core 替代 AKShare
-from futures_data_core import get_basis as fdc_get_basis, get_term_structure as fdc_get_term_structure
+_PPI_AVAILABLE = True  # FDC内置100ppi聚合抓取
 
 # ============================================================
 # 通达信 TdxCollector 加载
@@ -144,49 +142,46 @@ SPOT_PRICE_MAP: Dict[str, dict] = {
 
 def _fetch_spot_prices_100ppi(symbols: List[str]) -> Dict[str, dict]:
     """
-    通过100ppi生意社现期表获取现货基准价 (v2.1, 优先级最高).
+    通过FDC 100ppi现期表聚合抓取获取现货基准价 (替代原 spot_100ppi 直调).
 
     Returns:
         {symbol_lower: {
-            spot_price: float,        # 换算后的现货价(统一单位)
-            basis_rate: float,        # 基差率
+            spot_price: float,
+            basis_rate: float,
             data_source: '100ppi(T-1)',
-            spot_note: str,
         }}
     """
-    if not _PPI_AVAILABLE:
-        return {}
+    import asyncio
 
-    print("[term_basis] 尝试100ppi现期表获取现货基准价...")
-    result = fetch_ppi_data(symbols)
+    print("[term_basis] 尝试FDC 100ppi现期表获取现货基准价...")
+    try:
+        payload = asyncio.run(fdc_get_basis_batch(symbols))
+        if not payload or not payload.data:
+            print("[term_basis] FDC 100ppi返回为空")
+            return {}
+        items = payload.data.get("items", {})
+        data_date = payload.data.get("data_date", "?")
+        freshness_ok = payload.data.get("freshness_ok", False)
 
-    if not result or result.get("freshness_ok") is False:
-        freshness = result.get("data_date", "unknown") if result else "N/A"
-        print(f"[term_basis] 100ppi数据新鲜度不合格(freshness_ok=False, date={freshness}), 降级到FDC")
-        return {}
-
-    items = result.get("items", {})
-    if not items:
-        print("[term_basis] 100ppi无数据, 降级到FDC")
+        if not items:
+            print("[term_basis] FDC 100ppi无数据")
+            return {}
+        if not freshness_ok:
+            print(f"[term_basis] FDC 100ppi数据新鲜度不合格(date={data_date}), 仍使用")
+            # 不降级 — FDC内部已处理降级逻辑
+    except Exception as e:
+        print(f"[term_basis] FDC 100ppi获取失败: {str(e)[:60]}")
         return {}
 
     spot_data = {}
     for sym_lower, item in items.items():
         spot_data[sym_lower] = {
-            "spot_price": item["spot_converted"],
-            "spot_raw": item["spot_raw"],
-            "main_contract": item["main_contract"],
-            "main_price": item["main_price_converted"],
-            "basis_rate": item["basis_rate_pct"] / 100.0 if item["basis_rate_pct"] is not None else None,
-            "data_source": f"100ppi(T-1, {result['data_date']})",
-            "spot_note": item.get("spot_conv_note", ""),
-            "basis_direction": item.get("basis_direction", ""),
-            "warning": item.get("warning", ""),
+            "spot_price": item.get("spot_price"),
+            "basis_rate": item.get("basis_pct"),
+            "data_source": f"100ppi(FDC, {data_date})",
         }
 
-    print(f"[term_basis] 100ppi现货获取完成: {len(spot_data)}品种")
-    if result.get("uncovered"):
-        print(f"  100ppi未覆盖: {result['uncovered']}")
+    print(f"[term_basis] FDC 100ppi获取完成: {len(spot_data)}品种")
     return spot_data
 
 

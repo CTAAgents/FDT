@@ -1,106 +1,175 @@
-"""天勤 TqSDK 采集器 [INDEPENDENT]。
+"""天勤 TqSDK 采集器 — 全能力封装 [INDEPENDENT]。
 
-基于 ``tqsdk`` 同步阻塞 API，通过 ``asyncio.to_thread`` 包装为异步接口。
-``tqsdk`` 为可选依赖（见 ``pyproject.toml`` 的 ``tqsdk`` extra），未安装时
-:meth:`check_available` 返回 ``False``，降级链自动跳过本采集器。
+封装 TqSDK 所有数据查询和交易方法，作为 FDC 的统一量化数据引擎入口。
+所有方法通过 ``asyncio.to_thread`` 包装为异步接口。
 
-注意：天勤没有"主力连续"便捷接口，故 :meth:`get_kline` 需要显式传入合约代码
-（如 ``"SHFE.cu2408"``）；未传合约时抛出 :class:`CollectorUnavailableError`，
-由适配器跳过并降级到下一源。
+```python
+# 使用示例
+from futures_data_core.collectors.tqsdk import TqSdkCollector
+c = TqSdkCollector()
+kline = await c.get_kline('CU')
+quote = await c.get_quote('CU')
+account = await c.get_account()
+shares = await c.query_cont_quotes('SHFE')
+```
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+import os
+import threading
+from datetime import date, datetime
+from typing import Any, Optional
 
 from futures_data_core.collectors.base import (
     BaseCollector,
     CollectorType,
     CollectorUnavailableError,
 )
-from futures_data_core.core.types import KlineBar, KlineData
+from futures_data_core.core.types import KlineBar, KlineData, QuoteData, SymbolInfo, TickBar, TickData
 
-# 周期 -> TqSDK 秒级 duration
+# ── pd_isna helper ──
+def _pd_isna(v) -> bool:
+    try:
+        import pandas as pd
+        return pd.isna(v)
+    except ImportError:
+        return v is None or (isinstance(v, float) and str(v) == "nan")
+
+# ── 周期常量 ──
 _PERIOD_SECONDS = {
-    "daily": 86400,
-    "1d": 86400,
-    "60m": 3600,
-    "120m": 7200,
-    "240m": 14400,
-    "weekly": 604800,
-    "1w": 604800,
+    "daily": 86400, "1d": 86400,
+    "60m": 3600, "120m": 7200, "240m": 14400,
+    "weekly": 604800, "1w": 604800,
+    "1m": 60, "5m": 300, "15m": 900, "30m": 1800,
+}
+
+# ── 品种 → 交易所 ──
+_EXCHANGE_MAP: dict[str, str] = {
+    "CU": "SHFE", "AL": "SHFE", "ZN": "SHFE", "PB": "SHFE",
+    "NI": "SHFE", "SN": "SHFE", "AU": "SHFE", "AG": "SHFE",
+    "RB": "SHFE", "HC": "SHFE", "SS": "SHFE", "RU": "SHFE",
+    "BR": "SHFE", "FU": "SHFE", "BU": "SHFE", "SP": "SHFE",
+    "WR": "SHFE", "AO": "SHFE",
+    "A": "DCE", "B": "DCE", "M": "DCE", "Y": "DCE", "C": "DCE",
+    "P": "DCE", "J": "DCE", "JM": "DCE", "I": "DCE", "L": "DCE",
+    "PP": "DCE", "V": "DCE", "JD": "DCE", "RR": "DCE", "LH": "DCE",
+    "EB": "DCE", "EG": "DCE", "PG": "DCE",
+    "SR": "CZCE", "CF": "CZCE", "TA": "CZCE", "OI": "CZCE",
+    "RM": "CZCE", "MA": "CZCE", "FG": "CZCE",
+    "SF": "CZCE", "SM": "CZCE", "CY": "CZCE", "AP": "CZCE",
+    "CJ": "CZCE", "UR": "CZCE", "SA": "CZCE", "PF": "CZCE",
+    "PK": "CZCE", "PX": "CZCE", "SH": "CZCE", "PR": "CZCE",
+    "SC": "INE", "LU": "INE", "NR": "INE", "BC": "INE",
+    "SI": "GFEX", "LC": "GFEX",
 }
 
 
 class TqSdkCollector(BaseCollector):
-    """天勤 TqSDK 采集器（priority=1，第二数据源）。"""
+    """天勤 TqSDK 采集器（全能力封装，连接复用）。"""
 
     name = "tqsdk"
-    priority = 1
+    priority = 0
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
+    def __init__(self) -> None:
+        self._api_instance: Any = None
+        self._api_lock = threading.Lock()
+
+    async def close(self) -> None:
+        """关闭 TqApi 连接。"""
+        with self._api_lock:
+            if self._api_instance is not None:
+                try:
+                    self._api_instance.close()
+                except Exception:
+                    pass
+                self._api_instance = None
+
+    # ── 可用性 ──
     async def check_available(self) -> bool:
-        """探测 tqsdk 是否可导入。"""
+        """TqSDK 可用性：库已装 + 认证已配。"""
         try:
             __import__("tqsdk")
-            return True
+            return bool(self._user() and self._pass())
         except Exception:
             return False
 
+    @staticmethod
+    def _user() -> str:
+        return os.environ.get("TQSDK_USERNAME") or os.environ.get("TQ_USER", "")
+
+    @staticmethod
+    def _pass() -> str:
+        return os.environ.get("TQSDK_PASSWORD") or os.environ.get("TQ_PASSWORD", "")
+
+    # ── 主力连续合约自动解析 ──
+    def _resolve_continuous(self, symbol: str) -> str:
+        sym_upper = symbol.upper()
+        ex = _EXCHANGE_MAP.get(sym_upper)
+        if not ex:
+            return symbol
+        # CZCE 合约代码是大写（CZCE.TA），其他交易所小写（SHFE.cu）
+        sym_part = sym_upper if ex == "CZCE" else sym_upper.lower()
+        return f"KQ.m@{ex}.{sym_part}"
+
+    def _resolve_tqsdk_symbol(self, symbol: str, contract: str | None = None) -> str:
+        return contract or self._resolve_continuous(symbol)
+
+    def _api(self):
+        """获取或创建 TqApi 实例（连接复用）。"""
+        if self._api_instance is None:
+            with self._api_lock:
+                if self._api_instance is None:
+                    from tqsdk import TqApi, TqAuth
+                    self._api_instance = TqApi(auth=TqAuth(self._user(), self._pass()))
+        return self._api_instance
+
+    # ═══════════════════════════════════════════════════════════
+    # 1. K 线
+    # ═══════════════════════════════════════════════════════════
     async def get_kline(
         self, symbol: str, period: str = "daily", days: int = 120, contract: str | None = None
     ) -> KlineData:
-        """获取 K 线数据。
+        """获取 K 线数据（向后拉取 N 根）。"""
+        eff = self._resolve_tqsdk_symbol(symbol, contract)
+        dur = _PERIOD_SECONDS.get(period, 86400)
+        df = await asyncio.to_thread(self._klines_sync, eff, dur, days)
+        bars = self._parse_kline(df, days)
+        return KlineData(symbol=symbol, period=period, source=self.name, bars=bars, contract=eff)
 
-        Args:
-            symbol: 品种代码（仅用于回填元数据）。
-            period: 周期。
-            days: 回溯交易日数。
-            contract: TqSDK 合约代码（必填，如 ``"SHFE.cu2408"``）。
-
-        Raises:
-            CollectorUnavailableError: 未提供合约或拉取异常。
-        """
-        if contract is None:
-            raise CollectorUnavailableError(
-                self.name, "TqSDK 需要显式指定合约代码（如 SHFE.cu2408）"
-            )
+    def _klines_sync(self, sym: str, dur: int, days: int):
+        api = self._api()
         try:
-            df = await asyncio.to_thread(self._fetch_sync, contract, period, days)
-        except CollectorUnavailableError:
-            raise
-        except Exception as exc:
-            raise CollectorUnavailableError(self.name, str(exc)) from exc
-
-        bars = self._parse(df, days)
-        return KlineData(
-            symbol=symbol,
-            period=period,
-            source=self.name,
-            bars=bars,
-            contract=contract,
-        )
-
-    def _fetch_sync(self, contract: str, period: str, days: int) -> Any:
-        """同步拉取（在 ``asyncio.to_thread`` 中执行）。
-
-        仅在安装了 ``tqsdk`` 时可用；未安装将抛出 ImportError 并被上层捕获。
-        """
-        from tqsdk import TqApi
-
-        duration = _PERIOD_SECONDS.get(period, 86400)
-        api = TqApi()
-        try:
-            df = api.get_kline_serial(contract, duration, data_length=days)
+            return api.get_kline_serial(sym, dur, data_length=days)
         finally:
-            api.close()
-        return df
+            pass  # 连接复用，close()集中管理
+
+    async def get_kline_data_series(
+        self, symbol: str, period: str = "daily",
+        start_dt: str | None = None, end_dt: str | None = None,
+        contract: str | None = None,
+    ) -> dict:
+        """获取指定时间段的 K 线序列（带 TqSDK 缓存）。"""
+        eff = self._resolve_tqsdk_symbol(symbol, contract)
+        dur = _PERIOD_SECONDS.get(period, 86400)
+        sd = datetime.strptime(start_dt, "%Y-%m-%d") if start_dt else datetime(2020, 1, 1)
+        ed = datetime.strptime(end_dt, "%Y-%m-%d") if end_dt else datetime.now()
+        df = await asyncio.to_thread(self._kline_series_sync, eff, dur, sd, ed)
+        bars = self._parse_kline(df, len(df)) if df is not None else []
+        return {"symbol": symbol, "contract": eff, "bars": [b.__dict__ for b in bars]}
+
+    def _kline_series_sync(self, sym: str, dur: int, sd: datetime, ed: datetime):
+        api = self._api()
+        try:
+            return api.get_kline_data_series(sym, dur, start_dt=sd, end_dt=ed)
+        finally:
+            pass  # 连接复用，close()集中管理
 
     @staticmethod
-    def _parse(df: Any, days: int) -> list[KlineBar]:
-        """从 TqSDK K 线 DataFrame 解析为 KlineBar 列表。"""
+    def _parse_kline(df, days: int) -> list[KlineBar]:
         bars: list[KlineBar] = []
         try:
             rows = list(df.tail(days).itertuples(index=False))
@@ -108,22 +177,533 @@ class TqSdkCollector(BaseCollector):
             return bars
         for row in rows:
             try:
-                bars.append(
-                    KlineBar(
-                        date=str(getattr(row, "datetime")),
-                        open=float(getattr(row, "open")),
-                        high=float(getattr(row, "high")),
-                        low=float(getattr(row, "low")),
-                        close=float(getattr(row, "close")),
-                        volume=float(getattr(row, "volume", 0.0) or 0.0),
-                    )
-                )
+                bars.append(KlineBar(
+                    date=str(getattr(row, "datetime")),
+                    open=float(getattr(row, "open")),
+                    high=float(getattr(row, "high")),
+                    low=float(getattr(row, "low")),
+                    close=float(getattr(row, "close")),
+                    volume=float(getattr(row, "volume", 0.0) or 0.0),
+                ))
             except (TypeError, ValueError):
                 continue
         return bars
 
-    async def get_quote(self, symbol: str, contract: str | None = None) -> None:
-        """TqSDK 快照需显式合约；未实现默认抛出（保持基类语义）。"""
-        raise CollectorUnavailableError(
-            self.name, "TqSDK 行情快照需显式指定合约，暂未实现"
+    # ═══════════════════════════════════════════════════════════
+    # 2. Tick
+    # ═══════════════════════════════════════════════════════════
+    async def get_tick(
+        self, symbol: str, days: int = 200, contract: str | None = None
+    ) -> TickData:
+        """获取 Tick 逐笔成交数据。"""
+        eff = self._resolve_tqsdk_symbol(symbol, contract)
+        df = await asyncio.to_thread(self._ticks_sync, eff, days)
+        ticks: list[TickBar] = []
+        try:
+            for row in df.tail(min(days, len(df))).itertuples(index=False):
+                try:
+                    ticks.append(TickBar(
+                        datetime=str(getattr(row, "datetime")),
+                        last_price=float(getattr(row, "last_price", 0) or 0),
+                        volume=float(getattr(row, "volume", 0) or 0),
+                        open_interest=float(getattr(row, "open_interest", 0) or 0),
+                    ))
+                except (TypeError, ValueError):
+                    continue
+        except Exception:
+            pass
+        return TickData(symbol=symbol, source=self.name, ticks=ticks)
+
+    async def get_tick_data_series(
+        self, symbol: str,
+        start_dt: str, end_dt: str,
+        contract: str | None = None,
+    ) -> dict:
+        """获取指定时间段的 Tick 序列（带 TqSDK 缓存）。"""
+        eff = self._resolve_tqsdk_symbol(symbol, contract)
+        sd = datetime.strptime(start_dt, "%Y-%m-%d")
+        ed = datetime.strptime(end_dt, "%Y-%m-%d")
+        df = await asyncio.to_thread(self._tick_series_sync, eff, sd, ed)
+        ticks = []
+        if df is not None:
+            for row in df.itertuples(index=False):
+                try:
+                    ticks.append({
+                        "datetime": str(getattr(row, "datetime")),
+                        "last_price": float(getattr(row, "last_price", 0) or 0),
+                        "volume": float(getattr(row, "volume", 0) or 0),
+                        "open_interest": float(getattr(row, "open_interest", 0) or 0),
+                    })
+                except (TypeError, ValueError):
+                    continue
+        return {"symbol": symbol, "contract": eff, "tick_count": len(ticks), "ticks": ticks}
+
+    def _ticks_sync(self, sym: str, days: int):
+        api = self._api()
+        try:
+            return api.get_tick_serial(sym, data_length=days)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    def _tick_series_sync(self, sym: str, sd: datetime, ed: datetime):
+        api = self._api()
+        try:
+            return api.get_tick_data_series(sym, start_dt=sd, end_dt=ed)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    # ═══════════════════════════════════════════════════════════
+    # 3. 行情快照
+    # ═══════════════════════════════════════════════════════════
+    async def get_quote(self, symbol: str, contract: str | None = None) -> QuoteData:
+        """获取盘口行情快照。"""
+        eff = self._resolve_tqsdk_symbol(symbol, contract)
+        q = await asyncio.to_thread(self._quote_sync, eff)
+        return QuoteData(
+            symbol=symbol, source=self.name,
+            last_price=self._gf(q, "last_price") or self._gf(q, "lastPrice"),
+            open=self._gf(q, "open"),
+            high=self._gf(q, "highest") or self._gf(q, "high"),
+            low=self._gf(q, "lowest") or self._gf(q, "low"),
+            pre_close=self._gf(q, "pre_close") or self._gf(q, "preClose"),
+            volume=self._gf(q, "volume"),
         )
+
+    def _quote_sync(self, sym: str):
+        api = self._api()
+        try:
+            return api.get_quote(sym)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def query_quotes(
+        self, ins_class: str | None = None, exchange_id: str | None = None,
+        product_id: str | None = None, expired: bool | None = None,
+        has_night: bool | None = None,
+    ) -> list:
+        """批量查询合约列表。"""
+        return await asyncio.to_thread(
+            self._query_quotes_sync, ins_class, exchange_id, product_id, expired, has_night,
+        )
+
+    def _query_quotes_sync(self, ins_class, exchange_id, product_id, expired, has_night):
+        api = self._api()
+        try:
+            return list(api.query_quotes(
+                ins_class=ins_class, exchange_id=exchange_id,
+                product_id=product_id, expired=expired, has_night=has_night,
+            ))
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    @staticmethod
+    def _gf(obj, key: str) -> Optional[float]:
+        v = obj.get(key) if hasattr(obj, "get") else getattr(obj, key, None)
+        if v in (None, ""):
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    # ═══════════════════════════════════════════════════════════
+    # 4. 合约查询
+    # ═══════════════════════════════════════════════════════════
+    async def query_symbol_info(self, symbol: str) -> SymbolInfo:
+        """查询合约基本信息。"""
+        info = await asyncio.to_thread(self._sym_info_sync, symbol)
+        return SymbolInfo(symbol=symbol, source=self.name, **info)
+
+    def _sym_info_sync(self, symbol: str) -> dict:
+        api = self._api()
+        try:
+            df = api.query_symbol_info(self._resolve_continuous(symbol))
+            if df is not None and len(df) > 0:
+                row = df.iloc[0]
+                return {
+                    "name": str(getattr(row, "product_name", "") or ""),
+                    "product_id": str(getattr(row, "product_id", "") or ""),
+                    "exchange": str(getattr(row, "exchange_id", "") or ""),
+                    "price_tick": float(getattr(row, "price_tick", 0) or 0),
+                    "margin_rate": float(getattr(row, "margin_rate", 0) or 0),
+                    "multiplier": float(getattr(row, "multiplier", 0) or 0),
+                    "delivery_months": str(getattr(row, "delivery_months", "") or ""),
+                    "listed_date": str(getattr(row, "listed_date", "") or ""),
+                }
+        except Exception:
+            pass
+        return {}
+
+    async def query_cont_quotes(
+        self, exchange_id: str | None = None, product_id: str | None = None,
+        has_night: bool | None = None,
+    ) -> list:
+        """查询主力连续合约对应的标的合约列表。"""
+        return await asyncio.to_thread(self._cont_quotes_sync, exchange_id, product_id, has_night)
+
+    def _cont_quotes_sync(self, exchange_id, product_id, has_night):
+        api = self._api()
+        try:
+            return list(api.query_cont_quotes(
+                exchange_id=exchange_id, product_id=product_id, has_night=has_night,
+            ))
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def query_his_cont_quotes(self, symbol: str, n: int = 200) -> list:
+        """查询主力连续合约的历史标的切换记录。"""
+        eff = self._resolve_continuous(symbol)
+        df = await asyncio.to_thread(self._his_cont_sync, eff, n)
+        if df is None:
+            return []
+        records = []
+        for row in df.itertuples(index=False):
+            try:
+                records.append({
+                    "datetime": str(getattr(row, "datetime", "")),
+                    "underlying_symbol": str(getattr(row, "underlying_symbol", "") or getattr(row, "symbol", "")),
+                })
+            except Exception:
+                continue
+        return records
+
+    def _his_cont_sync(self, sym: str, n: int):
+        api = self._api()
+        try:
+            return api.query_his_cont_quotes(sym, n=n)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def query_symbol_ranking(
+        self, symbol: str, ranking_type: str = "volume",
+        days: int = 1, start_dt: str | None = None,
+    ) -> dict:
+        """查询合约成交/持仓排名。"""
+        sd = datetime.strptime(start_dt, "%Y-%m-%d") if start_dt else None
+        eff = self._resolve_tqsdk_symbol(symbol)
+        df = await asyncio.to_thread(self._ranking_sync, eff, ranking_type, days, sd)
+        if df is None:
+            return {"symbol": symbol, "rows": []}
+        rows = []
+        for row in df.itertuples(index=False):
+            try:
+                rows.append({
+                    "rank": int(getattr(row, "rank", 0)),
+                    "broker": str(getattr(row, "broker", "") or ""),
+                    "volume": float(getattr(row, "volume", 0) or 0),
+                    "long": float(getattr(row, "long", 0) or 0),
+                    "short": float(getattr(row, "short", 0) or 0),
+                })
+            except Exception:
+                continue
+        return {"symbol": symbol, "rows": rows}
+
+    def _ranking_sync(self, sym: str, rtype: str, days: int, sd):
+        api = self._api()
+        try:
+            return api.query_symbol_ranking(sym, ranking_type=rtype, days=days, start_dt=sd)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def query_symbol_settlement(
+        self, symbol: str, days: int = 1, start_dt: str | None = None,
+    ) -> dict:
+        """查询交易所合约每日结算价。需要实际合约代码（非主力连续）。"""
+        sym_upper = symbol.upper()
+        ex = _EXCHANGE_MAP.get(sym_upper)
+        if not ex:
+            return {"symbol": symbol, "rows": []}
+        sd = datetime.strptime(start_dt, "%Y-%m-%d") if start_dt else None
+        # settlement 不支持 KQ.m@ 连续合约，需要实际合约代码
+        # 通过 query_cont_quotes 获取当前主力标的合约
+        cont_list = await self.query_cont_quotes(exchange_id=ex, product_id=sym_upper)
+        if not cont_list:
+            return {"symbol": symbol, "rows": []}
+        actual_contract = cont_list[0]  # 取第一个作为标的
+        df = await asyncio.to_thread(self._settlement_sync, actual_contract, days, sd)
+        if df is None:
+            return {"symbol": symbol, "rows": []}
+        rows = []
+        for row in df.itertuples(index=False):
+            try:
+                rows.append({
+                    "datetime": str(getattr(row, "datetime", "")),
+                    "settlement": float(getattr(row, "settlement", 0) or 0),
+                    "open_interest": float(getattr(row, "open_interest", 0) or 0),
+                })
+            except Exception:
+                continue
+        return {"symbol": symbol, "contract": actual_contract, "rows": rows}
+
+    def _settlement_sync(self, sym: str, days: int, sd):
+        api = self._api()
+        try:
+            return api.query_symbol_settlement(sym, days=days, start_dt=sd)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    # ═══════════════════════════════════════════════════════════
+    # 4b. EDB 非价量基本面数据
+    # ═══════════════════════════════════════════════════════════
+    async def query_edb_index_table(
+        self, ids: list[int] | None = None, search: str | None = None,
+    ) -> list:
+        """查询EDB指标目录（通过REST API，需专业版权限）。
+
+        也可在 https://edb.shinnytech.com 可视化浏览。
+
+        Returns:
+            [{"id": int, "cn_name": str, "table_name": str, "frequency": str,
+              "unit": str, "start_date": str, "end_date": str}, ...]
+        """
+        payload: dict[str, Any] = {}
+        if ids is not None:
+            payload["ids"] = ids
+        if search is not None:
+            payload["search"] = search
+        return await asyncio.to_thread(self._edb_table_rest_sync, payload)
+
+    def _edb_table_rest_sync(self, payload: dict) -> list:
+        """通过REST API查询EDB指标目录。"""
+        import json as _json
+
+        try:
+            from urllib.request import Request, urlopen
+        except ImportError:
+            return []
+
+        token = self._get_edb_token()
+        if not token:
+            return []
+        req = Request(
+            "https://edb.shinnytech.com/data/index_table",
+            data=_json.dumps(payload).encode(),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urlopen(req, timeout=15) as resp:
+                body = _json.loads(resp.read().decode())
+                if body.get("error_code") == 0:
+                    return body.get("data", [])
+        except Exception:
+            pass
+        return []
+
+    @staticmethod
+    def _get_edb_token() -> str:
+        """获取EDB JWT token（通过TqSDK账户）。"""
+        try:
+            from urllib.request import Request, urlopen
+        except ImportError:
+            return ""
+        user = os.environ.get("TQSDK_USERNAME") or os.environ.get("TQ_USER", "")
+        pwd = os.environ.get("TQSDK_PASSWORD") or os.environ.get("TQ_PASSWORD", "")
+        if not user or not pwd:
+            return ""
+        import json as _json
+
+        req = Request(
+            "https://edb.shinnytech.com/token",
+            data=_json.dumps({"username": user, "password": pwd}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urlopen(req, timeout=10) as resp:
+                return _json.loads(resp.read().decode()).get("token", "")
+        except Exception:
+            return ""
+
+    async def query_edb_data(
+        self, ids: list[int],
+        start_dt: str,
+        end_dt: str,
+        align: str | None = None,
+        fill: str | None = None,
+    ) -> dict:
+        """查询EDB非价量指标数值序列。
+
+        EDB包含：
+          - 库存数据（交易所库存/社会库存）
+          - 现货价格（各品种现货价）
+          - 仓单数据（注册仓单量）
+          - 基差数据
+          - 供需数据（产量/消费量/开工率）
+          - 宏观指标（M2/CPI/PMI等）
+          - 利润/价差数据
+
+        Args:
+            ids: 指标ID列表（1-100个），可在 https://edb.shinnytech.com 查询。
+            start_dt: 起始日期 "YYYY-MM-DD"。
+            end_dt: 结束日期 "YYYY-MM-DD"。
+            align: 对齐方式 None(稀疏)/"day"(自然日补齐)。
+            fill: 填充方式 None/ffill/bfill（仅align="day"时生效）。
+
+        Returns:
+            {"ids": [int, ...], "values": {"YYYY-MM-DD": [val, ...], ...}}
+        """
+        sd = date.fromisoformat(start_dt)
+        ed = date.fromisoformat(end_dt)
+        df = await asyncio.to_thread(self._edb_data_sync, ids, sd, ed, align, fill)
+        if df is None:
+            return {"ids": ids, "values": {}}
+        values: dict[str, list[Optional[float]]] = {}
+        for idx, row in df.iterrows():
+            date_str = str(idx)
+            if len(date_str) >= 10:
+                date_str = date_str[:10]
+            values[date_str] = [None if pd_isna(v) else float(v) for v in row]
+        return {"ids": ids, "values": values}
+
+    def _edb_data_sync(self, ids, sd, ed, align, fill):
+        api = self._api()
+        try:
+            return api.query_edb_data(ids=ids, start_dt=sd, end_dt=ed, align=align, fill=fill)
+        except AttributeError:
+            return None
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    # ═══════════════════════════════════════════════════════════
+    # 5. 交易
+    # ═══════════════════════════════════════════════════════════
+    async def get_account(self) -> dict:
+        """获取账户资金信息。"""
+        return await asyncio.to_thread(self._account_sync)
+
+    def _account_sync(self) -> dict:
+        api = self._api()
+        try:
+            acct = api.get_account()
+            return {
+                "balance": float(getattr(acct, "balance", 0) or 0),
+                "available": float(getattr(acct, "available", 0) or 0),
+                "frozen": float(getattr(acct, "frozen", 0) or 0),
+                "margin": float(getattr(acct, "margin", 0) or 0),
+                "profit": float(getattr(acct, "profit", 0) or 0),
+            }
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def get_position(self, symbol: str | None = None) -> list:
+        """获取持仓信息。"""
+        return await asyncio.to_thread(self._position_sync, symbol)
+
+    def _position_sync(self, symbol):
+        api = self._api()
+        try:
+            pos = api.get_position(symbol=symbol)
+            if hasattr(pos, "keys") and callable(pos.keys):
+                results = []
+                for k in pos.keys():
+                    p = pos[k]
+                    results.append({
+                        "symbol": str(getattr(p, "symbol", "")),
+                        "volume": int(getattr(p, "volume", 0) or 0),
+                        "position": str(getattr(p, "position", "")),
+                        "cost_price": float(getattr(p, "cost_price", 0) or 0),
+                        "float_profit": float(getattr(p, "float_profit", 0) or 0),
+                    })
+                return results
+            return []
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def insert_order(
+        self, symbol: str, direction: str, volume: int,
+        offset: str = "", limit_price: float | None = None,
+    ) -> str:
+        """下单。返回 order_id。"""
+        eff = self._resolve_tqsdk_symbol(symbol)
+        return await asyncio.to_thread(
+            self._insert_order_sync, eff, direction, offset, volume, limit_price,
+        )
+
+    def _insert_order_sync(self, sym, direction, offset, volume, limit_price):
+        api = self._api()
+        try:
+            order = api.insert_order(sym, direction=direction, offset=offset,
+                                     volume=volume, limit_price=limit_price)
+            return str(getattr(order, "order_id", ""))
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def cancel_order(self, order_id: str) -> None:
+        """撤单。"""
+        await asyncio.to_thread(self._cancel_order_sync, order_id)
+
+    def _cancel_order_sync(self, order_id):
+        api = self._api()
+        try:
+            api.cancel_order(order_id)
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def get_order(self, order_id: str | None = None) -> list:
+        """查询委托单。"""
+        return await asyncio.to_thread(self._order_sync, order_id)
+
+    def _order_sync(self, order_id):
+        api = self._api()
+        try:
+            order = api.get_order(order_id=order_id)
+            if hasattr(order, "keys") and callable(order.keys):
+                results = []
+                for k in order.keys():
+                    o = order[k]
+                    results.append({
+                        "order_id": str(getattr(o, "order_id", "")),
+                        "symbol": str(getattr(o, "symbol", "")),
+                        "direction": str(getattr(o, "direction", "")),
+                        "volume_orign": int(getattr(o, "volume_orign", 0) or 0),
+                        "volume_left": int(getattr(o, "volume_left", 0) or 0),
+                        "limit_price": float(getattr(o, "limit_price", 0) or 0),
+                        "status": str(getattr(o, "status", "")),
+                    })
+                return results
+            return []
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    async def get_trade(self, trade_id: str | None = None) -> list:
+        """查询成交记录。"""
+        return await asyncio.to_thread(self._trade_sync, trade_id)
+
+    def _trade_sync(self, trade_id):
+        api = self._api()
+        try:
+            trade = api.get_trade(trade_id=trade_id)
+            if hasattr(trade, "keys") and callable(trade.keys):
+                results = []
+                for k in trade.keys():
+                    t = trade[k]
+                    results.append({
+                        "trade_id": str(getattr(t, "trade_id", "")),
+                        "symbol": str(getattr(t, "symbol", "")),
+                        "direction": str(getattr(t, "direction", "")),
+                        "volume": int(getattr(t, "volume", 0) or 0),
+                        "price": float(getattr(t, "price", 0) or 0),
+                    })
+                return results
+            return []
+        finally:
+            pass  # 连接复用，close()集中管理
+
+    # ═══════════════════════════════════════════════════════════
+    # 6. 工具
+    # ═══════════════════════════════════════════════════════════
+    async def is_serial_ready(self) -> bool:
+        """判断是否已从服务器收到所有订阅数据。"""
+        return await asyncio.to_thread(self._is_ready_sync)
+
+    def _is_ready_sync(self) -> bool:
+        api = self._api()
+        try:
+            kline = api.get_kline_serial("KQ.m@SHFE.cu", 86400, data_length=1)
+            return api.is_serial_ready(kline)
+        except Exception:
+            return False
+        finally:
+            pass  # 连接复用，close()集中管理

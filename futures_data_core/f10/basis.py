@@ -14,6 +14,8 @@ A2A 输出：``type=fdc.basis``。
 from __future__ import annotations
 
 import json
+import re
+from datetime import date, datetime
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
@@ -256,3 +258,192 @@ async def get_basis(
         f"现货 {data['spot_price']} vs 期货 {data['futures_price']}"
     )
     return payload
+
+
+# ════════════════════════════════════════════════════════════
+# 100ppi 现期表聚合抓取（一次HTTP获取60+品种现货+基差）
+# ════════════════════════════════════════════════════════════
+
+_PPI_SF_URL = "https://www.100ppi.com/sf/"
+# 品种 → 100ppi sf_id 映射（精简版，核心活跃品种）
+_PPI_SF_MAP: dict[str, int] = {
+    "cu": 792, "al": 827, "zn": 826, "pb": 825, "ni": 1182, "sn": 1181,
+    "rb": 927, "hc": 195, "ss": 1300, "fu": 387, "bu": 1022, "ru": 586,
+    "sp": 1053, "TA": 356, "PF": 976, "eg": 252, "MA": 308, "SA": 1287,
+    "FG": 279, "UR": 1288, "v": 839, "pp": 850, "l": 793,
+    "CF": 162, "SR": 688, "OI": 373, "RM": 431, "PK": 1319,
+    "m": 416, "y": 780, "p": 446, "c": 155, "jd": 1408, "lh": 1295,
+    "sc": 543, "lu": 1330, "pg": 1286, "bu": 1022,
+    "i": 723, "j": 357, "jm": 355, "SF": 1098, "SM": 1102,
+    "si": 1406, "lc": 1407,
+}
+
+
+def _parse_100ppi_sf_page(html: str) -> tuple[Optional[str], dict[str, dict]]:
+    """解析100ppi现期表HTML页面（纯函数）。
+
+    Returns:
+        (data_date, {symbol_lower: {"spot_raw": float, "main_price": float, ...}})
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "lxml")
+    data_date = None
+
+    # 日期行: <span class="s_time">2026-07-13</span>
+    time_span = soup.select_one("span.s_time")
+    if time_span:
+        data_date = time_span.text.strip()
+
+    raw_items: dict[str, dict] = {}
+    table = soup.find("table", class_="sf-table") or soup.find("table", id="sf-table")
+    if not table:
+        table = soup.find("table")
+    if not table:
+        return data_date, raw_items
+
+    rows = table.find_all("tr")
+    for tr in rows:
+        cells = tr.find_all("td")
+        if len(cells) < 6:
+            continue
+        # 第0列: 品种名称+代码，如 "螺纹钢" / "RB"
+        name_text = cells[0].get_text(strip=True)
+        if not name_text:
+            continue
+        # 查找匹配的品种：从映射表中匹配
+        matched_sym = None
+        for sym, sf_id in _PPI_SF_MAP.items():
+            if sym.upper() in name_text.upper() or name_text.upper() in sym.upper():
+                matched_sym = sym
+                break
+        if not matched_sym:
+            # 尝试从文本提取符号
+            for sym in _PPI_SF_MAP:
+                if sym.lower() in name_text.lower():
+                    matched_sym = sym
+                    break
+        if not matched_sym:
+            continue
+
+        try:
+            spot_raw = float(cells[2].get_text(strip=True).replace(",", ""))
+        except (ValueError, IndexError):
+            continue
+        try:
+            main_price = float(cells[3].get_text(strip=True).replace(",", ""))
+        except (ValueError, IndexError):
+            main_price = 0.0
+
+        raw_items[matched_sym.lower()] = {
+            "name": name_text,
+            "sf_id": _PPI_SF_MAP[matched_sym],
+            "spot_raw": spot_raw,
+            "main_price": main_price,
+        }
+
+    return data_date, raw_items
+
+
+async def get_basis_batch(
+    symbols: Optional[list[str]] = None,
+    timeout: int = 15,
+) -> A2APayload:
+    """批量获取基差数据（100ppi现期表聚合页，一次HTTP获取所有品种）。
+
+    Args:
+        symbols: 品种列表；None → 全部覆盖品种。
+        timeout: HTTP超时秒数。
+
+    Returns:
+        A2APayload，data 含 items / data_date / covered_count。
+    """
+    import httpx
+
+    meta = _default_meta()
+    meta["sources"] = ["100ppi_sf"]
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            resp = await client.get(
+                _PPI_SF_URL,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36"
+                    ),
+                },
+            )
+        if resp.status_code != 200:
+            meta["data_grade"] = "UNAVAILABLE"
+            meta["data_grade_label"] = 5
+            return A2APayload(
+                type=DATA_TYPES.get("BASIS", "fdc.basis"),
+                data={"items": {}, "error": f"HTTP {resp.status_code}"},
+                meta=meta,
+            )
+
+        data_date, raw_items = _parse_100ppi_sf_page(resp.text)
+        if not raw_items:
+            meta["data_grade"] = "UNAVAILABLE"
+            meta["data_grade_label"] = 5
+            return A2APayload(
+                type=DATA_TYPES.get("BASIS", "fdc.basis"),
+                data={"items": {}, "error": "100ppi页面解析为空"},
+                meta=meta,
+            )
+
+        # 新鲜度校验
+        freshness_ok = False
+        if data_date:
+            try:
+                page_dt = datetime.strptime(data_date, "%Y-%m-%d").date()
+                delta = (date.today() - page_dt).days
+                freshness_ok = delta <= 1
+            except (ValueError, TypeError):
+                pass
+
+        # 构建输出
+        items = {}
+        target_syms = set(s.lower() for s in symbols) if symbols else set(raw_items.keys())
+        for sym_lower in target_syms:
+            if sym_lower not in raw_items:
+                continue
+            raw = raw_items[sym_lower]
+            spot = raw["spot_raw"]
+            fut = raw["main_price"]
+            if spot <= 0:
+                continue
+
+            b = compute_basis(spot, fut) if fut and fut > 0 else None
+            items[sym_lower] = {
+                "spot_price": spot,
+                "futures_price": fut if fut > 0 else None,
+                "basis": b["basis"] if b else None,
+                "basis_pct": b["basis_pct"] if b else None,
+                "data_source": "100ppi_sf",
+            }
+
+        meta["data_grade"] = "PRIMARY" if freshness_ok else "DAILY"
+        meta["data_grade_label"] = 0 if freshness_ok else 2
+        return A2APayload(
+            type=DATA_TYPES.get("BASIS", "fdc.basis"),
+            data={
+                "items": items,
+                "data_date": data_date,
+                "covered_count": len(items),
+                "freshness_ok": freshness_ok,
+            },
+            meta=meta,
+            summary=f"100ppi现期表: {len(items)}品种 (日期:{data_date})",
+        )
+
+    except Exception as e:
+        meta["data_grade"] = "UNAVAILABLE"
+        meta["data_grade_label"] = 5
+        meta["warnings"] = [str(e)[:80]]
+        return A2APayload(
+            type=DATA_TYPES.get("BASIS", "fdc.basis"),
+            data={"items": {}, "error": str(e)[:80]},
+            meta=meta,
+        )

@@ -136,3 +136,75 @@ class QuoteData:
             "volume": self.volume,
             "collected_at": self.collected_at,
         }
+
+
+@dataclass
+class TickBar:
+    """单笔 Tick 数据。"""
+
+    datetime: str
+    last_price: float
+    volume: float
+    open_interest: float
+    bid_price1: float = 0.0
+    ask_price1: float = 0.0
+    bid_volume1: float = 0.0
+    ask_volume1: float = 0.0
+
+
+@dataclass
+class TickData:
+    """归一化 Tick 序列。"""
+
+    symbol: str
+    source: str
+    ticks: list[TickBar] = field(default_factory=list)
+    collected_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "source": self.source,
+            "count": len(self.ticks),
+            "collected_at": self.collected_at,
+            "ticks": [
+                {
+                    "datetime": t.datetime,
+                    "last_price": t.last_price,
+                    "volume": t.volume,
+                    "open_interest": t.open_interest,
+                }
+                for t in self.ticks
+            ],
+        }
+
+
+@dataclass
+class SymbolInfo:
+    """归一化合约信息。"""
+
+    symbol: str
+    source: str
+    name: str = ""
+    product_id: str = ""
+    exchange: str = ""
+    price_tick: float = 0.0
+    margin_rate: float = 0.0
+    multiplier: float = 0.0
+    delivery_months: str = ""
+    listed_date: str = ""
+    collected_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "source": self.source,
+            "name": self.name,
+            "product_id": self.product_id,
+            "exchange": self.exchange,
+            "price_tick": self.price_tick,
+            "margin_rate": self.margin_rate,
+            "multiplier": self.multiplier,
+            "delivery_months": self.delivery_months,
+            "listed_date": self.listed_date,
+        }
