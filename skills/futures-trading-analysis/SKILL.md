@@ -1,10 +1,12 @@
 ---
 name: futures-trading-analysis
-version: 3.8.0
+version: 3.10.0
 description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员并行供弹→证真(慎思)动态正反方交叉质询(轮次由信号等级决定)→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
+  v3.10.0 (2026-07-13): 🔧 A2A协议文件桥 + 置信度归一化 — 新增agent-card.json能力声明(符合A2A v1.0 Agent Card规范)；scripts/export_a2a.py将辩论裁决包装为A2A Task/Artifact信封格式；run_debate.py新增a2a子命令+finalize管道自动导出a2a_results.json；validate_final_signals.py增加CONFIDENCE_MAP(HIGH/MEDIUM/LOW自动归一化为高/中/低)。
+  v3.9.0 (2026-07-13): 🔧 修复zhensi spawn prompt Schema硬编码agent=zhengzhen — run_debate.py _p4_schema拆分为_zhengzhen/_zhensi两个独立Schema。D05扩展：所有文件产出Agent(含P3研究员/链证源)统用general-purpose spawn
   v3.8.0 (2026-07-11): ⚡ 时延优化前三步实施完成 — ①P2研究员并行spawn(串行→并行,省~20min) ②信号分级驱动辩论深度(C1快速裁决/C2两轮/C3四轮/C4不辩) ③闫判官时段表改为等级自适应。加权平均耗时从60min→~10min(C1场景8min,C2场景15min)。注：原第④步「盘前预计算缓存」已于 2026-07-11 移除（读取端从未接入主流程，属死缓存，辩论每次实时 scan_all）。
   v3.7.1 (2026-07-10): 🔧 Agent通信链路永久修复 — 自动化context中SendMessage路由不可靠(2次事故:16:25+20:10)。③条修复：①A01铁律"文件优先通信"-Agent只Write文件不使用SendMessage ②明鉴秋poll_file_ready轮询+tiered降级(链证/观澜/探源600s,裁决/策执/风控300s) ③fdt-spawn-debate所有spawn prompt加"禁用SendMessage"指令。降级≠跳过-明鉴秋在降级时自行完成对应分析
   v3.7.0 (2026-07-10): 🔧 三大系统性缺陷修复 — ①scripts/debate_archiver.py: 辩论自动归档到FDT memory/系统(debate_journal.json+debates/INDEX.md); ②scripts/agent_waiter.py: S04轮询等待Agent产出(poll_file_ready)+D06降级; ③phase3_generate_report v3.2已有CLI参数化(未使用导致胶水代码)

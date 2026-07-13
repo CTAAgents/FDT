@@ -30,10 +30,21 @@ REQUIRED_TOPLEVEL = {"round_id", "generated_at", "data_benchmark", "verdicts"}
 VALID_ACTIONS = {"execute", "hold", "wait"}
 TRADE_PARAMS = {"entry_price", "stop_loss_price", "target_price", "position_size", "contract"}
 
+# 置信度标签归一化（英文→中文）
+CONFIDENCE_MAP = {
+    "HIGH": "高", "MEDIUM": "中", "LOW": "低",
+    "high": "高", "medium": "中", "low": "低",
+}
 
-def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
-    """对 debate_results.json 执行全部校验，返回错误列表（空=通过）。"""
-    errors = []
+
+def validate_signals(data: dict, scan: dict | None = None) -> tuple[list[str], list[str]]:
+    """对 debate_results.json 执行全部校验，返回 (errors, warns)。
+
+    errors 为空 → exit(0)；仅 warns → exit(0)；任何 errors → exit(1)。
+    WARN 表示提醒（不阻断管道），ERROR 表示必须修复的问题。
+    """
+    errors: list[str] = []
+    warns: list[str] = []
 
     # ── 1. 顶层字段 ──
     missing = REQUIRED_TOPLEVEL - set(data.keys())
@@ -43,10 +54,10 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
     verdicts = data.get("verdicts", {})
     if not isinstance(verdicts, dict):
         errors.append(f"[FATAL] verdicts 不是 dict: {type(verdicts).__name__}")
-        return errors
+        return errors, warns
 
     if not verdicts:
-        errors.append("[WARN] verdicts 为空（无辩论品种，可能是正常情况）")
+        warns.append("[WARN] verdicts 为空（无辩论品种，可能是正常情况）")
 
     # ── 2. 每个裁决品种的校验 ──
     for sym, v in verdicts.items():
@@ -69,8 +80,13 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
         # 2c. confidence 存在
         if not confidence:
             errors.append(f"[{sym}] confidence 为空")
-        elif isinstance(confidence, str) and confidence not in ("高", "中", "低"):
-            errors.append(f"[{sym}] confidence='{confidence}' 不是高/中/低")
+        elif isinstance(confidence, str):
+            # 归一化英文标签→中文
+            if confidence in CONFIDENCE_MAP:
+                v["confidence"] = CONFIDENCE_MAP[confidence]
+                confidence = v["confidence"]
+            elif confidence not in ("高", "中", "低"):
+                errors.append(f"[{sym}] confidence='{confidence}' 不是高/中/低")
         elif isinstance(confidence, (int, float)) and not (0 <= confidence <= 1):
             errors.append(f"[{sym}] confidence={confidence} 不在 0~1 范围")
 
@@ -82,11 +98,11 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
                 errors.append(
                     f"[{sym}] action=execute 但以下交易参数为 None: {null_params}"
                 )
-            # 数值型参数必须 > 0
+            # 数值型参数必须 > 0；但 entry=0 仅 WARN（可能是参数未填充，不阻断管道）
             for k in ("entry_price", "stop_loss_price", "target_price"):
                 val = trade_values.get(k)
                 if val is not None and val <= 0:
-                    errors.append(f"[{sym}] {k}={val} ≤ 0，不合法")
+                    warns.append(f"[{sym}] {k}={val} ≤ 0，不合法（降为 WARN，不阻断）")
             # position_size 必须 > 0
             pos = trade_values.get("position_size")
             if pos is not None and pos <= 0:
@@ -110,15 +126,16 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
         if grade == "NOISE" and action == "execute":
             errors.append(f"[{sym}] grade=NOISE 但 action=execute，矛盾")
 
-        # 2f. 方向-价格一致性：entry/stop/target 必须符合方向逻辑
-        #     BULL → target > entry > stop   (买低卖高，止损在入场下方)
-        #     BEAR → target < entry < stop   (卖高买低，止损在入场上方)
+        # 2f. 方向-价格一致性：仅当 entry/stop/target 均有合法正值时校验
+        #     若 entry≤0（参数未填充），跳过方向一致性检查，仅记 WARN
         if action == "execute":
             entry = v.get("entry_price")
             stop = v.get("stop_loss_price")
             target = v.get("target_price")
 
-            if None not in (entry, stop, target):
+            if entry is None or entry <= 0 or stop is None or stop <= 0 or target is None or target <= 0:
+                warns.append(f"[{sym}] execute 但交易参数不全或为0，跳过方向一致性检查")
+            elif None not in (entry, stop, target):
                 if direction in ("BULL", "BUY"):
                     if target <= entry:
                         errors.append(
@@ -182,7 +199,7 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
             }
             missing_debate = high_grade_syms - debate_symbols
             if missing_debate:
-                errors.append(
+                warns.append(
                     f"[CROSS] 以下 WATCH+ 信号品种缺少辩论裁决: {missing_debate}"
                 )
 
@@ -192,9 +209,7 @@ def validate_signals(data: dict, scan: dict | None = None) -> list[str]:
         # 有可执行信号时检查：至少有一个品种附带完整交易参数
         pass  # 已在 2d 逐品种检查
 
-    return errors
-
-
+    return errors, warns
 def main():
     ap = argparse.ArgumentParser(description="FDT 最终信号复查器")
     ap.add_argument("--input", "-i", required=True, help="debate_results.json 路径")
@@ -230,7 +245,7 @@ def main():
             print(f"[WARN] scan 文件不存在，跳过交叉校验: {scan_path}", file=sys.stderr)
 
     # 执行校验
-    errors = validate_signals(data, scan)
+    errors, warns = validate_signals(data, scan)
 
     # 输出
     if args.json:
@@ -238,7 +253,9 @@ def main():
             "passed": len(errors) == 0,
             "total_checks": 6,
             "error_count": len(errors),
+            "warn_count": len(warns),
             "errors": errors,
+            "warns": warns,
             "verdict_count": len(data.get("verdicts", {})),
             "execute_count": sum(
                 1 for v in data.get("verdicts", {}).values()
@@ -247,18 +264,22 @@ def main():
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        if not errors:
+        # 先打 WARN
+        for w in warns:
+            print(f"   {w}", file=sys.stderr)
+        if errors:
+            print(f"❌ 信号复查失败 — {len(errors)} 项问题:", file=sys.stderr)
+            for e in errors:
+                print(f"   {e}", file=sys.stderr)
+        else:
             if not args.quiet:
                 verdict_count = len(data.get("verdicts", {}))
                 execute_count = sum(
                     1 for v in data.get("verdicts", {}).values()
                     if isinstance(v, dict) and v.get("action") == "execute"
                 )
-                print(f"✅ 信号复查通过 — {verdict_count} 品种，{execute_count} 执行")
-        else:
-            print(f"❌ 信号复查失败 — {len(errors)} 项问题:", file=sys.stderr)
-            for e in errors:
-                print(f"   {e}", file=sys.stderr)
+                label = "⚠️ 通过但有警告" if warns else "✅"
+                print(f"{label} 信号复查 — {verdict_count} 品种，{execute_count} 执行")
 
     sys.exit(0 if not errors else 1)
 

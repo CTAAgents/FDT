@@ -38,7 +38,63 @@ import os
 import subprocess
 import sys
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+import re
+
+_WIN_DRIVE_RE = re.compile(r"^/([a-zA-Z])/")  # 匹配 /d/foo/bar → d:\foo\bar
+
+_FDT_ROOT = Path(__file__).resolve().parent.parent
+_AGENT_PROFILES_PATH = _FDT_ROOT / "memory" / "agent_profiles.json"
+
+
+def _load_strategist_profile() -> dict:
+    """加载策执远进化参数（rr_target / position_coefficient / 统计）。"""
+    try:
+        if _AGENT_PROFILES_PATH.exists():
+            ap = json.loads(_AGENT_PROFILES_PATH.read_text(encoding="utf-8"))
+            return ap.get("策执远", {})
+    except Exception:
+        pass
+    return {}
+
+
+def _strategist_experience_inject(profile: dict) -> str:
+    """从进化参数生成经验注入文本，追加到策执远 spawn prompt。"""
+    if not profile:
+        return ""
+    rr = profile.get("rr_target", 2.0)
+    pos = profile.get("position_coefficient", 1.0)
+    stats = profile.get("_stats", {})
+    total = stats.get("total_validated", 0)
+    hit_rate = stats.get("real_target_hit_rate", 0)
+    avg_pnl = stats.get("avg_realized_pnl_pct", 0)
+    log = profile.get("_evolution_log", [])
+    last_adj = log[-1]["reason"] if log else "尚无调整记录"
+    avg_pnl_str = f"{avg_pnl:+.1f}%" if isinstance(avg_pnl, (int, float)) else str(avg_pnl)
+    return (
+        f"\n【历史经验注入 — 累计{total}条已验证裁决】\n"
+        f"建议RR目标: {rr:.1f}:1（{last_adj}）\n"
+        f"仓位系数: {pos:.2f}（基于历史实现盈亏{avg_pnl_str}校准）\n"
+        f"T1达标率: {hit_rate:.0f}%\n"
+        f"注意：上述参数为历史统计参考，请结合当前品种特征做判断，不要生搬硬套。"
+    )
+
+
+def _to_win_path(p: str) -> str:
+    """将 Git Bash 风格绝对路径 /d/foo/bar 转为 Windows 风格 D:\foo\bar。
+
+    - 仅 Windows 上生效，非 Windows 直接返回原值。
+    - 匹配不上的原值返回（如已含 : 或相对路径）。
+    """
+    if sys.platform != "win32":
+        return p
+    m = _WIN_DRIVE_RE.match(p)
+    if m:
+        return m.group(1).upper() + ":\\" + p[3:].replace("/", "\\")
+    # 也处理反过来的: d:\foo → 归一化大小写和分隔符
+    if ":" in p:
+        return str(PureWindowsPath(p))
+    return p
 
 # ── FDT 根目录（本文件在 scripts/ 下）──
 ROOT = Path(__file__).resolve().parent.parent
@@ -124,6 +180,33 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
                  "watch_semantics": "WATCH等级=监控观察信号，非直接触发；需结合辩论强度决定是否进候选。",
                  "confidence": "confidence由confidence_utils归一化，输出0-1数值或高/中/低标签均可，禁止任意裸字符串。",
              },
+             # ─── 资源管理：分批执行指引 ───
+             "execution_phases": {
+                 "phase1": {"agents": ["technical"],
+                            "label": "P3 技术分析(观澜) + 研究员供弹",
+                            "max_concurrent": 5,
+                            "depends_on": []},
+                 "phase2": {"agents": ["zhengzhen","zhensi"],
+                            "label": "P4 多空辩论(证真+慎思)",
+                            "max_concurrent": 6,
+                            "depends_on": []},
+                 "phase3": {"agents": ["judge"],
+                            "label": "P5a 闫判官裁决",
+                            "max_concurrent": 5,
+                            "depends_on": ["phase2"]},
+                 "phase4": {"agents": ["coherence"],
+                            "label": "P5b 一致性裁判审计",
+                            "max_concurrent": 5,
+                            "depends_on": ["phase3"]},
+                 "phase5": {"agents": ["trading_plan"],
+                            "label": "P5c 策执远出方案(需读p3_technical+p5_judge)",
+                            "max_concurrent": 5,
+                            "depends_on": ["phase1","phase3"]},
+                 "phase6": {"agents": ["risk"],
+                            "label": "P5d 风控明审核",
+                            "max_concurrent": 5,
+                            "depends_on": ["phase5"]},
+             },
              "symbols": []}
 
     for s in symbols:
@@ -137,17 +220,23 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
         p5_t = ws / f"p5_trading_plan_{sym}.json"
         p5_c = ws / f"p5_coherence_{sym}.json"
         p5_r = ws / f"p5_risk_review_{sym}.json"
+        # P3 研究员产出（先于 P4/P5 spawn）
+        p3_tech = ws / f"p3_technical_{sym}.json"      # 观澜 · 支撑阻力
+        p3_fund = ws / f"p3_fundamental_{sym}.json"    # 探源 · 基本面状态向量
 
         # 证真（正方 = 信号方向）—— 输出格式必须严格匹配以下Schema
-        _p4_schema = ('{"symbol":"str","direction":"str","agent":"zhengzhen","generated_at":"YYYY-MM-DD HH:MM",'
-                      '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
-                      '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
+        _p4_schema_zhengzhen = ('{"symbol":"str","direction":"str","agent":"zhengzhen","generated_at":"YYYY-MM-DD HH:MM",'
+                                '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
+                                '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
+        _p4_schema_zhensi = ('{"symbol":"str","direction":"str","agent":"zhensi","generated_at":"YYYY-MM-DD HH:MM",'
+                             '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
+                             '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
         zhengzhen_prompt = (
             f"你是证真(正方)辩手，论证品种 {sym} 的{direction}信号({grade})有效性。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"从研究员/链证源资料中提炼≥3条{direction}论据，每条附来源标注。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema}\n"
+            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema_zhengzhen}\n"
             f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_z}"
         )
         # 慎思（反方）
@@ -156,7 +245,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"从研究员/链证源资料中提炼≥3条反向论据，每条附来源标注。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema}\n"
+            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema_zhensi}\n"
             f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_s}"
         )
         # 闫判官输出Schema
@@ -173,6 +262,25 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
             f"【重要】输出JSON必须严格匹配以下Schema：\n{_p5j_schema}\n"
             f"禁止向其他 Agent 发消息，仅读文件。"
         )
+        # 观澜（技术面研究员）— P3 支撑阻力计算，先于 P4/P5 执行
+        technical_prompt = (
+            f"你是观澜(技术面研究员)，为品种 {sym} 计算支撑阻力位，写入 {p3_tech}。\n"
+            f"数据基准: {data_benchmark}。\n"
+            f"使用 technical_analysis.scripts.support_resistance 模块：\n"
+            f"  - find_swing_points(): ZigZag找前高前低\n"
+            f"  - identify_key_levels(): 硬/软分类 + ATR容差 + 失效条件\n"
+            f"  - calculate_poc(): 成交量分布图(POC/VAH/VAL)\n"
+            f"  - cross_validate_timeframes(): 多周期共振验证\n"
+            f"输出JSON Schema：\n"
+            f'{{"symbol":"str","agent":"technical_researcher","generated_at":"YYYY-MM-DD HH:MM",'
+            f'"support_levels":[{{"price":0.0,"hardness":"hard/medium/soft","atr_tolerance":0.0,'
+            f'"failure_condition":"str","tf_resonance":["daily/60min/15min"],"oi_confirm":true}}],'
+            f'"resistance_levels":[{{"price":0.0,"hardness":"hard/medium/soft","atr_tolerance":0.0,'
+            f'"failure_condition":"str","tf_resonance":["daily/60min/15min"],"oi_confirm":true}}],'
+            f'"poc":{{"price":0.0,"vah":0.0,"val":0.0}}}}\n'
+            f"注意：不下多空结论，不参与辩论，只提供技术位事实。\n"
+            f"写完用 SendMessage(recipient='main') 通知。"
+        )
         # 策执远输出Schema
         _p5t_schema = ('{"agent":"trading_planner","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
                        '"direction":"bull/bear","action":"buy_long/sell_short","timeframe":"str",'
@@ -181,10 +289,18 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
                        '"stop_loss":{"price":0.0,"type":"fixed/trailing/atr","atr_multiple":0},'
                        '"targets":[{"level":1,"price":0.0,"position_reduce_pct":50}],'
                        '"position_pct":0.0,"risk_reward_ratio":0.0}')
+        strategist_profile = _load_strategist_profile()
+        exp_inject = _strategist_experience_inject(strategist_profile)
         plan_prompt = (
             f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案，写入 {p5_t}。\n"
+            f"【支撑阻力参考】观澜技术分析已输出到 {p3_tech}，内含：\n"
+            f"  - support_levels: 支撑位（hardness硬/软分类 + ATR容差 + 失效条件）\n"
+            f"  - resistance_levels: 阻力位（同上）\n"
+            f"  - poc: 成交量分布图（POC/VAH/VAL）\n"
+            f"止损应设在关键阻力/支撑位外延，目标应基于关键位之间的空间，参考上述数据。\n"
             f"【重要】输出JSON必须严格匹配以下Schema（entry和stop_loss是dict类型，不是纯数字）：\n{_p5t_schema}\n"
             f"监控条件不以ADX为首要触发，价格突破+量确认排第一。"
+            f"{exp_inject}"
         )
         # 一致性裁判
         coherence_prompt = (
@@ -205,11 +321,14 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
         plan["symbols"].append({
             "symbol": sym, "direction": direction, "grade": grade,
             "files": {
+                "p3_technical": str(p3_tech),    # 观澜 · 支撑阻力
+                "p3_fundamental": str(p3_fund),  # 探源 · 基本面
                 "p4_zhengzhen": str(p4_z), "p4_zhensi": str(p4_s),
                 "p5_judge": str(p5_j), "p5_trading_plan": str(p5_t),
                 "p5_coherence": str(p5_c), "p5_risk_review": str(p5_r),
             },
             "spawn_prompts": {
+                "technical": technical_prompt,   # 观澜（P3 先执行）
                 "zhengzhen": zhengzhen_prompt, "zhensi": zhensi_prompt,
                 "judge": judge_prompt, "trading_plan": plan_prompt,
                 "coherence": coherence_prompt, "risk": risk_prompt,
@@ -328,6 +447,10 @@ def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
         entry = _extract_price(p5t.get("entry")) if p5t else 0
         sl = _extract_price(p5t.get("stop_loss")) if p5t else 0
         target = _extract_price(p5t.get("targets", [{}])[0]) if p5t and p5t.get("targets") else 0
+        # 安全兜底：action=execute 但 entry=0 → 降级为 wait（参数未填充）
+        if action == "execute" and (entry is None or entry <= 0):
+            print(f"  ⚠️ {sym} action=execute 但 entry={entry}，降级为 wait")
+            action = "wait"
         entry_price = entry if action == "execute" else None
         stop_loss_price = sl if action == "execute" else None
         target_price = target if action == "execute" else None
@@ -673,6 +796,15 @@ def run_report(workspace: str) -> int:
     return subprocess.call(cmd)
 
 
+def run_a2a(workspace: str) -> int:
+    """调用 export_a2a.py 导出 A2A 兼容格式。"""
+    cmd = [sys.executable,
+            str(SCRIPTS / "export_a2a.py"),
+            "--workspace", str(workspace)]
+    print(f"🔗 A2A 导出: {' '.join(cmd)}")
+    return subprocess.call(cmd)
+
+
 # ─────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────
@@ -683,6 +815,8 @@ def main():
     p_plan = sub.add_parser("plan", help="产出标准化 spawn 计划 JSON")
     p_plan.add_argument("--scan", required=True)
     p_plan.add_argument("--workspace", required=True)
+    p_plan.add_argument("--check-resources", action="store_true",
+                        help="spawn前调用 resource_watchdog 动态算并发数，不写死")
 
     p_fin = sub.add_parser("finalize", help="组装+萃取+报告（spawn 后收口）")
     p_fin.add_argument("--scan", required=True)
@@ -698,21 +832,31 @@ def main():
     p_rep = sub.add_parser("report", help="仅生成报告")
     p_rep.add_argument("--workspace", required=True)
 
+    p_a2a = sub.add_parser("a2a", help="导出 A2A 兼容格式（Agent-to-Agent Protocol）")
+    p_a2a.add_argument("--workspace", required=True)
+
     p_val = sub.add_parser("validate", help="仅信号复查")
     p_val.add_argument("--workspace", required=True)
     p_val.add_argument("--scan", help="scan JSON（可选，用于品种数交叉校验）")
 
     args = ap.parse_args()
+    # 归一化路径（Git Bash /d/… → D:\…）
+    if getattr(args, 'workspace', None):
+        args.workspace = _to_win_path(args.workspace)
+    if getattr(args, 'scan', None):
+        args.scan = _to_win_path(args.scan)
     ws = Path(args.workspace)
 
-    # extract/report/validate 不需要 scan 文件
-    if args.cmd in ("extract", "report", "validate"):
+    # extract/report/validate/a2a 不需要 scan 文件
+    if args.cmd in ("extract", "report", "validate", "a2a"):
         if args.cmd == "extract":
             run_extract(str(ws))
         elif args.cmd == "report":
             run_report(str(ws))
         elif args.cmd == "validate":
             run_validate(str(ws), getattr(args, 'scan', None))
+        elif args.cmd == "a2a":
+            run_a2a(str(ws))
         return
 
     # plan/assemble/finalize 需要 scan 文件
@@ -724,6 +868,25 @@ def main():
         triggers = select_triggers(scan, threshold)
         print(f"🔔 触发品种（|total|≥{threshold}）: {[t['symbol'] for t in triggers]}")
         plan = build_spawn_plan(triggers, str(ws), data_benchmark)
+        # ── 资源感知：动态调整并发数 ──
+        if getattr(args, 'check_resources', False):
+            try:
+                import subprocess as _sp, json as _json
+                watchdog = _FDT_ROOT / "scripts" / "resource_watchdog.py"
+                for ph_name, ph_info in plan.get("execution_phases", {}).items():
+                    r = _sp.run(
+                        [sys.executable, str(watchdog), "--phase", ph_name],
+                        capture_output=True, text=True, timeout=15,
+                    )
+                    if r.returncode == 0:
+                        rc = _json.loads(r.stdout)
+                        new_max = rc.get("safe_concurrent", ph_info["max_concurrent"])
+                        old_max = ph_info["max_concurrent"]
+                        ph_info["max_concurrent"] = new_max
+                        ph_info["resource_note"] = rc.get("reason", "")
+                        print(f"  📊 {ph_name}: 基础{old_max}→动态{new_max}（{rc.get('reason','')}）")
+            except Exception as e:
+                print(f"  ⚠️ 资源检查失败（{e}），使用基础并发值")
         out = ws / f"spawn_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
         with open(out, "w", encoding="utf-8") as f:
             json.dump(plan, f, ensure_ascii=False, indent=2)
@@ -742,6 +905,7 @@ def main():
             sys.exit(1)
         run_extract(str(ws))
         run_report(str(ws))
+        run_a2a(str(ws))
 
 
 if __name__ == "__main__":
