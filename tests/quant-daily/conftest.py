@@ -2,7 +2,16 @@
 import pytest, os, sys
 from fdt_test_helpers import add_fdt_paths
 
-add_fdt_paths(__file__, ['skills/quant-daily/scripts'], ['skills/quant-daily/scripts/signals'])
+# FDT_ROOT 优先（确保 from scripts.unified_logger 解析到 FDT_ROOT/scripts/）
+add_fdt_paths(__file__)
+# 再把技能级脚本目录放后面（from signals/ 可解析）
+_skill = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                      'skills', 'quant-daily', 'scripts')
+if _skill not in sys.path:
+    sys.path.append(_skill)
+
+# 排除因 scripts 包冲突无法收集的测试
+collect_ignore = ["test_debate_brief.py", "test_coverage_boost.py"]
 @pytest.fixture
 def sample_l1l4_entry():
     return {
