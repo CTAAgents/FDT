@@ -1,0 +1,63 @@
+name: FDT Tests & Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-batch-1:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install pytest pytest-cov numpy pandas
+      - name: Batch 1 - core modules
+        run: |
+          python -m pytest tests/commodity-chain/ tests/contracts/ \
+            tests/memory/ tests/pipeline/ tests/scheduler/ \
+            tests/self-improve-enhanced/ \
+            --tb=short -q --cov=scripts --cov=skills/commodity-chain-analysis \
+            --cov-report=term-missing --cov-fail-under=30
+
+  test-batch-2:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install pytest numpy pandas
+      - name: Batch 2 - gate + skipped modules
+        run: |
+          python -m pytest tests/fdt-gate/ tests/debate-argument-builder/ \
+            tests/debate-risk-manager/ tests/fundamental-data-collector/ \
+            tests/technical-analysis/ --tb=short -q
+
+  test-batch-3:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install pytest numpy pandas scipy
+      - name: Batch 3 - quant-daily
+        run: |
+          python -m pytest tests/quant-daily/ --tb=short -q
