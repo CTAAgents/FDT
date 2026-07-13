@@ -22,7 +22,6 @@ A2A 数据信封规范 — 统一输出格式
 """
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any

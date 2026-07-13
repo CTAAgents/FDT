@@ -22,9 +22,7 @@ from pathlib import Path
 # A2APayload 数据信封
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from contracts.a2a_payload import (  # type: ignore
-    A2APayload, a2a_debate, a2a_scan_summary,
-    RUNTIME_LLM, RUNTIME_INDEPENDENT,
-    GRADE_PRIMARY, GRADE_LLM,
+    a2a_debate,
 )
 
 
