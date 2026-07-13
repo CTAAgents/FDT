@@ -1,6 +1,6 @@
 ---
 name: debate-risk-manager
-version: 4.0.0
+version: 4.1.0
 description: >
   风控明 v4.1 — 风险引擎升级（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance.py v2.1输出。
 agent_created: true
