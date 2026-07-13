@@ -33,6 +33,23 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 07:51"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9960.0,
+        "condition": "价格跌破10000整数关口且成交量>20日均量1.2倍确认突破有效性;若放量跌破则调整为市价入场"
+      },
+      "stop_loss": {
+        "price": 10080.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 09:26"
     }
   ],
   "aggregated": {
@@ -40,16 +57,16 @@
     "resistance": [
       {
         "level": 9960.0,
-        "count": 2,
+        "count": 3,
         "min": 9960.0,
         "max": 9960.0
       }
     ],
-    "computed_at": "2026-07-13 07:51"
+    "computed_at": "2026-07-13 09:26"
   },
   "meta": {
     "variety": "oi",
-    "total_records": 2,
-    "last_updated": "2026-07-13 07:51"
+    "total_records": 3,
+    "last_updated": "2026-07-13 09:26"
   }
 }

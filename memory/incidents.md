@@ -413,3 +413,42 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 
 ### 本次处置
 复用18:24扫描(同2026-07-10收盘基准)+复用18:24辩论4品种产物，run_debate.py finalize重汇编debate_results.json并再生报告。数据等价，结论一致。
+
+---
+
+## 2026-07-13 09:13 | 信号(scan)与策略(debate)不一致 — 交易系统收到矛盾信号
+
+### 事件
+用户指出OI/jd的扫描信号是BULL/WATCH，但辩论裁决是BEAR/观望，最终debate_results.json仍含entry/stop/target/size等完整交易参数。用户原话："最终产生的信号是要推送给交易系统的"。
+
+### 根因分析
+两个独立bug：
+
+1. **`assemble()` 盲目填交易参数（run_debate.py）**: 无视裁决语义（NEUTRAL="观望"还是BEAR="可执行"），照抄p5_trading_plan的entry/stop/target/size到顶层输出。交易系统看到entry=4800+target=4650 → 以为有做空信号。
+
+2. **`generate_intermediate_data()` 用扫描信号算decision（intermediate_data.json）**: 第480-484行对每个信号品种硬编码 `direction=="bull" → decision="BUY"`，完全跳过辩论裁决结果。所以即使辩论说"观望"，intermediate_data仍给m输出decision=BUY。
+
+3. **下游 `phase3_generate_report.py` 的confidence类型兼容**: 修正后debate_results的confidence从数值(0.65)变为字符串("中")，phase3的 `if confidence < 0.4` 触发TypeError阻塞报告生成。
+
+### 改正（已执行）
+
+| # | 文件 | 修复 |
+|:--|:-----|:-----|
+| 1 | `scripts/run_debate.py` | 新增 `_derive_action()` 函数: NEUTRAL→wait / 总分差≤15→wait / 裁决≠扫描方向→wait / grade=WEAK→hold / 全部通过→execute |
+| 2 | `scripts/run_debate.py` | `assemble()`: 当action≠execute时，entry_price/stop_loss_price/target_price/position_size/contract全部设为None |
+| 3 | `scripts/run_debate.py` | `assemble()`: 顶层输出新增`action`字段（execute/hold/wait），交易系统直接读此字段判断 |
+| 4 | `scripts/run_debate.py` | `generate_intermediate_data()`: decision字段从"扫描信号→BUY/SELL"改为"辩论action→HOLD/WATCH/BUY/SELL"。action=wait→HOLD, action=hold→WATCH |
+| 5 | `scripts/run_debate.py` | `generate_intermediate_data()`: direction字段用辩论裁决方向覆盖扫描信号方向 |
+| 6 | `scripts/run_debate.py` | `report`/`extract`子命令不强制加载scan文件（修复CLI bug: report和extract子parser无需--scan但main()仍尝试打开args.scan） |
+| 7 | `skills/futures-trading-analysis/scripts/phase3_generate_report.py` | confidence字符串→float归一化: "高"→0.95, "中"→0.65, "低"→0.35 |
+
+### 验证
+修复后重新assemble+report：
+- debate_results.json: 5品种全部action=wait, entry/stop/target/size=null ✅
+- intermediate_data.json: 5品种全部decision=HOLD ✅  
+- report: T1=0, T2=0, T3=0（无可执行信号）✅
+
+### 预防
+- 最终输出必须经过action消歧：扫描信号方向 ≠ 交易系统动作。辩论裁决是中间件，不是最终判决
+- `generate_intermediate_data()` 中任何`decision`字段必须从辩论裁决读取，禁止从扫描信号直接推导
+- `_derive_action()` 逻辑已固化在run_debate.py的assemble流程中，后续新增辩论品种自动适配

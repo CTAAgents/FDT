@@ -30,10 +30,10 @@
     "pattern_id": "m-p002",
     "name": "空头突破跟随型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 07:51",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.72,
+    "last_used": "2026-07-13 09:26",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.804,
     "structure": "m-con1: RSI超买叠加量价背离，... → 技术形态确认 → m-con3: MACD无金叉且均线排列... → 基本面验证",
     "applicable_conditions": {
       "adx_range": [

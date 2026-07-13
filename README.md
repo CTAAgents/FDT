@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v6.0.0
+# Futures Debate Team — 期货交易辩论专家团 v6.1.0
 
-> 🚀 **v6.0.0 数据引擎重构**：FDC (futures-data-core) 内嵌为 FDT 自有模块。数据源全面升级——QMT/xtquant 为第一数据源（本地 TCP 直取），TDX 为第二、TqSDK 为备选；AKShare 与东方财富彻底移除，净减 ~700 行依赖代码。**v5.12.0 周期发现层**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎。**v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`。
+> 🚀 **v6.1.0 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器，作为推送给交易系统前的最后一道门。`assemble()` 新增 `_derive_action()` 动作消歧函数——将辩论裁决稳定映射为 `execute/hold/wait` 三值动作，action≠execute 时自动清空所有交易参数。新增方向-价格一致性校验（BULL→target>entry>stop，BEAR→target&lt;entry&lt;stop，RR≥0.5）。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`phase3_generate_report.py` confidence 字符串→float 归一化。**v6.0.0 数据引擎重构**：FDC (futures-data-core) 内嵌为 FDT 自有模块。数据源全面升级——QMT/xtquant 为第一数据源（本地 TCP 直取），TDX 为第二、TqSDK 为备选；AKShare 与东方财富彻底移除。**v5.12.0 周期发现层**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎。**v5.11.0 辩论流水线工程化**：新增一键驱动层 `scripts/run_debate.py`。
 
 ## 类型
 
@@ -84,7 +84,10 @@ python scripts/run_debate.py assemble --workspace {YYYY-MM-DD}/
 # 4) 批量知识萃取（复用内置质量门控，conf<0.6 自动跳过，不加 --bypass）
 python scripts/run_debate.py extract --workspace {YYYY-MM-DD}/
 
-# 5) 生成辩论报告（统一调 phase3 --debate，单/多品种通用）
+# 5) 信号复查（终检：推送给交易系统前的最后一道门）
+python scripts/validate_final_signals.py --input debate_results.json --scan scan_daily_*.json
+
+# 6) 生成辩论报告（统一调 phase3 --debate，单/多品种通用）
 python scripts/run_debate.py report --workspace {YYYY-MM-DD}/
 ```
 
@@ -149,6 +152,18 @@ python skills/quant-daily/scripts/scan_all.py -o ./reports -p full_scan
 
 # 列出可用策略
 python skills/quant-daily/scripts/scan_all.py --list-strategies
+
+# 辩论驱动：plan → spawn → assemble+validate → report
+python scripts/run_debate.py plan --scan scan.json --workspace .
+# ... spawn Agents ...
+python scripts/run_debate.py finalize --scan scan.json --workspace .
+
+# 信号复查（终检，推送给交易系统前必跑）
+python scripts/validate_final_signals.py -i debate_results.json -s scan_daily_*.json --json
+
+# 单独运行各阶段
+python scripts/run_debate.py validate --workspace . --scan scan.json
+python scripts/run_debate.py report --workspace .
 ```
 
 ## 依赖的 Skills
@@ -368,8 +383,9 @@ memory/knowledge/
 
 ```
 FDT内部 (自包含系统):
-  data/debate_results.json                 ← 辩论数据
+  data/debate_results.json                 ← 辩论数据（交易系统接口，含action=execute/hold/wait）
   reports/debate_report_*.html             ← HTML报告
+  scripts/validate_final_signals.py        ← 最终信号复查器（确定性校验，推送交易系统前调用）
   memory/debate_journal.json               ← 辩论执行记录
   memory/debates/INDEX.md                  ← 辩论索引
   memory/knowledge/{variety}/              ← 品种知识库（v5.9）
@@ -386,6 +402,7 @@ FDT内部 (自包含系统):
 |:-----|:----|:-----|
 | fdt_paths.py | v1.0 | 单一路径真相源，自动检测FDT根目录 |
 | memory_enforcer.py | v1.0 | 零参数记忆归档+工作空间日志校验 |
+| validate_final_signals.py | v1.0 | 确定性信号复查器：6+条硬性规则，确保交易系统收到无矛盾信号 |
 
 ## 依赖安装
 
@@ -401,6 +418,7 @@ pip install tqsdk
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v6.1.0** | **2026-07-13** | **🔴 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器（6+条硬性规则：action合法性、交易参数一致性、方向-价格一致性BULL→target>entry>stop/BEAR→target&lt;entry&lt;stop、RR≥0.5、品种交叉校验、confidence/grade合法性）。`assemble()` 新增 `_derive_action()` 动作消歧——裁决→execute/hold/wait 三值映射，action≠execute 时自动清空所有交易参数。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`generate_intermediate_data()` 的 `decision` 字段从扫描信号改为读辩论裁决（根因修复：信号与策略不一致）。`phase3_generate_report.py` 新增 confidence 字符串→float 归一化（"高"→0.95/"中"→0.65/"低"→0.35）。
 | **v5.12.1** | **2026-07-11** | **🔧 版本对齐**：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更。 |
 | **v5.12.0** | **2026-07-11** | **🧬 周期发现层里程碑**：新增 `skills/quant-daily/scripts/signals/period_fitness.py` 零硬编码周期发现引擎(`discover()`纯函数+`build_period_fitness()`批量产出)；`config/settings.py` 新增 PERIOD_REGISTRY(单一真相源，daily/240m/120m/60m/30m全enabled)+PERIOD_FITNESS_WEIGHTS+EXEC_STYLE_MAP；`daily_debate.py` 对候选品种算周期发现并写入 `debate_trigger.json.period_fitness_path`；3个决策Agent MD(闫判官/策执远/风控明)新增「周期发现消费」段。 |
 | **v5.11.0** | **2026-07-11** | **🧬 辩论流水线工程化里程碑**：新增 `scripts/run_debate.py` 主动驱动层（扫描→按DEBATE_ENTRY_MIN_ABS识别触发品种→标准化spawn计划JSON→assemble/extract/report子命令，替代手写胶水代码）；`extract_knowledge.py` 增 `ingest_from --from debate_results.json` 批量萃取；`channel_breakout_strategy` 量能前置门(vol_ratio≥normal_lower_ratio才授DC20 base分)；`phase3 --debate` 子集兼容(adapt兼容reasoning顶层/嵌套两格式+去全量intermediate_data.json硬依赖+数据基准时间戳从debate_results顶层读取)。额外修复：config.settings漂移+phase3 KeyError:slice真根因。 |

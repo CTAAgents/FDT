@@ -1,60 +1,21 @@
-# Futures-Debate-Team Git忽略规则
-# ================================
-
-# ── 隐私凭证 ──
-settings.json
-settings.local.json
-*.key
-*.pem
-secrets/
-.env
-**/.env
-
-# ── API 密钥 ──
-*api_key*
-*apikey*
-*token*
-*secret*
-
-# ── 数据缓存 ──
-**/data/sentiment/sentiment_cache.json
-**/data/cache/
-**/reports/
+# FDT generated outputs
+data/
 reports/
-
-# ── 数据库 ──
-*.db
-*.sqlite
-*.sqlite3
-
-# ── Python 缓存 ──
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-
-# ── 环境 ──
-venv/
-.venv/
-virtualenv/
-
-# ── 操作系统 ──
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-
-# ── IDE ──
-.vscode/
-.idea/
-*.code-workspace
-
-# ── 日志 ──
-*.log
-logs/
-
-# ── 生成的报告 ──
-**/Reports/
-**/reports/*.html
-**/reports/*.json
+Reports/
+memory/FDT_*/
+memory/knowledge/*/patterns.tmp
+skills/*/scripts/Reports/
+skills/*/Reports/
+skills/fundamental-data-collector/scripts/huishang_cache/
+skills/quant-daily/reports/
 skills/quant-daily/scripts/nul
+
+# Temp / cache
+*.tmp
+*.log
+*.pyc
+__pycache__/
+.DS_Store
+
+# Settings
+settings.json

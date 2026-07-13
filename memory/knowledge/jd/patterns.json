@@ -28,10 +28,10 @@
     "pattern_id": "jd-p002",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-13 07:51",
-    "use_count": 4,
-    "win_count": 4,
-    "win_rate": 0.863,
+    "last_used": "2026-07-13 09:26",
+    "use_count": 5,
+    "win_count": 5,
+    "win_rate": 0.904,
     "structure": "趋势确认 → 趋势确认 → 技术形态确认 → 趋势确认 → jd-con5: 正方'饲料成本改善+板...",
     "applicable_conditions": {
       "adx_range": [

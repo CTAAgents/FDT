@@ -716,6 +716,10 @@ T3_signals = []
 for s in all_actionable:
     pid = s.get("pid", "")
     confidence = s.get("confidence", 0)
+    # 置信度归一化：字符串"高/中/低" → float
+    if isinstance(confidence, str):
+        _conf_map = {"高": 0.95, "中": 0.65, "低": 0.35}
+        confidence = _conf_map.get(confidence, 0.5)
     direction = s.get("decision", "HOLD")
 
     debate = debate_results.get(pid, {})

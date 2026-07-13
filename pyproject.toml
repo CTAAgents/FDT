@@ -4,8 +4,8 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "6.0.0"
-description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v6.0: FDC data engine merge — QMT(0) primary source, TDX/TqSDK fallback, AKShare/EastMoney removed. v5.12: period discovery layer PERIOD_REGISTRY zero-hardcode. v5.11: debate pipeline engineering. v5.10: unified debate entry threshold."
+version = "6.1.0"
+description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v6.1: Signal validation gate (validate_final_signals.py) + action reconciliation (execute/hold/wait) + direction-price consistency check. v6.0: FDC data engine merge — QMT(0) primary source, TDX/TqSDK fallback, AKShare/EastMoney removed. v5.12: period discovery layer PERIOD_REGISTRY zero-hardcode. v5.11: debate pipeline engineering. v5.10: unified debate entry threshold."
 readme = "README.md"
 requires-python = ">=3.10"
 

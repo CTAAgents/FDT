@@ -67,6 +67,23 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 07:51"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 12250.0,
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+      },
+      "stop_loss": {
+        "price": 12700.0,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 09:26"
     }
   ],
   "aggregated": {
@@ -74,7 +91,7 @@
     "resistance": [
       {
         "level": 12250.0,
-        "count": 2,
+        "count": 3,
         "min": 12250.0,
         "max": 12250.0
       },
@@ -85,11 +102,11 @@
         "max": 12500.0
       }
     ],
-    "computed_at": "2026-07-13 07:51"
+    "computed_at": "2026-07-13 09:26"
   },
   "meta": {
     "variety": "lh",
-    "total_records": 4,
-    "last_updated": "2026-07-13 07:51"
+    "total_records": 5,
+    "last_updated": "2026-07-13 09:26"
   }
 }

@@ -254,6 +254,42 @@ def _extract_price(val, default=0):
     return default
 
 
+# ── 裁决→动作 消歧（信号与策略不一致的根因修复）──
+def _derive_action(verdict: str, grade: str, score_breakdown: dict, scan_direction: str) -> str:
+    """从判官裁决推导最终可操作动作。
+
+    规则：
+    1. NEUTRAL → wait（中立裁决，不可执行）
+    2. 总分差≤15 → wait（辩论太接近，信噪比不足）
+    3. 裁决方向 ≠ 扫描信号方向 → wait（辩论反转了信号方向）
+    4. grade=WEAK → hold（监控观察，非直接执行）
+    5. grade=STRONG/WATCH 且全部通过 → execute
+
+    返回: 'execute' | 'hold' | 'wait'
+    """
+    v = verdict.upper()
+    s = scan_direction.upper() if scan_direction else ""
+
+    if v == "NEUTRAL":
+        return "wait"
+
+    margin = 999
+    if score_breakdown and isinstance(score_breakdown, dict):
+        bull_t = sum(d.get("bull", 0) for d in score_breakdown.values() if isinstance(d, dict))
+        bear_t = sum(d.get("bear", 0) for d in score_breakdown.values() if isinstance(d, dict))
+        margin = abs(bull_t - bear_t)
+
+    if margin <= 15:
+        return "wait"
+    if v != s:
+        return "wait"
+    if grade in ("WEAK",):
+        return "hold"
+    if grade in ("STRONG", "WATCH"):
+        return "execute"
+    return "wait"
+
+
 def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
     ws = Path(workspace)
     verdicts = {}
@@ -282,14 +318,27 @@ def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
 
         jv = p5j.get("judge_verdict", p5j)
         direction = str(jv.get("final_direction", jv.get("verdict", jv.get("direction", "")))).upper() or "NEUTRAL"
+        score_breakdown = jv.get("score_breakdown", p5j.get("score_breakdown", {}))
+
+        # ── 动作消歧：裁决→可执行动作 ──
+        scan_direction = next((s.get("direction", "") for s in scan.get("all_ranked", []) if s.get("symbol") == sym), "")
+        action = _derive_action(direction, item["grade"], score_breakdown, scan_direction)
+
+        # ── 仅 action=execute 才保留交易参数；wait/hold 清空 ──
         entry = _extract_price(p5t.get("entry")) if p5t else 0
         sl = _extract_price(p5t.get("stop_loss")) if p5t else 0
         target = _extract_price(p5t.get("targets", [{}])[0]) if p5t and p5t.get("targets") else 0
+        entry_price = entry if action == "execute" else None
+        stop_loss_price = sl if action == "execute" else None
+        target_price = target if action == "execute" else None
+        position_size = p5t.get("position_pct") if p5t and action == "execute" else None
+        contract = p5t.get("contract") if p5t and action == "execute" else None
 
         verdicts[sym] = {
             "symbol": sym,
             "name": sym,
             "direction": direction,
+            "action": action,
             "verdict": direction,
             "confidence": jv.get("confidence", p5j.get("confidence")),
             "reasoning": jv.get("reasoning", p5j.get("reasoning")),
@@ -303,11 +352,11 @@ def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
             "rsi": scan_rsi(scan, sym),
             "cci": scan_cci(scan, sym),
             "chain": (p5t.get("chain") if p5t else None) or scan_chain(scan, sym),
-            "entry_price": entry,
-            "target_price": target,
-            "stop_loss_price": sl,
-            "position_size": p5t.get("position_pct") if p5t else None,
-            "contract": p5t.get("contract") if p5t else None,
+            "entry_price": entry_price,
+            "target_price": target_price,
+            "stop_loss_price": stop_loss_price,
+            "position_size": position_size,
+            "contract": contract,
             "judge_verdict": {
                 "final_direction": jv.get("final_direction"),
                 "confidence": jv.get("confidence"),
@@ -475,23 +524,28 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
         total = s.get("total", 0)
         abs_score = s.get("abs", 0)
 
-        # 方向映射
-        if direction == "bull":
-            decision = "BUY" if total > 0 else "HOLD"
-        elif direction == "bear":
-            decision = "SELL" if total < 0 else "HOLD"
-        else:
+        # 若有辩论结果，用辩论中的action/direction覆盖，不用原始扫描信号
+        verdict_entry = debate_data.get(sym, {})
+        chain_name = verdict_entry.get("chain", "") or _get_chain(sym)
+
+        # 裁决→action 映射：用辩论action决定交易系统决策（根因修复）
+        debate_action = verdict_entry.get("action", "")
+        debate_direction = verdict_entry.get("direction", "")
+        if debate_action == "execute":
+            decision = "BUY" if debate_direction in ("BULL", "bull") else "SELL"
+        elif debate_action == "hold":
+            decision = "WATCH"
+        else:  # wait 或无裁决
             decision = "HOLD"
 
-        # 置信度：abs总分归一化到 0-1 区间（max 参考 60~80）
-        confidence = min(1.0, max(0.1, abs_score / 80.0))
+        # 置信度：有裁决时直接用裁决confidence
+        confidence = verdict_entry.get("confidence", "")
+        if not confidence:
+            confidence = min(1.0, max(0.1, abs_score / 80.0))
 
         entry = s.get("price", 0)
         adx_val = s.get("adx", 0)
 
-        # 若有辩论结果，用辩论中的交易参数覆盖
-        verdict_entry = debate_data.get(sym, {})
-        chain_name = verdict_entry.get("chain", "") or _get_chain(sym)
         entry_price = verdict_entry.get("entry_price", entry) or entry
         target_price = verdict_entry.get("target_price", s.get("target_price", 0))
         stop_loss = verdict_entry.get("stop_loss_price", s.get("stop_loss_price", 0))
@@ -503,7 +557,7 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
             "product_name": s.get("name", sym),
             "confidence": confidence,
             "decision": decision,
-            "direction": direction,
+            "direction": debate_direction or direction,
             "price": entry,
             "entry_price": entry_price,
             "target_price": target_price,
@@ -581,6 +635,31 @@ def run_extract(workspace: str) -> int:
 
 
 # ─────────────────────────────────────────────
+# 信号复查（终检：推送给交易系统前的最后一道门）
+# ─────────────────────────────────────────────
+def run_validate(workspace: str, scan_path: str | None = None) -> int:
+    """确定性复查 debate_results.json，确保无矛盾。
+    
+    退出码 0=通过，1=失败。失败时打印所有错误并静默返回 1（供 pipelining 用）。
+    """
+    ws = Path(workspace)
+    dr = ws / "debate_results.json"
+    if not dr.exists():
+        print(f"✗ 未找到 {dr}，跳过信号复查")
+        return 0
+
+    cmd = [sys.executable, str(SCRIPTS / "validate_final_signals.py"),
+           "--input", str(dr)]
+    if scan_path:
+        cmd += ["--scan", str(Path(scan_path).resolve())]
+    print(f"🔴 信号复查: {' '.join(cmd)}")
+    ret = subprocess.call(cmd)
+    if ret != 0:
+        print(f"⛔ 信号复查失败，中止管道 — 修复后重新 assemble")
+    return ret
+
+
+# ─────────────────────────────────────────────
 # 报告（G 项：phase3 --debate，数据基准走 debate_results.data_benchmark）
 # ─────────────────────────────────────────────
 def run_report(workspace: str) -> int:
@@ -619,12 +698,27 @@ def main():
     p_rep = sub.add_parser("report", help="仅生成报告")
     p_rep.add_argument("--workspace", required=True)
 
-    args = ap.parse_args()
+    p_val = sub.add_parser("validate", help="仅信号复查")
+    p_val.add_argument("--workspace", required=True)
+    p_val.add_argument("--scan", help="scan JSON（可选，用于品种数交叉校验）")
 
+    args = ap.parse_args()
+    ws = Path(args.workspace)
+
+    # extract/report/validate 不需要 scan 文件
+    if args.cmd in ("extract", "report", "validate"):
+        if args.cmd == "extract":
+            run_extract(str(ws))
+        elif args.cmd == "report":
+            run_report(str(ws))
+        elif args.cmd == "validate":
+            run_validate(str(ws), getattr(args, 'scan', None))
+        return
+
+    # plan/assemble/finalize 需要 scan 文件
     scan = json.load(open(args.scan, encoding="utf-8"))
     threshold = load_debate_threshold()
     data_benchmark = derive_data_benchmark(scan)
-    ws = Path(args.workspace)
 
     if args.cmd == "plan":
         triggers = select_triggers(scan, threshold)
@@ -636,18 +730,16 @@ def main():
         print(f"📋 spawn 计划: {out}")
 
     elif args.cmd == "assemble":
-        assemble(scan, str(ws), data_benchmark)
+        out = assemble(scan, str(ws), data_benchmark)
         generate_intermediate_data(scan, str(ws), data_benchmark)
-
-    elif args.cmd == "extract":
-        run_extract(str(ws))
-
-    elif args.cmd == "report":
-        run_report(str(ws))
+        if run_validate(str(ws), args.scan) != 0:
+            sys.exit(1)
 
     elif args.cmd == "finalize":
-        assemble(scan, str(ws), data_benchmark)
+        out = assemble(scan, str(ws), data_benchmark)
         generate_intermediate_data(scan, str(ws), data_benchmark)
+        if run_validate(str(ws), args.scan) != 0:
+            sys.exit(1)
         run_extract(str(ws))
         run_report(str(ws))
 
