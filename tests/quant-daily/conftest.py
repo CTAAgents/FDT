@@ -1,14 +1,8 @@
-"""quant-daily signals 测试配置 — 统一 tests/ 目录版"""
+"""quant-daily auto-generated conftest"""
+import pytest, os, sys
+from fdt_test_helpers import add_fdt_paths
 
-import pytest, os, sys, tempfile, shutil
-
-# 计算项目根目录
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "skills", "quant-daily", "scripts")
-sys.path.insert(0, SCRIPTS_DIR)
-sys.path.insert(0, PROJECT_ROOT)  # 使根级包（debate/, ml/, pipeline/）可被导入
-
-
+add_fdt_paths(__file__, ['skills/quant-daily/scripts'], ['skills/quant-daily/scripts/signals'])
 @pytest.fixture
 def sample_l1l4_entry():
     return {

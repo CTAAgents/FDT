@@ -1,35 +1,8 @@
-"""FDT 质量门禁测试配置 (2026-07-07 改动集)
+"""fdt-gate auto-generated conftest"""
+import pytest, os, sys
+from fdt_test_helpers import add_fdt_paths
 
-与团队其它测试目录一致的约定：
-  - 通过 PROJECT_ROOT 推导（tests/<dir> → tests → futures-debate-team）
-  - 把 scripts/ 与 PROJECT_ROOT 注入 sys.path，使 `from scripts.xxx` 与
-    `from scheduler.triggers` 均可解析
-  - 用 importlib 动态加载被测模块，规避 run_benchmark 顶层 `from replay_harness import`
-    之类的相对导入副作用
-"""
-
-import os
-import sys
-import importlib.util
-import pytest
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "scripts")
-for _p in (SCRIPTS_DIR, PROJECT_ROOT):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-# 2026-07-07 新增/修改的被测模块
-FILE_MAP = {
-    "apm_scorecard": "scripts/apm_scorecard.py",
-    "enforce_discipline": "scripts/enforce_discipline.py",
-    "self_improve": "scripts/self_improve.py",
-    "memory_writer": "scripts/memory_writer.py",
-    "triggers": "scheduler/triggers.py",
-    "replay_harness": "scripts/replay_harness.py",
-    "run_benchmark": "scripts/run_benchmark.py",
-}
-
+add_fdt_paths(__file__, [])
 
 def _load(name, rel):
     spec = importlib.util.spec_from_file_location(name, os.path.join(PROJECT_ROOT, rel))

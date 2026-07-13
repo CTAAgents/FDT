@@ -1,15 +1,8 @@
-"""conftest for self-improve-enhanced tests — path injection + shared fixtures."""
+"""self-improve-enhanced auto-generated conftest"""
+import pytest, os, sys
+from fdt_test_helpers import add_fdt_paths
 
-import os
-import sys
-import json
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # tests/self-improve-enhanced/ -> ../
-sys.path.insert(0, str(PROJECT_ROOT))
-
-
-# ── Sample data fixtures ───────────────────────────────────────
+add_fdt_paths(__file__, ["scripts"])
 
 def sample_debate_results() -> dict:
     """Minimal but realistic debate_results.json for testing."""
