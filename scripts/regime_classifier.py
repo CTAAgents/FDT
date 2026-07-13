@@ -18,4 +18,4 @@
 用法:
     from regime_classifier import RegimeClassifier, classify_regime
     regime = classify_regime(df)  # → {"regime": "strong_trend", "confidence": 0.85, ...}
-"
+"""
