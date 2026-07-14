@@ -521,19 +521,25 @@ def run_scan(
                 summary = summary
             else:
                 summary = {}
-            # ── v7.0 策略管线：默认使用 StrategyPipeline 执行全部已注册 v2 策略 ──
+            # ── v7.0 前置采集：基差+OI + 宏观制度（供管线策略 + 验证器共用）──
+            _ctx_extra: dict = {}
+            try:
+                _ctx_extra["basis_data"] = _collect_basis_data_sync(tech_list)
+                _ctx_extra["oi_data"] = _collect_oi_data_sync(tech_list, kline_data)
+            except Exception:
+                pass
+            try:
+                from optimizer.regime import compute_market_regime
+                _mr = compute_market_regime(period=period)
+                if _mr.get("regime") not in ("unknown", None):
+                    _ctx_extra["macro_signal"] = "bull" if _mr["regime"] in ("bull", "risk_on") else "bear"
+                    print(f"\n  [宏观制度] 市场制度: {_mr['regime']} → macro_signal={_ctx_extra['macro_signal']}")
+            except Exception:
+                pass
             # 只有显式指定 --strategy XXX 时才回退单策略模式（兼容旧版）。
             _pipeline_default = not getattr(args, "strategy", None)
             if _pipeline_default:
                 try:
-                    # ── 前置采集：基差+OI 数据注入管线上下文（供套利等策略消费）──
-                    _ctx_extra: dict = {}
-                    try:
-                        _ctx_extra["basis_data"] = _collect_basis_data_sync(tech_list)
-                        _ctx_extra["oi_data"] = _collect_oi_data_sync(tech_list, kline_data)
-                    except Exception:
-                        pass  # 基差/OI 不可用时策略优雅降级
-
                     from strategies.registry_v2 import get_pipeline
                     from strategies.trend_following_strategy import TrendFollowingStrategy
                     from strategies.arbitrage_strategy import ArbitrageStrategy
@@ -559,15 +565,6 @@ def run_scan(
                     strategy = get_strategy(strategy_name)
                     summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
             else:
-                try:
-                    from optimizer.regime import compute_market_regime
-                    from config.settings import apply_regime, current_regime
-                    mr = compute_market_regime(period=period)
-                    if mr["regime"] not in ("unknown",):
-                        apply_regime(mr["regime"])
-                        print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
-                except Exception:
-                    pass
                 strategy = get_strategy(strategy_name)
                 summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
