@@ -79,6 +79,24 @@ def _find_recent_events() -> list[dict]:
     return recent
 
 
+def _injected_to_events(injected: dict) -> list[dict]:
+    """将 scan_all 注入的事件日历转换为策略内部事件格式。"""
+    today = datetime.now()
+    recent: list[dict] = []
+    for sym, ev_list in injected.items():
+        for ev in ev_list:
+            days_away = ev.get("days_away", 0)
+            if 0 <= days_away <= EVENT_LOOKBACK_DAYS:
+                recent.append({
+                    "date": ev.get("date", ""),
+                    "name": ev.get("name", ""),
+                    "expected": "neutral",
+                    "symbols": [sym] if sym != "*" else [],
+                    "event_date": ev.get("date", ""),
+                })
+    return recent
+
+
 # ════════════════════════════════════════════════════════════
 
 class EventDrivenStrategy(BaseStrategyV2):
@@ -102,7 +120,13 @@ class EventDrivenStrategy(BaseStrategyV2):
 
     def compute(self, tech_list: list[dict], kline_data: dict,
                 context: dict | None = None) -> list[RawSignal]:
-        events = _find_recent_events()
+        # 优先使用 scan_all 注入的预热事件日历，回退硬编码
+        ctx = context or {}
+        injected = ctx.get("event_calendar") or ctx.get("extra", {}).get("event_calendar")
+        if injected:
+            events = _injected_to_events(injected)
+        else:
+            events = _find_recent_events()
         if not events:
             return []
 

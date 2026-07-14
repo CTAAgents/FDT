@@ -537,6 +537,15 @@ def run_scan(
                     print(f"\n  [宏观制度] 市场制度: {_mr['regime']} → macro_signal={_ctx_extra['macro_signal']}")
             except Exception:
                 pass
+            # ── 事件日历注入（供 event_driven 策略消费） ──
+            try:
+                from data.event_calendar import build_event_calendar
+                _ctx_extra["event_calendar"] = build_event_calendar()
+                _ec_count = sum(len(v) for v in _ctx_extra["event_calendar"].values() if v)
+                if _ec_count:
+                    print(f"\n  [事件日历] 已预排 {_ec_count} 条事件")
+            except Exception:
+                pass
             # 只有显式指定 --strategy XXX 时才回退单策略模式（兼容旧版）。
             _pipeline_default = not getattr(args, "strategy", None)
             if _pipeline_default:
