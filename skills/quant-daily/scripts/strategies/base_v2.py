@@ -12,7 +12,7 @@ v2 策略可经过 Adapter 桥接到 v1 的 score() 接口（扫盘兼容），
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 
 # ════════════════════════════════════════════════════════════
@@ -194,3 +194,109 @@ class BaseStrategyV2(ABC):
             ScoredSignal 列表
         """
         ...
+
+
+# ════════════════════════════════════════════════════════════
+# v1 → v2 适配器（桥接兼容）
+# ════════════════════════════════════════════════════════════
+
+def _copy_fields(src: dict, dst: ScoredSignal) -> None:
+    """从 v1 输出 dict 复制指标字段到 ScoredSignal。"""
+    for k in ("price", "change_pct", "volume", "adx", "rsi", "cci",
+              "ma_slope", "macd_cross", "dc20_break", "ma_align",
+              "z_score", "stage", "atr"):
+        v = src.get(k)
+        if v is not None:
+            setattr(dst, k, v)
+    dst._tdx_patched = src.get("_tdx_patched", False)
+    dst.sub_scores = {k: v for k, v in src.items()
+                      if k.startswith("dc") or k.startswith("bb") or k.startswith("vol")}
+    dst.extra = src.get("extra", {})
+    for ek in ("_raw_total", "_raw_grade", "_validator_demoted", "_validator_reason",
+               "_oi_surge_reversal", "_strangle_compressed", "_basis_conflict"):
+        if ek in src:
+            dst.extra[ek] = src[ek]
+
+
+class StrategyV1Adapter(BaseStrategyV2):
+    """将 v1 BaseStrategy 适配为 v2 BaseStrategyV2 接口。
+
+    用法:
+        from strategies import get_strategy
+        v1 = get_strategy("channel_breakout")
+        v2 = StrategyV1Adapter(v1, validators=CHANNEL_BREAKOUT_VALIDATORS)
+        pipe = StrategyPipeline([v2])
+    """
+
+    def __init__(self, v1_strategy: Any,
+                 signal_type: str | None = None,
+                 validators: list[str] | None = None,
+                 weight: float = 1.0):
+        self._v1 = v1_strategy
+        self._sig_type = signal_type or v1_strategy.name
+        self._validators = validators or []
+        self._weight = weight
+
+    @property
+    def name(self) -> str:
+        return self._v1.name
+
+    @property
+    def signal_type(self) -> str:
+        return self._sig_type
+
+    @property
+    def validators(self) -> list[str]:
+        return self._validators
+
+    @property
+    def weight(self) -> float:
+        return self._weight
+
+    @property
+    def display_name(self) -> str:
+        return self._v1.display_name
+
+    def compute(self, tech_list: list[dict], kline_data: dict,
+                context: dict | None = None) -> list[RawSignal]:
+        # v1 没有分离 compute/filter，用 pass-through 让 score 处理
+        return [RawSignal(
+            symbol=t.get("symbol", ""),
+            direction="neutral",
+            signal_type=f"{self._sig_type}.raw",
+            raw_score=0,
+            strategy_name=self.name,
+            meta=t,
+        ) for t in tech_list]
+
+    def filter(self, raw_signals: list[RawSignal],
+               context: dict | None = None) -> list[RawSignal]:
+        return raw_signals  # v1 验证器接管过滤
+
+    def score(self, filtered_signals: list[RawSignal],
+              tech_list: list[dict],
+              context: dict | None = None) -> list[ScoredSignal]:
+        ctx = context or {}
+        result = self._v1.score(
+            tech_list,
+            mode=ctx.get("mode", "full"),
+            kline_data=ctx.get("kline_data"),
+            df_map=ctx.get("df_map"),
+            period=ctx.get("period", "daily"),
+            window_mode=ctx.get("window_mode", "fixed"),
+        )
+        signals: list[ScoredSignal] = []
+        for r in result.get("all_ranked", []):
+            ss = ScoredSignal(
+                symbol=r.get("symbol", ""),
+                direction=r.get("direction", "neutral"),
+                signal_type=f"{self._sig_type}.{r.get('signal_type', 'unknown')}",
+                strategy_name=self.name,
+                total=r.get("total", 0),
+                abs_score=r.get("abs", 0),
+                grade=r.get("grade", "NOISE"),
+                weight=self._weight,
+            )
+            _copy_fields(r, ss)
+            signals.append(ss)
+        return signals
