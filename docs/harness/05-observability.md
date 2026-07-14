@@ -145,11 +145,9 @@ logger.error("连接失败", exc_info=True)
 | `scheduler.log` | `scheduler/` | `scheduler/engine.py` | 调度器心跳日志 |
 | `daemon.log` | `scheduler/` | `bootstrap.py daemon` | 守护进程输出 |
 
-### 3.4 已知不一致
+### 3.4 日志统一状态
 
-> **Gap**: `pipeline/runner.py` 使用 `logging.basicConfig()` 直接配置日志，而非使用 `unified_logger.py`。导致流水线日志与统一日志格式不一致。
->
-> **改进建议**: 迁移 `pipeline/runner.py` 到 `unified_logger.get_logger("auto_pipeline")`。
+> **2026-07-14 整顿**：G3 已落地——`pipeline/runner.py` L26/L66 已改为 `from scripts.unified_logger import get_logger` + `logger = get_logger("pipeline", log_dir=_log_dir)`，流水线日志与统一日志格式一致。此前「pipeline 使用 basicConfig」的注记已过时，特此校正。
 
 ## 4. 失败模式聚类 (Telescope)
 

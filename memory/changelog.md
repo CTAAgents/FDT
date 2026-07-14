@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-07-14 18:35 — README v6.3.1 重写（修正流程错误 + 突出系统特色）
+
+- **根因**：GitHub 上的 README 基于过时系统快照（系统提示仍 v5.12.1），存在版本不符、未体现系统特色、流程错误三类问题。基于权威文档（`docs/business_flow.md` / `docs/harness/02-lifecycle.md` / `rules/futures-debate-team_rules.md` / `pipeline/runner.py` / `scheduler/tasks.py` / `docs/agent-protocol.md`）重写。
+- **修正的流程错误**：
+  1. P1 架构图原仅画数技源单生产者 → 改为三生产者（channel_breakout + L1-L4 + factor_timing，各自独立 JSON）
+  2. 角色阶段对照表原观澜/探源只标 P3 → 补 P1 生产者职责
+  3. `run_debate.py plan --scan scan_daily_*.json` 文件名错误（scan_all.py 不产出该名）→ 改为 `full_scan_summary_{date}.json`
+  4. 数据源优先级原写「TqSDK 第一、TDX 降级」→ 按 business_flow.md 修正为 TDX 主源（盘中 TDX→TqSDK→东方财富→AKShare）
+  5. 信号权重去写死百分比，改为引用 `config/settings.py` 单一真相源
+- **新增「核心特色」专节**：10-Agent辩论架构 / 三生产者信号架构 / 通道突破主信号源 / 自进化闭环 / 5层鲁棒性 / 信号验证门禁 / A2A桥 / 品种知识库 / OmniOpt策略族 / 周期发现层 / FDC数据路由溯源
+- **发布**：commit `6962f62` 推送到 `CTAAgents/experts` main；版本号未变（纯文档修正，仍 v6.3.1）
+
+---
+
+## 2026-07-14 13:25 — Harness 文档整顿（v6.3.1 对齐 + G14/G16/G17 修正与新增）
+
+- **触发**：掌柜「更新FDT的Harness文档，本系统最近的工作不完全符合Harness驾驭工程的标准，需要及时调整整顿」
+- **方法**：先读全部 10 篇 Harness 文档 + 核查代码实测（pyproject=6.3.1、contracts/migrations.py 缺失、pipeline 测试 step_scan_dual 失配），再据实修正
+- **核心修正（8篇）**：
+  1. `08-gap-analysis.md`：推翻「15项全修复/4.7」虚假结论，重评成熟度≈4.6；G14 标回未落地、新增 G16(pipeline测试失效)/G17(文档未同步重构)
+  2. `01-architecture.md §3.1` + `02-lifecycle.md §2.2` + `04-resilience.md §2.3`：数据流改为三生产者（full_scan_summary/l1l4/factor_timing）
+  3. `03-configuration.md`：pyproject 例版本→6.3.1、§6 校正 G1（config/schema.py 已落地）
+  4. `05-observability.md §3.4`：校正 G3（pipeline 已用 unified_logger）
+  5. `06-testing.md`：库存刷新为 24 文件/12 目录、标注 pipeline 5/10 失效(G16)
+  6. `07-operations.md §5`：版本历史追加 6.0–6.3.1、README 版本→6.3.1
+  7. `README.md` 快速参考：Skill 11→13、脚本 31→61、测试 16→24
+  8. `09-advancement-plan.md`：版本→6.3.1、Phase 5 整顿、G14/G16/G17 待办
+- **证据**：实测 `pytest tests/pipeline/test_runner.py` → 5 failed, 5 passed（AttributeError: step_scan_dual 不存在，v6.3.0 重命名为 step_scan 未同步测试）
+- **遗留（需代码层授权后执行，未擅自改代码）**：G16 修 pipeline 测试、G14 实现 contracts/migrations.py、G17 固化文档同步检查清单
+- 纯文档修正，版本号未变（仍 v6.3.1）
+
+---
+
 ## 2026-07-14 17:10 — v6.3.1 缺陷修复（§2/§3 迁移收尾 + 系统化测试）
 
 - **系统化测试发现真实集成断裂**：链分析 `build_symbol_map` 硬读 `summary["symbols"]` 且期望嵌套 `l1l4`/`factor_timing`，但迁移后 scan_all 只出 channel_breakout 结构（无 `symbols` 键、无嵌套），导致 P1.5 链分析崩溃 `KeyError: 'symbols'`

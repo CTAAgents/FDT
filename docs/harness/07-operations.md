@@ -282,15 +282,20 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `pyproject.toml` | 5.7.0 | **唯一版本源**（`bootstrap.py` 用 `tomllib` 动态读取） |
+| `pyproject.toml` | 6.3.1 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
 | `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
-| `README.md` | v5.7.0 | 与 pyproject.toml 同步 |
+| `README.md` | v6.3.1 | 与 pyproject.toml 同步 |
 
 ### 5.2 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
-| v5.7.0 | 2026-07-10 | 驾驭工程（Harness Engineering）完整落地：15项差距修复，成熟度4.7/5.0 |
+| v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 三生产者合并 KeyError + factor_timing NaN 防护 |
+| v6.3.0 | 2026-07-14 | 三生产者架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |
+| v6.2.0 | — | A2A Agent-to-Agent 协议文件桥（agent-card.json + a2a_results.json）+ validate_final_signals 置信度归一 |
+| v6.1.0 | — | 信号验证门（validate_final_signals.py）+ 行动对账（execute/hold/wait）+ 方向-价格一致性检查 |
+| v6.0.0 | — | FDC 数据引擎合并：QMT(0) 主源，TDX/TqSDK 降级，移除 AKShare/EastMoney 直连 |
+| v5.7.0 | 2026-07-10 | 驾驭工程（Harness Engineering）落地：**经 07-14 复核 G14 实际未落地、G16 重构后失效，原「4.7/5.0 全部完成」声明需修正** |
 | v5.6.0 | 2026-07-09 | 5层鲁棒性架构 (L1-L5) |
 | v5.5.0 | 2026-07-09 | OmniOpt 分类法集成 (F1-F5) |
 | v5.4.0 | 2026-07-07 | 可观测性与自改进里程碑 |

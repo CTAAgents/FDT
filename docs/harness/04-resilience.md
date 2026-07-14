@@ -99,7 +99,7 @@ spawn 闫判官 (第1次)
 
 | 项 | 内容 |
 |:---|:-----|
-| **脚本** | `daily_debate.py` (在 quant-daily skill 内) |
+| **脚本** | `scripts/run_debate.py` + `pipeline/runner.py step_scan()`（v6.3.0 三生产者） |
 | **触发时机** | P1 扫描完成后 |
 | **检查内容** | `debate_trigger.json` 文件存在 + `all_ranked` 有 `abs(total) >= DEBATE_ENTRY_MIN_ABS` 的候选品种（阈值见 `config/settings.py`，当前=20，已过滤 NOISE 级） |
 | **失败动作** | **提前终止整个流程**，向用户汇报"当天无通道突破信号" |
@@ -107,8 +107,8 @@ spawn 闫判官 (第1次)
 
 **信号检查逻辑**:
 ```python
-# 读取 full_scan_channel_breakout_{date}.json
-# 阈值唯一真相源 = config/settings.py:DEBATE_ENTRY_MIN_ABS（当前=20）
+# 读取 full_scan_summary_{date}.json（三生产者之一，数技源 channel_breakout 产出）
+# 阈值唯一真相源 = skills/quant-daily/scripts/config/settings.py:DEBATE_ENTRY_MIN_ABS（当前=20，经 run_debate.py 读取）
 # candidates = [s for s in all_ranked if abs(s.total) >= DEBATE_ENTRY_MIN_ABS]
 # 有候选 → 继续流程
 # 无候选 → 提前终止

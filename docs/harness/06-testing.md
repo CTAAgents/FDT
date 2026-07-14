@@ -54,6 +54,18 @@ tests/
 └── technical-analysis/           # 技术分析 (1个测试)
     ├── conftest.py
     └── test_technical.py         # 支撑阻力/形态
+├── memory/                        # 记忆写入 (9个测试)
+│   ├── conftest.py
+│   └── test_writer.py             # Journal/Index/Record 原子性+去重
+├── pipeline/                      # 流水线 (10个测试，⚠️ G16: 5/10 失效)
+│   ├── conftest.py
+│   └── test_runner.py             # 6阶段主流程+失败不阻断+trace注入
+├── scheduler/                     # 调度器 (10个测试)
+│   ├── conftest.py
+│   └── test_engine.py             # 触发器匹配+防重复
+└── self-improve-enhanced/        # 自改进增强
+    ├── conftest.py
+    └── test_*.py
 ```
 
 ## 3. 测试框架配置
@@ -198,11 +210,11 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | technical-analysis | ✅ | — | — | — | — |
 | contracts | ✅ | — | ✅ | — | — | 14 用例 (G14) |
 | fdt-gate (L1-L5) | — | — | — | ✅ | — |
-| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 (G5) |
+| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 (⚠️ G16: 5/10 失效) |
 | scheduler (engine) | ✅ | ✅ | — | — | — | 10 用例 (G6) |
 | memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 (G8) |
 
-> ✅ 全部补齐，43 用例全绿。2026-07-10 完成。
+> ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明已失真。v6.3.0 三生产者重构后 `tests/pipeline/test_runner.py` 仍 mock 已重命名的 `step_scan_dual`，实测 **pipeline 5/10 失败**（G16）。其余目录测试维持绿。修复见 [差距分析 G16](08-gap-analysis.md)。
 
 ### 8.2 测试执行命令（v5.7 更新）
 
@@ -224,7 +236,7 @@ python scripts/run_benchmark.py --replay
 
 | 指标 | v5.6 初始 | v5.7 最终 | 变化 |
 |:-----|:--------:|:--------:|:----:|
-| 测试文件数 | 23 | 26 | +3 (pipeline/scheduler/memory) |
-| Harness 测试用例 | 0 | 43 | +43 |
-| 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展 |
-| 测试目录数 | 8 | 11 | +3 |
+| 测试文件数 | 23 | 26 | 当前实际 **24 文件 / 12 目录**（含 memory/pipeline/scheduler/self-improve-enhanced） |
+| Harness 测试用例 | 0 | 43 | 原 43；**当前 pipeline 5/10 失效(G16)，全绿声明不成立** |
+| 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展（`pyproject.toml` 已配置） |
+| 测试目录数 | 8 | 11 | 当前实际 **12** |

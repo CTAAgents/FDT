@@ -83,11 +83,12 @@
 ```toml
 [project]
 name = "futures-debate-team"
-version = "5.5.1"
+version = "6.3.1"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
 requires-python = ">=3.10"
 dependencies = [
-    "pandas", "numpy", "pyyaml", "duckdb", "requests",
-    "akshare", "pydantic", "psutil", "lightgbm", "scikit-learn",
+    "pandas>=2.0", "numpy>=1.24", "python-dateutil>=2.8",
+    "lightgbm>=4.0", "scikit-learn>=1.3", "tqdm>=4.65",
+    "scipy>=1.11", "psutil>=5.9", "requests>=2.31", "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -189,12 +190,15 @@ AKShare (优先级 3, 最后降级)
 
 ### 缺失的校验 (Gap)
 
-| 配置 | 缺失项 | 风险 |
-|:-----|:-------|:-----|
-| `settings.json` | 无 schema 校验 | 字段名拼错不报错 |
-| `team_config.json` | 无 schema 校验 | 布尔值写错不报错 |
-| `data_sources.yaml` | 无 schema 校验 | 优先级配置错误不报错 |
-| `agent_profiles.json` | 无 schema 校准 | 进化参数越界不报错 |
-| 环境变量 | 无类型检查 | FDB_LOG_LEVEL 写错值静默降级为 INFO |
+> **2026-07-14 整顿**：G1 已落地——`config/schema.py` 提供 `Settings` / `TeamConfig` / `AgentWaiterConfig` 等 Pydantic 模型，bootstrap 启动校验。`03-configuration.md` 此前「G1 缺失」注记已过时，特此校正。
 
-> 详见 [差距分析](08-gap-analysis.md) 中的配置校验改进项。
+| 配置 | 状态 | 残留风险 |
+|:-----|:-----|:-----|
+| `settings.json` | ✅ `Settings` 模型校验 | — |
+| `team_config.json` | ✅ `TeamConfig` 模型校验 | — |
+| 熔断参数 | ✅ `AgentWaiterConfig` 模型校验 | — |
+| `data_sources.yaml` | ⚠️ 未纳入 schema | 优先级配置错误不报错 |
+| `agent_profiles.json` | ⚠️ 未纳入 schema | 进化参数越界不报错 |
+| 环境变量 | ⚠️ 无类型检查 | FDB_LOG_LEVEL 写错值静默降级为 INFO |
+
+> 详见 [差距分析](08-gap-analysis.md) G1 / G14 状态。
