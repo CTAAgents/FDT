@@ -1,7 +1,7 @@
 ---
 name: fundamental-data-collector
-version: 1.4.0
-description: 基本面数据采集器 v1.4.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。新增因子择时独立生产者 run_factor_timing_scan.py。
+version: 1.5.0
+description: 基本面数据采集器 v1.5.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。新增因子择时独立生产者 run_factor_timing_scan.py。v1.5: factor_timing._zscore 全 NaN 防护（消 RuntimeWarning）。
 agent_created: true
 user_invocable: false
 triggers:

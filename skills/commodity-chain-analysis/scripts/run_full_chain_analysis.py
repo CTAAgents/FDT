@@ -56,27 +56,40 @@ def load_qd_data():
     return summary, l1l4, ft
 
 
-def build_symbol_map(summary):
-    """构建 symbol->方向映射"""
+def _index_by_symbol(data):
+    """将 all_ranked 列表按 symbol 建索引（三生产者各自独立 JSON）"""
+    return {s["symbol"]: s for s in data.get("all_ranked", [])}
+
+
+def build_symbol_map(summary, l1l4, ft):
+    """构建 symbol->方向映射（2026-07-14 迁移后：三生产者独立 JSON，不再嵌套）
+
+    旧 --dual 合并结构把 l1l4 / factor_timing 嵌套在 summary['symbols'] 每项内；
+    新架构下 channel_breakout(summary) / L1-L4(l1l4) / 因子择时(ft) 是三个独立文件，
+    load_qd_data 已分别加载，此处做三源合并。
+    """
     smap = {}
-    for s in summary["symbols"]:
-        sym = s["symbol"]
-        l1 = s.get("l1l4", {})
-        ft = s.get("factor_timing", {})
+    s_idx = _index_by_symbol(summary)
+    l_idx = _index_by_symbol(l1l4)
+    f_idx = _index_by_symbol(ft)
+    for sym in sorted(set(s_idx) | set(l_idx) | set(f_idx)):
+        s = s_idx.get(sym, {})
+        l = l_idx.get(sym, {})
+        f = f_idx.get(sym, {})
         smap[sym] = {
             "symbol": sym,
-            "name": s.get("name", sym),
-            "l1l4_total": l1.get("total", 0),
-            "l1l4_direction": l1.get("direction", "neutral"),
-            "l1l4_grade": l1.get("grade", "NOISE"),
-            "ft_total": ft.get("total", 0),
-            "ft_direction": ft.get("direction", "neutral"),
-            "ft_grade": ft.get("grade", "NOISE"),
-            "adx": l1.get("adx", 0),
-            "rsi": l1.get("rsi", 50),
-            "z_score_l1": l1.get("z_score", 0),
-            "stage": l1.get("stage", "unknown"),
-            "volume": l1.get("volume", 0),
+            "name": s.get("name") or l.get("name") or f.get("name") or sym,
+            "l1l4_total": l.get("total", 0),
+            "l1l4_direction": l.get("direction", "neutral"),
+            "l1l4_grade": l.get("grade", "NOISE"),
+            "ft_total": f.get("total", 0),
+            "ft_direction": f.get("direction", "neutral"),
+            "ft_grade": f.get("grade", "NOISE"),
+            "adx": l.get("adx", s.get("adx", 0)),
+            "rsi": l.get("rsi", s.get("rsi", 50)),
+            "z_score_l1": l.get("z_score", 0),
+            "stage": l.get("stage", "unknown"),
+            "volume": l.get("volume", 0),
         }
     return smap
 
@@ -321,7 +334,7 @@ def main():
 
     # 1. 加载数据
     summary, l1l4, ft = load_qd_data()
-    symbol_map = build_symbol_map(summary)
+    symbol_map = build_symbol_map(summary, l1l4, ft)
     price_dict = build_price_dict(l1l4)
 
     print(f"总品种数: {len(symbol_map)}")

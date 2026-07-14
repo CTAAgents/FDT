@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-07-14 17:10 — v6.3.1 缺陷修复（§2/§3 迁移收尾 + 系统化测试）
+
+- **系统化测试发现真实集成断裂**：链分析 `build_symbol_map` 硬读 `summary["symbols"]` 且期望嵌套 `l1l4`/`factor_timing`，但迁移后 scan_all 只出 channel_breakout 结构（无 `symbols` 键、无嵌套），导致 P1.5 链分析崩溃 `KeyError: 'symbols'`
+- **修复**：`run_full_chain_analysis.py` + `run_final_chain_analysis.py` 的 `build_symbol_map(summary)` → `build_symbol_map(summary, l1l4, ft)`，改为三源合并（summary.all_ranked + l1l4.all_ranked + ft.all_ranked 并集）；`_meta` 容错沿用 Phase D
+- **factor_timing._zscore 全 NaN 防护**：FDC K线不可用时因子列全 NaN → `np.nanmean` 报 "Mean of empty slice"，加 `vals.size==0 or not np.isfinite(vals).any()` 返回零
+- **回归测试**：新增 `tests/commodity-chain/test_chain_full_analysis.py`（2 用例 PASS），固化三源合并逻辑
+- **测试覆盖**：import 级（迁入模块+FDC）全过；三生产者运行时跑通 exit 0；assemble_intermediate_data + 链分析消费端验证；fdc/technical-analysis 既有套件为预存在 SKIP（无关改动）
+- **版本**：pyproject 6.3.0→6.3.1；commodity-chain-analysis 2.16→2.17；fundamental-data-collector 1.4→1.5
+
+---
+
 ## 2026-07-14 16:15 — 技术债 §2/§3 重构式迁移全案落地 + 版本 bump 6.3.0
 
 - **范围**：layered_l1l4 迁至 technical-analysis（观澜 `run_l1l4_scan.py`），factor_timing 迁至 fundamental-data-collector（探源 `run_factor_timing_scan.py`），scan_all.py 剥离二者仅留 channel_breakout

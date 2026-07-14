@@ -63,6 +63,8 @@ _FACTOR_SIGNAL_POLARITY = {
 def _zscore(values: np.ndarray) -> np.ndarray:
     """截面 Z-score；样本<2 时返回全 0。"""
     vals = np.asarray(values, dtype=float)
+    if vals.size == 0 or not np.isfinite(vals).any():
+        return np.zeros_like(vals)
     mu = np.nanmean(vals)
     sigma = np.nanstd(vals)
     if sigma == 0 or not np.isfinite(sigma):
