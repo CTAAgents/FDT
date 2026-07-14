@@ -68,11 +68,12 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 
 ### 执行者
 
-链证源 Agent（`futures-chain-analyst`），先于闫判官 spawn。
+链证源 Agent（`futures-chain-analyst`），由闫判官判断调度后 spawn。
 
 ### 约束
 
 - **不下多空结论**，只做事实层描述
+- **无调度权**：链证源只做产业链分析，不决定辩论范围、不 dispatch 其他 Agent、不替代闫判官裁决；调度权（决定辩论品种/产业链/方向、dispatch 哪些分析师）属于**闫判官**（见 P2）
 
 ### 产出
 
@@ -89,6 +90,10 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 ### 执行者
 
 闫判官 Agent（`futures-judge`）。
+
+### 调度权归属（2026-07-14 澄清）
+
+**闫判官拥有辩论调度权**：决定辩论哪些品种/产业链/方向，并 dispatch 三分析师（链证源做产业链分析、观澜做技术面分析、探源做基本面分析）。链证源/观澜/探源只做各自分析、**无调度权**；明鉴秋负责按闫判官指令执行 spawn 与资源管控。
 
 ### 输入
 

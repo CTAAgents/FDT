@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-07-14 18:30 — 辩论流程文档刷新（G18）：闫判官判断调度 + 链证源无调度权
+
+- **掌柜澄清新流程**：数技源出信号 → 闫判官判断调度(链证源做产业链 + 观澜做技术面 + 探源做基本面) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明。
+- **关键边界（纠正上一轮误判）**：调度权在**闫判官**；链证源/观澜/探源只做各自分析、**无调度权**。上一轮曾误将链证源理解为"调度者"，被掌柜纠正。
+- **`docs/execution_modes_flowchart.md` 重写**：v4.0/v5.12.1 → **v4.1 / FDT 6.3.1**；单生产者 scan_all → 三生产者；辩论流程线/8模式/生命周期Phase/状态转换图/mermaid数据流/产出清单全部改为「闫判官判断调度 + 三分析师供弹」；链证源注入说明补「无调度权」边界 + 探源入列（6 角色）。
+- **对齐 `docs/business_flow.md`**：P1.5 补「链证源无调度权、由闫判官判断调度后 spawn」；P2 补「闫判官拥有辩论调度权」段。
+- **对齐 `agents/futures-chain-analyst.md`**：边界段加「❌ 不做调度」一条（不决定范围/不 dispatch/不裁决）。
+- **对齐 `docs/harness/02-lifecycle.md`**：P1.5/P2 阶段表补「无调度权/调度权」标注 + 调度权边界 note。
+- **登记 G18**（`docs/harness/08-gap-analysis.md` §4.1 + Phase5 + 总结），标为本次整顿已完成文档同步项。
+- 纯文档修正，未改代码；待 commit + push。
+
+---
+
 ## 2026-07-14 18:35 — README v6.3.1 重写（修正流程错误 + 突出系统特色）
 
 - **根因**：GitHub 上的 README 基于过时系统快照（系统提示仍 v5.12.1），存在版本不符、未体现系统特色、流程错误三类问题。基于权威文档（`docs/business_flow.md` / `docs/harness/02-lifecycle.md` / `rules/futures-debate-team_rules.md` / `pipeline/runner.py` / `scheduler/tasks.py` / `docs/agent-protocol.md`）重写。

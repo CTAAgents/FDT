@@ -113,12 +113,14 @@ bootstrap.py main()
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
 | P0 | 自进化前置 | 明鉴秋 | execution_followup.json | calibration.json + agent_profiles.json 更新 | 60s/步 | 跳过该步 |
 | P1 | 通道突破扫描（三生产者） | 数技源+观澜+探源 | 品种列表 | full_scan_summary_{date}.json + full_scan_l1l4_{date}.json + full_scan_factor_timing_{date}.json | 600s | 提前终止 |
-| P1.5 | 产业链分析 | 链证源 | P1 信号文件 | chain_analysis_{date}.json | 300s | 跳过链分析 |
-| P2 | 品种筛选 | 闫判官 | P1+P1.5 产出 | p2_judge_direction.json | 420s | D06 降级 |
+| P1.5 | 产业链分析（链证源·无调度权） | 链证源 | P1 信号文件 | chain_analysis_{date}.json | 300s | 跳过链分析 |
+| P2 | 品种筛选 + 判断调度 | 闫判官（调度权） | P1+P1.5 产出 | p2_judge_direction.json（指定链/品种/方向 + dispatch 三分析师） | 420s | D06 降级 |
 | P3 | 研究员供弹 | 观澜+探源 | P2 方向指定 | p3_technical_*.json + p3_fundamental_*.json | 420s/Agent | D06 降级 |
 | P4 | 多空辩论 | 证真+慎思 | P3 研究员资料 | p4_affirmative_*.json + p4_opposition_*.json | 420s/Agent | D06 降级 |
 | P5 | 裁决链 | 闫判官→策执远→风控明 | P4 辩论论据 | p_judge_final_*.json + plan + risk | 420s/Agent | D06 降级 |
 | P6 | 汇总输出 | 明鉴秋 | 全部产出 | debate_results.json + .html | 120s | 拒绝生成报告 |
+
+> **调度权边界（2026-07-14 澄清，见 G18）**：辩论调度权（决定辩论品种/产业链/方向、dispatch 哪些分析师）属于**闫判官**；链证源/观澜/探源只做各自分析、**无调度权**；明鉴秋负责按闫判官指令执行 spawn 与资源/生命周期管控。该边界已在 `docs/execution_modes_flowchart.md` v4.1 与 `docs/business_flow.md` 固化。
 
 ### 2.3 Agent 生成与销毁
 

@@ -91,6 +91,7 @@
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | **G16** | pipeline 测试随重构失效 | `tests/pipeline/test_runner.py` mock `step_scan_dual`，但 v6.3.0 已将 Step1 重构为三生产者 `step_scan()`，函数名不存在 → 实测 5/10 失败 | 「43 用例全绿」声明失真；重构回归无门禁拦截 | 将 `step_scan_dual` 改为 `step_scan` 并补充三生产者文件存在性断言；纳入 CI 回归 | `tests/pipeline/test_runner.py` |
 | **G17** | Harness 文档未随重构同步 | v6.3.0/6.3.1 重构后，所有 Harness 文档仍写 v5.7.0、数据流为单生产者、库存/脚本计数过期 | 文档与代码长期背离，误导运维与后续重构 | 建立「代码重构 → Harness 文档同步」纪律与检查清单（见 §5 Phase 5） | `docs/harness/*.md` |
+| **G18** | 流程文档未对齐当前架构 | `execution_modes_flowchart.md` 写 v5.12.1、单生产者 scan_all、未体现三分析师供弹与闫判官判断调度；链证源角色边界（无调度权）未固化 | 流程文档与代码/角色长期背离，易被误解为「链证源是调度者」 | 刷新 `execution_modes_flowchart.md`(v4.1/6.3.1)+`business_flow.md`+`futures-chain-analyst.md`+`02-lifecycle.md` 对齐新流程；钉死「闫判官调度权 / 链证源无调度权」 | `docs/execution_modes_flowchart.md` `docs/business_flow.md` `agents/futures-chain-analyst.md` `docs/harness/02-lifecycle.md` |
 
 ### 4.2 P1 — 中优先级（影响可维护性）
 
@@ -183,4 +184,4 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 2. **G14**：实现 `contracts/migrations.py` 版本迁移（28 条路径）。
 3. **G17**：将本文件登记的检查清单固化为重构 SOP；后续每次重构强制同步 `docs/harness/`。
 
-**已随本文档完成的文档整顿**：版本号统一为 v6.3.1、`01 §3.1` 与 `04 §2.3` 数据流改为三生产者、`03 §6` 校正 G1、`05 §3.4` 校正 G3、`06` 库存/测试计数刷新、`07 §5` 版本历史追加 6.0–6.3.1、`README.md` 快速参考计数刷新。
+**已随本文档完成的文档整顿**：版本号统一为 v6.3.1、`01 §3.1` 与 `04 §2.3` 数据流改为三生产者、`03 §6` 校正 G1、`05 §3.4` 校正 G3、`06` 库存/测试计数刷新、`07 §5` 版本历史追加 6.0–6.3.1、`README.md` 快速参考计数刷新；**G18 流程文档刷新**：`execution_modes_flowchart.md`(v4.1/6.3.1，三生产者 + 闫判官判断调度 + 链证源无调度权)、`business_flow.md`(P1.5/P2 边界)、`futures-chain-analyst.md`(无调度权)、`02-lifecycle.md`(P1.5/P2 调度权边界) 全部对齐新流程。

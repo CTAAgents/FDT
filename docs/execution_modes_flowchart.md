@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.0 | 2026-07-14 | 伪信号过滤 + 辩论开关 + 链证源 + 资源管控 + 生命周期 → 8种执行模式
+> v4.1 | 2026-07-14 | 三生产者架构 + 闫判官判断调度(链证源/观澜/探源) + 资源管控 + 生命周期 → 8种执行模式
 
 ---
 
@@ -31,15 +31,26 @@
                           记忆归档 → 知识萃取
 ```
 
+> **调度权归属**：**闫判官**拥有辩论调度权（决定辩论哪些品种/产业链/方向，并 dispatch 哪些分析师）。明鉴秋负责**执行** spawn（按闫判官指令）与资源/生命周期管控。链证源/观澜/探源只做各自分析、**无调度权**。
+
 ### 辩论流程
 
 ```
-信号计算 → [过滤?] → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → 审计 → 方案 → 风控 → 报告
-                           ↑          ↑          ↑       ↑       ↑           ↑      ↑      ↑      ↑
-                     ┌─────┴──────────┴──────────┴───────┴───────┴───────────┴──────┴──────┴──────┘
-                     │ 每批 spawn 前查资源，完成后 shutdown 释放
-                     └──────────────────── 明鉴秋管控 ────────────────────
+数技源出信号 → [过滤?] → 闫判官判断调度 → 三分析师供弹 → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明
+                           ↑                ↑                ↑         ↑           ↑         ↑
+                     ┌─────┴────────────────┴────────────────┴─────────┴───────────┴─────────┘
+                     │ 闫判官拥有调度权；链证源/观澜/探源只做各自分析、无调度权
+                     │ 每批 spawn 前查资源，完成后 shutdown 释放（明鉴秋管控）
+                     └────────────────────────────────────────────────────────────────────
 ```
+
+**三分析师（由闫判官判断调度）**
+
+| 分析师 | 身份 | 职责 | 调度权 |
+|:------|:-----|:-----|:------|
+| 链证源 | 产业链分析师 | 做产业链事实描述 + 景气度分析（不下多空结论） | ❌ 无 |
+| 观澜 | 技术面研究员 | 技术面分析供弹 | ❌ 无 |
+| 探源 | 基本面研究员 | 基本面分析供弹 | ❌ 无 |
 
 ---
 
@@ -76,11 +87,11 @@ spawn Agent → register → 等待产出就绪 → wait-and-shutdown → SendMe
 ```
 
 ```
-# 完整一轮 8 阶段的资源释放时序
-Phase0 闫判官初判 → spawn 1 → register → wait → shutdown ✅ 释放1
-Phase1 链证源     → 自动运行（不占用 Agent 资源）
-Phase2 观澜×N    → spawn N → register → wait → shutdown ✅ 释放N
-Phase3 辩论×N    → spawn N → register → wait → shutdown ✅ 释放N
+# 完整一轮辩论的资源释放时序（闫判官判断调度 → 明鉴秋执行 spawn）
+Phase0 闫判官判断调度 → spawn 1 → register → wait → shutdown ✅ 释放1
+Phase1 链证源(产业链分析)×N → spawn N → register → wait → shutdown ✅ 释放N
+Phase2 观澜(技术面)+探源(基本面)×N → spawn 2N → register → wait → shutdown ✅ 释放2N
+Phase3 证真/慎思辩论×N → spawn N → register → wait → shutdown ✅ 释放N
 Phase4 闫判官终裁 → spawn N → register → wait → shutdown ✅ 释放N
 Phase5 一致性×N   → spawn N → register → wait → shutdown ✅ 释放N
 Phase6 策执远×N   → spawn N → register → wait → shutdown ✅ 释放N
@@ -119,128 +130,83 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
 ### 模式一: `full` — 全流程
 
 ```
-信号计算 → P0-4伪信号过滤 → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → ... → 报告
-────┬────   ──────┬──────   ────┬────   ──────┬────   ────┬   ────┬   ────┬────   ────┬───
-   │                 │             │             │           │       │       │           │
-   │  scan_all.py    │  validator  │ judge_      │ 只分析    │ 技术   │ 正反  │ 读指令+   │ HTML
-   │  62品种        │  P0-4门禁  │ initial     │ 闫判官    │ 分析   │ 辩论  │ 链+辩论   │
-   │                 │             │ 指定链+品种 │ 指定产业链 │        │       │ →裁决    │
+数技源信号 → P0-4伪信号过滤 → 闫判官判断调度(链证源+观澜+探源) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
 ```
+- `scan_all.py`（channel_breakout，数技源）62品种扫描 → `full_scan_summary_{date}.json`
+- validator P0-4 伪信号门禁
+- 闫判官判断调度：指定产业链 + 品种 + 方向，dispatch 链证源(产业链)/观澜(技术面)/探源(基本面)
+- 三分析师供弹 → 证真/慎思基于供弹辩论 → 闫判官终裁（读初判指令+链+辩论→裁决）
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode full --workspace <dir>
 ```
 
----
-
 ### 模式二: `no-filter` — 扫描→辩论(不过滤)
 
-```
-信号计算 → (跳过过滤) → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → ... → 报告
-────┬────                  ────┬────   ──────┬────   ────┬   ────┬   ────┬────   ────┬───
-   │  --disable-filter       │ judge_      │ 只分析    │ 技术   │ 正反  │ 读指令+   │ HTML
-   │  保留伪突破信号         │ initial     │ 闫判官    │ 分析   │ 辩论  │ 链+辩论   │
-   │                          │ 指定链+品种 │ 指定产业链 │        │       │ →裁决    │
-```
+同模式一，仅跳过 P0-4 伪信号过滤（`--disable-filter` 保留伪突破信号）。
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode no-filter --workspace <dir>
 ```
-
----
 
 ### 模式三: `scan-only` — 仅信号计算
 
 ```
-信号计算 → 结束输出
-────┬────   ────┬───
-   │  --disable-filter  │ JSON + HTML
-   │  不过滤不辩论      │ 排名报告
+数技源信号 → 结束输出（不过滤不辩论）
 ```
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode scan-only --workspace <dir>
 ```
-
----
 
 ### 模式四: `scan-filter` — 信号计算+过滤
 
 ```
-信号计算 → P0-4伪信号过滤 → 结束输出
-────┬────   ──────┬──────   ────┬───
-   │               │             │ JSON + HTML
-   │  scan_all    │  过滤后     │ (含拦前/拦后分)
-   │              │  信号       │
+数技源信号 → P0-4伪信号过滤 → 结束输出（含拦前/拦后分）
 ```
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode scan-filter --workspace <dir>
 ```
-
----
 
 ### 模式五: `debate` — 指定品种辩论
 
 ```
-(跳过扫描) → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → ... → 报告
-              ────┬────   ──────┬────   ────┬   ────┬   ────┬────   ────┬───
-                   │ judge_      │ 只分析    │ 技术   │ 正反  │ 读指令+   │ HTML
-                   │ initial     │ 指定链    │ 分析   │ 辩论  │ 链+辩论   │
-                   │ (无扫描     │           │        │       │ →裁决    │
-                   │  虚拟触发)  │           │        │       │           │
+(跳过扫描) → 闫判官判断调度(链证源+观澜+探源) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
 ```
+- 闫判官初判（无扫描，虚拟触发）指定品种与方向，dispatch 三分析师
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode debate --symbols pb,sc,l --workspace <dir>
 ```
-
----
 
 ### 模式六: `debate-group` — 指定产业链辩论
 
 ```
-(跳过扫描) → 品种解析 → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → 报告
-              ────┬───   ────┬────   ──────┬────   ────┬   ────┬   ────┬────   ────┬───
-                   │ --chain  │ judge_      │ 只分析    │ 技术   │ 正反  │ 读指令+   │ HTML
-                   │ 黑色系   │ initial     │ 指定链    │ 分析   │ 辩论  │ 链+辩论   │
-                   │ 解析品种 │ (产业链列表)│           │        │       │ →裁决    │
+(跳过扫描) → 品种解析 → 闫判官判断调度(产业链列表) → 三分析师 → 辩论 → 终裁 → 报告
 ```
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode debate-group --chain 黑色系 --workspace <dir>
 ```
-
----
 
 ### 模式七: `debate-all` — 强制全品种辩论
 
 ```
-(跳过扫描) → 全品种列表 → 闫判官初判 → 链证源(按需) → 观澜 → 辩论 → 闫判官终裁 → 报告
-              ─────┬────   ────┬────   ──────┬────   ────┬   ────┬   ────┬────   ────┬───
-                   │ --all     │ judge_      │ 只分析    │ 技术   │ 正反  │ 读指令+   │ HTML
-                   │ 62品种    │ initial     │ 指定链    │ 分析   │ 辩论  │ 链+辩论   │
-                   │           │ (全品种)    │           │        │       │ →裁决    │
+(跳过扫描) → 全品种列表 → 闫判官判断调度(全品种) → 三分析师 → 辩论 → 终裁 → 报告
 ```
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode debate-all --workspace <dir>
 ```
-
----
 
 ### 模式八: `finalize-only` — 仅收口
 
 ```
 (spawn完成后) → 组装(含链数据) → 萃取 → 报告生成 → 输出
-                 │                  │       │         │
-                 │ assemble         │ 提取知识  │ HTML报告
-                 │ debate_          │ 入库     │
-                 │ results +        │          │
-                 │ 链分析数据        │          │
 ```
 
-```
+```bash
 python scripts/fdt_cli.py pipeline --mode finalize-only --workspace <dir>
 ```
 
@@ -274,13 +240,21 @@ plan 子命令: scan加载 → 链分析(analyze_chain.py --symbols) → build_s
 debate 子命令: 解析品种 → 链分析(analyze_chain.py --symbols) → build_spawn_plan(注入链数据) → 输出spawn_plan.json
 ```
 
+### 链证源职责边界（2026-07-14 澄清）
+
+- **只做产业链分析**：描述产业链事实状态 + 景气度，不给任何具体品种出多空结论。
+- **无调度权**：调度权（决定辩论哪些品种/产业链/方向、dispatch 哪些分析师）属于**闫判官**；链证源不决定辩论范围、不 spawn 其他 Agent、不替代闫判官裁决。
+- 其产出 `p1_chain_analysis.json` 经 `build_spawn_plan` 注入到下游 Agent prompt，供研究/辩论参考。
+
 ### 受影响的 Agent 角色
 
-链证源数据被注入到 spawn plan 中以下 5 个角色的 prompt：
+链证源数据被注入到 spawn plan 中以下 6 个角色的 prompt：
 
 | 角色 | 身份 | 链数据用途 |
 |:-----|:-----|:----------|
+| **chain** | 链证源(产业链分析师) | 自身产业链分析产出 |
 | **technical** | 观澜(技术面研究员) | 分析产业链同品种支撑阻力共振 |
+| **fundamental** | 探源(基本面研究员) | 产业链上下游基本面联动（成本/库存/开工传导） |
 | **zhengzhen** | 证真(正方辩手) | 引用产业链同向品种作为论据 |
 | **zhensi** | 慎思(反方辩手) | 引用产业链反向品种质疑信号 |
 | **judge** | 闫判官(裁决) | 产业链一致性/冗余/趋势作为裁决维度 |
@@ -323,13 +297,14 @@ python scripts/fdt_cli.py resource
 # 1. 扫描+过滤
 python skills/quant-daily/scripts/scan_all.py --output <dir> --prefix scan
 
-# 2. 辩论计划(含链分析)
+# 2. 辩论计划(含链分析 + 闫判官判断调度)
 python scripts/run_debate.py plan --scan <scan.json> --workspace <dir>
 
 # 3. (逐批 spawn Agent，每批 register → wait → shutdown)
-#    Phase0 闫判官初判 → spawn → lifecycle register → wait-and-shutdown → shutdown
-#    Phase2 观澜×N     → spawn → lifecycle register → wait-and-shutdown → shutdown
-#    Phase3 辩论×N     → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase0 闫判官判断调度 → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase1 链证源×N     → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase2 观澜+探源×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase3 证真/慎思×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase4 闫判官终裁 → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase5-7 同上
 
@@ -350,7 +325,7 @@ python skills/quant-daily/scripts/scan_all.py --output <dir> --prefix scan --dis
 
 ### debate (= 模式五)
 ```bash
-# 直接辩论(无扫描，自动链分析)
+# 直接辩论(无扫描，自动链分析 + 闫判官判断调度)
 python scripts/run_debate.py debate --symbols pb,sc,l --workspace <dir>
 ```
 
@@ -399,51 +374,47 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
                   └──────┬──────────┘
                          │
                  ┌───────┴────────┐
-                 │  闫判官初判     │
-                 │  (决定链+品种)  │
+                 │  闫判官判断调度  │
+                 │  (决定链+品种+  │
+                 │   方向+dispatch)│
                  └───────┬────────┘
                          │
-              ┌──────────┴──────────┐
-              │                     │
-     ┌────────┴────────┐  ┌────────┴────────┐
-     │ 无需辩论         │  │ 需要辩论         │
-     │ (结束输出)       │  │                 │
-     └─────────────────┘  │  ┌──────────────┴──────────────┐
-                          │  │  链分析(只分析指定产业链)    │
-                          │  └──────────────┬──────────────┘
-                          │                 │
-                          │  ┌──────────────┴──────────────┐
-                          │  │  观澜 技术分析               │
-                          │  └──────────────┬──────────────┘
-                          │                 │
-                          │  ┌──────────────┴──────────────┐
-                          │  │  证真 + 慎思 辩论            │
-                          │  └──────────────┬──────────────┘
-                          │                 │
-                          │  ┌──────────────┴──────────────┐
-                          │  │  闫判官 终裁                 │
-                          │  │  (读指令+链+辩论→出裁决)     │
-                          │  └──────────────┬──────────────┘
-                          │                 │
-                          │  ┌──────────────┴──────────────┐
-                          │  │  一致性裁判 → 策执远方案      │
-                          │  │  → 风控明审核               │
-                          │  └──────────────┬──────────────┘
-                          │                 │
-                          └──────┬──────────┘
-                                 │
-                         ┌───────┴────────┐
-                         │  组装收口       │
-                         │  知识萃取       │
-                         │  报告生成       │
-                         │  输出           │
-                         └────────────────┘
+              ┌──────────┴──────────────────┐
+              │  三分析师供弹（并行）         │
+              │  链证源(产业链)             │
+              │  观澜(技术面)              │
+              │  探源(基本面)              │
+              └──────────┬──────────────────┘
+                         │
+                 ┌───────┴────────┐
+                 │  证真 + 慎思 辩论│
+                 └───────┬────────┘
+                         │
+                 ┌───────┴────────┐
+                 │  闫判官 终裁    │
+                 │  (读指令+链+辩论 │
+                 │   →出裁决)      │
+                 └───────┬────────┘
+                         │
+                 ┌───────┴────────┐
+                 │  一致性裁判     │
+                 │  → 策执远方案   │
+                 │  → 风控明审核   │
+                 └───────┬────────┘
+                         │
+                         ▼
+                 ┌───────┴────────┐
+                 │  组装收口       │
+                 │  知识萃取       │
+                 │  报告生成       │
+                 │  输出           │
+                 └────────────────┘
 ```
 
 ### 直接辩论模式（跳过扫描）
 
 ```
-指定品种/产业链/全品种 → 闫判官初判 → 链分析(按需) → 观澜 → 辩论 → 终裁 → 审计 → 方案 → 风控 → 报告
+指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 证真/慎思辩论 → 终裁 → 一致性 → 策执远/风控明 → 报告
 ```
 
 ---
@@ -461,14 +432,17 @@ flowchart LR
     end
 
     subgraph 闫判官驱动层
-        OUT --> J0[闫判官初判<br/>judge_initial]
-        J0 --> |p0_judge_directive.json| CHAIN{链分析?}
+        OUT --> J0[闫判官判断调度<br/>judge_dispatch]
+        J0 --> |dispatch 产业链分析| CHAIN{链分析?}
         CHAIN -->|需要| CA[analyze_chain.py<br/>只分析指定链]
         CHAIN -->|不需要| SKIP_CHAIN[跳过链分析]
         CA --> CHAIN_OUT[p1_chain_analysis.json]
         CHAIN_OUT --> TI[观澜 Technical]
+        CHAIN_OUT --> FU[探源 Fundamental]
         SKIP_CHAIN --> TI
+        SKIP_CHAIN --> FU
         TI --> P3[证真+慎思 Debate]
+        FU --> P3
         P3 --> J4[闫判官终裁<br/>Judge Final]
         J0 -.->|读取指令| J4
         J4 --> CO[一致性裁判]
@@ -482,7 +456,7 @@ flowchart LR
     end
 
     subgraph 直接辩论层
-        DB_SYM[--symbols A,B] --> DB_J0[闫判官初判]
+        DB_SYM[--symbols A,B] --> DB_J0[闫判官判断调度]
         DB_CHAIN[--chain 黑色系] --> DB_RESOLVE[解析产业链映射]
         DB_RESOLVE --> DB_J0
         DB_ALL[--all] --> DB_J0
@@ -506,12 +480,8 @@ flowchart LR
 | `scan_daily_{HHMM}_{YYYYMMDD}.json` | {日期目录}/ | 全品种扫描结果 + 排名数据 | 1-4 |
 | `scan_daily_{HHMM}_ranking_{YYYYMMDD}.html` | {日期目录}/ | 排名报告HTML | 1-4 |
 | `p1_chain_analysis.json` | {日期目录}/ | 链证源产业链分析结果 | 1,2,5,6,7 |
-| `spawn_plan_{YYYYMMDD_HHMM}.json` | {日期目录}/ | 辩论Agent spawn计划 | 1,2,5,6,7 |
+| `spawn_plan_{YYYYMMDD_HHMM}.json` | {日期目录}/ | 辩论Agent spawn计划（含闫判官判断调度 + 链数据注入） | 1,2,5,6,7 |
 | `agent_lifecycle_report.json` | {日期目录}/ | Agent 生命周期报告 | 1,2,5,6,7 |
-
----
-
-*文档版本 v4.0 | 2026-07-14 14:05 | FDT v5.12.1 | 明鉴秋全程资源管控 + 生命周期管理*
 | `debate_results.json` | {日期目录}/ | 辩论裁决结果 | 1,2,5,6,7 |
 | `intermediate_data.json` | {日期目录}/ | 中间数据（含链分析） | 1,2,5,6,7 |
 | `debate_report_{YYYYMMDD}.html` | {日期目录}/ | 辩论综合报告HTML | 1,2,5,6,7 |
@@ -519,4 +489,4 @@ flowchart LR
 
 ---
 
-*文档版本 v4.0 | 2026-07-14 14:05 | FDT v5.12.1 | 明鉴秋全程资源管控 + 生命周期管理*
+*文档版本 v4.1 | 2026-07-14 18:28 | FDT v6.3.1 | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源)*
