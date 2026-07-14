@@ -149,6 +149,9 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 | 配置/脚本/技能/测试计数是否刷新 | `README.md` 快速参考 / `06-testing.md` |
 | 既有测试是否随函数重命名同步 | `tests/**` |
 | 版本历史是否追加 | `07-operations.md §5.2` / `.version_history.json` |
+| 流程文档是否同步 | `docs/execution_modes_flowchart.md` / `docs/business_flow.md` |
+| 角色 MD 职责是否更新 | `agents/*.md` |
+| **完整 12 项检查清单见** | **`docs/harness/10-coding-standards.md` §2** |
 
 ## 6. Harness 工程规范对照表（2026-07-14 修正）
 

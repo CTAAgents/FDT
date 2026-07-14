@@ -214,7 +214,7 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | scheduler (engine) | ✅ | ✅ | — | — | — | 10 用例 (G6) |
 | memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 (G8) |
 
-> ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明已失真。v6.3.0 数技源信号+分析师能力重构后 `tests/pipeline/test_runner.py` 仍 mock 已重命名的 `step_scan_dual`，实测 **pipeline 5/10 失败**（G16）。其余目录测试维持绿。修复见 [差距分析 G16](08-gap-analysis.md)。
+> ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明曾因 v6.3.0 重构后 `tests/pipeline/test_runner.py` mock 重命名函数失配而失真（5/10 失败）。**该问题已于 2026-07-14 19:04 修复**，当前 pipeline 10/10 全绿。
 
 ### 8.2 测试执行命令（v5.7 更新）
 
