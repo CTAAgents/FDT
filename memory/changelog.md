@@ -23,7 +23,7 @@
 - **根因**：GitHub 上的 README 基于过时系统快照（系统提示仍 v5.12.1），存在版本不符、未体现系统特色、流程错误三类问题。基于权威文档（`docs/business_flow.md` / `docs/harness/02-lifecycle.md` / `rules/futures-debate-team_rules.md` / `pipeline/runner.py` / `scheduler/tasks.py` / `docs/agent-protocol.md`）重写。
 - **修正的流程错误**：
   1. P1 架构图原仅画数技源单生产者 → 改为数技源信号+分析师能力（channel_breakout + L1-L4 + factor_timing，各自独立 JSON）
-  2. 角色阶段对照表原观澜/探源只标 P3 → 补 P1 生产者职责
+  2. 角色阶段对照表原观澜/探源只标 P3 → 补脚本产出列（标注为分析师按需能力，非 P1 工作；分析师 Agent 仅 P3 被 spawn）
   3. `run_debate.py plan --scan scan_daily_*.json` 文件名错误（scan_all.py 不产出该名）→ 改为 `full_scan_summary_{date}.json`
   4. 数据源优先级原写「TqSDK 第一、TDX 降级」→ 按 business_flow.md 修正为 TDX 主源（盘中 TDX→TqSDK→东方财富→AKShare）
   5. 信号权重去写死百分比，改为引用 `config/settings.py` 单一真相源

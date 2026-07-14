@@ -1,6 +1,6 @@
 # Futures Debate Team — 期货交易辩论专家团 v6.3.1
 
-> 🚀 **v6.3.1 缺陷修复（技术债 §2/§3 收尾）**：修复链分析 `build_symbol_map` 在 channel_breakout-only 摘要下的 `KeyError: 'symbols'`（迁移后数技源信号+分析师独立 JSON，旧代码期望嵌套结构）——改为多源合并；`factor_timing._zscore` 全 NaN 防护消除运行期警告。
+> 🚀 **v6.3.1 缺陷修复（技术债 §2/§3 收尾）**：修复链分析 `build_symbol_map` 在 channel_breakout-only 摘要下的 `KeyError: 'symbols'`（迁移后数技源/观澜/探源独立 JSON，旧代码期望嵌套结构）——改为三源合并；`factor_timing._zscore` 全 NaN 防护消除运行期警告。
 >
 > 🧬 **v6.3.0 信号生产链路拆分（当前架构基线）**：`scan_all.py` 重构为纯通道突破信号源（移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`），落地 **P1 数技源信号+分析师能力架构**——数技源（通道突破）产出信号，观澜（L1-L4 技术指标）/ 探源（因子择时）为分析师按需能力，辩论流水线保持可用。本 README 基于权威流程文档（`docs/business_flow.md`、`docs/harness/02-lifecycle.md`、`rules/futures-debate-team_rules.md`、`pipeline/runner.py`、`scheduler/tasks.py`）梳理，版本号唯一真相源为 `pyproject.toml`。
 
@@ -18,7 +18,7 @@ Team 型（10 角色多 Agent 协作团队，全 Agent 自进化）
 "对比铜期货的多空论点"
 ```
 
-系统自动执行 6 阶段完整流程：信号生产（数技源信号+分析师能力）→ 产业链分析 → 闫判官筛选定方向 → 研究员供弹 → 多空辩论 → 风控审核 → 方案输出。
+系统自动执行 6 阶段完整流程：信号生产（数技源）→ 产业链分析 → 闫判官筛选定方向 → 研究员供弹 → 多空辩论 → 风控审核 → 方案输出。
 
 ## 系统架构
 
@@ -64,8 +64,8 @@ P6  汇总输出                      明鉴秋
 | 角色 | Agent | P1 | P1.5 | P2 | P3 | P4 | P5 |
 |:-----|:------|:--:|:----:|:--:|:--:|:--:|:--:|
 | **数技源** | datatech | ● 通道突破信号 | | | | | |
-| **观澜** | technical | ● L1-L4 扫描 | | | ● 技术面供弹 | | |
-| **探源** | fundamental | ● 因子择时扫描 | | | ● 基本面供弹 | | |
+| **观澜** | technical | | | | ● 技术面供弹 | | |
+| **探源** | fundamental | | | | ● 基本面供弹 | | |
 | **链证源** | chain-analyst | | ● 产业链 | | | | |
 | **闫判官** | judge | | | ● 选品种+定方向 | | | ● 裁决 |
 | **证真** | affirmative | | | | | ● 正方论据 | |
@@ -74,7 +74,7 @@ P6  汇总输出                      明鉴秋
 | **风控明** | risk | | | | | | ● 6层风控审核 |
 | **明鉴秋** | team-lead | ● 启动+调度 | | | ● 轮询传递 | ● 调度 | ● 归档+报告 |
 
-> 注：观澜、探源在 P1 作为**分析师能力**（运行各自扫描脚本产出独立 JSON），又在 P3 作为**研究员**消费这些数据 + 补充分析。数技源信号+分析师能力架构是 v6.3.0 链路拆分的成果，确保 P1 信号生产、分析师供弹职责清晰、互不耦合。
+> 注：run_l1l4_scan.py（观澜L1-L4）与 run_factor_timing_scan.py（探源因子择时）在 P1 作为自动化脚本预产数据；但**观澜/探源作为 LLM 分析师 Agent 并不在 P1 工作**——它们在 P3 研究员供弹阶段才被 spawn，消费已产数据 + WebSearch 补充事实。L1-L4 / 因子择时是分析师内在能力，不是阶段工作对照。
 
 ## 核心特色
 
@@ -152,8 +152,8 @@ python scripts/run_debate.py report --workspace <dir>/
 | 2 | 📡 数技源 | `futures-datatech` | `quant-daily` | 运行通道突破全量扫描，产出原始信号（不下结论） |
 | 3 | 🔗 链证源 | `futures-chain-analyst` | `commodity-chain-analysis` | 产业链事实描述+景气度分析（不下多空） |
 | 4 | ⚪ 闫判官 | `futures-judge` | `debate-judge` | 选辩论品种+定方向+评分+裁决 |
-| 5 | 🧑‍🔬 观澜 | `futures-technical-researcher` | `quant-daily` + `technical-analysis` | P1 产 L1-L4 信号 + P3 技术分析/支撑阻力（中立，verdict=null，禁WebSearch） |
-| 6 | 🧑‍🔬 探源 | `futures-fundamental-researcher` | `fundamental-data-collector` | P1 产因子择时 + P3 基本面分析（供需库存利润，允许WebSearch） |
+| 5 | 🧑‍🔬 观澜 | `futures-technical-researcher` | `quant-daily` + `technical-analysis` | L1-L4 信号（按需能力）+ P3 技术分析/支撑阻力（中立，verdict=null，禁WebSearch） |
+| 6 | 🧑‍🔬 探源 | `futures-fundamental-researcher` | `fundamental-data-collector` | 因子择时（按需能力）+ P3 基本面分析（供需库存利润，允许WebSearch） |
 | 7 | 🔵 证真 | `futures-affirmative-debater` | `debate-argument-builder` | 正方论据（动态方向，禁止自行搜索） |
 | 8 | 🔴 慎思 | `futures-opposition-debater` | `debate-argument-builder` | 反方驳论（动态方向，禁止自行搜索） |
 | 9 | 📋 策执远 | `futures-trading-strategist` | `debate-trading-planner` | 合约选型+执行方案 |
@@ -235,8 +235,8 @@ python pipeline/runner.py
 | `futures-trading-analysis` | v3.11.0 | 主流程编排+5层鲁棒性+A01文件通信+报告生成+A2A文件桥 |
 | `fdt-spawn-debate` | v1.1 | Agent spawn流程+A01文件通信协议 |
 | `commodity-chain-analysis` | v2.17.0 | 产业链分析（P1.5） |
-| `fundamental-data-collector` | v1.5.0 | 基本面分析+因子择时（P1 探源能力 + P3 研究员） |
-| `technical-analysis` | v2.3.0 | 技术面分析+支撑阻力（P1 观澜能力 + P3 研究员） |
+| `fundamental-data-collector` | v1.5.0 | 基本面分析+因子择时（探源按需能力 + P3 研究员） |
+| `technical-analysis` | v2.3.0 | 技术面分析+支撑阻力（观澜按需能力 + P3 研究员） |
 | `debate-argument-builder` | v2.3.0 | 正反方论点构建 |
 | `debate-judge` | v2.0.1 | 辩论裁决 |
 | `debate-risk-manager` | v4.1.0 | 风控审核（6层引擎） |

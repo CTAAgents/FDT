@@ -45,9 +45,9 @@ triggers:
 | `chain_balance.py` | 供需平衡表估算（供给−需求滚动差、1-3月边际变化） | ①供需平衡表 | 调用supply+demand+模型 |
 | `web_collector.py` | 联网搜索统一路由（含时效验证） | 通用补充 | WebSearch/WebFetch |
 
-## 因子择时扫描入口（P1 生产者）
+## 因子择时扫描（探源按需分析能力）
 
-辩论流水线 P1 阶段的 5 因子择时信号由本 skill 独立产出（2026-07-14 从 quant-daily scan_all 迁出）：
+辩论流水线自动调用本 skill 提前产出 5 因子择时信号（2026-07-14 从 quant-daily scan_all 迁出，作为探源独立能力）：
 
 ```bash
 # 默认全品种（或 --symbols RB,MA）

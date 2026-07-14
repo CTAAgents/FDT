@@ -32,9 +32,9 @@ L1-L4 原始指标由本 skill 的 `run_l1l4_scan.py` 独立产出（scripts/rep
 | `event_calendar.py` | **事件日历mask（v2.1新增）** | `check_event_impact()`, `get_events_for_date()` |
 | `cross_correlation.py` | **跨品种联动（v2.1新增）** | `calc_correlation()`, `get_correlation_peers()`, `build_correlation_matrix()` |
 
-## L1-L4 扫描入口（P1 生产者）
+## L1-L4 扫描（观澜按需分析能力）
 
-辩论流水线 P1 阶段的 L1-L4 原始指标由本 skill 独立产出（2026-07-14 从 quant-daily scan_all 迁出），不再依赖 scan_all.py：
+辩论流水线自动调用本 skill 提前产出 L1-L4 原始指标（2026-07-14 从 quant-daily scan_all 迁出，作为观澜独立能力）：
 
 ```bash
 # 默认全品种（或 --symbols RB,MA）
