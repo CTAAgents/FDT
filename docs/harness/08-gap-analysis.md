@@ -118,15 +118,30 @@
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
-| **G19** | V2/V3 多因子增强缺测试覆盖 | `volume_confirm.py`（OI+量比）和 `atr_vol_timing.py`（基差+低波）增强逻辑无 pytest 测试 | 增强代码无法通过 CI 回归检验 | 在 `tests/validators/` 下新增测试文件（至少 V2×3 + V3×3 共 6 用例） | `tests/validators/test_volume_confirm_enhanced.py` `tests/validators/test_atr_vol_timing_enhanced.py` |
-| **G20** | 阈值常量散布在验证器中 | `OI_SURGE_THRESHOLD`(15%)、`BASIS_WIDEN_THRESHOLD`(2%) 等硬编码在验证器 py 文件中 | 运维调参需改代码，不可通过配置中心调整 | 集中迁移到 `config/settings.py` 或新配置文件 | `volume_confirm.py` `atr_vol_timing.py` `p0_4_raw_kline.py` |
-| **G21** | 100ppi 数据源 anti-scrape 无降级文档 | 生意社现期表被 Cloudflare 拦截时，基差增强静默降级 | 运维不知增强已失效 | 补充 100ppi 不可用的降级文档 + 运行时日志告警 | `04-resilience.md` `scan_all.py` 中数据采集函数 |
+| **G19** | V2/V3 多因子增强缺测试覆盖 | — | — | 新增 9 测试在 tests/validators/ | ✅ v6.3.2 关闭 |
+| **G20** | 阈值常量散布 | — | — | 迁移至 config/settings.py（待后续） | ⏳ |
+| **G21** | 100ppi 降级文档 | — | — | 补充 04-resilience.md（待后续） | ⏳ |
+| **G22** | 策略层不支持多策略并行 | — | — | Phase A→D 完成，v7.2.0 pipeline 默认模式 | ✅ v7.2.0 关闭 |
+| **G23** | 信号类型无命名空间 | — | — | BaseStrategyV2 `{name}.{subtype}` 命名空间 | ✅ v7.2.0 关闭 |
 
 > **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
 
 ## 5. 改进路线图
 
-### Phase 6（2026-07-14 新增）：P0-4 多因子增强 + 测试补齐
+### Phase 7（2026-07-14 完成）：策略层插拔化重构
+
+按 `docs/design/strategy-layer-refactoring-v1.md` 分 4 个子 Phase 执行，当晚全部完成：
+
+```
+Phase A (v6.4.0) 接口层 ──→ ✅ BaseStrategyV2 + StrategyPipeline + StrategyFusion
+Phase B (v6.4.1) 适配层 ──→ ✅ StrategyV1Adapter v1→v2 桥接
+Phase C (v6.5-7) 策略填充 ──→ ✅ CTA 7/7 全覆盖（5 新策略文件）
+Phase D (v6.8-7.2) 通用化 ──→ ✅ scan_all 默认管线模式 + 字段归一化 + 基差/宏观注入
+```
+
+**状态**：✅ 全部完成 · v7.2.0 · 105 测试全绿。
+
+### Phase 6（2026-07-14 完成）：P0-4 多因子增强 + 测试补齐
 
 ```
 G19 V2/V3 增强测试 ──→ tests/validators/ 新增测试（6 用例）
@@ -194,10 +209,13 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 | **部署** | 单机 + 分布式 | 多模式 + Runbook + 版本管理 | ✅ 达标（G14 已修） |
 | **文档** | README + protocol + schemas + 10 Harness 文档 | 架构/API/运维文档与代码同步 | ✅ **G17/G18 已完成**（本轮整顿全文档体系） |
 
-## 7. 总结（2026-07-14 22:20 — 新增 G19/G20/G21）
+## 7. 总结（2026-07-14 23:45 — 策略层重构完成）
 
-**当前成熟度：8 维全 5/5**，但新增 3 项差距（G19-G21）在本次整顿中登记。
-G1-G18 全部关闭 ✅；G19 已修复（测试 ✅），G20/G21 为后续 Phase。差距总数：21 项中 19 关闭。
+**当前成熟度：8 维全 5/5**。G1-G23 中：
+- ✅ 关闭：G1-G18 + G19(V2/V3测试) + G22(策略插拔化) + G23(命名空间) = **21 项**
+- ⏳ 待维护：G20(阈值集中) · G21(100ppi文档) = **2 项低优先级**
+
+CTA 策略覆盖：**7/7 全覆盖** · pipeline 默认模式 · v7.2.0
 
 2026-07-10 的「15 项全部修复、4.7/5.0」结论经本次整顿需修正为：
 
