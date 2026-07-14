@@ -526,6 +526,14 @@ def run_scan(
             _pipeline_default = not getattr(args, "strategy", None)
             if _pipeline_default:
                 try:
+                    # ── 前置采集：基差+OI 数据注入管线上下文（供套利等策略消费）──
+                    _ctx_extra: dict = {}
+                    try:
+                        _ctx_extra["basis_data"] = _collect_basis_data_sync(tech_list)
+                        _ctx_extra["oi_data"] = _collect_oi_data_sync(tech_list, kline_data)
+                    except Exception:
+                        pass  # 基差/OI 不可用时策略优雅降级
+
                     from strategies.registry_v2 import get_pipeline
                     from strategies.trend_following_strategy import TrendFollowingStrategy
                     from strategies.arbitrage_strategy import ArbitrageStrategy
@@ -541,7 +549,8 @@ def run_scan(
                     register_v2(EventDrivenStrategy())
                     register_v2(MlSignalStrategy())
                     pipeline = get_pipeline()
-                    _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period, "window_mode": window_mode, "mode": "full", "extra": {}}
+                    _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
+                            "window_mode": window_mode, "mode": "full", "extra": _ctx_extra}
                     summary = pipeline.run(tech_list, kline_data, _ctx)
                     print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
                 except Exception as _pe:
@@ -575,8 +584,11 @@ def run_scan(
                     from signals.validators import run_signal_validators, ValidationContext
                     from signals import paradigms
                     _all_ranked = summary.get("all_ranked", [])
-                    _oi_data = _collect_oi_data_sync(_all_ranked, kline_data)
-                    _basis_data = _collect_basis_data_sync(_all_ranked)
+                    # 复用 pipeline 已采集的基差/OI 数据（pipeline模式）或重新采集（单策略模式）
+                    _v_oi = _ctx_extra.get("oi_data", {}) if locals().get("_ctx_extra") else {}
+                    _v_basis = _ctx_extra.get("basis_data", {}) if locals().get("_ctx_extra") else {}
+                    _oi_data = _v_oi or _collect_oi_data_sync(_all_ranked, kline_data)
+                    _basis_data = _v_basis or _collect_basis_data_sync(_all_ranked)
                     ctx = ValidationContext(kline_data=kline_data, higher_tf={}, extra={"oi_data": _oi_data, "basis_data": _basis_data})
                     run_signal_validators(_all_ranked, ctx)
                     summary["all_ranked"] = _all_ranked
