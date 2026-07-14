@@ -157,10 +157,11 @@ def _load_llm_profiles() -> dict:
 # ─────────────────────────────────────────────
 # B4 失败重排（补辩计划）
 # ─────────────────────────────────────────────
-def _emit_repair_plan(scan: dict, workspace: str, data_benchmark: str) -> str | None:
+def _emit_repair_plan(scan: dict, workspace: str, data_benchmark: str,
+                      disable_filter: bool = False) -> str | None:
     """检测缺产出的触发品种，产出补辩计划 JSON 供主管重 spawn。无缺失返回 None。"""
     ws = Path(workspace)
-    triggers = select_triggers(scan, load_debate_threshold())
+    triggers = select_triggers(scan, load_debate_threshold(), disable_filter=disable_filter)
     missing = []
     for t in triggers:
         sym = t["symbol"]
@@ -338,13 +339,20 @@ def _build_chain_prompt_snippet(chain_info: dict | None) -> str:
 # ─────────────────────────────────────────────
 # 触发品种识别（信号检查闸门）
 # ─────────────────────────────────────────────
-def select_triggers(scan: dict, threshold: int) -> list:
-    """|total| >= DEBATE_ENTRY_MIN_ABS 即进候选（grade 仅作优先级标签）。"""
+def select_triggers(scan: dict, threshold: int, disable_filter: bool = False) -> list:
+    """|total| >= DEBATE_ENTRY_MIN_ABS 即进候选（grade 仅作优先级标签）。
+
+    当 disable_filter=True 时，从 _raw_total 读取原始总分（绕过 P0-4 伪突破过滤后的 total=0）。
+    """
     ranked = scan.get("all_ranked", [])
-    cands = [s for s in ranked if abs(s.get("total", 0)) >= threshold]
+    if disable_filter:
+        cands = [s for s in ranked if abs(s.get("_raw_total", s.get("total", 0))) >= threshold]
+    else:
+        cands = [s for s in ranked if abs(s.get("total", 0)) >= threshold]
     # 优先级：STRONG > WATCH > 其余
     order = {"STRONG": 0, "WATCH": 1, "WEAK": 2, "NOISE": 3}
-    cands.sort(key=lambda s: (order.get(s.get("grade", "NOISE"), 9), -abs(s.get("total", 0))))
+    score_key = "_raw_total" if disable_filter else "total"
+    cands.sort(key=lambda s: (order.get(s.get("grade", "NOISE"), 9), -abs(s.get(score_key, 0))))
     return cands
 
 
@@ -727,10 +735,13 @@ def _derive_action(verdict: str, grade: str, score_breakdown: dict, scan_directi
     return "wait"
 
 
-def assemble(scan: dict, workspace: str, data_benchmark: str) -> dict:
+def assemble(scan: dict, workspace: str, data_benchmark: str,
+             disable_filter: bool = False) -> dict:
     ws = Path(workspace)
     verdicts = {}
-    plan = build_spawn_plan(select_triggers(scan, load_debate_threshold()), workspace, data_benchmark)
+    plan = build_spawn_plan(
+        select_triggers(scan, load_debate_threshold(), disable_filter=disable_filter),
+        workspace, data_benchmark)
     for item in plan["symbols"]:
         sym = item["symbol"]
         f = item["files"]
@@ -1190,14 +1201,20 @@ def main():
                         help="辩论品种选择模式: trigger(默认,|total|≥阈值) / all(全品种) / symbols(指定品种)")
     p_plan.add_argument("--symbols", default=None,
                         help="指定辩论品种（逗号分隔），配合 --mode symbols 使用")
+    p_plan.add_argument("--disable-filter", action="store_true",
+                        help="禁用伪信号过滤：使用 _raw_total 原始总分触发辩论（配合 --mode trigger）")
 
     p_fin = sub.add_parser("finalize", help="组装+萃取+报告（spawn 后收口）")
     p_fin.add_argument("--scan", required=True)
     p_fin.add_argument("--workspace", required=True)
+    p_fin.add_argument("--disable-filter", action="store_true",
+                       help="禁用伪信号过滤：使用 _raw_total 原始总分（需与 plan 阶段一致）")
 
     p_asm = sub.add_parser("assemble", help="仅组装 debate_results.json")
     p_asm.add_argument("--scan", required=True)
     p_asm.add_argument("--workspace", required=True)
+    p_asm.add_argument("--disable-filter", action="store_true",
+                       help="禁用伪信号过滤：使用 _raw_total 原始总分（需与 plan 阶段一致）")
 
     p_ext = sub.add_parser("extract", help="仅批量萃取")
     p_ext.add_argument("--workspace", required=True)
@@ -1262,8 +1279,10 @@ def main():
         # ── 模式选择：trigger（默认） / all（全品种） / symbols（指定品种）──
         mode = getattr(args, "mode", "trigger")
         if mode == "trigger":
-            triggers = select_triggers(scan, threshold)
-            print(f"🔔 触发品种（|total|≥{threshold}）: {[t['symbol'] for t in triggers]}")
+            _disable_filter = getattr(args, "disable_filter", False)
+            triggers = select_triggers(scan, threshold, disable_filter=_disable_filter)
+            _label = "raw_total" if _disable_filter else "total"
+            print(f"🔔 触发品种（|{_label}|≥{threshold}）: {[t['symbol'] for t in triggers]}")
         elif mode == "all":
             ranked = scan.get("all_ranked", [])
             triggers = [s for s in ranked if s.get("grade") not in ("NOISE",)]
@@ -1440,15 +1459,17 @@ def main():
         print(f"📋 spawn 计划（直接辩论）: {out}")
 
     elif args.cmd == "assemble":
-        out = assemble(scan, str(ws), data_benchmark)
+        _disable_filter = getattr(args, "disable_filter", False)
+        out = assemble(scan, str(ws), data_benchmark, disable_filter=_disable_filter)
         generate_intermediate_data(scan, str(ws), data_benchmark)
         if run_validate(str(ws), args.scan) != 0:
             sys.exit(1)
 
     elif args.cmd == "finalize":
+        _disable_filter = getattr(args, "disable_filter", False)
         # ── A2 阶段隔离：任一阵营失败不整轮崩，标记 partial 继续 ──
         try:
-            out = assemble(scan, str(ws), data_benchmark)
+            out = assemble(scan, str(ws), data_benchmark, disable_filter=_disable_filter)
         except Exception as e:
             print(f"  ⛔ assemble 异常: {e}")
             if RunReporter is not None:
@@ -1464,7 +1485,8 @@ def main():
             except Exception:
                 pass
         # ── B4 失败重排：缺产出品种生成补辩计划 ──
-        _repair = _emit_repair_plan(scan, str(ws), data_benchmark)
+        _repair = _emit_repair_plan(scan, str(ws), data_benchmark,
+                                    disable_filter=_disable_filter)
         if _repair:
             print(f"  🔧 补辩计划（缺失产出）: {_repair}")
         if run_validate(str(ws), args.scan) != 0:

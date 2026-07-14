@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -188,6 +189,8 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         plan_cmd.append("--no-cache")
     if check_resources:
         plan_cmd.append("--check-resources")
+    if mode == "no-filter":
+        plan_cmd.append("--disable-filter")
     rc = _run(plan_cmd)
     if rc != 0:
         print(f"⛔ 辩论计划生成失败 (exit={rc})")
@@ -209,18 +212,30 @@ def cmd_finalize_only(args: argparse.Namespace) -> int:
     workspace = _resolve_workspace(getattr(args, "workspace", None))
     py = sys.executable
 
-    # 找最新的 scan JSON
+    # 找最新的 scan JSON（按 mtime 排序，取最新）
     import glob
     today = _today_str()
     json_pattern = str(Path(workspace) / f"scan_*_{today}.json")
-    json_files = sorted(glob.glob(json_pattern))
+    json_files = sorted(glob.glob(json_pattern), key=os.path.getmtime)
     if not json_files:
         print(f"⛔ 未找到扫描 JSON 在: {workspace}")
         return 1
     scan_json = json_files[-1]
 
-    rc = _run([py, str(_RUN_DEBATE_PY), "finalize",
-               "--scan", scan_json, "--workspace", workspace])
+    # 从 scan JSON 的 _meta 判断是否禁用过滤
+    _disable_filter = False
+    try:
+        with open(scan_json, encoding="utf-8") as _sf:
+            _sd = json.load(_sf)
+        _meta = _sd.get("_meta", {})
+        _disable_filter = _meta.get("filter_disabled", False)
+    except Exception:
+        pass
+    fin_cmd = [py, str(_RUN_DEBATE_PY), "finalize",
+               "--scan", scan_json, "--workspace", workspace]
+    if _disable_filter:
+        fin_cmd.append("--disable-filter")
+    rc = _run(fin_cmd)
     if rc != 0:
         print(f"⛔ finalize 失败 (exit={rc})")
     return rc

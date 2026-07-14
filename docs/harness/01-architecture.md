@@ -83,7 +83,9 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
     ├─ 数技源 scan_all.py(channel_breakout)        ──→ full_scan_summary_{date}.json
     ├─ 观澜 run_l1l4_scan.py(technical-analysis)    ──→ full_scan_l1l4_{date}.json
     └─ 探源 run_factor_timing_scan.py(fundamental-data-collector) ──→ full_scan_factor_timing_{date}.json
-    │                    ↓ 信号检查闸门 (读 full_scan_summary, 无 |total|≥DEBATE_ENTRY_MIN_ABS 候选则终止)
+    │                    ↓ 信号检查闸门: select_triggers(all_ranked, threshold, disable_filter)
+    │                    filter=ON → 读 total（P0-4过滤后，默认）
+    │                    filter=OFF → 读 _raw_total（无过滤，配合 --mode no-filter）
     ▼
 [P1.5] 链证源 ──→ chain_analysis_{date}.json (产业链景气度)
     │

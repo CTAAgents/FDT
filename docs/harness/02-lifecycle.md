@@ -63,7 +63,9 @@ bootstrap.py main()
               │                 │
               │     ┌───────────▼─────────────┐
               │     │  信号检查闸门             │
-              │     │  有STRONG信号?            │
+              │     │  select_triggers()        │
+              │     │  filter=ON: |total|       │
+              │     │  filter=OFF: |_raw_total| │
               │     └───┬───────────────┬──────┘
               │         │ Yes           │ No
               │         ▼               ▼

@@ -182,7 +182,8 @@ Phase 1 ──── ✅ 4.0 ──── G1 schema · G2 trace · G3 日志 · 
 Phase 2 ──── ✅ 4.3 ──── G7 覆盖率 · G10 兼容矩阵 · G13 熔断 · G5 pipeline · G6 scheduler · G8 memory
 Phase 3 ──── ✅ 4.6 ──── G9 drain · ⚠️ G14 版本迁移(经 07-14 复核确认未落地)
 Phase 4 ──── ✅ 4.7 ──── G11 看板 · G12 健康端点 · G15 JSON日志
-Phase 5 ──── 🔧 4.6→5.0 ── G16 pipeline 测试修复 · G14 迁移落地 · G17 文档同步纪律
+Phase 5 ──── ✅ 5.0 ──── G16 pipeline 测试修复 · G14 迁移落地 · G17 文档同步纪律
+Phase 6 ──── 🔧 5.0(新增G19/G20/G21) ── G19 V2/V3增强测试✅ · G20阈值集中⏳ · G21降级文档⏳
 ```
 
 ## 8. 执行总结

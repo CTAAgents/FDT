@@ -179,6 +179,7 @@ S04 解决了"Agent 后台 spawn 后如何知道产出就绪"的问题：
 | `stable_seconds` | 5s | 是 | 文件 size 稳定时间 |
 | `poll_interval` | 15s | 是 | 轮询间隔 |
 | `max_retries` (L2) | 2 | 是 | L2 熔断重试次数 |
+| `numpy_timeout` | 60s | 否（代码硬编码） | scan_all.py 品种级 numpy 指标计算超时，超时则跳过该品种（ThreadPoolExecutor+60s），防止单品种卡死全盘扫描 |
 
 ### 3.3 代码位置
 

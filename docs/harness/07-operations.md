@@ -290,6 +290,7 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
+| v6.3.2 | 2026-07-14 | P0-4 多因子增强：select_triggers disable_filter 读 _raw_total；V1 OI/基差覆写；V2 OI+量比联合；V3 基差+低波联合；numpy 60s 品种级超时；finalize-only glob mtime 排序；G19 新登记(9 测试全绿)；阈值常量 G20/100ppi 降级 G21 待后续 |
 | v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
 | v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |
 | v6.2.0 | — | A2A Agent-to-Agent 协议文件桥（agent-card.json + a2a_results.json）+ validate_final_signals 置信度归一 |

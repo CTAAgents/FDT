@@ -31,9 +31,23 @@ def demote(r: dict, reason: str, new_type: str = "false_breakout") -> None:
         new_type:  降级后的 signal_type；伪突破过滤器用默认 "false_breakout"，
                    稳定性/拥挤度等不重定义的验证器传原 signal_type 仅压 grade。
     """
+    r["_raw_grade"] = r.get("grade", "NOISE")  # 保留原始等级（供多因子增强撤销降级用）
+    r["_raw_total"] = r.get("total", 0)        # 保留原始总分
     r["signal_type"] = new_type
     r["grade"] = "NOISE"
-    r["_raw_total"] = r.get("total", 0)  # 保留原始总分（供需报表对比拦前/拦后）
     r["total"] = 0
     r["_validator_demoted"] = True
     r["_validator_reason"] = reason
+
+
+def undemote(r: dict, reason: str) -> None:
+    """撤销降级：恢复 grade 和 total（供多因子增强验证器使用）。
+
+    仅在 r["_raw_grade"] 和 r["_raw_total"] 存在时生效。
+    """
+    if "_raw_grade" not in r or "_raw_total" not in r:
+        return
+    r["grade"] = r["_raw_grade"]
+    r["total"] = r["_raw_total"]
+    r["_validator_demoted"] = False
+    r["_validator_reason"] = f"增强覆写: {reason}"

@@ -1,8 +1,12 @@
-"""V1 原始K线重校验门禁 (P0-4) — 防御伪造突破的最后闸门。
+"""V1 原始K线重校验门禁 (P0-4) + 基差方向校验 — 防御伪造突破的最后闸门。
 
 迁移自 scan_all._revalidate_breakouts，改为**单记录验证器**（按 signal_type 路由逐条调用）。
 逻辑逐字保留：末根 high/close 是否真实穿越前 20 根极值；穿越幅度 >50% 视为 spike 伪造 → 降级 NOISE。
-全程使用公开、可解释的价格极值因子，无黑盒。
+
+【Phase 2 增强】基差方向校验：
+- 突破方向与基差方向冲突时标记 _basis_conflict，不降级仅告警
+  （多头突破但基差负值=Contango，空头突破但基差正值=Backwardation）
+- 供下游策执远/阎判官辩论时参考，也供 V2/V3 的 undemote 权衡
 """
 
 from . import register_validator
@@ -10,6 +14,9 @@ from .base import demote
 
 _SPIKE_RETURN_CAP = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
 _BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
+
+# ── 基差方向冲突阈值 ──
+BASIS_CONFLICT_THRESHOLD = 2.0  # basis_pct 绝对值超过此值视为显著冲突
 
 
 def validate_p0_4_raw_kline(r: dict, context) -> None:
@@ -52,11 +59,52 @@ def validate_p0_4_raw_kline(r: dict, context) -> None:
             forged = True
             reason = f"末根low破前期{(prior_min_l / last_low - 1) * 100:.0f}%>50%(疑似spike伪造)"
     if forged:
-        demote(r, reason)
-        # 保留原 P0-4 的追溯键，兼容下游读者
-        r["_breakout_revalidated"] = False
-        r["_revalidate_reason"] = reason
-        print(f"  ⛔ [P0-4] {sym} 突破信号被重校验拦截: {reason} → 降级NOISE")
+        # ── 多因子覆写检查：即使在 V1 看来是伪突破，若 OI/基差数据支持则覆写 ──
+        _oi_info = (context.extra or {}).get("oi_data", {}).get(sym.upper(), {})
+        _basis_info = (context.extra or {}).get("basis_data", {}).get(sym.upper(), {})
+        _oi_change = _oi_info.get("oi_change_pct", 0)
+        _basis_pct = _basis_info.get("basis_pct", 0)
+        
+        _overridden = False
+        if _oi_change > 15.0:
+            # OI 暴增 >15% → 主力建仓，即使价格没破极值也不降级
+            _overridden = True
+            r["_oi_surge_reversal"] = True
+            r["_override_reason"] = f"OI暴增({_oi_change:+.1f}%)主力建仓覆写伪突破拦截"
+            print(f"  ✅ [P0-4] {sym} OI暴增({_oi_change:+.1f}%)覆写伪突破降级")
+        elif _basis_pct > 2.0:
+            # 基差走阔 >2% → 现货驱动，价格虽未破极值但基本面支持
+            _overridden = True
+            r["_strangle_compressed"] = True
+            r["_override_reason"] = f"基差走阔(basis_pct={_basis_pct:+.2f}%)弹簧压缩覆写伪突破降级"
+            print(f"  ✅ [P0-4] {sym} 基差走阔({_basis_pct:+.2f}%)覆写伪突破降级")
+        
+        if not _overridden:
+            demote(r, reason)
+            # 保留原 P0-4 的追溯键，兼容下游读者
+            r["_breakout_revalidated"] = False
+            r["_revalidate_reason"] = reason
+            print(f"  ⛔ [P0-4] {sym} 突破信号被重校验拦截: {reason} → 降级NOISE")
+        return  # 已处理，无需继续
+
+    # ── Phase 2 增强：基差方向校验（突破已通过 V1 但方向与基座冲突）──
+    basis_info = (context.extra or {}).get("basis_data", {}).get(sym.upper(), {})
+    basis_pct = basis_info.get("basis_pct", 0)
+    if basis_pct == 0:
+        return  # 无基差数据，跳过
+    conflict = False
+    conflict_reason = ""
+    if direction == "bull" and basis_pct < -BASIS_CONFLICT_THRESHOLD:
+        conflict = True
+        conflict_reason = f"多头突破但基差负值(basis_pct={basis_pct:+.2f}%)资金驱动非基本面驱动"
+    elif direction == "bear" and basis_pct > BASIS_CONFLICT_THRESHOLD:
+        conflict = True
+        conflict_reason = f"空头突破但基差正值(basis_pct={basis_pct:+.2f}%)现货支撑空头风险高"
+    if conflict:
+        r["_basis_conflict"] = True
+        r["_basis_conflict_reason"] = conflict_reason
+        r["_basis_basis_pct"] = basis_pct
+        print(f"  ⚠️ [P0-4] {sym} 基差方向冲突: {conflict_reason}")
 
 
 register_validator("p0_4_raw_kline", validate_p0_4_raw_kline)

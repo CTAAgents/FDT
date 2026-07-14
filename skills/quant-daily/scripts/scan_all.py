@@ -56,6 +56,7 @@ except ImportError:
 
 # ── FDC 统一数据引擎（取代 data.multi_source_adapter.MultiSourceAdapter） ──
 from futures_data_core import get_kline as _fdc_get_kline
+from futures_data_core import batch_get_quotes as _fdc_batch_quotes
 
 def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
     """同步包装 FDC get_kline，供 scan_all.py 的遍历循环使用。
@@ -130,6 +131,109 @@ def _split_symbol_contract(sym: str):
     if not m:
         return sym, None
     return m.group(1), m.group(2)
+
+
+# ── 多因子增强过滤器：基差数据采集（生意社现货价 → 基差）──
+def _collect_basis_data_sync(all_ranked: list) -> dict:
+    """同步采集基差数据：一次 HTTP GET 拉取 100ppi.com/sf/ 现期表。
+
+    对 all_ranked 中每个品种，用期货价（price）与生意社现货价计算基差。
+    单位换算：FG(×80), jd(/500), lh(/1000) 已内置。
+    """
+    import requests
+    from bs4 import BeautifulSoup
+    
+    result: dict[str, dict] = {}
+    try:
+        resp = requests.get("https://www.100ppi.com/sf/", timeout=15)
+        if resp.status_code != 200:
+            return result
+        soup = BeautifulSoup(resp.text, "lxml")
+        table = soup.find("table", class_="sf-table") or soup.find("table", id="sf-table") or soup.find("table")
+        if not table:
+            return result
+        # 导入映射表与换算配置
+        from data.spot_100ppi import PPI_SYMBOL_MAP, UNIT_CONVERSIONS
+        fut_prices = {}
+        for r in all_ranked:
+            sym = r.get("symbol", "").upper()
+            price = r.get("price", 0)
+            if sym and price:
+                fut_prices[sym] = float(price)
+        for tr in table.find_all("tr"):
+            cells = tr.find_all("td")
+            if len(cells) < 6:
+                continue
+            name_text = cells[0].get_text(strip=True)
+            if not name_text:
+                continue
+            # 匹配品种
+            matched_sym = None
+            for sym, sf_id in PPI_SYMBOL_MAP.items():
+                if sf_id is None:
+                    continue
+                if sym.upper() in name_text.upper() or name_text.upper() in sym.upper():
+                    matched_sym = sym
+                    break
+            if not matched_sym:
+                continue
+            sym_upper = matched_sym.upper()
+            try:
+                spot_raw = float(cells[2].get_text(strip=True).replace(",", ""))
+            except (ValueError, IndexError):
+                continue
+            # 单位换算
+            conv = UNIT_CONVERSIONS.get(sym_upper, {})
+            factor = conv.get("factor", 1)
+            spot = spot_raw * factor
+            fut = fut_prices.get(sym_upper, 0)
+            if sym_upper == "JD" and "futures_conversion" in conv:
+                fut = fut * conv["futures_conversion"]["factor"]  # /500
+            elif sym_upper == "LH" and "futures_conversion" in conv:
+                fut = fut * conv["futures_conversion"]["factor"]  # /1000
+            if not fut:
+                continue
+            basis = spot - fut
+            basis_pct = basis / fut * 100.0
+            result[sym_upper] = {
+                "spot_raw": spot_raw,
+                "spot": round(spot, 2),
+                "futures": round(fut, 2),
+                "basis": round(basis, 2),
+                "basis_pct": round(basis_pct, 4),
+                "unit": conv.get("target_unit", "元/吨"),
+            }
+    except Exception:
+        pass
+    return result
+
+
+def _collect_oi_data_sync(all_ranked: list, kline_data: dict) -> dict:
+    """从 kline_data 同步提取 OI 变化数据。
+
+    对 all_ranked 中每个品种，从 K 线提取末根 OI、前20根平均 OI、OI 变化率。
+    """
+    result: dict[str, dict] = {}
+    for r in all_ranked:
+        sym = r.get("symbol", "")
+        dlist = (kline_data.get(sym) or (None, []))[1]
+        if len(dlist) < 21:
+            continue
+        try:
+            last_oi = float(dlist[-1].get("oi", 0))
+            prior_oi_avg = sum(float(x.get("oi", 0)) for x in dlist[-21:-1]) / 20
+            if prior_oi_avg > 0:
+                oi_change_pct = (last_oi - prior_oi_avg) / prior_oi_avg * 100
+            else:
+                oi_change_pct = 0.0
+            result[sym] = {
+                "oi": last_oi,
+                "oi_avg": round(prior_oi_avg, 1),
+                "oi_change_pct": round(oi_change_pct, 2),
+            }
+        except (ValueError, TypeError, ZeroDivisionError):
+            continue
+    return result
 
 
 # ── P0-4 信号重校验门禁已迁至 signals/validators/p0_4_raw_kline.py ──
@@ -293,6 +397,25 @@ def run_scan(
         print(f"    按R23/R24规则, 当前环境无法提供可靠分析, 任务终止")
         return {"_meta": {"r24_rejected": True, "fail_reasons": _fail_reasons, "period": period}}
 
+    # ── Step 1.5: 实时报价采集（双源融合）──
+    quotes_map = {}
+    _tdx_ok = bridge.available
+    if _tdx_ok:
+        print(f"\n[1.5] 实时报价采集（TQ-Local get_market_snapshot）...")
+        try:
+            import asyncio
+            _sym_list = [s[0] for s in target_symbols if s[0] in kline_data]
+            _raw = asyncio.run(_fdc_batch_quotes(_sym_list))
+            if _raw:
+                quotes_map = {k.upper(): v for k, v in _raw.items()}
+                print(f"  成功: {len(quotes_map)}/{len(_sym_list)}")
+            else:
+                print(f"  TQ-Local 无实时报价返回，使用日线收盘价")
+        except Exception as _qe:
+            print(f"  ⚠️ 实时报价采集异常: {_qe}")
+    else:
+        print(f"\n[1.5] TQ-Local 不可用，跳过实时报价（使用日线收盘价）")
+
     # ── Step 2: 指标计算 ──
     print(f"\n[2] 指标计算...")
 
@@ -333,11 +456,34 @@ def run_scan(
             df["volume"] = [float(r.get("volume", 0)) for r in dlist]
             if "open_interest" in dlist[0]:
                 df["open_interest"] = [float(r.get("open_interest", 0)) for r in dlist]
-            tech = _compute_indicators_numpy(df, sym, period=period)
+            # ── numpy 指标计算：品种级超时防护（防止单一品种卡死全盘）──
+            _NUMPY_TIMEOUT = 60  # 秒/品种
+            try:
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
+                with ThreadPoolExecutor(max_workers=1) as _exec:
+                    _fut = _exec.submit(_compute_indicators_numpy, df, sym, period=period)
+                    tech = _fut.result(timeout=_NUMPY_TIMEOUT)
+            except _FutTimeout:
+                print(f"  ⚠️ [{sym}] numpy指标计算超时(>{_NUMPY_TIMEOUT}s)，跳过")
+                continue
+            except Exception:
+                continue
             price = tech.get("last_price", float(df["close"].iloc[-1]))
             prev = float(df["close"].iloc[-2]) if len(df) > 1 else price
-            tech["price"] = price
-            tech["change_pct"] = (price / prev - 1) * 100
+            # ── 双源融合：实时报价覆盖 ──
+            _live = quotes_map.get(sym)
+            if _live and _live.get("last_price") and _live["last_price"] > 0:
+                _live_price = _live["last_price"]
+                _pre_close = _live.get("pre_close", prev)
+                tech["price"] = _live_price
+                tech["change_pct"] = (_live_price / _pre_close - 1) * 100
+                tech["_live_quote"] = True
+                tech["_pre_close"] = _pre_close
+                tech["_raw_close"] = price  # 保留日线收盘参考
+            else:
+                tech["price"] = price
+                tech["change_pct"] = (price / prev - 1) * 100
+                tech["_live_quote"] = False
             tech["symbol"] = sym
             tech["name"] = name
             tech["volume"] = int(round(float(df["volume"].iloc[-1]))) if not df["volume"].empty else 0
@@ -400,7 +546,7 @@ def run_scan(
         except Exception:
             pass  # regime 不可用时不阻断
         strategy = get_strategy(strategy_name)
-        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode)
+        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
         try:
             from config.settings import clear_param_overrides
@@ -411,11 +557,22 @@ def run_scan(
         # 架构: 每个 signal_type 在 config.settings.SIGNAL_VALIDATOR_MAP 声明该跑哪些验证器，
         #       由 signals.validators.run_signal_validators 统一编排。未来加验证器 = 注册+登记一行。
         if enable_filter:
+            summary["filter_disabled"] = False
             try:
                 from signals.validators import run_signal_validators, ValidationContext
                 from signals import paradigms  # 确保 P1~P4 范式注册（元信息/映射索引）
                 _all_ranked = summary.get("all_ranked", [])
-                ctx = ValidationContext(kline_data=kline_data, higher_tf={})
+                # ── 多因子增强：采集 OI + 基差数据注入验证器上下文 ──
+                _oi_data = _collect_oi_data_sync(_all_ranked, kline_data)
+                _basis_data = _collect_basis_data_sync(_all_ranked)
+                ctx = ValidationContext(
+                    kline_data=kline_data,
+                    higher_tf={},
+                    extra={
+                        "oi_data": _oi_data,
+                        "basis_data": _basis_data,
+                    },
+                )
                 run_signal_validators(_all_ranked, ctx)
                 summary["all_ranked"] = _all_ranked
                 # 同步 bear/bull 信号列表（剔除已降级为 NOISE 的品种）
@@ -435,6 +592,7 @@ def run_scan(
             except Exception as _ve:
                 print(f"  ⚠️ [信号验证] 验证器管道异常，跳过验证: {_ve}")
         else:
+            summary["filter_disabled"] = True
             print("  [过滤] P0-4 伪信号过滤已禁用（--disable-filter），全部信号保留")
         print(
             f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
@@ -534,6 +692,19 @@ def run_scan(
         # ── 策略感知列模板：根据实际策略输出字段动态选择 ──
         _actual_strategy = meta.get("strategy", strategy_name or "channel_breakout")
 
+        _fd = bool(summary.get("filter_disabled"))
+        _filter_note = (
+            '<p style="color:#f59e0b;font-weight:600;margin:0 0 8px 0">'
+            '⚠️ 本报告为【不过滤伪突破】模式：总分列为 P0-4 拦截前的原始分，未执行任何伪突破过滤。</p>'
+            if _fd else ''
+        )
+        _filter_banner = (
+            '<div style="margin-bottom:16px;padding:12px 16px;background:#f59e0b15;'
+            'border:1px solid #f59e0b60;border-radius:8px;color:#f59e0b;font-size:13px;font-weight:600">'
+            '⚠️ 本报表为【不过滤伪突破】模式 — "原始总分"列显示 P0-4 拦截前的原始分，未做伪突破过滤</div>'
+            if _fd else ''
+        )
+
         if _actual_strategy in ("channel_breakout", "three_signal"):
             # ── 通道突破/三类信号专用列 ──
             rows_json = _json.dumps(
@@ -545,7 +716,7 @@ def run_scan(
                         "dir": _sv(r,"direction"),
                         "price": _sv(r,"price"),
                         "chg": _sv(r,"change_pct"),
-                        "total": _sv(r,"total"),
+                        "total": (_sv(r,"_raw_total", _sv(r,"total")) if summary.get("filter_disabled") else _sv(r,"total")),
                         "raw_total": _sv(r,"_raw_total", _sv(r,"total")),  # 拦前原始总分
                         "sig": _sv(r,"signal_type","-"),
                         "dc20": _sv(r,"dc20","-"),
@@ -563,11 +734,11 @@ def run_scan(
             )
             _cols = [
                 ("#",1), ("品种",0), ("名称",0), ("方向",0),
-                ("价格",1), ("涨跌",1), ("总分",1), ("拦前分",1),
+                ("价格",1), ("涨跌",1), ("原始总分" if _fd else "总分",1), ("拦前分",1),
                 ("信号类型",0), ("DC20",0), ("DC55",0), ("布林带",0), ("量比",1),
                 ("ADX",1), ("RSI",1), ("等级",0)
             ]
-            _col_desc = """
+            _col_desc = _filter_note + """
 <p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（通道突破策略）</p>
 <table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整（拦后=0表示P0-4伪突破拦截）</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
@@ -631,12 +802,12 @@ def run_scan(
             )
             _cols = [
                 ("#",1), ("品种",0), ("名称",0), ("方向",0),
-                ("价格",1), ("涨跌",1), ("总分",1),
+                ("价格",1), ("涨跌",1), ("原始总分" if _fd else "总分",1),
                 ("L1",1), ("L2",1), ("L3",1), ("L4",1), ("Z",1), ("一致性",1),
                 ("MACD",0), ("DC20突破",0), ("阶段",0),
                 ("ADX",1), ("RSI",1), ("等级",0)
             ]
-            _col_desc = """
+            _col_desc = _filter_note + """
 <p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（L1-L4分层策略）</p>
 <table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">L1+L2+L3+L4加权累加(带方向符号)</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
@@ -707,7 +878,7 @@ td{{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap}} tr:hove
 <div class="hd"><h1>全品种{_title_label}{period_label}</h1>
 <div class="m"><span>{today_str}</span><span>{results_count}品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | {_strategy_label}</span></div></div>
 <div class="st"><div class="sc b"><div class="n">{b}</div><div class="l">空头</div></div><div class="sc bl"><div class="n">{bl_sig}</div><div class="l">多头</div></div><div class="sc n"><div class="n">{n_neutral}</div><div class="l">中性</div></div></div>
-
+{_filter_banner}
 <div class="fb">
 <button onclick="filterTable('all')" class="act" id="fa">全部</button>
 <button onclick="filterTable('bear')" id="fbear">仅空头</button>

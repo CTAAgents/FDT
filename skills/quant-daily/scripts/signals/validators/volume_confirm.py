@@ -1,8 +1,11 @@
-"""V2 成交量确认验证器 — 突破需放量（公开主流因子：量比 = 末根量 / 前 20 根均量）。
+"""V2 成交量确认验证器 + OI 持仓量联合增强 — 突破需放量（公开主流因子：量比）。
 
 突破若无明显放量（量比低于正常下限），极可能是无量假突破。
-阈值 VOL_MIN_RATIO 取自 CHANNEL_BREAKOUT_CONFIG.default.volume.normal_lower_ratio（默认 0.8），
-与打分层缩量判定口径一致，集中可调。
+阈值 VOL_MIN_RATIO 取自 CHANNEL_BREAKOUT_CONFIG.default.volume.normal_lower_ratio（默认 0.8）。
+
+【增强】OI 量比联合判断：
+- 量比 < 0.8 但 OI 暴增(>+15%) → 主力建仓，不降级
+- 量比 > 1.5 但 OI 萎缩(<-10%) → 主力出货，降级
 """
 
 from . import register_validator
@@ -14,6 +17,11 @@ try:
     VOL_MIN_RATIO = float(_VOL.get("normal_lower_ratio", 0.8))
 except Exception:
     VOL_MIN_RATIO = 0.8  # 兜底：低于此量比视为明显缩量
+
+# ── OI 量比联合阈值 ──
+OI_SURGE_THRESHOLD = 15.0    # OI 暴增 %，量小但 OI 大增 → 主力建仓
+OI_SHRINK_THRESHOLD = -10.0  # OI 萎缩 %，量大但 OI 大减 → 主力出货
+VOL_HIGH_RATIO = 1.5         # 高量比阈值，配合 OI 萎缩判断
 
 
 def validate_volume_confirm(r, context):
@@ -30,8 +38,26 @@ def validate_volume_confirm(r, context):
         prior_avg = sum(float(x.get("volume", 0)) for x in prior) / len(prior)
     except (ValueError, TypeError):
         return
-    if prior_avg > 0 and last_vol / prior_avg < VOL_MIN_RATIO:
-        demote(r, f"突破无量(量比{last_vol / prior_avg:.2f}<{VOL_MIN_RATIO})疑似假突破")
+    vol_ratio = last_vol / prior_avg if prior_avg > 0 else 0
+
+    # ── OI 联合判断 ──
+    oi_info = (context.extra or {}).get("oi_data", {}).get(sym, {})
+    oi_change = oi_info.get("oi_change_pct", 0)
+
+    # 量小但 OI 暴增 → 主力建仓（V1 已覆写，V2 不再重复处理）
+    if vol_ratio < VOL_MIN_RATIO and oi_change > OI_SURGE_THRESHOLD:
+        if not r.get("_oi_surge_reversal"):
+            r["_oi_surge_reversal"] = True
+        return
+
+    # 量大但 OI 萎缩 → 主力出货，降级
+    if vol_ratio > VOL_HIGH_RATIO and oi_change < OI_SHRINK_THRESHOLD:
+        demote(r, f"放量(量比{vol_ratio:.2f})但OI萎缩({oi_change:+.1f}%)→出货假突破")
+        return
+
+    # 纯量比判断（OI 数据不存在或未触发联合条件时）
+    if vol_ratio < VOL_MIN_RATIO:
+        demote(r, f"突破无量(量比{vol_ratio:.2f}<{VOL_MIN_RATIO})疑似假突破")
 
 
 register_validator("volume_confirm", validate_volume_confirm)

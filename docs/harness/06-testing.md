@@ -213,6 +213,7 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 (⚠️ G16: 5/10 失效) |
 | scheduler (engine) | ✅ | ✅ | — | — | — | 10 用例 (G6) |
 | memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 (G8) |
+| **validators** (v6.3.2 新增) | ✅ | — | — | — | — | **9 用例** (G19: V2/V3 增强 + select_triggers filter) |
 
 > ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明曾因 v6.3.0 重构后 `tests/pipeline/test_runner.py` mock 重命名函数失配而失真（5/10 失败）。**该问题已于 2026-07-14 19:04 修复**，当前 pipeline 10/10 全绿。
 
@@ -220,7 +221,7 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 
 ```bash
 # 全部 Harness 测试
-python -m pytest tests/pipeline/ tests/scheduler/ tests/memory/ tests/contracts/ -v --no-cov
+python -m pytest tests/pipeline/ tests/scheduler/ tests/memory/ tests/contracts/ tests/validators/ -v --no-cov
 
 # 带覆盖率（已扩展到全 skill）
 python -m pytest tests/ --cov=skills --cov=pipeline --cov=scheduler --cov=scripts --cov-report=term-missing
