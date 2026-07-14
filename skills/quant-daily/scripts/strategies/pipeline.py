@@ -14,7 +14,90 @@ from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
 
 
 # ════════════════════════════════════════════════════════════
-# DAG 拓扑排序
+# 字段名归一化（TDX/numpy 大写 → v2 策略标准化小写）
+# ════════════════════════════════════════════════════════════
+
+_FIELD_MAP = {
+    # RSI
+    "rsi14": "rsi", "RSI14": "rsi",
+    # CCI
+    "cci20": "cci", "CCI20": "cci",
+    # ATR
+    "atr14": "atr", "ATR14": "atr",
+    # ADX / DMI
+    "adx": "adx", "ADX": "adx",
+    "dmi_pdi": "pdi", "DMI_PDI": "pdi",
+    "dmi_mdi": "mdi", "DMI_MDI": "mdi",
+    # 布林带
+    "bb_pctb": "bb", "BB_PCTB": "bb",
+    "bb_width": "bb_width", "BB_WIDTH": "bb_width",
+    "bb_squeeze": "bb_squeeze", "BB_SQUEEZE": "bb_squeeze",
+    # MA
+    "ma20_slope": "ma_slope", "MA20_SLOPE": "ma_slope",
+    "ma120": "ma120", "MA120": "ma120",
+    # 唐奇安通道
+    "dc_pos": "dc20", "DC_POS": "dc20",
+    "dc55_trend": "dc55_trend", "DC55_TREND": "dc55_trend",
+    # MACD
+    "macd_dif": "macd_dif", "MACD_DIF": "macd_dif",
+    "macd_dea": "macd_dea", "MACD_DEA": "macd_dea",
+    # 成交量
+    "vol_ratio": "vol_ratio", "VOL_RATIO": "vol_ratio",
+    "vol_5d_ratio": "vol_5d_ratio", "VOL_5D_RATIO": "vol_5d_ratio",
+    "vol_price_divergence": "vol_price_divergence",
+    "VOL_PRICE_DIVERGENCE": "vol_price_divergence",
+    # OI
+    "oi_change_pct": "oi_change_pct", "OI_CHANGE_PCT": "oi_change_pct",
+    "oi_increasing": "oi_increasing", "OI_INCREASING": "oi_increasing",
+    "oi_rate": "oi_rate", "OI_RATE": "oi_rate",
+    # 价格
+    "last_price": "last_price",
+    "price_change_5d": "change_5d", "PRICE_CHANGE_5D": "change_5d",
+    "high_60": "high_60", "HIGH_60": "high_60",
+    "new_high_60": "new_high_60", "NEW_HIGH_60": "new_high_60",
+    "new_low_60": "new_low_60", "NEW_LOW_60": "new_low_60",
+    "volatility_pct": "volatility_pct",
+    "willr14": "willr", "WILLR14": "willr",
+    "stoch_k5": "stoch_k", "STOCH_K5": "stoch_k",
+    "roc10": "roc", "ROC10": "roc",
+    "cmf21": "cmf", "CMF21": "cmf",
+    "obv": "obv", "OBV": "obv",
+    "obv_ma20": "obv_ma", "OBV_MA20": "obv_ma",
+    # supertrend
+    "supertrend_dir": "supertrend", "SUPERTREND_DIR": "supertrend",
+    # 均值/标准差
+    "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
+}
+
+
+def normalize_tech_fields(tech_list: list[dict]) -> list[dict]:
+    """将 TDX/numpy 大写字段名标准化为 v2 策略使用的小写名。
+
+    为每个已知大写字段添加小写别名（不删除原字段，兼容 v1 消费者）。
+    """
+    for t in tech_list:
+        # 找所有大写或混合大小写的字段
+        to_add: dict[str, Any] = {}
+        for k, v in t.items():
+            mapped = _FIELD_MAP.get(k)
+            if mapped and mapped != k:
+                to_add[mapped] = v
+        # 派生 macd_cross 字段（如果未直接提供）
+        if "macd_dif" not in t and "macd_dif" not in to_add:
+            dif = t.get("MACD_DIF") or t.get("macd_dif")
+            dea = t.get("MACD_DEA") or t.get("macd_dea")
+            if dif is not None and dea is not None:
+                try:
+                    to_add["macd_cross"] = "golden" if float(dif) > float(dea) else "death" if float(dif) < float(dea) else "none"
+                except (ValueError, TypeError):
+                    to_add["macd_cross"] = "none"
+        # 添加 price 别名
+        if "price" not in t and "price" not in to_add:
+            lp = t.get("last_price")
+            if lp is not None:
+                to_add["price"] = lp
+        t.update(to_add)
+    return tech_list
 # ════════════════════════════════════════════════════════════
 
 def _topo_sort(strategies: list[BaseStrategyV2]) -> list[BaseStrategyV2]:
@@ -203,6 +286,9 @@ class StrategyPipeline:
             }
         """
         ctx = context or {}
+
+        # Phase 0: 字段名归一化（TDX/numpy 大写 → v2 标准化小写）
+        tech_list = normalize_tech_fields(tech_list)
 
         # Phase 1: 执行所有策略
         strategy_outputs: dict[str, list[ScoredSignal]] = {}
