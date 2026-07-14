@@ -536,17 +536,50 @@ def run_scan(
         }
         summary = raw_package
         # ── 正常模式: 使用指定策略打分（默认 channel_breakout 通道突破）──
-        try:
-            from optimizer.regime import compute_market_regime
-            from config.settings import apply_regime, current_regime
-            mr = compute_market_regime(period=period)
-            if mr["regime"] not in ("unknown",):
-                apply_regime(mr["regime"])
-                print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
-        except Exception:
-            pass  # regime 不可用时不阻断
-        strategy = get_strategy(strategy_name)
-        summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
+        # ── 若启用 --pipeline，使用 StrategyPipeline 执行全部已注册 v2 策略 ──
+        if getattr(args, "pipeline", False):
+            try:
+                from strategies.registry_v2 import get_pipeline
+                # 注册 v2 策略（导入即注册）
+                from strategies.arbitrage_strategy import ArbitrageStrategy
+                from strategies.mean_reversion_strategy import MeanReversionStrategy
+                from strategies.macro_regime_strategy import MacroRegimeStrategy
+                from strategies.event_driven_strategy import EventDrivenStrategy
+                from strategies.ml_signal_strategy import MlSignalStrategy
+                from strategies.registry_v2 import register_v2
+                register_v2(ArbitrageStrategy())
+                register_v2(MeanReversionStrategy())
+                register_v2(MacroRegimeStrategy())
+                register_v2(EventDrivenStrategy())
+                register_v2(MlSignalStrategy())
+                # 获取 pipeline
+                pipeline = get_pipeline()
+                _ctx = {
+                    "kline_data": kline_data,
+                    "df_map": df_map,
+                    "period": period,
+                    "window_mode": window_mode,
+                    "mode": "full",
+                    "extra": {},
+                }
+                summary = pipeline.run(tech_list, kline_data, _ctx)
+                print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
+            except Exception as _pe:
+                print(f"  ⚠️ [Pipeline] 管线异常: {_pe}，回退到单策略模式")
+                strategy = get_strategy(strategy_name)
+                summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
+        else:
+            try:
+                from optimizer.regime import compute_market_regime
+                from config.settings import apply_regime, current_regime
+                mr = compute_market_regime(period=period)
+                if mr["regime"] not in ("unknown",):
+                    apply_regime(mr["regime"])
+                    print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
+            except Exception:
+                pass  # regime 不可用时不阻断
+            strategy = get_strategy(strategy_name)
+            summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
         try:
             from config.settings import clear_param_overrides
@@ -1057,6 +1090,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
+    )
+    parser.add_argument(
+        "--pipeline", action="store_true", help="启用多策略管线（StrategyPipeline，替代单策略模式）"
     )
     parser.add_argument(
         "--walk-forward",
