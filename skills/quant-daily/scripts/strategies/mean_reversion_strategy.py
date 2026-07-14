@@ -73,9 +73,9 @@ class MeanReversionStrategy(BaseStrategyV2):
                 strength = min(1.0, (cci - CCI_OVERBOUGHT) / 200)
                 sub_signals.append(("cci", strength, "bear"))
 
-            # 3. 布林带反转
-            if isinstance(bb, (int, float)):
-                if in_ranging and bb < BB_LOWER_THRESHOLD and bb >= 0:
+            # 3. 布林带反转（bb 须在 0-1 有效范围内）
+            if isinstance(bb, (int, float)) and 0 <= bb <= 1:
+                if in_ranging and bb < BB_LOWER_THRESHOLD and bb > 0:
                     strength = (BB_LOWER_THRESHOLD - bb) / BB_LOWER_THRESHOLD
                     sub_signals.append(("bb", strength, "bull"))
                 elif in_ranging and bb > BB_UPPER_THRESHOLD:

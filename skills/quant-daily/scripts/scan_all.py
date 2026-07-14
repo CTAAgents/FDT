@@ -495,141 +495,104 @@ def run_scan(
             print(f"  [{i + 1}] {len(tech_list)} OK")
 
         # ── 纯数据模式（数技源专用，不做策略打分） ──
+        _output_raw = False
         try:
             _output_raw = args.output_raw
         except NameError:
-            _output_raw = False
+            pass
         if _output_raw:
             print("\n  → 纯数据模式: 跳过策略打分，仅输出原始数据包")
-        raw_package = {
-            "_meta": {
-                "mode": "output_raw",
-                "total_targets": len(target_symbols),
-                "collected": len(kline_data),
-                "date": today_str,
-                "source": "通达信TQ-Local + numpy指标计算",
-                "data_only": True,
-            },
-            "kline_summary": {
-                sym: {
-                    "bars": len(dlist),
-                    "first_date": dlist[0].get("date", ""),
-                    "last_date": dlist[-1].get("date", ""),
+        # ── 仅在遍历完成后执行策略评分 ──
+        if i == len(target_symbols) - 1 or (i == len(target_symbols) - 1):
+            # 最后品种的指标计算完成 → 执行策略
+            if _output_raw:
+                summary = {  # 纯数据输出
+                    "_meta": {
+                        "mode": "output_raw",
+                        "total_targets": len(target_symbols),
+                        "collected": len(kline_data),
+                        "date": today_str,
+                        "source": "通达信TQ-Local + numpy指标计算",
+                        "data_only": True,
+                    },
+                    "kline_summary": {sym: {"bars": len(dlist), "first_date": dlist[0].get("date", ""), "last_date": dlist[-1].get("date", "")} for sym, (name, dlist) in kline_data.items()},
+                    "indicators": [{"symbol": t.get("symbol"), "name": t.get("name"), "last_price": t.get("last_price"), "change_pct": t.get("change_pct"), "ma20": t.get("MA20"), "ma60": t.get("MA60"), "adx": t.get("ADX14"), "rsi": t.get("RSI14"), "atr14": t.get("ATR14"), "volume": t.get("volume")} for t in tech_list],
                 }
-                for sym, (name, dlist) in kline_data.items()
-            },
-            "indicators": [
-                {
-                    "symbol": t.get("symbol"),
-                    "name": t.get("name"),
-                    "last_price": t.get("last_price"),
-                    "change_pct": t.get("change_pct"),
-                    "ma20": t.get("MA20"),
-                    "ma60": t.get("MA60"),
-                    "adx": t.get("ADX14"),
-                    "rsi": t.get("RSI14"),
-                    "atr14": t.get("ATR14"),
-                    "volume": t.get("volume"),
-                }
-                for t in tech_list
-            ],
-        }
-        summary = raw_package
-        # ── 正常模式: 使用指定策略打分（默认 channel_breakout 通道突破）──
-        # ── 若启用 --pipeline，使用 StrategyPipeline 执行全部已注册 v2 策略 ──
-        if getattr(args, "pipeline", False):
-            try:
-                from strategies.registry_v2 import get_pipeline
-                # 注册 v2 策略（导入即注册）
-                from strategies.arbitrage_strategy import ArbitrageStrategy
-                from strategies.mean_reversion_strategy import MeanReversionStrategy
-                from strategies.macro_regime_strategy import MacroRegimeStrategy
-                from strategies.event_driven_strategy import EventDrivenStrategy
-                from strategies.ml_signal_strategy import MlSignalStrategy
-                from strategies.registry_v2 import register_v2
-                register_v2(ArbitrageStrategy())
-                register_v2(MeanReversionStrategy())
-                register_v2(MacroRegimeStrategy())
-                register_v2(EventDrivenStrategy())
-                register_v2(MlSignalStrategy())
-                # 获取 pipeline
-                pipeline = get_pipeline()
-                _ctx = {
-                    "kline_data": kline_data,
-                    "df_map": df_map,
-                    "period": period,
-                    "window_mode": window_mode,
-                    "mode": "full",
-                    "extra": {},
-                }
-                summary = pipeline.run(tech_list, kline_data, _ctx)
-                print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
-            except Exception as _pe:
-                print(f"  ⚠️ [Pipeline] 管线异常: {_pe}，回退到单策略模式")
+                summary = summary
+            else:
+                summary = {}
+            # ── 若启用 --pipeline，使用 StrategyPipeline 执行全部已注册 v2 策略 ──
+            if getattr(args, "pipeline", False):
+                try:
+                    from strategies.registry_v2 import get_pipeline
+                    from strategies.trend_following_strategy import TrendFollowingStrategy
+                    from strategies.arbitrage_strategy import ArbitrageStrategy
+                    from strategies.mean_reversion_strategy import MeanReversionStrategy
+                    from strategies.macro_regime_strategy import MacroRegimeStrategy
+                    from strategies.event_driven_strategy import EventDrivenStrategy
+                    from strategies.ml_signal_strategy import MlSignalStrategy
+                    from strategies.registry_v2 import register_v2
+                    register_v2(TrendFollowingStrategy())
+                    register_v2(ArbitrageStrategy())
+                    register_v2(MeanReversionStrategy())
+                    register_v2(MacroRegimeStrategy())
+                    register_v2(EventDrivenStrategy())
+                    register_v2(MlSignalStrategy())
+                    pipeline = get_pipeline()
+                    _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period, "window_mode": window_mode, "mode": "full", "extra": {}}
+                    summary = pipeline.run(tech_list, kline_data, _ctx)
+                    print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
+                except Exception as _pe:
+                    import traceback; traceback.print_exc()
+                    print(f"  ⚠️ [Pipeline] 管线异常: {_pe}，回退到单策略模式")
+                    strategy = get_strategy(strategy_name)
+                    summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
+            else:
+                try:
+                    from optimizer.regime import compute_market_regime
+                    from config.settings import apply_regime, current_regime
+                    mr = compute_market_regime(period=period)
+                    if mr["regime"] not in ("unknown",):
+                        apply_regime(mr["regime"])
+                        print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
+                except Exception:
+                    pass
                 strategy = get_strategy(strategy_name)
                 summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
-        else:
-            try:
-                from optimizer.regime import compute_market_regime
-                from config.settings import apply_regime, current_regime
-                mr = compute_market_regime(period=period)
-                if mr["regime"] not in ("unknown",):
-                    apply_regime(mr["regime"])
-                    print(f"\n  [Regime] 市场制度: {mr['regime']} (权重{mr['weight']}, {mr['success_count']}/{mr['basket_size']}品)")
-            except Exception:
-                pass  # regime 不可用时不阻断
-            strategy = get_strategy(strategy_name)
-            summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
         try:
             from config.settings import clear_param_overrides
             clear_param_overrides()
         except Exception:
             pass
-        # ── 信号验证管道: 范式↔验证器 声明式路由（V1 P0-4 + V2~V7）──
-        # 架构: 每个 signal_type 在 config.settings.SIGNAL_VALIDATOR_MAP 声明该跑哪些验证器，
-        #       由 signals.validators.run_signal_validators 统一编排。未来加验证器 = 注册+登记一行。
-        if enable_filter:
-            summary["filter_disabled"] = False
-            try:
-                from signals.validators import run_signal_validators, ValidationContext
-                from signals import paradigms  # 确保 P1~P4 范式注册（元信息/映射索引）
-                _all_ranked = summary.get("all_ranked", [])
-                # ── 多因子增强：采集 OI + 基差数据注入验证器上下文 ──
-                _oi_data = _collect_oi_data_sync(_all_ranked, kline_data)
-                _basis_data = _collect_basis_data_sync(_all_ranked)
-                ctx = ValidationContext(
-                    kline_data=kline_data,
-                    higher_tf={},
-                    extra={
-                        "oi_data": _oi_data,
-                        "basis_data": _basis_data,
-                    },
-                )
-                run_signal_validators(_all_ranked, ctx)
-                summary["all_ranked"] = _all_ranked
-                # 同步 bear/bull 信号列表（剔除已降级为 NOISE 的品种）
-                for _side in ("bear_signals", "bull_signals"):
-                    _sig_ids = {r["symbol"]
-                                for r in _all_ranked
-                                if r.get("grade") not in ("NOISE",)
-                                and r.get("direction") == _side.replace("_signals", "")}
-                    summary[_side] = [r for r in summary.get(_side, [])
-                                      if r.get("symbol") in _sig_ids]
-                _demoted_p04 = sum(1 for r in _all_ranked if r.get("_revalidate_reason"))
-                _demoted_total = sum(1 for r in _all_ranked if r.get("_validator_demoted"))
-                _active = sum(1 for r in _all_ranked if r.get("grade") not in ("NOISE",))
-                if _demoted_p04:
-                    print(f"\n  [P0-4] 信号重校验门禁: {_demoted_p04} 个伪突破信号被拦截降级为NOISE")
-                print(f"\n  [信号验证] 验证器共降级 {_demoted_total} 个信号（活跃 {_active} / 总 {len(_all_ranked)}）")
-            except Exception as _ve:
-                print(f"  ⚠️ [信号验证] 验证器管道异常，跳过验证: {_ve}")
-        else:
-            summary["filter_disabled"] = True
-            print("  [过滤] P0-4 伪信号过滤已禁用（--disable-filter），全部信号保留")
-        print(
-            f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
-        )
+        # ── 仅在全部品种遍历完成后执行验证和输出 ──
+        if i == len(target_symbols) - 1:
+            if enable_filter:
+                summary["filter_disabled"] = False
+                try:
+                    from signals.validators import run_signal_validators, ValidationContext
+                    from signals import paradigms
+                    _all_ranked = summary.get("all_ranked", [])
+                    _oi_data = _collect_oi_data_sync(_all_ranked, kline_data)
+                    _basis_data = _collect_basis_data_sync(_all_ranked)
+                    ctx = ValidationContext(kline_data=kline_data, higher_tf={}, extra={"oi_data": _oi_data, "basis_data": _basis_data})
+                    run_signal_validators(_all_ranked, ctx)
+                    summary["all_ranked"] = _all_ranked
+                    for _side in ("bear_signals", "bull_signals"):
+                        _sig_ids = {r["symbol"] for r in _all_ranked if r.get("grade") not in ("NOISE",) and r.get("direction") == _side.replace("_signals", "")}
+                        summary[_side] = [r for r in summary.get(_side, []) if r.get("symbol") in _sig_ids]
+                    _demoted_p04 = sum(1 for r in _all_ranked if r.get("_revalidate_reason"))
+                    _demoted_total = sum(1 for r in _all_ranked if r.get("_validator_demoted"))
+                    _active = sum(1 for r in _all_ranked if r.get("grade") not in ("NOISE",))
+                    if _demoted_p04:
+                        print(f"\n  [P0-4] 信号重校验门禁: {_demoted_p04} 个伪突破信号被拦截降级为NOISE")
+                    print(f"\n  [信号验证] 验证器共降级 {_demoted_total} 个信号（活跃 {_active} / 总 {len(_all_ranked)}）")
+                except Exception as _ve:
+                    print(f"  ⚠️ [信号验证] 验证器管道异常，跳过验证: {_ve}")
+            else:
+                summary["filter_disabled"] = True
+                print("  [过滤] P0-4 伪信号过滤已禁用（--disable-filter），全部信号保留")
+            print(f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}")
 
     # ── 从 summary 提取数据 ──
     all_ranked = summary.get("all_ranked", [])
