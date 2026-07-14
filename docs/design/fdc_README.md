@@ -42,6 +42,7 @@
 | **跨期价差** | [INDEPENDENT] | TDX 直取，含历史序列 + Z-score | ★★★★★ |
 | **基差** (现货-期货) | [INDEPENDENT] | httpx → 生意社 100ppi.com + bs4 | ★★★☆☆ |
 | **仓单日报** | [INDEPENDENT] | httpx → SHFE/DCE/CZCE + bs4 | ★★★☆☆ |
+| **持仓排名** (会员持仓) | [INDEPENDENT] | 五家交易所官网直连（SHFE/CFFEX/CZCE/GFEX + DCE 官方 API） | ★★★★★ |
 | **基本面** (供需库存利润) | [LLM-ENHANCED] | 静态缓存 + WebSearch 实时 | ★★☆☆☆ |
 
 ### 运行模式说明

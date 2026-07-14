@@ -67,16 +67,84 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-14 13:01"
+    },
+    {
+      "entry": {
+        "type": "multi_scenario",
+        "primary": {
+          "scenario": "A",
+          "description": "回调至7655硬支撑区域，量缩止跌确认后入场做多",
+          "price_zone": [
+            7650,
+            7670
+          ],
+          "condition": "价格回落至7655硬支撑附近（7650-7670区间），15分钟K线出现量缩止跌信号（成交量萎缩至20日均量的60%以下）且下影线长度≥实体2倍或出现看涨吞没形态。若价格直接跌破7655且日线实体收于下方，则支撑失效，本方案取消。"
+        },
+        "secondary": {
+          "scenario": "B",
+          "description": "直接突破MA60(7724.5)后回踩确认入场",
+          "price_zone": [
+            7710,
+            7730
+          ],
+          "condition": "若价格未出现充分回调直接上攻，等待日线实体收盘站上MA60(7724.5)，配合成交量>20日均量（放量突破确认），随后回踩至7710-7730区间不跌破MA60时入场。若突破后回踩跌破MA60且下一根K线不收回，则视为假突破，放弃入场。"
+        }
+      },
+      "stop_loss": {
+        "price": 7588,
+        "type": "fixed",
+        "atr_multiple": 0.4,
+        "rationale": "设置在7655硬支撑下方，考虑ATR_tolerance=53.3 + 额外13.7点缓冲。7655为日线级别硬支撑，失效条件为日线实体收盘<7655且次根不收回。SL=7588在失效条件触发前提供保护。若价格跌破7655并日线收于其下，多单逻辑失效。"
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 19:45"
+    },
+    {
+      "entry": {
+        "type": "multi_scenario",
+        "primary": {
+          "scenario": "A",
+          "description": "回调至7655硬支撑区域，量缩止跌确认后入场做多",
+          "price_zone": [
+            7650,
+            7670
+          ],
+          "condition": "价格回落至7655硬支撑附近（7650-7670区间），15分钟K线出现量缩止跌信号（成交量萎缩至20日均量的60%以下）且下影线长度≥实体2倍或出现看涨吞没形态。若价格直接跌破7655且日线实体收于下方，则支撑失效，本方案取消。"
+        },
+        "secondary": {
+          "scenario": "B",
+          "description": "直接突破MA60(7724.5)后回踩确认入场",
+          "price_zone": [
+            7710,
+            7730
+          ],
+          "condition": "若价格未出现充分回调直接上攻，等待日线实体收盘站上MA60(7724.5)，配合成交量>20日均量（放量突破确认），随后回踩至7710-7730区间不跌破MA60时入场。若突破后回踩跌破MA60且下一根K线不收回，则视为假突破，放弃入场。"
+        }
+      },
+      "stop_loss": {
+        "price": 7588,
+        "type": "fixed",
+        "atr_multiple": 0.4,
+        "rationale": "设置在7655硬支撑下方，考虑ATR_tolerance=53.3 + 额外13.7点缓冲。7655为日线级别硬支撑，失效条件为日线实体收盘<7655且次根不收回。SL=7588在失效条件触发前提供保护。若价格跌破7655并日线收于其下，多单逻辑失效。"
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 20:35"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [],
-    "computed_at": "2026-07-14 13:01"
+    "computed_at": "2026-07-14 20:35"
   },
   "meta": {
     "variety": "l",
-    "total_records": 2,
-    "last_updated": "2026-07-14 13:01"
+    "total_records": 4,
+    "last_updated": "2026-07-14 20:35"
   }
 }

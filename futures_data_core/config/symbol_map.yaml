@@ -330,3 +330,17 @@ symbols:
     multiplier: 10000
     tick_size: 0.005
     category: 国债
+
+  # ── 广州期货交易所 GFEX ──
+  - symbol: SI
+    name: 工业硅
+    exchange: GFEX
+    multiplier: 5
+    tick_size: 5
+    category: 金属
+  - symbol: LC
+    name: 碳酸锂
+    exchange: GFEX
+    multiplier: 1
+    tick_size: 50
+    category: 金属

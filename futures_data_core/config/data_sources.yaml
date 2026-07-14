@@ -30,16 +30,6 @@ sources:
       username_env: TQSDK_USERNAME
       password_env: TQSDK_PASSWORD
 
-  - name: akshare
-    priority: 2
-    type: independent
-    enabled: true
-    description: AKShare 公开行情 (需 pip install akshare)
-    detection:
-      kind: import
-      import: akshare
-    config: {}
-
   - name: postgres_cache
     priority: 3
     type: independent

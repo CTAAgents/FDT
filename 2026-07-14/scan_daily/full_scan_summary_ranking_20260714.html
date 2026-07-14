@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种通道突破信号强度排序 — 2026-07-14</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}
+.hd{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}
+.hd h1{font-size:22px;color:#f59e0b} .hd .m{color:#9ca3af;font-size:12px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+.hd .m span{background:#252940;padding:3px 10px;border-radius:5px}
+.st{display:flex;gap:14px;margin-bottom:20px}
+.sc{flex:1;background:#1a1d28;border-radius:10px;padding:14px 18px;border:1px solid #2a2d3a;text-align:center}
+.sc .n{font-size:26px;font-weight:700} .sc .l{font-size:11px;color:#9ca3af;margin-top:3px}
+.sc.b .n{color:#ef4444} .sc.bl .n{color:#22c55e} .sc.n .n{color:#9ca3af}
+table{width:100%;border-collapse:collapse;background:#1a1d28;border-radius:10px;overflow:hidden;border:1px solid #2a2d3a;font-size:13px}
+thead{background:#252940}
+th{padding:9px 10px;text-align:left;font-weight:600;color:#9ca3af;font-size:11px;letter-spacing:.5px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s}
+th:hover{color:#f59e0b} th.asc::after{content:" \25B2";font-size:10px} th.dsc::after{content:" \25BC";font-size:10px}
+td{padding:7px 10px;border-top:1px solid #2a2d3a20;white-space:nowrap} tr:hover{background:#f59e0b08!important}
+.fb{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.fb button{background:#252940;border:1px solid #2a2d3a;color:#9ca3af;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s}
+.fb button:hover{border-color:#f59e0b;color:#e5e7eb} .fb button.act{background:#f59e0b20;border-color:#f59e0b;color:#f59e0b;font-weight:600}
+#si{color:#6b7280;font-size:12px;margin-left:12px}
+</style>
+</head><body>
+<div class="hd"><h1>全品种通道突破信号强度排序</h1>
+<div class="m"><span>20260714</span><span>59品种</span><span>TQ-Local桥接 + numpy兜底</span><span><span style="color:#f59e0b">点击列头排序</span> | channel_breakout</span></div></div>
+<div class="st"><div class="sc b"><div class="n">6</div><div class="l">空头</div></div><div class="sc bl"><div class="n">2</div><div class="l">多头</div></div><div class="sc n"><div class="n">51</div><div class="l">中性</div></div></div>
+
+<div class="fb">
+<button onclick="filterTable('all')" class="act" id="fa">全部</button>
+<button onclick="filterTable('bear')" id="fbear">仅空头</button>
+<button onclick="filterTable('bull')" id="fbull">仅多头</button>
+<button onclick="filterTable('STRONG')" id="fSTRONG">STRONG</button>
+<button onclick="filterTable('WATCH')" id="fWATCH">WATCH</button>
+<button onclick="filterTable('WEAK')" id="fWEAK">WEAK</button>
+<button onclick="filterTable('NOISE')" id="fNOISE">NOISE</button>
+<span id="si">点击列头按该列排序，再次点击切换升降序</span>
+</div>
+
+<table id="tbl"><thead><tr>
+<th onclick="sortBy(0)" data-num="1" style="text-align:center">#</th><th onclick="sortBy(1)" style="text-align:left">品种</th><th onclick="sortBy(2)" style="text-align:left">名称</th><th onclick="sortBy(3)" style="text-align:left">方向</th><th onclick="sortBy(4)" data-num="1" style="text-align:center">价格</th><th onclick="sortBy(5)" data-num="1" style="text-align:center">涨跌</th><th onclick="sortBy(6)" data-num="1" style="text-align:center">总分</th><th onclick="sortBy(7)" data-num="1" style="text-align:center">拦前分</th><th onclick="sortBy(8)" style="text-align:left">信号类型</th><th onclick="sortBy(9)" style="text-align:left">DC20</th><th onclick="sortBy(10)" style="text-align:left">DC55</th><th onclick="sortBy(11)" style="text-align:left">布林带</th><th onclick="sortBy(12)" data-num="1" style="text-align:center">量比</th><th onclick="sortBy(13)" data-num="1" style="text-align:center">ADX</th><th onclick="sortBy(14)" data-num="1" style="text-align:center">RSI</th><th onclick="sortBy(15)" style="text-align:left">等级</th>
+</tr></thead><tbody id="tb"></tbody></table>
+
+<div style="margin-top:24px;display:flex;gap:14px">
+<div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #f59e0b30">
+<span style="color:#f59e0b;font-weight:600">指标来源: </span><span style="color:#f59e0b">TQ-Local formula_zb (0/59品种, 0%)</span>
+<p style="color:#9ca3af;font-size:12px;margin-top:6px">ADX/RSI/CCI/MACD/MA/BOLL/OBV 来自通达信实盘公式</p></div>
+<div style="flex:1;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
+<span style="color:#22c55e;font-weight:600">数据: </span><span style="color:#e5e7eb">FDC 统一数据引擎</span>
+<p style="color:#9ca3af;font-size:12px;margin-top:6px">commodity-trend-signal v2.20.0 | 20260714 | 方向感知Z-score</p></div></div>
+
+<div style="margin-top:14px;padding:14px 16px;background:#1a1d28;border-radius:8px;border:1px solid #2a2d3a">
+
+<div style="color:#f59e0b;font-weight:600;font-size:13px;margin-bottom:6px">使用方法 & 栏位说明</div>
+<div style="margin-top:10px;font-size:12px;line-height:1.7">
+
+<p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（通道突破策略）</p>
+<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整（拦后=0表示P0-4伪突破拦截）</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">拦前分</td><td style="padding:3px 8px;color:#f59e0b">P0-4/验证器降级前的原始总分（仅拦后=0时显示，非0=有分被拦截）</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">信号类型</td><td style="padding:3px 8px;color:#9ca3af">channel_breakout(突破) / trend_confirmation(趋势确认) / bb_squeeze_prebreakout(挤压预警)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC20</td><td style="padding:3px 8px;color:#9ca3af">唐奇安20周期通道方向: bull(多头) / bear(空头) / flat(持平)</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC55</td><td style="padding:3px 8px;color:#9ca3af">唐奇安55周期中长期趋势方向</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">布林带</td><td style="padding:3px 8px;color:#9ca3af">Bollinger(20,2)状态: squeeze(收窄) / expand(扩张) / break(突破)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">量比</td><td style="padding:3px 8px;color:#9ca3af">当前成交量/MA5成交量。>1.5放量, <0.5缩量</td><td style="padding:3px 8px;color:#6b7280">0~+</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑。>25有趋势, >50强趋势</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14周期相对强弱。>70超买, <30超卖</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr></table></div></div>
+
+<script>
+var DATA = [{"i": 59, "sym": "SA", "name": "纯碱", "dir": "bear", "price": 1064.0, "chg": 0.09, "total": -78, "raw_total": -78, "sig": "channel_breakout", "dc20": -62, "dc55": -10, "bb": -6, "vol": 0, "adx": 29.5, "rsi": 30.5, "grade": "STRONG", "tdx": false}, {"i": 59, "sym": "CJ", "name": "红枣", "dir": "bear", "price": 8215.0, "chg": 1.92, "total": -66, "raw_total": -66, "sig": "channel_breakout", "dc20": -35, "dc55": -15, "bb": -6, "vol": -10, "adx": 41.9, "rsi": 36.9, "grade": "STRONG", "tdx": false}, {"i": 59, "sym": "ao", "name": "氧化铝", "dir": "bear", "price": 2695.0, "chg": 0.63, "total": 0, "raw_total": -64, "sig": "false_breakout", "dc20": -40, "dc55": -15, "bb": -6, "vol": -3, "adx": 21.2, "rsi": 36.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "FG", "name": "玻璃", "dir": "bear", "price": 951.0, "chg": -0.11, "total": -61, "raw_total": -61, "sig": "channel_breakout", "dc20": -42, "dc55": -15, "bb": -4, "vol": 0, "adx": 25.1, "rsi": 37.8, "grade": "STRONG", "tdx": false}, {"i": 59, "sym": "j", "name": "焦炭", "dir": "bear", "price": 1868.0, "chg": 0.16, "total": 0, "raw_total": -44, "sig": "false_breakout", "dc20": -20, "dc55": -15, "bb": -6, "vol": -3, "adx": 18.2, "rsi": 40.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "lu", "name": "低硫燃油", "dir": "bull", "price": 4434.0, "chg": 6.84, "total": 43, "raw_total": 43, "sig": "channel_breakout", "dc20": 35, "dc55": -10, "bb": 8, "vol": 10, "adx": 17.5, "rsi": 60.2, "grade": "WATCH", "tdx": false}, {"i": 59, "sym": "PX", "name": "对二甲苯", "dir": "bear", "price": 8206.0, "chg": 4.67, "total": 0, "raw_total": -41, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": -10, "adx": 29.1, "rsi": 55.0, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "rb", "name": "螺纹钢", "dir": "bear", "price": 3090.0, "chg": 1.18, "total": 0, "raw_total": -38, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -3, "vol": -10, "adx": 20.7, "rsi": 45.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "fu", "name": "燃油", "dir": "bear", "price": 3504.0, "chg": 6.86, "total": 0, "raw_total": -36, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": -5, "adx": 28.6, "rsi": 60.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "pg", "name": "LPG", "dir": "bear", "price": 5152.0, "chg": 5.16, "total": 0, "raw_total": -36, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": -5, "adx": 24.3, "rsi": 58.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "pp", "name": "聚丙烯", "dir": "bear", "price": 8062.0, "chg": 5.11, "total": 0, "raw_total": -36, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": -5, "adx": 28.1, "rsi": 58.5, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "sp", "name": "纸浆", "dir": "bear", "price": 4832.0, "chg": -0.29, "total": 0, "raw_total": -36, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": -5, "adx": 31.3, "rsi": 53.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "PR", "name": "瓶片", "dir": "bear", "price": 7170.0, "chg": 4.37, "total": 0, "raw_total": -31, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -10, "adx": 30.5, "rsi": 54.5, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "eg", "name": "乙二醇", "dir": "bear", "price": 4546.0, "chg": 4.29, "total": 0, "raw_total": -31, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -10, "adx": 28.5, "rsi": 63.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "eb", "name": "苯乙烯", "dir": "bear", "price": 8449.0, "chg": 5.32, "total": 0, "raw_total": -31, "sig": "false_breakout", "dc20": 0, "dc55": -20, "bb": -6, "vol": -5, "adx": 34.7, "rsi": 63.0, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "MA", "name": "甲醇", "dir": "bear", "price": 2632.0, "chg": 4.61, "total": 0, "raw_total": -31, "sig": "false_breakout", "dc20": 0, "dc55": -20, "bb": -6, "vol": -5, "adx": 28.4, "rsi": 54.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "UR", "name": "尿素", "dir": "bear", "price": 1746.0, "chg": 0.63, "total": 0, "raw_total": -31, "sig": "false_breakout", "dc20": 0, "dc55": -25, "bb": -6, "vol": 0, "adx": 13.2, "rsi": 44.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "lh", "name": "生猪", "dir": "bull", "price": 12050.0, "chg": 0.29, "total": 0, "raw_total": 31, "sig": "false_breakout", "dc20": 0, "dc55": 25, "bb": 6, "vol": 0, "adx": 28.8, "rsi": 51.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "v", "name": "PVC", "dir": "bear", "price": 4579.0, "chg": 2.03, "total": 0, "raw_total": -29, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -4, "vol": -10, "adx": 21.0, "rsi": 50.0, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "sc", "name": "原油", "dir": "bear", "price": 516.0, "chg": 7.95, "total": -26, "raw_total": -26, "sig": "minor_signal", "dc20": 0, "dc55": -10, "bb": -6, "vol": -10, "adx": 32.5, "rsi": 54.3, "grade": "WEAK", "tdx": false}, {"i": 59, "sym": "TA", "name": "PTA", "dir": "bear", "price": 5842.0, "chg": 4.1, "total": 0, "raw_total": -26, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -5, "adx": 25.3, "rsi": 53.5, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "l", "name": "塑料", "dir": "bear", "price": 7714.0, "chg": 5.76, "total": -26, "raw_total": -26, "sig": "minor_signal", "dc20": 0, "dc55": -10, "bb": -6, "vol": -10, "adx": 24.6, "rsi": 64.2, "grade": "WEAK", "tdx": false}, {"i": 59, "sym": "ru", "name": "橡胶", "dir": "bear", "price": 17065.0, "chg": 0.92, "total": 0, "raw_total": -26, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -5, "adx": 17.7, "rsi": 47.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "nr", "name": "20号胶", "dir": "bear", "price": 14845.0, "chg": 1.09, "total": 0, "raw_total": -26, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -5, "adx": 15.1, "rsi": 49.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "br", "name": "丁二烯橡胶", "dir": "bear", "price": 13390.0, "chg": 3.08, "total": 0, "raw_total": -26, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -5, "adx": 31.2, "rsi": 57.3, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "bc", "name": "国际铜", "dir": "bear", "price": 92620.0, "chg": 1.42, "total": 0, "raw_total": -26, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -5, "adx": 10.5, "rsi": 55.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "bu", "name": "沥青", "dir": "bear", "price": 4049.0, "chg": 5.66, "total": 0, "raw_total": -24, "sig": "false_breakout", "dc20": 0, "dc55": -10, "bb": -4, "vol": -10, "adx": 23.2, "rsi": 55.4, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "ag", "name": "沪银", "dir": "bear", "price": 14217.0, "chg": 0.58, "total": 0, "raw_total": -24, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -3, "adx": 36.6, "rsi": 37.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "lc", "name": "碳酸锂", "dir": "bear", "price": 153180.0, "chg": 0.62, "total": 0, "raw_total": -24, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -3, "adx": 22.4, "rsi": 40.0, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "rr", "name": "粳米", "dir": "bear", "price": 3523.0, "chg": -0.03, "total": 0, "raw_total": -24, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": -3, "adx": 31.2, "rsi": 38.2, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "RM", "name": "菜粕", "dir": "bull", "price": 2308.0, "chg": 0.57, "total": 0, "raw_total": 23, "sig": "false_breakout", "dc20": 0, "dc55": 15, "bb": 8, "vol": 0, "adx": 16.7, "rsi": 52.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "jm", "name": "焦煤", "dir": "bear", "price": 1260.0, "chg": 1.69, "total": 0, "raw_total": -22, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -4, "vol": -3, "adx": 13.5, "rsi": 45.4, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "PF", "name": "短纤", "dir": "bear", "price": 7370.0, "chg": 3.66, "total": -21, "raw_total": -21, "sig": "minor_signal", "dc20": 0, "dc55": -10, "bb": -6, "vol": -5, "adx": 33.8, "rsi": 55.2, "grade": "WEAK", "tdx": false}, {"i": 59, "sym": "SH", "name": "烧碱", "dir": "bull", "price": 1949.0, "chg": 1.83, "total": 0, "raw_total": 21, "sig": "false_breakout", "dc20": 0, "dc55": 15, "bb": 6, "vol": 0, "adx": 14.2, "rsi": 52.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "cu", "name": "沪铜", "dir": "bear", "price": 104390.0, "chg": 1.25, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 12.6, "rsi": 55.2, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "al", "name": "沪铝", "dir": "bear", "price": 23310.0, "chg": 1.59, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 27.2, "rsi": 48.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "zn", "name": "沪锌", "dir": "bull", "price": 24790.0, "chg": 0.36, "total": 0, "raw_total": 21, "sig": "false_breakout", "dc20": 0, "dc55": 15, "bb": 6, "vol": 0, "adx": 7.8, "rsi": 55.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "pb", "name": "沪铅", "dir": "bear", "price": 15865.0, "chg": -0.35, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 23.4, "rsi": 37.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "ni", "name": "沪镍", "dir": "bear", "price": 129550.0, "chg": 1.44, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 37.1, "rsi": 44.5, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "sn", "name": "沪锡", "dir": "bull", "price": 417520.0, "chg": 1.91, "total": 0, "raw_total": 21, "sig": "false_breakout", "dc20": 0, "dc55": 15, "bb": 6, "vol": 0, "adx": 12.4, "rsi": 55.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "SS", "name": "不锈钢", "dir": "bear", "price": 14555.0, "chg": 2.07, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 16.3, "rsi": 46.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "a", "name": "豆一", "dir": "bear", "price": 4724.0, "chg": 0.28, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -3, "vol": -3, "adx": 7.4, "rsi": 46.9, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "b", "name": "豆二", "dir": "bull", "price": 3785.0, "chg": 0.08, "total": 0, "raw_total": 21, "sig": "false_breakout", "dc20": 0, "dc55": 15, "bb": 6, "vol": 0, "adx": 23.6, "rsi": 67.2, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "OI", "name": "菜籽油", "dir": "bull", "price": 9944.0, "chg": 0.7, "total": 21, "raw_total": 21, "sig": "trend_confirmation", "dc20": 0, "dc55": 15, "bb": 6, "vol": 0, "adx": 13.8, "rsi": 58.2, "grade": "WEAK", "tdx": false}, {"i": 59, "sym": "PK", "name": "花生", "dir": "bear", "price": 8362.0, "chg": -0.24, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -3, "vol": -3, "adx": 19.0, "rsi": 48.4, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "si", "name": "工业硅", "dir": "bear", "price": 8490.0, "chg": 0.65, "total": 0, "raw_total": -21, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -6, "vol": 0, "adx": 26.0, "rsi": 51.6, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "SR", "name": "白糖", "dir": "bear", "price": 5235.0, "chg": -0.38, "total": 0, "raw_total": -18, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -3, "vol": 0, "adx": 24.1, "rsi": 40.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "SM", "name": "锰硅", "dir": "bear", "price": 5890.0, "chg": 0.37, "total": 0, "raw_total": -16, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -1, "vol": 0, "adx": 14.9, "rsi": 51.3, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "au", "name": "沪金", "dir": "bear", "price": 880.3, "chg": -0.64, "total": -16, "raw_total": -16, "sig": "minor_signal", "dc20": 0, "dc55": -10, "bb": -6, "vol": 0, "adx": 44.3, "rsi": 36.6, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "m", "name": "豆粕", "dir": "bull", "price": 3049.0, "chg": -0.03, "total": 0, "raw_total": 16, "sig": "false_breakout", "dc20": 0, "dc55": 10, "bb": 6, "vol": 0, "adx": 16.1, "rsi": 66.4, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "y", "name": "豆油", "dir": "bull", "price": 8608.0, "chg": 0.47, "total": 0, "raw_total": 16, "sig": "false_breakout", "dc20": 0, "dc55": 10, "bb": 6, "vol": 0, "adx": 14.3, "rsi": 61.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "p", "name": "棕榈油", "dir": "bear", "price": 9351.0, "chg": 1.51, "total": 0, "raw_total": -16, "sig": "false_breakout", "dc20": 0, "dc55": -15, "bb": -1, "vol": 0, "adx": 17.6, "rsi": 51.0, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "CF", "name": "棉花", "dir": "bull", "price": 16070.0, "chg": -0.06, "total": 0, "raw_total": 15, "sig": "false_breakout", "dc20": 0, "dc55": 10, "bb": 8, "vol": -3, "adx": 13.2, "rsi": 50.7, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "AP", "name": "苹果", "dir": "bull", "price": 7543.0, "chg": -0.28, "total": 0, "raw_total": 15, "sig": "false_breakout", "dc20": 0, "dc55": 10, "bb": 8, "vol": -3, "adx": 13.4, "rsi": 44.5, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "hc", "name": "热卷", "dir": "bear", "price": 3302.0, "chg": 0.92, "total": -13, "raw_total": -13, "sig": "minor_signal", "dc20": 0, "dc55": -10, "bb": -3, "vol": 0, "adx": 25.8, "rsi": 44.1, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "SF", "name": "硅铁", "dir": "bull", "price": 5828.0, "chg": 1.43, "total": 13, "raw_total": 13, "sig": "near_breakout", "dc20": 22, "dc55": -15, "bb": 6, "vol": 0, "adx": 14.5, "rsi": 55.6, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "c", "name": "玉米", "dir": "bear", "price": 2309.0, "chg": 0.09, "total": 0, "raw_total": -13, "sig": "false_breakout", "dc20": 0, "dc55": -10, "bb": 0, "vol": -3, "adx": 21.3, "rsi": 46.2, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "jd", "name": "鸡蛋", "dir": "bull", "price": 4609.0, "chg": -1.6, "total": 13, "raw_total": 13, "sig": "minor_signal", "dc20": 0, "dc55": 10, "bb": 6, "vol": -3, "adx": 31.7, "rsi": 56.8, "grade": "NOISE", "tdx": false}, {"i": 59, "sym": "i", "name": "铁矿石", "dir": "bull", "price": 760.5, "chg": 2.15, "total": 10, "raw_total": 10, "sig": "near_breakout", "dc20": 22, "dc55": -20, "bb": 8, "vol": 0, "adx": 13.8, "rsi": 54.5, "grade": "NOISE", "tdx": false}];
+
+function _gc(g) {
+    if (g==='STRONG') return '#22c55e';
+    if (g==='WATCH') return '#f59e0b';
+    if (g==='WEAK') return '#ef4444';
+    return '#6b7280';
+}
+function _gc_bg(g) {
+    if (g==='STRONG') return '#22c55e20';
+    if (g==='WATCH') return '#f59e0b20';
+    if (g==='WEAK') return '#ef444420';
+    return '#ffffff08';
+}
+
+var _filter = 'all';
+var _sortCol = -1;
+var _sortAsc = true;
+
+function render() {
+    var data = DATA.slice();
+    if (_filter === 'bear') data = data.filter(function(d){ return d.dir === 'bear'; });
+    else if (_filter === 'bull') data = data.filter(function(d){ return d.dir === 'bull'; });
+    else if (_filter !== 'all') data = data.filter(function(d){ return d.grade === _filter; });
+
+    if (_sortCol >= 0) {
+        var asc = _sortAsc;
+        data.sort(function(a,b){
+            var va = _val(a,_sortCol), vb = _val(b,_sortCol);
+            if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+            return asc ? (va - vb) : (vb - va);
+        });
+    }
+
+    var h = '';
+    for (var i=0;i<data.length;i++) {
+        var d = data[i];
+        var dt = d.dir==='bull' ? '<span style="color:#22c55e">多头</span>' : (d.dir==='bear' ? '<span style="color:#ef4444">空头</span>' : '<span style="color:#9ca3af">中性</span>');
+        var cc = d.chg>0?'#22c55e':(d.chg<0?'#ef4444':'#9ca3af');
+        var tc = d.total>0?'#22c55e':(d.total<0?'#ef4444':'#9ca3af');
+        var src = d.tdx ? '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;background:#f59e0b20;color:#f59e0b">通达信</span>' : '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;background:#6b728020;color:#9ca3af">numpy</span>';
+        var bg = _gc_bg(d.grade);
+        var gc = _gc(d.grade);
+        h += '<tr style="background:'+bg+'">';
+        h += '<td style="text-align:center;color:#9ca3af">'+(i+1)+'</td>';
+        h += '<td style="font-weight:700">'+d.sym+'</td><td>'+d.name+'</td><td>'+dt+'</td>';
+        h += '<td style="text-align:right">'+d.price.toFixed(0)+'</td><td style="text-align:right;color:'+cc+'">'+(d.chg>0?'+':'')+d.chg.toFixed(1)+'%</td>';
+        h += '<td style="text-align:center;font-weight:700;color:'+tc+'">'+(d.total>0?'+':'')+d.total+'</td>';
+        // 拦前分：0=伪突破降级，非0=原始分
+        var rc = (d.raw_total !== undefined && d.total === 0 && d.raw_total !== 0) ? '#f59e0b' : '#6b7280';
+        var rv = (d.raw_total !== undefined && d.total === 0) ? (d.raw_total>0?'+':'')+d.raw_total : '-';
+        h += '<td style="text-align:center;color:'+rc+'">'+rv+'</td>';
+        // 策略感知渲染（使用_v的列映射）
+        for (var ci=8;ci<_v.length-1;ci++) {
+            var val = _v[ci](d);
+            h += '<td style="text-align:center;color:#9ca3af">'+val+'</td>';
+        }
+        h += '<td style="text-align:center"><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:'+gc+'20;color:'+gc+'">'+d.grade+'</span></td>';
+        h += '<td style="text-align:center">'+src+'</td></tr>';
+    }
+    document.getElementById('tb').innerHTML = h;
+}
+
+var _v = [
+    function(d){return String(d.i);},
+    function(d){return d.sym;},
+    function(d){return d.name;},
+    function(d){return d.dir;},
+    function(d){return d.price;},
+    function(d){return d.chg;},
+    function(d){return d.total;},
+    function(d){return d.raw_total;},
+    function(d){return String(d.sig);},
+    function(d){return String(d.dc20);},
+    function(d){return String(d.dc55);},
+    function(d){return String(d.bb);},
+    function(d){return d.vol;},
+    function(d){return d.adx;},
+    function(d){return d.rsi;},
+    function(d){return d.grade;}
+];
+
+function sortBy(col) {
+    if (_sortCol === col) { _sortAsc = !_sortAsc; }
+    else { _sortCol = col; _sortAsc = col===0 ? true : false; }
+    var ths = document.querySelectorAll('#tbl th');
+    for (var i=0;i<ths.length;i++) ths[i].className = '';
+    var el = ths[col];
+    if (el) el.className = _sortAsc ? 'asc' : 'dsc';
+    render();
+}
+
+function filterTable(f) {
+    _filter = f;
+    var btns = document.querySelectorAll('.fb button');
+    for (var i=0;i<btns.length;i++) btns[i].className = '';
+    var el = document.getElementById('f'+f);
+    if (el) el.className = 'act';
+    render();
+}
+
+render();
+</script>
+</body></html>

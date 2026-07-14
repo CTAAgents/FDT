@@ -3,10 +3,10 @@
     "pattern_id": "l-p001",
     "name": "多头趋势驱动型",
     "first_observed": "2026-07-14",
-    "last_used": "2026-07-14 13:01",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.72,
+    "last_used": "2026-07-14 20:35",
+    "use_count": 4,
+    "win_count": 4,
+    "win_rate": 0.863,
     "structure": "趋势确认 → 趋势确认 → 趋势确认 → l-pro4: 价格从0910到1159...",
     "applicable_conditions": {
       "adx_range": [

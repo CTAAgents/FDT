@@ -62,6 +62,40 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-14 13:01"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 511.0,
+        "condition": "价格反弹至508-515区间（逼近514.8硬阻力），且15分钟/1小时K线出现以下量价配合信号时入场：①K线形态为长上影线（上影线≥实体长度）、看跌吞没或黄昏之星；②成交量放大至20日均量×1.5以上；③持仓量回升确认空头增仓。三条满足后市价入场做空。ADX仅作辅助参考，不设硬性阈值。若缩量盘整至阻力区则放弃入场。"
+      },
+      "stop_loss": {
+        "price": 524.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 19:45"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 511.0,
+        "condition": "价格反弹至508-515区间（逼近514.8硬阻力），且15分钟/1小时K线出现以下量价配合信号时入场：①K线形态为长上影线（上影线≥实体长度）、看跌吞没或黄昏之星；②成交量放大至20日均量×1.5以上；③持仓量回升确认空头增仓。三条满足后市价入场做空。ADX仅作辅助参考，不设硬性阈值。若缩量盘整至阻力区则放弃入场。"
+      },
+      "stop_loss": {
+        "price": 524.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 20:35"
     }
   ],
   "aggregated": {
@@ -76,7 +110,7 @@
     "resistance": [
       {
         "level": 511.0,
-        "count": 2,
+        "count": 4,
         "min": 511.0,
         "max": 511.0
       },
@@ -93,11 +127,11 @@
         "max": 493.7
       }
     ],
-    "computed_at": "2026-07-14 13:01"
+    "computed_at": "2026-07-14 20:35"
   },
   "meta": {
     "variety": "sc",
-    "total_records": 4,
-    "last_updated": "2026-07-14 13:01"
+    "total_records": 6,
+    "last_updated": "2026-07-14 20:35"
   }
 }

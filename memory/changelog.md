@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-07-14 19:45 — DCE 持仓排名接入官方 API（dce_api.py，双路径容灾）
+
+- **动机**：沙箱/部分环境 `portal.dce.com.cn` 的 DNS 被拦截（`getaddrinfo failed`），原 DCE 持仓排名仅靠 portal 网页抓取，环境受限即 UNAVAILABLE。大商所提供官方 API（`www.dce.com.cn/dceapi`），沙箱可直连。
+- **新增文件** `futures_data_core/f10/dce_api.py`：
+  - 鉴权：`POST /cms/auth/accessToken`（Header `apikey` + Body `{"secret":...}`）→ `data.token`（Bearer JWT，进程内缓存 ~55min）
+  - **关键坑**：`apikey` 是**全局 Header 参数**，登录与登录后所有请求都必须携带，否则返回 `code=402 验证token失败`
+  - 合约解析：`POST /forward/publicweb/tradepara/contractInfo`（Body `varietyId/tradeType:1/lang:zh`）→ `data[].contractId`（取首合约=近月）
+  - 持仓排名：`POST /forward/publicweb/dailystat/memberDealPosi`（Body `varietyId/tradeDate/contractId/tradeType:1`）→ `data.buyFutureList[]`（`rank,buyAbbr,todayBuyQty`）/ `data.sellFutureList[]`（`rank,sellAbbr,todaySellQty`）
+  - 凭证走 `DCE_API_KEY` / `DCE_API_SECRET` 环境变量（不入库、不入源码、不入版本控制）
+- **修改** `futures_data_core/f10/position.py`：
+  - DCE 分支改为**官方 API 优先**；未配置凭证 / API 异常 / API 返回空时，回退 `portal.dce.com.cn` 网页抓取（互为备份）
+  - 模块 docstring 注明 DCE 双路径
+- **新增测试** `futures_data_core/f10/test_dce_api.py`（7 用例）：符号拆分、配置标志、品种解析→contractInfo、合约直取跳过解析、登录失败/会员接口失败/缺凭证异常路径（均用 `httpx.MockTransport` 桩，不真发网络）
+- **配置文档** `docs/harness/03-configuration.md` §3 环境变量表新增 `DCE_API_KEY` / `DCE_API_SECRET` + 设置示例
+- **实盘验证**：沙箱注入凭证后 `validate_fdc_position_ranking.py` 五家全 PASS（DCE 解析到合约 `M2608`，21 买 + 21 卖真实会员排名，top5 多 130,462 / 空 133,465 手）；未注入时 DCE 回退 portal → ENV_BLOCK（沙箱 DNS），在具备正常外网的机器应转 PASS
+- **测试覆盖**：`pytest futures_data_core/f10/` → 16 passed（test_position 9 + test_dce_api 7）
+- **未提交**：代码改动在唯一真身 `plugins/marketplaces/.../futures-debate-team`，待掌柜授权 commit（密钥绝不入库）
+
+---
+
 ## 2026-07-14 18:30 — 辩论流程文档刷新（G18）：闫判官判断调度 + 链证源无调度权
 
 - **掌柜澄清新流程**：数技源出信号 → 闫判官判断调度(链证源做产业链 + 观澜做技术面 + 探源做基本面) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明。

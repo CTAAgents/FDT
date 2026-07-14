@@ -112,6 +112,8 @@ line-length = 120
 | `DEBATE_HISTORY_DIR` | 项目内默认路径 | 辩论历史目录 (可覆盖) | `debate/history.py` |
 | `TRAINING_ORCHESTRATOR_DIR` | 项目内默认路径 | ML 模型存储目录 | `ml/trainer.py` |
 | `PYTHONIOENCODING` | (未设置) | Python IO 编码 (pipeline 强制设为 `utf-8`) | `pipeline/runner.py` |
+| `DCE_API_KEY` | (未设置) | 大商所官方 API key；设置后 DCE 持仓排名走官方 API（见 `futures_data_core/f10/dce_api.py`） | `f10/position.py` |
+| `DCE_API_SECRET` | (未设置) | 大商所官方 API secret；与 `DCE_API_KEY` 配对 | `f10/position.py` |
 
 ### 环境变量设置示例
 
@@ -124,6 +126,10 @@ export FDB_LOG_DIR=/var/log/fdt
 
 # 自定义辩论历史目录
 export DEBATE_HISTORY_DIR=/data/fdt/debate_history
+
+# 大商所官方 API 凭证（启用 DCE 持仓排名官方 API 路径；不设则回退 portal 网页抓取）
+export DCE_API_KEY=your_api_key
+export DCE_API_SECRET=your_api_secret
 ```
 
 ## 4. 配置优先级覆盖链

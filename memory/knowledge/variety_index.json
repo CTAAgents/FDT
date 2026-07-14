@@ -89,11 +89,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 2,
+      "total_debates": 4,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-14 12:27",
-      "key_levels_updated": "2026-07-14 13:01",
-      "drivers_updated": "2026-07-14 13:01"
+      "key_levels_updated": "2026-07-14 20:35",
+      "drivers_updated": "2026-07-14 20:35"
     },
     "ni": {
       "name": "镍",
@@ -421,11 +421,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 2,
+      "total_debates": 4,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-14 12:28",
-      "key_levels_updated": "2026-07-14 13:01",
-      "drivers_updated": "2026-07-14 13:01"
+      "key_levels_updated": "2026-07-14 20:35",
+      "drivers_updated": "2026-07-14 20:35"
     },
     "v": {
       "name": "PVC",
@@ -958,10 +958,10 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 6,
+      "total_debates": 8,
       "effective_patterns": 2,
-      "key_levels_updated": "2026-07-14 13:01",
-      "drivers_updated": "2026-07-14 13:01",
+      "key_levels_updated": "2026-07-14 20:35",
+      "drivers_updated": "2026-07-14 20:35",
       "patterns_updated": "2026-07-12 01:13"
     },
     "lu": {
