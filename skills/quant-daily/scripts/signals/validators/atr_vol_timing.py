@@ -11,12 +11,18 @@
 from . import register_validator
 from .base import demote
 
-ATR_PCT_LOW = 0.5   # 低波动阈值(%)，低于则震荡市突破可靠性低 → 降级
-ATR_PCT_HIGH = 4.0  # 高波动阈值(%)，高于则失控，仅标记供下游参考
-
-# ── 基差联合阈值 ──
-BASIS_WIDEN_THRESHOLD = 2.0   # 基差走阔 %（正=现货更强），低波+基差走阔=弹簧压缩
-BASIS_SHRINK_THRESHOLD = -2.0 # 基差收缩 %，高波+基差收缩=过热迹象
+# ── 阈值从 config/settings.py 集中读取 ──
+try:
+    from config.settings import ENHANCED_VALIDATOR_THRESHOLDS as _EVT
+    ATR_PCT_LOW = float(_EVT.get("ATR_PCT_LOW", 0.5))
+    ATR_PCT_HIGH = float(_EVT.get("ATR_PCT_HIGH", 4.0))
+    BASIS_WIDEN_THRESHOLD = float(_EVT.get("BASIS_WIDEN_THRESHOLD", 2.0))
+    BASIS_SHRINK_THRESHOLD = float(_EVT.get("BASIS_SHRINK_THRESHOLD", -2.0))
+except Exception:
+    ATR_PCT_LOW = 0.5
+    ATR_PCT_HIGH = 4.0
+    BASIS_WIDEN_THRESHOLD = 2.0
+    BASIS_SHRINK_THRESHOLD = -2.0
 
 
 def validate_atr_vol_timing(r, context):

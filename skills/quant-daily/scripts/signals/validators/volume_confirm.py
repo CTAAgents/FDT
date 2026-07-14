@@ -18,9 +18,14 @@ try:
 except Exception:
     VOL_MIN_RATIO = 0.8  # 兜底：低于此量比视为明显缩量
 
-# ── OI 量比联合阈值 ──
-OI_SURGE_THRESHOLD = 15.0    # OI 暴增 %，量小但 OI 大增 → 主力建仓
-OI_SHRINK_THRESHOLD = -10.0  # OI 萎缩 %，量大但 OI 大减 → 主力出货
+# ── OI 量比联合阈值（从 config/settings.py 集中读取） ──
+try:
+    from config.settings import ENHANCED_VALIDATOR_THRESHOLDS as _EVT
+    OI_SURGE_THRESHOLD = float(_EVT.get("OI_SURGE_THRESHOLD", 15.0))
+    OI_SHRINK_THRESHOLD = float(_EVT.get("OI_SHRINK_THRESHOLD", -10.0))
+except Exception:
+    OI_SURGE_THRESHOLD = 15.0
+    OI_SHRINK_THRESHOLD = -10.0
 VOL_HIGH_RATIO = 1.5         # 高量比阈值，配合 OI 萎缩判断
 
 

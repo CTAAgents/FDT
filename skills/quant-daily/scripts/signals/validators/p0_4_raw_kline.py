@@ -15,8 +15,12 @@ from .base import demote
 _SPIKE_RETURN_CAP = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
 _BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
 
-# ── 基差方向冲突阈值 ──
-BASIS_CONFLICT_THRESHOLD = 2.0  # basis_pct 绝对值超过此值视为显著冲突
+# ── 基差方向冲突阈值（从 config/settings.py 集中读取） ──
+try:
+    from config.settings import ENHANCED_VALIDATOR_THRESHOLDS as _EVT
+    BASIS_CONFLICT_THRESHOLD = float(_EVT.get("BASIS_CONFLICT_THRESHOLD", 2.0))
+except Exception:
+    BASIS_CONFLICT_THRESHOLD = 2.0
 
 
 def validate_p0_4_raw_kline(r: dict, context) -> None:

@@ -888,3 +888,21 @@ def enabled_periods() -> list:
 def period_meta(period: str) -> dict:
     """取周期配置；未知周期安全回退 daily。"""
     return PERIOD_REGISTRY.get(period, PERIOD_REGISTRY["daily"])
+
+
+# ═══════════════════════════════════════════════════════════
+# V2/V3 增强验证器阈值（集中管理，替代散落在验证器py中的硬编码）
+# ═══════════════════════════════════════════════════════════
+
+ENHANCED_VALIDATOR_THRESHOLDS = {
+    # volume_confirm.py (V2)
+    "OI_SURGE_THRESHOLD": 15.0,      # OI 暴增 % → 主力建仓判定
+    "OI_SHRINK_THRESHOLD": -10.0,    # OI 萎缩 % → 主力出货判定
+    # atr_vol_timing.py (V3)
+    "ATR_PCT_LOW": 0.5,              # 低波动阈值 (%)，低于则降级
+    "ATR_PCT_HIGH": 4.0,             # 高波动阈值 (%)，高于仅标记
+    "BASIS_WIDEN_THRESHOLD": 2.0,    # 基差走阔 % → 弹簧压缩覆写
+    "BASIS_SHRINK_THRESHOLD": -2.0,  # 基差收缩 % → 过热降级
+    # p0_4_raw_kline.py (V1 增强)
+    "BASIS_CONFLICT_THRESHOLD": 2.0, # 基差与突破方向冲突阈值 %
+}
