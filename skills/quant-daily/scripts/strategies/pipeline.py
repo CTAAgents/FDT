@@ -37,6 +37,12 @@ _FIELD_MAP = {
     "ma120": "ma120", "MA120": "ma120",
     # 唐奇安通道
     "dc_pos": "dc20", "DC_POS": "dc20",
+    "dc_upper": "dc20_high", "DC_UPPER": "dc20_high",
+    "dc_lower": "dc20_low", "DC_LOWER": "dc20_low",
+    "dc_mid": "dc20_mid", "DC_MID": "dc20_mid",
+    "dc55_upper": "dc55_high", "DC55_UPPER": "dc55_high",
+    "dc55_lower": "dc55_low", "DC55_LOWER": "dc55_low",
+    "dc55_mid": "dc55_mid", "DC55_MID": "dc55_mid",
     "dc55_trend": "dc55_trend", "DC55_TREND": "dc55_trend",
     # MACD
     "macd_dif": "macd_dif", "MACD_DIF": "macd_dif",

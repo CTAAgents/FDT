@@ -2,7 +2,7 @@
 import pytest, os, sys
 from fdt_test_helpers import add_fdt_paths
 
-add_fdt_paths(__file__, [])
+add_fdt_paths(__file__)
 """统一 tests/ 目录版 — debate-risk-manager"""
 
 import sys, os

@@ -1,6 +1,8 @@
 """pipeline auto-generated conftest"""
 import pytest, os, sys
-from fdt_test_helpers import add_fdt_paths
 
-add_fdt_paths(__file__, [])
+# 计算 FDT_ROOT 并加入 path
+_fdt_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _fdt_root not in sys.path:
+    sys.path.insert(0, _fdt_root)
 

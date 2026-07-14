@@ -2,7 +2,7 @@
 import pytest, os, sys, importlib
 from fdt_test_helpers import add_fdt_paths
 
-add_fdt_paths(__file__, [])
+add_fdt_paths(__file__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

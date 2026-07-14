@@ -8,8 +8,8 @@
    五因子基本面已迁至 fundamental-data-collector/scripts/run_factor_timing_scan.py）
 
 用法：
-  python scan_all.py                                          # 通道突破（默认单策略）
-  python scan_all.py --strategy three_signal                  # 三类信号
+  python scan_all.py                                          # v7.0 默认：6策略并行管线
+  python scan_all.py --strategy channel_breakout               # 单策略（兼容旧版）
   python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
   python scan_all.py --list-strategies                        # 列出所有策略
 """
@@ -521,8 +521,10 @@ def run_scan(
                 summary = summary
             else:
                 summary = {}
-            # ── 若启用 --pipeline，使用 StrategyPipeline 执行全部已注册 v2 策略 ──
-            if getattr(args, "pipeline", False):
+            # ── v7.0 策略管线：默认使用 StrategyPipeline 执行全部已注册 v2 策略 ──
+            # 只有显式指定 --strategy XXX 时才回退单策略模式（兼容旧版）。
+            _pipeline_default = not getattr(args, "strategy", None)
+            if _pipeline_default:
                 try:
                     from strategies.registry_v2 import get_pipeline
                     from strategies.trend_following_strategy import TrendFollowingStrategy
@@ -1019,8 +1021,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--strategy",
-        help=f"策略: {', '.join(available)} (默认: {default_strat})",
-        default=default_strat,
+        help=f"策略: {', '.join(available)} (不传=管线模式；传此参数=回退单策略兼容旧版)",
+        default=None,
         choices=available + [None],
     )
     parser.add_argument(
@@ -1055,7 +1057,7 @@ if __name__ == "__main__":
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
     )
     parser.add_argument(
-        "--pipeline", action="store_true", help="启用多策略管线（StrategyPipeline，替代单策略模式）"
+        "--pipeline", action="store_true", help="多策略管线模式（v7.0默认已是管线；保留此标志仅显式启用）"
     )
     parser.add_argument(
         "--walk-forward",
