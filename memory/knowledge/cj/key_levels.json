@@ -101,23 +101,57 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 21:28"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 8020,
+        "condition": "价格跌破8050硬支撑后反抽确认，伴随成交量放大确认空头延续"
+      },
+      "stop_loss": {
+        "price": 8150,
+        "type": "fixed",
+        "atr_multiple": 0.8
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:20"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 8120.0,
+        "condition": "价格反弹至VAH(8119.8)附近遇阻回落 + 15分钟K线实体收低于8110确认 + 成交量回升至均值50%以上"
+      },
+      "stop_loss": {
+        "price": 8170.0,
+        "type": "fixed",
+        "atr_multiple": 1.07
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-14 09:41"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 8105.0,
-        "count": 6,
-        "min": 8060.0,
+        "level": 8096.2,
+        "count": 8,
+        "min": 8020.0,
         "max": 8150.0
       }
     ],
-    "computed_at": "2026-07-13 21:28"
+    "computed_at": "2026-07-14 09:41"
   },
   "meta": {
     "variety": "cj",
-    "total_records": 6,
-    "last_updated": "2026-07-13 21:28"
+    "total_records": 8,
+    "last_updated": "2026-07-14 09:41"
   }
 }

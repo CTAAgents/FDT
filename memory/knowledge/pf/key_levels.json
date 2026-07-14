@@ -16,16 +16,33 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 19:00"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 7136.0,
+        "condition": "价格反弹至7136硬支撑位（可能的阻力转换位）受阻回落，日线收盘上影线确认伴随成交量放大"
+      },
+      "stop_loss": {
+        "price": 7152.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [],
-    "computed_at": "2026-07-13 19:00"
+    "computed_at": "2026-07-13 23:21"
   },
   "meta": {
     "variety": "pf",
-    "total_records": 1,
-    "last_updated": "2026-07-13 19:00"
+    "total_records": 2,
+    "last_updated": "2026-07-13 23:21"
   }
 }

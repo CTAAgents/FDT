@@ -1,7 +1,7 @@
 ---
 name: fundamental-data-collector
-version: 1.3.0
-description: 基本面数据采集器 v1.1.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。
+version: 1.4.0
+description: 基本面数据采集器 v1.4.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。新增因子择时独立生产者 run_factor_timing_scan.py。
 agent_created: true
 user_invocable: false
 triggers:
@@ -44,6 +44,18 @@ triggers:
 | `macro_link.py` | 宏观/外盘联动指标（美元、原油、政策、USDA等） | ⑤宏观&外盘联动 | WebSearch+公开API |
 | `chain_balance.py` | 供需平衡表估算（供给−需求滚动差、1-3月边际变化） | ①供需平衡表 | 调用supply+demand+模型 |
 | `web_collector.py` | 联网搜索统一路由（含时效验证） | 通用补充 | WebSearch/WebFetch |
+
+## 因子择时扫描入口（P1 生产者）
+
+辩论流水线 P1 阶段的 5 因子择时信号由本 skill 独立产出（2026-07-14 从 quant-daily scan_all 迁出）：
+
+```bash
+# 默认全品种（或 --symbols RB,MA）
+python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir <reports_dir>
+# 产出: full_scan_factor_timing_{date}.json（供 data_interface.load_factor_timing_scan 读取）
+```
+
+因子构成：carry(展期) / momentum(60日) / inventory_pct(库存分位) / skew(偏度) / corr(量价相关)，截面 Z-score + 十分组投票。探源 Agent 通过 `scripts/data_interface.py` 的 `load_factor_timing_scan(path)` 加载。
 
 ## 探源 Agent 输出格式（基本面状态向量 v2）
 

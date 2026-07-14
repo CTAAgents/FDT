@@ -3,27 +3,31 @@
 供探源（基本面研究员）从多个数据源读取基本面数据。
 
 数据源：
-1. quant-daily scan_all.py 因子择时输出
+1. 本 skill 的 run_factor_timing_scan.py 因子择时输出（full_scan_factor_timing_*.json）
 2. 徽商智汇(恒生数据中心) DuckDB 本地缓存 → huishang_adapter
 """
 
 import json, os
 from typing import Optional, List, Dict
 
-# ── 因子择时数据（scan_all.py 输出） ──
+# ── 因子择时数据（run_factor_timing_scan.py 输出） ──
 
 
 def load_factor_timing_scan(path: str) -> list:
-    """从 scan_all.py 输出的因子择时JSON中加载全品种因子数据"""
+    """从 run_factor_timing_scan.py 产出的因子择时 JSON 中加载全品种因子数据"""
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data.get("all_ranked", [])
 
 
 def load_factor_by_date(date_str: str, report_dir: str = None) -> list:
-    """按日期加载因子择时数据"""
+    """按日期加载因子择时数据。
+
+    默认 report_dir 指向本 skill（fundamental-data-collector）的 reports/ 目录，
+    即 run_factor_timing_scan.py 的默认产出位置（§2/§3 重构后因子择时由探源自有模块产出）。
+    """
     if report_dir is None:
-        report_dir = os.path.expanduser("~/.workbuddy/skills/quant-daily/data")
+        report_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
     path = os.path.join(report_dir, f"full_scan_factor_timing_{date_str}.json")
     if os.path.exists(path):
         return load_factor_timing_scan(path)

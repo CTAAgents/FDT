@@ -325,23 +325,40 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 20:45"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3035,
+        "condition": "价格回踩3035-3040区间（VAH 3037.7区域，前高转支撑），配合RSI企稳>55确认动能延续"
+      },
+      "stop_loss": {
+        "price": 3015,
+        "type": "fixed",
+        "atr_multiple": 0.6
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:20"
     }
   ],
   "aggregated": {
     "support": [
       {
-        "level": 3007.1,
-        "count": 7,
+        "level": 3010.6,
+        "count": 8,
         "min": 3000.0,
         "max": 3050.0
       }
     ],
     "resistance": [],
-    "computed_at": "2026-07-13 20:45"
+    "computed_at": "2026-07-13 23:20"
   },
   "meta": {
     "variety": "m",
-    "total_records": 19,
-    "last_updated": "2026-07-13 20:45"
+    "total_records": 20,
+    "last_updated": "2026-07-13 23:20"
   }
 }

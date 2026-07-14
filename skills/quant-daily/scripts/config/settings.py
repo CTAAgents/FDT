@@ -347,17 +347,17 @@ CHANNEL_BREAKOUT_CONFIG = {
             "min_bars_required": 60,         # 品种最小K线要求
         },
         "dc20": {
-            "break_base_score": 30.0,        # DC20突破基础分（±）
+            "break_base_score": 40.0,        # DC20突破基础分（±）v2.3: 30→40，提升DC20分量
             "break_strong_pct": 1.0,         # 大幅突破阈值（%）
-            "break_strong_bonus": 10.0,      # 大幅突破加减分（±）
+            "break_strong_bonus": 15.0,      # 大幅突破加减分（±）v2.3: 10→15
             "break_moderate_pct": 0.3,       # 中等突破阈值（%）
-            "break_moderate_bonus": 5.0,     # 中等突破加减分（±）
+            "break_moderate_bonus": 8.0,     # 中等突破加减分（±）v2.3: 5→8
             "pos_upper_threshold": 0.7,      # 上轨附近阈值（DC20_POS）
             "pos_upper_bonus": 5.0,          # 上轨位置加分
             "pos_lower_threshold": 0.3,      # 下轨附近阈值（DC20_POS）
             "pos_lower_bonus": -5.0,         # 下轨位置减分
-            "near_breakout_ticks": 5,        # 接近边界：距DC20边界≤N个tick视为"逼近"
-            "near_breakout_score": 15.0,     # 逼近得分（±，突破标准分的50%）
+            "near_breakout_ticks": 7,        # 接近边界：距DC20边界≤N个tick视为"逼近" v2.3: 5→7
+            "near_breakout_score": 22.0,     # 逼近得分（±）v2.3: 15→22
         },
         "adx": {
             "_deprecated": "v1.3: ADX已从通道突破评分中移除, 仅保留显示。突破策略不应被趋势强度过滤。",
@@ -386,15 +386,15 @@ CHANNEL_BREAKOUT_CONFIG = {
             "width_moderate_score": 3.0,
             "squeeze_bonus": 2.0,
             "pos_extreme_threshold": 1.05,
-            "pos_extreme_score": 6.0,
+            "pos_extreme_score": 20.0,         # v2.3: 6→20，BB极端突破权重提升
             "pos_upper_threshold": 1.0,
-            "pos_upper_score": 4.0,
+            "pos_upper_score": 15.0,           # v2.3: 4→15，BB上轨突破权重提升
             "pos_mid_upper_threshold": 0.7,
             "pos_mid_upper_score": 2.0,
             "pos_mid_lower_threshold": 0.15,
             "pos_mid_lower_score": -2.0,
-            "pos_lower_score": -4.0,
-            "pos_extreme_lower_score": -6.0,
+            "pos_lower_score": -15.0,          # v2.3: -4→-15，BB下轨突破对称提升
+            "pos_extreme_lower_score": -20.0,  # v2.3: -6→-20
             "dc_consistency_bonus": 2.0,
         },
         "volume": {
@@ -435,6 +435,51 @@ CHANNEL_BREAKOUT_CONFIG = {
 
     # L1 品种×周期覆盖 — 最精确，自优化最终写入层
     "per_symbol": {},
+}
+
+
+# ═══════════════════════════════════════════════════════════
+# 信号范式 ↔ 验证器 声明式映射（架构原则见 technical_debt.md §5）
+# 每个 signal_type 显式声明它该跑哪些验证器；"__global__" 对所有活跃信号跑一次。
+# 调用约定（由注册位置决定）：
+#   - 普通 key 下的验证器 → 单记录验证器 fn(r, ctx)（按记录逐条调用）
+#   - "__global__" 下的验证器 → 列表级验证器 fn(all_ranked, ctx)（跑一次）
+# 验证器实现见 signals/validators/（全用公开主流因子，无黑盒）。
+# 加新验证器 = 在 validators/ 写模块并 register_validator + 在此登记一行。
+# ═══════════════════════════════════════════════════════════
+SIGNAL_VALIDATOR_MAP = {
+    # P1 通道突破 — 全装伪突破防护
+    "channel_breakout":       ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing", "trend_direction"],
+    "trend_confirmation":     ["p0_4_raw_kline", "trend_direction", "stability"],
+    "bb_squeeze_prebreakout": ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing"],
+    "near_breakout":          ["volume_confirm", "atr_vol_timing"],   # 未实质突破，轻量确认
+    # P3 均值回归
+    "minor_signal":           ["entity_quality", "atr_vol_timing", "stability"],
+    # 全局闸门（稳定性/拥挤度，列表级）
+    "__global__":             ["crowding"],
+}
+
+# ═══════════════════════════════════════════════════════════
+# B1 角色化 LLM 档案（约定层 + 部分可控）
+# ───────────────────────────────────────────────────────────
+# 单一真相源。每个辩论角色的 model/temperature/max_tokens 建议值。
+# FDT 的 run_debate.py 不自己调 LLM（只产出 spawn 计划，由平台 spawn 子 Agent），
+# 故本表作为「约定层」注入 spawn prompt，供团队主管 spawn 时参考；
+# 若平台支持 per-spawn 覆盖则生效，否则仅为建议、不报错（详见 docs/design/ 评估整改方案）。
+LLM_PROFILE_MAP = {
+    "technical":  {"model": "deepseek-v4-flash", "temperature": 0.1, "top_p": 0.9,  "max_tokens": 4000, "cache_ttl": 86400},  # 观澜·技术
+    "zhengzhen":  {"model": "deepseek-v4-flash", "temperature": 0.4, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 证真
+    "zhensi":     {"model": "deepseek-v4-flash", "temperature": 0.4, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 慎思
+    "judge":      {"model": "deepseek-v4-flash", "temperature": 0.0, "top_p": 0.8,  "max_tokens": 2000, "cache_ttl": 86400},  # 闫判官·裁决
+    "trading_plan":{"model": "deepseek-v4-flash", "temperature": 0.5, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 策执远·策略
+    "risk":       {"model": "deepseek-v4-flash", "temperature": 0.2, "top_p": 0.85, "max_tokens": 2000, "cache_ttl": 86400},  # 风控明
+    "coherence":  {"model": "deepseek-v4-flash", "temperature": 0.0, "top_p": 0.8,  "max_tokens": 1500, "cache_ttl": 86400},  # 一致性裁判
+}
+
+# B2 Token 预算（FDT 可控：plan 期预估护栏）
+LLM_TOKEN_BUDGET = {
+    "per_round": 120000,    # 单 spawn prompt 超此预警
+    "daily": 1500000,       # 日级累计超此中止 plan
 }
 
 

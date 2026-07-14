@@ -169,15 +169,49 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 20:45"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1862.0,
+        "condition": "价格反弹至1862.0阻力位遇阻，配合15分钟周期量能萎缩+上影线确认"
+      },
+      "stop_loss": {
+        "price": 1888.0,
+        "type": "fixed",
+        "atr_multiple": 1.04
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1877.0,
+        "condition": "价格反弹至1877-1887阻力区，15分钟K线出现上影线或反转K线形态（如pin bar/吞没），且成交量较前5根15分钟K线均值放大20%以上确认入场"
+      },
+      "stop_loss": {
+        "price": 1890.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 09:41"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 1875.0,
-        "count": 3,
-        "min": 1865.0,
+        "level": 1872.8,
+        "count": 5,
+        "min": 1862.0,
         "max": 1880.0
       },
       {
@@ -193,11 +227,11 @@
         "max": 2103.0
       }
     ],
-    "computed_at": "2026-07-13 20:45"
+    "computed_at": "2026-07-14 09:41"
   },
   "meta": {
     "variety": "j",
-    "total_records": 10,
-    "last_updated": "2026-07-13 20:45"
+    "total_records": 12,
+    "last_updated": "2026-07-14 09:41"
   }
 }

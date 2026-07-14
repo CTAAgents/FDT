@@ -1,6 +1,6 @@
 ---
 name: commodity-chain-analysis
-version: 2.15.0
+version: 2.16.0
 description: 商品期货产业链分析系统 v2.16.0 — 产业链聚类+动态相关系数冗余检测(取代硬编码)+跨链品种主导链判断。链证源产出双报告供闫判官裁决。
 agent_created: true
 user_invocable: true
@@ -67,7 +67,7 @@ python scripts/analyze_chain.py --symbols ALL --correlation-prices p.json --corr
 
 | 维度 | 规范 |
 |:----|:-----|
-| **来源** | 数技源（quant-daily scan_all.py --dual 产物） |
+| **来源** | 数技源 channel_breakout（scan_all.py → full_scan_summary_{date}.json）+ 观澜 L1-L4（run_l1l4_scan.py → full_scan_l1l4_{date}.json）+ 探源 factor_timing（run_factor_timing_scan.py → full_scan_factor_timing_{date}.json） |
 | **文件** | `full_scan_l1l4_{date}.json` + `full_scan_factor_timing_{date}.json` + `full_scan_summary_{date}.json` |
 | **方法** | 直接读取已有 JSON 文件，**不得独立重新采集**（不得自行调 TqSDK/东方财富/AKShare） |
 | **用途** | ①动态相关系数检测的输入（60日滚动价格序列） ②期限结构判断的数据源 ③链内品种信号比较 |
@@ -90,7 +90,7 @@ python scripts/analyze_chain.py --symbols ALL --correlation-prices p.json --corr
 ```
 ┌─────────────────────┐    直接读取JSON      ┌──────────────────────┐
 │  数技源 (P0-①)      │ ──────────────────→  │  链证源 (P0-②)       │
-│  scan_all.py --dual  │  价格/技术数据        │  analyze_chain.py    │
+│  scan_all.py(channel_breakout)+run_l1l4_scan.py+run_factor_timing_scan.py  │  价格/技术数据  │  analyze_chain.py  │
 └─────────────────────┘                      │  + LLM链趋势解读      │
                                              │  + WebSearch基本面验证 │
 ┌─────────────────────┐    每条带URL+日期     └──────────────────────┘
@@ -103,7 +103,7 @@ python scripts/analyze_chain.py --symbols ALL --correlation-prices p.json --corr
                                               └──────────────────────┘
 ```
 
-> ⚠️ **关键约束**：价格/技术数据来自数技源的已有产出，链证源不做二次采集。基本面数据来自互联网公开信息，每条必须有可追溯的来源。这两个领域的数据**不可混用标签**——价格数据引用时注明`（来源：scan_all.py --dual 扫描结果）`，基本面数据引用时注明具体网站/报告名。
+> ⚠️ **关键约束**：价格/技术数据来自数技源的已有产出，链证源不做二次采集。基本面数据来自互联网公开信息，每条必须有可追溯的来源。这两个领域的数据**不可混用标签**——价格数据引用时注明`（来源：数技源通道突破 + 观澜L1-L4 + 探源因子择时扫描结果）`，基本面数据引用时注明具体网站/报告名。
 
 ## 核心能力
 

@@ -11,6 +11,57 @@
       "confidence": 0.62,
       "round_id": "debate_20260711_sc_p1",
       "extracted_at": "2026-07-11 07:42"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 493.7,
+        "condition": "价格反弹至493.7阻力位受阻回落，日线收盘上影线+成交量放大确认"
+      },
+      "stop_loss": {
+        "price": 497.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 511.0,
+        "condition": "价格反弹至508-515区间（逼近514.8硬阻力），且15分钟/1小时K线出现以下量价配合信号时入场：①K线形态为长上影线（上影线≥实体长度）、看跌吞没或黄昏之星；②成交量放大至20日均量×1.5以上；③持仓量回升确认空头增仓。三条满足后市价入场做空。ADX仅作辅助参考，不设硬性阈值。若缩量盘整至阻力区则放弃入场。"
+      },
+      "stop_loss": {
+        "price": 524.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 12:28"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 511.0,
+        "condition": "价格反弹至508-515区间（逼近514.8硬阻力），且15分钟/1小时K线出现以下量价配合信号时入场：①K线形态为长上影线（上影线≥实体长度）、看跌吞没或黄昏之星；②成交量放大至20日均量×1.5以上；③持仓量回升确认空头增仓。三条满足后市价入场做空。ADX仅作辅助参考，不设硬性阈值。若缩量盘整至阻力区则放弃入场。"
+      },
+      "stop_loss": {
+        "price": 524.0,
+        "type": "fixed",
+        "atr_multiple": 1.5
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 13:01"
     }
   ],
   "aggregated": {
@@ -18,23 +69,35 @@
       {
         "level": 558.0,
         "count": 1,
-        "min": 558,
-        "max": 558
+        "min": 558.0,
+        "max": 558.0
       }
     ],
     "resistance": [
       {
+        "level": 511.0,
+        "count": 2,
+        "min": 511.0,
+        "max": 511.0
+      },
+      {
         "level": 580.0,
         "count": 2,
-        "min": 575,
-        "max": 585
+        "min": 575.0,
+        "max": 585.0
+      },
+      {
+        "level": 493.7,
+        "count": 1,
+        "min": 493.7,
+        "max": 493.7
       }
     ],
-    "computed_at": "2026-07-11 07:42"
+    "computed_at": "2026-07-14 13:01"
   },
   "meta": {
     "variety": "sc",
-    "total_records": 1,
-    "last_updated": "2026-07-11 07:42"
+    "total_records": 4,
+    "last_updated": "2026-07-14 13:01"
   }
 }

@@ -76,6 +76,23 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 20:46"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2600.0,
+        "condition": "价格反弹至2600硬阻力位受阻回落，日线收盘实体上影线确认，成交量放大"
+      },
+      "stop_loss": {
+        "price": 2620.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
     }
   ],
   "aggregated": {
@@ -86,13 +103,19 @@
         "count": 4,
         "min": 0.0,
         "max": 2358.0
+      },
+      {
+        "level": 2600.0,
+        "count": 1,
+        "min": 2600.0,
+        "max": 2600.0
       }
     ],
-    "computed_at": "2026-07-13 20:46"
+    "computed_at": "2026-07-13 23:21"
   },
   "meta": {
     "variety": "ec",
-    "total_records": 4,
-    "last_updated": "2026-07-13 20:46"
+    "total_records": 5,
+    "last_updated": "2026-07-13 23:21"
   }
 }

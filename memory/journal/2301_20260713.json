@@ -1,0 +1,93 @@
+{
+  "round_id": "2301_20260713",
+  "generated_at": "2026-07-13 23:20",
+  "scan_time": "2301",
+  "trigger_count": 14,
+  "verdicts": {
+    "m": {
+      "direction": "BULL",
+      "confidence": "中",
+      "entry_price": 3035,
+      "risk_color": "unknown"
+    },
+    "CJ": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": 8020,
+      "risk_color": "unknown"
+    },
+    "rb": {
+      "direction": "BEAR",
+      "confidence": "高",
+      "entry_price": 3065,
+      "risk_color": "unknown"
+    },
+    "SA": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": 1075,
+      "risk_color": "unknown"
+    },
+    "RM": {
+      "direction": "BULL",
+      "confidence": "低",
+      "entry_price": 2310,
+      "risk_color": "unknown"
+    },
+    "j": {
+      "direction": "BEAR",
+      "confidence": "高",
+      "entry_price": 1862.0,
+      "risk_color": "unknown"
+    },
+    "ao": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": 2735.0,
+      "risk_color": "unknown"
+    },
+    "SS": {
+      "direction": "NEUTRAL",
+      "confidence": "低",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "FG": {
+      "direction": "BEAR",
+      "confidence": "低",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "hc": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "ec": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "OI": {
+      "direction": "NEUTRAL",
+      "confidence": "高",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "sc": {
+      "direction": "BEAR",
+      "confidence": "中",
+      "entry_price": null,
+      "risk_color": "unknown"
+    },
+    "PF": {
+      "direction": "NEUTRAL",
+      "confidence": "中",
+      "entry_price": null,
+      "risk_color": "unknown"
+    }
+  },
+  "top_executable": []
+}

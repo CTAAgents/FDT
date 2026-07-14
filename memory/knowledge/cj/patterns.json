@@ -3,10 +3,10 @@
     "pattern_id": "cj-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-13 20:45",
-    "use_count": 3,
-    "win_count": 3,
-    "win_rate": 0.804,
+    "last_used": "2026-07-13 23:20",
+    "use_count": 4,
+    "win_count": 4,
+    "win_rate": 0.863,
     "structure": "趋势确认 → CJ-con2: WATCH状态表明信号... → CJ-con3: 红枣期货存在强季节性规... → CJ-con4: 总分-68属于中等偏强... → CJ-con5: 当前价位做空的盈亏比严...",
     "applicable_conditions": {
       "adx_range": [
@@ -31,10 +31,10 @@
     "pattern_id": "cj-p002",
     "name": "空头突破跟随型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 21:28",
-    "use_count": 4,
-    "win_count": 4,
-    "win_rate": 0.863,
+    "last_used": "2026-07-14 09:41",
+    "use_count": 5,
+    "win_count": 5,
+    "win_rate": 0.904,
     "structure": "CJ-con1: RSI=28.4+CC... → 技术形态确认 → CJ-con3: 红枣为非主流品种，流动... → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [
@@ -51,7 +51,7 @@
     "derived_from_debates": [
       "unknown"
     ],
-    "confidence": 0.6,
+    "confidence": 0.7,
     "consecutive_failures": 0,
     "status": "active"
   },

@@ -263,7 +263,7 @@ while self._running:
 
 | 步骤 | 函数 | 脚本 | 失败策略 |
 |:-----|:-----|:-----|:---------|
-| 1/6 | `step_scan_dual()` | `scan_all.py --dual` | 非零退出仍继续 |
+| 1/6 | `step_scan()` | `scan_all.py`(channel_breakout) + `run_l1l4_scan.py` + `run_factor_timing_scan.py` | 三文件缺失则告警继续 |
 | 2/6 | `step_chain_analysis()` | `analyze_chain.py` | 跳过链分析 |
 | 3/6 | `step_debate_brief()` | `debate_brief.py` | 跳过品种精选 |
 | 4/6 | `step_assemble_intermediate()` | `assemble_intermediate_data.py` | 跳过数据适配 |

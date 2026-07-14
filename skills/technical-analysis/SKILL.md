@@ -1,7 +1,7 @@
 ---
 name: technical-analysis
-version: 2.2.0
-description: 技术面分析 skill v2.2.0 — 为辩论专家团·技术面研究员（观澜）提供ZigZag支撑阻力(硬软分类/ATR容差/失效条件/多周期共振/OI确认)+动态阈值量价+多时间框架趋势+事件日历+跨品种联动。
+version: 2.3.0
+description: 技术面分析 skill v2.3.0 — 为辩论专家团·技术面研究员（观澜）提供ZigZag支撑阻力(硬软分类/ATR容差/失效条件/多周期共振/OI确认)+动态阈值量价+多时间框架趋势+事件日历+跨品种联动。新增 L1-L4 独立生产者 run_l1l4_scan.py。
 agent_created: true
 user_invocable: false
 triggers:
@@ -18,7 +18,7 @@ triggers:
 ## 定位
 
 独立 skill，专门为 **futures-debate-team** 的 **技术面研究员（观澜）** Agent 提供量价/持仓/背离/资金流的分析工具。
-从 `quant-daily` 的 scan_all.py 获取原始数据后，调用本 skill 做技术面解读。
+L1-L4 原始指标由本 skill 的 `run_l1l4_scan.py` 独立产出（scripts/reports/full_scan_l1l4_*.json），经 data_interface 加载；scan_all.py 仅出通道突破信号。加载本 skill 的"观澜 Agent 接口"做技术面解读。
 
 ## 模块说明
 
@@ -31,6 +31,18 @@ triggers:
 | `support_resistance.py` | **支撑/阻力位计算 v2.1（v2.0:硬软分类+ATR容差+失效条件+OI确认）** | `find_swing_points()`, `identify_key_levels()`, `calculate_poc()`, `cross_validate_timeframes()`, `_check_oi_confirmation()` |
 | `event_calendar.py` | **事件日历mask（v2.1新增）** | `check_event_impact()`, `get_events_for_date()` |
 | `cross_correlation.py` | **跨品种联动（v2.1新增）** | `calc_correlation()`, `get_correlation_peers()`, `build_correlation_matrix()` |
+
+## L1-L4 扫描入口（P1 生产者）
+
+辩论流水线 P1 阶段的 L1-L4 原始指标由本 skill 独立产出（2026-07-14 从 quant-daily scan_all 迁出），不再依赖 scan_all.py：
+
+```bash
+# 默认全品种（或 --symbols RB,MA）
+python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir <reports_dir>
+# 产出: full_scan_l1l4_{date}.json（供 data_interface.load_l1l4_scan 读取）
+```
+
+观澜 Agent 通过 `scripts/data_interface.py` 的 `load_l1l4_scan(path)` 加载该 JSON 获取全品种 L1-L4 指标。
 
 ## 🔴 边界约束
 

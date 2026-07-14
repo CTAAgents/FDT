@@ -237,6 +237,23 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 19:00"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 9744.8,
+        "condition": "价格回调至9744.8硬支撑位企稳反弹，日线收盘下影线确认，成交量萎缩后放大"
+      },
+      "stop_loss": {
+        "price": 9728.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "neutral",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
     }
   ],
   "aggregated": {
@@ -249,11 +266,11 @@
         "max": 9960.0
       }
     ],
-    "computed_at": "2026-07-13 19:00"
+    "computed_at": "2026-07-13 23:21"
   },
   "meta": {
     "variety": "oi",
-    "total_records": 14,
-    "last_updated": "2026-07-13 19:00"
+    "total_records": 15,
+    "last_updated": "2026-07-13 23:21"
   }
 }

@@ -1,0 +1,61 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2735.0,
+        "condition": "价格反弹至2735.0阻力位遇阻，配合15分钟周期量能萎缩或长上影线确认"
+      },
+      "stop_loss": {
+        "price": 2760.0,
+        "type": "fixed",
+        "atr_multiple": 1.06
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 23050.0,
+        "condition": "价格反弹至23050附近且15分钟K线出现看跌吞没形态或长上影线，成交量放大至均值60%以上（排除无量空跌追入）"
+      },
+      "stop_loss": {
+        "price": 23150.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 09:40"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 2735.0,
+        "count": 1,
+        "min": 2735.0,
+        "max": 2735.0
+      },
+      {
+        "level": 23050.0,
+        "count": 1,
+        "min": 23050.0,
+        "max": 23050.0
+      }
+    ],
+    "computed_at": "2026-07-14 09:40"
+  },
+  "meta": {
+    "variety": "ao",
+    "total_records": 2,
+    "last_updated": "2026-07-14 09:40"
+  }
+}

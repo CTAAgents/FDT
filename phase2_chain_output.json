@@ -1,0 +1,92 @@
+{
+  "variant": "chain_analysis",
+  "generated_at": "2026-07-14 13:41:02",
+  "chain_results": {
+    "PB": {
+      "chain": "有色",
+      "chain_members": [
+        "cu",
+        "al",
+        "zn",
+        "pb",
+        "ni",
+        "sn",
+        "ao",
+        "SS",
+        "ad",
+        "bc"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "SC": {
+      "chain": "能源链",
+      "chain_members": [
+        "sc",
+        "lu",
+        "fu",
+        "bu",
+        "pg",
+        "ec"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    },
+    "L": {
+      "chain": "油化工",
+      "chain_members": [
+        "eg",
+        "eb",
+        "pp",
+        "l",
+        "PL",
+        "bz"
+      ],
+      "term_structure": "flat",
+      "basis": "平稳",
+      "chain_trend": "震荡",
+      "chain_consistency": 0,
+      "redundant": false,
+      "redundant_with": null,
+      "notes": []
+    }
+  },
+  "redundant_pairs": [],
+  "chain_trends": {
+    "有色": "震荡",
+    "能源链": "震荡",
+    "油化工": "震荡"
+  },
+  "chain_consistencies": {
+    "有色": 0,
+    "能源链": 0,
+    "油化工": 0
+  },
+  "judge_verdict": {
+    "excluded_symbols": [],
+    "kept_symbols": [
+      "L",
+      "PB",
+      "SC"
+    ],
+    "chain_representatives": {},
+    "principle": "一链一代表（同链高相关品种只保留信号最强的1个）",
+    "all_symbols": [
+      "L",
+      "PB",
+      "SC"
+    ],
+    "debate_count": 3,
+    "excluded_count": 0
+  }
+}

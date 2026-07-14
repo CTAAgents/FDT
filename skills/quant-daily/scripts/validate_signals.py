@@ -1,12 +1,19 @@
-"""信号验证管道 — 辩论前的最后一道过滤。
+"""【已废弃 / DEPRECATED】信号验证管道 — 逻辑已迁至 signals/validators/（范式↔验证器声明式框架）。
 
+原职能（稳定性检查 + 拥挤度压制）现由以下模块提供，scan_all.py 已改走新路径：
+  - 稳定性:  signals/validators/stability.py  (V6, 单记录验证器)
+  - 拥挤度:  signals/validators/crowding.py   (V7, 列表级全局闸门)
+  - 编排:    signals/validators/__init__.py   (run_signal_validators 按 SIGNAL_VALIDATOR_MAP 路由)
+  - 声明映射: config/settings.py.SIGNAL_VALIDATOR_MAP
+
+本文件保留仅为向后兼容壳。设计见 design/signal_paradigm_validator_framework.md 与 technical_debt.md §5。
+
+--- 以下为原始文档（保留参考）---
 两个阶段:
   1. 信号稳定性检查: 对比当前信号方向与最近 N 次扫描的方向一致性
      连续不一致 → 降级 NOISE
   2. 信号拥挤度压制: 如果总信号数超过阈值, 只保留总分前 K 名
      排名靠后的 weak 信号跳过辩论
-
-集成位置: scan_all.py run_scan() 中, 在 score() 之后、写入 JSON / 启动辩论之前。
 """
 
 import json

@@ -50,7 +50,17 @@ class TaskResult:
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parent.parent
+    return Path(__file__).resolve().parent
+
+
+# 品种代码列表（与 scan_all 保持一致），供三生产者统一扫描范围
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(_project_root() / "skills" / "quant-daily" / "scripts"))
+    from config.symbols import ALL_SYMBOLS
+    ALL_SYMBOL_CODES = [s[0] for s in ALL_SYMBOLS]
+except Exception:
+    ALL_SYMBOL_CODES = [].parent
 
 
 def _log(msg: str):
@@ -108,7 +118,7 @@ def daily_debate() -> TaskResult:
     日常辩论 — 完整全量管道
 
     流程:
-      Step 1: scan_all.py --dual（62品种双策略扫描）
+      Step 1: 三生产者扫描（数技源 channel_breakout + 观澜 L1-L4 + 探源 factor_timing）
       Step 2: 查找最新summary + 链分析 → assemble_intermediate_data.py
       Step 3: phase3_generate_report.py → HTML报告
       Step 4: 复制报告到 Commodities/
@@ -117,31 +127,53 @@ def daily_debate() -> TaskResult:
     _log("📊 日常辩论 — 全量管道启动")
     steps = []
 
-    # ── Step 1: 双策略扫描 ──
-    _log("  Step 1/4: 双策略扫描")
-    ok1, msg1 = _run_script(
+    # ── 报告目录与日期（供三生产者统一落地） ──
+    root = _project_root()
+    date_str = datetime.now().strftime("%Y%m%d")
+    date_str_hy = datetime.now().strftime("%Y-%m-%d")
+    workbuddy_dir = Path(os.path.expanduser("~")) / "Documents" / "WorkBuddy"
+    scan_report_dir = workbuddy_dir / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
+    os.makedirs(scan_report_dir, exist_ok=True)
+
+    # ── Step 1: 三生产者扫描（数技源 + 观澜 + 探源） ──
+    _log("  Step 1/4: 三生产者扫描 (通道突破 + L1-L4 + 因子择时)")
+    sym_codes = ",".join(ALL_SYMBOL_CODES) if ALL_SYMBOL_CODES else ""
+
+    # 1) 数技源: 通道突破（默认 channel_breakout）
+    ok_cb, msg_cb = _run_script(
         "skills/quant-daily/scripts/scan_all.py",
-        "--dual",
-        timeout=240,
+        "-o", str(scan_report_dir), "-p", "full_scan_summary",
+        timeout=300,
     )
-    steps.append(f"扫描: {'✅' if ok1 else '❌'}")
-    if not ok1:
+    # 2) 观澜: L1-L4 分层指标
+    l1l4_args = ["--output-dir", str(scan_report_dir)]
+    l1l4_args += ["--symbols", sym_codes] if sym_codes else ["--all"]
+    ok_l1l4, msg_l1l4 = _run_script(
+        "skills/technical-analysis/scripts/run_l1l4_scan.py",
+        *l1l4_args, timeout=300,
+    )
+    # 3) 探源: 因子择时（五因子）
+    ft_args = ["--output-dir", str(scan_report_dir)]
+    ft_args += ["--symbols", sym_codes] if sym_codes else ["--all"]
+    ok_ft, msg_ft = _run_script(
+        "skills/fundamental-data-collector/scripts/run_factor_timing_scan.py",
+        *ft_args, timeout=300,
+    )
+    steps.append(
+        f"扫描: 通道突破{'✅' if ok_cb else '❌'} | L1-L4{'✅' if ok_l1l4 else '❌'} | 因子择时{'✅' if ok_ft else '❌'}"
+    )
+
+    # 至少通道突破汇总须存在，否则后续无数据可用
+    if not (scan_report_dir / f"full_scan_summary_{date_str}.json").exists():
         return TaskResult(
             task_name="daily_debate", success=False,
             started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
             finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            summary=f"扫描失败: {msg1}", error=msg1,
+            summary="扫描失败: 通道突破汇总未生成", error=msg_cb,
         )
 
-    # ── Step 2: 查找最新产出，准备报告目录 ──
+    # ── Step 2: 查找最新产出，准备报告数据 ──
     _log("  Step 2/4: 准备报告数据")
-    root = _project_root()
-    date_str = datetime.now().strftime("%Y%m%d")
-    date_str_hy = datetime.now().strftime("%Y-%m-%d")
-
-    # scan_all.py的默认输出路径: ~/Documents/WorkBuddy/Commodities/Reports/商品期货深度分析/{date}/
-    workbuddy_dir = Path(os.path.expanduser("~")) / "Documents" / "WorkBuddy"
-    scan_report_dir = workbuddy_dir / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
 
     # 查找最新的 summary JSON（优先查scan默认输出目录）
     if scan_report_dir.exists():

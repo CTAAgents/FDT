@@ -96,7 +96,7 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
    ```
 3. **数据资料来源包括但不限于**：
    - `data_interface` 加载的L1-L4原始指标（ADX/RSI/CCI/MA排列/子层一致性/stage/veto等）
-   - `scan_all.py` 输出的量价/持仓/关键位数据
+   - 数技源 `scan_all.py` 通道突破扫描产出的量价/持仓/关键位数据（full_scan_summary_*.json）
    - `technical-analysis` 模块自行计算补充指标（支撑阻力/形态/背离）
    - 自行识别技术图形（支撑阻力/形态突破/量价关系等）
 3. 辩手交锋时，被call验证"突破是否带量""持仓是不是在跑"
@@ -105,7 +105,7 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 ## 工作方法
 
 工作方法由 `technical-analysis` skill 的"观澜 Agent 接口"定义。加载该skill时，注意加载该接口部分。
-从 `quant-daily` skill 的 scan_all.py 获取原始数据后，调用 technical-analysis 模块做技术面解读。
+L1-L4 原始指标由观澜 `run_l1l4_scan.py`（technical-analysis/scripts）产出（full_scan_l1l4_*.json），经 data_interface 加载；scan_all.py 仅出通道突破信号。加载 technical-analysis 模块的"观澜 Agent 接口"做技术面解读。
 
 ## 🧬 自进化参数（从 `memory/agent_profiles.json` 加载）
 

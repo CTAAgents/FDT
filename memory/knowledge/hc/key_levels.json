@@ -105,23 +105,40 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 20:46"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3309.0,
+        "condition": "价格反弹至3309.0阻力位遇阻，配合15分钟周期量能萎缩或滞涨确认"
+      },
+      "stop_loss": {
+        "price": 3328.0,
+        "type": "fixed",
+        "atr_multiple": 1.0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 3290.0,
-        "count": 2,
+        "level": 3296.3,
+        "count": 3,
         "min": 3272.0,
-        "max": 3308.0
+        "max": 3309.0
       }
     ],
-    "computed_at": "2026-07-13 20:46"
+    "computed_at": "2026-07-13 23:21"
   },
   "meta": {
     "variety": "hc",
-    "total_records": 4,
-    "last_updated": "2026-07-13 20:46"
+    "total_records": 5,
+    "last_updated": "2026-07-13 23:21"
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: futures-trading-analysis
-version: 3.10.0
+version: 3.11.0
 description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员并行供弹→证真(慎思)动态正反方交叉质询(轮次由信号等级决定)→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
 allowed-tools: Read,Bash
 agent_created: true
@@ -1177,7 +1177,7 @@ python scripts/phase3_generate_debate_report.py \
 
 参数：
 - `--chain-json` — 链证源分析JSON（analyze_chain.py 产出）
-- `--summary-json` — 数技源信号JSON（scan_all.py --dual 产出的 summary JSON）
+- `--summary-json` — 数技源信号JSON（scan_all.py 通道突破产出的 full_scan_summary_{date}.json）
 - `--prices-json` — 历史价格JSON（可选，用于展示相关系数）
 - `-o` — 输出HTML路径
 - `--title` — 报告标题（可选）

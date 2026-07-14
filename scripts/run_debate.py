@@ -41,6 +41,23 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 import re
 
+# ── B/C 工程化依赖（guarded，缺失不阻断核心流程）──
+try:
+    from scripts.llm.token_budget import TokenBudget, BudgetExceeded
+    from scripts.llm.cache import DebateCache
+except Exception:
+    TokenBudget = DebateCache = BudgetExceeded = None
+    try:
+        from scripts.run_reporter import RunReporter
+        from scripts.logutil import setup_logging, get_logger
+    except Exception:
+        RunReporter = setup_logging = get_logger = None
+
+try:
+    from scripts.agent_output import make_write_code
+except Exception:
+    make_write_code = None
+
 _WIN_DRIVE_RE = re.compile(r"^/([a-zA-Z])/")  # 匹配 /d/foo/bar → d:\foo\bar
 
 _FDT_ROOT = Path(__file__).resolve().parent.parent
@@ -121,6 +138,51 @@ def load_debate_threshold() -> int:
 
 
 # ─────────────────────────────────────────────
+# B1 LLM 档案加载（约定层单一真相源）
+# ─────────────────────────────────────────────
+def _load_llm_profiles() -> dict:
+    """从量化子技能 config/settings.py 读取 LLM_PROFILE_MAP。"""
+    cand = QUANT_DAILY / "config" / "settings.py"
+    if cand.exists():
+        try:
+            spec = importlib.util.spec_from_file_location("qd_settings", str(cand))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return dict(getattr(mod, "LLM_PROFILE_MAP", {}))
+        except Exception:
+            pass
+    return {}
+
+
+# ─────────────────────────────────────────────
+# B4 失败重排（补辩计划）
+# ─────────────────────────────────────────────
+def _emit_repair_plan(scan: dict, workspace: str, data_benchmark: str) -> str | None:
+    """检测缺产出的触发品种，产出补辩计划 JSON 供主管重 spawn。无缺失返回 None。"""
+    ws = Path(workspace)
+    triggers = select_triggers(scan, load_debate_threshold())
+    missing = []
+    for t in triggers:
+        sym = t["symbol"]
+        files = {
+            "p4_zhengzhen": ws / f"p4_zhengzhen_{sym}.json",
+            "p4_zhensi": ws / f"p4_zhensi_{sym}.json",
+            "p5_judge": ws / f"p5_judge_{sym}.json",
+            "p5_trading_plan": ws / f"p5_trading_plan_{sym}.json",
+            "p5_risk_review": ws / f"p5_risk_review_{sym}.json",
+        }
+        if any(not p.exists() for p in files.values()):
+            missing.append(t)
+    if not missing:
+        return None
+    plan = build_spawn_plan(missing, str(ws), data_benchmark)
+    out = ws / f"repair_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(plan, f, ensure_ascii=False, indent=2)
+    return str(out)
+
+
+# ─────────────────────────────────────────────
 # 数据基准（G 项：写入 debate_results.json 顶层）
 # ─────────────────────────────────────────────
 def derive_data_benchmark(scan: dict) -> str:
@@ -149,6 +211,131 @@ def derive_data_benchmark(scan: dict) -> str:
 
 
 # ─────────────────────────────────────────────
+# 链证源产业链分析（P1.5 · 自动运行，不 spawn Agent）
+# ─────────────────────────────────────────────
+_CHAIN_SCRIPT = _FDT_ROOT / "skills" / "commodity-chain-analysis" / "scripts" / "analyze_chain.py"
+
+
+def run_chain_analysis(
+    symbols: list[str],
+    workspace: str,
+    scan_path: str | None = None,
+) -> dict | None:
+    """运行链证源产业链分析，返回 chain_results dict 或 None。
+
+    优先读取闫判官初判指令 (p0_judge_directive.json) 中指定的产业链/品种；
+    无则用 symbols 列表（向后兼容）。
+    """
+    ws = Path(workspace)
+    out_path = ws / "p1_chain_analysis.json"
+
+    # 缓存命中（10分钟内）
+    if out_path.exists() and (datetime.now().timestamp() - out_path.stat().st_mtime) < 600:
+        try:
+            with open(out_path) as f:
+                cached = json.load(f).get("chain_results", {})
+                if cached:
+                    print(f"  🔗 链证源使用缓存: {out_path} ({len(cached)} 品种)")
+                    return cached
+        except Exception:
+            pass
+
+    # ── 优先读取闫判官指令中的品种/产业链 ──
+    directive_path = ws / "p0_judge_directive.json"
+    judge_symbols = None
+    judge_chains = None
+    if directive_path.exists():
+        try:
+            with open(directive_path) as f:
+                directive = json.load(f)
+            dd = directive.get("data", directive)  # 可能是 data 字段包裹
+            if "debate_symbols" in dd:
+                judge_symbols = [s.get("symbol", s) if isinstance(s, dict) else s
+                                 for s in dd["debate_symbols"]]
+            if "chains_to_analyze" in dd:
+                judge_chains = dd["chains_to_analyze"]
+            print(f"  🔗 读取闫判官指令: {len(judge_symbols or [])} 品种, "
+                  f"{len(judge_chains or [])} 产业链")
+        except Exception as e:
+            print(f"  ⚠️ 读取闫判官指令失败: {e}")
+
+    # 用闫判官指令中的品种（如有）
+    effective_symbols = judge_symbols or symbols
+
+    if not _CHAIN_SCRIPT.exists():
+        print(f"  🔗 链证源分析 (品种列表): {sym_str}")
+    elif scan_path and Path(scan_path).exists():
+        # 如果 scan 可用，从 scan 读取品种列表
+        try:
+            with open(scan_path) as f:
+                scan_data = json.load(f)
+            all_syms = [r.get("symbol") for r in scan_data.get("all_ranked", [])
+                       if r.get("symbol")]
+            if all_syms:
+                cmd += ["--symbols", ",".join(all_syms)]
+                print(f"  🔗 链证源分析 (从scan解析): {len(all_syms)} 品种")
+            else:
+                print("  ⚠️ scan 无品种数据，跳过链分析")
+                return None
+        except Exception as e:
+            print(f"  ⚠️ 读取 scan 失败: {e}")
+            return None
+    else:
+        print("  ⚠️ 无品种数据，跳过链分析")
+        return None
+
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if r.returncode != 0:
+            print(f"  ⚠️ 链分析返回 {r.returncode}: {r.stderr[:200]}")
+            return None
+        raw = r.stdout
+        start = raw.find("{")
+        if start < 0:
+            print("  ⚠️ 链分析 stdout 无 JSON")
+            return None
+        data = json.loads(raw[start:])
+        chain_results = data.get("chain_results", {})
+        ws.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"  ✅ 链证源分析完成: {len(chain_results)} 品种, 已写入 {out_path}")
+        return chain_results
+    except subprocess.TimeoutExpired:
+        print("  ⚠️ 链分析超时(180s)")
+        return None
+    except Exception as e:
+        print(f"  ⚠️ 链分析异常: {e}")
+        return None
+
+
+def _build_chain_prompt_snippet(chain_info: dict | None) -> str:
+    """将单品种链分析结果格式化为 prompts 注入片段。"""
+    if not chain_info:
+        return "⚠️ 链证源数据不可用"
+    chain = chain_info.get("chain", "?")
+    members = chain_info.get("chain_members", [])
+    trend = chain_info.get("chain_trend", "?")
+    consistency = chain_info.get("chain_consistency", "?")
+    ts = chain_info.get("term_structure", "?")
+    basis = chain_info.get("basis", "?")
+    redundant = chain_info.get("redundant", False)
+    redundant_with = chain_info.get("redundant_with", "")
+    notes = chain_info.get("notes", [])
+    parts = [
+        f"所属产业链: {chain}",
+        f"链成员: {', '.join(members[:5])}{'...' if len(members) > 5 else ''}",
+        f"链趋势: {trend}, 链内一致性: {consistency}%",
+        f"期限结构: {ts}, 基差: {basis}",
+    ]
+    if redundant:
+        parts.append(f"【同链去重注意】与 {redundant_with} 高度相关，闫判官请注意冗余")
+    if notes:
+        parts.append(f"链备注: {'; '.join(notes[:3])}")
+    return " | ".join(parts)
+
+
+# ─────────────────────────────────────────────
 # 触发品种识别（信号检查闸门）
 # ─────────────────────────────────────────────
 def select_triggers(scan: dict, threshold: int) -> list:
@@ -170,8 +357,13 @@ def _adx_reversal_rule() -> str:
             "ADX高位(≥60)为过热警示；ADX不得作为致命伤，提及占比≤1/3。")
 
 
-def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict:
-    """产出标准化 spawn 计划 JSON（主管据此 spawn，spawn 本身仍是主管职责）。"""
+def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
+                     chain_data: dict | None = None) -> dict:
+    """产出标准化 spawn 计划 JSON（主管据此 spawn，spawn 本身仍是主管职责）。
+
+    架构: 闫判官先读信号 → 指定链分析品种+辩论范围 → 链分析/辩论 → 闫判官终裁
+    chain_data: 链证源分析结果 {symbol -> chain_info}，注入各 Agent prompt。
+    """
     ws = Path(workspace)
     plan = {"generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
              "data_benchmark": data_benchmark,
@@ -180,34 +372,86 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
                  "watch_semantics": "WATCH等级=监控观察信号，非直接触发；需结合辩论强度决定是否进候选。",
                  "confidence": "confidence由confidence_utils归一化，输出0-1数值或高/中/低标签均可，禁止任意裸字符串。",
              },
+             "chain_analysis": {
+                 "available": chain_data is not None,
+                 "file": str(ws / "p1_chain_analysis.json") if chain_data else "",
+                 "symbols_analyzed": list(chain_data.keys()) if chain_data else [],
+             },
+             "judge_directive": {
+                 "file": str(ws / "p0_judge_directive.json"),
+                 "description": "闫判官初判输出：指定产业链分析范围 + 辩论品种 + 辩论方向",
+             },
              # ─── 资源管理：分批执行指引 ───
+             # 闫判官驱动辩论：初判→链证源→观澜→辩论→终裁→审计→方案→风控
              "execution_phases": {
-                 "phase1": {"agents": ["technical"],
-                            "label": "P3 技术分析(观澜) + 研究员供弹",
-                            "max_concurrent": 5,
+                 "phase0": {"agents": ["judge_initial"],
+                            "label": "P0 闫判官初判(读信号→指定链+品种)",
+                            "max_concurrent": 1,
                             "depends_on": []},
-                 "phase2": {"agents": ["zhengzhen","zhensi"],
-                            "label": "P4 多空辩论(证真+慎思)",
+                 "phase1": {"agents": ["chain"],
+                            "label": "P1 链证源按需分析(读闫判官指令)",
+                            "max_concurrent": 1,
+                            "depends_on": ["phase0"],
+                            "auto_run": True},
+                 "phase2": {"agents": ["technical"],
+                            "label": "P2 观澜技术分析(闫判官选定品种)",
+                            "max_concurrent": 5,
+                            "depends_on": ["phase1"]},
+                 "phase3": {"agents": ["zhengzhen","zhensi"],
+                            "label": "P3 多空辩论(证真+慎思)",
                             "max_concurrent": 6,
                             "depends_on": []},
-                 "phase3": {"agents": ["judge"],
-                            "label": "P5a 闫判官裁决",
+                 "phase4": {"agents": ["judge"],
+                            "label": "P4a 闫判官终裁(读指令+链数据+辩论)",
                             "max_concurrent": 5,
-                            "depends_on": ["phase2"]},
-                 "phase4": {"agents": ["coherence"],
-                            "label": "P5b 一致性裁判审计",
+                            "depends_on": ["phase0","phase2","phase3"]},
+                 "phase5": {"agents": ["coherence"],
+                            "label": "P4b 一致性裁判审计",
                             "max_concurrent": 5,
-                            "depends_on": ["phase3"]},
-                 "phase5": {"agents": ["trading_plan"],
-                            "label": "P5c 策执远出方案(需读p3_technical+p5_judge)",
+                            "depends_on": ["phase4"]},
+                 "phase6": {"agents": ["trading_plan"],
+                            "label": "P5a 策执远出方案(需读p2+p4a)",
                             "max_concurrent": 5,
-                            "depends_on": ["phase1","phase3"]},
-                 "phase6": {"agents": ["risk"],
-                            "label": "P5d 风控明审核",
+                            "depends_on": ["phase2","phase4"]},
+                 "phase7": {"agents": ["risk"],
+                            "label": "P5b 风控明审核",
                             "max_concurrent": 5,
-                            "depends_on": ["phase5"]},
+                            "depends_on": ["phase6"]},
              },
              "symbols": []}
+
+    # ── P0 闫判官初判 prompt（单次 spawn，非逐品种）──
+    _all_sym_str = ", ".join([s.get("symbol", "?") for s in symbols])
+    _all_sym_details = "\n".join([
+        f"  {s.get('symbol','?'):6s} | {s.get('direction','?'):6s} | "
+        f"grade={s.get('grade','?'):8s} | total={s.get('total',0):+4d} | "
+        f"price={s.get('price',0)} | ADX={s.get('adx',0)}"
+        for s in symbols
+    ])
+    plan["judge_initial_prompt"] = (
+        f"你是闫判官(初判)，主持期货辩论专家团。\n"
+        f"数据基准: {data_benchmark}。\n"
+        f"以下为扫描检测出的触发品种（|total|≥阈值），请你阅后决定：\n"
+        f"1) 哪些产业链需要链证源深度分析（给出产业链名称列表）\n"
+        f"2) 哪些品种进入正式辩论（从触发品种中筛选）\n"
+        f"3) 每个辩论品种的主攻方向（多头/空头）\n"
+        f"4) 辩论的侧重点（技术/基本面/链联动）\n\n"
+        f"{_adx_reversal_rule()}\n\n"
+        f"触发品种列表（{len(symbols)}品种）:\n{_all_sym_details}\n\n"
+        f"【重要】输出到 {ws / 'p0_judge_directive.json'}，用 agent_output.write()：\n"
+        f"  import sys; sys.path.insert(0, r'{SCRIPTS}'); "
+        f"from agent_output import write as _write\n"
+        f"  _write('p0_judge_directive', 'all', {{\n"
+        f"      'agent': 'judge_initial',\n"
+        f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+        f"      'chains_to_analyze': ['str', ...],  # 需链分析的产业链\n"
+        f"      'debate_symbols': [\n"
+        f"          {{'symbol': 'str', 'direction': 'bull/bear', "
+        f"'focus': 'technical/fundamental/chain'}},\n"
+        f"      ],\n"
+        f"      'reasoning': 'str',\n"
+        f"  }})"
+    )
 
     for s in symbols:
         sym = s.get("symbol")
@@ -220,102 +464,176 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str) -> dict
         p5_t = ws / f"p5_trading_plan_{sym}.json"
         p5_c = ws / f"p5_coherence_{sym}.json"
         p5_r = ws / f"p5_risk_review_{sym}.json"
-        # P3 研究员产出（先于 P4/P5 spawn）
+        # P2 研究员产出（先于 P3/P4/P5 spawn）
         p3_tech = ws / f"p3_technical_{sym}.json"      # 观澜 · 支撑阻力
         p3_fund = ws / f"p3_fundamental_{sym}.json"    # 探源 · 基本面状态向量
 
-        # 证真（正方 = 信号方向）—— 输出格式必须严格匹配以下Schema
-        _p4_schema_zhengzhen = ('{"symbol":"str","direction":"str","agent":"zhengzhen","generated_at":"YYYY-MM-DD HH:MM",'
-                                '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
-                                '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
-        _p4_schema_zhensi = ('{"symbol":"str","direction":"str","agent":"zhensi","generated_at":"YYYY-MM-DD HH:MM",'
-                             '"key_arguments":[{"id":"str","claim":"str","evidence":"str","reasoning":"str",'
-                             '"family":"technical_general","confidence":"高/中/低","source":"str"}]}')
+        # ── 方案D：Agent 输出用 agent_output.write()，不碰 JSON 字符串 ──
+        _write_import = (
+            "import sys; sys.path.insert(0, r'{}')".format(
+                str(SCRIPTS)
+            ) + "; from agent_output import write as _write"
+        )
+
+        # ── 链证源数据注入（如有） ──
+        chain_info = (chain_data or {}).get(sym) or (chain_data or {}).get(sym.upper()) or (chain_data or {}).get(sym.lower())
+        chain_snippet = _build_chain_prompt_snippet(chain_info)
+
         zhengzhen_prompt = (
             f"你是证真(正方)辩手，论证品种 {sym} 的{direction}信号({grade})有效性。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
+            f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条{direction}论据，每条附来源标注。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema_zhengzhen}\n"
-            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_z}"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p4_zhengzhen', '{sym}', {{\n"
+            f"      'symbol': '{sym}', 'direction': '{direction}', 'agent': 'zhengzhen',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'key_arguments': [\n"
+            f"          {{'id': 'str', 'claim': 'str', 'evidence': 'str',\n"
+            f"            'reasoning': 'str', 'family': 'technical_general',\n"
+            f"            'confidence': '高/中/低', 'source': 'str'}},\n"
+            f"      ]\n"
+            f"  }})"
         )
         # 慎思（反方）
         zhensi_prompt = (
             f"你是慎思(反方)辩手，质疑品种 {sym} 的{direction}信号({grade})可靠性。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
+            f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条反向论据，每条附来源标注。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema（字段名/类型/结构完全一致），否则校验失败将导致重spawn：\n{_p4_schema_zhensi}\n"
-            f"写完用 SendMessage(recipient='main') 通知，并把论据写入 {p4_s}"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p4_zhensi', '{sym}', {{\n"
+            f"      'symbol': '{sym}', 'direction': '{direction}', 'agent': 'zhensi',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'key_arguments': [\n"
+            f"          {{'id': 'str', 'claim': 'str', 'evidence': 'str',\n"
+            f"            'reasoning': 'str', 'family': 'technical_general',\n"
+            f"            'confidence': '高/中/低', 'source': 'str'}},\n"
+            f"      ]\n"
+            f"  }})"
         )
-        # 闫判官输出Schema
-        _p5j_schema = ('{"agent":"judge","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
-                       '"verdict":"bull/bear/neutral","confidence":"高/中/低",'
-                       '"bull_score":0-100,"bear_score":0-100,"winner":"zhengzhen/zhensi",'
-                       '"reasoning":"str",'
-                       '"score_breakdown":{"technical":{"bull":0,"bear":0},"fundamental":{...},"sentiment":{...},'
-                       '"risk_reward":{...},"timing":{...},"chain_resonance":{...}}}')
+        # 闫判官（终裁 — 读取初判指令 + 辩论产出）
         judge_prompt = (
-            f"你是闫判官，裁决品种 {sym}（方向信号 {direction}/{grade}）。\n"
+            f"你是闫判官(终裁)，对品种 {sym} 做出最终裁决。\n"
             f"{_adx_reversal_rule()}\n"
-            f"读取 {p4_z} 与 {p4_s}，主持交叉质询后输出裁决到 {p5_j}。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema：\n{_p5j_schema}\n"
-            f"禁止向其他 Agent 发消息，仅读文件。"
-        )
-        # 观澜（技术面研究员）— P3 支撑阻力计算，先于 P4/P5 执行
-        technical_prompt = (
-            f"你是观澜(技术面研究员)，为品种 {sym} 计算支撑阻力位，写入 {p3_tech}。\n"
             f"数据基准: {data_benchmark}。\n"
+            f"【初判指令参考】请读取 {ws / 'p0_judge_directive.json'} 中你对 {sym} 的辩论方向设定。\n"
+            f"【链证源数据】{chain_snippet}\n"
+            f"读取 {p4_z} 与 {p4_s}，结合你初判的辩论方向，输出最终裁决。\n"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p5_judge', '{sym}', {{\n"
+            f"      'agent': 'judge',\n"
+            f"      'symbol': '{sym}',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'verdict': '',  # bull/bear/neutral\n"
+            f"      'confidence': '',  # 高/中/低\n"
+            f"      'bull_score': 0,  # 0-100\n"
+            f"      'bear_score': 0,  # 0-100\n"
+            f"      'winner': '',  # zhengzhen/zhensi\n"
+            f"      'reasoning': '',\n"
+            f"      'score_breakdown': {{\n"
+            f"          'technical': {{'bull': 0, 'bear': 0}},\n"
+            f"          'fundamental': {{}},\n"
+            f"          'sentiment': {{}},\n"
+            f"          'risk_reward': {{}},\n"
+            f"          'timing': {{}},\n"
+            f"          'chain_resonance': {{}},\n"
+            f"      }},\n"
+            f"  }})"
+        )
+        # 观澜（技术面研究员）— P3 支撑阻力计算
+        technical_prompt = (
+            f"你是观澜(技术面研究员)，为品种 {sym} 计算支撑阻力位。\n"
+            f"数据基准: {data_benchmark}。\n"
+            f"【链证源数据】{chain_snippet}\n"
             f"使用 technical_analysis.scripts.support_resistance 模块：\n"
             f"  - find_swing_points(): ZigZag找前高前低\n"
             f"  - identify_key_levels(): 硬/软分类 + ATR容差 + 失效条件\n"
             f"  - calculate_poc(): 成交量分布图(POC/VAH/VAL)\n"
             f"  - cross_validate_timeframes(): 多周期共振验证\n"
-            f"输出JSON Schema：\n"
-            f'{{"symbol":"str","agent":"technical_researcher","generated_at":"YYYY-MM-DD HH:MM",'
-            f'"support_levels":[{{"price":0.0,"hardness":"hard/medium/soft","atr_tolerance":0.0,'
-            f'"failure_condition":"str","tf_resonance":["daily/60min/15min"],"oi_confirm":true}}],'
-            f'"resistance_levels":[{{"price":0.0,"hardness":"hard/medium/soft","atr_tolerance":0.0,'
-            f'"failure_condition":"str","tf_resonance":["daily/60min/15min"],"oi_confirm":true}}],'
-            f'"poc":{{"price":0.0,"vah":0.0,"val":0.0}}}}\n'
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p3_technical', '{sym}', {{\n"
+            f"      'agent': 'technical_researcher',\n"
+            f"      'symbol': '{sym}',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'support_levels': [\n"
+            f"          {{'price': 0.0, 'hardness': 'hard/medium/soft',\n"
+            f"            'atr_tolerance': 0.0, 'failure_condition': '',\n"
+            f"            'tf_resonance': [], 'oi_confirm': True}},\n"
+            f"      ],\n"
+            f"      'resistance_levels': [\n"
+            f"          {{'price': 0.0, 'hardness': 'hard/medium/soft',\n"
+            f"            'atr_tolerance': 0.0, 'failure_condition': '',\n"
+            f"            'tf_resonance': [], 'oi_confirm': True}},\n"
+            f"      ],\n"
+            f"      'poc': {{'price': 0.0, 'vah': 0.0, 'val': 0.0}},\n"
+            f"  }})\n"
             f"注意：不下多空结论，不参与辩论，只提供技术位事实。\n"
             f"写完用 SendMessage(recipient='main') 通知。"
         )
-        # 策执远输出Schema
-        _p5t_schema = ('{"agent":"trading_planner","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
-                       '"direction":"bull/bear","action":"buy_long/sell_short","timeframe":"str",'
-                       '"contract":"str",'
-                       '"entry":{"type":"limit/market","price":0.0,"condition":"str"},'
-                       '"stop_loss":{"price":0.0,"type":"fixed/trailing/atr","atr_multiple":0},'
-                       '"targets":[{"level":1,"price":0.0,"position_reduce_pct":50}],'
-                       '"position_pct":0.0,"risk_reward_ratio":0.0}')
+        # 策执远
         strategist_profile = _load_strategist_profile()
         exp_inject = _strategist_experience_inject(strategist_profile)
         plan_prompt = (
-            f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案，写入 {p5_t}。\n"
-            f"【支撑阻力参考】观澜技术分析已输出到 {p3_tech}，内含：\n"
-            f"  - support_levels: 支撑位（hardness硬/软分类 + ATR容差 + 失效条件）\n"
-            f"  - resistance_levels: 阻力位（同上）\n"
-            f"  - poc: 成交量分布图（POC/VAH/VAL）\n"
-            f"止损应设在关键阻力/支撑位外延，目标应基于关键位之间的空间，参考上述数据。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema（entry和stop_loss是dict类型，不是纯数字）：\n{_p5t_schema}\n"
+            f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案。\n"
+            f"【链证源数据】{chain_snippet}\n"
+            f"【支撑阻力参考】观澜技术分析已输出到 {p3_tech}，内含支撑阻力位。\n"
+            f"止损应设在关键阻力/支撑位外延，目标应基于关键位之间的空间。\n"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p5_trading_plan', '{sym}', {{\n"
+            f"      'agent': 'trading_planner',\n"
+            f"      'symbol': '{sym}',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'direction': '',  # bull/bear\n"
+            f"      'action': '',  # buy_long/sell_short\n"
+            f"      'timeframe': '',\n"
+            f"      'contract': '',\n"
+            f"      'entry': {{'type': 'limit/market', 'price': 0.0, 'condition': ''}},\n"
+            f"      'stop_loss': {{'price': 0.0, 'type': 'fixed/trailing/atr', 'atr_multiple': 0}},\n"
+            f"      'targets': [{{'level': 1, 'price': 0.0, 'position_reduce_pct': 50}}],\n"
+            f"      'position_pct': 0.0,\n"
+            f"      'risk_reward_ratio': 0.0,\n"
+            f"  }})\n"
             f"监控条件不以ADX为首要触发，价格突破+量确认排第一。"
             f"{exp_inject}"
         )
         # 一致性裁判
         coherence_prompt = (
             f"你是一致性裁判，审计 {sym} 裁决是否真正源于辩论论据（不重写论据）。\n"
-            f"读取 {p4_z}/{p4_s}/{p5_j}，输出 coherence_score(0-100)+rationale 到 {p5_c}。"
+            f"读取 {p4_z}/{p4_s}/{p5_j}。\n"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p5_coherence', '{sym}', {{\n"
+            f"      'agent': 'coherence_auditor',\n"
+            f"      'symbol': '{sym}',\n"
+            f"      'coherence_score': 0,  # 0-100\n"
+            f"      'rationale': '',\n"
+            f"  }})"
         )
-        # 风控明输出Schema
-        _p5r_schema = ('{"agent":"risk_manager","symbol":"str","generated_at":"YYYY-MM-DD HH:MM",'
-                       '"risk_level":"高/中/低","veto":false,'
-                       '"risk_items":[{"category":"str","description":"str","mitigation":"str"}],'
-                       '"recommendation":"str"}')
+        # 风控明
         risk_prompt = (
             f"你是风控明，审核 {sym} 方案 {p5_t}。\n"
             f"ADX风险标记降级为辅助参考，不独立构成否决理由。\n"
-            f"【重要】输出JSON必须严格匹配以下Schema：\n{_p5r_schema}"
+            f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
+            f"  {_write_import}\n"
+            f"  _write('p5_risk_review', '{sym}', {{\n"
+            f"      'agent': 'risk_manager',\n"
+            f"      'symbol': '{sym}',\n"
+            f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
+            f"      'risk_level': '',  # 高/中/低\n"
+            f"      'veto': False,\n"
+            f"      'risk_items': [\n"
+            f"          {{'category': '', 'description': '', 'mitigation': ''}},\n"
+            f"      ],\n"
+            f"      'recommendation': '',\n"
+            f"  }})"
         )
 
         plan["symbols"].append({
@@ -544,9 +862,24 @@ def scan_chain(scan, sym):
 # 中间数据生成（给 phase3_generate_report.py 喂 all_actionable / chain_results / symbols_summary）
 # ─────────────────────────────────────────────
 def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
-    """从 scan 数据生成 phase3 报告器依赖的 intermediate_data.json"""
+    """从 scan 数据生成 phase3 报告器依赖的 intermediate_data.json
+
+    链分析数据优先从 p1_chain_analysis.json 读取，无则用 scan.chain 字段或硬编码映射。
+    """
     ws = Path(workspace)
     ranked = scan.get("all_ranked", [])
+
+    # ── 优先使用链证源分析产出 ──
+    chain_analysis_path = ws / "p1_chain_analysis.json"
+    chain_analysis_data = {}
+    if chain_analysis_path.exists():
+        try:
+            with open(chain_analysis_path) as f:
+                ca = json.load(f)
+                chain_analysis_data = ca.get("chain_results", {})
+                print(f"  🔗 链证源数据已加载: {len(chain_analysis_data)} 品种")
+        except Exception as e:
+            print(f"  ⚠️ 链证源数据读取失败: {e}")
 
     # 品种→产业链映射（scan没有chain字段时兜底）
     # 覆盖国内商品期货76+品种的核心产业链归属
@@ -578,13 +911,18 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
     }
 
     def _get_chain(sym: str) -> str:
-        """获取品种所属产业链"""
-        # 先试 scan 内置 chain 字段
+        """获取品种所属产业链 — 优先链证源 > scan.chain > 硬编码映射"""
+        # 1) 链证源分析（大小写不敏感）
+        for key in (sym, sym.upper(), sym.lower()):
+            ca = chain_analysis_data.get(key)
+            if ca and ca.get("chain"):
+                return ca["chain"]
+        # 2) scan 内置 chain 字段
         for s in ranked:
             c = s.get("chain", "")
             if c and s.get("symbol") == sym:
                 return c
-        # 再试映射表
+        # 3) 硬编码映射表兜底
         return SYMBOL_CHAIN_MAP.get(sym, "")
 
     # symbols_summary = 全量品种数据
@@ -697,22 +1035,45 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
             "last_price": entry,
         })
 
-    # chain_results — 从品种映射表构建产业链
+    # chain_results — 从品种映射表构建产业链（优先链证源数据）
     chain_results = {}
-    # 先收集每个品种的链
-    for s in ranked:
-        sym = s.get("symbol", "")
-        chain = _get_chain(sym)
-        if chain:
+    # 先用链证源数据构建链结构
+    if chain_analysis_data:
+        for sym, ca in chain_analysis_data.items():
+            chain = ca.get("chain", "")
+            if not chain:
+                continue
             if chain not in chain_results:
                 chain_results[chain] = {
                     "chain": chain,
                     "chain_name": chain,
-                    "chain_members": [],
-                    "members": [],
-                    "term_structure": "flat",
+                    "chain_members": list(ca.get("chain_members", [])),
+                    "members": list(ca.get("chain_members", [])),
+                    "chain_trend": ca.get("chain_trend", "?"),
+                    "chain_consistency": ca.get("chain_consistency", 0),
+                    "term_structure": ca.get("term_structure", "flat"),
+                    "basis": ca.get("basis", "?"),
                 }
+            # 确保该品种在 members 中
+            if sym not in chain_results[chain]["chain_members"]:
+                chain_results[chain]["chain_members"].append(sym)
+            if sym not in chain_results[chain]["members"]:
+                chain_results[chain]["members"].append(sym)
+    # 再补充扫描中未覆盖的品种
+    for s in ranked:
+        sym = s.get("symbol", "")
+        chain = _get_chain(sym)
+        if not chain:
+            continue
+        if chain not in chain_results:
+            chain_results[chain] = {
+                "chain": chain, "chain_name": chain,
+                "chain_members": [], "members": [],
+                "term_structure": "flat",
+            }
+        if sym not in chain_results[chain]["chain_members"]:
             chain_results[chain]["chain_members"].append(sym)
+        if sym not in chain_results[chain]["members"]:
             chain_results[chain]["members"].append(sym)
     # 如果链条数为0，至少把所有品种归到"未分类"
     if not chain_results:
@@ -809,14 +1170,26 @@ def run_a2a(workspace: str) -> int:
 # CLI
 # ─────────────────────────────────────────────
 def main():
+    if setup_logging is not None:
+        try:
+            setup_logging()
+        except Exception:
+            pass
     ap = argparse.ArgumentParser(description="FDT 辩论主动驱动层")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_plan = sub.add_parser("plan", help="产出标准化 spawn 计划 JSON")
     p_plan.add_argument("--scan", required=True)
     p_plan.add_argument("--workspace", required=True)
+    p_plan.add_argument("--no-cache", action="store_true",
+                        help="忽略辩论缓存，强制重新辩论")
     p_plan.add_argument("--check-resources", action="store_true",
                         help="spawn前调用 resource_watchdog 动态算并发数，不写死")
+    p_plan.add_argument("--mode", default="trigger",
+                        choices=["trigger", "all", "symbols"],
+                        help="辩论品种选择模式: trigger(默认,|total|≥阈值) / all(全品种) / symbols(指定品种)")
+    p_plan.add_argument("--symbols", default=None,
+                        help="指定辩论品种（逗号分隔），配合 --mode symbols 使用")
 
     p_fin = sub.add_parser("finalize", help="组装+萃取+报告（spawn 后收口）")
     p_fin.add_argument("--scan", required=True)
@@ -838,6 +1211,27 @@ def main():
     p_val = sub.add_parser("validate", help="仅信号复查")
     p_val.add_argument("--workspace", required=True)
     p_val.add_argument("--scan", help="scan JSON（可选，用于品种数交叉校验）")
+
+    p_deb = sub.add_parser("debate", help="直接辩论模式（跳过扫描，由品种列表驱动）")
+    deb_group = p_deb.add_mutually_exclusive_group(required=True)
+    deb_group.add_argument("--symbols", default=None,
+                           help="指定辩论品种（逗号分隔）")
+    deb_group.add_argument("--chain", default=None,
+                           help="指定产业链名称，辩论该链所有品种")
+    deb_group.add_argument("--all", action="store_true", dest="debate_all",
+                           help="强制辩论全品种")
+    p_deb.add_argument("--workspace", required=True,
+                       help="工作空间目录（已有scan则读取，否则生成虚拟计划）")
+    p_deb.add_argument("--scan", default=None,
+                       help="已有扫描JSON路径（可选，用于读取品种数据）")
+    p_deb.add_argument("--no-cache", action="store_true",
+                       help="忽略辩论缓存")
+    p_deb.add_argument("--check-resources", action="store_true",
+                       help="资源感知动态并发")
+
+    p_rep = sub.add_parser("repair", help="产出缺失产出的补辩计划（B4 失败重排）")
+    p_rep.add_argument("--scan", required=True)
+    p_rep.add_argument("--workspace", required=True)
 
     args = ap.parse_args()
     # 归一化路径（Git Bash /d/… → D:\…）
@@ -865,9 +1259,72 @@ def main():
     data_benchmark = derive_data_benchmark(scan)
 
     if args.cmd == "plan":
-        triggers = select_triggers(scan, threshold)
-        print(f"🔔 触发品种（|total|≥{threshold}）: {[t['symbol'] for t in triggers]}")
-        plan = build_spawn_plan(triggers, str(ws), data_benchmark)
+        # ── 模式选择：trigger（默认） / all（全品种） / symbols（指定品种）──
+        mode = getattr(args, "mode", "trigger")
+        if mode == "trigger":
+            triggers = select_triggers(scan, threshold)
+            print(f"🔔 触发品种（|total|≥{threshold}）: {[t['symbol'] for t in triggers]}")
+        elif mode == "all":
+            ranked = scan.get("all_ranked", [])
+            triggers = [s for s in ranked if s.get("grade") not in ("NOISE",)]
+            print(f"🔔 全品种辩论模式: {[t['symbol'] for t in triggers]} 共{len(triggers)}品种")
+        elif mode == "symbols":
+            raw = getattr(args, "symbols", None)
+            if not raw:
+                print("⛔ --mode symbols 需要 --symbols 参数")
+                sys.exit(1)
+            sym_set = {s.strip().upper() for s in raw.split(",")}
+            ranked = scan.get("all_ranked", [])
+            triggers = [s for s in ranked if s.get("symbol", "").upper() in sym_set]
+            missing = sym_set - {s.get("symbol", "").upper() for s in triggers}
+            if missing:
+                print(f"⚠️ 以下品种不在扫描结果中: {', '.join(sorted(missing))}")
+            print(f"🔔 指定品种辩论模式: {[t['symbol'] for t in triggers]}")
+        # ── B3 辩论缓存：同品种同日期跳过重辩 ──
+        if DebateCache is not None:
+            _cache = DebateCache()
+            if not getattr(args, "no_cache", False):
+                _cached = [t for t in triggers if _cache.get(t["symbol"]) is not None]
+                for t in _cached:
+                    print(f"  ⏩ {t['symbol']} 命中辩论缓存，跳过重辩")
+                triggers = [t for t in triggers if t["symbol"] not in {c["symbol"] for c in _cached}]
+        if not triggers:
+            print("✅ 全部命中缓存，无新辩论计划")
+            return
+        # ── 链证源分析（自动运行，数据注入 spawn prompts）──
+        _sym_list = [t["symbol"] for t in triggers]
+        _chain_data = run_chain_analysis(_sym_list, str(ws), scan_path=args.scan)
+        plan = build_spawn_plan(triggers, str(ws), data_benchmark, chain_data=_chain_data)
+        # ── B1 角色化 LLM 档案注入（约定层，供主管 spawn 参考）──
+        _profiles = _load_llm_profiles()
+        for item in plan["symbols"]:
+            for role, prompt in item["spawn_prompts"].items():
+                prof = _profiles.get(role)
+                if prof:
+                    item["spawn_prompts"][role] = (
+                        prompt + f"\n\n【模型建议·约定层】model={prof['model']} "
+                        f"temperature={prof['temperature']} max_tokens={prof['max_tokens']}"
+                        f"（供团队主管 spawn 时参考，平台支持 per-spawn 覆盖则生效）"
+                    )
+        # ── B2 Token 预算（plan 期预估护栏）──
+        if TokenBudget is not None:
+            _budget = TokenBudget()
+            try:
+                for item in plan["symbols"]:
+                    for role, prompt in item["spawn_prompts"].items():
+                        est, over_round, _ = _budget.consume(role, prompt)
+                        if over_round:
+                            print(f"  ⚠️ [{role}] prompt 预估 {est} token 超 per_round 阈值")
+            except BudgetExceeded as be:
+                print(f"  ⛔ {be} — 中止 plan")
+                sys.exit(2)
+            print(f"  💰 token 预算已用 {_budget.used} / 日上限 {_budget.daily}")
+        # ── C2 运行报告（plan 阶段写点）──
+        if RunReporter is not None:
+            _rep = RunReporter(run_id=f"FDT_plan_{datetime.now().strftime('%Y%m%d')}")
+            _rep.set(n_triggered_debates=len(plan["symbols"]))
+            _rep.mark_phase("plan")
+            _rep.flush()
         # ── 资源感知：动态调整并发数 ──
         if getattr(args, 'check_resources', False):
             try:
@@ -892,6 +1349,96 @@ def main():
             json.dump(plan, f, ensure_ascii=False, indent=2)
         print(f"📋 spawn 计划: {out}")
 
+    elif args.cmd == "debate":
+        """直接辩论模式：跳过扫描，由品种列表/产业链/全品种驱动。"""
+        # ── 解析品种列表 ──
+        from config.settings import SYMBOL_CHAIN_MAP
+        all_symbols = list(SYMBOL_CHAIN_MAP.keys())
+        resolved_symbols = []
+        if getattr(args, "debate_all", False):
+            resolved_symbols = all_symbols
+            src_desc = "全品种"
+        elif getattr(args, "chain", None):
+            chain = args.chain.strip().lower()
+            resolved_symbols = [s for s, c in SYMBOL_CHAIN_MAP.items()
+                                if c.lower() == chain]
+            if not resolved_symbols:
+                print(f"⛔ 未找到产业链 '{chain}'，可用链: {sorted(set(SYMBOL_CHAIN_MAP.values()))}")
+                sys.exit(1)
+            src_desc = f"产业链 {chain}"
+        elif getattr(args, "symbols", None):
+            raw = getattr(args, "symbols", "")
+            sym_set = {s.strip().upper() for s in raw.split(",")}
+            resolved_symbols = [s for s in all_symbols if s.upper() in sym_set]
+            missing = sym_set - {s.upper() for s in resolved_symbols}
+            if missing:
+                print(f"⚠️ 以下品种不在配置中，跳过: {', '.join(sorted(missing))}")
+            src_desc = f"指定品种"
+        else:
+            print("⛔ 必须指定 --symbols / --chain / --all 之一")
+            sys.exit(1)
+
+        if not resolved_symbols:
+            print("⛔ 没有可用品种，中止")
+            sys.exit(1)
+        print(f"🔔 直接辩论模式 ({src_desc}): {resolved_symbols} 共{len(resolved_symbols)}品种")
+
+        # ── 构建虚拟 trigger 条目（无扫描数据，使用 WATCH/neutral 占位）──
+        triggers = [{"symbol": s, "direction": "neutral",
+                      "grade": "WATCH", "total": 0} for s in resolved_symbols]
+        data_benchmark = datetime.now().strftime("%Y-%m-%d %H:%M") + " (直接辩论模式，无扫描数据)"
+
+        # ── 辩论缓存检查 ──
+        if DebateCache is not None:
+            _cache = DebateCache()
+            if not getattr(args, "no_cache", False):
+                _cached = [t for t in triggers if _cache.get(t["symbol"]) is not None]
+                for t in _cached:
+                    print(f"  ⏩ {t['symbol']} 命中辩论缓存，跳过重辩")
+                triggers = [t for t in triggers if t["symbol"] not in {c["symbol"] for c in _cached}]
+        if not triggers:
+            print("✅ 全部命中缓存，无新辩论计划")
+            return
+
+        # ── 链证源分析（直接辩论模式，用 --symbols）──
+        _sym_list = [t["symbol"] for t in triggers]
+        _chain_data = run_chain_analysis(
+            _sym_list, str(ws),
+            scan_path=getattr(args, 'scan', None),
+        )
+
+        # ── 沿用 plan 流程：build_spawn_plan + B1/B2/C2 ──
+        plan = build_spawn_plan(triggers, str(ws), data_benchmark, chain_data=_chain_data)
+        _profiles = _load_llm_profiles()
+        for item in plan["symbols"]:
+            for role, prompt in item["spawn_prompts"].items():
+                prof = _profiles.get(role)
+                if prof:
+                    item["spawn_prompts"][role] = (
+                        prompt + f"\n\n【模型建议·约定层】model={prof['model']} "
+                        f"temperature={prof['temperature']} max_tokens={prof['max_tokens']}"
+                    )
+        if TokenBudget is not None:
+            _budget = TokenBudget()
+            try:
+                for item in plan["symbols"]:
+                    for role, prompt in item["spawn_prompts"].items():
+                        est, over_round, _ = _budget.consume(role, prompt)
+                        if over_round:
+                            print(f"  ⚠️ [{role}] prompt 预估 {est} token 超 per_round 阈值")
+            except BudgetExceeded as be:
+                print(f"  ⛔ {be} — 中止 debate plan")
+                sys.exit(2)
+        if RunReporter is not None:
+            _rep = RunReporter(run_id=f"FDT_debate_{datetime.now().strftime('%Y%m%d')}")
+            _rep.set(n_triggered_debates=len(plan["symbols"]))
+            _rep.mark_phase("debate_plan")
+            _rep.flush()
+        out = ws / f"spawn_plan_{datetime.now().strftime('%Y%m%d_%H%M')}_debate.json"
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(plan, f, ensure_ascii=False, indent=2)
+        print(f"📋 spawn 计划（直接辩论）: {out}")
+
     elif args.cmd == "assemble":
         out = assemble(scan, str(ws), data_benchmark)
         generate_intermediate_data(scan, str(ws), data_benchmark)
@@ -899,13 +1446,54 @@ def main():
             sys.exit(1)
 
     elif args.cmd == "finalize":
-        out = assemble(scan, str(ws), data_benchmark)
+        # ── A2 阶段隔离：任一阵营失败不整轮崩，标记 partial 继续 ──
+        try:
+            out = assemble(scan, str(ws), data_benchmark)
+        except Exception as e:
+            print(f"  ⛔ assemble 异常: {e}")
+            if RunReporter is not None:
+                RunReporter().add_error("assemble", e)
+            sys.exit(1)
         generate_intermediate_data(scan, str(ws), data_benchmark)
+        # ── B3 辩论结果缓存回填（供后续 plan 跳过重辩）──
+        if DebateCache is not None:
+            try:
+                _cache = DebateCache()
+                for sym, v in (out or {}).get("verdicts", {}).items():
+                    _cache.put(sym, v)
+            except Exception:
+                pass
+        # ── B4 失败重排：缺产出品种生成补辩计划 ──
+        _repair = _emit_repair_plan(scan, str(ws), data_benchmark)
+        if _repair:
+            print(f"  🔧 补辩计划（缺失产出）: {_repair}")
         if run_validate(str(ws), args.scan) != 0:
             sys.exit(1)
-        run_extract(str(ws))
-        run_report(str(ws))
-        run_a2a(str(ws))
+        try:
+            run_extract(str(ws))
+        except Exception as e:
+            print(f"  ⚠️ 萃取异常（跳过）: {e}")
+        try:
+            run_report(str(ws))
+        except Exception as e:
+            print(f"  ⚠️ 报告异常（跳过）: {e}")
+        try:
+            run_a2a(str(ws))
+        except Exception as e:
+            print(f"  ⚠️ A2A 导出异常（跳过）: {e}")
+        # ── C2 运行报告 ──
+        if RunReporter is not None:
+            _rep = RunReporter(run_id=f"FDT_finalize_{datetime.now().strftime('%Y%m%d')}")
+            _rep.set(n_triggered_debates=len((out or {}).get("verdicts", {})))
+            _rep.mark_phase("finalize")
+            _rep.flush()
+
+    elif args.cmd == "repair":
+        rp = _emit_repair_plan(scan, str(ws), data_benchmark)
+        if rp:
+            print(f"🔧 补辩计划: {rp}")
+        else:
+            print("✅ 无缺失产出，无需补辩")
 
 
 if __name__ == "__main__":

@@ -325,8 +325,9 @@ def main():
     price_dict = build_price_dict(l1l4)
 
     print(f"总品种数: {len(symbol_map)}")
-    print(f"L1L4 多头: {summary['_meta']['l1l4_bull']}, 空头: {summary['_meta']['l1l4_bear']}")
-    print(f"Factor 多头: {summary['_meta']['factor_bull']}, 空头: {summary['_meta']['factor_bear']}")
+    _meta = summary.get("_meta", {})
+    print(f"L1L4 多头: {_meta.get('l1l4_bull', _meta.get('bull', 0))}, 空头: {_meta.get('l1l4_bear', _meta.get('bear', 0))}")
+    print(f"Factor 多头: {_meta.get('factor_bull', 0)}, 空头: {_meta.get('factor_bear', 0)}")
     print()
 
     # 2. 产业链聚类
@@ -341,7 +342,7 @@ def main():
     # === 报告1：策略报告 ===
     strategy_report = []
     strategy_report.append("# 链证源策略报告 — 给闫判官参考辩论方向\n")
-    strategy_report.append(f"**数据来源**: scan_all.py --dual 扫描结果 | **日期**: 2026-07-05\n")
+    strategy_report.append(f"**数据来源**: 数技源 channel_breakout + 观澜 L1-L4 扫描结果 | **日期**: 2026-07-05\n")
     strategy_report.append("---\n")
 
     for chain_name in sorted(chain_data.keys()):
@@ -375,7 +376,7 @@ def main():
     # === 报告2：产业链分析报告 ===
     analysis_report = []
     analysis_report.append("# 链证源产业链分析报告 — 给闫判官做辩论品种取舍\n")
-    analysis_report.append(f"**数据来源**: scan_all.py --dual 扫描结果 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
+    analysis_report.append(f"**数据来源**: 数技源 channel_breakout + 观澜 L1-L4 扫描结果 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
     analysis_report.append("---\n")
 
     # 冗余排除建议

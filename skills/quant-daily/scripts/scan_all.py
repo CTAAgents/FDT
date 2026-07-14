@@ -4,14 +4,12 @@
 =================================
 默认：单策略通道突破（strategies/channel_breakout_strategy.py）
   唐奇安DC20/DC55 + 布林带确认的双通道突破识别
-可选：--dual 双策略模式（主策略 + L1-L4研究员辅助）
-  或 --strategy three_signal 三类信号
+  （L1-L4 技术分析已迁至 technical-analysis/scripts/run_l1l4_scan.py；
+   五因子基本面已迁至 fundamental-data-collector/scripts/run_factor_timing_scan.py）
 
 用法：
   python scan_all.py                                          # 通道突破（默认单策略）
-  python scan_all.py --dual                                   # 双策略（含L1-L4辅助）
   python scan_all.py --strategy three_signal                  # 三类信号
-  python scan_all.py --strategy layered_l1l4                  # L1-L4分层
   python scan_all.py --strategy my_new_strategy [--symbols PK,RB]
   python scan_all.py --list-strategies                        # 列出所有策略
 """
@@ -134,71 +132,10 @@ def _split_symbol_contract(sym: str):
     return m.group(1), m.group(2)
 
 
-# ── P0-4 信号重校验门禁常量 ──
-_BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
-_SPIKE_RETURN_CAP_LOCAL = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
-
-
-def _revalidate_breakouts(all_ranked: list, kline_data: dict) -> int:
-    """P0-4：突破类信号重校验门禁（防御伪造突破的最后闸门）。
-
-    对每个突破类信号，用原始K线回验：末根是否真实穿越前20根极值。
-    - 未穿越（末根high/close均未超前20根极值）→ 伪突破
-    - 穿越幅度 >50%（如100×spike漏过sanitize的退化场景）→ 疑似spike伪造
-    命中则降级 signal_type=false_breakout / grade=NOISE / total=0。
-    返回降级计数。
-    """
-    demoted = 0
-    for r in all_ranked:
-        sig = r.get("signal_type", "")
-        if sig not in _BREAKOUT_SIGNALS:
-            continue
-        sym = r.get("symbol", "")
-        if sym not in kline_data:
-            continue
-        _, dlist = kline_data[sym]
-        if len(dlist) < 21:
-            continue
-        prior = dlist[-21:-1]  # 前20根（排除候选突破根本身）
-        last = dlist[-1]
-        try:
-            last_high = float(last.get("high", 0))
-            last_low = float(last.get("low", 0))
-            last_close = float(last.get("close", 0))
-            prior_max_h = max(float(x.get("high", 0)) for x in prior)
-            prior_min_l = min(float(x.get("low", 0)) for x in prior)
-            prior_max_c = max(float(x.get("close", 0)) for x in prior)
-            prior_min_c = min(float(x.get("close", 0)) for x in prior)
-        except (ValueError, TypeError):
-            continue
-        direction = r.get("direction", "")
-        forged = False
-        reason = ""
-        if direction == "bull":
-            broke = (last_high > prior_max_h) or (last_close > prior_max_c)
-            if not broke:
-                forged = True
-                reason = "末根high/close均未超前20根极值(伪突破)"
-            elif prior_max_h > 0 and (last_high / prior_max_h - 1.0) > _SPIKE_RETURN_CAP_LOCAL:
-                forged = True
-                reason = f"末根high超前期{(last_high / prior_max_h - 1) * 100:.0f}%>50%(疑似spike伪造)"
-        elif direction == "bear":
-            broke = (last_low < prior_min_l) or (last_close < prior_min_c)
-            if not broke:
-                forged = True
-                reason = "末根low/close均未破前20根极值(伪突破)"
-            elif prior_min_l > 0 and (prior_min_l / last_low - 1.0) > _SPIKE_RETURN_CAP_LOCAL:
-                forged = True
-                reason = f"末根low破前期{(prior_min_l / last_low - 1) * 100:.0f}%>50%(疑似spike伪造)"
-        if forged:
-            demoted += 1
-            r["signal_type"] = "false_breakout"
-            r["grade"] = "NOISE"
-            r["total"] = 0
-            r["_breakout_revalidated"] = False
-            r["_revalidate_reason"] = reason
-            print(f"  ⛔ [P0-4] {sym} 突破信号被重校验拦截: {reason} → 降级NOISE")
-    return demoted
+# ── P0-4 信号重校验门禁已迁至 signals/validators/p0_4_raw_kline.py ──
+# 原 _revalidate_breakouts 逻辑现由 signals.validators.run_signal_validators 按
+# config.settings.SIGNAL_VALIDATOR_MAP 路由调用（范式↔验证器声明式框架）。
+# 见 design/signal_paradigm_validator_framework.md 与 technical_debt.md §5。
 
 
 def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contract=None, period="daily"):
@@ -238,27 +175,24 @@ def run_scan(
     symbols: list = None,
     mode: str = "layered",
     strategy_name: str = None,
-    dual: bool = False,
     seed: int = None,
     contract: str = None,
     period: str = "daily",
     window_mode: str = "fixed",
+    enable_filter: bool = True,
 ) -> dict:
     """执行品种信号扫描，返回结果字典。
+    
+    enable_filter: 是否启用P0-4伪信号过滤，默认开启。False时跳过验证器管道。
+    
 
     策略层已独立到 strategies/ 目录，新增策略仅需:
       1. 在 strategies/ 下新建 .py 实现 BaseStrategy
       2. registry.py 自动注册
 
     参数：
-        strategy_name: 策略名。None → 使用 mode 映射（向后兼容）
-            "layered" → "layered_l1l4" (默认)
-            "true_layered" → "true_layered"
-            "compare" → 保留旧行为（双模式对比打印）
-        mode: 旧版参数，保留向后兼容。新代码请用 strategy_name。
+        strategy_name: 策略名。None → 默认 channel_breakout（唐奇安DC20/DC55+布林带）
         symbols: [(sym, name), ...] 格式。None → 全品种。
-        dual: 双策略模式。True 时同时运行 layered_l1l4 + factor_timing，
-              各输出一份独立的 JSON+HTML 报告。
 
     参数校验：
     - symbols必须为[(sym, name), ...]格式
@@ -289,7 +223,7 @@ def run_scan(
         _fp = generate_fingerprint(
             strategy_params={
                 "strategy": strategy_name or mode,
-                "dual": dual,
+                "dual": False,
                 "symbols_count": len(symbols) if symbols else None,
             },
             seed=seed,
@@ -299,37 +233,7 @@ def run_scan(
         _fp = f"FDB_v4.4_noseed_{date.today().strftime('%Y%m%d')}"
 
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
-    if dual:
-        print(f"\n{'=' * 60}")
-        print(f"  通道突破 + 研究员原始数据模式")
-        print(f"{'=' * 60}")
-        # 主策略: 通道突破（唐奇安DC20/DC55 + 布林带确认）
-        result_a = run_scan(
-            output_dir=output_dir,
-            output_prefix=f"{output_prefix}_channel_breakout",
-            symbols=symbols,
-            strategy_name="channel_breakout",
-            dual=False,
-            seed=seed,
-        )
-        # 研究员辅助数据（原始指标，不做策略打分）
-        print(f"\n  [研究员辅助] 导出L1-L4原始指标数据（供观澜技术分析）...")
-        result_b = run_scan(
-            output_dir=output_dir,
-            output_prefix=f"{output_prefix}_l1l4",
-            symbols=symbols,
-            strategy_name="layered_l1l4",
-            dual=False,
-            seed=seed,
-        )
-        print(f"\n{'=' * 60}")
-        print(f"  完成:")
-        meta_a = result_a.get("_meta", {})
-        st = meta_a.get("signal_types", {})
-        print(f"    通道突破: {st.get('channel_breakout',0)}通道突破 / {st.get('trend_confirmation',0)}趋势确认 / {st.get('bb_squeeze_prebreakout',0)}挤压预警")
-        print(f"    → 所有通道突破品种交由闫判官辩论")
-        print(f"{'=' * 60}")
-        return {"_meta": {"mode": "dual", "channel_breakout": meta_a}}
+    # ── 单策略模式（默认 channel_breakout 通道突破）──
     # ── 参数合法性校验 ──
     import re
 
@@ -353,7 +257,6 @@ def run_scan(
     scan_scope = "自定义品种" if symbols else "全品种"
     mode_labels = {
         "layered": "L1-L4原始指标(研究员辅助)",
-        "true_layered": "真分层打分(portfolio sort)",
         "compare": "双模式对比",
     }
     mode_label = mode_labels.get(mode, f"未知模式({mode})")
@@ -393,9 +296,9 @@ def run_scan(
     # ── Step 2: 指标计算 ──
     print(f"\n[2] 指标计算...")
 
-    # ── 解析策略名（向后兼容 mode → strategy_name） ──
+    # ── 解析策略名（单一策略：通道突破；layered_l1l4/factor_timing/true_layered 已迁出独立 skill）──
     if strategy_name is None:
-        strategy_name = {"layered": "layered_l1l4", "true_layered": "true_layered"}.get(mode, "layered_l1l4")
+        strategy_name = "channel_breakout"
 
     print(
         f"  → 策略: {strategy_name} ({list_strategies()[strategy_name]['display'] if strategy_name in list_strategies() else '?'})"
@@ -486,45 +389,7 @@ def run_scan(
             ],
         }
         summary = raw_package
-    # ── compare 模式: 运行两个策略并对比 ──
-    if mode == "compare":
-        print("\n  → compare模式: 同时运行 layered_l1l4 + true_layered")
-        from strategies import get_strategy as _gs
-
-        strat_a = _gs("layered_l1l4")
-        strat_b = _gs("true_layered")
-        summary_a = strat_a.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
-        summary_b = strat_b.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data)
-
-        # 打印对照表
-        ar_a = summary_a["all_ranked"]
-        ar_b = summary_b["all_ranked"]
-        print(f"\n── compare模式: L1-L4 vs True Layered 排名对照 ──")
-        print(f"{'':─^60}")
-        print(f"{'#':>3} {'品种':<8} {'L1-L4':>8} {'#':>3} {'品种':<8} {'TL净排':>8}")
-        print(f"{'─':─^60}")
-        for i in range(min(15, len(ar_a), len(ar_b))):
-            ra = ar_a[i] if i < len(ar_a) else None
-            rb = ar_b[i] if i < len(ar_b) else None
-            la = f"{i + 1:>3} {ra['symbol']:<8} {ra.get('total', 0):>+8.0f}" if ra else ""
-            lb = f"{i + 1:>3} {rb['symbol']:<8} {rb.get('total', 0):>+8.0f}" if rb else ""
-            print(f"{la}  {lb}")
-        print(f"{'':─^60}")
-        summary = {**summary_a, "true_layered_detail": summary_b}
-        print(f"\n完成: {len(ar_a)}品种(L1-L4) + {len(ar_b)}品种(TL)")
-        # compare 模式也输出JSON (但HTML只含L1-L4)
-        # 后续HTML渲染用 summary_a
-        summary_merged = {
-            "_meta": {**summary_a["_meta"], "mode": "compare"},
-            "bull_signals": summary_a["bull_signals"],
-            "bear_signals": summary_a["bear_signals"],
-            "all_ranked": summary_a["all_ranked"],
-            "true_layered_detail": summary_b,
-        }
-        summary = summary_merged
-    else:
-        # ── 正常模式: 使用指定策略打分 ──
-        # ── 制度感知: 计算全市场制度 → 注入制度预设参数 ──
+        # ── 正常模式: 使用指定策略打分（默认 channel_breakout 通道突破）──
         try:
             from optimizer.regime import compute_market_regime
             from config.settings import apply_regime, current_regime
@@ -542,33 +407,35 @@ def run_scan(
             clear_param_overrides()
         except Exception:
             pass
-        # ── P0-4 信号重校验门禁（防御伪造突破的最后闸门）──
-        _demoted = _revalidate_breakouts(summary.get("all_ranked", []), kline_data)
-        if _demoted:
-            print(f"\n  [P0-4] 信号重校验门禁: {_demoted} 个伪突破信号被拦截降级为NOISE")
-        # ── 方向三：信号验证管道（稳定性检查 + 拥挤度压制）──
-        _signal_stats = {}
-        try:
-            from validate_signals import validate_all
-            _all_ranked = summary.get("all_ranked", [])
-            _filtered, _signal_stats = validate_all(_all_ranked)
-            summary["all_ranked"] = _filtered
-            # 也过滤 bear/bull 信号列表
-            for _side in ("bear_signals", "bull_signals"):
-                _sig_ids = {r["symbol"]
-                            for r in _filtered
-                            if r.get("grade") not in ("NOISE",)
-                            and r.get("direction") == _side.replace("_signals", "")}
-                summary[_side] = [r for r in summary.get(_side, [])
-                                  if r.get("symbol") in _sig_ids]
-        except Exception:
-            pass
-        if _signal_stats.get("total_suppressed", 0) > 0:
-            sd = _signal_stats["stability_demoted"]
-            cs = _signal_stats["crowding_suppressed"]
-            print(f"\n  [信号验证] 稳定性降级{sd} + 拥挤压制{cs} = "
-                  f"共{_signal_stats['total_suppressed']}个噪声被剔除 "
-                  f"({_signal_stats['active_signals_before']}→{_signal_stats['active_signals_after']})")
+        # ── 信号验证管道: 范式↔验证器 声明式路由（V1 P0-4 + V2~V7）──
+        # 架构: 每个 signal_type 在 config.settings.SIGNAL_VALIDATOR_MAP 声明该跑哪些验证器，
+        #       由 signals.validators.run_signal_validators 统一编排。未来加验证器 = 注册+登记一行。
+        if enable_filter:
+            try:
+                from signals.validators import run_signal_validators, ValidationContext
+                from signals import paradigms  # 确保 P1~P4 范式注册（元信息/映射索引）
+                _all_ranked = summary.get("all_ranked", [])
+                ctx = ValidationContext(kline_data=kline_data, higher_tf={})
+                run_signal_validators(_all_ranked, ctx)
+                summary["all_ranked"] = _all_ranked
+                # 同步 bear/bull 信号列表（剔除已降级为 NOISE 的品种）
+                for _side in ("bear_signals", "bull_signals"):
+                    _sig_ids = {r["symbol"]
+                                for r in _all_ranked
+                                if r.get("grade") not in ("NOISE",)
+                                and r.get("direction") == _side.replace("_signals", "")}
+                    summary[_side] = [r for r in summary.get(_side, [])
+                                      if r.get("symbol") in _sig_ids]
+                _demoted_p04 = sum(1 for r in _all_ranked if r.get("_revalidate_reason"))
+                _demoted_total = sum(1 for r in _all_ranked if r.get("_validator_demoted"))
+                _active = sum(1 for r in _all_ranked if r.get("grade") not in ("NOISE",))
+                if _demoted_p04:
+                    print(f"\n  [P0-4] 信号重校验门禁: {_demoted_p04} 个伪突破信号被拦截降级为NOISE")
+                print(f"\n  [信号验证] 验证器共降级 {_demoted_total} 个信号（活跃 {_active} / 总 {len(_all_ranked)}）")
+            except Exception as _ve:
+                print(f"  ⚠️ [信号验证] 验证器管道异常，跳过验证: {_ve}")
+        else:
+            print("  [过滤] P0-4 伪信号过滤已禁用（--disable-filter），全部信号保留")
         print(
             f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}"
         )
@@ -611,37 +478,61 @@ def run_scan(
             )
 
         # ── 写入文件（如指定output_dir） ──
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-        json_path = os.path.join(output_dir, f"{output_prefix}_{today_str}.json")
-        _atomic_write(json_path, summary, mode="json")
-        print(f"\n📊 JSON: {json_path}")
-
-        # ── 数据追踪（供自优化器用，静默失败） ──
+        _reporter = None
         try:
-            from optimizer.data_tracker import record_scan
-            scan_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-            for r in all_ranked:
-                record_scan(
-                    symbol=r.get("symbol", ""),
-                    period=period,
-                    scan_time=scan_time,
-                    signal_type=r.get("signal_type", "unknown"),
-                    total_score=r.get("total", 0),
-                    grade=r.get("grade", "NOISE"),
-                    price=r.get("price", 0),
-                    adx=r.get("adx", 0),
-                    atr=r.get("atr", 0),
-                    rsi=r.get("rsi", 50),
-                )
+            import sys as _sys
+            _sroot = str(Path(__file__).resolve().parents[3] / "scripts")
+            if _sroot not in _sys.path:
+                _sys.path.insert(0, _sroot)
+            from run_reporter import RunReporter
+            from logutil import setup_logging
+            setup_logging()
+            _reporter = RunReporter(run_id=f"FDT_scan_{today_str}")
+            _reporter.set(
+                n_symbols_scanned=len(all_ranked),
+                n_signals=sum(1 for r in all_ranked if r.get("grade") not in ("NOISE",)),
+            )
         except Exception:
-            pass  # 数据追踪是可选功能，不可用时静默跳过
+            pass
+        if output_dir:
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+                json_path = os.path.join(output_dir, f"{output_prefix}_{today_str}.json")
+                _atomic_write(json_path, summary, mode="json")
+                print(f"\n📊 JSON: {json_path}")
+            except Exception as e:
+                print(f"  ⚠️ [写JSON] 失败（降级继续）: {e}")
+                if _reporter is not None:
+                    _reporter.add_error("write_json", e)
+            # ── 数据追踪（供自优化器用，静默失败） ──
+            try:
+                from optimizer.data_tracker import record_scan
+                scan_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+                for r in all_ranked:
+                    record_scan(
+                        symbol=r.get("symbol", ""),
+                        period=period,
+                        scan_time=scan_time,
+                        signal_type=r.get("signal_type", "unknown"),
+                        total_score=r.get("total", 0),
+                        grade=r.get("grade", "NOISE"),
+                        price=r.get("price", 0),
+                        adx=r.get("adx", 0),
+                        atr=r.get("atr", 0),
+                        rsi=r.get("rsi", 50),
+                    )
+            except Exception:
+                pass  # 数据追踪是可选功能，不可用时静默跳过
+        # ── C2 运行报告 flush ──
+        if _reporter is not None:
+            _reporter.mark_phase("scan")
+            _reporter.flush()
 
         # HTML — 交互式排序表格
         import json as _json
 
         # ── 策略感知列模板：根据实际策略输出字段动态选择 ──
-        _actual_strategy = meta.get("strategy", strategy_name or "layered_l1l4")
+        _actual_strategy = meta.get("strategy", strategy_name or "channel_breakout")
 
         if _actual_strategy in ("channel_breakout", "three_signal"):
             # ── 通道突破/三类信号专用列 ──
@@ -655,6 +546,7 @@ def run_scan(
                         "price": _sv(r,"price"),
                         "chg": _sv(r,"change_pct"),
                         "total": _sv(r,"total"),
+                        "raw_total": _sv(r,"_raw_total", _sv(r,"total")),  # 拦前原始总分
                         "sig": _sv(r,"signal_type","-"),
                         "dc20": _sv(r,"dc20","-"),
                         "dc55": _sv(r,"dc55","-"),
@@ -671,14 +563,15 @@ def run_scan(
             )
             _cols = [
                 ("#",1), ("品种",0), ("名称",0), ("方向",0),
-                ("价格",1), ("涨跌",1), ("总分",1),
+                ("价格",1), ("涨跌",1), ("总分",1), ("拦前分",1),
                 ("信号类型",0), ("DC20",0), ("DC55",0), ("布林带",0), ("量比",1),
                 ("ADX",1), ("RSI",1), ("等级",0)
             ]
             _col_desc = """
 <p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（通道突破策略）</p>
 <table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
-<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">DC20+DC55+布林带+量价+ADX调整（拦后=0表示P0-4伪突破拦截）</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
+<tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">拦前分</td><td style="padding:3px 8px;color:#f59e0b">P0-4/验证器降级前的原始总分（仅拦后=0时显示，非0=有分被拦截）</td><td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">信号类型</td><td style="padding:3px 8px;color:#9ca3af">channel_breakout(突破) / trend_confirmation(趋势确认) / bb_squeeze_prebreakout(挤压预警)</td><td style="padding:3px 8px;color:#6b7280">三种</td></tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC20</td><td style="padding:3px 8px;color:#9ca3af">唐奇安20周期通道方向: bull(多头) / bear(空头) / flat(持平)</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
 <tr style="border-top:1px solid #2a2d3a20"><td style="padding:3px 8px;color:#e5e7eb">DC55</td><td style="padding:3px 8px;color:#9ca3af">唐奇安55周期中长期趋势方向</td><td style="padding:3px 8px;color:#6b7280">bull/bear/flat</td></tr>
@@ -694,6 +587,7 @@ def run_scan(
     function(d){return d.price;},
     function(d){return d.chg;},
     function(d){return d.total;},
+    function(d){return d.raw_total;},
     function(d){return String(d.sig);},
     function(d){return String(d.dc20);},
     function(d){return String(d.dc55);},
@@ -892,8 +786,12 @@ function render() {{
         h += '<td style="font-weight:700">'+d.sym+'</td><td>'+d.name+'</td><td>'+dt+'</td>';
         h += '<td style="text-align:right">'+d.price.toFixed(0)+'</td><td style="text-align:right;color:'+cc+'">'+(d.chg>0?'+':'')+d.chg.toFixed(1)+'%</td>';
         h += '<td style="text-align:center;font-weight:700;color:'+tc+'">'+(d.total>0?'+':'')+d.total+'</td>';
+        // 拦前分：0=伪突破降级，非0=原始分
+        var rc = (d.raw_total !== undefined && d.total === 0 && d.raw_total !== 0) ? '#f59e0b' : '#6b7280';
+        var rv = (d.raw_total !== undefined && d.total === 0) ? (d.raw_total>0?'+':'')+d.raw_total : '-';
+        h += '<td style="text-align:center;color:'+rc+'">'+rv+'</td>';
         // 策略感知渲染（使用_v的列映射）
-        for (var ci=7;ci<_v.length-1;ci++) {{
+        for (var ci=8;ci<_v.length-1;ci++) {{
             var val = _v[ci](d);
             h += '<td style="text-align:center;color:#9ca3af">'+val+'</td>';
         }}
@@ -982,8 +880,10 @@ if __name__ == "__main__":
         choices=["dry-run", "paper", "live", "dry-run", "paper", "live"],
     )
     parser.add_argument("--list-strategies", help="列出所有可用策略", action="store_true")
-    parser.add_argument("--dual", action="store_true", help="双策略模式：通道突破主策略 + L1-L4研究员辅助数据")
     parser.add_argument("--no-track", action="store_true", help="禁用自优化数据追踪")
+    parser.add_argument(
+        "--disable-filter", action="store_true", help="禁用P0-4伪信号过滤（默认开启过滤）"
+    )
     parser.add_argument(
         "--output-raw", action="store_true", help="纯数据模式：只采集K线+指标+持仓，不做策略打分（数技源专用）"
     )
@@ -998,8 +898,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.dual and args.strategy:
-        parser.error("--dual 和 --strategy 不能同时使用（--dual 已内置两个策略：channel_breakout + layered_l1l4）")
 
     if args.list_strategies:
         print("\n可用策略:")
@@ -1028,11 +926,11 @@ if __name__ == "__main__":
         symbols=custom_symbols,
         mode=args.mode,
         strategy_name=args.strategy,
-        dual=args.dual,
         seed=args.seed,
         contract=args.contract,
         period=args.period,
         window_mode=args.window_mode,
+        enable_filter=not args.disable_filter,
     )
 
     # Walk-Forward 回测模式

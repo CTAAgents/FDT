@@ -74,22 +74,22 @@ python scripts/scan_all.py --symbols PK,RB,B,UR
 
 ## Memory 记录规范
 
-每次运行 `--dual` 扫描后，自动向 `memory/debate_journal.json` 追加一条操作记录：
+每次运行通道突破扫描（`scan_all.py` 默认 channel_breakout）后，自动向 `memory/debate_journal.json` 追加一条操作记录：
 
 ```python
 from scripts.memory_writer import append_debate_journal
 
 append_debate_journal(
     agent="futures-datatech",
-    action="dual_scan",
+    action="channel_breakout_scan",
     data={
         "symbols": ["LH", "RB", "M"],
-        "l1l4": {"bull": 1, "bear": 2},
-        "factor": {"bull": 1, "bear": 1},
-        "output_files": ["reports/live_scan_l1l4_20260705.json", ...]
+        "output_files": ["reports/full_scan_summary_20260714.json"]
     }
 )
 ```
+
+> 注：L1-L4 与 factor_timing 明细由观澜/探源各自独立产出（run_l1l4_scan.py / run_factor_timing_scan.py），不在数技源本条记录范围内。
 
 ---
 

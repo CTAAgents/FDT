@@ -4,6 +4,135 @@
 
 ---
 
+## 2026-07-14 16:15 — 技术债 §2/§3 重构式迁移全案落地 + 版本 bump 6.3.0
+
+- **范围**：layered_l1l4 迁至 technical-analysis（观澜 `run_l1l4_scan.py`），factor_timing 迁至 fundamental-data-collector（探源 `run_factor_timing_scan.py`），scan_all.py 剥离二者仅留 channel_breakout
+- **策略注册表**：`strategies/` 仅余 channel_breakout + three_signal；`layered_l1l4.py` / `factor_timing.py` / `true_layered.py` 已删并注销
+- **scan_all.py 清理**：删 `--dual` 参数、`mode_labels` 去 true_layered、策略解析恒为 channel_breakout（消除 `--mode true_layered` KeyError 死路径）
+- **三生产者链路**：数技源 scan_all(`full_scan_summary_*`) + 观澜 run_l1l4_scan(`full_scan_l1l4_*`) + 探源 run_factor_timing_scan(`full_scan_factor_timing_*`)；`pipeline/runner.py step_scan()` + `scheduler/tasks.py daily_debate()` Step1 已重写为三生产者调用，`full_scan_summary` 文件名精确匹配下游
+- **文档全量重指**：agents(datatech/technical-researcher/chain-analyst) + docs(business_flow/harness/02-lifecycle) + `rules/futures-debate-team_rules.md` + 三 SKILL.md + 两 `data_interface.py` + chain 分析脚本防崩(`_meta` KeyError 容错)
+- **版本**：pyproject.toml 6.2.0→6.3.0；quant-daily 2.14→2.15 / technical-analysis 2.2→2.3 / fundamental-data-collector 1.3→1.4 / commodity-chain-analysis 2.15→2.16 / futures-trading-analysis 3.10→3.11
+- **验证**：6 个改动 .py py_compile 全过；全包 `--dual`/`true_layered` 仅剩历史/备份/注释残留，无活文档驱动；辩论流水线保持可用
+
+---
+
+## 2026-07-14 13:00 — 技术债 §1 收编落地（A' 执行完成）
+
+- **方案**: 收编进 `futures_data_core.indicators/`（FDC 体系内，不新建 skill；原方案 A 新建 futures-data-engine 经掌柜架构质疑废弃）
+- **新增文件**（FDC 内）：`indicators/tdx_compat.py`（calc_core 整份搬运）、`indicators/legacy_numpy.py`（_compute_indicators_numpy+safe_float）、`indicators/trend_maturity.py`（assess_trend_maturity 超集版）、`indicators/__init__.py` 统一 re-export（44 公开名）
+- **shim 改造**：quant-daily `calc_core.py`/`core.py`/`indicators_legacy.py` 改为 re-export；`tdx_bridge.py` 本就 FDC 依赖无需改；~20 importer 不动
+- **合并决策**：assess_trend_maturity 双副本经 byte-diff，legacy 版为超集（多 bb_squeeze/bb_width_pct/dc55_trend），采用 legacy 版为权威
+- **验证全过**：py_compile + 四路导入冒烟(符号 is 同源) + 数值回归单测 + 17 importer 结构回归 + 实跑 PK/RB/B/UR 指标管线正常
+- **零信号逻辑变更**：验证器/P0-4 未动
+
+---
+
+## 2026-07-14 12:40 — 技术债 §1 方案 A' 文档 v0.3 修订（review 采纳）
+
+- **触发**：掌柜 review `docs/design/tech_debt_s1_indicator_extraction_plan.md` 后采纳 5 项修正建议
+- **修正内容（v0.2→v0.3）**：
+  1. 行数误述：calc_core.py ~1700→2065、futures_data_core/indicators/core.py "—"→421（~16 基础指标）、取消"69KB/64KB/45 字段"旧描述
+  2. 双 core 误述：quant-daily `core.py` 非纯薄壳（L98 另定义 `assess_trend_maturity`），与 indicators_legacy.py:21 构成双副本
+  3. 术语矛盾：§2 表"反向依赖"改为"quant-daily→FDC 单向依赖" / "quant-daily 内部 import"
+  4. 新增 §6 步 1.5「双定义函数合并前 byte-diff」（必做，不一致则人工裁决）
+  5. 新增 §6 验证门 2.5「指标数值回归单测」（rsi/atr 容差 1e-6，捕捉搬移静默漂移）
+- **方向未变**：方案 A'（收编进 `futures_data_core.indicators`，不新建 skill、不改 sys.path）已确认，待掌柜授权"执行"
+
+---
+
+## 2026-07-14 12:06 — 项目规范文档落地（CLAUDE.md + CODING_STANDARDS.md）
+
+- **触发**：掌柜要求将 FDT 代码风格与开发规范 + CLAUDE.md 放入「项目根目录及工作空间记忆系统」作为项目规范文档
+- **根目录落位（canonical）**：
+  - `CLAUDE.md`（项目根）：复制自 `C:\Users\yangd\Desktop\CLAUDE.md`，FDT AI 编码行为准则（四原则权威源）
+  - `CODING_STANDARDS.md`（项目根）：掌柜提供的代码风格与开发规范 v0.1.0（Ruff/isort/Google docstring/类型提示/命名/错误处理/行宽120）
+- **记忆系统注册**：`memory/MEMORY.md` 新增「📘 项目规范文档」段（定位 + 根路径 + Ruff 现状 + 遵守要求）
+- **Ruff 一致性**：`pyproject.toml [tool.ruff]` 已配 `line-length=120` + `select=["E","F","I","N","W"]`，与 `CODING_STANDARDS.md` 指南一致，无需改配置
+- **归位铁律遵循**：按 2026-07-14 文档归位铁律，规范文档存于 FDT 专家包根目录 + FDT 自身 `memory/`，未散落宿主工作空间
+- **说明**：`CODING_STANDARDS.md` 中 `trend_scanner.*` / `tools/core/sync_data.py` / `docs/TESTING.md` 等为通用模板引用，与 FDT 实际包名不完全对齐，按掌柜原文逐字保留未改
+
+---
+
+## 2026-07-14 11:37 — A+B+C 生产基建加固全量落地（弱项三轴整改）
+
+- **触发**：掌柜「A+B+C 全上」拍板（评估基线弱项三轴：并发容错 4.0 / LLM 工程化 4.5 / 服务运维 2.0）
+- **范围硬约束**：不做异步/分布式重写；不做常驻 REST API（本机非管理员+有 automation 调度，改交付 CLI+run-report+health 钩子）；不引入新信号逻辑（验证器/P0-4 行为完全不变）
+- **新增 🆕7 文件**：
+  - `futures_data_core/core/circuit_breaker.py`（A1 `CircuitBreaker` 状态机 CLOSED/OPEN/HALF_OPEN，失败计数+冷却）
+  - `scripts/llm/token_budget.py`（B2 `TokenBudget` per_round 12w/daily 150w 护栏，超 daily 抛 `BudgetExceeded`）
+  - `scripts/llm/cache.py`（B3 `DebateCache` key=(symbol,date)，TTL 跳同品种同日重辩）
+  - `scripts/run_reporter.py`（C2 `RunReporter` 写 `reports/run_report_{date}.json`，跨阶段累加+同日合并）
+  - `scripts/health_check.py`（C3 读 run_report 触发 5 告警规则，rc=1 供 push_to_wechat）
+  - `scripts/logutil.py`（C4 `setup_logging` 文件+控制台双输出，只加镜像不删 print）
+  - `scripts/fdt_cli.py`（C1 薄分发器 scan/debate(plan|finalize)/report/health）
+- **修改 ✏️6 文件**：
+  - `futures_data_core/core/multi_source_adapter.py`：A1 降级链三处接 `CircuitBreaker`（连续失败≥5 跳过+60s 冷却），新增 `_breaker()`/`source_health()`
+  - `skills/quant-daily/scripts/config/settings.py`：B1 新增 `LLM_PROFILE_MAP`（7 角色：technical0.1/zhengzhen0.4/zhensi0.4/judge0.0/trading_plan0.5/risk0.2/coherence0.0，均 deepseek-v4-flash + cache_ttl 86400）+ `LLM_TOKEN_BUDGET`
+  - `scripts/run_debate.py`：B1 注入 `_load_llm_profiles()` + B2 预算 + B3 缓存(`--no-cache`) + C2 报告 + A2 阶段隔离 + B4 `_emit_repair_plan()` + `repair` 子命令
+  - `skills/quant-daily/scripts/scan_all.py`：C2 RunReporter 接入（set n_signals/n_symbols + mark_phase + flush + 写 JSON 失败记 error）
+  - `skills/fdt-spawn-debate/SKILL.md`：A3 新增「辩论缺员降级与 LLM 工程化」段（degrade-on-failure + B1 约定层说明）
+  - `scripts/llm/__init__.py`：空包声明（scripts.llm 可导入）
+- **验证**：py_compile 12 文件全过；修正版自测 24 项全 PASS（A1 状态机 / B2 超 daily 中止 / B3 缓存读写清 / C2 报告落地 / C3 健康告警 rc=1 + 无报告跳过 rc=0 / settings 7 角色 / run_debate 钩子 / multi_source_adapter+scan_all 接入）
+- **行为回归待复核**：验证器/P0-4 逻辑零改动，下次全量实时盘前扫盘对比 09:10 那次 42 伪突破拦截数应不变
+- **索引**：MEMORY.md 评估基线段标「已落地」；`evaluation_production_readiness_20260714.md` §3/§4 更新落地状态
+
+---
+
+## 2026-07-14 11:16 — FDT 工作文档归位（存储铁律落地）
+
+- **触发**：掌柜确立铁律——FDT 所有工作文档须存于 FDT 专家包目录，不得散落工作空间
+- **动作**：将 9 份 FDT 工作文档从两处误存位置统一迁入 `docs/design/`：
+  - 自动化输出目录 `D:\WorkBuddy\FDT\.workbuddy\automations\automation-1783403060853\`（4 份）：`production_hardening_ABC_plan.md` / `signal_paradigm_validator_framework.md` / `validator_framework_landed.md` / `validator_skeleton_diff.md`
+  - 工作空间 `D:\WorkBuddy\FDT\design\`（5 份）：`channel_breakout_signal_logic.md` / `2026-07-11_FDT_self_optimization_enhancement.md` / `2026-07-12_futures_data_collector_skill_design.md` / `2026-07-12_futures_data_core_refactoring_plan.md` / `fdc_README.md`
+- **结果**：自动化目录仅余框架必需的 `memory.md`；工作空间 `design/` 已清空；`docs/design/` 现含 9 份 FDT 设计文档
+- **索引**：MEMORY.md 新增「FDT 工作文档一律存于 FDT 专家包目录」铁律段（落点 `docs/design/`）
+
+---
+
+## 2026-07-14 11:04 — 系统生产就绪度评估基线记录
+
+- **文件**：`memory/evaluation_production_readiness_20260714.md`（七维评分表 + 画像解读 + 弱项整改映射）
+- **综合均分 6.29**：强项 期货垂直业务适配 9.0 / 数据层 8.5 / 落地闭环 8.5；中项 架构分层 7.5；弱项 LLM 调用工程化 4.5 / 并发容错降级 4.0 / 服务化监控运维 2.0
+- **画像**：强研究原型 / 弱生产基建；弱项=纯工程化基建，与信号逻辑无关
+- **整改映射（未实施）**：A 并发容错降级 ★★★、B LLM 调用工程化 ★★★（同批护核心辩论链路）、C 服务化监控运维 ★★（第二批，复用 WorkBuddy automation 调度）
+- **索引**：MEMORY.md 新增「系统生产就绪度评估基线」段
+
+---
+
+## 2026-07-14 10:44 — 信号范式↔验证器 声明式框架落地（可插板 + 主流因子）
+
+- **架构**：确立 `signal_type → [validator_ids]` 声明式映射（`config/settings.py.SIGNAL_VALIDATOR_MAP`），验证层从"唯一硬编码 P0-4 门禁"升级为"可插板验证器库 + 范式包"
+- **新增 `signals/validators/`**：`__init__.py`(VALIDATOR_REGISTRY + run_signal_validators 编排) / `base.py`(ValidationContext + demote) / `p0_4_raw_kline.py`(V1, 从 scan_all._revalidate_breakouts 逐字迁移) / `volume_confirm.py`(V2 量比) / `atr_vol_timing.py`(V3 ATR%) / `trend_direction.py`(V4 高周期方向零参数) / `entity_quality.py`(V5 实体比) / `stability.py`(V6, 从 validate_signals 迁移) / `crowding.py`(V7, 从 validate_signals 迁移)
+- **新增 `signals/paradigms/`**：`__init__.py`(PARADIGM_REGISTRY) / `breakout.py`(P1 通道突破，登记既有 ChannelBreakoutStrategy) / `mean_reversion.py`(P3 骨架) / `regression.py`(P4 骨架)
+- **`config/settings.py`**：新增 `SIGNAL_VALIDATOR_MAP`（channel_breakout/trend_confirmation/bb_squeeze_prebreakout/near_breakout/minor_signal + __global__）
+- **`scan_all.py`**：删硬编码 `_revalidate_breakouts`（原 L142-201）；调用改为 `run_signal_validators(summary["all_ranked"], ValidationContext)`，旧 `validate_all` 调用折入 V6/V7 + `__global__`
+- **`validate_signals.py`**：标 DEPRECATED（逻辑已迁至 signals/validators/），保留兼容壳
+- **因子约束**：全部验证器仅用公开主流因子（Donchian/Bollinger/ATR/Volume/MA/实体比），无黑盒新因子
+- **验证**：py_compile 全过；合成数据自测 V1 真拦伪突破(FAKE→false_breakout/NOISE)、保留真突破(TEST channel_breakout 不变)；注册表 7 验证器 + 3 范式齐全；生产等效路径(sys.path 含 root+scripts)导入无 debate_engine 副作用
+- **行为回归**：P0-4 拦截逻辑逐字保留，09:10 扫描 42 伪突破拦截数不变（待全量实时扫描复核）；V2-V5 阈值保守（量比 0.8 / ATR% 0.5 / 趋势方向未预计算跳过 / 实体比 0.3），不误伤真实突破
+
+---
+
+## 2026-07-14 09:41 — early_signal.py 去重 + 定位为独立旁路预警库
+
+- **文件**：`skills/quant-daily/scripts/signals/early_signal.py`（917→812 行）
+- **去重**：外科手术收掉与主链路重复的「两份定义」——`detect_price_breakout()`（独立 20 周期 Donchian，与 channel_breakout_strategy DC20 重复）、`detect_oi_triangle()` 内 `is_true/false_breakout` 分支（与 scan_all P0-4 伪突破门禁重复）
+- **保留**：放量异动 / ATR 收缩→扩张 / OI 变化+量价背离 / 5 周期动量 / 均线收敛 / OI 三角建仓胚 / 基差 / 期限结构 / 跨期 Spread + `inject_early_signals_to_tech` 注入接口
+- **定位**：掌柜 2026-07-14 确认保留为**独立旁路预警库**，不挂主扫描链路（scan_all 不调用、strategy 不调用），不参与评分打分
+- **验证**：grep 零残留引用；py_compile SYNTAX_OK
+
+---
+
+## 2026-07-13 23:40 — v2.3 评分权重调整（DC20/BB 突破成为独立触发信号）
+
+- **文件**：`skills/quant-daily/scripts/config/settings.py`
+- **DC20**：break_base_score 30→40，break_strong_bonus 10→15，break_moderate_bonus 5→8，near_breakout_score 15→22，near_breakout_ticks 5→7
+- **BB**：pos_extreme_score 6→20，pos_upper_score 4→15，pos_lower_score -4→-15，pos_extreme_lower_score -6→-20
+- **动机**：原评分体系 DC20/BB 突破权重过低，只有行情走远后才达辩论门槛；调整后单凭 DC20 突破+逼近即可达 62 分(STRONG)，使刚突破品种及时进辩论
+- **P0-4 伪突破门禁不变**：false_breakout 不会被绕过
+
+---
+
 ## 2026-07-11 20:52 — 版本发布 v5.12.0 + 周期发现层
 
 - **版本号**：`pyproject.toml` 5.11.0 → **5.12.0**（唯一真相源，`get_fdt_version()` 运行时读取）；`.version_history.json` 追加 v5.12.0 条目；`team-lead.md` frontmatter/正文版本 `5.10.0`→`5.12.0`（补 5.11.0 遗漏）。

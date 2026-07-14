@@ -1,6 +1,6 @@
-# Futures Debate Team — 期货交易辩论专家团 v6.2.0
+# Futures Debate Team — 期货交易辩论专家团 v6.3.0
 
-> 🚀 **v6.2.0 数据引擎全面重构 + A2A 兼容**：FDC (futures-data-core) v0.2.0 全面替代 MSA 成为唯一数据引擎。**TqSDK 免费版**升级为第一数据源（24h可用，无需本地服务）。新增 **Agent-to-Agent (A2A) 文件桥**：`agent-card.json` 能力声明 + `a2a_results.json` 标准信封格式，任意 A2A 兼容系统可消费辩论裁决。`validate_final_signals.py` 置信度归一化（HIGH/MEDIUM/LOW 自动映射 高/中/低）。
+> 🚀 **v6.3.0 信号生产链路拆分（技术债 §2/§3）**：`scan_all.py` 重构为纯通道突破信号源（移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`）。P1 三生产者架构正式落地——数技源 `scan_all`(channel_breakout) + 观澜 `run_l1l4_scan.py`(L1-L4) + 探源 `run_factor_timing_scan.py`(因子择时)，各自独立产出 JSON，辩论流水线保持可用。
 
 ## 类型
 
@@ -173,12 +173,12 @@ python scripts/run_debate.py report --workspace .
 
 | Skill | 版本 | 用途 |
 |:------|:----|:-----|
-| `quant-daily` | v2.14.0 | 数据采集+通道突破信号+信号触发文件 |
-| `futures-trading-analysis` | v3.8.0 | 主流程编排+5层鲁棒性+A01文件通信+报告生成+A2A文件桥 |
+| `quant-daily` | v2.15.0 | 数据采集+通道突破信号+信号触发文件 |
+| `futures-trading-analysis` | v3.11.0 | 主流程编排+5层鲁棒性+A01文件通信+报告生成+A2A文件桥 |
 | `fdt-spawn-debate` | v1.1 | Agent spawn流程+A01文件通信协议 |
-| `commodity-chain-analysis` | v2.15.0 | 产业链分析 |
-| `fundamental-data-collector` | v1.3.0 | 基本面分析(供需库存利润) |
-| `technical-analysis` | v2.2.0 | 技术面分析(支撑阻力+事件日历) |
+| `commodity-chain-analysis` | v2.16.0 | 产业链分析 |
+| `fundamental-data-collector` | v1.4.0 | 基本面分析(供需库存利润) |
+| `technical-analysis` | v2.3.0 | 技术面分析(支撑阻力+事件日历) |
 | `debate-argument-builder` | v2.3.0 | 正反方论点构建 |
 | `debate-judge` | v2.0.1 | 辩论裁决 |
 | `debate-risk-manager` | v4.1.0 | 风控审核(6层引擎) |
@@ -464,6 +464,7 @@ pip install httpx beautifulsoup4
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
+| **v6.3.0** | **2026-07-14** | **🧬 信号生产链路拆分（技术债 §2/§3）**：`scan_all.py` 重构为纯通道突破信号源(channel_breakout)，移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`；L1-L4 迁 technical-analysis(`run_l1l4_scan.py`)，因子择时迁 fundamental-data-collector(`run_factor_timing_scan.py`)，P1 三生产者架构落地；`pipeline/runner.py`+`scheduler/tasks.py` Step1 重写，`full_scan_summary_{date}.json` 精确匹配下游，辩论流水线保持可用。版本：包 6.2.0→6.3.0。 |
 | **v6.1.0** | **2026-07-13** | **🔴 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器（6+条硬性规则：action合法性、交易参数一致性、方向-价格一致性BULL→target>entry>stop/BEAR→target&lt;entry&lt;stop、RR≥0.5、品种交叉校验、confidence/grade合法性）。`assemble()` 新增 `_derive_action()` 动作消歧——裁决→execute/hold/wait 三值映射，action≠execute 时自动清空所有交易参数。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`generate_intermediate_data()` 的 `decision` 字段从扫描信号改为读辩论裁决（根因修复：信号与策略不一致）。`phase3_generate_report.py` 新增 confidence 字符串→float 归一化（"高"→0.95/"中"→0.65/"低"→0.35）。
 | **v6.2.0** | **2026-07-13** | **🔧 FDC v0.2.0 + A2A协议桥 + 置信度归一化**：FDC全面替代MSA(TqSDK免费版第一数据源)。新增A2A文件桥(`agent-card.json`+`export_a2a.py`+`run_debate.py a2a`子命令，`finalize`自动导出`a2a_results.json`)。`validate_final_signals.py`置信度英文→中文归一化(F02永久修复)。仓单日报/持仓排名/100ppi现货聚合迁入FDC。TqSDK全能力封装(28方法)。TickBar/TickData/SymbolInfo类型。连接复用优化(建连4.8s→0.2s)。CZCE大小写修复。|
 | **v5.12.1** | **2026-07-11** | **🔧 版本对齐**：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更。 |

@@ -16,10 +16,34 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-12 22:32"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 4366.0,
+        "condition": "【价格突破+量确认优先，ADX仅辅助】①价格从4420附近回踩至4366支撑区（m15 VAH，量价支撑带），回踩过程成交量萎缩至20日均量以下（卖盘衰竭信号）；②出现止跌确认K线：下影线实体比>2:1 或 阳线实体收盘≥4368；③次根K线收盘站稳4366上方不破。当前价格4420处于4426硬阻力位（多TF共振，hard强度），不可追多。三条件均满足方触发入场。若价格不回调直接放量突破4426（成交量≥1.5倍20日均量），可改为突破后回踩4426确认入场，入场价调整为4426。"
+      },
+      "stop_loss": {
+        "price": 4260.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 12:27"
     }
   ],
   "aggregated": {
-    "support": [],
+    "support": [
+      {
+        "level": 4366.0,
+        "count": 1,
+        "min": 4366.0,
+        "max": 4366.0
+      }
+    ],
     "resistance": [
       {
         "level": 3990.0,
@@ -28,11 +52,11 @@
         "max": 3990.0
       }
     ],
-    "computed_at": "2026-07-12 22:32"
+    "computed_at": "2026-07-14 12:27"
   },
   "meta": {
     "variety": "lu",
-    "total_records": 1,
-    "last_updated": "2026-07-12 22:32"
+    "total_records": 2,
+    "last_updated": "2026-07-14 12:27"
   }
 }

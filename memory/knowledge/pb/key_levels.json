@@ -1,0 +1,55 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 16000.0,
+        "condition": "价格反弹至16000(前支撑转阻力)后回落,15分钟K线实体收于16000下方且vol_ratio>1.0量确认后入场"
+      },
+      "stop_loss": {
+        "price": 16230.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 12:27"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 16000.0,
+        "condition": "价格反弹至16000(前支撑转阻力)后回落,15分钟K线实体收于16000下方且vol_ratio>1.0量确认后入场"
+      },
+      "stop_loss": {
+        "price": 16230.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 13:01"
+    }
+  ],
+  "aggregated": {
+    "support": [],
+    "resistance": [
+      {
+        "level": 16000.0,
+        "count": 2,
+        "min": 16000.0,
+        "max": 16000.0
+      }
+    ],
+    "computed_at": "2026-07-14 13:01"
+  },
+  "meta": {
+    "variety": "pb",
+    "total_records": 2,
+    "last_updated": "2026-07-14 13:01"
+  }
+}

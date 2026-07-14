@@ -31,10 +31,10 @@
     "pattern_id": "ec-p002",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 20:46",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-13 23:21",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "趋势确认 → ec-con2: -31点跌幅后价格可能... → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [

@@ -3,10 +3,10 @@
     "pattern_id": "pf-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 21:29",
-    "use_count": 2,
-    "win_count": 2,
-    "win_rate": 0.72,
+    "last_used": "2026-07-13 23:21",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.804,
     "structure": "PF-con1: 当日价格实际收涨+1.... → 趋势确认 → 趋势确认 → PF-con4: 价格对MA60偏离-6... → PF-con5: 爆炸性放量(1.47倍...",
     "applicable_conditions": {
       "adx_range": [

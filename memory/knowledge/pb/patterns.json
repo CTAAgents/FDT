@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "pb-p001",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-14",
+    "last_used": "2026-07-14 13:01",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "趋势确认 → 技术形态确认 → 趋势确认 → 技术形态确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "near_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

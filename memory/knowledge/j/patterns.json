@@ -3,10 +3,10 @@
     "pattern_id": "j-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-13 21:29",
-    "use_count": 11,
-    "win_count": 11,
-    "win_rate": 0.989,
+    "last_used": "2026-07-14 09:41",
+    "use_count": 13,
+    "win_count": 13,
+    "win_rate": 0.994,
     "structure": "j-con1: 总分-41仅比WEAK上... → 趋势确认 → 技术形态确认 → 技术形态确认",
     "applicable_conditions": {
       "adx_range": [
@@ -23,7 +23,7 @@
     "derived_from_debates": [
       "unknown"
     ],
-    "confidence": 0.6,
+    "confidence": 0.65,
     "consecutive_failures": 0,
     "status": "active"
   },

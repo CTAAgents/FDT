@@ -33,10 +33,10 @@ P4 合并双通道 → 归档输出
 ### 步骤
 
 ```
-① scan_all.py --dual
-    ├── layered_l1l4 策略 → full_scan_l1l4_{date}.json（L1-L4 技术指标）
-    └── factor_timing 策略 → full_scan_factor_timing_{date}.json（5因子信号）
-    自动合并 → full_scan_summary_{date}.json（双策略并排汇总）
+① 三生产者扫描（2026-07-14 起 scan_all 仅留 channel_breakout，L1-L4/因子择时已迁独立 skill）
+    ├── 数技源 scan_all.py（默认 channel_breakout）→ full_scan_summary_{date}.json（通道突破信号）
+    ├── 观澜 run_l1l4_scan.py（technical-analysis）→ full_scan_l1l4_{date}.json（L1-L4 技术指标）
+    └── 探源 run_factor_timing_scan.py（fundamental-data-collector）→ full_scan_factor_timing_{date}.json（5因子信号）
 
 ② debate_brief.py --select-debate chain_analysis.json
     读取 full_scan_summary.json，对每个品种计算五维辩论价值评分后分离：
@@ -49,10 +49,10 @@ P4 合并双通道 → 归档输出
 
 | 文件 | 说明 | 用途 |
 |:-----|:-----|:-----|
-| `full_scan_summary_{date}.json` | 双策略原始信号 | 闫判官 + 链证源 |
+| `full_scan_summary_{date}.json` | 通道突破原始信号（数技源） | 闫判官 + 链证源 |
 | `signal_summary_candidates.json` | 双通道分离结果 | 闫判官分流决策 |
-| `full_scan_l1l4_{date}.json` | L1-L4 明细 | 研究员供弹参考 |
-| `full_scan_factor_timing_{date}.json` | factor_timing 明细 | 研究员供弹参考 |
+| `full_scan_l1l4_{date}.json` | L1-L4 明细（观澜） | 研究员供弹参考 |
+| `full_scan_factor_timing_{date}.json` | factor_timing 明细（探源） | 研究员供弹参考 |
 
 ### 数据源优先级
 
@@ -303,8 +303,10 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 ## 执行顺序（完整 CLI 链路）
 
 ```bash
-# P1: 双策略扫描
-python skills/quant-daily/scripts/scan_all.py --dual
+# P1: 三生产者扫描
+python skills/quant-daily/scripts/scan_all.py -o reports -p full_scan_summary          # 数技源：通道突破
+python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir reports          # 观澜：L1-L4
+python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir reports  # 探源：因子择时
 
 # P1: 辩论品种精选 + 双通道分离
 python skills/quant-daily/scripts/signals/debate_brief.py \

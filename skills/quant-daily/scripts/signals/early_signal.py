@@ -3,15 +3,19 @@
 
 核心思路：
 1. 检测成交量异动（放量突破）
-2. 检测价格突破关键阻力/支撑位
-3. 检测波动率突破（ATR收缩后扩张）
-4. 检测持仓量变化（增仓突破）
-5. 使用更短周期指标（5周期）作为早期预警
+2. 检测波动率突破（ATR收缩后扩张）
+3. 检测持仓量变化（增仓突破、量价背离）
+4. 使用更短周期指标（5周期）作为早期预警
+5. 期货专属早期维度：OI三角建仓胚、基差、期限结构、跨期Spread
 
 设计原则：
+- 突破判定（唐奇安DC20/DC55、布林带）与伪突破校验（P0-4）为单一真相源，
+  由 channel_breakout_strategy + scan_all 主链路负责，本模块不再重复实现。
 - 宁可错过，不可做错：早期信号需要更多确认
 - 多重验证：至少3个早期信号同时出现才触发
 - 右侧确认：早期信号必须等待价格行为确认
+- 架构定位：本模块为**独立旁路预警库**，不挂主扫描链路（scan_all 不调用、strategy 不调用），
+  不参与评分打分；仅作为早期预警维度的可选数据源，供人工排查或按需注入 tech 标记使用。
 """
 
 from typing import List
@@ -71,80 +75,6 @@ def detect_volume_surge(volumes: List[float], threshold: float = 1.5, lookback: 
         "ratio": round(ratio, 2),
         "avg_volume": round(avg_volume, 2),
         "current_volume": current_volume,
-        "signal_strength": signal_strength,
-    }
-
-
-def detect_price_breakout(
-    prices: List[float], highs: List[float], lows: List[float], lookback: int = 20, buffer_pct: float = 0.005
-) -> dict:
-    """检测价格突破关键阻力/支撑位。
-
-    Args:
-        prices: 收盘价序列
-        highs: 最高价序列
-        lows: 最低价序列
-        lookback: 前高前低计算周期
-        buffer_pct: 突破缓冲区（0.5%）
-
-    Returns:
-        {
-            'breakout_up': bool,  # 向上突破
-            'breakout_down': bool,  # 向下突破
-            'resistance': float,  # 阻力位
-            'support': float,  # 支撑位
-            'current_price': float,  # 当前价格
-            'breakout_pct': float,  # 突破幅度
-            'signal_strength': str,  # 信号强度
-        }
-    """
-    if len(prices) < lookback + 1 or len(highs) < lookback + 1 or len(lows) < lookback + 1:
-        return {
-            "breakout_up": False,
-            "breakout_down": False,
-            "resistance": 0,
-            "support": 0,
-            "current_price": 0,
-            "breakout_pct": 0,
-            "signal_strength": "weak",
-        }
-
-    # 计算前高前低（排除最后一根K线）
-    recent_high = max(highs[-(lookback + 1) : -1])
-    recent_low = min(lows[-(lookback + 1) : -1])
-    current_price = prices[-1]
-
-    # 计算缓冲区
-    resistance_buffer = recent_high * (1 + buffer_pct)
-    support_buffer = recent_low * (1 - buffer_pct)
-
-    # 判断突破
-    breakout_up = current_price > resistance_buffer
-    breakout_down = current_price < support_buffer
-
-    # 计算突破幅度
-    if breakout_up:
-        breakout_pct = (current_price - recent_high) / recent_high * 100
-    elif breakout_down:
-        breakout_pct = (recent_low - current_price) / recent_low * 100
-    else:
-        breakout_pct = 0
-
-    # 判断信号强度
-    if abs(breakout_pct) > 2:
-        signal_strength = "strong"
-    elif abs(breakout_pct) > 1:
-        signal_strength = "moderate"
-    else:
-        signal_strength = "weak"
-
-    return {
-        "breakout_up": breakout_up,
-        "breakout_down": breakout_down,
-        "resistance": round(recent_high, 2),
-        "support": round(recent_low, 2),
-        "current_price": current_price,
-        "breakout_pct": round(breakout_pct, 2),
         "signal_strength": signal_strength,
     }
 
@@ -470,13 +400,7 @@ def detect_early_signals(
         signals.append("volume_surge")
     signal_details["volume"] = volume_signal
 
-    # 2. 价格突破检测
-    breakout_signal = detect_price_breakout(closes, highs, lows)
-    if breakout_signal["breakout_up"] or breakout_signal["breakout_down"]:
-        signals.append("price_breakout")
-    signal_details["breakout"] = breakout_signal
-
-    # 3. 波动率突破检测
+    # 2. 波动率突破检测（原"价格突破检测"已移除：突破判定委托主链路 channel_breakout）
     atr_values = tech_data.get("ATR14", [])
     if isinstance(atr_values, (int, float)):
         atr_values = [atr_values] * 20  # 如果只有单个值，创建序列
@@ -485,7 +409,7 @@ def detect_early_signals(
         signals.append("volatility_expansion")
     signal_details["volatility"] = volatility_signal
 
-    # 4. 持仓量变化检测
+    # 3. 持仓量变化检测
     oi_signal = detect_open_interest_change(open_interests, closes)
     if oi_signal["oi_increase"] and oi_signal["price_direction"] == "up":
         signals.append("oi_increase_up")
@@ -493,13 +417,13 @@ def detect_early_signals(
         signals.append("oi_decrease_down")
     signal_details["open_interest"] = oi_signal
 
-    # 5. 短期动量检测
+    # 4. 短期动量检测
     momentum_signal = detect_short_term_momentum(closes)
     if momentum_signal["momentum"] in ["strong_up", "strong_down"]:
         signals.append("short_term_momentum")
     signal_details["momentum"] = momentum_signal
 
-    # 6. 均线收敛检测
+    # 5. 均线收敛检测
     convergence_signal = detect_ma_convergence(closes)
     if convergence_signal["convergence"]:
         signals.append("ma_convergence")
@@ -520,10 +444,6 @@ def detect_early_signals(
     bullish_signals = 0
     bearish_signals = 0
 
-    if breakout_signal["breakout_up"]:
-        bullish_signals += 1
-    if breakout_signal["breakout_down"]:
-        bearish_signals += 1
     if momentum_signal["momentum"] in ["strong_up", "up"]:
         bullish_signals += 1
     if momentum_signal["momentum"] in ["strong_down", "down"]:
@@ -607,10 +527,6 @@ def generate_early_signal_alert(early_signals: dict, product_id: str, product_na
     details = early_signals["signal_details"]
     if details.get("volume", {}).get("surge"):
         alert += f"📊 成交量异动: {details['volume']['ratio']}倍\n"
-    if details.get("breakout", {}).get("breakout_up"):
-        alert += f"📈 向上突破: {details['breakout']['breakout_pct']}%\n"
-    if details.get("breakout", {}).get("breakout_down"):
-        alert += f"📉 向下突破: {details['breakout']['breakout_pct']}%\n"
     if details.get("volatility", {}).get("expansion"):
         alert += f"💥 波动率扩张: {details['volatility']['ratio']}倍\n"
     if details.get("open_interest", {}).get("oi_increase"):
@@ -634,8 +550,8 @@ def detect_oi_triangle(
     OI + 价 + 量 三角组合：
     - 价横 + OI↑ + 量稳 → 建仓胚（突破前5-20根K）
     - 价微涨 + OI↑ → 多头底部建仓
-    - 突破 + OI↑ + 量↑ → 真突破确认
-    - 突破 + OI↓ → 假突破
+    - （真/假突破判定由主链路 channel_breakout + P0-4 单一负责，本函数不再重复）
+    - 建仓胚 / 多空建仓 为早期预警，需主链路突破确认后才生效
 
     Args:
         prices: 收盘价序列
@@ -654,8 +570,6 @@ def detect_oi_triangle(
             "price_change_pct": 0,
             "volume_ratio": 0,
             "is_building_position": False,
-            "is_true_breakout": False,
-            "is_false_breakout": False,
         }
 
     current_oi = open_interests[-1]
@@ -671,8 +585,6 @@ def detect_oi_triangle(
 
     # 判断信号类型
     is_building = False
-    is_true_breakout = False
-    is_false_breakout = False
     signal = "none"
     strength = "weak"
 
@@ -681,18 +593,6 @@ def detect_oi_triangle(
         is_building = True
         signal = "building_position"
         strength = "strong" if oi_rate > 1.2 else "moderate"
-
-    # 真突破：价突破 + OI↑ + 量↑
-    elif abs(price_change_pct) > 1.5 and oi_rate > 1.05 and vol_ratio > 1.2:
-        is_true_breakout = True
-        signal = "true_breakout"
-        strength = "strong"
-
-    # 假突破：价突破但OI↓
-    elif abs(price_change_pct) > 1.5 and oi_rate < 0.95:
-        is_false_breakout = True
-        signal = "false_breakout"
-        strength = "moderate"
 
     # 多头建仓：价微涨 + OI↑
     elif price_change_pct > 0.5 and price_change_pct < 3 and oi_rate > 1.05:
@@ -711,8 +611,6 @@ def detect_oi_triangle(
         "price_change_pct": round(price_change_pct, 2),
         "volume_ratio": round(vol_ratio, 2),
         "is_building_position": is_building,
-        "is_true_breakout": is_true_breakout,
-        "is_false_breakout": is_false_breakout,
     }
 
 

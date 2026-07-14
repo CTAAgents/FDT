@@ -28,6 +28,7 @@ from futures_data_core.collectors.tdx import TDXCollector
 from futures_data_core.collectors.tqsdk import TqSdkCollector
 from futures_data_core.collectors.web_fallback import WebFallbackCollector
 from futures_data_core.core.cache_store import CacheStore
+from futures_data_core.core.circuit_breaker import CircuitBreaker
 
 
 def _default_collectors() -> list[BaseCollector]:
@@ -65,11 +66,28 @@ class MultiSourceAdapter:
         """
         self._collectors = list(collectors) if collectors is not None else _default_collectors()
         self._cache = cache
+        # ── A1 数据源熔断：每个采集器名一个熔断器，连续失败自动屏蔽 ──
+        self._breakers: dict[str, CircuitBreaker] = {}
+        self._breaker_cfg = {"failure_threshold": 5, "cooldown": 60.0}
 
     def register(self, collector: BaseCollector) -> None:
         """注册/追加一个采集器（保持优先级有序）。"""
         self._collectors.append(collector)
         self._collectors = select_by_priority(self._collectors)
+
+    # ───────────────────────────────────────────────────────────
+    # A1 熔断辅助
+    # ───────────────────────────────────────────────────────────
+    def _breaker(self, name: str) -> CircuitBreaker:
+        b = self._breakers.get(name)
+        if b is None:
+            b = CircuitBreaker(name=name, **self._breaker_cfg)
+            self._breakers[name] = b
+        return b
+
+    def source_health(self) -> dict:
+        """各数据源熔断状态：{'tdx_tq_local': 'closed'/'open'/'half_open', ...}。"""
+        return {name: b.state() for name, b in self._breakers.items()}
 
     # ───────────────────────────────────────────────────────────
     # K 线
@@ -93,15 +111,21 @@ class MultiSourceAdapter:
 
         tried: list[str] = []
         for collector in select_by_priority(self._collectors):
+            br = self._breaker(collector.name)
+            if br.is_open():
+                tried.append(f"{collector.name}(breaker-open)")
+                continue
             if not await collector.check_available():
                 continue
             tried.append(collector.name)
             try:
                 data = await collector.get_kline(symbol, period, days)
             except CollectorUnavailableError:
+                br.record_failure()
                 continue
             if data is None:
                 continue
+            br.record_success()
             return await self._wrap_kline(collector, data, tried)
 
         return await self._fallback_kline(symbol, period, tried)
@@ -117,16 +141,21 @@ class MultiSourceAdapter:
             return self._unavailable(
                 DATA_TYPES["KLINE"], symbol, f"未知数据源: {source}", tried=[]
             )
+        br = self._breaker(target.name)
+        if br.is_open():
+            return await self._fallback_kline(symbol, period, [source])
         if not await target.check_available():
             return await self._fallback_kline(symbol, period, [source])
         try:
             data = await target.get_kline(symbol, period, days)
         except CollectorUnavailableError as exc:
+            br.record_failure()
             return self._unavailable(
                 DATA_TYPES["KLINE"], symbol, f"{source} 拉取失败: {exc}", tried=[source]
             )
         if data is None:
             return await self._fallback_kline(symbol, period, [source])
+        br.record_success()
         return await self._wrap_kline(target, data, [source])
 
     async def _wrap_kline(self, collector: BaseCollector, data, tried: list[str]) -> A2APayload:
@@ -182,15 +211,21 @@ class MultiSourceAdapter:
         )
         tried: list[str] = []
         for collector in collectors:
+            br = self._breaker(collector.name)
+            if br.is_open():
+                tried.append(f"{collector.name}(breaker-open)")
+                continue
             if not await collector.check_available():
                 continue
             tried.append(collector.name)
             try:
                 quote = await collector.get_quote(symbol)
             except CollectorUnavailableError:
+                br.record_failure()
                 continue
             if quote is None:
                 continue
+            br.record_success()
             payload = A2APayload(
                 type=DATA_TYPES["QUOTE"],
                 runtime_mode="independent",

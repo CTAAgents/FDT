@@ -3,10 +3,10 @@
     "pattern_id": "sa-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-13 21:28",
-    "use_count": 7,
-    "win_count": 7,
-    "win_rate": 0.953,
+    "last_used": "2026-07-13 23:21",
+    "use_count": 8,
+    "win_count": 8,
+    "win_rate": 0.967,
     "structure": "SA-con1: WATCH等级置信度不... → 趋势确认 → 趋势确认 → SA-con4: 夜盘收涨+0.56%出... → 技术形态确认",
     "applicable_conditions": {
       "adx_range": [
@@ -23,7 +23,7 @@
     "derived_from_debates": [
       "unknown"
     ],
-    "confidence": 0.644,
+    "confidence": 0.622,
     "consecutive_failures": 0,
     "status": "active"
   },
@@ -31,10 +31,10 @@
     "pattern_id": "sa-p002",
     "name": "空头突破跟随型",
     "first_observed": "2026-07-13",
-    "last_used": "2026-07-13 20:34",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-14 09:41",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
     "structure": "技术形态确认 → SA-con2: RSI=29.6进入超... → 技术形态确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [

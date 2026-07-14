@@ -67,23 +67,63 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 20:45"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1075,
+        "condition": "价格反弹至1075-1080区间受阻，确认1079前硬支撑转为压力有效后入场"
+      },
+      "stop_loss": {
+        "price": 1090,
+        "type": "fixed",
+        "atr_multiple": 0.8
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-13 23:21"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 1095.0,
+        "condition": "价格反弹至1093-1097阻力区间（1093硬阻力+ATR容差6.2范围内），且15分钟K线出现滞涨信号（上影线长度≥实体1/2或看跌吞没形态），配合成交量放大至5日均量以上确认入场。不满足量价共振条件则放弃本次入场，等待下一轮反弹。"
+      },
+      "stop_loss": {
+        "price": 1109.0,
+        "type": "fixed",
+        "atr_multiple": 0.7
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 09:41"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 1067.8,
-        "count": 4,
+        "level": 1069.2,
+        "count": 5,
         "min": 1063.0,
-        "max": 1072.0
+        "max": 1075.0
+      },
+      {
+        "level": 1095.0,
+        "count": 1,
+        "min": 1095.0,
+        "max": 1095.0
       }
     ],
-    "computed_at": "2026-07-13 20:45"
+    "computed_at": "2026-07-14 09:41"
   },
   "meta": {
     "variety": "sa",
-    "total_records": 4,
-    "last_updated": "2026-07-13 20:45"
+    "total_records": 6,
+    "last_updated": "2026-07-14 09:41"
   }
 }

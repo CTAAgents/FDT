@@ -113,7 +113,7 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 
 | 数据类别 | 来源 | 规范要求 |
 |:---------|:-----|:--------|
-| **价格/技术数据** | 数技源（quant-daily scan_all.py 产物） | 直接复用已有JSON，**不得独立重新采集** |
+| **价格/技术数据** | 数技源 channel_breakout 扫描（scan_all.py → full_scan_summary_*.json）+ 观澜 L1-L4（run_l1l4_scan.py → full_scan_l1l4_*.json） | 直接复用已有JSON，**不得独立重新采集** |
 | **基本面/新闻/产业资料** | WebSearch / WebFetch | **每条引用必须附带来源URL + 数据截止日期** |
 
 **基本面数据引用格式**：
