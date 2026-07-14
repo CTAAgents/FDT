@@ -113,9 +113,6 @@ def _atomic_write(path: str, content, mode: str = "json"):
         raise
 
 
-# ── 策略可插拔层 ──
-from strategies import get_strategy, list_strategies
-
 
 def _split_symbol_contract(sym: str):
     """从品种代码解析 (variety, contract)。
@@ -423,9 +420,13 @@ def run_scan(
     if strategy_name is None:
         strategy_name = "channel_breakout"
 
-    print(
-        f"  → 策略: {strategy_name} ({list_strategies()[strategy_name]['display'] if strategy_name in list_strategies() else '?'})"
-    )
+    try:
+        from strategies import list_strategies
+        _ls = list_strategies()
+        _sname = f"{_ls[strategy_name]['display']}" if strategy_name and strategy_name in _ls else f"{strategy_name}"
+    except Exception:
+        _sname = strategy_name
+    print(f"  → 策略: {_sname}")
 
     tech_list = []
     df_map = {}  # 策略可能需要 DataFrame
@@ -562,6 +563,7 @@ def run_scan(
                 except Exception as _pe:
                     import traceback; traceback.print_exc()
                     print(f"  ⚠️ [Pipeline] 管线异常: {_pe}，回退到单策略模式")
+                    from strategies import get_strategy
                     strategy = get_strategy(strategy_name)
                     summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
             else:
@@ -1013,11 +1015,14 @@ render();
 if __name__ == "__main__":
     import argparse
 
-    # 获取可用策略列表
-    available = list(list_strategies().keys())
-    # 从注册器中读取默认策略名（默认=three_signal）
-    all_strategies = list_strategies()
-    default_strat = [k for k, v in all_strategies.items() if v.get("default")][0]
+    # 获取可用策略列表（lazy import，仅旧 --strategy 路径使用）
+    try:
+        from strategies import list_strategies
+        _all_s = list_strategies()
+        available = list(_all_s.keys())
+        default_strat = [k for k, v in _all_s.items() if v.get("default")][0]
+    except Exception:
+        available, default_strat = [], None
 
     parser = argparse.ArgumentParser(description="品种信号扫描 — 策略可插拔")
     parser.add_argument(
@@ -1081,6 +1086,7 @@ if __name__ == "__main__":
 
 
     if args.list_strategies:
+        from strategies import list_strategies
         print("\n可用策略:")
         for name, info in list_strategies().items():
             default_mark = " (默认)" if info["default"] else ""
