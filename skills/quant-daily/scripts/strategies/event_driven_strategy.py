@@ -85,8 +85,10 @@ def _injected_to_events(injected: dict) -> list[dict]:
     recent: list[dict] = []
     for sym, ev_list in injected.items():
         for ev in ev_list:
-            days_away = ev.get("days_away", 0)
-            if 0 <= days_away <= EVENT_LOOKBACK_DAYS:
+            # days_away 为负表示过去，取绝对值作为距今天数
+            raw = ev.get("days_away", 0)
+            days_ago = abs(raw)
+            if 0 <= days_ago <= EVENT_LOOKBACK_DAYS:
                 recent.append({
                     "date": ev.get("date", ""),
                     "name": ev.get("name", ""),
