@@ -33,7 +33,7 @@ P4 合并双通道 → 归档输出
 ### 步骤
 
 ```
-① 三生产者扫描（2026-07-14 起 scan_all 仅留 channel_breakout，L1-L4/因子择时已迁独立 skill）
+① 信号扫描：数技源 scan_all.py（channel_breakout）产出 full_scan_summary_{date}.json；观澜 L1-L4 / 探源因子择时为分析师按需能力，分别由 run_l1l4_scan.py / run_factor_timing_scan.py 按需执行
     ├── 数技源 scan_all.py（默认 channel_breakout）→ full_scan_summary_{date}.json（通道突破信号）
     ├── 观澜 run_l1l4_scan.py（technical-analysis）→ full_scan_l1l4_{date}.json（L1-L4 技术指标）
     └── 探源 run_factor_timing_scan.py（fundamental-data-collector）→ full_scan_factor_timing_{date}.json（5因子信号）
@@ -308,7 +308,7 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 ## 执行顺序（完整 CLI 链路）
 
 ```bash
-# P1: 三生产者扫描
+# P1: 数技源扫描（channel_breakout）+ 观澜/探源能力按需
 python skills/quant-daily/scripts/scan_all.py -o reports -p full_scan_summary          # 数技源：通道突破
 python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir reports          # 观澜：L1-L4
 python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir reports  # 探源：因子择时

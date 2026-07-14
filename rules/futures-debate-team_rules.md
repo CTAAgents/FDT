@@ -23,7 +23,7 @@ Please make full use of this plugin's abilities whenever possible.**
 | Agent | 所需工具 | spawn方式 | 说明 |
 |:------|:--------|:---------|:-----|
 | 🎯明鉴秋 | Read, Bash, SendMessage | 主skill直调 | 协调员，用库函数和CLI执行 |
-| 📡数技源 | 无（库函数模式） | 直调Python | 三生产者扫描（scan_all.py channel_breakout + run_l1l4_scan.py + run_factor_timing_scan.py），不做Agent spawn |
+| 📡数技源 | 无（库函数模式） | 直调Python | 数技源信号+分析师能力扫描（scan_all.py channel_breakout + run_l1l4_scan.py + run_factor_timing_scan.py），不做Agent spawn |
 | 🟢观澜（技术面） | **Read, Write, SendMessage** | `general-purpose`+prompt | 读取L1-L4数据+自算指标+图形识别，写入快照 |
 | 🟢探源（基本面） | **WebSearch, Read, Write, SendMessage** | `general-purpose`+prompt | 需要WebSearch搜集数据，写入快照文件 |
 | 🔗链证源 | **Read, Write, SendMessage** | `general-purpose`+prompt | 先于闫判官产出产业链快照 |
@@ -58,7 +58,7 @@ Please make full use of this plugin's abilities whenever possible.**
 - 数技源直调Python，不spawn Agent
 
 **全流程5阶段SOP**：
-S1 数技源三生产者扫描(scan_all channel_breakout + 观澜L1-L4 + 探源factor_timing) → S1.5链证源产业链分析(先于闫判官) → S2闫判官综合决策定辩论品种+方向 → S3研究员并行供弹→辩论→方案→风控 → S4明鉴秋汇总+记忆写入
+S1 数技源信号+分析师能力扫描(scan_all channel_breakout + 观澜L1-L4 + 探源factor_timing) → S1.5链证源产业链分析(先于闫判官) → S2闫判官综合决策定辩论品种+方向 → S3研究员并行供弹→辩论→方案→风控 → S4明鉴秋汇总+记忆写入
 
 **Agent Team 并行执行**：S3的研究员(观澜+探源)使用general-purpose并行spawn，显著提升效率
 
@@ -97,7 +97,7 @@ S1 数技源三生产者扫描(scan_all channel_breakout + 观澜L1-L4 + 探源f
 ## SOP 工作流与并行执行说明
 
 ```
-S1【串行】────── 明鉴秋选品种 → 数技源三生产者扫描（scan_all.py channel_breakout + 观澜 run_l1l4_scan.py + 探源 run_factor_timing_scan.py）
+S1【串行】────── 明鉴秋选品种 → 数技源信号+分析师能力扫描（scan_all.py channel_breakout + 观澜 run_l1l4_scan.py + 探源 run_factor_timing_scan.py）
          产出: full_scan_summary_{date}.json + full_scan_l1l4_{date}.json + full_scan_factor_timing_{date}.json
             ↓
 S1.5【串行】──── 链证源 → 产业链分析（先于闫判官决策，不下多空结论）
@@ -192,7 +192,7 @@ Agent只能读取自己阶段之前的文件，不能读取后续的产出。明
 - 严禁其他 Agent 自行实现数据获取逻辑
 
 **执行要求**：
-1. 数技源S1使用三生产者扫描：scan_all.py（channel_breakout，默认）+ 观澜 run_l1l4_scan.py + 探源 run_factor_timing_scan.py，不再使用已删除的 --dual 模式
+1. 数技源S1使用数技源信号+分析师能力扫描：scan_all.py（channel_breakout，默认）+ 观澜 run_l1l4_scan.py + 探源 run_factor_timing_scan.py，不再使用已删除的 --dual 模式
 2. 链证源**必须先于闫判官**产出（S1.5），不得在S3与研究员并行
 3. 闫判官决策时必须同时读取signal_summary和链证源快照
 4. 每个 Agent 产出后自动调用 `scripts/memory_writer.py` 写 memory

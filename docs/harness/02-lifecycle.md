@@ -112,7 +112,7 @@ bootstrap.py main()
 | 阶段 | 名称 | 执行者 | 输入 | 输出 | 超时 | 降级 |
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
 | P0 | 自进化前置 | 明鉴秋 | execution_followup.json | calibration.json + agent_profiles.json 更新 | 60s/步 | 跳过该步 |
-| P1 | 通道突破扫描（三生产者） | 数技源+观澜+探源 | 品种列表 | full_scan_summary_{date}.json + full_scan_l1l4_{date}.json + full_scan_factor_timing_{date}.json | 600s | 提前终止 |
+| P1 | 通道突破扫描 + 分析师能力按需 | 数技源(信号) + 观澜/探源(按需能力) | 品种列表 | full_scan_summary_{date}.json(数技源) + full_scan_l1l4_{date}.json(观澜按需) + full_scan_factor_timing_{date}.json(探源按需) | 600s | 提前终止 |
 | P1.5 | 产业链分析（链证源·无调度权） | 链证源 | P1 信号文件 | chain_analysis_{date}.json | 300s | 跳过链分析 |
 | P2 | 品种筛选 + 判断调度 | 闫判官（调度权） | P1+P1.5 产出 | p2_judge_direction.json（指定链/品种/方向 + dispatch 三分析师） | 420s | D06 降级 |
 | P3 | 研究员供弹 | 观澜+探源 | P2 方向指定 | p3_technical_*.json + p3_fundamental_*.json | 420s/Agent | D06 降级 |

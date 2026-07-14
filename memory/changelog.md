@@ -8,12 +8,13 @@
 
 - **掌柜澄清新流程**：数技源出信号 → 闫判官判断调度(链证源做产业链 + 观澜做技术面 + 探源做基本面) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明。
 - **关键边界（纠正上一轮误判）**：调度权在**闫判官**；链证源/观澜/探源只做各自分析、**无调度权**。上一轮曾误将链证源理解为"调度者"，被掌柜纠正。
-- **`docs/execution_modes_flowchart.md` 重写**：v4.0/v5.12.1 → **v4.1 / FDT 6.3.1**；单生产者 scan_all → 三生产者；辩论流程线/8模式/生命周期Phase/状态转换图/mermaid数据流/产出清单全部改为「闫判官判断调度 + 三分析师供弹」；链证源注入说明补「无调度权」边界 + 探源入列（6 角色）。
+- **`docs/execution_modes_flowchart.md` 重写**：v4.0/v5.12.1 → **v4.1 / FDT 6.3.1**；单生产者 scan_all → 数技源信号+分析师能力；辩论流程线/8模式/生命周期Phase/状态转换图/mermaid数据流/产出清单全部改为「闫判官判断调度 + 三分析师供弹」；链证源注入说明补「无调度权」边界 + 探源入列（6 角色）。
 - **对齐 `docs/business_flow.md`**：P1.5 补「链证源无调度权、由闫判官判断调度后 spawn」；P2 补「闫判官拥有辩论调度权」段。
 - **对齐 `agents/futures-chain-analyst.md`**：边界段加「❌ 不做调度」一条（不决定范围/不 dispatch/不裁决）。
 - **对齐 `docs/harness/02-lifecycle.md`**：P1.5/P2 阶段表补「无调度权/调度权」标注 + 调度权边界 note。
 - **登记 G18**（`docs/harness/08-gap-analysis.md` §4.1 + Phase5 + 总结），标为本次整顿已完成文档同步项。
-- 纯文档修正，未改代码；待 commit + push。
+- 补充（18:36）：掌柜进一步明确**三分析师平级原则**——链证源/观澜/探源仅分析方向不同（产业链/技术面/基本面），彼此**无调度与被调度关系**；已在 `execution_modes_flowchart.md` 与 `business_flow.md` 显式钉死（commit `8288bd1`）。
+- 纯文档修正，未改代码；已 commit `cf99953` + `8288bd1` 推送 main。
 
 ---
 
@@ -21,12 +22,12 @@
 
 - **根因**：GitHub 上的 README 基于过时系统快照（系统提示仍 v5.12.1），存在版本不符、未体现系统特色、流程错误三类问题。基于权威文档（`docs/business_flow.md` / `docs/harness/02-lifecycle.md` / `rules/futures-debate-team_rules.md` / `pipeline/runner.py` / `scheduler/tasks.py` / `docs/agent-protocol.md`）重写。
 - **修正的流程错误**：
-  1. P1 架构图原仅画数技源单生产者 → 改为三生产者（channel_breakout + L1-L4 + factor_timing，各自独立 JSON）
+  1. P1 架构图原仅画数技源单生产者 → 改为数技源信号+分析师能力（channel_breakout + L1-L4 + factor_timing，各自独立 JSON）
   2. 角色阶段对照表原观澜/探源只标 P3 → 补 P1 生产者职责
   3. `run_debate.py plan --scan scan_daily_*.json` 文件名错误（scan_all.py 不产出该名）→ 改为 `full_scan_summary_{date}.json`
   4. 数据源优先级原写「TqSDK 第一、TDX 降级」→ 按 business_flow.md 修正为 TDX 主源（盘中 TDX→TqSDK→东方财富→AKShare）
   5. 信号权重去写死百分比，改为引用 `config/settings.py` 单一真相源
-- **新增「核心特色」专节**：10-Agent辩论架构 / 三生产者信号架构 / 通道突破主信号源 / 自进化闭环 / 5层鲁棒性 / 信号验证门禁 / A2A桥 / 品种知识库 / OmniOpt策略族 / 周期发现层 / FDC数据路由溯源
+- **新增「核心特色」专节**：10-Agent辩论架构 / 数技源信号+分析师能力架构 / 通道突破主信号源 / 自进化闭环 / 5层鲁棒性 / 信号验证门禁 / A2A桥 / 品种知识库 / OmniOpt策略族 / 周期发现层 / FDC数据路由溯源
 - **发布**：commit `6962f62` 推送到 `CTAAgents/experts` main；版本号未变（纯文档修正，仍 v6.3.1）
 
 ---
@@ -37,7 +38,7 @@
 - **方法**：先读全部 10 篇 Harness 文档 + 核查代码实测（pyproject=6.3.1、contracts/migrations.py 缺失、pipeline 测试 step_scan_dual 失配），再据实修正
 - **核心修正（8篇）**：
   1. `08-gap-analysis.md`：推翻「15项全修复/4.7」虚假结论，重评成熟度≈4.6；G14 标回未落地、新增 G16(pipeline测试失效)/G17(文档未同步重构)
-  2. `01-architecture.md §3.1` + `02-lifecycle.md §2.2` + `04-resilience.md §2.3`：数据流改为三生产者（full_scan_summary/l1l4/factor_timing）
+  2. `01-architecture.md §3.1` + `02-lifecycle.md §2.2` + `04-resilience.md §2.3`：数据流改为数技源信号+分析师能力（full_scan_summary/l1l4/factor_timing）
   3. `03-configuration.md`：pyproject 例版本→6.3.1、§6 校正 G1（config/schema.py 已落地）
   4. `05-observability.md §3.4`：校正 G3（pipeline 已用 unified_logger）
   5. `06-testing.md`：库存刷新为 24 文件/12 目录、标注 pipeline 5/10 失效(G16)
@@ -56,7 +57,7 @@
 - **修复**：`run_full_chain_analysis.py` + `run_final_chain_analysis.py` 的 `build_symbol_map(summary)` → `build_symbol_map(summary, l1l4, ft)`，改为三源合并（summary.all_ranked + l1l4.all_ranked + ft.all_ranked 并集）；`_meta` 容错沿用 Phase D
 - **factor_timing._zscore 全 NaN 防护**：FDC K线不可用时因子列全 NaN → `np.nanmean` 报 "Mean of empty slice"，加 `vals.size==0 or not np.isfinite(vals).any()` 返回零
 - **回归测试**：新增 `tests/commodity-chain/test_chain_full_analysis.py`（2 用例 PASS），固化三源合并逻辑
-- **测试覆盖**：import 级（迁入模块+FDC）全过；三生产者运行时跑通 exit 0；assemble_intermediate_data + 链分析消费端验证；fdc/technical-analysis 既有套件为预存在 SKIP（无关改动）
+- **测试覆盖**：import 级（迁入模块+FDC）全过；数技源信号+分析师能力运行时跑通 exit 0；assemble_intermediate_data + 链分析消费端验证；fdc/technical-analysis 既有套件为预存在 SKIP（无关改动）
 - **版本**：pyproject 6.3.0→6.3.1；commodity-chain-analysis 2.16→2.17；fundamental-data-collector 1.4→1.5
 
 ---
@@ -66,7 +67,7 @@
 - **范围**：layered_l1l4 迁至 technical-analysis（观澜 `run_l1l4_scan.py`），factor_timing 迁至 fundamental-data-collector（探源 `run_factor_timing_scan.py`），scan_all.py 剥离二者仅留 channel_breakout
 - **策略注册表**：`strategies/` 仅余 channel_breakout + three_signal；`layered_l1l4.py` / `factor_timing.py` / `true_layered.py` 已删并注销
 - **scan_all.py 清理**：删 `--dual` 参数、`mode_labels` 去 true_layered、策略解析恒为 channel_breakout（消除 `--mode true_layered` KeyError 死路径）
-- **三生产者链路**：数技源 scan_all(`full_scan_summary_*`) + 观澜 run_l1l4_scan(`full_scan_l1l4_*`) + 探源 run_factor_timing_scan(`full_scan_factor_timing_*`)；`pipeline/runner.py step_scan()` + `scheduler/tasks.py daily_debate()` Step1 已重写为三生产者调用，`full_scan_summary` 文件名精确匹配下游
+- **三生产链路**：数技源 scan_all(`full_scan_summary_*`) + 观澜 run_l1l4_scan(`full_scan_l1l4_*`) + 探源 run_factor_timing_scan(`full_scan_factor_timing_*`)；`pipeline/runner.py step_scan()` + `scheduler/tasks.py daily_debate()` Step1 已重写为数技源信号+分析师能力调用，`full_scan_summary` 文件名精确匹配下游
 - **文档全量重指**：agents(datatech/technical-researcher/chain-analyst) + docs(business_flow/harness/02-lifecycle) + `rules/futures-debate-team_rules.md` + 三 SKILL.md + 两 `data_interface.py` + chain 分析脚本防崩(`_meta` KeyError 容错)
 - **版本**：pyproject.toml 6.2.0→6.3.0；quant-daily 2.14→2.15 / technical-analysis 2.2→2.3 / fundamental-data-collector 1.3→1.4 / commodity-chain-analysis 2.15→2.16 / futures-trading-analysis 3.10→3.11
 - **验证**：6 个改动 .py py_compile 全过；全包 `--dual`/`true_layered` 仅剩历史/备份/注释残留，无活文档驱动；辩论流水线保持可用

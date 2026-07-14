@@ -1,8 +1,8 @@
 # Futures Debate Team — 期货交易辩论专家团 v6.3.1
 
-> 🚀 **v6.3.1 缺陷修复（技术债 §2/§3 收尾）**：修复链分析 `build_symbol_map` 在 channel_breakout-only 摘要下的 `KeyError: 'symbols'`（迁移后三生产者独立 JSON，旧代码期望嵌套结构）——改为三源合并；`factor_timing._zscore` 全 NaN 防护消除运行期警告。
+> 🚀 **v6.3.1 缺陷修复（技术债 §2/§3 收尾）**：修复链分析 `build_symbol_map` 在 channel_breakout-only 摘要下的 `KeyError: 'symbols'`（迁移后数技源信号+分析师独立 JSON，旧代码期望嵌套结构）——改为多源合并；`factor_timing._zscore` 全 NaN 防护消除运行期警告。
 >
-> 🧬 **v6.3.0 信号生产链路拆分（当前架构基线）**：`scan_all.py` 重构为纯通道突破信号源（移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`），落地 **P1 三生产者架构**——数技源（通道突破）+ 观澜（L1-L4 技术指标）+ 探源（因子择时）各自独立产出，辩论流水线保持可用。本 README 基于权威流程文档（`docs/business_flow.md`、`docs/harness/02-lifecycle.md`、`rules/futures-debate-team_rules.md`、`pipeline/runner.py`、`scheduler/tasks.py`）梳理，版本号唯一真相源为 `pyproject.toml`。
+> 🧬 **v6.3.0 信号生产链路拆分（当前架构基线）**：`scan_all.py` 重构为纯通道突破信号源（移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`），落地 **P1 数技源信号+分析师能力架构**——数技源（通道突破）产出信号，观澜（L1-L4 技术指标）/ 探源（因子择时）为分析师按需能力，辩论流水线保持可用。本 README 基于权威流程文档（`docs/business_flow.md`、`docs/harness/02-lifecycle.md`、`rules/futures-debate-team_rules.md`、`pipeline/runner.py`、`scheduler/tasks.py`）梳理，版本号唯一真相源为 `pyproject.toml`。
 
 ## 类型
 
@@ -18,7 +18,7 @@ Team 型（10 角色多 Agent 协作团队，全 Agent 自进化）
 "对比铜期货的多空论点"
 ```
 
-系统自动执行 6 阶段完整流程：信号生产（三生产者）→ 产业链分析 → 闫判官筛选定方向 → 研究员供弹 → 多空辩论 → 风控审核 → 方案输出。
+系统自动执行 6 阶段完整流程：信号生产（数技源信号+分析师能力）→ 产业链分析 → 闫判官筛选定方向 → 研究员供弹 → 多空辩论 → 风控审核 → 方案输出。
 
 ## 系统架构
 
@@ -29,7 +29,7 @@ Team 型（10 角色多 Agent 协作团队，全 Agent 自进化）
      │   检查 debate 新样本≥50 → ML TrainingOrchestrator.run_daily_check()
      │   加载最新 calibration.json + agent_profiles.json
      ▼
-P1  三生产者信号扫描（并行，各自独立 JSON）
+P1  数技源信号+分析师能力扫描（并行，各自独立 JSON）
      ├─ 数技源 scan_all.py (channel_breakout 默认)
      │     产出: full_scan_summary_{date}.json        ← 通道突破主信号
      ├─ 观澜   run_l1l4_scan.py (technical-analysis)
@@ -47,7 +47,7 @@ P2  闫判官筛选辩论品种+定方向       闫判官(judge)
      │                           同链冗余硬过滤(r>0.80 保留最强)
      ▼
 P3  研究员并行供弹                 观澜(技术面禁WebSearch) + 探源(基本面允WebSearch)
-     │                           中立产出，verdict=null；消费 P1 三生产者数据 + WebSearch 基本面事实
+     │                           中立产出，verdict=null；消费 P1 数技源+分析师数据 + WebSearch 基本面事实
      ▼
 P4  多空辩论                      证真(正方) + 慎思(反方)
      │                           基于研究员资料提炼论据，禁止自行搜索，动态正反方交叉质询
@@ -74,7 +74,7 @@ P6  汇总输出                      明鉴秋
 | **风控明** | risk | | | | | | ● 6层风控审核 |
 | **明鉴秋** | team-lead | ● 启动+调度 | | | ● 轮询传递 | ● 调度 | ● 归档+报告 |
 
-> 注：观澜、探源在 P1 既作为**信号生产者**（运行各自扫描脚本产出独立 JSON），又在 P3 作为**研究员**消费这些数据 + 补充分析。三生产者架构是 v6.3.0 链路拆分的成果，确保 P1 信号生产、研究员供弹职责清晰、互不耦合。
+> 注：观澜、探源在 P1 作为**分析师能力**（运行各自扫描脚本产出独立 JSON），又在 P3 作为**研究员**消费这些数据 + 补充分析。数技源信号+分析师能力架构是 v6.3.0 链路拆分的成果，确保 P1 信号生产、分析师供弹职责清晰、互不耦合。
 
 ## 核心特色
 
@@ -83,8 +83,8 @@ P6  汇总输出                      明鉴秋
 ### 1. 10-Agent 辩论架构（角色边界清晰）
 10 个专职 Agent 各司其职、相互制衡：**数技源只采信号不下结论、研究员只供事实不打分、辩手只提炼论据不搜数据、闫判官只裁决不分析、策执远只出方案不改方向、风控明只审核不站队**。任何单一维度的噪声都需经结构化辩论才能进入最终决策。
 
-### 2. P1 三生产者信号架构（v6.3.0）
-通道突破（数技源）、L1-L4 技术指标（观澜）、因子择时（探源）三者**各自独立脚本、独立 JSON 产出**，经 `debate_brief.py` 命令行读取后合并。信号生产与分析解耦，任一生产者失败不影响其他生产者，辩论流水线保持可用。
+### 2. P1 数技源信号+分析师能力架构（v6.3.0）
+通道突破（数技源）、L1-L4 技术指标（观澜）、因子择时（探源）三者**各自独立脚本、独立 JSON 产出**，经 `debate_brief.py` 命令行读取后合并。信号生产与分析解耦，任一模块失败不影响其他模块，辩论流水线保持可用。
 
 ### 3. 通道突破主信号源（唐奇安 + 布林带）
 主信号为通道突破（DC20/DC55 唐奇安通道 + 布林带挤压/突破 + 量能确认），全部信号经辩论，**无直接推荐通道**。ADX 角色反转：低位鼓励启动、高位警示过热（仅作辅助，不作致命伤）。信号分级（STRONG/WATCH/WEAK/NOISE）驱动辩论深度，强信号快速裁决、分歧信号充分交锋。
@@ -118,7 +118,7 @@ F1-F5 论证策略族（技术面/基本面/持仓/宏观/套利）分类系统 
 > 编排收敛层：把每轮「扫描 → 识别触发品种 → 标准化 spawn 计划 → assemble/extract/report」的易碎手工步骤收进单一脚本。**spawn 仍是团队主管（WorkBuddy Agent）的固有职责**，脚本产出标准化的 spawn 计划 JSON 供主管执行，不替代 Agent 调度。
 
 ```bash
-# 1) 三生产者扫描（P1，各自独立产出；以通道突破汇总作为辩论入口）
+# 1) 数技源扫描 + 观澜/探源按需分析
 python skills/quant-daily/scripts/scan_all.py -o <dir> -p full_scan_summary
 python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir <dir>
 python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir <dir>
@@ -201,14 +201,14 @@ python scripts/run_debate.py report --workspace <dir>/
 ## CLI 使用
 
 ```bash
-# 通道突破全量扫描（默认策略，三生产者之一）
+# 通道突破全量扫描（数技源，唯一信号生产者）
 python skills/quant-daily/scripts/scan_all.py -o ./reports -p full_scan_summary
 python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
 
-# 观澜 L1-L4 扫描（三生产者之二）
+# 观澜 L1-L4（按需分析能力）
 python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir ./reports
 
-# 探源 因子择时扫描（三生产者之三）
+# 探源 因子择时（按需分析能力）
 python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir ./reports
 
 # 辩论候选精选（按辩论价值评分分离候选）
@@ -223,7 +223,7 @@ python scripts/run_debate.py finalize --scan reports/full_scan_summary_*.json --
 # 信号复查（终检，推送给交易系统前必跑）
 python scripts/validate_final_signals.py -i debate_results.json -s full_scan_summary_*.json --json
 
-# 全自动无人值守流水线（pipeline/runner.py：三生产者→链分析→debate_brief→assemble→report→history）
+# 全自动无人值守流水线（pipeline/runner.py：扫描→链分析→debate_brief→assemble→report→history）
 python pipeline/runner.py
 ```
 
@@ -231,12 +231,12 @@ python pipeline/runner.py
 
 | Skill | 版本 | 用途 |
 |:------|:----|:-----|
-| `quant-daily` | v2.15.0 | 数据采集+通道突破信号（`scan_all.py` 三生产者之一） |
+| `quant-daily` | v2.15.0 | 数据采集+通道突破信号（`scan_all.py` 数技源） |
 | `futures-trading-analysis` | v3.11.0 | 主流程编排+5层鲁棒性+A01文件通信+报告生成+A2A文件桥 |
 | `fdt-spawn-debate` | v1.1 | Agent spawn流程+A01文件通信协议 |
 | `commodity-chain-analysis` | v2.17.0 | 产业链分析（P1.5） |
-| `fundamental-data-collector` | v1.5.0 | 基本面分析+因子择时（P1 生产者之三 + P3 研究员） |
-| `technical-analysis` | v2.3.0 | 技术面分析+支撑阻力（P1 生产者之二 + P3 研究员） |
+| `fundamental-data-collector` | v1.5.0 | 基本面分析+因子择时（P1 探源能力 + P3 研究员） |
+| `technical-analysis` | v2.3.0 | 技术面分析+支撑阻力（P1 观澜能力 + P3 研究员） |
 | `debate-argument-builder` | v2.3.0 | 正反方论点构建 |
 | `debate-judge` | v2.0.1 | 辩论裁决 |
 | `debate-risk-manager` | v4.1.0 | 风控审核（6层引擎） |
@@ -302,8 +302,8 @@ pip install httpx beautifulsoup4
 
 | 版本 | 日期 | 变更 |
 |:----|:----|:------|
-| **v6.3.1** | **2026-07-14** | **🐛 缺陷修复（§2/§3 收尾）**：链分析 `build_symbol_map` 三源合并修复（消除 channel_breakout-only 摘要 `KeyError: 'symbols'`，改为 summary+l1l4+ft 三文件合并）；`factor_timing._zscore` 全 NaN 防护（消 RuntimeWarning）；新增回归测试 `tests/commodity-chain/test_chain_full_analysis.py`。版本：包 6.3.0→6.3.1；commodity-chain-analysis 2.16→2.17 / fundamental-data-collector 1.4→1.5。 |
-| **v6.3.0** | **2026-07-14** | **🧬 信号生产链路拆分（技术债 §2/§3）**：`scan_all.py` 重构为纯通道突破信号源(channel_breakout)，移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`；L1-L4 迁 technical-analysis(`run_l1l4_scan.py`)，因子择时迁 fundamental-data-collector(`run_factor_timing_scan.py`)，P1 三生产者架构落地；`pipeline/runner.py`+`scheduler/tasks.py` Step1 重写，`full_scan_summary_{date}.json` 精确匹配下游，辩论流水线保持可用。版本：包 6.2.0→6.3.0。 |
+| **v6.3.1** | **2026-07-14** | **🐛 缺陷修复（§2/§3 收尾）**：链分析 `build_symbol_map` 多源合并修复（消除 channel_breakout-only 摘要 `KeyError: 'symbols'`，改为 summary+l1l4+ft 多文件合并）；`factor_timing._zscore` 全 NaN 防护（消 RuntimeWarning）；新增回归测试 `tests/commodity-chain/test_chain_full_analysis.py`。版本：包 6.3.0→6.3.1；commodity-chain-analysis 2.16→2.17 / fundamental-data-collector 1.4→1.5。 |
+| **v6.3.0** | **2026-07-14** | **🧬 信号生产链路拆分（技术债 §2/§3）**：`scan_all.py` 重构为纯通道突破信号源(channel_breakout)，移除 `--dual`/`layered_l1l4`/`factor_timing`/`true_layered`；L1-L4 迁 technical-analysis(`run_l1l4_scan.py`)，因子择时迁 fundamental-data-collector(`run_factor_timing_scan.py`)，P1 数技源信号+分析师能力架构落地；`pipeline/runner.py`+`scheduler/tasks.py` Step1 重写，`full_scan_summary_{date}.json` 精确匹配下游，辩论流水线保持可用。版本：包 6.2.0→6.3.0。 |
 | **v6.1.0** | **2026-07-13** | **🔴 最终信号验证门禁**：新增 `scripts/validate_final_signals.py` 确定性信号复查器（6+条硬性规则：action合法性、交易参数一致性、方向-价格一致性BULL→target>entry>stop/BEAR→target&lt;entry&lt;stop、RR≥0.5、品种交叉校验、confidence/grade合法性）。`assemble()` 新增 `_derive_action()` 动作消歧——裁决→execute/hold/wait 三值映射，action≠execute 时自动清空所有交易参数。CLI修复：`report`/`extract`/`validate` 子命令不强制加载 scan 文件。`generate_intermediate_data()` 的 `decision` 字段从扫描信号改为读辩论裁决（根因修复：信号与策略不一致）。`phase3_generate_report.py` 新增 confidence 字符串→float 归一化（"高"→0.95/"中"→0.65/"低"→0.35）。 |
 | **v6.2.0** | **2026-07-13** | **🔧 FDC v0.2.0 + A2A协议桥 + 置信度归一化**：FDC全面替代MSA(TqSDK免费版第一数据源)。新增A2A文件桥(`agent-card.json`+`export_a2a.py`+`run_debate.py a2a`子命令，`finalize`自动导出`a2a_results.json`)。`validate_final_signals.py`置信度英文→中文归一化(F02永久修复)。仓单日报/持仓排名/100ppi现货聚合迁入FDC。TqSDK全能力封装(28方法)。TickBar/TickData/SymbolInfo类型。连接复用优化(建连4.8s→0.2s)。CZCE大小写修复。|
 | **v5.12.1** | **2026-07-11** | **🔧 版本对齐**：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更。 |

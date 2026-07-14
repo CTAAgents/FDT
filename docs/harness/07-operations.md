@@ -290,8 +290,8 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
-| v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 三生产者合并 KeyError + factor_timing NaN 防护 |
-| v6.3.0 | 2026-07-14 | 三生产者架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |
+| v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
+| v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |
 | v6.2.0 | — | A2A Agent-to-Agent 协议文件桥（agent-card.json + a2a_results.json）+ validate_final_signals 置信度归一 |
 | v6.1.0 | — | 信号验证门（validate_final_signals.py）+ 行动对账（execute/hold/wait）+ 方向-价格一致性检查 |
 | v6.0.0 | — | FDC 数据引擎合并：QMT(0) 主源，TDX/TqSDK 降级，移除 AKShare/EastMoney 直连 |
