@@ -119,7 +119,7 @@
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | **G19** | V2/V3 多因子增强缺测试覆盖 | — | — | 新增 9 测试在 tests/validators/ | ✅ v6.3.2 关闭 |
-| **G20** | 阈值常量散布 | — | — | 迁移至 config/settings.py（待后续） | ⏳ |
+| **G20** | 阈值常量散布 | — | — | 迁移至 config/settings.py ENHANCED_VALIDATOR_THRESHOLDS | ✅ v7.3.0 关闭 |
 | **G21** | 100ppi 降级文档 | — | — | 补充 04-resilience.md（待后续） | ⏳ |
 | **G22** | 策略层不支持多策略并行 | — | — | Phase A→D 完成，v7.2.0 pipeline 默认模式 | ✅ v7.2.0 关闭 |
 | **G23** | 信号类型无命名空间 | — | — | BaseStrategyV2 `{name}.{subtype}` 命名空间 | ✅ v7.2.0 关闭 |

@@ -29,8 +29,14 @@ except Exception:
 VOL_HIGH_RATIO = 1.5         # 高量比阈值，配合 OI 萎缩判断
 
 
+def _is_breakout_signal(signal_type: str) -> bool:
+    """检查 signal_type 是否属突破类信号（v1 名称或 v2 命名空间前缀匹配）。"""
+    breakout_prefixes = ("channel_breakout", "trend_following", "bb_squeeze")
+    return any(signal_type.startswith(p) for p in breakout_prefixes)
+
+
 def validate_volume_confirm(r, context):
-    if r.get("signal_type") not in ("channel_breakout", "bb_squeeze_prebreakout"):
+    if not _is_breakout_signal(r.get("signal_type", "")):
         return
     sym = r.get("symbol", "")
     dlist = (context.kline_data.get(sym) or (None, []))[1]

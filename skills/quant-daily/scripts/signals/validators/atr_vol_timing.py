@@ -25,8 +25,16 @@ except Exception:
     BASIS_SHRINK_THRESHOLD = -2.0
 
 
+def _is_atr_applicable(signal_type: str) -> bool:
+    """检查是否适用 ATR 验证（v1 名称或 v2 命名空间前缀）。"""
+    applicable_prefixes = ("channel_breakout", "trend_following", "bb_squeeze",
+                          "near_breakout", "minor_signal", "mean_reversion",
+                          "arbitrage")
+    return any(signal_type.startswith(p) for p in applicable_prefixes)
+
+
 def validate_atr_vol_timing(r, context):
-    if r.get("signal_type") not in ("channel_breakout", "bb_squeeze_prebreakout", "near_breakout", "minor_signal"):
+    if not _is_atr_applicable(r.get("signal_type", "")):
         return
     atr = r.get("atr", 0)
     price = r.get("price", 0)

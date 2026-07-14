@@ -14,6 +14,11 @@ from .base import demote
 
 _SPIKE_RETURN_CAP = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
 _BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
+# v2 命名空间前缀（trend_following.dc20 等）
+_V2_TREND_PREFIXES = ("trend_following",)
+
+def _is_v2_trend(sig: str) -> bool:
+    return any(sig.startswith(p) for p in _V2_TREND_PREFIXES)
 
 # ── 基差方向冲突阈值（从 config/settings.py 集中读取） ──
 try:
@@ -25,7 +30,7 @@ except Exception:
 
 def validate_p0_4_raw_kline(r: dict, context) -> None:
     sig = r.get("signal_type", "")
-    if sig not in _BREAKOUT_SIGNALS:
+    if sig not in _BREAKOUT_SIGNALS and not _is_v2_trend(sig):
         return
     sym = r.get("symbol", "")
     dlist = (context.kline_data.get(sym) or (None, []))[1]
