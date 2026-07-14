@@ -306,14 +306,21 @@ class StrategyPipeline:
 
         # Phase 2: 策略内验证器（从 validators 注册表查找）
         try:
-            from signals.validators import get_validator
+            from signals.validators import get_validator, ValidationContext
+            # 将管线上下文包装为 ValidationContext（验证器需要 .kline_data 属性）
+            _vc_extra: dict = ctx.get("extra", {}) if isinstance(ctx, dict) else {}
+            vctx = ValidationContext(
+                kline_data=ctx.get("kline_data", {}) if isinstance(ctx, dict) else {},
+                higher_tf={},
+                extra=_vc_extra,
+            )
             for s in self.strategies:
                 for signal in strategy_outputs.get(s.name, []):
                     sig_dict = signal.to_dict()
                     for vid in s.validators:
                         vfn = get_validator(vid)
                         if vfn:
-                            vfn(sig_dict, ctx)
+                            vfn(sig_dict, vctx)
                     # 同步验证器修改回 ScoredSignal
                     signal._validator_demoted = sig_dict.get("_validator_demoted", False)
                     signal._validator_reason = sig_dict.get("_validator_reason", "")
@@ -335,7 +342,7 @@ class StrategyPipeline:
             for vid in global_vids:
                 vfn = get_validator(vid)
                 if vfn:
-                    vfn(fused_dicts, ctx)
+                    vfn(fused_dicts, vctx)
             # 同步回 ScoredSignal
             fd_map = {d["symbol"]: d for d in fused_dicts}
             for s in fused:
