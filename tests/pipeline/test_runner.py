@@ -42,7 +42,7 @@ class TestPipelineRunner:
 
     def test_all_succeed(self, monkeypatch):
         self._mock_steps(monkeypatch, {
-            "scan_dual": True, "chain_analysis": True, "debate_brief": True,
+            "scan": True, "chain_analysis": True, "debate_brief": True,
             "assemble_intermediate": True, "generate_report": True, "record_history": True,
         })
         monkeypatch.setattr("os.path.exists", lambda p: p == self.html)
@@ -52,7 +52,7 @@ class TestPipelineRunner:
     def test_scan_fails_others_ok(self, monkeypatch):
         """scan 失败 → 流水线继续完成 → 返回 1"""
         self._mock_steps(monkeypatch, {
-            "scan_dual": False, "chain_analysis": True, "debate_brief": True,
+            "scan": False, "chain_analysis": True, "debate_brief": True,
             "assemble_intermediate": True, "generate_report": True, "record_history": True,
         })
         monkeypatch.setattr("os.path.exists", lambda p: p == self.html)
@@ -62,7 +62,7 @@ class TestPipelineRunner:
     def test_chain_fails_others_ok(self, monkeypatch):
         """chain 失败 → 其余正常 → 返回 1"""
         self._mock_steps(monkeypatch, {
-            "scan_dual": True, "chain_analysis": False, "debate_brief": True,
+            "scan": True, "chain_analysis": False, "debate_brief": True,
             "assemble_intermediate": True, "generate_report": True, "record_history": True,
         })
         monkeypatch.setattr("os.path.exists", lambda p: p == self.html)
@@ -72,7 +72,7 @@ class TestPipelineRunner:
     def test_report_fails(self, monkeypatch):
         """报告失败 + HTML 不存在 → 返回 1"""
         self._mock_steps(monkeypatch, {
-            "scan_dual": True, "chain_analysis": True, "debate_brief": True,
+            "scan": True, "chain_analysis": True, "debate_brief": True,
             "assemble_intermediate": True, "generate_report": False, "record_history": True,
         })
         monkeypatch.setattr("os.path.exists", lambda p: False)
@@ -82,7 +82,7 @@ class TestPipelineRunner:
     def test_multi_warn(self, monkeypatch):
         """3 个警告 + HTML 存在 → 返回 1（有警告即非零）"""
         self._mock_steps(monkeypatch, {
-            "scan_dual": True, "chain_analysis": False, "debate_brief": False,
+            "scan": True, "chain_analysis": False, "debate_brief": False,
             "assemble_intermediate": False, "generate_report": True, "record_history": True,
         })
         monkeypatch.setattr("os.path.exists", lambda p: p == self.html)
