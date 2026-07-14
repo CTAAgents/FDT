@@ -1,0 +1,283 @@
+"""
+多策略编排器 — StrategyPipeline + StrategyFusion。
+
+编排多策略执行（按依赖拓扑）、策略内验证器路由、跨策略得分融合。
+"""
+
+from __future__ import annotations
+import json
+from datetime import datetime
+from typing import Any, Optional
+from collections import defaultdict
+
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+
+
+# ════════════════════════════════════════════════════════════
+# DAG 拓扑排序
+# ════════════════════════════════════════════════════════════
+
+def _topo_sort(strategies: list[BaseStrategyV2]) -> list[BaseStrategyV2]:
+    """按依赖关系拓扑排序，无依赖的策略在前。"""
+    names = {s.name for s in strategies}
+    visited: set[str] = set()
+    sorted_list: list[BaseStrategyV2] = []
+    temp_mark: set[str] = set()
+
+    def _visit(s: BaseStrategyV2):
+        if s.name in temp_mark:
+            raise ValueError(f"Circular dependency detected: {s.name}")
+        if s.name in visited:
+            return
+        temp_mark.add(s.name)
+        for dep_name in s.depends_on:
+            dep = next((st for st in strategies if st.name == dep_name), None)
+            if dep is None:
+                raise ValueError(f"Strategy '{s.name}' depends on '{dep_name}' which is not registered")
+            _visit(dep)
+        temp_mark.discard(s.name)
+        visited.add(s.name)
+        sorted_list.append(s)
+
+    for s in strategies:
+        if s.name not in visited:
+            _visit(s)
+    return sorted_list
+
+
+# ════════════════════════════════════════════════════════════
+# 策略融合
+# ════════════════════════════════════════════════════════════
+
+class StrategyFusion:
+    """跨策略得分融合。
+
+    支持多种融合策略，通过 fusion_method 参数选择。
+    """
+
+    # 同品种方向冲突时按 weight 排序
+    WEIGHTED_MAX = "weighted_max"       # 取最高权重策略的分数
+    WEIGHTED_AVG = "weighted_avg"       # 加权平均
+    SIGNAL_STACK = "signal_stack"       # 保留多重信号，加 strategy_tag
+
+    def __init__(self, fusion_method: str = WEIGHTED_MAX):
+        if fusion_method not in (self.WEIGHTED_MAX, self.WEIGHTED_AVG, self.SIGNAL_STACK):
+            raise ValueError(f"Unknown fusion method: {fusion_method}")
+        self.fusion_method = fusion_method
+
+    def fuse(self,
+             per_strategy: dict[str, list[ScoredSignal]]
+             ) -> list[ScoredSignal]:
+        """融合多策略打分结果为一个统一候选列表。
+
+        Args:
+            per_strategy: {strategy_name: [ScoredSignal, ...]}
+
+        Returns:
+            融合后的 ScoredSignal 列表（每品种一条，含 strategy_breakdown）
+        """
+        by_symbol: dict[str, list[ScoredSignal]] = defaultdict(list)
+        for sname, signals in per_strategy.items():
+            for sig in signals:
+                by_symbol[sig.symbol].append(sig)
+
+        fused: list[ScoredSignal] = []
+        for symbol, sigs in by_symbol.items():
+            candidate = self._fuse_one(symbol, sigs)
+            if candidate is not None:
+                fused.append(candidate)
+
+        # 按 abs_score 降序
+        fused.sort(key=lambda s: s.abs_score, reverse=True)
+        return fused
+
+    def _fuse_one(self, symbol: str,
+                  signals: list[ScoredSignal]) -> Optional[ScoredSignal]:
+        """融合单个品种的多策略信号。"""
+        if not signals:
+            return None
+
+        if self.fusion_method == self.SIGNAL_STACK:
+            # 信号叠加：保留所有信号，取最高 abs 的 grade
+            best = max(signals, key=lambda s: s.abs_score)
+            best.extra["strategy_breakdown"] = {
+                s.strategy_name: {"total": s.total, "weight": s.weight}
+                for s in signals
+            }
+            return best
+
+        # 按 weight 降序排列
+        sorted_sigs = sorted(signals, key=lambda s: s.weight, reverse=True)
+
+        if self.fusion_method == self.WEIGHTED_MAX:
+            best = sorted_sigs[0]
+            best.extra["strategy_breakdown"] = {
+                s.strategy_name: {"total": s.total, "weight": s.weight}
+                for s in signals
+            }
+            # 检查方向冲突
+            dirs = {s.direction for s in signals if s.direction != "neutral"}
+            if len(dirs) > 1:
+                best.extra["direction_conflict"] = True
+                best.extra["direction_resolved_by"] = best.strategy_name
+                best.direction = best.direction  # 最高权重说了算
+            return best
+
+        if self.fusion_method == self.WEIGHTED_AVG:
+            total_weight = sum(s.weight for s in signals)
+            if total_weight == 0:
+                return sorted_sigs[0]
+            avg_total = sum(s.total * s.weight for s in signals) / total_weight
+            avg_abs = sum(s.abs_score * s.weight for s in signals) / total_weight
+            # 方向取加权投票
+            bull_weight = sum(s.weight for s in signals if s.direction == "bull")
+            bear_weight = sum(s.weight for s in signals if s.direction == "bear")
+            if bull_weight > bear_weight:
+                direction = "bull"
+            elif bear_weight > bull_weight:
+                direction = "bear"
+            else:
+                direction = "neutral"
+
+            result = ScoredSignal(
+                symbol=symbol,
+                direction=direction,
+                signal_type="fused",
+                strategy_name="fused",
+                total=round(avg_total, 1),
+                abs_score=round(avg_abs, 1),
+                grade="STRONG" if abs(avg_total) >= 75 else
+                      "WATCH" if abs(avg_total) >= 60 else
+                      "WEAK" if abs(avg_total) >= 40 else "NOISE",
+                sub_scores={s.strategy_name: s.total for s in signals},
+                weight=1.0,
+            )
+            result.extra["strategy_breakdown"] = {
+                s.strategy_name: {"total": s.total, "weight": s.weight}
+                for s in signals
+            }
+            result.extra["fusion_method"] = self.WEIGHTED_AVG
+            return result
+
+        return sorted_sigs[0]
+
+
+# ════════════════════════════════════════════════════════════
+# 策略管线
+# ════════════════════════════════════════════════════════════
+
+class StrategyPipeline:
+    """多策略编排器。
+
+    流程:
+      1. 按依赖拓扑排序策略
+      2. 逐策略执行 compute → filter → score
+      3. 策略内验证器按 signal_type 路由
+      4. 跨策略融合
+      5. 打包为统一输出格式
+    """
+
+    def __init__(self, strategies: list[BaseStrategyV2],
+                 fusion: Optional[StrategyFusion] = None):
+        if not strategies:
+            raise ValueError("At least one strategy required")
+        self.strategies = _topo_sort(strategies)
+        self.fusion = fusion or StrategyFusion()
+
+    def run(self, tech_list: list[dict], kline_data: dict,
+            context: dict | None = None) -> dict:
+        """完整执行管线。
+
+        Args:
+            tech_list: 指标引擎产出的每品种 tech dict 列表
+            kline_data: {sym: (name, [bar_dict, ...])}
+            context: 共享上下文（含验证器需要的数据）
+
+        Returns:
+            {
+                "all_ranked": [ScoredSignal.to_dict(), ...],
+                "bull_signals": [dict, ...],     # direction=="bull"
+                "bear_signals": [dict, ...],     # direction=="bear"
+                "per_strategy": {name: signals_dict, ...},
+                "_meta": {strategies_run, fusion_method, ...}
+            }
+        """
+        ctx = context or {}
+
+        # Phase 1: 执行所有策略
+        strategy_outputs: dict[str, list[ScoredSignal]] = {}
+        for s in self.strategies:
+            raw = s.compute(tech_list, kline_data, ctx)
+            filtered = s.filter(raw, ctx)
+            scored = s.score(filtered, tech_list, ctx)
+            strategy_outputs[s.name] = scored
+
+        # Phase 2: 策略内验证器（从 validators 注册表查找）
+        try:
+            from signals.validators import get_validator
+            for s in self.strategies:
+                for signal in strategy_outputs.get(s.name, []):
+                    sig_dict = signal.to_dict()
+                    for vid in s.validators:
+                        vfn = get_validator(vid)
+                        if vfn:
+                            vfn(sig_dict, ctx)
+                    # 同步验证器修改回 ScoredSignal
+                    signal._validator_demoted = sig_dict.get("_validator_demoted", False)
+                    signal._validator_reason = sig_dict.get("_validator_reason", "")
+                    if sig_dict.get("grade") != signal.grade:
+                        signal.grade = sig_dict.get("grade", signal.grade)
+                    if sig_dict.get("total", signal.total) != signal.total:
+                        signal.total = sig_dict.get("total", signal.total)
+        except ImportError:
+            pass  # 验证器不可用时不崩溃
+
+        # Phase 3: 跨策略融合
+        fused = self.fusion.fuse(strategy_outputs)
+
+        # Phase 4: 全局闸门（crowding 等）
+        try:
+            from signals.validators import get_validator
+            global_vids = ["crowding"]
+            fused_dicts = [s.to_dict() for s in fused]
+            for vid in global_vids:
+                vfn = get_validator(vid)
+                if vfn:
+                    vfn(fused_dicts, ctx)
+            # 同步回 ScoredSignal
+            fd_map = {d["symbol"]: d for d in fused_dicts}
+            for s in fused:
+                if s.symbol in fd_map:
+                    fd = fd_map[s.symbol]
+                    s.grade = fd.get("grade", s.grade)
+                    s.total = fd.get("total", s.total)
+                    s._validator_demoted = fd.get("_validator_demoted", False)
+        except ImportError:
+            pass
+
+        # Phase 5: 打包输出
+        all_dicts = [s.to_dict() for s in fused]
+        bull = [d for d in all_dicts if d.get("direction") == "bull" and d.get("grade") != "NOISE"]
+        bear = [d for d in all_dicts if d.get("direction") == "bear" and d.get("grade") != "NOISE"]
+
+        per_strategy_dict = {}
+        for sname, signals in strategy_outputs.items():
+            per_strategy_dict[sname] = {
+                "all_ranked": [sig.to_dict() for sig in signals],
+                "count": len(signals),
+            }
+
+        return {
+            "all_ranked": all_dicts,
+            "bull_signals": bull,
+            "bear_signals": bear,
+            "per_strategy": per_strategy_dict,
+            "_meta": {
+                "strategies_run": [s.name for s in self.strategies],
+                "fusion_method": self.fusion.fusion_method,
+                "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "total": len(all_dicts),
+                "bull": len(bull),
+                "bear": len(bear),
+            },
+        }
