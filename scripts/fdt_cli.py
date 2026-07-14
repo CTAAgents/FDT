@@ -144,8 +144,14 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     # 构建 scan 参数
     scan_cmd = [py, str(_SCAN_PY),
                 "--output", workspace,
-                "--prefix", scan_prefix,
-                "--strategy", "channel_breakout"]
+                "--prefix", scan_prefix]
+
+    # 多策略管线 vs 单策略
+    use_pipeline = getattr(args, "pipeline", False)
+    if use_pipeline:
+        scan_cmd.append("--pipeline")
+    else:
+        scan_cmd += ["--strategy", "channel_breakout"]
 
     # 模式1(full) = 过滤开，模式2(no-filter) = 过滤关 → 在 scan 阶段控制
     # 模式3(scan-only) = 扫描后结束，模式4(scan-filter) = 扫描+过滤后结束
@@ -273,6 +279,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="忽略辩论缓存，强制重新辩论")
     p_pipe.add_argument("--check-resources", action="store_true",
                         help="资源感知动态并发")
+    p_pipe.add_argument("--pipeline", action="store_true",
+                        help="启用多策略管线（6策略并行）代替单策略通道突破")
 
     # ── 低级命令保持兼容 ──
     p_scan = sub.add_parser("scan", help="运行信号扫描 (pass-through)")
