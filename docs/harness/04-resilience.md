@@ -294,3 +294,21 @@ daemon_watchdog.py 检测 (每30分钟)
 | **配置** | `team_config.json` → `agent_watchdog_seconds: 420` (7分钟) |
 | **作用** | 超过 7 分钟无产出的 Agent 标记为超时 |
 | **恢复** | D06 降级 |
+
+## 8. 多因子增强降级
+
+### 8.1 100ppi 现期表不可用
+
+| 场景 | 现象 | 降级路径 |
+|:-----|:-----|:---------|
+| 100ppi.com/sf/ 被 Cloudflare 拦截 | `_collect_basis_data_sync()` 返回空 dict | V3 基差+低波联合增强静默跳过，退化为纯 ATR% 判断 |
+| 100ppi 页面结构变化 | `_parse_100ppi_sf_page()` 解析器返回空 | 同上；日志打印 `⚠️ 100ppi 解析失败` |
+| **影响** | 基差信号消失，`arbitrage.basis` 子类型无产出 | 跨品种配对（pair spread）不受影响（仅用期货价） |
+| **恢复** | 下次扫描自动重试；无需人工干预 |
+
+### 8.2 OI 数据不可用
+
+| 场景 | 降级 |
+|:-----|:------|
+| TDX 不返回 `oi` 字段 | `_collect_oi_data_sync()` 返回空 dict → V2 OI 量比联合跳过 → 退化为纯量比判断 |
+| **恢复** | 下次 TDX 查询自动恢复 |
