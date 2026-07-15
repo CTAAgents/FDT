@@ -498,6 +498,27 @@ def run_scan(
     print(f"\n[1] 数据采集（FDC futures_data_core → TqSDK/TDX/QMT 降级链）...")
     kline_data = collect_kline_for_all(target_symbols, days=120, min_bars=50, contract=contract, period=period)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
+
+    # ── Step 1.1 (G36): 跨期价差历史预采集（受保护，xtquant/网络不可用时为空 → 策略无操作）──
+    # 复用 FDC _resolve_contracts（xtquant 合约链）+ xtquant get_market_data_ex（与 FDC qmt 采集器同源），
+    # 不引入新外部源。逐品种 try/except 包裹，任何失败仅跳过该品种，绝不影响主扫描路径。
+    spread_history: dict = {}
+    try:
+        from strategies.spread_reversion_strategy import fetch_spread_history
+        import asyncio
+        for _sym, _name in target_symbols:
+            _v = _sym[0] if isinstance(_sym, (list, tuple)) else _sym
+            try:
+                _sh = fetch_spread_history(_v, days=120)
+                if _sh:
+                    spread_history[_v] = _sh
+            except Exception:
+                continue
+        if spread_history:
+            print(f"  跨期价差历史: {len(spread_history)} 品种就绪（G36 SpreadReversionStrategy）")
+    except Exception:
+        spread_history = {}  # 整体降级，策略无操作
+
     # ── R24 全局闸门：如果没有任何品种有有效数据，拒绝整次扫描 ──
     if not kline_data:
         _fail_reasons = []
@@ -725,6 +746,8 @@ def run_scan(
                     _STRATEGY_REGISTRY["mean_reversion"] = MeanReversionStrategy
                     from strategies.pairs_reversion_strategy import PairsReversionStrategy
                     _STRATEGY_REGISTRY["pairs_reversion"] = PairsReversionStrategy
+                    from strategies.spread_reversion_strategy import SpreadReversionStrategy
+                    _STRATEGY_REGISTRY["spread_reversion"] = SpreadReversionStrategy
                     from strategies.macro_regime_strategy import MacroRegimeStrategy
                     _STRATEGY_REGISTRY["macro_regime"] = MacroRegimeStrategy
                     from strategies.event_driven_strategy import EventDrivenStrategy
@@ -756,7 +779,8 @@ def run_scan(
 
                     pipeline = get_pipeline()
                     _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
-                            "window_mode": window_mode, "mode": "full", "extra": _ctx_extra}
+                            "window_mode": window_mode, "mode": "full", "extra": _ctx_extra,
+                            "spread_history": spread_history}
                     summary = pipeline.run(tech_list, kline_data, _ctx)
                     summary["pipeline_mode"] = True
                     summary["active_strategies"] = _active_names.copy()

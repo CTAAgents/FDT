@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "8.1.0"
+version = "8.1.1"
 description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v6.2: A2A Agent-to-Agent protocol file bridge (agent-card.json + a2a_results.json) + validate_final_signals.py confidence normalization (HIGH/MEDIUM/LOW auto-mapped to 高/中/低). v6.1: Signal validation gate (validate_final_signals.py) + action reconciliation (execute/hold/wait) + direction-price consistency check. v6.0: FDC data engine merge — QMT(0) primary source, TDX/TqSDK fallback, AKShare/EastMoney removed. v5.12: period discovery layer PERIOD_REGISTRY zero-hardcode. v5.11: debate pipeline engineering. v5.10: unified debate entry threshold. v6.3: scan_all split — channel_breakout only; L1-L4/factor_timing moved to standalone producers (technical-analysis/fundamental-data-collector). v6.3.1: fix chain-analysis build_symbol_map 3-producer merge (KeyError on channel_breakout-only summary) + factor_timing NaN guard. v6.3.2: P0-4 multi-factor filter enhancement — select_triggers disable_filter, V1 OI/basis override, V2 OI+volume joint, V3 basis+low-vol joint, numpy 60s timeout, finalize-only glob fix, 9 new validator tests."
 readme = "README.md"
 requires-python = ">=3.10"
