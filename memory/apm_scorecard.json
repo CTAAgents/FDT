@@ -1,25 +1,20 @@
 {
   "_schema_version": "1.0",
   "_methodology": "CLQT APM-CS (arXiv:2606.29771) adapted for FDT",
-  "generated_at": "2026-07-07 18:58:13",
+  "generated_at": "2026-07-15 18:31:21",
   "data_range": {
     "verdicts_total": 20,
-    "sessions_total": 8,
+    "sessions_total": 1,
     "pnl_validated": 20,
     "pnl_unvalidated": 0
   },
-  "apm_overall": 0.701,
+  "apm_overall": 0.668,
   "axes": {
     "D1_Coherence": {
-      "score": 0.8,
-      "status": "active",
-      "description": "裁决-论据一致性（held-out judge, CLQT §6.4.1）。D1=裁决是否真正源于辩论论据。",
-      "mean_coherence": 0.8,
-      "n": 1,
-      "min": 0.8,
-      "max": 0.8,
-      "direction_auditable": 1,
-      "note": "held-out judge 一致性（CLQT §6.4.1）；≥0.8=裁决由论据充分支撑，<0.5=忽视反方重大质疑"
+      "score": null,
+      "status": "ready",
+      "reason": "机制已就位（schema 升级 + held-out judge + held_out_judge 字段）。尚无带 held_out_judge 的 debate_record。",
+      "action_required": "每轮辩论由 futures-judge-heldout 产出 held_out_judge，首条即点亮 D1"
     },
     "D2_Acuity": {
       "score": 0.022,
@@ -40,8 +35,8 @@
     "D3_Composure": {
       "score": null,
       "status": "blocked",
-      "reason": "需 ≥5 轮辩论的波动率-止损配对，当前 1/5 轮",
-      "n_rounds": 1,
+      "reason": "需 ≥5 轮辩论的波动率-止损配对，当前 0/5 轮",
+      "n_rounds": 0,
       "action_required": "积累 ≥5 轮 debate_record 后由 d3_auto_light 触发器自动点亮"
     },
     "D4_Discipline": {
@@ -153,39 +148,15 @@
       "status": "active",
       "description": "辩论 session 闭环完成率与错误率。",
       "detail": {
-        "raw_score": 0.637,
+        "raw_score": 1.0,
         "fresh_score": 1.0,
-        "stale_excluded": 2,
+        "stale_excluded": 0,
         "exclude_signatures": [
           "目标目录不存在"
         ],
         "raw": {
-          "total_sessions": 8,
-          "completed": 6,
-          "partial": 0,
-          "failed": 2,
-          "completion_rate": 0.75,
-          "failure_rate": 0.25,
-          "error_types": {
-            "⚠️ 目标目录不存在": 2,
-            "report_count=0": 2
-          },
-          "errors": [
-            {
-              "timestamp": "2026-07-06 17:07",
-              "action": "daily_debate_full",
-              "error": "report_count=0"
-            },
-            {
-              "timestamp": "2026-07-06 17:11",
-              "action": "daily_debate_full",
-              "error": "report_count=0"
-            }
-          ]
-        },
-        "fresh": {
-          "total_sessions": 6,
-          "completed": 6,
+          "total_sessions": 1,
+          "completed": 1,
           "partial": 0,
           "failed": 0,
           "completion_rate": 1.0,
@@ -193,8 +164,18 @@
           "error_types": {},
           "errors": []
         },
-        "total_sessions": 6,
-        "completed": 6,
+        "fresh": {
+          "total_sessions": 1,
+          "completed": 1,
+          "partial": 0,
+          "failed": 0,
+          "completion_rate": 1.0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "errors": []
+        },
+        "total_sessions": 1,
+        "completed": 1,
         "partial": 0,
         "failed": 0,
         "completion_rate": 1.0,
