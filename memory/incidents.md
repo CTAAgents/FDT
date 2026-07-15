@@ -452,3 +452,70 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 - 最终输出必须经过action消歧：扫描信号方向 ≠ 交易系统动作。辩论裁决是中间件，不是最终判决
 - `generate_intermediate_data()` 中任何`decision`字段必须从辩论裁决读取，禁止从扫描信号直接推导
 - `_derive_action()` 逻辑已固化在run_debate.py的assemble流程中，后续新增辩论品种自动适配
+
+## 2026-07-15 20:15 | 盘后自动化扫描双阻塞：TqSDK关闭挂死 + channel_breakout get_strategy 未导入
+
+**事件**: 自动化盘后扫盘（周三 20:15）执行 `fdt_cli.py pipeline --mode no-filter`，扫描阶段失败，无新辩论产物。回退交付早盘 scan_daily_20260715.json(10:45 内盘) + debate_report_20260715.html(11:16)。
+
+**根因（双）**:
+1. 环境层：TQ-Local(通达信)实际未吐数据 → FDC 降级到 TqSDK 逐品种拉 K 线 → TqSDK 事件循环关闭 `executor did not finish joining threads within 300 seconds` 挂死（单品种 RB 因 TQ-Local 命中 26s 完成；62 品种批量必挂）。
+2. 代码回归：单策略 `channel_breakout` 路径 `scan_all.py:814` 调用 `get_strategy(strategy_name)` 但该名仅在其 pipeline 分支 `except` 内 `from strategies import get_strategy`（L810）导入 → `UnboundLocalError: cannot access local variable 'get_strategy'`。committed G40 v8.1.7（18:53）。pipeline 模式可绕过此 bug 但同样卡在 TqSDK 关闭。
+
+**改正**: 按唯一副本铁律未改 plugins/marketplaces 代码（需掌柜"执行"）。改用今早有效 pipeline 扫描产物作辩论输入交付。
+
+**预防**:
+- A. 确保通达信 TQ-Local HTTP 服务稳定吐数（或 FDC 切 web_fallback），避免落 TqSDK 关闭挂死。
+- B. `scan_all.py:814` 前补 `from strategies import get_strategy`（与 L810 一致），修单策略路径。
+- C. 排查 TqSDK 关闭 300s 挂死（环境/版本），必要时限制 TqSDK 仅做降级源并设关闭超时。
+- 自动化扫描失败时应有"回退到当日最近有效扫描"机制，避免整轮空转。
+
+---
+
+## 2026-07-15 22:10 | WebFallbackCollector 东方财富断连 + 新浪键名解析错误（降级链兜底失效）
+
+### 事件
+用户质疑降级链中 EastMoney(web) 能否正确取数（"之前无法正确获取"）。实证测试 RB/TA/M/SI/I 五品种：web_fallback 返回 4200+ 根 bar 但日期全空、收盘全 0.0（垃圾数据）。若 TQ-Local 掉线，链落 web_fallback(priority=1) → R24 闸门拒扫 → 整轮辩论流产（潜伏关键故障，对应上条 20:15 事故预防项 A）。
+
+### 根因
+1. **东方财富 (`_try_eastmoney`)**：`push2his.eastmoney.com/api/qt/stock/kline/get` 对期货 secid（如 `113.RB0`）返回 `RemoteDisconnected`（服务端直接断连，反爬/区域限制），当前环境取不到任何数据。
+2. **新浪 (`_try_sina`)**：原始抓取成功（509KB 合法 JSON，价格正确），但解析用错键名——代码读 `date/open/high/low/close/volume`，新浪实际返回短键 `d/o/h/l/c/v` → 每条 K 线落默认空/0。且未对返回做 `[-days:]` 切片（返回全部历史）。
+
+### 改正（已执行·掌柜授权"执行修复"）
+`futures_data_core/collectors/web_fallback.py`：
+1. `_try_sina`：改用新浪短键 `d/o/h/l/c/v`；日期 `YYYY-MM-DD` → 归一 `YYYYMMDD`（对齐管线）；补 `open_interest`(p)；加 `records[-days:]` 切片。
+2. `get_kline`：改为 **新浪优先、东方财富次之**（避免每次空等 15s EastMoney 超时）。
+
+### 验证
+真实 collector 复测 RB/TA/M/SI/I 均返回 120 根有效 bar，日期 `20260715`、收盘为真实盘面价（RB=3115.0 / TA=5752.0 / M=3066.0 / SI=8425.0 / I=762.0），全部 OK。
+
+### 预防
+- 降级链 web 兜底层应以新浪为稳定主源；东方财富当前环境断连，仅作 best-effort 二级。
+- 任何新增 web 源解析必须先用真实响应校验键名/字段，不能假设与股票 API 一致。
+
+---
+
+## 2026-07-15 22:53 | 信号融合层设计错误（重大生产事故·掌柜认定）
+
+### 事件
+掌柜认定：信号融合（无论**跨策略**，还是**同一策略内部子信号**）的思想本身错误，属重大生产事故。当前 `StrategyFusion`（默认 `WEIGHTED_MAX`）在 `scan_all` 管线里把 7 策略 + 各策略内部子信号坍缩成统一 `total`，再喂辩论入口闸门。掌柜明确要求：每个（策略 × 子信号）独立输出，按各自确定性判据筛选后独立进入辩论，**融合层必须删除**。
+
+### 根因
+1. **设计哲学错误**：v7.0.0 管线化时为给辩论入口闸门提供统一 `total` 标尺引入 `StrategyFusion`（默认 WEIGHTED_MAX）。该设计隐含"信号层可替下游做取舍"假设，与"信号层只负责产出、裁决交给辩论层"的架构原则冲突。
+2. **双层坍缩**：(a) 跨策略同向坍缩（`pipeline.py:274-282` 取最高权重一条，其余塞进 `strategy_breakdown`）；(b) 策略内子信号经同一融合入口被合并——同一策略的 DC20突破 / Supertrend / SAR / 均线排列等子信号被压成一条代表信号。
+3. **操作越界**：本会话后台盘后扫描 `scan_pipe_2010` 直接调 `get_pipeline()`（默认 WEIGHTED_MAX），在未经掌柜确认"信号该不该融合"的前提下运行了融合管线，产出融合后的辩论候选。
+
+### 改正（v8.1.8 已执行·2026-07-16 00:17 落地）
+1. **去融合（v8.1.8）**：`StrategyFusion` 标记废弃（Phase 3 改为直接 flatten 各策略子信号），docstring 注明"融合思想本身错误"。
+2. **mean_reversion 子信号独立**：rsi/cci/bb 各独立 emit `RawSignal`（`mean_reversion.rsi/.cci/.bb`），旧投票合并逻辑已删。
+3. **trend_following 子信号独立**：10 子信号各自独立 emit（`trend_following.dc20/.dc55/.bb/.keltner/.supertrend/.sar/.chandelier/.macd/.tsmom/.dual_thrust`），删投票累加 + signal_type 拼接。
+4. **逐信号门禁**：`signal_passes_entry_gate()`（grade∈{STRONG,WATCH} 即进候选），替换全局 `|total|≥20`。
+5. **reason 字段**：每个 ScoredSignal 新增 `reason`（signal_type+方向+grade+指标+强度），辩论层可识别"为什么选这个信号"。
+6. **知识库**：`memory/knowledge/strategies/` 下 7 策略 JSON + `_index.json`，供辩论 Agent 按 signal_type 查阅权威规则交叉验证。
+7. **测试覆盖**：187 策略测试全绿 + 421 全量回归通过。
+8. **scan_pipe_2010**：已停止（前次会话操作）。
+
+### 预防
+- **信号层铁律（P0）**：任何层级（跨策略 / 策略内子信号）一律禁止融合；信号只产出、不裁决。
+- `get_pipeline()` 默认不得带融合；如需融合须显式且经掌柜批准。
+- 运行任何会产出辩论候选的扫描前，先确认其信号产出逻辑符合"独立输出"原则。
+- 掌柜未确认的设计假设，操作方不得自行作为默认执行（本次 `scan_pipe_2010` 越界教训）。

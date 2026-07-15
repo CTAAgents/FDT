@@ -88,8 +88,9 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     all_ranked = scan_result.get("all_ranked", []) if isinstance(scan_result, dict) else []
     # 负向过滤 + 全量监控：任意方向性信号(|total|≥DEBATE_ENTRY_MIN_ABS)即进入辩论候选池
     # 评分(grade)仅作优先级标签，不作为进入辩论的硬性门槛
-    from config.settings import DEBATE_ENTRY_MIN_ABS
-    candidates = [s for s in all_ranked if abs(s.get("total", 0)) >= DEBATE_ENTRY_MIN_ABS]
+    from config.settings import DEBATE_ENTRY_MIN_ABS, signal_passes_entry_gate
+    # 去融合后：每(策略×子信号)独立门禁 = grade∈{STRONG,WATCH}（兼容旧 |total|≥阈值 兜底）
+    candidates = [s for s in all_ranked if signal_passes_entry_gate(s, DEBATE_ENTRY_MIN_ABS)]
     strong = [s for s in candidates if s.get("grade") == "STRONG"]      # 高优先级
     watch = [s for s in candidates if s.get("grade") != "STRONG"]       # 其余按评分排序，下游再决交易适配性
     has_signals = len(candidates) > 0

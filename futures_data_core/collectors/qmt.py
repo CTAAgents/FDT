@@ -76,8 +76,17 @@ class QMTCollector(BaseCollector):
         try:
             import asyncio
 
-            df = await asyncio.to_thread(
-                self._fetch_sync, symbol, qmt_period, days, contract
+            df = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._fetch_sync, symbol, qmt_period, days, contract
+                ),
+                timeout=20.0,
+            )
+        except asyncio.TimeoutError:
+            # 🛡️ 2026-07-15 修复：xtdata.connect() 在 QMT 半通环境下无限挂死，
+            # 加 20s 超时，超时即降级到末位 TqSDK，绝不阻塞整条降级链。
+            raise CollectorUnavailableError(
+                self.name, f"QMT get_kline 超时(20s) — {symbol}"
             )
         except CollectorUnavailableError:
             raise

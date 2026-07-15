@@ -67,6 +67,7 @@ class ScoredSignal:
     _raw_grade: Optional[str] = None
     _validator_demoted: bool = False
     _validator_reason: str = ""
+    reason: str = ""                    # 信号来源解释（子策略身份+关键条件），供辩论环节识别
 
     def to_dict(self) -> dict:
         """转为平铺 dict，与 v1 SignalResult.to_dict() 兼容。"""
@@ -96,6 +97,27 @@ class ScoredSignal:
             "_validator_demoted": self._validator_demoted,
             "_validator_reason": self._validator_reason,
         }
+        # reason：信号来源解释（子策略身份 + 关键条件），供辩论环节识别。
+        # 若策略 score() 未显式设置，则在此按 signal_type+方向+grade+关键指标自动兜底。
+        _reason = self.reason
+        if not _reason:
+            _metrics = {}
+            if self.rsi:
+                _metrics["RSI"] = round(self.rsi, 1)
+            if self.cci:
+                _metrics["CCI"] = round(self.cci, 1)
+            if self.adx:
+                _metrics["ADX"] = round(self.adx, 1)
+            if self.z_score:
+                _metrics["Z"] = round(self.z_score, 2)
+            if self.price:
+                _metrics["PX"] = round(self.price, 1)
+            _reason = format_reason(
+                self.signal_type, self.direction, self.grade,
+                metrics=_metrics or None,
+                strength=round(self.abs_score / 100, 2) if self.abs_score else None,
+            )
+        d["reason"] = _reason
         if self._raw_total is not None:
             d["_raw_total"] = self._raw_total
         if self._raw_grade is not None:
@@ -303,5 +325,43 @@ class StrategyV1Adapter(BaseStrategyV2):
                 weight=self._weight,
             )
             _copy_fields(r, ss)
+            # 自动构造 reason（子策略身份 + 关键条件），供辩论环节识别
+            _metrics = {
+                k: round(v, 1) for k, v in r.items()
+                if k in ("dc20", "dc55", "bb", "rsi", "cci", "adx", "macd",
+                         "z_score", "kf_z", "hurst", "vr_z")
+                and isinstance(v, (int, float))
+            }
+            ss.reason = format_reason(
+                ss.signal_type, ss.direction, ss.grade,
+                metrics=_metrics or None,
+                strength=round(ss.abs_score / 100, 2) if ss.abs_score else None,
+            )
             signals.append(ss)
         return signals
+
+
+def format_reason(signal_type: str, direction: str, grade: str,
+                  *, metrics: Optional[dict] = None,
+                  strength: Optional[float] = None, note: str = "") -> str:
+    """构造结构化 reason 字符串（带 ``[signal_type]`` rule_ref 前缀）。
+
+    辩论子 Agent 拿到后可据 ``signal_type`` 前缀在
+    ``memory/knowledge/strategies/_index.json`` 定位权威规则交叉验证。
+
+    Args:
+        signal_type: 子策略命名空间（如 ``mean_reversion.rsi``）
+        direction: bull/bear/neutral
+        grade: STRONG/WATCH/WEAK/NOISE
+        metrics: 关键条件数值（如 ``{"RSI": 18.3, "ADX": 14.2}``）
+        strength: 子信号强度（0-1）
+        note: 补充说明
+    """
+    parts = [f"[{signal_type}]", f"dir={direction}", f"grade={grade}"]
+    if metrics:
+        parts.append(" ".join(f"{k}={v}" for k, v in metrics.items()))
+    if strength is not None:
+        parts.append(f"强度={strength:.2f}")
+    if note:
+        parts.append(note)
+    return " | ".join(parts)

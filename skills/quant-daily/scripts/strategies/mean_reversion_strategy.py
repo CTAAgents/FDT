@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 from .spread_reversion_strategy import kalman_filter_ou
 
 
@@ -83,61 +83,46 @@ class MeanReversionStrategy(BaseStrategyV2):
             # 若无 bb_width 数据（缺省 1.0）→ 不压制信号
             in_ranging = in_ranging and (bb_width >= 1.0 or bb_bandwidth_ok)
 
-            sub_signals: list[tuple[str, float, str]] = []
+            # ── 各子信号独立产出（v8.1.8 去融合：不投票、不坍缩）──
+            # 每个子信号各自产一条 RawSignal，signal_type 带子类型命名空间
+            # （mean_reversion.rsi / .cci / .bb），辩论环节据 signal_type 可见
+            # 是哪个子信号触发，绝不被投票合并成一条 .reversal。
 
-            # 1. RSI 极端反转
-            if in_ranging and 0 < rsi < RSI_OVERSOLD:
-                strength = (RSI_OVERSOLD - rsi) / RSI_OVERSOLD
-                sub_signals.append(("rsi", strength, "bull"))
-            elif in_ranging and rsi > RSI_OVERBOUGHT:
-                strength = (rsi - RSI_OVERBOUGHT) / (100 - RSI_OVERBOUGHT)
-                sub_signals.append(("rsi", strength, "bear"))
-
-            # 2. CCI 极值回归
-            if in_ranging and cci < CCI_OVERSOLD and cci > -999:
-                strength = min(1.0, (CCI_OVERSOLD - cci) / 200)
-                sub_signals.append(("cci", strength, "bull"))
-            elif in_ranging and cci > CCI_OVERBOUGHT:
-                strength = min(1.0, (cci - CCI_OVERBOUGHT) / 200)
-                sub_signals.append(("cci", strength, "bear"))
-
-            # 3. 布林带反转（bb 须在 0-1 有效范围内）
-            if isinstance(bb, (int, float)) and 0 <= bb <= 1:
-                if in_ranging and bb < BB_LOWER_THRESHOLD and bb > 0:
-                    strength = (BB_LOWER_THRESHOLD - bb) / BB_LOWER_THRESHOLD
-                    sub_signals.append(("bb", strength, "bull"))
-                elif in_ranging and bb > BB_UPPER_THRESHOLD:
-                    strength = (bb - BB_UPPER_THRESHOLD) / (1 - BB_UPPER_THRESHOLD)
-                    sub_signals.append(("bb", strength, "bear"))
-
-            # 融合：多个子信号投票决定方向
-            if sub_signals:
-                bull_strength = sum(s for _, s, d in sub_signals if d == "bull")
-                bear_strength = sum(s for _, s, d in sub_signals if d == "bear")
-                if bull_strength > bear_strength:
-                    direction = "bull"
-                    raw = bull_strength
-                elif bear_strength > bull_strength:
-                    direction = "bear"
-                    raw = bear_strength
-                else:
-                    continue
-
+            def _emit(sub: str, strength: float, direction: str) -> None:
                 signals.append(RawSignal(
                     symbol=sym,
                     direction=direction,
-                    signal_type=f"{self.signal_type}.reversal",
-                    raw_score=round(raw, 3),
+                    signal_type=f"{self.signal_type}.{sub}",
+                    raw_score=round(strength, 3),
                     strategy_name=self.name,
                     meta={
+                        "sub_type": sub,
                         "rsi": rsi, "cci": cci, "bb": bb,
                         "adx": adx, "price": price,
-                        "sub_types": [s[0] for s in sub_signals],
                         "kf_z_score": round(kf_z, 2),
                         "kf_suppressed": not kf_regime_ok,
                         "bb_width": round(bb_width, 4) if bb_width != 1.0 else None,
                     },
                 ))
+
+            # 1. RSI 极端反转
+            if in_ranging and 0 < rsi < RSI_OVERSOLD:
+                _emit("rsi", (RSI_OVERSOLD - rsi) / RSI_OVERSOLD, "bull")
+            elif in_ranging and rsi > RSI_OVERBOUGHT:
+                _emit("rsi", (rsi - RSI_OVERBOUGHT) / (100 - RSI_OVERBOUGHT), "bear")
+
+            # 2. CCI 极值回归
+            if in_ranging and cci < CCI_OVERSOLD and cci > -999:
+                _emit("cci", min(1.0, (CCI_OVERSOLD - cci) / 200), "bull")
+            elif in_ranging and cci > CCI_OVERBOUGHT:
+                _emit("cci", min(1.0, (cci - CCI_OVERBOUGHT) / 200), "bear")
+
+            # 3. 布林带反转（bb 须在 0-1 有效范围内）
+            if isinstance(bb, (int, float)) and 0 <= bb <= 1:
+                if in_ranging and bb < BB_LOWER_THRESHOLD and bb > 0:
+                    _emit("bb", (BB_LOWER_THRESHOLD - bb) / BB_LOWER_THRESHOLD, "bull")
+                elif in_ranging and bb > BB_UPPER_THRESHOLD:
+                    _emit("bb", (bb - BB_UPPER_THRESHOLD) / (1 - BB_UPPER_THRESHOLD), "bear")
 
         return signals
 
@@ -159,6 +144,24 @@ class MeanReversionStrategy(BaseStrategyV2):
                 abs_score=round(raw * 100, 1),
                 grade=grade,
                 weight=0.6,
+            )
+            # reason：子策略身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _m = s.meta
+            _metrics = {}
+            if _m.get("rsi"):
+                _metrics["RSI"] = round(_m["rsi"], 1)
+            if _m.get("cci"):
+                _metrics["CCI"] = round(_m["cci"], 1)
+            if _m.get("bb") is not None:
+                _metrics["BB%b"] = round(_m["bb"], 2)
+            if _m.get("adx"):
+                _metrics["ADX"] = round(_m["adx"], 1)
+            _note = "KF压制(均值加速偏移)" if _m.get("kf_suppressed") else ""
+            ss.reason = format_reason(
+                s.signal_type, s.direction, grade,
+                metrics=_metrics or None,
+                strength=round(raw, 2),
+                note=_note,
             )
             ss.extra = dict(s.meta)
             result.append(ss)

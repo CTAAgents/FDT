@@ -1,0 +1,89 @@
+{
+  "strategy": "trend_following",
+  "display_name": "趋势跟踪",
+  "signal_type_prefix": "trend_following",
+  "version": "v8.1.8",
+  "philosophy": "趋势跟踪：价格突破通道/指标确认趋势方向后顺势交易。信仰'动量延续'——强者恒强、弱者恒弱。与均值回归哲学相反（见 mean_reversion.json）。十个子信号各自独立判定方向，互不融合，独立送辩论层裁决。",
+  "regime_filter": {
+    "active_when": "ADX 高位（强趋势市）时最有效。v2.3 起 ADX 角色反转：趋势策略在 ADX 高时激活，反转策略在 ADX 低（震荡）时激活。具体反转门禁以 scan_all ADX 反转规则为准。",
+    "inactive_when": "ADX 低且无明显方向（震荡市）时趋势信号噪声大，易被 reverse 或低置信过滤。",
+    "note": "单子信号独立打分，无策略内投票；ADX 仅作 regime 背景，不自动压制单个子信号。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 即入选候选（见 config.settings.signal_passes_entry_gate）；兼容旧逻辑 |total| ≥ 20 兜底。",
+    "fallback": "|total| >= DEBATE_ENTRY_MIN_ABS(20)"
+  },
+  "sub_signals": {
+    "dc20": {
+      "signal_type": "trend_following.dc20",
+      "direction_logic": "Donchian 20 通道：pos=(close-dc20_low)/(dc20_high-dc20_low)。pos>0.95→bull；pos<0.05→bear；否则中性。",
+      "thresholds": {"pos_bull": 0.95, "pos_bear": 0.05, "score_bull": "(pos-0.95)/0.05", "score_bear": "(0.05-pos)/0.05"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["震荡市假突破（pos 在 0.05-0.95 间无信号，本就中性）", "通道宽度异常 dc20_high<=dc20_low 返回中性", "单一子信号噪声，需辩论层多源交叉验证"]
+    },
+    "dc55": {
+      "signal_type": "trend_following.dc55",
+      "direction_logic": "Donchian 55 通道（趋势方向确认）：pos>0.80→bull；pos<0.20→bear；否则中性。门槛比 dc20 宽松（更长周期，趋势更稳）。",
+      "thresholds": {"pos_bull": 0.80, "pos_bear": 0.20, "score_bull": "(pos-0.80)/0.20", "score_bear": "(0.20-pos)/0.20"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["与 dc20 同向共振时趋势置信更高（但两个子信号独立送辩论，不由本策略合并判断）"]
+    },
+    "bb": {
+      "signal_type": "trend_following.bb",
+      "direction_logic": "布林带 %b：bb>0.95→bull（价格触及/突破上轨）；bb<0.05→bear；否则中性。",
+      "thresholds": {"bb_bull": 0.95, "bb_bear": 0.05, "score_bull": "(bb-0.95)/0.05", "score_bear": "(0.05-bb)/0.05"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["带宽极窄（挤压）时 %b 突破可靠性下降（需结合 BB_BANDWIDTH）"]
+    },
+    "keltner": {
+      "signal_type": "trend_following.keltner",
+      "direction_logic": "Keltner 通道（EMA±ATR）：close>kc_u→bull；close<kc_l→bear；强度按突破幅度/通道半宽。",
+      "thresholds": {"bull": "close>kc_upper", "bear": "close<kc_lower", "score": "min(1,(close-kc_u)/half) 或 min(1,(kc_l-close)/half)"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["kc_u<=kc_l 或 kc_m<=0 返回中性"]
+    },
+    "supertrend": {
+      "signal_type": "trend_following.supertrend",
+      "direction_logic": "SuperTrend 方向：st_dir>0→bull；st_dir<0→bear。",
+      "thresholds": {"bull": "st_dir>0", "bear": "st_dir<0"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["参数敏感，单边行情表现好、震荡反复"]
+    },
+    "sar": {
+      "signal_type": "trend_following.sar",
+      "direction_logic": "SAR 抛物线：sar_trend>0→bull；sar_trend<0→bear；回退 close 与 SAR 值比较。",
+      "thresholds": {"bull": "sar_trend>0 或 (==0 且 close>SAR)", "bear": "sar_trend<0 或 (==0 且 close<SAR)"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["sar_val<=0 返回中性"]
+    },
+    "chandelier": {
+      "signal_type": "trend_following.chandelier",
+      "direction_logic": "吊灯止损：价格跌破多头吊灯（ch_long）或突破空头吊灯（ch_short）触发方向。",
+      "thresholds": {"bull": "close>ch_long", "bear": "close<ch_short"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["基于 ATR  trailing，趋势反转后滞后"]
+    },
+    "macd": {
+      "signal_type": "trend_following.macd",
+      "direction_logic": "MACD：dif>dea→bull；dif<dea→bear（金叉/死叉）。",
+      "thresholds": {"bull": "dif>dea", "bear": "dif<dea"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["零轴附近反复交叉噪声"]
+    },
+    "tsmom": {
+      "signal_type": "trend_following.tsmom",
+      "direction_logic": "时间序列动量（G31）：1/3/6/12 月收益合成，均值>0→bull；否则 bear。缺失/0.0 视为不可用（内部剔除）。",
+      "thresholds": {"score": "min(1, |avg_return|/0.10)", "bull": "avg>0", "bear": "avg<0"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["长周期动量对突变宏观事件反应慢"]
+    },
+    "dual_thrust": {
+      "signal_type": "trend_following.dual_thrust",
+      "direction_logic": "Dual Thrust 日内突破（G33）：close>dt_upper→bull；close<dt_lower→bear。缺失/0.0 不可用。",
+      "thresholds": {"bull": "close>dt_upper", "bear": "close<dt_lower"},
+      "grade_mapping": {"STRONG": "raw>0.75", "WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["日内信号，受开盘跳空影响大"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 trend_following.<sub> 信号时，查阅本文件对应 sub_signal 的 direction_logic + thresholds 复核 signal_type/direction/强度是否合理；结合 ADX 反转规则判断 regime 是否支持趋势。"
+}

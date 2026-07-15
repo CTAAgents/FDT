@@ -45,8 +45,8 @@ class TestPipelineE2E:
         assert len(ranked) >= 1
         rb = next((r for r in ranked if r["symbol"] == "RB"), None)
         assert rb is not None
-        assert "strategy_breakdown" in rb
-        assert "trend_following" in rb["strategy_breakdown"]
+        assert rb["strategy"] == "trend_following"
+        # 去融合后不再有 strategy_breakdown（旧融合层产物）
 
     def test_arbitrage_pair(self, pipeline):
         """跨品种配对应在比率偏差足够大时产出信号。"""

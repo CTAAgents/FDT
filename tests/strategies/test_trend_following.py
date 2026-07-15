@@ -1,11 +1,27 @@
 """
 TrendFollowingStrategy v2 测试
+
+⚠️ 去融合（v8.1.8 掌柜铁律）：每个子信号独立产出 RawSignal，signal_type 命名空间独立
+（trend_following.dc20 / .dc55 / .bb / .keltner / .supertrend / .sar / .chandelier /
+.macd / .tsmom / .dual_thrust），禁止投票累加 / signal_type 拼接融合。
+本测试据此断言：每个触发的子信号独立存在于结果中，且绝不存在 `trend_following.mixed`
+或 `trend_following.dc20+keltner+...` 这类融合 signal_type。
 """
 import pytest
 
 
 class TestTrendFollowingV2:
     """趋势跟踪策略 v2 测试"""
+
+    @staticmethod
+    def _find(signals, sub: str):
+        return [x for x in signals if x.signal_type == f"trend_following.{sub}"]
+
+    @staticmethod
+    def _assert_no_fusion(signals):
+        for x in signals:
+            assert "+" not in x.signal_type
+            assert x.signal_type != "trend_following.mixed"
 
     def test_strategy_interface(self):
         from strategies.trend_following_strategy import TrendFollowingStrategy
@@ -15,7 +31,7 @@ class TestTrendFollowingV2:
         assert s.weight == 1.0
 
     def test_bull_signal_dc20_break(self):
-        """DC20 上方突破 → 多头"""
+        """DC20 上方突破 → 多头（独立 dc20 子信号）。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = [{"symbol": "RB", "price": 3200,
@@ -23,12 +39,13 @@ class TestTrendFollowingV2:
                  "dc55_high": 3150, "dc55_low": 2800,
                  "bb": 0.98, "adx": 30}]
         signals = s.compute(tech, {})
-        assert len(signals) == 1
-        assert signals[0].direction == "bull"
-        assert "dc20" in signals[0].signal_type
+        self._assert_no_fusion(signals)
+        dc20 = self._find(signals, "dc20")
+        assert len(dc20) == 1
+        assert dc20[0].direction == "bull"
 
     def test_bear_signal_dc20_break(self):
-        """DC20 下方突破 → 空头"""
+        """DC20 下方突破 → 空头（独立 dc20 子信号）。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = [{"symbol": "RB", "price": 2800,
@@ -36,8 +53,10 @@ class TestTrendFollowingV2:
                  "dc55_high": 3150, "dc55_low": 2900,
                  "bb": 0.02, "adx": 30}]
         signals = s.compute(tech, {})
-        assert len(signals) == 1
-        assert signals[0].direction == "bear"
+        self._assert_no_fusion(signals)
+        dc20 = self._find(signals, "dc20")
+        assert len(dc20) == 1
+        assert dc20[0].direction == "bear"
 
     def test_no_signal_in_range(self):
         """价格在通道内 → 无信号"""
@@ -61,8 +80,8 @@ class TestTrendFollowingV2:
         assert results[0].grade == "STRONG"
         assert results[0].weight == 1.0
 
-    def test_via_pipeline_with_fusion(self):
-        """通过 StrategyPipeline 与其它策略融合"""
+    def test_via_pipeline_no_fusion(self):
+        """通过 StrategyPipeline：去融合后每个子信号独立透传，无融合 signal_type。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         from strategies.pipeline import StrategyPipeline
         tech = [{"symbol": "RB", "price": 3200,
@@ -71,8 +90,16 @@ class TestTrendFollowingV2:
                  "bb": 0.98, "adx": 30}]
         pipe = StrategyPipeline([TrendFollowingStrategy()])
         result = pipe.run(tech, {}, {})
-        assert len(result["all_ranked"]) == 1
-        assert result["all_ranked"][0]["direction"] == "bull"
+        ranked = result["all_ranked"]
+        # dc20 + bb 各独立一条 → 至少 2 条
+        assert len(ranked) >= 2
+        stypes = {d["signal_type"] for d in ranked}
+        assert "trend_following.dc20" in stypes
+        # 去融合铁律：禁止拼接 / mixed
+        for st in stypes:
+            assert "+" not in st
+            assert st != "trend_following.mixed"
+        assert result["_meta"]["fusion_method"] == "no_fusion (disabled by design v8.1.8)"
 
     # ─────────────────────────────────────────────────────────
     # G30 指标衍生子策略测试
@@ -100,49 +127,53 @@ class TestTrendFollowingV2:
         return [tech]
 
     def test_keltner_bull_breakout(self):
-        """价格突破 Keltner 上轨 → 多头，命中 keltner 子标签。"""
+        """价格突破 Keltner 上轨 → 多头，独立 keltner 子信号存在。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=3150, kc_upper=3100, kc_lower=2900, kc_mid=3000)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "keltner" in sigs[0].signal_type
-        assert sigs[0].meta["keltner_score"] > 0
+        self._assert_no_fusion(sigs)
+        kl = self._find(sigs, "keltner")
+        assert len(kl) == 1
+        assert kl[0].direction == "bull"
+        assert kl[0].meta["keltner_score"] > 0
 
     def test_keltner_bear_breakout(self):
-        """价格跌破 Keltner 下轨 → 空头。"""
+        """价格跌破 Keltner 下轨 → 空头，独立 keltner 子信号存在。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=2850, kc_upper=3100, kc_lower=2900, kc_mid=3000)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bear"
-        assert "keltner" in sigs[0].signal_type
+        self._assert_no_fusion(sigs)
+        kl = self._find(sigs, "keltner")
+        assert len(kl) == 1
+        assert kl[0].direction == "bear"
 
     def test_supertrend_bull_state(self):
-        """supertrend 方向=1 → 多头，命中 supertrend 子标签。"""
+        """supertrend 方向=1 → 多头，独立 supertrend 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(supertrend=1)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "supertrend" in sigs[0].signal_type
-        assert sigs[0].meta["supertrend_score"] > 0
+        self._assert_no_fusion(sigs)
+        st = self._find(sigs, "supertrend")
+        assert len(st) == 1
+        assert st[0].direction == "bull"
+        assert st[0].meta["supertrend_score"] > 0
 
     def test_sar_bull_state(self):
-        """SAR 趋势=1 且收盘在 SAR 上方 → 多头，命中 sar 子标签。"""
+        """SAR 趋势=1 且收盘在 SAR 上方 → 多头，独立 sar 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=3050, sar=3000, sar_trend=1)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "sar" in sigs[0].signal_type
+        self._assert_no_fusion(sigs)
+        sar = self._find(sigs, "sar")
+        assert len(sar) == 1
+        assert sar[0].direction == "bull"
 
     def test_chandelier_bear_exit(self):
-        """价格跌破 Chandelier 下轨(long exit) → 空头，命中 chandelier 子标签。"""
+        """价格跌破 Chandelier 下轨(long exit) → 空头，独立 chandelier 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         # 带内（price 在 [ch_long, ch_short]）→ 中性，不发 chandelier 信号
@@ -151,23 +182,25 @@ class TestTrendFollowingV2:
         # 带外下方（price < ch_long）→ 空头突破
         tech_out = self._base_tech(price=2900, chandelier_long=2950, chandelier_short=3050)
         sigs_out = s.compute(tech_out, {})
-        assert len(sigs_out) == 1
-        assert sigs_out[0].direction == "bear"
-        assert "chandelier" in sigs_out[0].signal_type
+        self._assert_no_fusion(sigs_out)
+        ch = self._find(sigs_out, "chandelier")
+        assert len(ch) == 1
+        assert ch[0].direction == "bear"
 
     def test_macd_bull_hist(self):
-        """MACD DIF>DEA → 多头动量，命中 macd 子标签。"""
+        """MACD DIF>DEA → 多头动量，独立 macd 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=3000, macd_dif=20.0, macd_dea=10.0)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "macd" in sigs[0].signal_type
-        assert sigs[0].meta["macd_score"] > 0
+        self._assert_no_fusion(sigs)
+        macd = self._find(sigs, "macd")
+        assert len(macd) == 1
+        assert macd[0].direction == "bull"
+        assert macd[0].meta["macd_score"] > 0
 
     def test_full_confluence_all_subs(self):
-        """9 子信号全同向 → 子类型标签携全清单，raw 显著高于单信号。"""
+        """10 子信号全同向 → 去融合后各自独立产出 10 条信号，signal_type 互不拼接。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(
@@ -181,82 +214,87 @@ class TestTrendFollowingV2:
             dt_upper=3050, dt_lower=2950, dt_range=100,
         )
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        st = sigs[0].signal_type
-        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dt"):
-            assert sub in st, f"缺失子信号 {sub}"
-        # 全共振 raw 应高于仅 DC20 突破的 raw
-        single = self._base_tech(price=3200, dc20_high=3100, dc20_low=2900,
-                                 bb=0.98, dc55_high=3150, dc55_low=2800)
-        s_single = s.compute(single, {})
-        assert sigs[0].raw_score > s_single[0].raw_score
+        self._assert_no_fusion(sigs)
+        # 10 个子信号各独立一条
+        subs = ("dc20", "dc55", "bb", "keltner", "supertrend", "sar",
+                "chandelier", "macd", "tsmom", "dual_thrust")
+        assert len(sigs) == len(subs), f"期望 {len(subs)} 条独立子信号，实际 {len(sigs)}"
+        for sub in subs:
+            found = self._find(sigs, sub)
+            assert len(found) == 1, f"缺失/重复子信号 {sub}"
+            assert found[0].direction == "bull"
 
     def test_tsmom_bull_multi_window(self):
-        """TSMOM 四窗口全多头 → 多头，命中 tsmom 子标签。"""
+        """TSMOM 四窗口全多头 → 多头，独立 tsmom 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(
             tsmom_1m=0.05, tsmom_3m=0.06, tsmom_6m=0.07, tsmom_12m=0.08,
         )
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "tsmom" in sigs[0].signal_type
-        assert sigs[0].meta["tsmom_score"] > 0
+        self._assert_no_fusion(sigs)
+        ts = self._find(sigs, "tsmom")
+        assert len(ts) == 1
+        assert ts[0].direction == "bull"
+        assert ts[0].meta["tsmom_score"] > 0
 
     def test_tsmom_bear_multi_window(self):
-        """TSMOM 四窗口全空头 → 空头，命中 tsmom 子标签。"""
+        """TSMOM 四窗口全空头 → 空头，独立 tsmom 子信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(
             tsmom_1m=-0.05, tsmom_3m=-0.06, tsmom_6m=-0.07, tsmom_12m=-0.08,
         )
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bear"
-        assert "tsmom" in sigs[0].signal_type
+        self._assert_no_fusion(sigs)
+        ts = self._find(sigs, "tsmom")
+        assert len(ts) == 1
+        assert ts[0].direction == "bear"
 
     def test_tsmom_partial_windows_vote(self):
-        """仅部分窗口可用（其余缺失/0.0）→ 按可用窗口投票，不崩溃。"""
+        """仅部分窗口可用（其余缺失/0.0）→ 按可用窗口判定，不崩溃。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         # 仅 1m 正、其余缺失（_base_tech 默认无 tsmom 字段 → 0.0 被剔除）
         tech = self._base_tech(tsmom_1m=0.10)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "tsmom" in sigs[0].signal_type
+        self._assert_no_fusion(sigs)
+        ts = self._find(sigs, "tsmom")
+        assert len(ts) == 1
+        assert ts[0].direction == "bull"
         # 单窗口 avg=0.10 → 满强 1.0
-        assert sigs[0].meta["tsmom_score"] == 1.0
+        assert ts[0].meta["tsmom_score"] == 1.0
 
     # ─────────────────────────────────────────────────────────
     # G33 Dual Thrust 日内突破测试
     # ─────────────────────────────────────────────────────────
 
     def test_dual_thrust_bull_breakout(self):
-        """价格突破 Dual Thrust 上轨 → 多头，命中 dt 子标签。"""
+        """价格突破 Dual Thrust 上轨 → 多头，独立 dt 子信号存在。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=3100, dt_upper=3050, dt_lower=2950, dt_range=100)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        assert "dt" in sigs[0].signal_type
-        assert sigs[0].meta["dt_score"] > 0
+        self._assert_no_fusion(sigs)
+        dt = self._find(sigs, "dual_thrust")
+        assert len(dt) == 1
+        assert dt[0].direction == "bull"
+        assert dt[0].meta["dual_thrust_score"] > 0
 
     def test_dual_thrust_bear_breakout(self):
-        """价格跌破 Dual Thrust 下轨 → 空头，命中 dt 子标签。"""
+        """价格跌破 Dual Thrust 下轨 → 空头，独立 dt 子信号存在。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(price=2900, dt_upper=3050, dt_lower=2950, dt_range=100)
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bear"
-        assert "dt" in sigs[0].signal_type
-        assert sigs[0].meta["dt_score"] > 0
+        self._assert_no_fusion(sigs)
+        dt = self._find(sigs, "dual_thrust")
+        assert len(dt) == 1
+        assert dt[0].direction == "bear"
+        assert dt[0].meta["dual_thrust_score"] > 0
 
     def test_dual_thrust_in_range_neutral(self):
-        """价格在 Dual Thrust 轨内 → dt 不投票（仅 dt 触发时无信号）。"""
+        """价格在 Dual Thrust 轨内 → dt 不触发（仅 dt 触发时无信号）。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         # 轨内 price=3000（介于 [2950, 3050]），其它字段中性 → 无信号
@@ -265,7 +303,7 @@ class TestTrendFollowingV2:
         assert len(sigs) == 0
 
     def test_missing_g30_fields_no_crash(self):
-        """G30 新字段缺失/为零 → 不崩溃，仅老 DC/BB 信号生效。"""
+        """G30 新字段缺失/为零 → 不崩溃，仅老 DC/BB 子信号独立生效（无 G30 子标签、无融合）。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         # 仅提供老字段，新字段全缺
@@ -274,8 +312,10 @@ class TestTrendFollowingV2:
                  "dc55_high": 3150, "dc55_low": 2800,
                  "bb": 0.98, "adx": 30}]
         sigs = s.compute(tech, {})
-        assert len(sigs) == 1
-        assert sigs[0].direction == "bull"
-        # 不应含任何 G30/G31/G33 子标签
-        for sub in ("keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dt"):
-            assert sub not in sigs[0].signal_type
+        self._assert_no_fusion(sigs)
+        # 仅 dc20 + bb 两条，不含任何 G30/G31/G33 子信号
+        stypes = {x.signal_type for x in sigs}
+        assert "trend_following.dc20" in stypes
+        assert "trend_following.bb" in stypes
+        for sub in ("keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dual_thrust"):
+            assert all(sub not in st for st in stypes), f"不应出现 {sub}"

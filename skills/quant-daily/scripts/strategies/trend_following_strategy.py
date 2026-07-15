@@ -3,7 +3,12 @@
 
 复用 scan_all 指标管线已有的技术字段（含 G30 新增 Keltner/SAR/Chandelier/
 MACD 子信号），零新采集。与 v1 ChannelBreakoutStrategy 的核心逻辑一致但
-精简，直接实现 BaseStrategyV2 接口。10 子信号共振投票，子类型标签携带命中清单。
+精简，直接实现 BaseStrategyV2 接口。
+
+⚠️ 去融合（v8.1.8 掌柜铁律）：10 个通道/指标子信号各自独立产出 RawSignal，
+signal_type 命名空间独立（trend_following.dc20 / .dc55 / .bb / .keltner /
+.supertrend / .sar / .chandelier / .macd / .tsmom / .dual_thrust），
+禁止投票累加 / signal_type 拼接融合。每个子信号独立送辩论层裁决。
 """
 
 from __future__ import annotations
@@ -11,7 +16,7 @@ import math
 from statistics import mean, stdev
 from typing import Any
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 
 
 def _score_dc20(close: float, dc20_high: float, dc20_low: float) -> tuple[float, str]:
@@ -258,66 +263,30 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 float(t.get("dt_range", 0)),
             )
 
-            # 方向投票：所有子信号累加，方向取票高者
-            votes: dict[str, float] = {"bull": 0.0, "bear": 0.0}
-            for d, s in [
-                (d20, s20), (d55, s55), (dbb, sbb),
-                (dkc, skc), (dst, sst), (dsar, ssar), (dch, sch), (dmacd, smacd),
-                (dts, sts), (ddt, sdt),
-            ]:
-                if d != "neutral":
-                    votes[d] += s
-            if votes["bull"] == 0 and votes["bear"] == 0:
-                continue
-
-            direction = "bull" if votes["bull"] > votes["bear"] else "bear"
-            raw = max(votes["bull"], votes["bear"])
-
-            # 子类型
-            sub = []
-            if s20 > 0:
-                sub.append("dc20")
-            if s55 > 0:
-                sub.append("dc55")
-            if sbb > 0:
-                sub.append("bb")
-            if skc > 0:
-                sub.append("keltner")
-            if sst > 0:
-                sub.append("supertrend")
-            if ssar > 0:
-                sub.append("sar")
-            if sch > 0:
-                sub.append("chandelier")
-            if smacd > 0:
-                sub.append("macd")
-            if sts > 0:
-                sub.append("tsmom")
-            if sdt > 0:
-                sub.append("dt")
-            signal_type = f"{self.signal_type}.{'+'.join(sub) if sub else 'mixed'}"
-
-            signals.append(RawSignal(
-                symbol=sym,
-                direction=direction,
-                signal_type=signal_type,
-                raw_score=round(raw, 3),
-                strategy_name=self.name,
-                meta={
-                    "dc20_score": round(s20, 3),
-                    "dc55_score": round(s55, 3),
-                    "bb_score": round(sbb, 3),
-                    "keltner_score": round(skc, 3),
-                    "supertrend_score": round(sst, 3),
-                    "sar_score": round(ssar, 3),
-                    "chandelier_score": round(sch, 3),
-                    "macd_score": round(smacd, 3),
-                    "tsmom_score": round(sts, 3),
-                    "dt_score": round(sdt, 3),
-                    "adx": adx,
-                    "close": close,
-                },
-            ))
+            # 去融合（v8.1.8 掌柜铁律）：每个子信号独立产出、独立送辩论层裁决。
+            # 禁止投票累加 / signal_type 拼接融合（旧逻辑 trend_following.dc20+... 已废）。
+            sub_results = [
+                ("dc20", s20, d20), ("dc55", s55, d55), ("bb", sbb, dbb),
+                ("keltner", skc, dkc), ("supertrend", sst, dst),
+                ("sar", ssar, dsar), ("chandelier", sch, dch),
+                ("macd", smacd, dmacd), ("tsmom", sts, dts),
+                ("dual_thrust", sdt, ddt),
+            ]
+            for _name, _score, _dir in sub_results:
+                if _dir == "neutral" or _score <= 0:
+                    continue
+                signals.append(RawSignal(
+                    symbol=sym,
+                    direction=_dir,
+                    signal_type=f"{self.signal_type}.{_name}",
+                    raw_score=round(_score, 3),
+                    strategy_name=self.name,
+                    meta={
+                        f"{_name}_score": round(_score, 3),
+                        "adx": adx,
+                        "close": close,
+                    },
+                ))
         return signals
 
     def score(self, filtered_signals: list[RawSignal],
@@ -325,9 +294,7 @@ class TrendFollowingStrategy(BaseStrategyV2):
               context: dict | None = None) -> list[ScoredSignal]:
         result: list[ScoredSignal] = []
         for s in filtered_signals:
-            raw = abs(s.raw_score)
-            # raw 为各子信号置信度之和（∈ [0, ~6]，10 个子信号全同向满置信），
-            # 映射到绝对分；等级按相对阈值划分（多子信号共振→更高绝对分）
+            raw = abs(s.raw_score)  # ∈ [0,1] 单子信号绝对置信度
             total = raw * 100 if s.direction == "bull" else -raw * 100
             abs_score = raw * 100
             grade = "STRONG" if raw > 0.75 else "WATCH" if raw > 0.5 else "WEAK" if raw > 0.2 else "NOISE"
@@ -341,18 +308,17 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 grade=grade,
                 weight=self.weight,
             )
-            ss.sub_scores = {
-                "dc20": s.meta.get("dc20_score", 0),
-                "dc55": s.meta.get("dc55_score", 0),
-                "bb": s.meta.get("bb_score", 0),
-                "keltner": s.meta.get("keltner_score", 0),
-                "supertrend": s.meta.get("supertrend_score", 0),
-                "sar": s.meta.get("sar_score", 0),
-                "chandelier": s.meta.get("chandelier_score", 0),
-                "macd": s.meta.get("macd_score", 0),
-                "tsmom": s.meta.get("tsmom_score", 0),
-                "dt": s.meta.get("dt_score", 0),
-            }
+            # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _sub = s.signal_type.split(".")[-1] if "." in s.signal_type else "mixed"
+            _score_key = f"{_sub}_score"
+            _metrics = {_sub.upper(): round(s.meta.get(_score_key, 0), 3)}
+            if s.meta.get("adx"):
+                _metrics["ADX"] = round(s.meta["adx"], 1)
+            ss.reason = format_reason(
+                s.signal_type, s.direction, grade,
+                metrics=_metrics,
+                strength=round(raw, 2),
+            )
             ss.extra = dict(s.meta)
             result.append(ss)
         return result

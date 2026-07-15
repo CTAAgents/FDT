@@ -1,0 +1,40 @@
+{
+  "strategy": "macro_regime",
+  "display_name": "宏观制度（板块轮动）",
+  "signal_type_prefix": "macro_regime",
+  "version": "v8.1.8",
+  "philosophy": "宏观制度：基于宏观锚标记 risk-on/risk-off/neutral，对板块内品种做方向性提示（板块多空配置）。信仰'宏观驱动板块β'。与纯技术信号互补，权重最低（0.4），不经技术面验证器。",
+  "regime_filter": {
+    "active_when": "ctx 中 macro_signal ∈ {bull, bear} 时，对 SECTOR_SYMBOLS 内匹配品种发信号。",
+    "inactive_when": "macro_signal == neutral → 不发任何信号。",
+    "note": "validators=[]（宏观信号不经 P0-4 等技术面伪突破过滤）；weight=0.4 低于技术信号。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade 固定为 WEAK（全板块统一），total 固定 ±30。WEAK 级除非 |total|>=20 否则不进辩论——但 macro total=30 必过门禁。",
+    "note": "宏观信号仅作辩论层方向性背景，不主导裁决；进入辩论候选靠 |total|>=20 兜底（grade 非 STRONG/WATCH）。"
+  },
+  "sub_signals": {
+    "sector": {
+      "signal_type": "macro_regime.{sector}",
+      "direction_logic": "macro_signal=bull→板块内所有匹配品种 bull；bear→bear。raw_score 固定 0.3，total=±30，grade=WEAK，weight=0.4。每板块独立 signal_type（macro_regime.黑色/有色/能化/农产品/贵金属）。",
+      "thresholds": {"raw_score": 0.3, "total": "30(bull)/-30(bear)", "grade": "WEAK", "weight": 0.4},
+      "macro_anchors": {
+        "黑色": ["房地产政策", "基建投资", "环保限产"],
+        "有色": ["美元指数", "全球PMI", "新能源需求"],
+        "能化": ["原油价格", "OPEC+", "北美寒潮"],
+        "农产品": ["USDA报告", "天气升水", "关税政策"],
+        "贵金属": ["美联储利率", "地缘风险", "通胀预期"]
+      },
+      "sector_symbols": {
+        "黑色": ["RB", "HC", "I", "J", "JM", "SM", "SF"],
+        "有色": ["CU", "AL", "ZN", "PB", "NI", "SN", "SI"],
+        "能化": ["SC", "FU", "LU", "BU", "L", "PP", "V", "TA", "EG", "MA", "SA", "FG", "UR", "PG", "EB"],
+        "农产品": ["M", "RM", "Y", "OI", "P", "C", "CF", "SR", "JD", "LH", "AP", "CJ", "PK"],
+        "贵金属": ["AU", "AG"]
+      },
+      "grade_mapping": {"WEAK": "固定（macro 不产 STRONG/WATCH）"},
+      "common_pitfalls": ["宏观信号滞后/噪声大（anchors 多为定性）", "板块内所有品种同方向，非品种级精选", "weight 低，不应主导技术信号裁决", "anchors 条件为定性映射，需辩论层结合实时新闻甄别"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 macro_regime.{sector} 时，结合实时宏观新闻甄别 anchors 条件是否成立；仅作方向性背景，不与技术信号（趋势/反转）冲突时权重低。"
+}

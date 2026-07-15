@@ -12,7 +12,7 @@ import asyncio
 from statistics import mean, stdev
 from typing import Any
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 
 
 # ── 跨品种配对表（hardcoded，产业链逻辑） ──
@@ -165,6 +165,18 @@ class ArbitrageStrategy(BaseStrategyV2):
                 grade=grade,
                 weight=0.7,
             )
+            # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _m = s.meta
+            _metrics = {}
+            if _m.get("basis_pct") is not None:
+                _metrics["basis_pct"] = round(_m["basis_pct"], 2)
+            if _m.get("z_score") is not None:
+                _metrics["z"] = round(_m["z_score"], 2)
+            if _m.get("pair_a"):
+                _metrics["pair"] = f"{_m['pair_a']}-{_m['pair_b']}"
+            ss.reason = format_reason(
+                s.signal_type, s.direction, grade,
+                metrics=_metrics or None, strength=round(raw, 2))
             ss.extra = dict(s.meta)
             result.append(ss)
         return result

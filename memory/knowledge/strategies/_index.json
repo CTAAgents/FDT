@@ -1,0 +1,25 @@
+{
+  "version": "v8.1.8",
+  "purpose": "辩论子Agent 按 signal_type 前缀查本索引→对应策略文件→交叉验证 sub_signal 规则。FDT 去融合后每个子信号独立送辩论层，辩论 Agent 须能识别 signal_type 命名空间对应的策略逻辑。",
+  "reason_rule_ref_prefix": "[signal_type]",
+  "lookup_rule": "取 signal_type 第一段（'.' 之前）作为 prefix，映射到下方文件；若前缀未命中则视为未知策略，辩论层应标注 'UNKNOWN_STRATEGY' 并要求补充知识库。",
+  "signal_type_prefix_to_file": {
+    "trend_following": "trend_following.json",
+    "arbitrage": "arbitrage.json",
+    "mean_reversion": "mean_reversion.json",
+    "pairs_reversion": "pairs_reversion.json",
+    "spread_reversion": "spread_reversion.json",
+    "basis_reversion": "basis_reversion.json",
+    "macro_regime": "macro_regime.json"
+  },
+  "known_sub_signals": {
+    "trend_following": ["dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dual_thrust"],
+    "arbitrage": ["basis", "pair"],
+    "mean_reversion": ["rsi", "cci", "bb"],
+    "pairs_reversion": ["pair.{leg}"],
+    "spread_reversion": ["near.{contract}", "far.{contract}"],
+    "basis_reversion": ["{symbol}"],
+    "macro_regime": ["黑色", "有色", "能化", "农产品", "贵金属"]
+  },
+  "disabled_strategies_note": "event_driven / ml_signal / multi_factor 为已注册但禁用的策略（不进入激活管线），暂无对应知识库文件。若未来激活须补建。"
+}

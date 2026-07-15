@@ -1,0 +1,28 @@
+{
+  "strategy": "basis_reversion",
+  "display_name": "期现基差 OU 回归",
+  "signal_type_prefix": "basis_reversion",
+  "version": "v8.1.8",
+  "philosophy": "期现基差回归：品种基差（现货-期货）偏离历史均值达 OU 边界时回归。基差大幅偏高→做空回归；偏低→做多回归。每品种独立发信号（basis_reversion.{symbol}）。信仰'基差围绕持有成本中枢波动'。",
+  "regime_filter": {
+    "active_when": "OU 半衰期在 [HALF_LIFE_MIN, HALF_LIFE_MAX] 区间内（均值回复型）时有效。",
+    "inactive_when": "basis_history 记录<MIN_BARS(60) 无法 OU 拟合；半衰期<2日或>120日不交易；离线无 basis_history 时无信号。",
+    "note": "数据源 ctx['basis_history']：scan_all 每日 100ppi 抓取 + JSONL 持久化（memory/basis_history.jsonl）。OU+KF z 复用 SpreadReversion 框架。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 入选；basis_reversion grade: WATCH if raw>0.8, WEAK if raw>0.4, else NOISE。weight=0.7。"
+  },
+  "sub_signals": {
+    "basis": {
+      "signal_type": "basis_reversion.{symbol_lower}",
+      "direction_logic": "对每品种基差序列做 OU 拟合 + KF 自适应 z。|z|>=Z_ENTRY(2.0) 出信号；基差大幅偏离→做空/做多回归。",
+      "thresholds": {
+        "Z_ENTRY": 2.0, "MIN_BARS": 60, "HALF_LIFE_MAX": 120.0, "HALF_LIFE_MIN": 2.0,
+        "grade_WATCH": "raw>0.8", "grade_WEAK": "raw>0.4"
+      },
+      "grade_mapping": {"WATCH": "raw>0.8", "WEAK": "raw>0.4", "NOISE": "else"},
+      "common_pitfalls": ["基差含持有成本（仓储/资金/交割），非纯情绪偏离，回归目标非零", "100ppi 现货数据缺口导致历史不足", "临近交割基差收敛是预期行为，非信号"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 basis_reversion.{symbol} 时，确认基差偏离方向与交易方向一致（偏高→做空回归）；查 MIN_BARS/HALF_LIFE 门禁；甄别偏离是否含结构性持有成本。"
+}

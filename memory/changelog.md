@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-07-16 00:17 — v8.1.8 去融合工程（G41 掌柜铁律落地）
+
+- **动机**：掌柜指出融合思想本质错误——不同策略哲学、甚至同策略内子信号均不应融合。每个子策略信号应独立产出、独立送辩论层裁决。定级：重大生产事故。
+- **文档先行**：`docs/harness/08-gap-analysis.md` 登记 G41（信号融合违反铁律），Part A 5 项 + Part B。
+- **settings.py**：新增 `signal_passes_entry_gate()`（grade∈{STRONG,WATCH} 即进候选）+ `STRATEGY_KB_DIR` 常量。
+- **base_v2.py**：`ScoredSignal` 新增 `reason: str = ""` 字段；`to_dict()` 注入 reason 兜底逻辑；新增 `format_reason()` 模块级助手函数（signal_type+方向+grade+指标+强度）；`StrategyV1Adapter.score()` 末尾注入 reason。
+- **pipeline.py**：`StrategyFusion` 标记为废弃（docstring 注明 "融合思想本身错误"）；Phase 3 去融合直接 flatten（`no_fusion (disabled by design v8.1.8)`），不再加权投票。
+- **mean_reversion_strategy.py**：compute 段删投票合并，改为 rsi/cci/bb 各独立 emit `RawSignal`（`mean_reversion.rsi/.cci/.bb`）；score 段新增显式 reason 生成（含 KF 压制 note）。
+- **trend_following_strategy.py**：补全去融合（首次遗漏）——10 子信号各独立 emit（`trend_following.dc20/.dc55/.bb/.keltner/.supertrend/.sar/.chandelier/.macd/.tsmom/.dual_thrust`），删投票累加/signal_type 拼接；score 段新增 reason。
+- **arbitrage/pairs/spread/basis/macro**：5 策略 score 段补 `format_reason` import + 显式 reason 生成。
+- **daily_debate.py / hourly_debate.py**：门禁改用 `signal_passes_entry_gate()`。
+- **run_debate.py**：新增 `_strategy_knowledge_rule()` 函数（固定注入辩论子 Agent 查知识库）；`select_triggers()` 改用 `signal_passes_entry_gate()`；4 处辩论 prompt 注入规则。
+- **知识库**：`memory/knowledge/strategies/` 下 7 个激活策略 JSON（trend_following/arbitrage/mean_reversion/pairs/spread/basis/macro）+ `_index.json`，含 philosophy/regime_filter/sub_signals.direction_logic/thresholds/grade_mapping/common_pitfalls。
+- **测试**：策略测试 187→187 全绿；全量回归 421 通过（3 skip + 4 xfail 均为预期行为）。
+- **影响面**：8 维度扫描确认——门禁新函数只用新增不删旧；去融合 flatten 兼容下游 all_ranked 消费；知识库只写不读 FDT 核心链路。
+- **版本**：pyproject.toml v8.1.7→v8.1.8
+- **未提交**：代码改动在唯一真身，待掌柜授权 commit。
+
+---
+
 ## 2026-07-14 19:45 — DCE 持仓排名接入官方 API（dce_api.py，双路径容灾）
 
 - **动机**：沙箱/部分环境 `portal.dce.com.cn` 的 DNS 被拦截（`getaddrinfo failed`），原 DCE 持仓排名仅靠 portal 网页抓取，环境受限即 UNAVAILABLE。大商所提供官方 API（`www.dce.com.cn/dceapi`），沙箱可直连。

@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 from .spread_reversion_strategy import _fit_ou_half_life, kalman_filter_ou
 
 
@@ -209,6 +209,16 @@ class BasisReversionStrategy(BaseStrategyV2):
                 total=round(total, 1), abs_score=round(raw * 100, 1),
                 grade=grade, weight=0.7,
             )
+            # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _m = s.meta
+            _metrics = {"z": round(_m.get("z_score", 0), 2)}
+            if _m.get("basis_pct") is not None:
+                _metrics["basis_pct"] = round(_m["basis_pct"], 2)
+            if _m.get("variety"):
+                _metrics["variety"] = _m["variety"]
+            ss.reason = format_reason(
+                s.signal_type, s.direction, grade,
+                metrics=_metrics, strength=round(raw, 2))
             ss.extra = dict(s.meta)
             result.append(ss)
         return result

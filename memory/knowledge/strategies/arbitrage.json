@@ -1,0 +1,41 @@
+{
+  "strategy": "arbitrage",
+  "display_name": "套利（相对价值）",
+  "signal_type_prefix": "arbitrage",
+  "version": "v8.1.8",
+  "philosophy": "套利/相对价值：利用定价偏离（期现基差、跨品种配对比、跨期价差）交易，低风险、与市场方向弱相关。信仰'偏离终将回归'。与趋势跟踪（顺势）哲学互补但独立，信号不融合。",
+  "regime_filter": {
+    "active_when": "偏离达到阈值即触发，无明显 regime 依赖。",
+    "inactive_when": "配对两 leg 不全在技术列表（价格缺失）时不发该配对信号；基差数据缺失时不发 basis 信号。",
+    "note": "套利信号 weight=0.7，低于趋势（1.0）但高于宏观（0.4）。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 入选；arbitrage 实际只产 WATCH/WEAK 两级（raw>2.0→WATCH，否则 WEAK）。",
+    "note": "arbitrage 不产 STRONG；WEAK 级除非 |total|≥20 否则不进辩论（由 signal_passes_entry_gate 兜底控制）。"
+  },
+  "sub_signals": {
+    "basis": {
+      "signal_type": "arbitrage.basis",
+      "direction_logic": "期现基差：abs(basis_pct)>3.0 触发。bp>0→bull（现货升水，做多期货回归）；bp<0→bear。",
+      "thresholds": {"basis_pct_abs_trigger": 3.0, "raw_score": "abs(basis_pct)", "grade_WATCH": "raw>2.0", "grade_WEAK": "else"},
+      "grade_mapping": {"WATCH": "raw>2.0", "WEAK": "raw<=2.0"},
+      "common_pitfalls": ["基差含持有成本（仓储/资金/交割），非纯情绪偏离", "3% 阈值偏低，需辩论层甄别是否真实套利机会", "现货数据来自 100ppi，可能有滞后"]
+    },
+    "pair": {
+      "signal_type": "arbitrage.pair",
+      "direction_logic": "跨品种配对：z=(current_ratio - target_ratio)/(target_ratio*0.05)，abs(z)>1.0 触发。z>0→做空强势品种(a) bear；z<0→做多弱势品种(b) bull。symbol 字段为配对键（如 RB-HC）。",
+      "thresholds": {"z_abs_trigger": 1.0, "raw_score": "abs(z)", "grade_WATCH": "raw>2.0", "grade_WEAK": "else"},
+      "cross_variety_pairs": {
+        "RB-HC": {"a": "RB", "b": "HC", "ratio": 1.05, "z_window": 20, "name": "螺卷价差"},
+        "I-J": {"a": "I", "b": "J", "ratio": 0.40, "z_window": 20, "name": "矿焦比"},
+        "TA-EG": {"a": "TA", "b": "EG", "ratio": 2.5, "z_window": 20, "name": "PTA-乙二醇"},
+        "M-RM": {"a": "M", "b": "RM", "ratio": 1.3, "z_window": 20, "name": "豆粕-菜粕"},
+        "Y-OI": {"a": "Y", "b": "OI", "ratio": 1.0, "z_window": 20, "name": "豆油-菜油"},
+        "SA-FG": {"a": "SA", "b": "FG", "ratio": 1.2, "z_window": 20, "name": "纯碱-玻璃"}
+      },
+      "grade_mapping": {"WATCH": "raw>2.0", "WEAK": "raw<=2.0"},
+      "common_pitfalls": ["配对品种基本面结构变化（产能/政策）使 ratio 永久偏移而非临时偏离", "z_window 仅 20 日，短窗口噪声大", "简化 z（分母=ratio*0.05）未用真实标准差，稳健性弱"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 arbitrage.basis 查 basis_pct 是否真>3% 且非持有成本主导；收到 arbitrage.pair 查对应 CROSS_VARIETY_PAIRS 的 target_ratio 与 current_ratio，确认 z 方向与做空/做多腿一致。"
+}

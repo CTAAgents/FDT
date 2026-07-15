@@ -343,15 +343,19 @@ def _build_chain_prompt_snippet(chain_info: dict | None) -> str:
 # 触发品种识别（信号检查闸门）
 # ─────────────────────────────────────────────
 def select_triggers(scan: dict, threshold: int, disable_filter: bool = False) -> list:
-    """|total| >= DEBATE_ENTRY_MIN_ABS 即进候选（grade 仅作优先级标签）。
+    """辩论入口高置信门禁（v8.1.8 去融合后）：grade∈{STRONG,WATCH} 即进候选。
 
-    当 disable_filter=True 时，从 _raw_total 读取原始总分（绕过 P0-4 伪突破过滤后的 total=0）。
+    当 disable_filter=True 时，从 _raw_total 读取原始总分构造候选（绕过 P0-4 伪突破过滤）。
+    门禁单一真相源 = config.settings.signal_passes_entry_gate。
     """
+    from config.settings import signal_passes_entry_gate
     ranked = scan.get("all_ranked", [])
     if disable_filter:
-        cands = [s for s in ranked if abs(s.get("_raw_total", s.get("total", 0))) >= threshold]
+        cands = [s for s in ranked if signal_passes_entry_gate(
+            {"grade": s.get("grade", "NOISE"),
+             "total": s.get("_raw_total", s.get("total", 0))}, threshold)]
     else:
-        cands = [s for s in ranked if abs(s.get("total", 0)) >= threshold]
+        cands = [s for s in ranked if signal_passes_entry_gate(s, threshold)]
     # 优先级：STRONG > WATCH > 其余
     order = {"STRONG": 0, "WATCH": 1, "WEAK": 2, "NOISE": 3}
     score_key = "_raw_total" if disable_filter else "total"
@@ -368,6 +372,16 @@ def _adx_reversal_rule() -> str:
             "ADX高位(≥60)为过热警示；ADX不得作为致命伤，提及占比≤1/3。")
 
 
+def _strategy_knowledge_rule() -> str:
+    """固定注入：辩论子 Agent 须按 signal_type 查阅策略逻辑规则知识库。"""
+    return (
+        "【策略逻辑规则知识库】每个候选信号都带 signal_type（如 mean_reversion.rsi / "
+        "trend_following.dc20 / pairs_reversion.rb_hc / macro_regime.黑色）与 reason（触发条件+关键数值）。"
+        "论证或裁决前，先按 signal_type 在 memory/knowledge/strategies/_index.json 定位对应策略文件，"
+        "查阅该 sub_signal 的 direction_logic / thresholds / grade_mapping / common_pitfalls，"
+        "交叉验证 reason 中的数值是否真触发、有无已知陷阱，再展开论据——禁止凭空臆测信号含义。")
+
+
 def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
                      chain_data: dict | None = None) -> dict:
     """产出标准化 spawn 计划 JSON（主管据此 spawn，spawn 本身仍是主管职责）。
@@ -378,9 +392,10 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
     ws = Path(workspace)
     plan = {"generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
              "data_benchmark": data_benchmark,
-             "injected_rules": {
-                 "adx_reversal": _adx_reversal_rule(),
-                 "watch_semantics": "WATCH等级=监控观察信号，非直接触发；需结合辩论强度决定是否进候选。",
+            "injected_rules": {
+                "adx_reversal": _adx_reversal_rule(),
+                "strategy_knowledge": _strategy_knowledge_rule(),
+                "watch_semantics": "WATCH等级=监控观察信号，非直接触发；需结合辩论强度决定是否进候选。",
                  "confidence": "confidence由confidence_utils归一化，输出0-1数值或高/中/低标签均可，禁止任意裸字符串。",
              },
              "chain_analysis": {
@@ -446,7 +461,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         f"1) 哪些产业链需要链证源深度分析（给出产业链名称列表）\n"
         f"2) 哪些品种进入正式辩论（从触发品种中筛选，多空双方均会辩论）\n"
         f"3) 辩论的侧重点（技术/基本面/链联动）\n\n"
-        f"{_adx_reversal_rule()}\n\n"
+        f"{_adx_reversal_rule()}\n\n{f._strategy_knowledge_rule()}\n\n"
         f"触发品种列表（{len(symbols)}品种）:\n{_all_sym_details}\n\n"
         f"【重要】输出到 {ws / 'p0_judge_directive.json'}，用 agent_output.write()：\n"
         f"  import sys; sys.path.insert(0, r'{SCRIPTS}'); "
@@ -490,9 +505,9 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
 
         # 多头分析员 — 列举做多论据，不依赖 scanning direction
         bullish_prompt = (
-            f"你是多头分析员，列举品种 {sym} 的多头(看多)论据。\n"
-            f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
-            f"{_adx_reversal_rule()}\n"
+        f"你是多头分析员，列举品种 {sym} 的多头(看多)论据。\n"
+        f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
+        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条多头论据，每条附来源标注。\n"
@@ -510,9 +525,9 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         )
         # 空头分析员 — 列举做空论据
         bearish_prompt = (
-            f"你是空头分析员，列举品种 {sym} 的空头(看空)论据。\n"
-            f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
-            f"{_adx_reversal_rule()}\n"
+        f"你是空头分析员，列举品种 {sym} 的空头(看空)论据。\n"
+        f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
+        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条空头论据，每条附来源标注。\n"
@@ -530,10 +545,10 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         )
         # 闫判官（终裁 — 在多空论据中裁决方向）
         judge_prompt = (
-            f"你是闫判官(终裁)，对品种 {sym} 做出最终裁决。\n"
-            f"读取多头分析员论据 ({p4_bull}) 与空头分析员论据 ({p4_bear})，\n"
-            f"在多头与空头双方论据中裁决最终方向。\n"
-            f"{_adx_reversal_rule()}\n"
+        f"你是闫判官(终裁)，对品种 {sym} 做出最终裁决。\n"
+        f"读取多头分析员论据 ({p4_bull}) 与空头分析员论据 ({p4_bear})，\n"
+        f"在多头与空头双方论据中裁决最终方向。\n"
+        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"

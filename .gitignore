@@ -23,3 +23,8 @@ settings.json
 
 # test coverage artifact
 .coverage
+
+# Platform config (WorkBuddy, IDE)
+.workbuddy/
+.idea/
+.vscode/

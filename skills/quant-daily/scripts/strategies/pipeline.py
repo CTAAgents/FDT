@@ -161,9 +161,13 @@ def _topo_sort(strategies: list[BaseStrategyV2]) -> list[BaseStrategyV2]:
 # ════════════════════════════════════════════════════════════
 
 class StrategyFusion:
-    """跨策略得分融合。
+    """⚠️ 已废弃（v8.1.8 起不再使用）。
 
-    支持多种融合策略，通过 fusion_method 参数选择。
+    掌柜铁律：信号不得融合——不同策略哲学、甚至同一策略内的子信号，
+    都须独立产出、独立送辩论层裁决。融合思想本身错误。
+
+    本类保留仅为向后兼容 import；``StrategyPipeline`` 自 v8.1.8 起不再调用
+    ``fuse()``，改为扁平透传各策略子信号（见 ``run()`` Phase 3）。
     """
 
     # 融合模式
@@ -392,8 +396,11 @@ class StrategyPipeline:
         except ImportError:
             pass  # 验证器不可用时不崩溃
 
-        # Phase 3: 跨策略融合
-        fused = self.fusion.fuse(strategy_outputs)
+        # Phase 3: 去融合（v8.1.8 掌柜铁律：信号不得融合）
+        # 各策略子信号独立透传；跨策略/子信号冲突交给辩论层裁决，绝不在此坍缩。
+        fused: list[ScoredSignal] = []
+        for _sigs in strategy_outputs.values():
+            fused.extend(_sigs)
 
         # Phase 4: 全局闸门（crowding 等）
         try:
@@ -458,7 +465,7 @@ class StrategyPipeline:
             "per_strategy": per_strategy_dict,
             "_meta": {
                 "strategies_run": [s.name for s in self.strategies],
-                "fusion_method": self.fusion.fusion_method,
+                "fusion_method": "no_fusion (disabled by design v8.1.8)",
                 "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "total": len(all_dicts),
                 "bull": len(bull),

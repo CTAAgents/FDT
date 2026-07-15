@@ -29,6 +29,7 @@ class KlineBar:
     volume: float
     amount: float = 0.0
     open_interest: float = 0.0
+    settlement: float = 0.0
 
 
 @dataclass
@@ -70,6 +71,7 @@ class KlineData:
                     "volume": b.volume,
                     "amount": b.amount,
                     "open_interest": b.open_interest,
+                    "settlement": b.settlement,
                 }
                 for b in self.bars
             ],
@@ -79,7 +81,7 @@ class KlineData:
         """转换为 pandas.DataFrame（懒加载 pandas）。
 
         Returns:
-            列顺序为 ``date, open, high, low, close, volume, amount, open_interest`` 的 DataFrame。
+            列顺序为 ``date, open, high, low, close, volume, amount, open_interest, settlement`` 的 DataFrame。
 
         Raises:
             ImportError: 运行环境未安装 pandas。
@@ -97,6 +99,7 @@ class KlineData:
                     "volume": b.volume,
                     "amount": b.amount,
                     "open_interest": b.open_interest,
+                    "settlement": b.settlement,
                 }
                 for b in self.bars
             ]

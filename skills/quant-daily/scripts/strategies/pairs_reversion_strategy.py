@@ -21,7 +21,7 @@ from typing import Any
 
 import numpy as np
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 from .arbitrage_strategy import CROSS_VARIETY_PAIRS
 from .spread_reversion_strategy import kalman_filter_ou
 
@@ -315,6 +315,16 @@ class PairsReversionStrategy(BaseStrategyV2):
                 grade=grade,
                 weight=0.7,
             )
+            # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _m = s.meta
+            _metrics = {"z": round(_m.get("z_score", 0), 2)}
+            if _m.get("pair_a"):
+                _metrics["pair"] = f"{_m['pair_a']}-{_m['pair_b']}"
+            if _m.get("leg"):
+                _metrics["leg"] = _m["leg"]
+            ss.reason = format_reason(
+                s.signal_type, s.direction, grade,
+                metrics=_metrics, strength=round(raw, 2))
             ss.extra = dict(s.meta)
             result.append(ss)
         return result

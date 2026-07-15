@@ -1,0 +1,28 @@
+{
+  "strategy": "spread_reversion",
+  "display_name": "跨期价差 OU 回归",
+  "signal_type_prefix": "spread_reversion",
+  "version": "v8.1.8",
+  "philosophy": "跨期价差回归：同一品种近远月价差偏离历史均值达 OU 边界时回归。偏高→短近长远；偏低→长近短远。两腿独立发信号（near.{合约}/far.{合约}）。信仰'近远月价差围绕持有成本中枢波动'。",
+  "regime_filter": {
+    "active_when": "OU 半衰期在 [HALF_LIFE_MIN, HALF_LIFE_MAX] 区间内（均值回复型）时有效。",
+    "inactive_when": "历史 bar<MIN_BARS(60) 无法 OU 拟合；半衰期<2日（噪声）或>120日（弱回归）不交易。",
+    "note": "数据源复用 FDC _resolve_contracts（xtquant 合约链，与 qmt 同源引擎），零新采集。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 入选；spread_reversion grade: WATCH if raw>0.8, WEAK if raw>0.4, else NOISE。weight=0.7。"
+  },
+  "sub_signals": {
+    "spread": {
+      "signal_type": "spread_reversion.near.{contract} / spread_reversion.far.{contract}",
+      "direction_logic": "对近远月价差序列做 OU 拟合 + KF 自适应 z（kalman_filter_ou）。|z|>=Z_ENTRY(2.0) 出信号；偏高→near bear/far bull（短近长远），偏低→near bull/far bear。",
+      "thresholds": {
+        "Z_ENTRY": 2.0, "MIN_BARS": 60, "HALF_LIFE_MAX": 120.0, "HALF_LIFE_MIN": 2.0,
+        "grade_WATCH": "raw>0.8", "grade_WEAK": "raw>0.4"
+      },
+      "grade_mapping": {"WATCH": "raw>0.8", "WEAK": "raw>0.4", "NOISE": "else"},
+      "common_pitfalls": ["换月跳空导致价差结构突变（近月到期前流动性/定价异动）", "近远月流动性差异大，滑点不对称", "历史不足 60 bar 无法 OU 拟合"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 spread_reversion.near/far.{contract} 时，确认价差方向（偏高/偏低）与两腿交易方向一致；查 MIN_BARS/HALF_LIFE 门禁；警惕换月窗口。"
+}

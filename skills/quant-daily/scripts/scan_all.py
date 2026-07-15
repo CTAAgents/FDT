@@ -354,8 +354,11 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
     2026-07-13 重构：改用 ``_fdc_get_kline_sync()`` 直调 futures_data_core，
     不再经过 data.multi_source_adapter.MultiSourceAdapter。
 
-    🔧 2026-07-15 G26：63品种并发采集（ThreadPoolExecutor max_workers=4），
-    离线降级链（TDX→TqSDK→AKShare）串行累积超时的根因。
+    🔧 2026-07-15 G26→G30：原 max_workers=4 并发采集会触发死锁——
+    多个线程各自 asyncio.run 复用同一个 adapter 单例的共享 httpx.AsyncClient /
+    TQ-Local bridge，跨事件循环并发访问异步资源导致 3 个 worker 永久挂死、
+    59 个品种失败（表现 [60/63] 1 OK）。改为**串行采集**（同一事件循环顺序
+    取数，规避跨循环死锁），并为每品种加墙钟超时护栏，单品种卡死不影响全盘。
     """
     from datetime import date
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -377,16 +380,23 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
             pass
         return None
 
+    # ── G30：串行采集 + 每品种墙钟护栏 ──
+    # 串行避免跨事件循环死锁（共享 httpx.AsyncClient/TQ-Local bridge 并发访问
+    # 会挂死）；每品种 40s 墙钟上限，单品种卡死（极少数 TQ-Local 抽风）不影响全盘。
     kline_data = {}
-    _WORKERS = 4  # G26: 并发品种数（numpy释放GIL，I/O密集采集收益显著）
-    with ThreadPoolExecutor(max_workers=_WORKERS) as _exec:
-        _futs = [_exec.submit(_fetch_one, sym, name) for sym, name in symbols]
-        for i, _fut in enumerate(as_completed(_futs)):
-            _res = _fut.result()
-            if _res:
-                kline_data[_res[0]] = _res[1]
-            if (i + 1) % 15 == 0:
-                print(f"  [{i + 1}/{len(symbols)}] {len(kline_data)} OK")
+    _PER_SYMBOL_TIMEOUT = 40.0
+    _n = len(symbols)
+    for i, (sym, name) in enumerate(symbols):
+        try:
+            with ThreadPoolExecutor(max_workers=1) as _guard:
+                _fut = _guard.submit(_fetch_one, sym, name)
+                _res = _fut.result(timeout=_PER_SYMBOL_TIMEOUT)
+        except Exception:
+            _res = None
+        if _res:
+            kline_data[_res[0]] = _res[1]
+        if (i + 1) % 15 == 0 or (i + 1) == _n:
+            print(f"  [{i + 1}/{_n}] {len(kline_data)} OK")
     return kline_data
 
 
@@ -499,42 +509,130 @@ def run_scan(
     kline_data = collect_kline_for_all(target_symbols, days=120, min_bars=50, contract=contract, period=period)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
 
+    # ── G31: xtdata 可用性探针（独立进程，避免主线程导入锁死）──
+    # 环境异常时 ``import xtdata`` 会在主线程阻塞并持有 Python 全局导入锁，
+    # 导致后续任何导入同一模块的调用（含策略管线）死锁。用独立子进程探测，
+    # 超时/失败即判不可用——子进程死亡不污染主进程导入锁。主进程据此跳过
+    # G35/G36 预取，绝不导入 xtdata 相关模块，扫描主路径安全。
+    import subprocess as _sp
+    _XT_DISABLED = False
+    try:
+        _pr = _sp.run([sys.executable, "-c", "import xtdata"],
+                      timeout=15, capture_output=True, text=True)
+        _XT_DISABLED = (_pr.returncode != 0)
+    except Exception:
+        _XT_DISABLED = True
+    if _XT_DISABLED:
+        print("  ⚠️ xtdata 不可用（独立进程探测超时/失败）→ 跳过跨期/基差预取（G35/G36 自动无操作）")
+
     # ── Step 1.1 (G36): 跨期价差历史预采集（受保护，xtquant/网络不可用时为空 → 策略无操作）──
     # 复用 FDC _resolve_contracts（xtquant 合约链）+ xtquant get_market_data_ex（与 FDC qmt 采集器同源），
     # 不引入新外部源。逐品种 try/except 包裹，任何失败仅跳过该品种，绝不影响主扫描路径。
-    spread_history: dict = {}
-    try:
-        from strategies.spread_reversion_strategy import fetch_spread_history
-        import asyncio
-        for _sym, _name in target_symbols:
-            _v = _sym[0] if isinstance(_sym, (list, tuple)) else _sym
+    # 🛡️ 2026-07-15 修复：fetch_spread_history/fetch_basis_history 内部走 xtquant/QMT connect，
+    #    环境异常时可能无限挂死（不抛异常只阻塞）。改为守护线程+超时(10s) + 并行预取，挂死即放弃。
+    import concurrent.futures as _cf
+
+    def _timed_fetch(func, sym: str, timeout: float = 10.0):
+        """守护线程+超时调用可能挂死的预取函数，超时/异常均返回 None（优雅跳过）。"""
+        import threading
+        _box, _done = {}, threading.Event()
+
+        def _run() -> None:
             try:
-                _sh = fetch_spread_history(_v, days=120)
-                if _sh:
-                    spread_history[_v] = _sh
+                _box["r"] = func(sym, days=120)
             except Exception:
-                continue
-        if spread_history:
-            print(f"  跨期价差历史: {len(spread_history)} 品种就绪（G36 SpreadReversionStrategy）")
-    except Exception:
-        spread_history = {}  # 整体降级，策略无操作
+                _box["r"] = None
+            finally:
+                _done.set()
+
+        _t = threading.Thread(target=_run, daemon=True)
+        _t.start()
+        _done.wait(timeout=timeout)
+        return _box.get("r")
+
+    def _parallel_fetch(func, syms, timeout: float = 10.0, workers: int = 12) -> dict:
+        out: dict = {}
+        with _cf.ThreadPoolExecutor(max_workers=workers) as ex:
+            _futs = {ex.submit(_timed_fetch, func, s, timeout): s for s in syms}
+            for _f in _cf.as_completed(_futs):
+                _s = _futs[_f]
+                try:
+                    _r = _f.result()
+                    if _r:
+                        out[_s] = _r
+                except Exception:
+                    continue
+        return out
+
+    def _guarded_prefetch(kind: str, varieties, timeout: float = 30.0) -> dict:
+        """隔离 xtquant/QMT 的导入与预取可能的主线程挂死（G30）。
+
+        ``from strategies.xxx import fetch_xxx`` 在模块级会触发 ``import xtdata``，
+        环境异常时该导入在主线程阻塞（不抛异常），导致整次扫描卡死在 Step 1.1/1.2。
+        这里把「导入 + 并行预取」整体放入守护线程 + 墙钟超时，挂死即放弃返回 {}，
+        绝不影响主扫描路径。预取仅服务于 G35/G36 回归策略，缺失时策略自动无操作。
+        """
+        import threading
+        _box, _done = {}, threading.Event()
+
+        def _run():
+            try:
+                if kind == "spread":
+                    from strategies.spread_reversion_strategy import fetch_spread_history as _f
+                else:
+                    from strategies.basis_reversion_strategy import fetch_basis_history as _f
+                _box["r"] = _parallel_fetch(_f, varieties)
+            except Exception:
+                _box["r"] = {}
+            finally:
+                _done.set()
+
+        _t = threading.Thread(target=_run, daemon=True)
+        _t.start()
+        _done.wait(timeout=timeout)
+        return _box.get("r", {})
+
+    def _guarded_call(func, timeout: float = 25.0, default=None):
+        """通用护栏：将任意可能挂死的同步调用放入守护线程 + 墙钟超时。
+        挂死（不抛异常只阻塞）即放弃返回 default，绝不影响主扫描路径。
+        用于 G27/G29 等 FDC 外部同步采集（仓单/库存/宏观）。"""
+        import threading
+        _box, _done = {}, threading.Event()
+
+        def _run():
+            try:
+                _box["r"] = func()
+            except Exception:
+                _box["r"] = default
+            finally:
+                _done.set()
+
+        _t = threading.Thread(target=_run, daemon=True)
+        _t.start()
+        _done.wait(timeout=timeout)
+        return _box.get("r", default)
+
+    _varieties = [
+        _sym[0] if isinstance(_sym, (list, tuple)) else _sym
+        for _sym, _ in target_symbols
+    ]
+
+    # G31: xtdata 不可用 → 跳过跨期/基差预取，绝不触发 xtdata 导入锁死锁
+    if _XT_DISABLED:
+        spread_history: dict = {}
+    else:
+        spread_history: dict = _guarded_prefetch("spread", _varieties)
+    if spread_history:
+        print(f"  跨期价差历史: {len(spread_history)} 品种就绪（G36 SpreadReversionStrategy）")
 
     # ── Step 1.2 (G35 P2 续): 期现基差历史（受保护，JSONL 日志 → provider）──
-    basis_history: dict = {}
-    try:
-        from strategies.basis_reversion_strategy import fetch_basis_history
-        for _sym, _name in target_symbols:
-            _v = _sym[0] if isinstance(_sym, (list, tuple)) else _sym
-            try:
-                _bh = fetch_basis_history(_v, days=120)
-                if _bh:
-                    basis_history[_v] = _bh
-            except Exception:
-                continue
-        if basis_history:
-            print(f"  期现基差历史: {len(basis_history)} 品种就绪（BasisReversionStrategy）")
-    except Exception:
-        basis_history = {}
+    if _XT_DISABLED:
+        basis_history: dict = {}
+    else:
+        basis_history: dict = _guarded_prefetch("basis", _varieties)
+    if basis_history:
+        print(f"  期现基差历史: {len(basis_history)} 品种就绪（BasisReversionStrategy）")
+
 
     # ── R24 全局闸门：如果没有任何品种有有效数据，拒绝整次扫描 ──
     if not kline_data:
@@ -682,26 +780,31 @@ def run_scan(
                 summary = summary
             else:
                 summary = {}
-            # ── v7.0 前置采集：基差+OI + 宏观制度（供管线策略 + 验证器共用）──
-            _ctx_extra: dict = {}
-            try:
-                _ctx_extra["basis_data"] = _collect_basis_data_sync(tech_list)
-                _ctx_extra["oi_data"] = _collect_oi_data_sync(tech_list, kline_data)
-            except Exception:
-                pass
-            # ── G27：多因子另类/基本面数据（仓单+库存+开工率）──
-            try:
-                _fund = _collect_fundamental_sync(tech_list)
-                _ctx_extra["warrant_data"] = _fund.get("warrant_data", {})
-                _ctx_extra["inventory_data"] = _fund.get("inventory_data", {})
-                _ctx_extra["supply_data"] = _fund.get("supply_data", {})
-            except Exception:
-                pass
-            # ── G29：宏观数据（PMI + LPR1Y）→ rate_proxy/pmi_proxy 因子 ──
-            try:
-                _ctx_extra["macro_data"] = _get_macro_sync()
-            except Exception:
-                _ctx_extra["macro_data"] = {"available": False}
+        # ── v7.0 前置采集：基差+OI + 宏观制度（供管线策略 + 验证器共用）──
+        _ctx_extra: dict = {}
+        try:
+            _ctx_extra["basis_data"] = _guarded_call(
+                lambda: _collect_basis_data_sync(tech_list), timeout=25, default={})
+            _ctx_extra["oi_data"] = _guarded_call(
+                lambda: _collect_oi_data_sync(tech_list, kline_data), timeout=25, default={})
+        except Exception:
+            pass
+        # ── G27：多因子另类/基本面数据（仓单+库存+开工率）──
+        try:
+            _fund = _guarded_call(lambda: _collect_fundamental_sync(tech_list),
+                                  timeout=25, default={})
+            _ctx_extra["warrant_data"] = _fund.get("warrant_data", {})
+            _ctx_extra["inventory_data"] = _fund.get("inventory_data", {})
+            _ctx_extra["supply_data"] = _fund.get("supply_data", {})
+        except Exception:
+            pass
+        # ── G29：宏观数据（PMI + LPR1Y）→ rate_proxy/pmi_proxy 因子 ──
+        try:
+            _ctx_extra["macro_data"] = _guarded_call(
+                lambda: _get_macro_sync(), timeout=25,
+                default={"available": False})
+        except Exception:
+            _ctx_extra["macro_data"] = {"available": False}
             try:
                 from optimizer.regime import compute_market_regime
                 _mr = compute_market_regime(period=period)
@@ -811,6 +914,7 @@ def run_scan(
                     strategy = get_strategy(strategy_name)
                     summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
             else:
+                from strategies import get_strategy
                 strategy = get_strategy(strategy_name)
                 summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──

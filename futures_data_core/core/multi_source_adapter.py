@@ -34,11 +34,11 @@ from futures_data_core.core.circuit_breaker import CircuitBreaker
 def _default_collectors() -> list[BaseCollector]:
     """构建默认采集器列表（按优先级升序）。
 
-    🔴 数据源优先级（2026-07-13 掌柜明示）：
-        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源）
-        2. TqSdkCollector — 天勤量化（24h可用，降级）
-        3. QMTCollector — QMT/xtquant
-        4. WebFallbackCollector — 东方财富+新浪（兜底）
+    🔴 数据源优先级（2026-07-15 调整：Web 前置于 TqSDK 以规避关闭挂死）：
+        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源，priority=0）
+        2. WebFallbackCollector — 东方财富+新浪（TQ-Local 失败首选降级，priority=1）
+        3. QMTCollector — QMT/xtquant（priority=2）
+        4. TqSdkCollector — 天勤量化（末位兜底，关闭偶发挂死已由超时保护，priority=98）
     """
     return select_by_priority(
         [
@@ -123,7 +123,11 @@ class MultiSourceAdapter:
             except CollectorUnavailableError:
                 br.record_failure()
                 continue
-            if data is None:
+            if data is None or not getattr(data, "bars", None):
+                # 🛡️ 2026-07-15 修复：TQ-Local 等源可能返回空 KlineData（bars=[]）
+                # 而非抛异常，原逻辑 data is None 判空漏掉此情况，导致空数据被当
+                # 成功、降级链中断。判空后继续降级，确保落到 Web/QMT/TqSDK。
+                br.record_failure()
                 continue
             br.record_success()
             return await self._wrap_kline(collector, data, tried)

@@ -92,7 +92,7 @@ class TqSdkCollector(BaseCollector):
     """天勤 TqSDK 采集器（全能力封装，连接复用）。"""
 
     name = "tqsdk"
-    priority = 0
+    priority = 98
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
@@ -101,14 +101,12 @@ class TqSdkCollector(BaseCollector):
         self._api_lock = threading.Lock()
 
     async def close(self) -> None:
-        """关闭 TqApi 连接。"""
+        """关闭 TqApi 连接（超时兜底，杜绝 300s 挂死）。"""
         with self._api_lock:
             if self._api_instance is not None:
-                try:
-                    self._api_instance.close()
-                except Exception:
-                    pass
+                _inst = self._api_instance
                 self._api_instance = None
+                self._safe_close(_inst)
 
     # ── 可用性 ──
     async def check_available(self) -> bool:
@@ -214,14 +212,38 @@ class TqSdkCollector(BaseCollector):
         调用时 ``get_kline_serial`` 会因 ``RuntimeError: Event loop is closed`` 挂死。
 
         见 2026-07-13 17:44 故障诊断。
+
+        🛡️ C 修复（2026-07-15）：``TqApi.close()`` 在异常环境下会挂死 300s
+        （executor did not finish joining threads within 300 seconds）。改为守护线程
+        + 5s 超时，超时即放弃并置空实例，绝不阻塞降级链。
         """
         with self._api_lock:
             if self._api_instance is not None:
+                _inst = self._api_instance
+                self._api_instance = None
+                self._safe_close(_inst)
+
+    def _safe_close(self, inst: Any) -> None:
+        """在守护线程中关闭 TqApi，最多等待 5s，超时放弃（避免 300s 挂死）。"""
+        if inst is None:
+            return
+        try:
+            import threading
+            _done = threading.Event()
+
+            def _do_close() -> None:
                 try:
-                    self._api_instance.close()
+                    inst.close()
                 except Exception:
                     pass
-                self._api_instance = None
+                finally:
+                    _done.set()
+
+            _t = threading.Thread(target=_do_close, daemon=True)
+            _t.start()
+            _done.wait(timeout=5.0)
+        except Exception:
+            pass
 
     def _klines_sync(self, sym: str, dur: int, days: int, _retry_event_loop: bool = True):
         """_retry_event_loop: 首次因事件循环损坏失败后关闭实例并重试一次。"""

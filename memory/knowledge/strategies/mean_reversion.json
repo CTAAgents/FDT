@@ -1,0 +1,39 @@
+{
+  "strategy": "mean_reversion",
+  "display_name": "均值回归（RSI/CCI/布林带极端反转）",
+  "signal_type_prefix": "mean_reversion",
+  "version": "v8.1.8",
+  "philosophy": "均值回归：价格极端超买/超卖后回归中枢。信仰'物极必反'——与趋势跟踪哲学相反。RSI/CCI/BB 三个子信号各自独立判定，互不融合（v8.1.8 去融合：不投票、不坍缩成 .reversal）。",
+  "regime_filter": {
+    "active_when": "震荡市（ADX<25 或 ADX 缺失）且 KF 未检测到均值加速偏移。",
+    "inactive_when": "趋势市（ADX>25）→ 不做反转，避免抄底摸顶；KF_Z_MAX=2.5 检测到均值加速偏移→压制信号。",
+    "bandwidth_filter": "BB_BANDWIDTH_MIN=0.03（带宽<3% 极度压缩→反转高概率，G39）；bb_width 缺省 1.0（无数据）时不过滤。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 入选；mean_reversion grade: WATCH if raw>0.5, WEAK if raw>0.2, else NOISE。weight=0.6。"
+  },
+  "sub_signals": {
+    "rsi": {
+      "signal_type": "mean_reversion.rsi",
+      "direction_logic": "RSI_OVERSOLD=25：0<RSI<25→bull（超卖做多）；RSI>75→bear（超买做空）。",
+      "thresholds": {"RSI_OVERSOLD": 25, "RSI_OVERBOUGHT": 75, "score_bull": "(25-rsi)/25", "score_bear": "(rsi-75)/(100-75)"},
+      "grade_mapping": {"WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["强趋势中 RSI 长期超买/超卖（不反转），须 ADX<25 过滤", "RSI 在 25-75 间无信号"]
+    },
+    "cci": {
+      "signal_type": "mean_reversion.cci",
+      "direction_logic": "CCI_OVERSOLD=-200：CCI<-200→bull（极度超卖）；CCI>200→bear（极度超买）。",
+      "thresholds": {"CCI_OVERSOLD": -200, "CCI_OVERBOUGHT": 200, "score_bull": "(-200-cci)/200 近似", "score_bear": "(cci-200)/200 近似"},
+      "grade_mapping": {"WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["CCI 波动大，极端值短暂；需结合 ADX 确认震荡"]
+    },
+    "bb": {
+      "signal_type": "mean_reversion.bb",
+      "direction_logic": "布林带 %b：BB_LOWER_THRESHOLD=0.1（0<bb<0.1→bull 下轨外做多）；BB_UPPER_THRESHOLD=0.9（bb>0.9→bear 上轨外做空）。",
+      "thresholds": {"BB_LOWER": 0.1, "BB_UPPER": 0.9, "score_bull": "(0.1-bb)/0.1", "score_bear": "(bb-0.9)/0.1"},
+      "grade_mapping": {"WATCH": "raw>0.5", "WEAK": "raw>0.2", "NOISE": "else"},
+      "common_pitfalls": ["趋势行情中价格贴轨运行不回归（须 ADX<25）", "bb 须在 0-1 有效范围"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 mean_reversion.<sub> 时，先查 ADX 是否<25（趋势市应驳回反转）；再查 KF 是否压制（reason 含 'KF压制' 时应降权）；RSI/CCI/BB 三子信号独立，不可合并判断。"
+}

@@ -1,0 +1,36 @@
+{
+  "strategy": "pairs_reversion",
+  "display_name": "配对做空回归（Engle-Granger 协整）",
+  "signal_type_prefix": "pairs_reversion",
+  "version": "v8.1.8",
+  "philosophy": "配对回归：两品种价差（协整残差）偏离历史均值达 OU 边界时做空回归。两腿独立发信号（贵腿 bear / 便宜腿 bull），天然双向做空。信仰'协整关系长期稳定，短期偏离回归'。",
+  "regime_filter": {
+    "active_when": "两腿 Hurst<HURST_MAX 且方差比拒绝随机游走（均值回复型）时有效。",
+    "inactive_when": "任一腿 Hurst>HURST_MAX(0.75)（强趋势型）→ 跳过该配对；VR_Z_MAX=1.96 未通过（非平稳/随机游走）→ 不交易。",
+    "note": "与趋势跟踪哲学相反，与 mean_reversion 同类但用于跨品种配对。"
+  },
+  "debate_entry_gate": {
+    "rule": "grade ∈ {STRONG, WATCH} 入选；pairs_reversion grade: WATCH if raw>0.8, WEAK if raw>0.4, else NOISE。weight=0.7。"
+  },
+  "sub_signals": {
+    "pair": {
+      "signal_type": "pairs_reversion.pair.{leg}",
+      "direction_logic": "对 CROSS_VARIETY_PAIRS 每组做 Engle-Granger 协整，残差 Z-score abs(z)>=Z_ENTRY(2.0) 出信号。贵腿(a)→bear，便宜腿(b)→bull（做空回归）。两腿各自独立 RawSignal：pairs_reversion.pair.{pa} / pairs_reversion.pair.{pb}。",
+      "thresholds": {
+        "Z_ENTRY": 2.0, "HURST_MAX": 0.75, "VR_Z_MAX": 1.96, "HALF_LIFE_MAX": 120.0,
+        "grade_WATCH": "raw>0.8", "grade_WEAK": "raw>0.4"
+      },
+      "cross_variety_pairs": {
+        "RB-HC": {"a": "RB", "b": "HC", "ratio": 1.05},
+        "I-J": {"a": "I", "b": "J", "ratio": 0.40},
+        "TA-EG": {"a": "TA", "b": "EG", "ratio": 2.5},
+        "M-RM": {"a": "M", "b": "RM", "ratio": 1.3},
+        "Y-OI": {"a": "Y", "b": "OI", "ratio": 1.0},
+        "SA-FG": {"a": "SA", "b": "FG", "ratio": 1.2}
+      },
+      "grade_mapping": {"WATCH": "raw>0.8", "WEAK": "raw>0.4", "NOISE": "else"},
+      "common_pitfalls": ["协整关系结构性断裂（政策/产能突变）使残差永久偏移", "Hurst 误判趋势型导致接飞刀", "OU 半衰期>120日回归太慢、资金占用久"]
+    }
+  },
+  "cross_validation_hint": "辩论子Agent：收到 pairs_reversion.pair.{leg} 时，查对应配对 ratio 与 Hurst/VR 是否通过门禁；确认 leg 方向（贵腿 bear/便宜腿 bull）与 Z 符号一致；警惕协整断裂基本面事件。"
+}

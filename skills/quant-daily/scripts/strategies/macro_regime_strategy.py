@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal, format_reason
 
 
 # ── 宏观制度映射（matching macro_link.py 结构） ──
@@ -99,6 +99,16 @@ class MacroRegimeStrategy(BaseStrategyV2):
                 grade="WEAK",
                 weight=0.4,  # 宏观信号权重低于技术信号
             )
+            # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
+            _m = s.meta
+            _metrics = {}
+            if _m.get("sector"):
+                _metrics["sector"] = _m["sector"]
+            if _m.get("macro_signal"):
+                _metrics["regime"] = _m["macro_signal"]
+            ss.reason = format_reason(
+                s.signal_type, s.direction, "WEAK",
+                metrics=_metrics or None, strength=abs(s.raw_score))
             ss.extra = dict(s.meta)
             result.append(ss)
         return result

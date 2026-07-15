@@ -345,6 +345,29 @@ SIGNAL_GRADE_THRESHOLDS = {
 DEBATE_ENTRY_MIN_ABS = 20
 
 
+# ════════════════════════════════════════════════════════════
+# 辩论入口高置信门禁（v8.1.8 去融合后单一真相源）
+# ════════════════════════════════════════════════════════════
+# 去融合后 all_ranked 为逐(策略×子信号) 独立条目，每个子信号自带 grade
+# （各策略 score() 已据自身尺度将强度映射为 STRONG/WATCH/WEAK/NOISE）。
+# 高置信门禁 = grade∈{STRONG,WATCH}；兼容旧逻辑：grade 缺失/未分级时
+# 退化为 |total|>=threshold 放行（防策略漏设 grade 导致信号全失）。
+# 跨策略/子信号冲突不在此坍缩，交给辩论层裁决。
+def signal_passes_entry_gate(sig: dict, threshold: int = DEBATE_ENTRY_MIN_ABS) -> bool:
+    """辩论入口高置信门禁：grade∈{STRONG,WATCH} 即进候选。
+
+    兼容旧逻辑：grade 缺失/未分级时退化为 ``abs(total) >= threshold`` 放行。
+    """
+    grade = sig.get("grade", "NOISE")
+    if grade in ("STRONG", "WATCH"):
+        return True
+    return abs(sig.get("total", 0)) >= threshold
+
+
+# 策略逻辑规则知识库（v8.1.8）：辩论子 Agent 按 signal_type 查阅权威规则
+STRATEGY_KB_DIR = "memory/knowledge/strategies"
+
+
 # ============================================================
 # 通道突破策略完整参数集（v1.2 品种×周期多层次可优化）
 # 所有通道突破策略的评分参数集中在此。

@@ -49,10 +49,10 @@ def _get_exchange_code(variety: str, known: dict) -> Optional[int]:
 
 
 class WebFallbackCollector(BaseCollector):
-    """Web 兜底采集器（priority=99，最后降级）。"""
+    """Web 兜底采集器（priority=1，TQ-Local 之后首选降级，规避 TqSDK 关闭挂死）。"""
 
     name = "web_fallback"
-    priority = 99
+    priority = 1
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
@@ -68,10 +68,10 @@ class WebFallbackCollector(BaseCollector):
     async def get_kline(
         self, symbol: str, period: str = "daily", days: int = 120
     ) -> KlineData:
-        """兜底 K 线：先尝试东方财富，失败后降级新浪。"""
-        bars = self._try_eastmoney(symbol)
+        """兜底 K 线：新浪为主（稳定），东方财富为辅（当前环境断连）。"""
+        bars = self._try_sina(symbol, days=days)
         if not bars:
-            bars = self._try_sina(symbol)
+            bars = self._try_eastmoney(symbol)
         return KlineData(
             symbol=symbol,
             period=period,
@@ -117,8 +117,12 @@ class WebFallbackCollector(BaseCollector):
             pass
         return None
 
-    def _try_sina(self, symbol: str) -> Optional[list]:
-        """新浪财经 InnerFuturesNewService K 线 API。"""
+    def _try_sina(self, symbol: str, days: int = 120) -> Optional[list]:
+        """新浪财经 InnerFuturesNewService K 线 API（主力连续 = {variety}0）。
+
+        注意：新浪返回短键 d/o/h/l/c/v（非 date/open/...），且日期为
+        YYYY-MM-DD；早期版本误用长键名 + 未归一，导致解析出空日期与 0 价格。
+        """
         variety = symbol.upper()
         sina_sym = f"{variety}0"
         url = (
@@ -137,16 +141,19 @@ class WebFallbackCollector(BaseCollector):
             if klines and isinstance(klines, list):
                 records = []
                 for k in klines:
+                    # 新浪短键: d=日期 o=开 h=高 l=低 c=收 v=量 p=持仓 s=结算价
                     records.append({
-                        "date": str(k.get("date", "")),
-                        "open": float(k.get("open", 0)),
-                        "close": float(k.get("close", 0)),
-                        "high": float(k.get("high", 0)),
-                        "low": float(k.get("low", 0)),
-                        "volume": int(float(k.get("volume", 0))),
+                        "date": str(k.get("d", "")).replace("-", ""),
+                        "open": float(k.get("o", 0)),
+                        "high": float(k.get("h", 0)),
+                        "low": float(k.get("l", 0)),
+                        "close": float(k.get("c", 0)),
+                        "volume": int(float(k.get("v", 0))),
+                        "open_interest": float(k.get("p", 0)),
+                        "settlement": float(k.get("s", 0)),
                     })
                 if records:
-                    return records
+                    return records[-days:]
         except Exception:
             pass
         return None
