@@ -26,5 +26,33 @@
     "confidence": 0.6,
     "consecutive_failures": 0,
     "status": "active"
+  },
+  {
+    "pattern_id": "eg-p002",
+    "name": "多头基本面驱动型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 11:15",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.86,
+    "structure": "eg-pro1: 国内EG装置集中检修，... → 基本面验证 → eg-pro3: 美伊冲突升级，霍尔木兹... → 技术形态确认 → 期限结构确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.dc20+bb"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.8,
+    "consecutive_failures": 0,
+    "status": "active"
   }
 ]

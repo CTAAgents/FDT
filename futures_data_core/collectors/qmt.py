@@ -163,6 +163,7 @@ class QMTCollector(BaseCollector):
                         close=_sf(getattr(row, "close", None)),
                         volume=_sf(getattr(row, "volume", 0.0)),
                         amount=_sf(getattr(row, "amount", 0.0)),
+                        open_interest=_sf(getattr(row, "openInterest", 0.0)),
                     )
                 )
             except (TypeError, ValueError):

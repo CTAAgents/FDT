@@ -53,8 +53,13 @@ class MacroRegimeStrategy(BaseStrategyV2):
                 context: dict | None = None) -> list[RawSignal]:
         signals: list[RawSignal] = []
         ctx = context or {}
-        # 从 context 获取宏观信号（由探源 Agent 或 web_collector 注入）
-        macro_signal = ctx.get("macro_signal", "neutral")
+        # 从 context 获取宏观信号（在 pipeline 中存放于 ctx["extra"]["macro_signal"]，
+        # 同时兼容上层直接传 ctx["macro_signal"] 的旧路径）
+        macro_signal = (
+            ctx.get("extra", {}).get("macro_signal")
+            or ctx.get("macro_signal")
+            or "neutral"
+        )
         if macro_signal not in ("bull", "bear"):
             return signals
 

@@ -281,6 +281,7 @@ class TqSdkCollector(BaseCollector):
                     low=float(getattr(row, "low")),
                     close=float(getattr(row, "close")),
                     volume=float(getattr(row, "volume", 0.0) or 0.0),
+                    open_interest=float(getattr(row, "open_interest", 0.0) or 0.0),
                 ))
             except (TypeError, ValueError):
                 continue

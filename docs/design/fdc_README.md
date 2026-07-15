@@ -34,7 +34,7 @@
 
 | 数据类型 | 运行模式 | 工具链 | 可靠性 |
 |:---------|:--------|:-------|:------:|
-| K 线 (OHLCV) | [INDEPENDENT] | TDX → TqSDK → AKShare → Cache | ★★★★★ |
+| K 线 (OHLCVI + 持仓量) | [INDEPENDENT] | TDX → TqSDK → AKShare → Cache | ★★★★★ |
 | 行情快照 | [INDEPENDENT] | TDX → TqSDK | ★★★★★ |
 | 技术指标 (18 组) | [INDEPENDENT] | TDX formula_zb + numpy 兜底 | ★★★★★ |
 | 品种清单 | [INDEPENDENT] | 内置品种映射表 | ★★★★★ |

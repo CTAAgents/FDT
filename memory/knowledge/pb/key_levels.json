@@ -169,29 +169,80 @@
       "confidence": "高",
       "round_id": "",
       "extracted_at": "2026-07-15 09:20"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 17200,
+        "condition": "现价入场"
+      },
+      "stop_loss": {
+        "price": 17600,
+        "type": "fixed",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-15 10:14"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 15950.0,
+        "condition": "价格反弹至15950-16000区域,15分钟K线出现上影线/反转K线形态(射击之星/看跌吞没),配合成交量放大+持仓量回升确认空头回归"
+      },
+      "stop_loss": {
+        "price": 16220.0,
+        "type": "fixed",
+        "atr_multiple": 1.47
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 15950.0,
+        "condition": "价格反弹至15950-16000区域,15分钟K线出现上影线/反转K线形态(射击之星/看跌吞没),配合成交量放大+持仓量回升确认空头回归"
+      },
+      "stop_loss": {
+        "price": 16220.0,
+        "type": "fixed",
+        "atr_multiple": 1.47
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:16"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 16000.0,
-        "count": 9,
-        "min": 16000.0,
+        "level": 15990.9,
+        "count": 11,
+        "min": 15950.0,
         "max": 16000.0
       },
       {
         "level": 17200.0,
-        "count": 1,
+        "count": 2,
         "min": 17200.0,
         "max": 17200.0
       }
     ],
-    "computed_at": "2026-07-15 09:20"
+    "computed_at": "2026-07-15 11:16"
   },
   "meta": {
     "variety": "pb",
-    "total_records": 10,
-    "last_updated": "2026-07-15 09:20"
+    "total_records": 13,
+    "last_updated": "2026-07-15 11:16"
   }
 }

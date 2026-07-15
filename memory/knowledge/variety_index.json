@@ -89,11 +89,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 10,
-      "effective_patterns": 1,
-      "patterns_updated": "2026-07-14 12:27",
-      "key_levels_updated": "2026-07-15 09:20",
-      "drivers_updated": "2026-07-15 09:20"
+      "total_debates": 13,
+      "effective_patterns": 2,
+      "patterns_updated": "2026-07-15 11:15",
+      "key_levels_updated": "2026-07-15 11:16",
+      "drivers_updated": "2026-07-15 11:16"
     },
     "ni": {
       "name": "镍",
@@ -197,11 +197,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 2,
-      "effective_patterns": 2,
-      "patterns_updated": "2026-07-15 09:20",
-      "key_levels_updated": "2026-07-15 09:20",
-      "drivers_updated": "2026-07-15 09:20"
+      "total_debates": 5,
+      "effective_patterns": 3,
+      "patterns_updated": "2026-07-15 11:14",
+      "key_levels_updated": "2026-07-15 11:15",
+      "drivers_updated": "2026-07-15 11:15"
     },
     "bu": {
       "name": "石油沥青",
@@ -424,11 +424,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 8,
+      "total_debates": 10,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-14 12:28",
-      "key_levels_updated": "2026-07-14 23:34",
-      "drivers_updated": "2026-07-14 23:35"
+      "key_levels_updated": "2026-07-15 11:15",
+      "drivers_updated": "2026-07-15 11:16"
     },
     "v": {
       "name": "PVC",
@@ -463,11 +463,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 1,
-      "effective_patterns": 1,
-      "patterns_updated": "2026-07-15 09:20",
-      "key_levels_updated": "2026-07-15 09:20",
-      "drivers_updated": "2026-07-15 09:20"
+      "total_debates": 4,
+      "effective_patterns": 2,
+      "patterns_updated": "2026-07-15 11:15",
+      "key_levels_updated": "2026-07-15 11:15",
+      "drivers_updated": "2026-07-15 11:15"
     },
     "eb": {
       "name": "苯乙烯",
@@ -475,11 +475,14 @@
       "chain": "能源化工",
       "profile": true,
       "drivers": true,
-      "patterns": false,
-      "key_levels": false,
+      "patterns": true,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 2,
+      "effective_patterns": 1,
+      "patterns_updated": "2026-07-15 11:15",
+      "key_levels_updated": "2026-07-15 11:15",
+      "drivers_updated": "2026-07-15 11:15"
     },
     "pg": {
       "name": "LPG",
@@ -979,11 +982,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 7,
+      "total_debates": 10,
       "effective_patterns": 3,
       "patterns_updated": "2026-07-15 09:00",
-      "key_levels_updated": "2026-07-15 09:20",
-      "drivers_updated": "2026-07-15 09:20"
+      "key_levels_updated": "2026-07-15 11:15",
+      "drivers_updated": "2026-07-15 11:15"
     },
     "nr": {
       "name": "20号胶",

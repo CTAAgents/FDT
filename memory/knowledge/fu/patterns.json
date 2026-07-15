@@ -54,5 +54,33 @@
     "confidence": 0.6,
     "consecutive_failures": 0,
     "status": "active"
+  },
+  {
+    "pattern_id": "fu-p003",
+    "name": "空头趋势驱动型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 11:15",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "fu-con1: 地缘脉冲不可持续, 风... → fu-con2: 燃料油需求端依然疲软,... → 趋势确认 → fu-con4: 技术指标确认严重超买,...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.dc20+bb"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
   }
 ]

@@ -1,0 +1,55 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 8363.0,
+        "condition": "价格回踩8363（日线hard支撑）企稳，日线收盘价≥8363且成交量较前5日均量放大≥20%确认支撑有效"
+      },
+      "stop_loss": {
+        "price": 8250.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 8363.0,
+        "condition": "价格回踩8363（日线hard支撑）企稳，日线收盘价≥8363且成交量较前5日均量放大≥20%确认支撑有效"
+      },
+      "stop_loss": {
+        "price": 8250.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 8363.0,
+        "count": 2,
+        "min": 8363.0,
+        "max": 8363.0
+      }
+    ],
+    "resistance": [],
+    "computed_at": "2026-07-15 11:15"
+  },
+  "meta": {
+    "variety": "eb",
+    "total_records": 2,
+    "last_updated": "2026-07-15 11:15"
+  }
+}

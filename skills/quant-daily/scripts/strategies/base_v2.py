@@ -128,6 +128,11 @@ class BaseStrategyV2(ABC):
             def score(self, filtered, tech_list, context) -> list[ScoredSignal]: ...
     """
 
+    # ── G28（2026-07-15）：策略启用控制 ──
+    # 默认启用；config.settings.DISABLED_STRATEGIES 中的策略在管线中被跳过。
+    # 子类亦可在类体内声明 `enabled = False` 实现自暂停（如检测到依赖缺失）。
+    enabled: bool = True
+
     @property
     @abstractmethod
     def name(self) -> str:

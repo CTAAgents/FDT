@@ -230,6 +230,66 @@ def _calc_position_rank(t: dict, ctx_extra: dict | None) -> float:
     return max(-1.0, min(1.0, score))
 
 
+def _calc_warrant_change(t: dict, ctx_extra: dict | None) -> float:
+    """仓单变化因子：仓单增减反映可交割供应压力。返回 -1 ~ +1。
+
+    仓单增（供应压力↑）→ 偏空；仓单减（库存紧张↑）→ 偏多。
+    G27：数据来自 ``ctx_extra['warrant_data']``（FDC ``get_warrant``，真实全量源，
+    覆盖 SHFE/DCE/CZCE/GFEX）。无仓单数据（含沙箱网络受限）时惰性返回 0.0。
+    """
+    w_data = (ctx_extra or {}).get("warrant_data", {})
+    sym = str(t.get("symbol", ""))
+    w = w_data.get(sym)
+    if not w:
+        return 0.0
+    total = _safe_float(w.get("total"), 0)
+    daily_change = _safe_float(w.get("daily_change"), 0)
+    if total <= 0:
+        return 0.0
+    # 日变动占比归一化（±5% 触顶）：增→负(空) / 减→正(多)
+    pct = daily_change / total
+    return max(-1.0, min(1.0, -max(-1.0, min(1.0, pct * 5.0))))
+
+
+def _calc_inventory(t: dict, ctx_extra: dict | None) -> float:
+    """库存分位因子：期望输入为分位值（0~1 或百分比）。返回 -1 ~ +1。
+
+    G27 数据源探查结论：FDC 库存缓存仅 CU/RB/AU 单点绝对值（无分位/无历史），
+    无法计算有意义分位 → **惰性返回 0.0（不造假信号）**。待接入 Mysteel/隆众分位源
+    或配置参考区间后，缓存一旦提供 ``pct``/``percentile`` 字段即自动激活。
+    """
+    inv_data = (ctx_extra or {}).get("inventory_data", {})
+    sym = str(t.get("symbol", ""))
+    inv = inv_data.get(sym)
+    if not inv:
+        return 0.0
+    pct = inv.get("pct") or inv.get("percentile")
+    if pct is not None:
+        p = _safe_float(pct) / 100.0 if _safe_float(pct) > 1 else _safe_float(pct)
+        # 库存分位高（累库）→ 偏空；低（去库）→ 偏多
+        return max(-1.0, min(1.0, (0.5 - p) * 2.0))
+    # 单点绝对值无分位语义 → 惰性 0（数据不可用，非信号）
+    return 0.0
+
+
+def _calc_capacity(t: dict, ctx_extra: dict | None) -> float:
+    """开工率因子：开工率高（供应充裕）→ 偏空；低（供应收紧）→ 偏多。返回 -1 ~ +1。
+
+    G27：FDC supply 缓存仅 CU/RB/AU 单点绝对值、无参考正常开工率区间 →
+    **惰性返回 0.0（不造假信号）**。缓存提供 ``pct``/``utilization_pct`` 字段即激活。
+    """
+    sup_data = (ctx_extra or {}).get("supply_data", {})
+    sym = str(t.get("symbol", ""))
+    sup = sup_data.get(sym)
+    if not sup:
+        return 0.0
+    pct = sup.get("pct") or sup.get("utilization_pct")
+    if pct is not None:
+        p = _safe_float(pct) / 100.0 if _safe_float(pct) > 1 else _safe_float(pct)
+        return max(-1.0, min(1.0, (0.5 - p) * 2.0))
+    return 0.0
+
+
 class MultiFactorStrategy(BaseStrategyV2):
     """多因子量化：四维因子加权打分预测品种未来收益。"""
 
@@ -280,13 +340,13 @@ class MultiFactorStrategy(BaseStrategyV2):
                 "volume_flow": _calc_volume_flow(t),
                 "oi_change": _calc_oi_change(t, ctx_extra),
                 "basis": _calc_basis(t, ctx_extra),
-                "inventory_pct": 0.0,     # FDC 库存因子占位
-                "capacity": 0.0,           # FDC 开工率因子占位
+                "inventory_pct": _calc_inventory(t, ctx_extra),    # G27: FDC库存(惰性待分位源)
+                "capacity": _calc_capacity(t, ctx_extra),           # G27: FDC开工率(惰性待参考区间)
                 "macro_regime": _calc_macro(t, context),
                 "rate_proxy": 0.0,         # 宏观利率因子占位
                 "pmi_proxy": 0.0,          # 宏观PMI因子占位
                 "position_rank": _calc_position_rank(t, ctx_extra),
-                "warrant_change": 0.0,     # 仓单变化因子占位
+                "warrant_change": _calc_warrant_change(t, ctx_extra),   # G27: FDC仓单(真实全量源)
             }
 
             # 加权总分

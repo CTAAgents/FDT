@@ -26,5 +26,33 @@
     "confidence": 0.7,
     "consecutive_failures": 0,
     "status": "active"
+  },
+  {
+    "pattern_id": "pb-p002",
+    "name": "空头基本面驱动型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 11:16",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.86,
+    "structure": "基本面验证 → pb-con2: 传统淡季+锂电替代双击... → 基本面验证 → pb-con4: 宏观面强美元+有色板块... → 趋势确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.dc20+dc55+bb"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.8,
+    "consecutive_failures": 0,
+    "status": "active"
   }
 ]

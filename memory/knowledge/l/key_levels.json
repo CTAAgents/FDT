@@ -271,16 +271,57 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-14 23:34"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 7930.0,
+        "condition": "价格回踩POC(7984)区域获得支撑,15分钟周期出现放量阳线确认突破局部小阻力"
+      },
+      "stop_loss": {
+        "price": 7820.0,
+        "type": "fixed",
+        "atr_multiple": 2.07
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 7930.0,
+        "condition": "价格回踩POC(7984)区域获得支撑,15分钟周期出现放量阳线确认突破局部小阻力"
+      },
+      "stop_loss": {
+        "price": 7820.0,
+        "type": "fixed",
+        "atr_multiple": 2.07
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
     }
   ],
   "aggregated": {
-    "support": [],
+    "support": [
+      {
+        "level": 7930.0,
+        "count": 2,
+        "min": 7930.0,
+        "max": 7930.0
+      }
+    ],
     "resistance": [],
-    "computed_at": "2026-07-14 23:34"
+    "computed_at": "2026-07-15 11:15"
   },
   "meta": {
     "variety": "l",
-    "total_records": 8,
-    "last_updated": "2026-07-14 23:34"
+    "total_records": 10,
+    "last_updated": "2026-07-15 11:15"
   }
 }

@@ -19,7 +19,7 @@ from typing import Optional
 
 @dataclass
 class KlineBar:
-    """单根 K 线（OHLCV）。"""
+    """单根 K 线（OHLCVI）。"""
 
     date: str
     open: float
@@ -28,6 +28,7 @@ class KlineBar:
     close: float
     volume: float
     amount: float = 0.0
+    open_interest: float = 0.0
 
 
 @dataclass
@@ -68,6 +69,7 @@ class KlineData:
                     "close": b.close,
                     "volume": b.volume,
                     "amount": b.amount,
+                    "open_interest": b.open_interest,
                 }
                 for b in self.bars
             ],
@@ -77,7 +79,7 @@ class KlineData:
         """转换为 pandas.DataFrame（懒加载 pandas）。
 
         Returns:
-            列顺序为 ``date, open, high, low, close, volume, amount`` 的 DataFrame。
+            列顺序为 ``date, open, high, low, close, volume, amount, open_interest`` 的 DataFrame。
 
         Raises:
             ImportError: 运行环境未安装 pandas。
@@ -94,6 +96,7 @@ class KlineData:
                     "close": b.close,
                     "volume": b.volume,
                     "amount": b.amount,
+                    "open_interest": b.open_interest,
                 }
                 for b in self.bars
             ]

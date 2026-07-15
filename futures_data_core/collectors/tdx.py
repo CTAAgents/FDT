@@ -29,7 +29,7 @@ from futures_data_core.core.types import KlineBar, KlineData, QuoteData
 
 # TQ-Local 本地服务地址
 DEFAULT_BASE_URL = "http://127.0.0.1:17709/"
-DEFAULT_TIMEOUT = 15
+DEFAULT_TIMEOUT = 3  # G26: TQ-Local 离线时快速失败（原15s导致降级链超时累积）
 # 期货市场代码（TQ-Local get_stock_list 的 market 参数）
 FUTURES_MARKET = "92"
 
@@ -227,6 +227,7 @@ class TDXCollector(BaseCollector):
         closes = series.get("Close", []) or []
         volumes = series.get("Volume", []) or []
         amounts = series.get("Amount", []) or []
+        holds = series.get("Hold", []) or []
 
         n = min(len(dates), len(opens), len(closes))
         bars: list[KlineBar] = []
@@ -241,6 +242,7 @@ class TDXCollector(BaseCollector):
                         close=float(closes[i]),
                         volume=float(volumes[i]) if i < len(volumes) else 0.0,
                         amount=float(amounts[i]) if i < len(amounts) else 0.0,
+                        open_interest=float(holds[i]) if i < len(holds) else 0.0,
                     )
                 )
             except (TypeError, ValueError):

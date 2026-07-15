@@ -50,9 +50,18 @@ def get_pipeline(strategy_names: Optional[list[str]] = None,
         配置好的 StrategyPipeline 实例。
     """
     if strategy_names:
+        # CLI --strategies 显式指定：覆盖禁用集（强制启用）
         strategies = [_V2_REGISTRY[n] for n in strategy_names if n in _V2_REGISTRY]
     else:
-        strategies = list(_V2_REGISTRY.values())
+        # 默认全量管线：跳过暂停/禁用的策略（G28）
+        try:
+            from config.settings import DISABLED_STRATEGIES
+        except Exception:
+            DISABLED_STRATEGIES = set()
+        strategies = [
+            s for s in _V2_REGISTRY.values()
+            if s.enabled and s.name not in DISABLED_STRATEGIES
+        ]
     if not strategies:
         raise ValueError("No v2 strategies registered")
     fusion = StrategyFusion(fusion_method)

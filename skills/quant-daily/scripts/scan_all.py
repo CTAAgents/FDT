@@ -83,7 +83,7 @@ def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") ->
                 "low": float(b.get("low", 0)),
                 "close": float(b.get("close", 0)),
                 "volume": int(b.get("volume", 0)),
-                "oi": int(b.get("oi", 0) if b.get("oi") else 0),
+                "oi": int(b.get("oi") or b.get("open_interest", 0)),
                 "settle": float(b.get("settle", 0) if b.get("settle") else 0),
                 "data_source": meta.get("source", "fdc"),
                 "confidence": 1.0,
@@ -233,6 +233,77 @@ def _collect_oi_data_sync(all_ranked: list, kline_data: dict) -> dict:
     return result
 
 
+def _get_warrant_sync(symbol: str, exchange: str, trade_date: str = None) -> dict:
+    """同步包装 FDC ``get_warrant``（仓单日报），返回 ``{total, daily_change}`` 或 ``None``。
+
+    G27（2026-07-15）：仓单是 MultiFactorStrategy 唯一具备真实全量源（SHFE/DCE/CZCE/GFEX）
+    的另类因子。沙箱网络受限时 ``get_warrant`` 返回 UNAVAILABLE → 本函数返回 ``None``，
+    因子惰性 0（不造假信号）。
+    """
+    try:
+        from futures_data_core.f10.warrant import get_warrant
+        payload = asyncio.run(get_warrant(symbol, exchange=exchange, trade_date=trade_date))
+        grade = payload.meta.get("data_grade", "")
+        if grade in ("UNAVAILABLE", "STALE"):
+            return None
+        d = payload.data if isinstance(payload.data, dict) else {}
+        if d.get("total") is None:
+            return None
+        return {"total": d.get("total"), "daily_change": d.get("daily_change"), "source": exchange}
+    except Exception:
+        return None
+
+
+def _collect_fundamental_sync(tech_list: list) -> dict:
+    """采集多因子策略所需的另类/基本面数据，注入 ``ctx_extra``（G27）。
+
+    - ``warrant_data``：仓单日报（``get_warrant``，4 交易所真实源）→ ``warrant_change`` 因子
+    - ``inventory_data``：库存快照（``load_fundamental inventory``）→ ``inventory_pct``
+    - ``supply_data``：开工率快照（``load_fundamental supply``）→ ``capacity``
+
+    数据源探查结论：仅 warrant 为真实全量源；inventory/capacity 缓存仅 CU/RB/AU 单点
+    绝对值、无分位/无历史 → 因子惰性 0（不造假信号），待 Mysteel/隆众或参考区间接入。
+    """
+    out: dict[str, dict] = {"warrant_data": {}, "inventory_data": {}, "supply_data": {}}
+    # 品种 → 交易所映射（懒加载；失败则跳过 warrant 采集）
+    exch_map: dict = {}
+    try:
+        from data.collectors.tdx_collector import VARIETY_EXCHANGE
+        exch_map = VARIETY_EXCHANGE or {}
+    except Exception:
+        pass
+    # 本地基本面缓存（同步读取，无网络依赖）
+    _load_fundamental = None
+    try:
+        from futures_data_core.cache.f10_cache import load_fundamental as _lf
+        _load_fundamental = _lf
+    except Exception:
+        pass
+
+    for t in tech_list:
+        sym = str(t.get("symbol", "")).upper()
+        if not sym:
+            continue
+        # ── 仓单（真实源）──
+        ex = exch_map.get(sym)
+        if ex:
+            w = _get_warrant_sync(sym, ex)
+            if w:
+                out["warrant_data"][sym] = w
+        # ── 库存 / 开工率（本地缓存快照）──
+        if _load_fundamental:
+            try:
+                inv = _load_fundamental(sym, "inventory")
+                if inv:
+                    out["inventory_data"][sym] = inv
+                sup = _load_fundamental(sym, "supply")
+                if sup:
+                    out["supply_data"][sym] = sup
+            except Exception:
+                pass
+    return out
+
+
 # ── P0-4 信号重校验门禁已迁至 signals/validators/p0_4_raw_kline.py ──
 # 原 _revalidate_breakouts 逻辑现由 signals.validators.run_signal_validators 按
 # config.settings.SIGNAL_VALIDATOR_MAP 路由调用（范式↔验证器声明式框架）。
@@ -247,13 +318,17 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
 
     2026-07-13 重构：改用 ``_fdc_get_kline_sync()`` 直调 futures_data_core，
     不再经过 data.multi_source_adapter.MultiSourceAdapter。
+
+    🔧 2026-07-15 G26：63品种并发采集（ThreadPoolExecutor max_workers=4），
+    离线降级链（TDX→TqSDK→AKShare）串行累积超时的根因。
     """
     from datetime import date
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if today_str is None:
         today_str = date.today().strftime("%Y%m%d")
-    kline_data = {}
-    for i, (sym, name) in enumerate(symbols):
+
+    def _fetch_one(sym, name):
         variety, sym_contract = _split_symbol_contract(sym)
         eff_contract = contract or sym_contract
         try:
@@ -262,11 +337,21 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
                 if len(valid) >= min_bars:
-                    kline_data[sym] = (name, valid)
+                    return sym, (name, valid)
         except Exception:
             pass
-        if (i + 1) % 15 == 0:
-            print(f"  [{i + 1}/{len(symbols)}] {len(kline_data)} OK")
+        return None
+
+    kline_data = {}
+    _WORKERS = 4  # G26: 并发品种数（numpy释放GIL，I/O密集采集收益显著）
+    with ThreadPoolExecutor(max_workers=_WORKERS) as _exec:
+        _futs = [_exec.submit(_fetch_one, sym, name) for sym, name in symbols]
+        for i, _fut in enumerate(as_completed(_futs)):
+            _res = _fut.result()
+            if _res:
+                kline_data[_res[0]] = _res[1]
+            if (i + 1) % 15 == 0:
+                print(f"  [{i + 1}/{len(symbols)}] {len(kline_data)} OK")
     return kline_data
 
 
@@ -457,6 +542,8 @@ def run_scan(
             df["volume"] = [float(r.get("volume", 0)) for r in dlist]
             if "open_interest" in dlist[0]:
                 df["open_interest"] = [float(r.get("open_interest", 0)) for r in dlist]
+            if "oi" in dlist[0]:
+                df["oi"] = [float(r.get("oi", 0)) for r in dlist]
             # ── numpy 指标计算：品种级超时防护（防止单一品种卡死全盘）──
             _NUMPY_TIMEOUT = 60  # 秒/品种
             try:
@@ -529,6 +616,14 @@ def run_scan(
                 _ctx_extra["oi_data"] = _collect_oi_data_sync(tech_list, kline_data)
             except Exception:
                 pass
+            # ── G27：多因子另类/基本面数据（仓单+库存+开工率）──
+            try:
+                _fund = _collect_fundamental_sync(tech_list)
+                _ctx_extra["warrant_data"] = _fund.get("warrant_data", {})
+                _ctx_extra["inventory_data"] = _fund.get("inventory_data", {})
+                _ctx_extra["supply_data"] = _fund.get("supply_data", {})
+            except Exception:
+                pass
             try:
                 from optimizer.regime import compute_market_regime
                 _mr = compute_market_regime(period=period)
@@ -542,11 +637,11 @@ def run_scan(
                         try: return float(v)
                         except: return default
                     _trend_c = sum(1 for t in tech_list
-                                   if _safe_float(t.get("adx") or t.get("ADX", 0)) > 25)
+                                   if _safe_float(t.get("adx", t.get("ADX", 0))) > 25)
                     _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
                     _adx_rsi_pairs = [
-                        (_safe_float(t.get("adx") or t.get("ADX", 0)),
-                         _safe_float(t.get("rsi") or t.get("RSI14", 50)))
+                        (_safe_float(t.get("adx", t.get("ADX", 0))),
+                         _safe_float(t.get("rsi", t.get("RSI14", 50))))
                         for t in tech_list
                     ]
                     _bull_c = sum(1 for adx, rsi in _adx_rsi_pairs
@@ -598,11 +693,21 @@ def run_scan(
                     _STRATEGY_REGISTRY["multi_factor"] = MultiFactorStrategy
 
                     from strategies.registry_v2 import get_pipeline, register_v2
+                    # G28：持久化暂停开关（config.settings.DISABLED_STRATEGIES）
+                    try:
+                        from config.settings import DISABLED_STRATEGIES as _DISABLED
+                    except Exception:
+                        _DISABLED = set()
                     _active_names = []
                     for _name, _cls in _STRATEGY_REGISTRY.items():
-                        if _selected is None or _name in _selected:
-                            register_v2(_cls())
-                            _active_names.append(_name)
+                        # CLI --strategies 显式指定时覆盖禁用；否则跳过禁用策略
+                        if _selected is not None and _name not in _selected:
+                            continue
+                        if _selected is None and _name in _DISABLED:
+                            print(f"  [策略暂停·G28] 跳过: {_name}（待资源完善后开启）")
+                            continue
+                        register_v2(_cls())
+                        _active_names.append(_name)
                     _skipped = set(_STRATEGY_REGISTRY) - set(_active_names)
                     if _skipped:
                         print(f"  [策略筛选] 跳过: {', '.join(sorted(_skipped))}")

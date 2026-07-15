@@ -118,10 +118,67 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-15 09:20"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 4529,
+        "condition": "现价入场"
+      },
+      "stop_loss": {
+        "price": 4400,
+        "type": "fixed",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 10:14"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 4600.0,
+        "condition": "价格回踩4600支撑确认 + 成交量放大确认，优先于ADX信号"
+      },
+      "stop_loss": {
+        "price": 4470.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:14"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 4600.0,
+        "condition": "价格回踩4600支撑确认 + 成交量放大确认，优先于ADX信号"
+      },
+      "stop_loss": {
+        "price": 4470.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-15 11:15"
     }
   ],
   "aggregated": {
     "support": [
+      {
+        "level": 4564.5,
+        "count": 4,
+        "min": 4529.0,
+        "max": 4600.0
+      },
       {
         "level": 4366.0,
         "count": 3,
@@ -133,12 +190,6 @@
         "count": 2,
         "min": 0.0,
         "max": 4366.0
-      },
-      {
-        "level": 4529.0,
-        "count": 1,
-        "min": 4529.0,
-        "max": 4529.0
       }
     ],
     "resistance": [
@@ -149,11 +200,11 @@
         "max": 3990.0
       }
     ],
-    "computed_at": "2026-07-15 09:20"
+    "computed_at": "2026-07-15 11:15"
   },
   "meta": {
     "variety": "lu",
-    "total_records": 7,
-    "last_updated": "2026-07-15 09:20"
+    "total_records": 10,
+    "last_updated": "2026-07-15 11:15"
   }
 }
