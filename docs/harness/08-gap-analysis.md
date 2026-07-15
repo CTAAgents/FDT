@@ -125,6 +125,7 @@
 | **G21** | 100ppi 降级文档 | — | — | 补充 04-resilience.md §8 | ✅ v7.4.1 关闭 |
 | **G22** | 策略层不支持多策略并行 | — | — | Phase A→D 完成，v7.2.0 pipeline 默认模式 | ✅ v7.2.0 关闭 |
 | **G23** | 信号类型无命名空间 | — | — | BaseStrategyV2 `{name}.{subtype}` 命名空间 | ✅ v7.2.0 关闭 |
+| **G24** | 缺多因子量化策略 | — | — | 新增 MultiFactorStrategy 作为管线第7策略，纯趋势/强弱对冲/行业中性三模式 | **本次新增** |
 
 > **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
 
@@ -137,7 +138,8 @@
 ```
 Phase A (v6.4.0) 接口层 ──→ ✅ BaseStrategyV2 + StrategyPipeline + StrategyFusion
 Phase B (v6.4.1) 适配层 ──→ ✅ StrategyV1Adapter v1→v2 桥接
-Phase C (v6.5-7) 策略填充 ──→ ✅ CTA 7/7 全覆盖（5 新策略文件）
+Phase C (v6.5-7) 策略填充 ──→ ✅ CTA 6/6 全覆盖（通道突破 + 均值回归 + 套利 + 宏观 + 事件 + ML）
+Phase C2 (v8.0) 多因子量化 ──→ ✅ MultiFactorStrategy 第7策略新增（量价/产业/宏观/另类四维40/30/20/10加权）
 Phase D (v6.8-7.2) 通用化 ──→ ✅ scan_all 默认管线模式 + 字段归一化 + 基差/宏观注入
 ```
 

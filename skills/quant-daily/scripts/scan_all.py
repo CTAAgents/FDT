@@ -594,6 +594,8 @@ def run_scan(
                     _STRATEGY_REGISTRY["event_driven"] = EventDrivenStrategy
                     from strategies.ml_signal_strategy import MlSignalStrategy
                     _STRATEGY_REGISTRY["ml_signal"] = MlSignalStrategy
+                    from strategies.multi_factor_strategy import MultiFactorStrategy
+                    _STRATEGY_REGISTRY["multi_factor"] = MultiFactorStrategy
 
                     from strategies.registry_v2 import get_pipeline, register_v2
                     _active_names = []
@@ -609,6 +611,8 @@ def run_scan(
                     _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
                             "window_mode": window_mode, "mode": "full", "extra": _ctx_extra}
                     summary = pipeline.run(tech_list, kline_data, _ctx)
+                    summary["pipeline_mode"] = True
+                    summary["active_strategies"] = _active_names.copy()
                     print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
                 except Exception as _pe:
                     import traceback; traceback.print_exc()
@@ -672,6 +676,14 @@ def run_scan(
     # ── 终端表格 ──
     # ── 安全取值适配器（兼容 three_signal 等策略的不同字段名）──
     def _sv(r, key, default=0):
+        if isinstance(key, (list, tuple)):
+            _cur = r
+            for _k in key:
+                if isinstance(_cur, dict):
+                    _cur = _cur.get(_k, default)
+                else:
+                    return default
+            return _cur if _cur is not None else default
         v = r.get(key, default)
         return v if v is not None else default
 
@@ -763,8 +775,9 @@ def run_scan(
             '⚠️ 本报表为【不过滤伪突破】模式 — "原始总分"列显示 P0-4 拦截前的原始分，未做伪突破过滤</div>'
             if _fd else ''
         )
+        _is_pipeline = summary.get("pipeline_mode", False)
 
-        if _actual_strategy in ("channel_breakout", "three_signal"):
+        if _actual_strategy in ("channel_breakout", "three_signal") and not _is_pipeline:
             # ── 通道突破/三类信号专用列 ──
             rows_json = _json.dumps(
                 [
@@ -828,6 +841,80 @@ def run_scan(
     function(d){return d.grade;}
 ]"""
             _strategy_label = "channel_breakout"
+
+        elif _is_pipeline:
+            # ── 多策略管线专用列 ──
+            _pipeline_strats = summary.get("active_strategies", [])
+            rows_json = _json.dumps(
+                [
+                    {
+                        "i": i + 1,
+                        "sym": _sv(r,"symbol"),
+                        "name": _sv(r,"name"),
+                        "dir": _sv(r,"direction"),
+                        "price": _sv(r,"price"),
+                        "chg": _sv(r,"change_pct"),
+                        "total": (_sv(r,"_raw_total", _sv(r,"total")) if summary.get("filter_disabled") else _sv(r,"total")),
+                        "raw_total": _sv(r,"_raw_total", _sv(r,"total")),
+                        "sig": _sv(r,"signal_type","-"),
+                        "stf": _sv(r,("strategy_breakdown","trend_following","total"), 0),
+                        "smr": _sv(r,("strategy_breakdown","mean_reversion","total"), 0),
+                        "sar": _sv(r,("strategy_breakdown","arbitrage","total"), 0),
+                        "smc": _sv(r,("strategy_breakdown","macro_regime","total"), 0),
+                        "sev": _sv(r,("strategy_breakdown","event_driven","total"), 0),
+                        "sml": _sv(r,("strategy_breakdown","ml_signal","total"), 0),
+                        "smf": _sv(r,("strategy_breakdown","multi_factor","total"), 0),
+                        "nst": sum(1 for _k in _pipeline_strats if abs(_sv(r,("strategy_breakdown",_k,"total"), 0)) >= 1),
+                        "adx": _sv(r,"adx"),
+                        "rsi": _sv(r,"rsi"),
+                        "grade": _sv(r,"grade"),
+                        "tdx": r.get("_tdx_patched", False),
+                    }
+                    for r in all_ranked
+                ],
+                ensure_ascii=False,
+            )
+            _strat_labels = {"trend_following":"趋势", "mean_reversion":"回归", "arbitrage":"套利",
+                             "macro_regime":"宏观", "event_driven":"事件", "ml_signal":"ML",
+                             "multi_factor":"多因子"}
+            _col_pairs = [("#",1), ("品种",0), ("名称",0), ("方向",0)]
+            _col_pairs += [("价格",1), ("涨跌",1), ("原始总分" if _fd else "总分",1), ("拦前分",1)]
+            _col_pairs += [("信号类型",0)]
+            for _sn in _pipeline_strats:
+                _col_pairs += [(_strat_labels.get(_sn, _sn), 1)]
+            _col_pairs += [("策略数",1), ("ADX",1), ("RSI",1), ("等级",0)]
+            _cols = _col_pairs
+            _strat_desc = "".join(
+                f'<tr><td style="padding:3px 8px;color:#e5e7eb">{_strat_labels.get(_sn, _sn)}</td>'
+                f'<td style="padding:3px 8px;color:#9ca3af">{_strat_labels.get(_sn, _sn)}策略得分</td>'
+                f'<td style="padding:3px 8px;color:#6b7280">-100~+100</td></tr>'
+                for _sn in _pipeline_strats
+            )
+            _col_desc = _filter_note + """
+<p style="color:#e5e7eb;font-weight:600;margin-top:10px">栏位计算方法（多策略管线 — %d策略）</p>
+<table style="width:100%%;border-collapse:collapse;font-size:11px"><tr style="background:#252940"><th>栏位<th>说明<th>范围</tr>
+<tr><td style="padding:3px 8px;color:#e5e7eb">总分</td><td style="padding:3px 8px;color:#9ca3af">各策略加权总分</td><td style="padding:3px 8px;color:#6b7280">动态</td></tr>
+<tr><td style="padding:3px 8px;color:#e5e7eb">拦前分</td><td style="padding:3px 8px;color:#f59e0b">P0-4降级前的原始总分</td><td style="padding:3px 8px;color:#6b7280">动态</td></tr>
+<tr><td style="padding:3px 8px;color:#e5e7eb">信号类型</td><td style="padding:3px 8px;color:#9ca3af">主驱动策略名+子类型</td><td style="padding:3px 8px;color:#6b7280">策略相关</td></tr>
+%s
+<tr><td style="padding:3px 8px;color:#e5e7eb">策略数</td><td style="padding:3px 8px;color:#9ca3af">有非零贡献的策略数（>1=多策略共振）</td><td style="padding:3px 8px;color:#6b7280">0~%d</td></tr>
+<tr><td style="padding:3px 8px;color:#e5e7eb">ADX</td><td style="padding:3px 8px;color:#9ca3af">趋势强度 Wilder平滑</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr>
+<tr><td style="padding:3px 8px;color:#e5e7eb">RSI</td><td style="padding:3px 8px;color:#9ca3af">14周期相对强弱</td><td style="padding:3px 8px;color:#6b7280">0~100</td></tr></table>""" % (len(_pipeline_strats), _strat_desc, len(_pipeline_strats))
+            _col_keys = ["i","sym","name","dir","price","chg","total","raw_total","sig"]
+            _strat_key_map = {"trend_following":"stf","mean_reversion":"smr","arbitrage":"sar",
+                              "macro_regime":"smc","event_driven":"sev","ml_signal":"sml",
+                              "multi_factor":"smf"}
+            for _sn in _pipeline_strats:
+                _col_keys.append(_strat_key_map.get(_sn, "stf"))
+            _col_keys += ["nst","adx","rsi","grade"]
+            _js_rows = []
+            for _k in _col_keys:
+                if _k in ("sig","grade"):
+                    _js_rows.append(f"    function(d){{return String(d.{_k});}}")
+                else:
+                    _js_rows.append(f"    function(d){{return d.{_k};}}")
+            _render_cols_js = "[\n" + ",\n".join(_js_rows) + "\n]"
+            _strategy_label = f"多策略管线({len(_pipeline_strats)}策略)"
 
         else:
             # ── L1-L4 / layered / true_layered 专用列 ──
@@ -912,7 +999,9 @@ def run_scan(
         _th = "".join(f'<th onclick="sortBy({i})"{" data-num=\"1\"" if n else ""} style="text-align:{"center" if n else "left"}">{h}</th>' for i,(h,n) in enumerate(_cols))
 
         period_label = "" if period == "daily" else f" ({period})"
-        _title_label = "L1-L4分层信号强度排序" if _strategy_label != "channel_breakout" else "通道突破信号强度排序"
+        _title_label = ("多策略管线信号强度排序" if _is_pipeline else
+                        "通道突破信号强度排序" if _strategy_label == "channel_breakout" else
+                        "L1-L4分层信号强度排序")
         html = f"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><title>全品种{_title_label}{period_label} — {today}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
