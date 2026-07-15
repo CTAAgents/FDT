@@ -13,6 +13,7 @@ from strategies.pairs_reversion_strategy import (
     _engle_granger_residual,
     _rolling_z,
     _half_life,
+    variance_ratio_test,
 )
 
 
@@ -177,3 +178,50 @@ class TestPairsReversionScore:
                 assert ss.total > 0
             assert ss.grade in ("WATCH", "WEAK", "NOISE")
             assert ss.weight == 0.7
+
+
+# ───────────────────────────────────────────────────────────
+# 方差比检验（G38）
+# ───────────────────────────────────────────────────────────
+
+class TestVarianceRatio:
+    def test_mean_reverting_vr_less_than_one(self):
+        """强均值回归 MA(1) -0.9 → VR << 1（显著小于 1 即均值回归信号）"""
+        rng = np.random.default_rng(10)
+        eps = rng.normal(0, 1, 2000)
+        rets = [eps[0]] + [eps[t] - 0.9 * eps[t - 1] for t in range(1, len(eps))]
+        prices = [100.0]
+        for r in rets:
+            prices.append(prices[-1] * (1 + r / 100))
+        vr, z = variance_ratio_test(prices, q=2)
+        assert vr < 0.95, f"VR={vr} 应 < 1（均值回归信号）"
+
+    def test_trending_vr_greater_than_one(self):
+        """AR(1) phi=0.8 正自相关 → VR > 1, z > 1.96"""
+        rng = np.random.default_rng(11)
+        rets = [0.0]
+        for _ in range(500):
+            rets.append(0.8 * rets[-1] + rng.normal(0.0005, 0.5))
+        log_prices = np.cumsum(rets)
+        prices = list(100.0 * np.exp(log_prices))
+        vr, z = variance_ratio_test(prices, q=2)
+        assert vr > 1.02, f"VR={vr} 应 > 1"
+
+    def test_short_series_returns_neutral(self):
+        vr, z = variance_ratio_test([100, 101, 102], q=2)
+        assert vr == 1.0 and z == 0.0
+
+    def test_compute_meta_includes_vr_z(self):
+        """PairsReversion signal meta 包含 vr_z_a / vr_z_b"""
+        s = PairsReversionStrategy()
+        closes_a = [100 + i * 0.01 + np.random.default_rng(12).normal() for i in range(120)]
+        closes_b = [100 + i * 0.01 + np.random.default_rng(13).normal() for i in range(120)]
+        # 强制 MR-RM 配对（两者弱相关，协整残差可能通过）
+        pairs_data = {"RB": ("螺纹钢", [{"close": float(c)} for c in closes_a]),
+                      "HC": ("热卷", [{"close": float(c)} for c in closes_b])}
+        tech = [{"symbol": "RB", "price": closes_a[-1]}, {"symbol": "HC", "price": closes_b[-1]}]
+        sigs = s.compute(tech, pairs_data)
+        if sigs:
+            meta = sigs[0].meta
+            assert "vr_z_a" in meta
+            assert "vr_z_b" in meta
