@@ -137,6 +137,8 @@
 | **G33** | 缺 Dual Thrust 日内突破 | 期货圈实盘高频（Tony Crabel 1990），纯价量，FDT 当前无日内突破型趋势工具 | 低 | 已闭：**落点=趋势跟踪第 10 子信号**（信号评分层，与 G30/G31 同架构）；FDC 新增 `calculate_dual_thrust`（前 lookback 日 H/L/C 区间 + 当日 open±k*range 触发轨，纯 OHLC 派生）；主管线唯一计算入口单点注入 `DT_RANGE`/`DT_UPPER`/`DT_LOWER`（自动贯穿 scan_all + 所有回测）；`_score_dual_thrust` 比较 close 与触发轨定方向/强度。**版本 v8.0.6** | ✅ 已关闭（2026-07-15） |
 | **G34** | 缺 Turtle 完整系统 | 行业标杆（Dennis/Eckhardt 1983），FDT 已有 DC20/55+ATR 但缺 N 单位头寸 + 金字塔加仓 + 2 单位退出完整规则 | 中 | ✅ **已收口**：落点=执行/风险 overlay 层（`StrategyPipeline` Phase 4.6，接 G32 Vol Targeting 之后）。`tdx_compat.calculate_turtle_n`（20日 TR 的 Wilder 平滑，Turtle N）为真相源；主管线唯一入口单点注入 `TURTLE_N`；`TurtleSystemOverlay` 读 DC20/55 突破状态识别 S1/S2 系统、按 abs_score 定 1-4 单位预算、算 0.5N 金字塔加仓阶梯与 2N 退出止损，注入 `extra`；`trade_plan` 按 `turtle_units` 单位预算轻度缩放仓位（默认 1.0x，零回归）。复用 G30 DC20/55+ATR、G32 vol scale。**零新数据源（纯 OHLC 派生）**。**版本 v8.0.7** | ✅ 已关闭（2026-07-15） |
 
+| **G35** | 均值回归缺做空维度（期货价差回归空白） | 现有 `MeanReversionStrategy` 仅单合约价格反转（代码虽双向，但缺期货特有的跨品种协整配对、跨期价差 OU、期现基差 OU 等**天然做空**回归；`arbitrage` 含基差/跨期但被 DISABLED 且为简化比率 Z 非协整） | 中 | 掌柜 2026-07-15 采纳 A 方案（批1：期货价差做空）。**G35 Phase 1（本轮，零新数据源）**：① 新增 `PairsReversionStrategy`（协整配对均值回归），复用 `arbitrage.CROSS_VARIETY_PAIRS`（7 组产业链），改用 `kline_data` 两品种 120 天历史做 Engle-Granger 协整回归取残差、残差滚动 Z-score（窗口 20/60，|Z|>2 出信号），产两腿独立 `RawSignal`（贵腿 bear + 便宜腿 bull，**天然双向做空**）；② 新增 Hurst 前置门禁 `calculate_hurst`（R/S 重标极差法，纯 numpy，作用于价格变化），任一腿 H>0.75（强趋势型，R/S 小样本上偏已校准）跳过该配对避免伪回归；③ 注册 `scan_all._STRATEGY_REGISTRY`（默认启用，不在 `DISABLED_STRATEGIES`）。**G35 Phase 2（下一轮，待 FDC spread 实测）**：`SpreadReversionStrategy`（跨期价差 OU 过程：近远月价差均值+半衰期，近月高估做空近月+做多远月）+ 期现基差 OU 回归。**零新数据源（kline_data 120天 + tech_list price + FDC spread 已有模块）**。**版本 v8.1.0** | ✅ 已关闭（2026-07-15，Phase 1 协整配对+Hurst 门禁收口；Phase 2 待续） |
+
 > **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
 
 ## 5. 改进路线图
@@ -225,7 +227,7 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 
 ## 7. 总结（2026-07-14 23:45 — 策略层重构完成）
 
-**当前成熟度：8 维全 5/5**。G1-G24 关闭，**G25/G26/G27/G28/G29/G30/G31/G32/G33/G34 已关闭**（OI 全线补全 + 扫描 4x 提速 + 多因子因子接入 + 策略暂停开关 + 宏观 rate/pmi 真实公开源接入 + 趋势跟踪指标衍生 Keltner/Supertrend/SAR/Chandelier/MACD 五子策略 + TSMOM 时间序列动量九子信号共振 + Vol Targeting 波动率目标化执行/风险 overlay + Dual Thrust 日内突破十子信号共振 + Turtle 完整系统 N 单位头寸/金字塔加仓/2N 退出执行 overlay）；CTA 策略覆盖 7/7（4 活跃 + 3 暂停）· pipeline 默认模式 · v8.0.7
+**当前成熟度：8 维全 5/5**。G1-G24 关闭，**G25/G26/G27/G28/G29/G30/G31/G32/G33/G34 已关闭**（OI 全线补全 + 扫描 4x 提速 + 多因子因子接入 + 策略暂停开关 + 宏观 rate/pmi 真实公开源接入 + 趋势跟踪指标衍生 Keltner/Supertrend/SAR/Chandelier/MACD 五子策略 + TSMOM 时间序列动量九子信号共振 + Vol Targeting 波动率目标化执行/风险 overlay + Dual Thrust 日内突破十子信号共振 + Turtle 完整系统 N 单位头寸/金字塔加仓/2N 退出执行 overlay）；CTA 策略覆盖 7/7（4 活跃 + 3 暂停）· pipeline 默认模式 · v8.1.0
 
 2026-07-10 的「15 项全部修复、4.7/5.0」结论经本次整顿需修正为：
 

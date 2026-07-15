@@ -723,6 +723,8 @@ def run_scan(
                     _STRATEGY_REGISTRY["arbitrage"] = ArbitrageStrategy
                     from strategies.mean_reversion_strategy import MeanReversionStrategy
                     _STRATEGY_REGISTRY["mean_reversion"] = MeanReversionStrategy
+                    from strategies.pairs_reversion_strategy import PairsReversionStrategy
+                    _STRATEGY_REGISTRY["pairs_reversion"] = PairsReversionStrategy
                     from strategies.macro_regime_strategy import MacroRegimeStrategy
                     _STRATEGY_REGISTRY["macro_regime"] = MacroRegimeStrategy
                     from strategies.event_driven_strategy import EventDrivenStrategy
