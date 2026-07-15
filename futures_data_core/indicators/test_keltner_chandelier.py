@@ -280,3 +280,61 @@ class TestVolTargetingIntegration:
         assert tech["VOL_SCALE"] == 1.0
         assert tech["REALIZED_VOL"] == 0.0
 
+
+class TestCalculateDualThrust:
+    def test_returns_three_scalars(self):
+        from futures_data_core.indicators.tdx_compat import calculate_dual_thrust
+        h = np.array([101.0, 102.0, 103.0, 104.0])
+        l = np.array([99.0, 100.0, 101.0, 102.0])
+        c = np.array([100.0, 101.0, 102.0, 103.0])
+        o = np.array([100.0, 100.5, 101.0, 101.5])
+        rng, up, lo = calculate_dual_thrust(h, l, c, o, lookback=1, k1=0.5, k2=0.5)
+        assert isinstance(rng, float) and isinstance(up, float) and isinstance(lo, float)
+
+    def test_known_interval(self):
+        from futures_data_core.indicators.tdx_compat import calculate_dual_thrust
+        # 前 lookback=1 日（索引 -2）：HH=103, LC=102, HC=102, LL=101 → range=1
+        # 当日 open=101.5 → upper=102.0, lower=101.0
+        h = np.array([101.0, 102.0, 103.0, 104.0])
+        l = np.array([99.0, 100.0, 101.0, 102.0])
+        c = np.array([100.0, 101.0, 102.0, 103.0])
+        o = np.array([100.0, 100.5, 101.0, 101.5])
+        rng, up, lo = calculate_dual_thrust(h, l, c, o, lookback=1, k1=0.5, k2=0.5)
+        assert rng == 1.0
+        assert up == 102.0
+        assert lo == 101.0
+
+    def test_short_series_returns_zero(self):
+        from futures_data_core.indicators.tdx_compat import calculate_dual_thrust
+        # n=2 < lookback+2 (=3) → 中性 (0,0,0)
+        h = np.array([101.0, 102.0])
+        l = np.array([99.0, 100.0])
+        c = np.array([100.0, 101.0])
+        o = np.array([100.0, 100.5])
+        rng, up, lo = calculate_dual_thrust(h, l, c, o, lookback=1)
+        assert (rng, up, lo) == (0.0, 0.0, 0.0)
+
+
+class TestCalculateDualThrustIntegration:
+    """主管线入口注入验证：_compute_indicators_numpy 产出 G33 字段。"""
+
+    def test_legacy_numpy_emits_g33_fields(self):
+        from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+        import pandas as pd
+        n = 80
+        rng = np.random.default_rng(13)
+        close = 100.0 + np.arange(n) * 0.4 + rng.normal(0, 0.5, n).cumsum()
+        df = pd.DataFrame({
+            "open": close + rng.normal(0, 0.2, n),
+            "high": close + np.abs(rng.normal(0, 0.5, n)) + 0.3,
+            "low": close - np.abs(rng.normal(0, 0.5, n)) - 0.3,
+            "close": close,
+            "volume": np.full(n, 1000.0),
+        })
+        tech = _compute_indicators_numpy(df, symbol=None)
+        for key in ("DT_RANGE", "DT_UPPER", "DT_LOWER"):
+            assert key in tech, f"缺失 G33 字段 {key}"
+            assert tech[key] != 0.0, f"{key} 未被计算（疑似异常分支）"
+        # 上升序列 → 上轨 > 下轨
+        assert tech["DT_UPPER"] > tech["DT_LOWER"]
+

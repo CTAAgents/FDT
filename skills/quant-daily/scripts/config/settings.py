@@ -520,6 +520,21 @@ TREND_G32_CONFIG = {
     "layer": "execution_risk_overlay",
 }
 
+# ═══════════════════════════════════════════════════════════
+# G33 Dual Thrust 日内突破 — 参数集中配置（单一真相源）
+# 经典日内突破算法（Michael Chalek）：前 lookback 日 H/L/C 区间 +
+# 当日 open ± k*range 触发轨。落点=趋势跟踪第 10 子信号（信号评分层），
+# 与 G30/G31/G32 同架构（纯 OHLC 派生，零新数据源）。
+# 镜像 futures_data_core.indicators.tdx_compat.calculate_dual_thrust 默认值；
+# legacy_numpy 单点注入 DT_RANGE / DT_UPPER / DT_LOWER 与之一致。
+TREND_G33_CONFIG = {
+    "lookback": 1,          # 前 N 日区间（1=前一日，标准 Dual Thrust）
+    "k1": 0.5,              # 上轨系数：upper = open + k1 * range
+    "k2": 0.5,              # 下轨系数：lower = open - k2 * range
+    # 子信号置信度：突破幅度相对 range 缩放，基础 0.3；满强=1.0
+    "sub_conviction": "0.3 + distance/range",
+}
+
 
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护

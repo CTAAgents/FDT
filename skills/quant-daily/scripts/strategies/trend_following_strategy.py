@@ -1,9 +1,9 @@
 """
-趋势跟踪策略 v2 — DC20/DC55/BB 通道突破 + G30 指标衍生扩展（纯简版）。
+趋势跟踪策略 v2 — DC20/DC55/BB 通道突破 + G30/G31/G32/G33 指标扩展（纯简版）。
 
 复用 scan_all 指标管线已有的技术字段（含 G30 新增 Keltner/SAR/Chandelier/
 MACD 子信号），零新采集。与 v1 ChannelBreakoutStrategy 的核心逻辑一致但
-精简，直接实现 BaseStrategyV2 接口。8 子信号方向投票，子类型标签携带命中清单。
+精简，直接实现 BaseStrategyV2 接口。10 子信号共振投票，子类型标签携带命中清单。
 """
 
 from __future__ import annotations
@@ -153,15 +153,36 @@ def _score_tsmom(ret_1m, ret_3m, ret_6m, ret_12m) -> tuple[float, str]:
     return score, direction
 
 
+def _score_dual_thrust(close: float, dt_upper: float, dt_lower: float,
+                       dt_range: float) -> tuple[float, str]:
+    """Dual Thrust 日内突破打分（G33，Michael Chalek 经典算法）。
+
+    基于前 lookback 日 H/L/C 计算的触发区间：
+      - close 突破上轨 dt_upper（=open + k1*range） → 多头
+      - close 跌破下轨 dt_lower（=open - k2*range） → 空头
+      - 轨内（趋势过渡区） → 中性
+    强度按价格偏离触发轨的相对区间幅度缩放（基础 0.3 置信，满强=1.0）。
+    区间/轨缺失（<=0） → 中性（不投票）。
+    """
+    if dt_upper <= 0 or dt_lower <= 0 or dt_range <= 0:
+        return 0.0, "neutral"
+    if close > dt_upper:
+        return min(1.0, 0.3 + (close - dt_upper) / (dt_range + 1e-9)), "bull"
+    if close < dt_lower:
+        return min(1.0, 0.3 + (dt_lower - close) / (dt_range + 1e-9)), "bear"
+    return 0.0, "neutral"
+
+
 class TrendFollowingStrategy(BaseStrategyV2):
     """趋势跟踪：DC20/DC55 + 布林带通道突破（v2）。
 
-    G30 扩展为指标衍生子信号，G31 引入时间序列动量（TSMOM），合计 9 子信号
-    共振：DC20/DC55/BB（原）+ Keltner 通道突破 / Supertrend 趋势状态 /
-    Parabolic SAR 转向 / Chandelier Exit 吊灯退出 / MACD 系统（G30）+
-    TSMOM 1/3/6/12 月收益合成（G31）。全部复用价量 + 已有 ATR，零新数据源。
+    G30 扩展为指标衍生子信号，G31 引入时间序列动量（TSMOM），G33 引入 Dual
+    Thrust 日内突破，合计 10 子信号共振：DC20/DC55/BB（原）+ Keltner 通道突破 /
+    Supertrend 趋势状态 / Parabolic SAR 转向 / Chandelier Exit 吊灯退出 / MACD
+    系统（G30）+ TSMOM 1/3/6/12 月收益合成（G31）+ Dual Thrust 前日区间突破
+    （G33）。全部复用价量 + 已有 ATR/OHLC，零新数据源。
     各子信号独立打分后方向投票，子类型标签携带命中清单
-    （如 trend_following.dc20+keltner+tsmom）。
+    （如 trend_following.dc20+keltner+tsmom+dt）。
     """
 
     @property
@@ -200,7 +221,7 @@ class TrendFollowingStrategy(BaseStrategyV2):
             bb_val = t.get("bb", 0.5)
             adx = float(t.get("adx", 0))
 
-            # 九层打分（DC20/DC55/BB + G30: Keltner/Supertrend/SAR/Chandelier/MACD + G31: TSMOM）
+            # 十层打分（DC20/DC55/BB + G30: Keltner/Supertrend/SAR/Chandelier/MACD + G31: TSMOM + G33: Dual Thrust）
             s20, d20 = _score_dc20(close, dc20_h, dc20_l)
             s55, d55 = _score_dc55(close, dc55_h, dc55_l)
             sbb, dbb = _score_bb(bb_val)
@@ -229,13 +250,20 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 float(t.get("tsmom_6m", 0) or 0),
                 float(t.get("tsmom_12m", 0) or 0),
             )
+            # G33 Dual Thrust 日内突破：close vs open±k*range 触发轨（缺失/0.0 视为不可用）
+            sdt, ddt = _score_dual_thrust(
+                close,
+                float(t.get("dt_upper", 0)),
+                float(t.get("dt_lower", 0)),
+                float(t.get("dt_range", 0)),
+            )
 
             # 方向投票：所有子信号累加，方向取票高者
             votes: dict[str, float] = {"bull": 0.0, "bear": 0.0}
             for d, s in [
                 (d20, s20), (d55, s55), (dbb, sbb),
                 (dkc, skc), (dst, sst), (dsar, ssar), (dch, sch), (dmacd, smacd),
-                (dts, sts),
+                (dts, sts), (ddt, sdt),
             ]:
                 if d != "neutral":
                     votes[d] += s
@@ -265,6 +293,8 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 sub.append("macd")
             if sts > 0:
                 sub.append("tsmom")
+            if sdt > 0:
+                sub.append("dt")
             signal_type = f"{self.signal_type}.{'+'.join(sub) if sub else 'mixed'}"
 
             signals.append(RawSignal(
@@ -283,6 +313,7 @@ class TrendFollowingStrategy(BaseStrategyV2):
                     "chandelier_score": round(sch, 3),
                     "macd_score": round(smacd, 3),
                     "tsmom_score": round(sts, 3),
+                    "dt_score": round(sdt, 3),
                     "adx": adx,
                     "close": close,
                 },
@@ -295,7 +326,7 @@ class TrendFollowingStrategy(BaseStrategyV2):
         result: list[ScoredSignal] = []
         for s in filtered_signals:
             raw = abs(s.raw_score)
-            # raw 为各子信号置信度之和（∈ [0, ~6]，8 个子信号全同向满置信），
+            # raw 为各子信号置信度之和（∈ [0, ~6]，10 个子信号全同向满置信），
             # 映射到绝对分；等级按相对阈值划分（多子信号共振→更高绝对分）
             total = raw * 100 if s.direction == "bull" else -raw * 100
             abs_score = raw * 100
@@ -320,6 +351,7 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 "chandelier": s.meta.get("chandelier_score", 0),
                 "macd": s.meta.get("macd_score", 0),
                 "tsmom": s.meta.get("tsmom_score", 0),
+                "dt": s.meta.get("dt_score", 0),
             }
             ss.extra = dict(s.meta)
             result.append(ss)

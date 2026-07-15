@@ -276,6 +276,23 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
         tech["REALIZED_VOL"] = 0.0
         tech["VOL_SCALE"] = 1.0
 
+    # ---- Dual Thrust 日内突破（G33）— 参数与 settings.TREND_G33_CONFIG 一致 ----
+    # 主管线唯一入口单点注入（scan_all + 所有回测共用），自动贯穿全链路。
+    # 前 lookback 日 H/L/C 区间 + 当日 open ± k*range 触发轨；纯 OHLC 派生。
+    try:
+        from futures_data_core.indicators.tdx_compat import calculate_dual_thrust
+        _g33_lb, _g33_k1, _g33_k2 = 1, 0.5, 0.5
+        if n >= _g33_lb + 2:
+            dt_rng, dt_up, dt_lo = calculate_dual_thrust(
+                h, l, c, o, lookback=_g33_lb, k1=_g33_k1, k2=_g33_k2)
+            tech["DT_RANGE"] = float(dt_rng) if np.isfinite(dt_rng) else 0.0
+            tech["DT_UPPER"] = float(dt_up) if np.isfinite(dt_up) else 0.0
+            tech["DT_LOWER"] = float(dt_lo) if np.isfinite(dt_lo) else 0.0
+        else:
+            tech["DT_RANGE"] = tech["DT_UPPER"] = tech["DT_LOWER"] = 0.0
+    except Exception:
+        tech["DT_RANGE"] = tech["DT_UPPER"] = tech["DT_LOWER"] = 0.0
+
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1))
     vm_m = np.abs(l - np.roll(h, 1))

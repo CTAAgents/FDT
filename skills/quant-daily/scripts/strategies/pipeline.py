@@ -87,6 +87,10 @@ _FIELD_MAP = {
     # G32 波动率目标化 Vol Targeting
     "realized_vol": "realized_vol", "REALIZED_VOL": "realized_vol",
     "vol_scale": "vol_target_scale", "VOL_SCALE": "vol_target_scale",
+    # G33 Dual Thrust 日内突破
+    "dt_range": "dt_range", "DT_RANGE": "dt_range",
+    "dt_upper": "dt_upper", "DT_UPPER": "dt_upper",
+    "dt_lower": "dt_lower", "DT_LOWER": "dt_lower",
     # 均值/标准差
     "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
 }

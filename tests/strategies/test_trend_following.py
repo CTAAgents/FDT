@@ -178,11 +178,12 @@ class TestTrendFollowingV2:
             chandelier_long=2950, chandelier_short=3050,
             macd_dif=20.0, macd_dea=10.0,
             tsmom_1m=0.05, tsmom_3m=0.06, tsmom_6m=0.07, tsmom_12m=0.08,
+            dt_upper=3050, dt_lower=2950, dt_range=100,
         )
         sigs = s.compute(tech, {})
         assert len(sigs) == 1
         st = sigs[0].signal_type
-        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd", "tsmom"):
+        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dt"):
             assert sub in st, f"缺失子信号 {sub}"
         # 全共振 raw 应高于仅 DC20 突破的 raw
         single = self._base_tech(price=3200, dc20_high=3100, dc20_low=2900,
@@ -228,6 +229,41 @@ class TestTrendFollowingV2:
         # 单窗口 avg=0.10 → 满强 1.0
         assert sigs[0].meta["tsmom_score"] == 1.0
 
+    # ─────────────────────────────────────────────────────────
+    # G33 Dual Thrust 日内突破测试
+    # ─────────────────────────────────────────────────────────
+
+    def test_dual_thrust_bull_breakout(self):
+        """价格突破 Dual Thrust 上轨 → 多头，命中 dt 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=3100, dt_upper=3050, dt_lower=2950, dt_range=100)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "dt" in sigs[0].signal_type
+        assert sigs[0].meta["dt_score"] > 0
+
+    def test_dual_thrust_bear_breakout(self):
+        """价格跌破 Dual Thrust 下轨 → 空头，命中 dt 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=2900, dt_upper=3050, dt_lower=2950, dt_range=100)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bear"
+        assert "dt" in sigs[0].signal_type
+        assert sigs[0].meta["dt_score"] > 0
+
+    def test_dual_thrust_in_range_neutral(self):
+        """价格在 Dual Thrust 轨内 → dt 不投票（仅 dt 触发时无信号）。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        # 轨内 price=3000（介于 [2950, 3050]），其它字段中性 → 无信号
+        tech = self._base_tech(price=3000, dt_upper=3050, dt_lower=2950, dt_range=100)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 0
+
     def test_missing_g30_fields_no_crash(self):
         """G30 新字段缺失/为零 → 不崩溃，仅老 DC/BB 信号生效。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
@@ -240,6 +276,6 @@ class TestTrendFollowingV2:
         sigs = s.compute(tech, {})
         assert len(sigs) == 1
         assert sigs[0].direction == "bull"
-        # 不应含任何 G30 子标签
-        for sub in ("keltner", "supertrend", "sar", "chandelier", "macd"):
+        # 不应含任何 G30/G31/G33 子标签
+        for sub in ("keltner", "supertrend", "sar", "chandelier", "macd", "tsmom", "dt"):
             assert sub not in sigs[0].signal_type

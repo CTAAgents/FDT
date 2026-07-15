@@ -478,6 +478,43 @@ def calculate_vol_target_scale(realized_vol, target: float = 0.10,
     return min(cap, max(floor, scale))
 
 
+def calculate_dual_thrust(high, low, close, open_, lookback: int = 1,
+                          k1: float = 0.5, k2: float = 0.5) -> tuple[float, float, float]:
+    """Dual Thrust 日内突破区间（G33，纯 OHLC 派生）。
+
+    经典日内突破算法（由 Michael Chalek 提出）：
+      取前 lookback 日（不含当日）的 H/L/C 计算触发区间
+        HH = max(high[-lookback-1:-1]); LC = min(close[-lookback-1:-1])
+        HC = max(close[-lookback-1:-1]); LL = min(low[-lookback-1:-1])
+        range = max(HH - LC, HC - LL)
+      当日触发轨：
+        upper = open[-1] + k1 * range   （上破 → 多头）
+        lower = open[-1] - k2 * range   （下破 → 空头）
+    返回 (dt_range, upper, lower)，均为标量（最后一根）。
+    序列不足 lookback+2 根或 range<=0 时返回 (0.0, 0.0, 0.0)（中性）。
+    纯 numpy、零外部依赖；与 G30/G31/G32 同属 FDC 单一真相源。
+    """
+    arr_h = np.asarray(high, dtype=float)
+    arr_l = np.asarray(low, dtype=float)
+    arr_c = np.asarray(close, dtype=float)
+    arr_o = np.asarray(open_, dtype=float)
+    n = len(arr_c)
+    if n < lookback + 2:
+        return 0.0, 0.0, 0.0
+    # 前 lookback 日（不含当日，截止昨日索引 -2 到 -1-lookback）
+    hh = float(arr_h[-1 - lookback:-1].max())
+    lc = float(arr_c[-1 - lookback:-1].min())
+    hc = float(arr_c[-1 - lookback:-1].max())
+    ll = float(arr_l[-1 - lookback:-1].min())
+    rng = max(hh - lc, hc - ll)
+    if rng <= 0:
+        return 0.0, 0.0, 0.0
+    today_open = float(arr_o[-1])
+    upper = today_open + k1 * rng
+    lower = today_open - k2 * rng
+    return float(rng), float(upper), float(lower)
+
+
 def calculate_linearreg_slope(data, window=14):
     """LINEARREG_SLOPE - 线性回归斜率（TA-Lib风格）"""
     return _linear_reg_slope(data, window)
@@ -2203,6 +2240,7 @@ __all__ = [
     "calculate_tsmom",
     "calculate_realized_vol",
     "calculate_vol_target_scale",
+    "calculate_dual_thrust",
     "calculate_linearreg_slope",
     "calculate_linearreg_angle",
     "calculate_kama",
