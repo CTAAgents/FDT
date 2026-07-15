@@ -1,7 +1,7 @@
 ---
 name: futures-trading-analysis
 version: 3.11.0
-description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 三类信号(突破/回踩/跳空)为主信号源→链证源先于闫判官→闫判官筛选三类信号品种全辩论→研究员并行供弹→证真(慎思)动态正反方交叉质询(轮次由信号等级决定)→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
+description: 期货交易辩论专家团 v5.3+5层鲁棒性+A01文件通信协议 — 6策略管线(趋势/套利/回归/宏观/事件/ML)为信号源→链证源先于闫判官→闫判官筛选触发品种→研究员并行供弹→多头/空头分析员并行论据(多空头机制)→闫判官在多空论据间裁决(轮次由信号等级决定)→策执远出策略→风控审方案。L1-L5鲁棒性防线确保流程不静默断裂。Agent只Write文件不SendMessage。
 allowed-tools: Read,Bash
 agent_created: true
 changelog: |
@@ -239,7 +239,7 @@ class ChainOutput(BaseModel):
     meta: PhaseMeta
 ```
 
-### P3: ArgumentOutput(role="证真"/"慎思")
+### P3: ArgumentOutput(role="多头"/"空头")
 
 定义在 `contracts/debate.py`（v2.2 统一 schema）：
 
@@ -252,7 +252,7 @@ class DimensionItem(BaseModel):
 
 class ArgumentOutput(BaseSkillOutput):
     """统一辩手输出，role 决定方法论"""
-    role: Literal["证真", "慎思"]          # 辩论角色（主标识）
+    role: Literal["多头", "空头"]          # 辩论角色（主标识）
     variant: Literal["bull", "bear"]       # 向后兼容
     dimensions: list[DimensionItem]        # min_length=5, max_length=5
     summary_4_risk: str                    # ≤100字，给风控的精简摘要
@@ -261,8 +261,8 @@ class ArgumentOutput(BaseSkillOutput):
     rebuttal_targets: list[str]            # 本轮反驳了对手的哪些维度
 
 # 向后兼容别名（contracts/debate.py 已定义）
-# BullOutput = ArgumentOutput(role="证真")
-# BearOutput = ArgumentOutput(role="慎思")
+# BullOutput = ArgumentOutput(role="多头")
+# BearOutput = ArgumentOutput(role="空头")
 ```
 
 ### P3b: JudgeVerdict（闫判官）
@@ -342,9 +342,9 @@ class DebateState(TypedDict):
     data: DataOutput | None                         # P1 数聚石
     tech: TechOutput | None                         # P1 技研锋
     chain: ChainOutput | None                       # P2 链证源
-    zhengzhen: "ArgumentOutput | None"               # P3 证真 v1（role="证真"）
-    zhensi: "ArgumentOutput | None"                  # P3 慎思 v1（role="慎思"）
-    zhengzhen_v2: "ArgumentOutput | None"            # P3 证真 v2（rebuttal）
+    zhengzhen: "ArgumentOutput | None"               # P3 证真 v1（role="多头"）
+    zhensi: "ArgumentOutput | None"                  # P3 慎思 v1（role="空头"）
+    bullish_v2: "ArgumentOutput | None"            # P3 证真 v2（rebuttal）
     judge: "JudgeVerdict | None"                     # P3b 闫判官
     risk: "RiskOutput | None"                       # P4 风控明（结构化裁决）
     plan: "TradingPlanOutput | None"                # P5 策执远
@@ -470,8 +470,8 @@ from contracts import (
 )
 
 OUTPUT_SCHEMA_MAP = {
-    "zhengzhen": ArgumentOutput,  # role="证真"
-    "zhensi": ArgumentOutput,     # role="慎思"
+    "bullish": ArgumentOutput,  # role="多头"
+    "bearish": ArgumentOutput,     # role="空头"
     "bull": BullOutput,           # 向后兼容
     "bear": BearOutput,           # 向后兼容
     "risk": RiskOutput,
@@ -943,38 +943,38 @@ for symbol in state["tech"]["verdicts"]:
 
 **步 1 — spawn 证真**（证真写 v1 + 注入慎思论点=空）:
 ```
-角色: 辩护方（证真）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:证真"定义，请加载并执行。
-角色锚定: 你是正方辩手（证真），从研究员资料中提取论据支持闫判官指定的方向。关注三类信号数据+技术面+基本面中支持正方方向的证据。
+角色: 辩护方（多头分析员）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:证真"定义，请加载并执行。
+角色锚定: 你是正方辩手（多头分析员），从研究员资料中提取论据支持闫判官指定的方向。关注三类信号数据+技术面+基本面中支持正方方向的证据。
 边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从三类信号/研究员快照/辅助数据中提炼。
 前序数据（按需可见）: 三类信号数据 + 观澜技术面快照 + 探源基本面快照 + 链证源产业链快照 + L1-L4原始数据 + factor_timing原始数据
 对手论点: 暂无（首轮无慎思论点可读）
 任务: 对闫判官指定的辩论品种和方向，从正方角度构建论据。引用三类信号（突破/回踩/跳空）+ 研究员快照数据。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="证真") schema
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="多头") schema
 红线: 禁止附和语；每个维度≥1个可核验数字
-产出 schema: ArgumentOutput(role="证真")（contracts/debate.py）
+产出 schema: ArgumentOutput(role="多头")（contracts/debate.py）
 ```
 
 **步 2 — Handoff: 慎思读证真 v1 后写慎思 v1**:
 ```
-角色: 质疑方（慎思）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:慎思"定义，请加载并执行。
-角色锚定: 你是反方辩手（慎思），从研究员资料中提取论据质疑闫判官指定的方向。关注三类信号的矛盾点+技术面/基本面中的反向证据。
+角色: 质疑方（空头分析员）。你的工作方法由 debate-argument-builder 的"辩论专家团集成模式·角色:慎思"定义，请加载并执行。
+角色锚定: 你是反方辩手（空头分析员），从研究员资料中提取论据质疑闫判官指定的方向。关注三类信号的矛盾点+技术面/基本面中的反向证据。
 边界: 不做行情数据采集，不做指标计算。禁止使用 WebSearch/WebFetch 搜集数据——论据只能从三类信号/研究员快照/辅助数据中提炼。
 前序数据（按需可见）: 观澜技术面快照 + 探源基本面快照 + 链证源产业链快照 + L1-L4原始数据 + factor_timing原始数据
 对手论点: 你收到了证真的 v1 论点。请阅读 dimensions 和 summary_4_risk。
 任务: 对辩论候选列表中每一个品种，都从质疑方角度提出反驳。
        特别关注：你的质疑论点必须参考并回应证真的核心论据。
        每条 evidence 要足够具体，让证真能在下一轮逐条回应——不要写"库存偏高"，写"社会库存同比+15%×4周"。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="慎思") schema
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="空头") schema
 红线: 禁止"证真说得有道理"开头；禁止重复证真 v1 已经引用的相同数据；每个维度≥1个可核验数字
-产出 schema: ArgumentOutput(role="慎思")（contracts/debate.py）
+产出 schema: ArgumentOutput(role="空头")（contracts/debate.py）
 ```
 
-→ state["zhensi"] = ArgumentOutput(role="慎思")
+→ state["bearish"] = ArgumentOutput(role="空头")
 → 慎思写完后，Handoff: 慎思 → goto 证真
 
 **步 3 — Handoff: 证真读慎思 v1 后写证真 v2（rebuttal, max=1）**:
 ```
-角色: 辩护方（证真）第2轮 rebuttal。你的工作方法由 debate-argument-builder 的角色:证真定义。
+角色: 辩护方（多头分析员）第2轮 rebuttal。你的工作方法由 debate-argument-builder 的角色:证真定义。
 角色锚定: 辩护方。
 对手论点: 你收到了慎思的 v1 论点。请阅读 dimensions 和 summary_4_risk。
 任务: 基于慎思的论点写 rebuttal（证真 v2），结构：
@@ -982,13 +982,13 @@ for symbol in state["tech"]["verdicts"]:
   2. 己方 5 维度更新版：被慎思打掉的维度补数据，没被打的就保留
   3. Confidence 重估：0-1，比 v1 调高/调低/持平，写理由
 红线: 禁止 self-weaken；禁止"但是反过来"开头；重复率 >30% 本轮作废。
-产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="证真") schema
+产出格式: 正文（Markdown 分析）+ 末尾 ```json fence 按 ArgumentOutput(role="多头") schema
 终止条件: max_rebuttal=1，这是最终轮
-产出 schema: ArgumentOutput(role="证真")（contracts/debate.py）
+产出 schema: ArgumentOutput(role="多头")（contracts/debate.py）
 ```
 
-→ state["zhengzhen_v2"] = ArgumentOutput(role="证真")（rebuttal 版本）
-→ **终止条件检查**：如果 zhengzhen_v2.dimensions 中 ≥3/5 维度的 counter_points 承认"慎思这点成立，但…" → 提前结束
+→ state["bullish_v2"] = ArgumentOutput(role="多头")（rebuttal 版本）
+→ **终止条件检查**：如果 bullish_v2.dimensions 中 ≥3/5 维度的 counter_points 承认"慎思这点成立，但…" → 提前结束
 → P3 交叉质询完成。明鉴秋控：进入 P3b
 
 **Phase 3b 串行** — spawn 闫判官（传证真 v2 + 慎思 v1，不传全文只传 summary_4_risk）
@@ -1093,14 +1093,14 @@ for symbol in state["tech"]["verdicts"]:
    }
    ```
        # 新格式（供未来消费）
-       "zhengzhen_output": state["zhengzhen_v2"] or state["zhengzhen"],
-       "zhensi_output": state["zhensi"],
+       "bullish_output": state["bullish_v2"] or state["bullish"],
+       "bearish_output": state["bearish"],
        "judge_output": state["judge"].model_dump() if state["judge"] else {},
        "risk_output": state["risk_obj"],
        "plan_output": state["plan"].model_dump() if state["plan"] else {},
        # 向后兼容旧字段名（供 phase3_generate_report.py 消费，适配器会处理）
-       "bull_output": state["zhengzhen_v2"] or state["zhengzhen"],  # 兼容旧名
-       "bear_output": state["zhensi"],                                # 兼容旧名
+       "bull_output": state["bullish_v2"] or state["bullish"],  # 兼容旧名
+       "bear_output": state["bearish"],                                # 兼容旧名
        # 旧格式（供 phase3_generate_report.py 消费，适配器会处理）
        "verdict": "...",
        "direction": "...",

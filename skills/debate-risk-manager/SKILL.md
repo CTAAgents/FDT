@@ -84,8 +84,8 @@ audit = check_narrative_probability('供给短缺', assumed=0.60, actual=0.05)
 ```yaml
 debate_round:
   topic: "RB螺纹钢多空"
-  zhengzhen_summary: "证真核心论据摘要和整体置信度"
-  zhensi_summary: "慎思核心论据摘要和整体置信度"
+  zhengzhen_summary: "多头分析员核心论据摘要和整体置信度"
+  zhensi_summary: "空头分析员核心论据摘要和整体置信度"
   verdict: "闫判官最终裁决（BUY/SELL/HOLD）"
   target_price: 多空目标价
   stop_loss: 建议止损位

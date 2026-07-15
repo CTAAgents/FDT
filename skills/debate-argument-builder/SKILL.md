@@ -1,13 +1,13 @@
 ---
 name: debate-argument-builder
-version: 2.3.0
+version: 2.4.0
 description: >
-  期货辩论角色论点构建器 v2.3.0。双角色（证真·辩护 / 慎思·反驳）× 双模式（独立/团队）。
+  期货辩论角色论点构建器 v2.3.0。双角色（多头·做多论据 / 空头·做空论据）× 双模式（独立/并行）。
   6维度分析框架：趋势结构、量价关系、期限结构、产业链验证、基本面/市场情绪、风险点。
   修复硬编码路径；备用链映射覆盖66+品种。
 agent_created: true
 changelog: |
-  v2.2.0 (2026-07-04): 架构重写 — 主框架从多空方向(bull/bear)改为辩论角色(证真/慎思)；修复硬编码路径；备用链映射66+品种；20测试
+  v2.2.0 (2026-07-04): 架构重写 — 主框架从多空方向(bull/bear)改为辩论角色(多头分析员/空头分析员)；修复硬编码路径；备用链映射66+品种；20测试
   v2.1.0 (2026-07-03): 双模式拆分 — 独立模式保留WebSearch主动搜索，辩论专家团模式改为基于研究员快照数据
   v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式，输入输出格式去辩论化
   v1.0.0 (2026-07-01): 初始版本 — 从 futures-trading-analysis 剥离
@@ -17,7 +17,7 @@ disable: false
 # 期货辩论角色论点构建器
 
 ## 依赖
-- **输入方**：`DebateRoleOutput`（`contracts/debate.py`，含 role=证真/慎思）
+- **输入方**：`DebateRoleOutput`（`contracts/debate.py`，含 role=多头分析员/空头分析员）
 - **上游依赖**：依赖 P1 `DataCollectionOutput`（data）、P1 `TechnicalOutput`（tech）、P2 `ChainAnalysisOutput`（chain）
 - **版本**：`2.2`（所有 schema 带 `version` 字段，编排层 `parse_and_migrate` 自动路由）
 - **输出方式**：正文（Markdown 人类可读）+ 末尾 ```json fence 结构化摘要
@@ -33,17 +33,17 @@ disable: false
 
 ## 角色框架（主轴：辩论角色，非市场方向）
 
-**核心原则**：本 skill 的主轴是 **辩论角色（证真 vs 慎思）**，不是 **市场方向（多头 vs 空头）**。
+**核心原则**：本 skill 的主轴是 **辩论角色（多头分析员 vs 空头分析员）**，不是 **市场方向（多头 vs 空头）**。
 方向由数技源的信号决定，两个角色都可能为多或为空的论证服务。角色决定的是**论证方法**，不是**多空立场**。
 
 ```
 数技源信号 → 方向 = 多/空
        ↓
-证真：为该方向辩护（不论多空）
-慎思：质疑该方向（不论多空）
+多头分析员：为该方向辩护（不论多空）
+空头分析员：质疑该方向（不论多空）
 ```
 
-### 角色 A：证真（正方 / Affirmative / Defender）
+### 角色 A：多头分析员（正方 / Affirmative / Defender）
 
 | 维度 | 定义 |
 |:----|:------|
@@ -55,7 +55,7 @@ disable: false
 | 输出 | 论证链 + 反驳回应 + 交易提案（目标价/止损/仓位） |
 
 ```yaml
-role: "证真"
+role: "多头"
 method: "从研究员快照中拣选支持方向的客观证据，按驱动层级排序，构建完整论证链"
 signal_follow: "数技源方向 → 100%接受作为己方论点"
 rebuttal_style: "正面回应，用数据辩护，不能回避"
@@ -68,7 +68,7 @@ tools:
   - propose_trade: "出目标价/止损/仓位建议"
 ```
 
-### 角色 B：慎思（反方 / Opposition / Challenger）
+### 角色 B：空头分析员（反方 / Opposition / Challenger）
 
 | 维度 | 定义 |
 |:----|:------|
@@ -80,7 +80,7 @@ tools:
 | 输出 | 质疑链 + 反驳回应 + 替代方案（如果正方被证伪） |
 
 ```yaml
-role: "慎思"
+role: "空头"
 method: "从研究员快照中挑出矛盾/缺口/不一致，拆解正方论证链"
 signal_follow: "数技源方向的对称面 → 100%质疑该方向"
 rebuttal_style: "攻证据缺口，发现漏洞，不为杠而杠"
@@ -104,7 +104,7 @@ tools:
               ┌────────────┼────────────┐
               ▼            │            ▼
         ┌──────────┐      │      ┌──────────┐
-        │ 证真      │      │      │ 慎思      │
+        │ 多头分析员      │      │      │ 空头分析员      │
         │ 为多辩护  │      │      │ 质疑做多  │
         └──────────┘      │      └──────────┘
                            │
@@ -116,14 +116,14 @@ tools:
               ┌────────────┼────────────┐
               ▼            │            ▼
         ┌──────────┐      │      ┌──────────┐
-        │ 证真      │      │      │ 慎思      │
+        │ 多头分析员      │      │      │ 空头分析员      │
         │ 为空辩护  │      │      │ 质疑做空  │
         └──────────┘      │      └──────────┘
 ```
 
 ### 独立使用模式（单人/非辩论场景）
 
-当本 skill 被单人使用时（非辩论专家团集成），不区分证真/慎思角色，
+当本 skill 被单人使用时（非辩论专家团集成），不区分多头分析员/空头分析员角色，
 直接对品种的多空方向输出分析论点。此时可自行使用 WebSearch/WebFetch 搜集数据。
 
 ### 角色加载方式
@@ -131,8 +131,8 @@ tools:
 由明鉴秋在辩论期传入 `role` 参数：
 
 ```json
-{"role": "证真", "direction": "BUY", "method": "辩论专家团集成模式"}
-{"role": "慎思", "direction": "SELL", "method": "辩论专家团集成模式"}
+{"role": "多头", "direction": "BUY", "method": "辩论专家团集成模式"}
+{"role": "空头", "direction": "SELL", "method": "辩论专家团集成模式"}
 ```
 
 ### 输入格式
@@ -241,7 +241,7 @@ class DimensionItem(BaseModel):
     confidence: float             # 该维度置信度 0-1
 
 class AffirmativeSchema(BaseModel):
-    """证真（正方辩手）论点。variant="affirmative"：论证数技师方向的正确性"""
+    """多头分析员（正方辩手）论点。variant="affirmative"：论证数技师方向的正确性"""
     variant: Literal["affirmative", "opposition"]
     dimensions: list[DimensionItem]
     summary_4_risk: str           # ≤100字，给风控的精简摘要
@@ -259,7 +259,7 @@ class AffirmativeSchema(BaseModel):
 
 ## 辩论专家团集成模式
 
-当被 `futures-trading-analysis` 辩论系统的 **正方辩手（证真）** 或 **反方辩手（慎思）** Agent 加载时：
+当被 `futures-trading-analysis` 辩论系统的 **正方辩手（多头分析员）** 或 **反方辩手（空头分析员）** Agent 加载时：
 
 **输入**：由 明鉴秋 传入辩论候选品种的 typed 结构化数据，**包含研究员快照**（`DebateState` 的 `data`/`tech`/`chain`/`research_snapshots` 字段）
 **产出**：正文（人类可读）+ 末尾 ```json fence 结构化摘要 → SendMessage → main
@@ -276,7 +276,7 @@ class AffirmativeSchema(BaseModel):
    - `"evidence_value": "具体数值（如 35.2万吨）"`
    - `"evidence_source": "数据来源（Mysteel/交易所/统计局）"`
    - `"evidence_date": "数据截至日期"`
-3. **论点 ID 系统**：每个论点必须分配唯一 ID，格式为 `{角色缩略}-{序号}`（如 `证真-D1`、`慎思-D2`）。反驳时必须引用对手论点 ID。
+3. **论点 ID 系统**：每个论点必须分配唯一 ID，格式为 `{角色缩略}-{序号}`（如 `多头分析员-D1`、`空头分析员-D2`）。反驳时必须引用对手论点 ID。
 4. **逻辑漏洞标注**：反驳对手论点时必须在 `logical_fallacy` 字段标注漏洞类型：`因果倒置` / `数据过时` / `样本偏差` / `推理跳跃` / `忽视反证`。
 5. **CLAIM-EVIDENCE-REASONING-IMPACT框架**：每个论点必须包含：
    - CLAIM: 一句话断言（可证伪）
@@ -289,7 +289,7 @@ class AffirmativeSchema(BaseModel):
      ```
      示例：`"五大钢材总库存1601.99万吨（来源：Mysteel周度数据，截至6月30日）"`
    - 违反此格式的 evidence 算作不合格，风控明必须将其标注为"糊弄"
-3. **角色锚定**：正方辩手（证真）为"信号捍卫者——数技师说多就论证多，说空就论证空"，反方辩手（慎思）为"信号挑战者——站在数技师方向的对立面找漏洞"。双方立场由数据决定，不是预设的多/空。
+3. **角色锚定**：正方辩手（多头分析员）为"信号捍卫者——数技师说多就论证多，说空就论证空"，反方辩手（空头分析员）为"信号挑战者——站在数技师方向的对立面找漏洞"。双方立场由数据决定，不是预设的多/空。
 4. **场景分离**：必须将"基准情景（baseline）"和"乐观/悲观情景（bull/bear case）"分开标注，不得混为一谈
    - `scenarios.baseline`: 最可能的情景（概率>50%）
    - `scenarios.bull_case` / `scenarios.bear_case`: 有利/不利的尾部情景

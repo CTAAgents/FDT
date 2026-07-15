@@ -146,11 +146,11 @@ P1: 数技源通道突破信号扫描62品种 + 研究员原始指标导出
         ↓
 P1.5: 链证源产业链分析
         ↓
-P2: 闫判官筛选辩论品种 + 定正方方向
+P2: 闫判官筛选辩论品种（多空头机制）
         ↓
 P3: 研究员供弹（观澜技术面 + 探源基本面）
         ↓
-P4: 多空辩论（证真 vs 慎思）
+P4: 多空辩论（多头 vs 空头分析员）
         ↓
 P5: 裁决+策略+风控
         ↓
@@ -219,8 +219,8 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 | 3 | 🟢 **技术面研究员** | futures-technical-researcher | quant-daily | 技术分析：L1-L4策略数据、自行计算技术指标、识别技术图形 |
 | 4 | 🟢 **基本面研究员** | futures-fundamental-researcher | fundamental-data-collector | 基本面分析：factor_timing因子数据、供需库存利润、互联网资料 |
 | 5 | 🔗 **链证源** | futures-chain-analyst | commodity-chain-analysis | 产业链事实描述+景气度分析（**不下多空结论**） |
-| 6 | 🔵 **多方（证真）** | futures-affirmative-debater | debate-argument-builder | 从研究员和链证源资料中提取多头论据进行辩论 |
-| 7 | 🔴 **空方（慎思）** | futures-opposition-debater | debate-argument-builder | 从研究员和链证源资料中提取空头论据进行辩论 |
+| 6 | 🟢 **多头分析员** | futures-bullish-analyst | debate-argument-builder | 从研究员和链证源资料中提取多头论据 |
+| 7 | 🔴 **空头分析员** | futures-bearish-analyst | debate-argument-builder | 从研究员和链证源资料中提取空头论据 |
 | 8 | 📋 **策执远** | futures-trading-strategist | debate-trading-planner | 合约选型+执行方案 |
 | 9 | 🟡 **风控明** | futures-risk-manager | debate-risk-manager | 杠杆/回撤/叙事质检 |
 | 10 | ⚪ **闫判官** | futures-judge | debate-judge | 选辩论品种+定正方方向+主持+评分+判胜负 |
@@ -255,9 +255,9 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 
 | 规则 | 内容 | spawn方式 |
 |:-----|:------|:---------|
-| **D01 禁止代写论据** | P4辩论阶段，明鉴秋**不得自行撰写**证真/慎思的论据。必须spawn对应Agent完成 | `subagent_type: "general-purpose"`（有Write工具） |
+| **D01 禁止代写论据** | P4辩论阶段，明鉴秋**不得自行撰写**多头/空头分析员的论据。必须spawn对应Agent完成 | `subagent_type: "general-purpose"`（有Write工具） |
 | **D02 禁止代写裁决** | P3b裁决阶段，明鉴秋**不得自行撰写**裁决结论。必须spawn闫判官完成 | `subagent_type: "general-purpose"` |
-| **D03 Phase门禁** | P6汇总前检查：缺少 `p4_zhengzhen.json` / `p4_zhensi.json` / `p5_judge.json` 任一文件则**拒绝生成报告** | — |
+| **D03 Phase门禁** | P6汇总前检查：缺少 `p4_bullish_{symbol}.json` / `p4_bearish_{symbol}.json` / `p5_judge_{symbol}.json` 任一文件则**拒绝生成报告** | — |
 | **D04 Agent通信** | 辩论Agent产出通过 SendMessage→main 回传，明鉴秋转写入文件 | prompt末尾加 `完成后用SendMessage(recipient="main")通知` |
 | **D05 Spawn类型** | 辩论Agent**必须**用 `subagent_type: "general-purpose"` spawn，**禁止**使用expert subagent_type | 根因: expert spawn时Write工具不可用(2026-07-09 Bug确认·5次失败)。角色prompt在spawn prompt中手动注入 |
 | **D06 P5降级** | 闫判官spawn 2次均无产出 → 明鉴秋基于P3+P4独立Agent论据完成裁决 | 裁决严基于辩论论据交叉质询。适用闫判官因Write/推理阻塞等技术原因无产出时 |
@@ -789,7 +789,7 @@ def pre_report_check(debate_results, intermediate_data):
 ```
 明鉴秋 全程调度:
 │
-├─ Step 1: spawn 证真(正方) + 慎思(反方) 并行
+├─ Step 1: spawn 多头分析员 + 空头分析员 并行
 │     ├─ spawn prompt中注入研究员产出的文件路径
 │     ├─ prompt末尾加: "注意：不要向其他Agent发送消息。数据不足请告知明鉴秋"
 │     ├─ poll_file_ready(p3_zhengzhen.json) ✅

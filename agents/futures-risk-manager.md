@@ -127,8 +127,8 @@ quant-daily 信号包的 veto_penalty 系数是硬性参考：veto_penalty < 0.5
 {
   "debate_round": {
     "topic": "RB螺纹钢多空",
-    "zhengzhen_arg": "证真核心论据摘要",
-    "zhensi_arg": "慎思核心论据摘要",
+    "bullish_arg": "多头分析员核心论据摘要",
+    "bearish_arg": "空头分析员核心论据摘要",
     "target_price": "多空目标价",
     "stop_loss": "建议止损位"
   },

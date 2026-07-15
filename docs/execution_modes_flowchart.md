@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.2 | 2026-07-14 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 资源管控 + 生命周期 → 8种执行模式
+> v4.3 | 2026-07-15 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式
 
 ---
 
@@ -36,7 +36,7 @@
 ### 辩论流程
 
 ```
-数技源出信号 → [过滤?] → 闫判官判断调度 → 三分析师供弹 → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明
+数技源出信号 → [过滤?] → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明
                            ↑                ↑                ↑         ↑           ↑         ↑
                      ┌─────┴────────────────┴────────────────┴─────────┴───────────┴─────────┘
                      │ 闫判官拥有调度权；链证源/观澜/探源只做各自分析、无调度权
@@ -93,7 +93,7 @@ spawn Agent → register → 等待产出就绪 → wait-and-shutdown → SendMe
 Phase0 闫判官判断调度 → spawn 1 → register → wait → shutdown ✅ 释放1
 Phase1 链证源(产业链分析)×N → spawn N → register → wait → shutdown ✅ 释放N
 Phase2 观澜(技术面)+探源(基本面)×N → spawn 2N → register → wait → shutdown ✅ 释放2N
-Phase3 证真/慎思辩论×N → spawn N → register → wait → shutdown ✅ 释放N
+Phase3 多头/空头辩论×N → spawn N → register → wait → shutdown ✅ 释放N
 Phase4 闫判官终裁 → spawn N → register → wait → shutdown ✅ 释放N
 Phase5 一致性×N   → spawn N → register → wait → shutdown ✅ 释放N
 Phase6 策执远×N   → spawn N → register → wait → shutdown ✅ 释放N
@@ -132,12 +132,12 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
 ### 模式一: `full` — 全流程
 
 ```
-数技源信号 → P0-4伪信号过滤 → 闫判官判断调度(链证源+观澜+探源) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
+数技源信号 → P0-4伪信号过滤 → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
 ```
 - `scan_all.py`（channel_breakout，数技源）62品种扫描 → `full_scan_summary_{date}.json`
 - validator P0-4 伪信号门禁
 - 闫判官判断调度：指定产业链 + 品种 + 方向，dispatch 链证源(产业链)/观澜(技术面)/探源(基本面)
-- 三分析师供弹 → 证真/慎思基于供弹辩论 → 闫判官终裁（读初判指令+链+辩论→裁决）
+- 三分析师供弹 → 多头/空头基于供弹辩论 → 闫判官终裁（读初判指令+链+辩论→裁决）
 
 ```bash
 python scripts/fdt_cli.py pipeline --mode full --workspace <dir>
@@ -174,7 +174,7 @@ python scripts/fdt_cli.py pipeline --mode scan-filter --workspace <dir>
 ### 模式五: `debate` — 指定品种辩论
 
 ```
-(跳过扫描) → 闫判官判断调度(链证源+观澜+探源) → 证真/慎思辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
+(跳过扫描) → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
 ```
 - 闫判官初判（无扫描，虚拟触发）指定品种与方向，dispatch 三分析师
 
@@ -257,8 +257,8 @@ debate 子命令: 解析品种 → 链分析(analyze_chain.py --symbols) → bui
 | **chain** | 链证源(产业链分析师) | 自身产业链分析产出 |
 | **technical** | 观澜(技术面研究员) | 分析产业链同品种支撑阻力共振 |
 | **fundamental** | 探源(基本面研究员) | 产业链上下游基本面联动（成本/库存/开工传导） |
-| **zhengzhen** | 证真(正方辩手) | 引用产业链同向品种作为论据 |
-| **zhensi** | 慎思(反方辩手) | 引用产业链反向品种质疑信号 |
+| **bullish** | 多头分析员 | 引用产业链同向品种作为论据 |
+| **bearish** | 空头分析员 | 引用产业链反向品种质疑信号 |
 | **judge** | 闫判官(裁决) | 产业链一致性/冗余/趋势作为裁决维度 |
 | **trading_plan** | 策执远(出方案) | 产业链联动性影响止损/目标位设定 |
 
@@ -306,7 +306,7 @@ python scripts/run_debate.py plan --scan <scan.json> --workspace <dir>
 #    Phase0 闫判官判断调度 → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase1 链证源×N     → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase2 观澜+探源×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
-#    Phase3 证真/慎思×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase3 多头/空头×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase4 闫判官终裁 → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase5-7 同上
 
@@ -389,7 +389,7 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
               └──────────┬──────────────────┘
                          │
                  ┌───────┴────────┐
-                 │  证真 + 慎思 辩论│
+                 │  多头 + 空头 辩论│
                  └───────┬────────┘
                          │
                  ┌───────┴────────┐
@@ -416,7 +416,7 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
 ### 直接辩论模式（跳过扫描）
 
 ```
-指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 证真/慎思辩论 → 终裁 → 一致性 → 策执远/风控明 → 报告
+指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 终裁 → 一致性 → 策执远/风控明 → 报告
 ```
 
 ---
@@ -443,7 +443,7 @@ flowchart LR
         CHAIN_OUT --> FU[探源 Fundamental]
         SKIP_CHAIN --> TI
         SKIP_CHAIN --> FU
-        TI --> P3[证真+慎思 Debate]
+        TI --> P3[多头+空头 Debate]
         FU --> P3
         P3 --> J4[闫判官终裁<br/>Judge Final]
         J0 -.->|读取指令| J4

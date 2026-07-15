@@ -26,11 +26,11 @@ version: "1.0.0"
 
 | 文件 | 内容 |
 |:--|:--|
-| `p3_zhengzhen.json` | 证真(正方) 辩论提案，含 `key_arguments`（复用，不改） |
-| `p3_zhensi.json` | 慎思(反方) 辩论提案，含 `key_arguments` |
+| `p4_bullish.json` | 多头分析员辩论提案，含 `key_arguments`（复用，不改） |
+| `p4_bearish.json` | 空头分析员辩论提案，含 `key_arguments` |
 | `p5_judge.json` | 闫判官裁决（winner / direction / confidence / reasoning） |
 
-> pro_args = 证真 `key_arguments`；con_args = 慎思 `key_arguments`。本角色不重新生成论据。
+> pro_args = 多头分析员 `key_arguments`；con_args = 空头分析员 `key_arguments`。本角色不重新生成论据。
 
 ## 输出：`p5_coherence.json`
 
