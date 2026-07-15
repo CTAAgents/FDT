@@ -535,8 +535,32 @@ def run_scan(
                 if _mr.get("regime") not in ("unknown", None):
                     _ctx_extra["macro_signal"] = "bull" if _mr["regime"] in ("bull", "risk_on") else "bear"
                     print(f"\n  [宏观制度] 市场制度: {_mr['regime']} → macro_signal={_ctx_extra['macro_signal']}")
+                else:
+                    # 制度检测不可用时：基于 tech_list 截面 ADX+RSI 降级推断
+                    # tech_list 中字段为 TDX 大写（ADX/RSI14），处理大小写兼容
+                    def _safe_float(v, default=0):
+                        try: return float(v)
+                        except: return default
+                    _trend_c = sum(1 for t in tech_list
+                                   if _safe_float(t.get("adx") or t.get("ADX", 0)) > 25)
+                    _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
+                    _adx_rsi_pairs = [
+                        (_safe_float(t.get("adx") or t.get("ADX", 0)),
+                         _safe_float(t.get("rsi") or t.get("RSI14", 50)))
+                        for t in tech_list
+                    ]
+                    _bull_c = sum(1 for adx, rsi in _adx_rsi_pairs
+                                  if adx > 25 and (rsi > 60 or rsi <= 1))
+                    _bear_c = sum(1 for adx, rsi in _adx_rsi_pairs
+                                  if adx > 25 and 1 < rsi < 40)
+                    _total_c = len(tech_list)
+                    if _total_c > 5 and _trend_c / _total_c > 0.5:
+                        _ctx_extra["macro_signal"] = "bull" if _bull_c >= _bear_c else "bear"
+                        print(f"\n  [宏观制度·降级] 趋势市({_trend_c}/{_total_c}) bull={_bull_c} bear={_bear_c} → {_ctx_extra['macro_signal']}")
+                    else:
+                        _ctx_extra["macro_signal"] = "neutral"
             except Exception:
-                pass
+                _ctx_extra["macro_signal"] = "neutral"
             # ── 事件日历注入（供 event_driven 策略消费） ──
             try:
                 from data.event_calendar import build_event_calendar
