@@ -262,9 +262,11 @@ def run_chain_analysis(
 
     # 用闫判官指令中的品种（如有）
     effective_symbols = judge_symbols or symbols
+    sym_str = ",".join(effective_symbols)
 
     if not _CHAIN_SCRIPT.exists():
         print(f"  🔗 链证源分析 (品种列表): {sym_str}")
+        return None
     elif scan_path and Path(scan_path).exists():
         # 如果 scan 可用，从 scan 读取品种列表
         try:
@@ -273,7 +275,8 @@ def run_chain_analysis(
             all_syms = [r.get("symbol") for r in scan_data.get("all_ranked", [])
                        if r.get("symbol")]
             if all_syms:
-                cmd += ["--symbols", ",".join(all_syms)]
+                cmd = [sys.executable, str(_CHAIN_SCRIPT), "--symbols", ",".join(all_syms),
+                       "--output", str(out_path)]
                 print(f"  🔗 链证源分析 (从scan解析): {len(all_syms)} 品种")
             else:
                 print("  ⚠️ scan 无品种数据，跳过链分析")
