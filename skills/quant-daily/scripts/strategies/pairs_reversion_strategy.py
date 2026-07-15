@@ -23,6 +23,7 @@ import numpy as np
 
 from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
 from .arbitrage_strategy import CROSS_VARIETY_PAIRS
+from .spread_reversion_strategy import kalman_filter_ou
 
 
 # ── 阈值配置 ──
@@ -188,8 +189,9 @@ class PairsReversionStrategy(BaseStrategyV2):
             if resid is None:
                 continue
 
-            win = int(pair.get("z_window", 20))
-            z = _rolling_z(list(resid), max(win, 20))
+            # ── Kalman 自适应 z 偏离（G37 Phase 2）──
+            kf = kalman_filter_ou(resid)
+            z = kf["z_score"]
             if abs(z) < Z_ENTRY:
                 continue
 
@@ -211,6 +213,8 @@ class PairsReversionStrategy(BaseStrategyV2):
                 "hurst_a": round(ha, 2), "hurst_b": round(hb, 2),
                 "half_life": round(hl, 1) if hl != float("inf") else None,
                 "type": "pair_reversion",
+                "kf_state_sigma": round(float(kf["state_sigma"][-1]), 4),
+                "kf_innov_var": round(kf["last_innovation_var"], 4),
             }
 
             # 两腿独立信号（天然双向做空）
