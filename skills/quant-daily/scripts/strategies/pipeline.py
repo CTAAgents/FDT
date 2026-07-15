@@ -71,6 +71,14 @@ _FIELD_MAP = {
     "obv_ma20": "obv_ma", "OBV_MA20": "obv_ma",
     # supertrend
     "supertrend_dir": "supertrend", "SUPERTREND_DIR": "supertrend",
+    # G30 指标衍生趋势子策略字段
+    "kc_upper": "kc_upper", "KC_UPPER": "kc_upper",
+    "kc_lower": "kc_lower", "KC_LOWER": "kc_lower",
+    "kc_mid": "kc_mid", "KC_MID": "kc_mid",
+    "chandelier_long": "chandelier_long", "CHANDELIER_LONG": "chandelier_long",
+    "chandelier_short": "chandelier_short", "CHANDELIER_SHORT": "chandelier_short",
+    "sar": "sar", "SAR": "sar",
+    "sar_trend": "sar_trend", "SAR_TREND": "sar_trend",
     # 均值/标准差
     "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
 }

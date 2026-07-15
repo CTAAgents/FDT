@@ -462,6 +462,28 @@ CHANNEL_BREAKOUT_CONFIG = {
 # 验证器实现见 signals/validators/（全用公开主流因子，无黑盒）。
 # 加新验证器 = 在 validators/ 写模块并 register_validator + 在此登记一行。
 # ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════
+# G30 趋势跟踪指标衍生子策略 — 参数集中配置（单一真相源）
+# 镜像 futures_data_core.indicators.tdx_compat 中 calculate_* 的默认值，
+# 供调参/复盘时统一查阅；当前实现以 FDC 默认值为准，本字典为权威登记。
+# ═══════════════════════════════════════════════
+TREND_G30_CONFIG = {
+    "keltner":        {"period": 20, "atr_mult": 2.25},   # EMA±ATR 通道（Linda Raschke）
+    "chandelier":     {"period": 22, "mult": 3.0},        # 吊灯退出（Chuck LeBeau）
+    "sar":            {"acceleration": 0.02, "maximum": 0.20},  # 抛物线转向
+    "supertrend":     {"period": 10, "multiplier": 3.0},  # 趋势状态（legacy_numpy 同参）
+    "macd":           {"fast": 12, "slow": 26, "signal": 9},  # MACD 系统
+    # 子信号置信度（与 trend_following_strategy 评分助手一致）
+    "sub_conviction": {
+        "keltner": "distance_scaled(0-1)",
+        "supertrend": 0.5,
+        "sar": 0.4,
+        "chandelier": "0.3 + distance_scaled(0-1)",
+        "macd": "distance_scaled(0-1, 0.5%价格=满强度)",
+    },
+}
+
+
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护
     "channel_breakout":       ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing", "trend_direction"],

@@ -73,3 +73,134 @@ class TestTrendFollowingV2:
         result = pipe.run(tech, {}, {})
         assert len(result["all_ranked"]) == 1
         assert result["all_ranked"][0]["direction"] == "bull"
+
+    # ─────────────────────────────────────────────────────────
+    # G30 指标衍生子策略测试
+    # ─────────────────────────────────────────────────────────
+
+    def _base_tech(self, **overrides):
+        """构造带全部 G30 字段的基准 tech dict（中性默认值）。"""
+        tech = {
+            "symbol": "RB", "price": 3000,
+            "dc20_high": 3100, "dc20_low": 2900,
+            "dc55_high": 3150, "dc55_low": 2850,
+            "bb": 0.5, "adx": 20,
+            # Keltner（中轨3000，半宽100）
+            "kc_upper": 3100, "kc_lower": 2900, "kc_mid": 3000,
+            # Supertrend 方向
+            "supertrend": 0,
+            # SAR
+            "sar": 3000, "sar_trend": 0,
+            # Chandelier（long 线 2950 / short 线 3050）
+            "chandelier_long": 2950, "chandelier_short": 3050,
+            # MACD
+            "macd_dif": 0.0, "macd_dea": 0.0,
+        }
+        tech.update(overrides)
+        return [tech]
+
+    def test_keltner_bull_breakout(self):
+        """价格突破 Keltner 上轨 → 多头，命中 keltner 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=3150, kc_upper=3100, kc_lower=2900, kc_mid=3000)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "keltner" in sigs[0].signal_type
+        assert sigs[0].meta["keltner_score"] > 0
+
+    def test_keltner_bear_breakout(self):
+        """价格跌破 Keltner 下轨 → 空头。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=2850, kc_upper=3100, kc_lower=2900, kc_mid=3000)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bear"
+        assert "keltner" in sigs[0].signal_type
+
+    def test_supertrend_bull_state(self):
+        """supertrend 方向=1 → 多头，命中 supertrend 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(supertrend=1)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "supertrend" in sigs[0].signal_type
+        assert sigs[0].meta["supertrend_score"] > 0
+
+    def test_sar_bull_state(self):
+        """SAR 趋势=1 且收盘在 SAR 上方 → 多头，命中 sar 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=3050, sar=3000, sar_trend=1)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "sar" in sigs[0].signal_type
+
+    def test_chandelier_bear_exit(self):
+        """价格跌破 Chandelier 下轨(long exit) → 空头，命中 chandelier 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        # 带内（price 在 [ch_long, ch_short]）→ 中性，不发 chandelier 信号
+        tech_in = self._base_tech(price=3000, chandelier_long=2950, chandelier_short=3050)
+        sigs_in = s.compute(tech_in, {})
+        # 带外下方（price < ch_long）→ 空头突破
+        tech_out = self._base_tech(price=2900, chandelier_long=2950, chandelier_short=3050)
+        sigs_out = s.compute(tech_out, {})
+        assert len(sigs_out) == 1
+        assert sigs_out[0].direction == "bear"
+        assert "chandelier" in sigs_out[0].signal_type
+
+    def test_macd_bull_hist(self):
+        """MACD DIF>DEA → 多头动量，命中 macd 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(price=3000, macd_dif=20.0, macd_dea=10.0)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "macd" in sigs[0].signal_type
+        assert sigs[0].meta["macd_score"] > 0
+
+    def test_full_confluence_all_subs(self):
+        """8 子信号全同向 → 子类型标签携全清单，raw 显著高于单信号。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(
+            price=3200, dc20_high=3100, dc20_low=2900, dc55_high=3150, dc55_low=2800,
+            bb=0.98, adx=35,
+            kc_upper=3100, kc_lower=2900, kc_mid=3000,
+            supertrend=1, sar=3000, sar_trend=1,
+            chandelier_long=2950, chandelier_short=3050,
+            macd_dif=20.0, macd_dea=10.0,
+        )
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        st = sigs[0].signal_type
+        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd"):
+            assert sub in st, f"缺失子信号 {sub}"
+        # 全共振 raw 应高于仅 DC20 突破的 raw
+        single = self._base_tech(price=3200, dc20_high=3100, dc20_low=2900,
+                                 bb=0.98, dc55_high=3150, dc55_low=2800)
+        s_single = s.compute(single, {})
+        assert sigs[0].raw_score > s_single[0].raw_score
+
+    def test_missing_g30_fields_no_crash(self):
+        """G30 新字段缺失/为零 → 不崩溃，仅老 DC/BB 信号生效。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        # 仅提供老字段，新字段全缺
+        tech = [{"symbol": "RB", "price": 3200,
+                 "dc20_high": 3100, "dc20_low": 2900,
+                 "dc55_high": 3150, "dc55_low": 2800,
+                 "bb": 0.98, "adx": 30}]
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        # 不应含任何 G30 子标签
+        for sub in ("keltner", "supertrend", "sar", "chandelier", "macd"):
+            assert sub not in sigs[0].signal_type

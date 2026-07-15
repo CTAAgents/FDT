@@ -1,7 +1,9 @@
-# Futures Debate Team — 期货交易辩论专家团 v8.0.2
+# Futures Debate Team — 期货交易辩论专家团 v8.0.3
 
 > 🧬 **架构基线**：7策略并行管线(NO_FUSION) → 策略内验证器 → 多因子增强验证器 → 辩论触发 → 多空辩论 → 闫判官终裁 → 风控 → 报告。
 > 辩论结论天然优先于扫描信号：多头分析员和空头分析员独立举证，闫判官在双方论据中裁决，可正面否决扫描层的方向判断（已验证：2026-07-15 fu 扫描 bull+514，辩论后判 bear）。
+>
+> 📈 **v8.0.3 趋势跟踪指标衍生扩展（G30）**：`trend_following` 由 3 子信号扩展为 8 子信号共振——DC20/DC55/BB（原）+ Keltner 通道突破 / Supertrend 趋势状态 / Parabolic SAR 转向 / Chandelier Exit 吊灯退出 / MACD 系统。FDC 新增 `calculate_keltner`/`calculate_chandelier_exit`，主管线唯一计算入口单点注入 5 字段（自动贯穿 scan_all + 所有回测），零新数据源。
 >
 > 🌐 **v8.0.2 宏观因子接入真实公开源（G29）**：`futures_data_core/f10/macro.py` 异步直连东方财富宏观数据中心（免费公开、零鉴权），`MultiFactorStrategy` 的 `pmi_proxy`/`rate_proxy` 由硬 0 替换为真实评分。实盘验证：PMI 50.3 / LPR1Y 3.0%（grade=DAILY）。
 >

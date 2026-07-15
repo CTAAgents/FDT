@@ -211,6 +211,40 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
     tech["SUPERTREND_DIR"] = int(st_dir_arr[-1])
     tech["SUPERTREND_JUST_FLIPPED"] = st_dir_arr[-1] != st_dir_arr[-2] if n >= 3 else False
 
+    # ---- KELTNER CHANNEL (20, 2.25) / CHANDELIER EXIT (22, 3.0) / PARABOLIC SAR ----
+    # G30: 趋势跟踪指标衍生子策略所需的新字段，单点注入（scan_all + 所有回测共用）。
+    try:
+        from futures_data_core.indicators.tdx_compat import (
+            calculate_keltner,
+            calculate_chandelier_exit,
+            calculate_sar,
+        )
+        if n >= 20:
+            kc_u, kc_l, kc_m = calculate_keltner(h, l, c, period=20, atr_mult=2.25)
+            tech["KC_UPPER"] = float(kc_u[-1]) if np.isfinite(kc_u[-1]) else 0.0
+            tech["KC_LOWER"] = float(kc_l[-1]) if np.isfinite(kc_l[-1]) else 0.0
+            tech["KC_MID"] = float(kc_m[-1]) if np.isfinite(kc_m[-1]) else 0.0
+        else:
+            tech["KC_UPPER"] = tech["KC_LOWER"] = tech["KC_MID"] = 0.0
+        if n >= 22:
+            ch_l, ch_s = calculate_chandelier_exit(h, l, c, period=22, mult=3.0)
+            tech["CHANDELIER_LONG"] = float(ch_l[-1]) if np.isfinite(ch_l[-1]) else 0.0
+            tech["CHANDELIER_SHORT"] = float(ch_s[-1]) if np.isfinite(ch_s[-1]) else 0.0
+        else:
+            tech["CHANDELIER_LONG"] = tech["CHANDELIER_SHORT"] = 0.0
+        if n >= 2:
+            sar_arr, sar_trend = calculate_sar(h, l)
+            tech["SAR"] = float(sar_arr[-1]) if np.isfinite(sar_arr[-1]) else 0.0
+            tech["SAR_TREND"] = int(sar_trend[-1])
+        else:
+            tech["SAR"] = 0.0
+            tech["SAR_TREND"] = 0
+    except Exception:
+        tech["KC_UPPER"] = tech["KC_LOWER"] = tech["KC_MID"] = 0.0
+        tech["CHANDELIER_LONG"] = tech["CHANDELIER_SHORT"] = 0.0
+        tech["SAR"] = 0.0
+        tech["SAR_TREND"] = 0
+
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1))
     vm_m = np.abs(l - np.roll(h, 1))

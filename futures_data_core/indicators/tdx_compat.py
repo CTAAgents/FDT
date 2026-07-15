@@ -362,6 +362,58 @@ def calculate_sar(high, low, acceleration=0.02, maximum=0.20):
     return sar, trend
 
 
+def calculate_keltner(high, low, close, period=20, atr_mult=2.25):
+    """Keltner Channel - EMA 中轨 ± ATR 通道（Chester Keltner / Linda Raschke 现代化）
+
+    上轨 = EMA(close, period) + atr_mult * ATR(period)
+    下轨 = EMA(close, period) - atr_mult * ATR(period)
+    中轨 = EMA(close, period)
+
+    返回 (upper, lower, mid) 全序列 numpy 数组；长度不足 period 时返回全 NaN。
+    由调用方取 [-1] 获得最新值。纯价量 + ATR，零外部依赖。
+    """
+    c = np.asarray(close, dtype=float)
+    h = np.asarray(high, dtype=float)
+    l = np.asarray(low, dtype=float)
+    n = len(c)
+    if n < period:
+        nan = np.full(n, np.nan)
+        return nan, nan, nan
+    ema_mid = _ema_numpy(c, period)
+    prev_close = np.concatenate([[c[0]], c[:-1]])
+    tr = np.maximum(h - l, np.maximum(np.abs(h - prev_close), np.abs(l - prev_close)))
+    atr = _wilders_rma_numpy(tr, period)
+    upper = ema_mid + atr_mult * atr
+    lower = ema_mid - atr_mult * atr
+    return upper, lower, ema_mid
+
+
+def calculate_chandelier_exit(high, low, close, period=22, mult=3.0):
+    """Chandelier Exit - 吊灯退出（Chuck LeBeau）
+
+    多头退出线 = max(high[-period:]) - mult * ATR(period)  （多头持仓的追踪止损）
+    空头退出线 = min(low[-period:])  + mult * ATR(period)  （空头持仓的追踪止损）
+
+    返回 (long_exit, short_exit) 全序列 numpy 数组；长度不足 period 时返回全 NaN。
+    由调用方取 [-1] 获得最新值。纯价量 + ATR，零外部依赖。
+    """
+    h = np.asarray(high, dtype=float)
+    l = np.asarray(low, dtype=float)
+    c = np.asarray(close, dtype=float)
+    n = len(c)
+    if n < period:
+        nan = np.full(n, np.nan)
+        return nan, nan
+    prev_close = np.concatenate([[c[0]], c[:-1]])
+    tr = np.maximum(h - l, np.maximum(np.abs(h - prev_close), np.abs(l - prev_close)))
+    atr = _wilders_rma_numpy(tr, period)
+    hh = pd.Series(h).rolling(period).max().to_numpy()
+    ll = pd.Series(l).rolling(period).min().to_numpy()
+    long_exit = hh - mult * atr
+    short_exit = ll + mult * atr
+    return long_exit, short_exit
+
+
 def calculate_linearreg_slope(data, window=14):
     """LINEARREG_SLOPE - 线性回归斜率（TA-Lib风格）"""
     return _linear_reg_slope(data, window)
@@ -2082,6 +2134,8 @@ __all__ = [
     "calculate_macd",
     "calculate_adx",
     "calculate_sar",
+    "calculate_keltner",
+    "calculate_chandelier_exit",
     "calculate_linearreg_slope",
     "calculate_linearreg_angle",
     "calculate_kama",
