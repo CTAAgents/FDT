@@ -142,7 +142,7 @@ class TestStrategyPipeline:
     def test_multi_strategy_run(self):
         pipe = self._pipeline([self._make_strategy("a"), self._make_strategy("b")])
         result = pipe.run([], {})
-        assert len(result["all_ranked"]) == 1
+        assert len(result["all_ranked"]) == 2  # NO_FUSION: 两策略各出一信号
         assert "per_strategy" in result
         assert "a" in result["per_strategy"]
         assert "b" in result["per_strategy"]

@@ -144,13 +144,14 @@ class StrategyFusion:
     支持多种融合策略，通过 fusion_method 参数选择。
     """
 
-    # 同品种方向冲突时按 weight 排序
+    # 融合模式
     WEIGHTED_MAX = "weighted_max"       # 取最高权重策略的分数
     WEIGHTED_AVG = "weighted_avg"       # 加权平均
-    SIGNAL_STACK = "signal_stack"       # 保留多重信号，加 strategy_tag
+    SIGNAL_STACK = "signal_stack"       # 保留多重信号，取高分者
+    NO_FUSION = "no_fusion"             # 零融合：各策略信号扁平输出，冲突留给 debate
 
-    def __init__(self, fusion_method: str = WEIGHTED_MAX):
-        if fusion_method not in (self.WEIGHTED_MAX, self.WEIGHTED_AVG, self.SIGNAL_STACK):
+    def __init__(self, fusion_method: str = NO_FUSION):
+        if fusion_method not in (self.WEIGHTED_MAX, self.WEIGHTED_AVG, self.SIGNAL_STACK, self.NO_FUSION):
             raise ValueError(f"Unknown fusion method: {fusion_method}")
         self.fusion_method = fusion_method
 
@@ -163,8 +164,16 @@ class StrategyFusion:
             per_strategy: {strategy_name: [ScoredSignal, ...]}
 
         Returns:
-            融合后的 ScoredSignal 列表（每品种一条，含 strategy_breakdown）
+            融合后的 ScoredSignal 列表
         """
+        # NO_FUSION：零融合，所有信号扁平输出，冲突留给 debate
+        if self.fusion_method == self.NO_FUSION:
+            all_sigs: list[ScoredSignal] = []
+            for signals in per_strategy.values():
+                all_sigs.extend(signals)
+            all_sigs.sort(key=lambda s: s.abs_score, reverse=True)
+            return all_sigs
+
         by_symbol: dict[str, list[ScoredSignal]] = defaultdict(list)
         for sname, signals in per_strategy.items():
             for sig in signals:
