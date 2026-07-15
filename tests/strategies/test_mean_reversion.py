@@ -72,3 +72,17 @@ class TestMeanReversion:
         pipe = StrategyPipeline([MeanReversionStrategy()])
         result = pipe.run([{"symbol": "RB", "rsi": 15, "adx": 20, "cci": 0, "bb": 0.05, "price": 3000}], {}, {})
         assert len(result["all_ranked"]) >= 1
+
+    def test_kf_meta_fields_present(self):
+        """KF 制度过滤器 meta 字段正确注入（无 kline_data → 缺省值）"""
+        from strategies.mean_reversion_strategy import MeanReversionStrategy
+        s = MeanReversionStrategy()
+        # 不传 kline_data → KF 跳过 → kf_regime_ok=True → 信号正常发出
+        tech = {"symbol": "RB", "rsi": 15, "adx": 20, "cci": 0, "bb": 0.05, "price": 3000}
+        signals = s.compute([tech], {})
+        assert len(signals) == 1
+        meta = signals[0].meta
+        assert "kf_z_score" in meta
+        assert "kf_suppressed" in meta
+        assert meta["kf_z_score"] == 0.0  # 无 closes → 缺省值
+        assert meta["kf_suppressed"] is False

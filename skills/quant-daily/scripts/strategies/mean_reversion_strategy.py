@@ -8,7 +8,10 @@
 from __future__ import annotations
 from typing import Any
 
+import numpy as np
+
 from .base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from .spread_reversion_strategy import kalman_filter_ou
 
 
 # ── 阈值配置 ──
@@ -19,6 +22,8 @@ CCI_OVERBOUGHT = 200     # CCI 高于此值 → 极度超买
 BB_LOWER_THRESHOLD = 0.1  # 布林带 %b 低于此 → 下轨外做多
 BB_UPPER_THRESHOLD = 0.9  # 布林带 %b 高于此 → 上轨外做空
 ADX_MAX = 25             # ADX 低于此 → 震荡市（反转策略偏好）
+KF_Z_MAX = 2.5           # KF 自适应 z 超过此值 → 均值加速偏移 → 压制回归信号 (G37 Phase 3)
+KF_MIN_BARS = 20         # KF 所需最小 bar 数
 
 
 class MeanReversionStrategy(BaseStrategyV2):
@@ -44,6 +49,13 @@ class MeanReversionStrategy(BaseStrategyV2):
                 context: dict | None = None) -> list[RawSignal]:
         signals: list[RawSignal] = []
 
+        # ── 从 kline_data 建立收盘价索引（供 KF 制度过滤使用）──
+        kline_map: dict[str, np.ndarray] = {}
+        for _sym, (_name, _bars) in (kline_data or {}).items():
+            _closes = [float(b.get("close", 0)) for b in _bars if b.get("close")]
+            if len(_closes) >= KF_MIN_BARS:
+                kline_map[str(_sym).upper()] = np.array(_closes, dtype=float)
+
         for t in tech_list:
             sym = t.get("symbol", "")
             adx = float(t.get("adx", 0))
@@ -52,8 +64,18 @@ class MeanReversionStrategy(BaseStrategyV2):
             bb = t.get("bb", 0)
             price = float(t.get("price", 0))
 
-            # 趋势市不做反转（ADX > 25）
-            in_ranging = adx == 0 or adx < ADX_MAX
+            # ── KF 制度过滤器（G37 Phase 3）：均值加速偏移 → 压制回归信号 ──
+            kf_z = 0.0
+            kf_regime_ok = True
+            _closes = kline_map.get(str(sym).upper())
+            if _closes is not None and len(_closes) >= KF_MIN_BARS:
+                kf = kalman_filter_ou(_closes)
+                kf_z = abs(kf["z_score"])
+                if kf_z > KF_Z_MAX:
+                    kf_regime_ok = False
+
+            # 趋势市不做反转（ADX > 25 或 KF 检测到均值加速偏移）
+            in_ranging = (adx == 0 or adx < ADX_MAX) and kf_regime_ok
 
             sub_signals: list[tuple[str, float, str]] = []
 
@@ -105,6 +127,8 @@ class MeanReversionStrategy(BaseStrategyV2):
                         "rsi": rsi, "cci": cci, "bb": bb,
                         "adx": adx, "price": price,
                         "sub_types": [s[0] for s in sub_signals],
+                        "kf_z_score": round(kf_z, 2),
+                        "kf_suppressed": not kf_regime_ok,
                     },
                 ))
 
