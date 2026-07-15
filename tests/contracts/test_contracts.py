@@ -20,7 +20,7 @@ from datetime import datetime
 def make_meta():
     return PhaseMeta(
         phase="P3",
-        agent_name="证真",
+        agent_name="多头",
         variant="CU.SHF",
         trace_id="test-001",
         depends_on=["P1_data", "P1_tech", "P2_chain"],
@@ -278,7 +278,7 @@ class TestMigrations:
 
         # MIGRATION_REGISTRY 已全覆盖，用不存在的目标版本触发错误
         with pytest.raises(ValueError):
-            apply_migration("bull", {"version": "2.0", "role": "证真"}, "99.0")
+            apply_migration("bull", {"version": "2.0", "role": "多头"}, "99.0")
 
     def test_fundamental_no_migration_needed(self):
         """单版本型号 (fundamental_state) 直接返回"""

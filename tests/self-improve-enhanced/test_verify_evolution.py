@@ -27,7 +27,7 @@ class TestEvolutionVerifierInit:
     def test_expert_names_known(self):
         """All 5 expert names must match FDT roles."""
         names = {e["name"] for e in self.panel}
-        expected = {"闫判官", "策执远", "风控明", "证真", "探源"}
+        expected = {"闫判官", "策执远", "风控明", "多头", "探源"}
         assert names == expected
 
     def test_each_expert_has_scoring_lens(self):

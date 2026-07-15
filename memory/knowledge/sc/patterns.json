@@ -31,10 +31,10 @@
     "pattern_id": "sc-p002",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-14 20:35",
-    "use_count": 7,
-    "win_count": 7,
-    "win_rate": 0.953,
+    "last_used": "2026-07-14 23:34",
+    "use_count": 11,
+    "win_count": 11,
+    "win_rate": 0.989,
     "structure": "趋势确认 → 趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [

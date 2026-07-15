@@ -256,6 +256,53 @@ class MultiSourceAdapter:
         )
 
     # ───────────────────────────────────────────────────────────
+    # 批量行情快照（双源融合用）
+    # ───────────────────────────────────────────────────────────
+    async def batch_get_quotes(self, symbols: list[str]) -> dict[str, dict]:
+        """批量获取行情快照，返回 {symbol: {last_price, pre_close, ...}}。
+
+        双源融合用：scan_all.py Step 1.5 批量采集，不支持则返回空 dict。
+        """
+        quotes_map = {}
+        # 仅选择支持 get_quote 的采集器（TQ-Local 优先）
+        for collector in select_by_priority(self._collectors):
+            if not hasattr(collector, "get_quote"):
+                continue
+            if not await collector.check_available():
+                continue
+            # 用首个可用源批量拉取
+            import asyncio
+            tasks = {}
+            for sym in symbols:
+                try:
+                    tasks[sym] = asyncio.ensure_future(collector.get_quote(sym))
+                except Exception:
+                    continue
+            if not tasks:
+                continue
+            # 等待所有报价返回（超时5s）
+            done, _ = await asyncio.wait(tasks.values(), timeout=5.0)
+            for sym, fut in tasks.items():
+                if fut in done and not fut.exception():
+                    try:
+                        q = fut.result()
+                        if q:
+                            quotes_map[sym] = {
+                                "last_price": q.last_price,
+                                "pre_close": q.pre_close,
+                                "open": q.open,
+                                "high": q.high,
+                                "low": q.low,
+                                "volume": q.volume,
+                                "source": q.source,
+                            }
+                    except Exception:
+                        continue
+            # 只要 TDX 成功就够，不降级到其他源
+            break
+        return quotes_map
+
+    # ───────────────────────────────────────────────────────────
     # 工具
     # ───────────────────────────────────────────────────────────
     @staticmethod

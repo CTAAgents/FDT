@@ -48,6 +48,7 @@ class ChannelBreakoutStrategy(BaseStrategy):
         df_map: Optional[dict] = None,
         period: str = "daily",
         window_mode: str = "fixed",
+        quotes_map: Optional[dict] = None,
     ) -> dict:
         # ── 参数解析速记（品种×周期四层回落，所有参数来自 config.settings） ──
         # resolve_param(section, key, symbol, chain, period)
@@ -485,6 +486,59 @@ class ChannelBreakoutStrategy(BaseStrategy):
             # 评分低只影响grade(WATCH/STRONG)，不能歪曲事实说"未突破"。
             if dc20_break in ("up", "down") and signal_type == "near_breakout":
                 signal_type = "channel_breakout"
+
+            # ── 双源融合：实时报价突破重判 ──
+            _live_q = (quotes_map or {}).get(sym)
+            if _live_q and _live_q.get("last_price", 0) > 0:
+                _lp = _live_q["last_price"]
+                _orig_break = dc20_break
+                _orig_price = price
+                # 用实时价更新price用于本次评分
+                price = _lp
+                change_pct = (_lp / _live_q.get("pre_close", tech.get("_pre_close", price)) - 1) * 100
+                # DC20突破重判：实时价 vs 通道边界
+                if dc20_upper and dc20_lower:
+                    dc20_pos = (_lp - dc20_lower) / (dc20_upper - dc20_lower + 1e-10)
+                    if _lp >= dc20_upper and _orig_break != "up":
+                        dc20_break = "up"
+                        dc_detail["dc20_direction"] = "up"
+                        dc_detail["dc20_break_source"] = "realtime_quote"
+                        dc_detail["dc20_realtime_override"] = True
+                        # 重新计算dc20_score（用实时价）
+                        distance_pct = (_lp / dc20_upper - 1) * 100
+                        dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
+                        if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                            dc_detail["dc20_break_strength"] = "strong_realtime"
+                        elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                            dc_detail["dc20_break_strength"] = "moderate_realtime"
+                        else:
+                            dc_detail["dc20_break_strength"] = "weak_realtime"
+                    elif _lp <= dc20_lower and _orig_break != "down":
+                        dc20_break = "down"
+                        dc_detail["dc20_direction"] = "down"
+                        dc_detail["dc20_break_source"] = "realtime_quote"
+                        dc_detail["dc20_realtime_override"] = True
+                        distance_pct = (dc20_lower / _lp - 1) * 100
+                        dc_detail["dc20_break_distance_pct"] = round(distance_pct, 2)
+                        if distance_pct > _r("dc20", "break_strong_pct", sym, chain_name, period):
+                            dc_detail["dc20_break_strength"] = "strong_realtime"
+                        elif distance_pct > _r("dc20", "break_moderate_pct", sym, chain_name, period):
+                            dc_detail["dc20_break_strength"] = "moderate_realtime"
+                        else:
+                            dc_detail["dc20_break_strength"] = "weak_realtime"
+                    else:
+                        dc_detail["dc20_realtime_pos"] = round(dc20_pos, 3)
+                # DC55重判
+                if dc55_lower and dc55_upper and dc55_upper > dc55_lower:
+                    dc55_pos = (_lp - dc55_lower) / (dc55_upper - dc55_lower + 1e-10)
+                    dc_detail["dc55_realtime_pos"] = round(dc55_pos, 3)
+                # 更新tech字段供下游使用
+                tech["price"] = _lp
+                tech["change_pct"] = change_pct
+                tech["_live_quote"] = True
+                # 如果实时价突破了日线未突破的方向，signal_type升级
+                if _orig_break in ("none",) and dc20_break in ("up", "down") and signal_type != "channel_breakout":
+                    signal_type = "channel_breakout"
 
             result = SignalResult(
                 symbol=sym,

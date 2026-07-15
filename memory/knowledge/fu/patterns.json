@@ -1,0 +1,58 @@
+[
+  {
+    "pattern_id": "fu-p001",
+    "name": "多头突破跟随型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 09:00",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "技术形态确认 → FU-pro2: 所属产业链同步支持... → FU-pro3: fu 具有持续上行动能...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.bb"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  },
+  {
+    "pattern_id": "fu-p002",
+    "name": "多头趋势驱动型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 09:20",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "fu-pro1: BB通道4重共振 + ... → 趋势确认 → 技术形态确认 → 趋势确认",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.dc20+bb"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  }
+]

@@ -1,0 +1,55 @@
+{
+  "levels": [
+    {
+      "entry": {
+        "type": "limit",
+        "price": 0.0,
+        "condition": "开盘入"
+      },
+      "stop_loss": {
+        "price": 0.0,
+        "type": "atr",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 09:00"
+    },
+    {
+      "entry": {
+        "type": "market",
+        "price": 3300,
+        "condition": "现价入场"
+      },
+      "stop_loss": {
+        "price": 3200,
+        "type": "fixed",
+        "atr_multiple": 2
+      },
+      "targets": [],
+      "direction": "bull",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-15 09:20"
+    }
+  ],
+  "aggregated": {
+    "support": [
+      {
+        "level": 1650.0,
+        "count": 2,
+        "min": 0.0,
+        "max": 3300.0
+      }
+    ],
+    "resistance": [],
+    "computed_at": "2026-07-15 09:20"
+  },
+  "meta": {
+    "variety": "fu",
+    "total_records": 2,
+    "last_updated": "2026-07-15 09:20"
+  }
+}

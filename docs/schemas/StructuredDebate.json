@@ -1,20 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "StructuredDebate",
-  "description": "结构化辩词 v3.0",
+  "description": "结构化辩词 v3.1 — 多头/空头机制（2026-07-15 正反方→多空头重构）",
   "type": "object",
   "properties": {
     "version": {
       "type": "string",
       "enum": [
-        "3.0"
+        "3.0",
+        "3.1"
       ]
     },
     "role": {
       "type": "string",
       "enum": [
-        "证真",
-        "慎思"
+        "多头",
+        "空头"
       ]
     },
     "symbol": {

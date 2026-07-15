@@ -91,6 +91,11 @@ async def get_quote(symbol: str, source: str = "auto") -> A2APayload:
     return await get_adapter().get_quote(symbol, source)
 
 
+async def batch_get_quotes(symbols: list[str]) -> dict[str, dict]:
+    """批量获取行情快照（双源融合用）。返回 {symbol: {last_price, pre_close, ...}}。"""
+    return await get_adapter().batch_get_quotes(symbols)
+
+
 # ════════════════════════════════════════════════════════════
 # [INDEPENDENT] F10 衍生品数据
 # ════════════════════════════════════════════════════════════
@@ -207,6 +212,7 @@ __all__ = [
     # 公开数据 API
     "get_kline",
     "get_quote",
+    "batch_get_quotes",
     "get_term_structure",
     "analyze_term_structure",
     "get_spread",

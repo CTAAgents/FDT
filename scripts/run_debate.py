@@ -166,8 +166,8 @@ def _emit_repair_plan(scan: dict, workspace: str, data_benchmark: str,
     for t in triggers:
         sym = t["symbol"]
         files = {
-            "p4_zhengzhen": ws / f"p4_zhengzhen_{sym}.json",
-            "p4_zhensi": ws / f"p4_zhensi_{sym}.json",
+            "p4_bullish": ws / f"p4_bullish_{sym}.json",
+            "p4_bearish": ws / f"p4_bearish_{sym}.json",
             "p5_judge": ws / f"p5_judge_{sym}.json",
             "p5_trading_plan": ws / f"p5_trading_plan_{sym}.json",
             "p5_risk_review": ws / f"p5_risk_review_{sym}.json",
@@ -408,8 +408,8 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
                             "label": "P2 观澜技术分析(闫判官选定品种)",
                             "max_concurrent": 5,
                             "depends_on": ["phase1"]},
-                 "phase3": {"agents": ["zhengzhen","zhensi"],
-                            "label": "P3 多空辩论(证真+慎思)",
+                 "phase3": {"agents": ["bullish","bearish"],
+                            "label": "P3 多空辩论(多头+空头分析员)",
                             "max_concurrent": 6,
                             "depends_on": []},
                  "phase4": {"agents": ["judge"],
@@ -444,9 +444,8 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         f"数据基准: {data_benchmark}。\n"
         f"以下为扫描检测出的触发品种（|total|≥阈值），请你阅后决定：\n"
         f"1) 哪些产业链需要链证源深度分析（给出产业链名称列表）\n"
-        f"2) 哪些品种进入正式辩论（从触发品种中筛选）\n"
-        f"3) 每个辩论品种的主攻方向（多头/空头）\n"
-        f"4) 辩论的侧重点（技术/基本面/链联动）\n\n"
+        f"2) 哪些品种进入正式辩论（从触发品种中筛选，多空双方均会辩论）\n"
+        f"3) 辩论的侧重点（技术/基本面/链联动）\n\n"
         f"{_adx_reversal_rule()}\n\n"
         f"触发品种列表（{len(symbols)}品种）:\n{_all_sym_details}\n\n"
         f"【重要】输出到 {ws / 'p0_judge_directive.json'}，用 agent_output.write()：\n"
@@ -466,11 +465,10 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
 
     for s in symbols:
         sym = s.get("symbol")
-        direction = s.get("direction", "neutral")      # bull / bear
+        direction = s.get("direction", "neutral")      # bull / bear (扫描倾向，仅供参考)
         grade = s.get("grade", "")
-        pro_side = "多头" if direction == "bull" else ("空头" if direction == "bear" else "中性")
-        p4_z = ws / f"p4_zhengzhen_{sym}.json"
-        p4_s = ws / f"p4_zhensi_{sym}.json"
+        p4_bull = ws / f"p4_bullish_{sym}.json"
+        p4_bear = ws / f"p4_bearish_{sym}.json"
         p5_j = ws / f"p5_judge_{sym}.json"
         p5_t = ws / f"p5_trading_plan_{sym}.json"
         p5_c = ws / f"p5_coherence_{sym}.json"
@@ -490,16 +488,18 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         chain_info = (chain_data or {}).get(sym) or (chain_data or {}).get(sym.upper()) or (chain_data or {}).get(sym.lower())
         chain_snippet = _build_chain_prompt_snippet(chain_info)
 
-        zhengzhen_prompt = (
-            f"你是证真(正方)辩手，论证品种 {sym} 的{direction}信号({grade})有效性。\n"
+        # 多头分析员 — 列举做多论据，不依赖 scanning direction
+        bullish_prompt = (
+            f"你是多头分析员，列举品种 {sym} 的多头(看多)论据。\n"
+            f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
-            f"从研究员/链证源资料中提炼≥3条{direction}论据，每条附来源标注。\n"
+            f"从研究员/链证源资料中提炼≥3条多头论据，每条附来源标注。\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
             f"  {_write_import}\n"
-            f"  _write('p4_zhengzhen', '{sym}', {{\n"
-            f"      'symbol': '{sym}', 'direction': '{direction}', 'agent': 'zhengzhen',\n"
+            f"  _write('p4_bullish', '{sym}', {{\n"
+            f"      'symbol': '{sym}', 'direction': 'bull', 'agent': 'bullish_analyst',\n"
             f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
             f"      'key_arguments': [\n"
             f"          {{'id': 'str', 'claim': 'str', 'evidence': 'str',\n"
@@ -508,17 +508,18 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
             f"      ]\n"
             f"  }})"
         )
-        # 慎思（反方）
-        zhensi_prompt = (
-            f"你是慎思(反方)辩手，质疑品种 {sym} 的{direction}信号({grade})可靠性。\n"
+        # 空头分析员 — 列举做空论据
+        bearish_prompt = (
+            f"你是空头分析员，列举品种 {sym} 的空头(看空)论据。\n"
+            f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
-            f"从研究员/链证源资料中提炼≥3条反向论据，每条附来源标注。\n"
+            f"从研究员/链证源资料中提炼≥3条空头论据，每条附来源标注。\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
             f"  {_write_import}\n"
-            f"  _write('p4_zhensi', '{sym}', {{\n"
-            f"      'symbol': '{sym}', 'direction': '{direction}', 'agent': 'zhensi',\n"
+            f"  _write('p4_bearish', '{sym}', {{\n"
+            f"      'symbol': '{sym}', 'direction': 'bear', 'agent': 'bearish_analyst',\n"
             f"      'generated_at': 'YYYY-MM-DD HH:MM',\n"
             f"      'key_arguments': [\n"
             f"          {{'id': 'str', 'claim': 'str', 'evidence': 'str',\n"
@@ -527,14 +528,14 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
             f"      ]\n"
             f"  }})"
         )
-        # 闫判官（终裁 — 读取初判指令 + 辩论产出）
+        # 闫判官（终裁 — 在多空论据中裁决方向）
         judge_prompt = (
             f"你是闫判官(终裁)，对品种 {sym} 做出最终裁决。\n"
+            f"读取多头分析员论据 ({p4_bull}) 与空头分析员论据 ({p4_bear})，\n"
+            f"在多头与空头双方论据中裁决最终方向。\n"
             f"{_adx_reversal_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
-            f"【初判指令参考】请读取 {ws / 'p0_judge_directive.json'} 中你对 {sym} 的辩论方向设定。\n"
             f"【链证源数据】{chain_snippet}\n"
-            f"读取 {p4_z} 与 {p4_s}，结合你初判的辩论方向，输出最终裁决。\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
             f"  {_write_import}\n"
             f"  _write('p5_judge', '{sym}', {{\n"
@@ -545,7 +546,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
             f"      'confidence': '',  # 高/中/低\n"
             f"      'bull_score': 0,  # 0-100\n"
             f"      'bear_score': 0,  # 0-100\n"
-            f"      'winner': '',  # zhengzhen/zhensi\n"
+            f"      'winner': '',  # bullish/bearish\n"
             f"      'reasoning': '',\n"
             f"      'score_breakdown': {{\n"
             f"          'technical': {{'bull': 0, 'bear': 0}},\n"
@@ -618,7 +619,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         # 一致性裁判
         coherence_prompt = (
             f"你是一致性裁判，审计 {sym} 裁决是否真正源于辩论论据（不重写论据）。\n"
-            f"读取 {p4_z}/{p4_s}/{p5_j}。\n"
+            f"读取多头论据({p4_bull})、空头论据({p4_bear})、裁决({p5_j})。\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"
             f"  {_write_import}\n"
             f"  _write('p5_coherence', '{sym}', {{\n"
@@ -652,13 +653,13 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
             "files": {
                 "p3_technical": str(p3_tech),    # 观澜 · 支撑阻力
                 "p3_fundamental": str(p3_fund),  # 探源 · 基本面
-                "p4_zhengzhen": str(p4_z), "p4_zhensi": str(p4_s),
+                "p4_bullish": str(p4_bull), "p4_bearish": str(p4_bear),
                 "p5_judge": str(p5_j), "p5_trading_plan": str(p5_t),
                 "p5_coherence": str(p5_c), "p5_risk_review": str(p5_r),
             },
             "spawn_prompts": {
                 "technical": technical_prompt,   # 观澜（P3 先执行）
-                "zhengzhen": zhengzhen_prompt, "zhensi": zhensi_prompt,
+                "bullish": bullish_prompt, "bearish": bearish_prompt,
                 "judge": judge_prompt, "trading_plan": plan_prompt,
                 "coherence": coherence_prompt, "risk": risk_prompt,
             },
@@ -748,12 +749,12 @@ def assemble(scan: dict, workspace: str, data_benchmark: str,
     for item in plan["symbols"]:
         sym = item["symbol"]
         f = item["files"]
-        p4z = p4s = p5j = p5t = p5r = None
+        p4_bull = p4_bear = p5j = p5t = p5r = None
         try:
-            if os.path.exists(f["p4_zhengzhen"]):
-                p4z = json.load(open(f["p4_zhengzhen"], encoding="utf-8"))
-            if os.path.exists(f["p4_zhensi"]):
-                p4s = json.load(open(f["p4_zhensi"], encoding="utf-8"))
+            if os.path.exists(f.get("p4_bullish", "")):
+                p4_bull = json.load(open(f["p4_bullish"], encoding="utf-8"))
+            if os.path.exists(f.get("p4_bearish", "")):
+                p4_bear = json.load(open(f["p4_bearish"], encoding="utf-8"))
             if os.path.exists(f["p5_judge"]):
                 p5j = json.load(open(f["p5_judge"], encoding="utf-8"))
             if os.path.exists(f["p5_trading_plan"]):
@@ -820,9 +821,9 @@ def assemble(scan: dict, workspace: str, data_benchmark: str,
                 "score_breakdown": jv.get("score_breakdown"),
             },
             "bull_args": [f"{sym}-pro{i+1}: {a.get('claim', a.get('point', ''))}"
-                         for i, a in enumerate((p4z or {}).get("key_arguments", []))],
+                         for i, a in enumerate((p4_bull or {}).get("key_arguments", []))],
             "bear_args": [f"{sym}-con{i+1}: {a.get('claim', a.get('point', ''))}"
-                         for i, a in enumerate((p4s or {}).get("key_arguments", []))],
+                         for i, a in enumerate((p4_bear or {}).get("key_arguments", []))],
             "trading_plan": p5t or {},
             "risk_review": p5r or {},
         }

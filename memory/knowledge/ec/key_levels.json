@@ -93,6 +93,38 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-13 23:21"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2562.0,
+        "condition": "等待反弹至2570附近"
+      },
+      "stop_loss": {
+        "price": 2795.7,
+        "type": "fixed"
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 23:04"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2562.0,
+        "condition": "等待反弹至2570附近"
+      },
+      "stop_loss": {
+        "price": 2795.7,
+        "type": "fixed"
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 23:34"
     }
   ],
   "aggregated": {
@@ -105,17 +137,17 @@
         "max": 2358.0
       },
       {
-        "level": 2600.0,
-        "count": 1,
-        "min": 2600.0,
+        "level": 2574.7,
+        "count": 3,
+        "min": 2562.0,
         "max": 2600.0
       }
     ],
-    "computed_at": "2026-07-13 23:21"
+    "computed_at": "2026-07-14 23:34"
   },
   "meta": {
     "variety": "ec",
-    "total_records": 5,
-    "last_updated": "2026-07-13 23:21"
+    "total_records": 7,
+    "last_updated": "2026-07-14 23:34"
   }
 }

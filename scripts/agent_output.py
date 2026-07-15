@@ -18,7 +18,7 @@ FDT Agent 统一输出入口 (方案D · 2026-07-14)
       "confidence": "高",
       "bull_score": 25,
       "bear_score": 75,
-      "winner": "zhengzhen",
+      "winner": "bearish",
       "reasoning": "...",
       "score_breakdown": {"technical": {"bull":20,"bear":80}},
   })
@@ -41,16 +41,6 @@ _FDT_WORKSPACE_ENV = os.environ.get("FDT_WORKSPACE", "")
 _WIN_DRIVE_RE = re.compile(r"^/([a-zA-Z])/")  # 匹配 /d/foo/bar
 
 
-def _resolve_workspace() -> str:
-    """优先 env，其次自动探测，最后返回空（由调用方拼路径）。"""
-    if _FDT_WORKSPACE_ENV:
-        return _to_win_path(_FDT_WORKSPACE_ENV)
-    return ""
-
-
-WORKSPACE = _resolve_workspace()
-
-
 def _to_win_path(p: str) -> str:
     """Git Bash /d/foo → D:\\foo。"""
     if sys.platform != "win32":
@@ -61,6 +51,16 @@ def _to_win_path(p: str) -> str:
     if ":" in p:
         return str(PureWindowsPath(p))
     return p
+
+
+def _resolve_workspace() -> str:
+    """优先 env，其次自动探测，最后返回空（由调用方拼路径）。"""
+    if _FDT_WORKSPACE_ENV:
+        return _to_win_path(_FDT_WORKSPACE_ENV)
+    return ""
+
+
+WORKSPACE = _resolve_workspace()
 
 
 # ─────────────────────────────────────────────
@@ -79,15 +79,15 @@ SCHEMAS: dict[str, dict[str, tuple]] = {
         "resistance_levels": (list,),
         "poc": (dict,),
     },
-    "p4_zhengzhen": {
-        "agent": (str, ("zhengzhen",)),
+    "p4_bullish": {
+        "agent": (str, ("bullish_analyst",)),
         "symbol": (str,),
         "direction": (str, ("bull", "bear")),
         "generated_at": (str,),
         "key_arguments": (list,),
     },
-    "p4_zhensi": {
-        "agent": (str, ("zhensi",)),
+    "p4_bearish": {
+        "agent": (str, ("bearish_analyst",)),
         "symbol": (str,),
         "direction": (str, ("bull", "bear")),
         "generated_at": (str,),
@@ -101,7 +101,7 @@ SCHEMAS: dict[str, dict[str, tuple]] = {
         "confidence": (str, ("高", "中", "低")),
         "bull_score": (int, range(0, 101)),
         "bear_score": (int, range(0, 101)),
-        "winner": (str, ("zhengzhen", "zhensi")),
+        "winner": (str, ("bullish", "bearish")),
         "reasoning": (str,),
         "score_breakdown": (dict,),
     },
@@ -134,17 +134,25 @@ SCHEMAS: dict[str, dict[str, tuple]] = {
         "risk_items": (list,),
         "recommendation": (str,),
     },
+    "p0_judge_directive": {
+        "agent": (str, ("judge_initial",)),
+        "generated_at": (str,),
+        "chains_to_analyze": (list,),
+        "debate_symbols": (list,),
+        "reasoning": (str,),
+    },
 }
 
 # 阶段→文件名映射
 PHASE_FILENAME = {
     "p3_technical": "p3_technical_{symbol}.json",
-    "p4_zhengzhen": "p4_zhengzhen_{symbol}.json",
-    "p4_zhensi": "p4_zhensi_{symbol}.json",
+    "p4_bullish": "p4_bullish_{symbol}.json",
+    "p4_bearish": "p4_bearish_{symbol}.json",
     "p5_judge": "p5_judge_{symbol}.json",
     "p5_coherence": "p5_coherence_{symbol}.json",
     "p5_trading_plan": "p5_trading_plan_{symbol}.json",
     "p5_risk_review": "p5_risk_review_{symbol}.json",
+    "p0_judge_directive": "p0_judge_directive.json",
 }
 
 
@@ -182,8 +190,8 @@ def _validate_schema(phase: str, params: dict) -> list[str]:
                 if not (lo <= val < hi):
                     errors.append(f"{field} 值 {val} 超出范围 [{lo}, {hi})")
 
-    # key_arguments 结构校验（仅 p4_zh* 阶段）
-    if phase in ("p4_zhengzhen", "p4_zhensi"):
+    # key_arguments 结构校验（仅 p4_bullish / p4_bearish 阶段）
+    if phase in ("p4_bullish", "p4_bearish"):
         args = params.get("key_arguments", [])
         if not isinstance(args, list) or len(args) == 0:
             errors.append("key_arguments 必须为非空列表")

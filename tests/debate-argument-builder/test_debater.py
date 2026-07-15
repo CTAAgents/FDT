@@ -141,26 +141,20 @@ class TestSKILLMd(unittest.TestCase):
         skill_path = os.path.join(os.path.dirname(__file__), "..", "SKILL.md")
         with open(skill_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # 证真/慎思应出现在多头/空头之前
-        zhengzhen_pos = content.find("证真")
-        zhensi_pos = content.find("慎思")
+        # 多头/空头应同时存在
         bull_pos = content.find("多头")
         bear_pos = content.find("空头")
-        # 证真/慎思应该先出现（除非不在同一文档段）
-        for role_pos in [zhengzhen_pos, zhensi_pos]:
-            self.assertGreater(role_pos, 0, "证真/慎思角色定义未找到")
-        # 方向描述不应出现在角色定义之前
-        # （在角色框架章节后的方向描述是正常的）
-        self.assertGreater(bull_pos, 0, "方向描述应存在")
+        self.assertGreater(bull_pos, 0, "多头角色定义未找到")
+        self.assertGreater(bear_pos, 0, "空头角色定义未找到")
 
     def test_role_not_direction(self):
-        """确保 role 参数是证真/慎思而不是多头/空头"""
+        """确保 role 参数是多头/空头而不是 bull/bear"""
         skill_path = os.path.join(os.path.dirname(__file__), "..", "SKILL.md")
         with open(skill_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # "role:" 后面应该跟 "证真" 或 "慎思" 而不是 "bull" 或 "bear"
-        self.assertIn('role: "证真"', content)
-        self.assertIn('role: "慎思"', content)
+        # "role:" 后面应该跟 "多头" 或 "空头" 而不是 "bull" 或 "bear"
+        self.assertIn('role: "多头"', content)
+        self.assertIn('role: "空头"', content)
 
 
 if __name__ == "__main__":

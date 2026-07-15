@@ -1241,20 +1241,21 @@ EXCHANGE_MAP = {
 }
 
 
-def _select_top5_strategies(all_signals: list, risk_level_map: dict = None) -> list:
+def _select_top5_strategies(all_signals: list, risk_level_map: dict = None,
+                            chain_position_limit: float = 0.50) -> list:
     """策执远：从裁决信号中精选不超过5个最可执行策略
     精选规则：
     1. 优先选择置信度最高的品种
-    2. 同产业链最多选1个（分散风险）
+    2. 同产业链允许多个，但同链合并仓位不超过 chain_position_limit (默认50%)
     3. ADX<15的排除（无趋势）
     4. 多空平衡（如果有BUY信号优先保留）
-    5. 按conf*|total|综合排序
+    5. 按置信度排序
     6. 必须包含明确的entry/target/stop（CTP就绪检查）
     7. 必须包含仓位建议(position_size>0)和盈亏比(risk_reward>0)
     8. 风控red的品种不入选（risk_level_map参数）
     """
-    # 按链分组去重
-    chain_selected = {}
+    # ── Step 1: 基础校验 + 风控过滤 → 候选池 ──
+    pool = []
     for s in all_signals:
         pid = s.get("product_id", "")
         # 风控red过滤
@@ -1270,26 +1271,30 @@ def _select_top5_strategies(all_signals: list, risk_level_map: dict = None) -> l
             continue
         if entry == target or entry == sl:
             continue
-        # 同链只保留最佳
-        if chain not in chain_selected:
-            chain_selected[chain] = []
-        chain_selected[chain].append(s)
+        pool.append(s)
 
-    # 每链选最佳
-    candidates = []
-    for chain, signals in chain_selected.items():
-        best = max(signals, key=lambda x: x["confidence"])
-        candidates.append(best)
+    # ── Step 2: 按置信度排序 ──
+    pool.sort(key=lambda x: x["confidence"], reverse=True)
 
-    # 按置信度排序取Top5
-    candidates.sort(key=lambda x: x["confidence"], reverse=True)
+    # ── Step 3: 同链仓位控制 → 逐级挑选 ──
+    selected = []
+    chain_positions = {}  # chain → 累计仓位
+    for s in pool:
+        if len(selected) >= 5:
+            break
+        chain = s.get("chain", "")
+        pos = s.get("position_size", 0) / 100.0  # 转小数（35 → 0.35）
+        curr_chain_pos = chain_positions.get(chain, 0.0)
+        if curr_chain_pos + pos > chain_position_limit:
+            continue  # 同链仓位超限，跳过
+        selected.append(s)
+        chain_positions[chain] = curr_chain_pos + pos
 
-    # 确保多空平衡：如果有BUY信号，至少保留1个
-    has_buy = any(s["direction"] == "BUY" for s in candidates)
-    top5 = candidates[:5]
+    # ── Step 4: 多空平衡 ──
+    has_buy = any(s.get("direction") == "BUY" for s in pool)
+    top5 = selected[:5]
     if has_buy and not any(s["direction"] == "BUY" for s in top5):
-        # 把最低SELL换成最高BUY
-        buy_candidates = [s for s in candidates if s["direction"] == "BUY"]
+        buy_candidates = [s for s in pool if s["direction"] == "BUY"]
         sell_in_top5 = [s for s in top5 if s["direction"] == "SELL"]
         if buy_candidates and sell_in_top5:
             top5.remove(min(sell_in_top5, key=lambda x: x["confidence"]))
@@ -1411,6 +1416,24 @@ def _build_strategy_cards(strategies: list) -> str:
         </div>
     </div>"""
 
+    # 同链仓位汇总
+    chain_pos_summary = {}
+    for s in strategies:
+        ch = s.get("chain", "")
+        pos = s.get("position_size", 0)
+        if ch not in chain_pos_summary:
+            chain_pos_summary[ch] = {"count": 0, "total_pos": 0}
+        chain_pos_summary[ch]["count"] += 1
+        chain_pos_summary[ch]["total_pos"] += pos
+    multi_chain = {k: v for k, v in chain_pos_summary.items() if v["count"] > 1}
+    if multi_chain:
+        chain_html = '<div style="margin-top:16px;padding:12px;background:#1e2030;border-radius:8px;border:1px solid #f59e0b44;">'
+        chain_html += '<div style="font-weight:bold;color:#f59e0b;margin-bottom:8px;">📊 同链仓位汇总</div>'
+        for ch, info in sorted(multi_chain.items(), key=lambda x: -x[1]["total_pos"]):
+            chain_html += f'<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>{ch}</span><span>{info["count"]}品种 · 合并仓位 <b>{info["total_pos"]:.0f}%</b></span></div>'
+        chain_html += '</div>'
+        cards += chain_html
+
     return cards
 
 
@@ -1443,9 +1466,24 @@ if risk_reviews:
             <div style="color:#888;font-size:0.75em;margin-top:4px;border-top:1px solid #2a2d38;padding-top:4px;">计算引擎: debate-risk-manager/scripts/risk_engine.py + calc_position.py | 风控明 V4.1</div>
         </div>"""
     risk_html += "</div>"
-print(f"\n[风控明] Top5策略风控审核:")
+print(f"\n[精选策略] Top5策略（同链仓位≤50%·风控审核）:")
 for r in risk_reviews:
     print(f"  {r['pid']}: {r['risk_level']} 止损距{r['stop_distance_pct']}")
+
+# 同链仓位汇总
+chain_pos_summary = {}
+for s in top5_strategies:
+    ch = s.get("chain", "")
+    pos = s.get("position_size", 0)
+    if ch not in chain_pos_summary:
+        chain_pos_summary[ch] = {"count": 0, "total_pos": 0}
+    chain_pos_summary[ch]["count"] += 1
+    chain_pos_summary[ch]["total_pos"] += pos
+if any(v["count"] > 1 for v in chain_pos_summary.values()):
+    print(f"\n[同链仓位] 多品种链汇总:")
+    for ch, info in sorted(chain_pos_summary.items(), key=lambda x: -x[1]["total_pos"]):
+        if info["count"] > 1:
+            print(f"  {ch}: {info['count']}品种 | 合并仓位 {info['total_pos']:.0f}%")
 
 print(f"\n[策执远] 精选Top5可执行策略:")
 for s in top5_strategies:
@@ -1792,8 +1830,9 @@ def build_debate_report():
     </div>
 
     <div class="section" style="border-color:{"#22c55e" if all(r['risk_level']=='green' for r in risk_reviews) else '#ef4444'}66;">
-        <h2>🛡️ 风控明审核</h2>
+        <h2>🛡️ 精选策略风控审核</h2>
         <div class="sub-title">风控明 V4.1 风险引擎(risk_engine.py) 逐项检查：杠杆/保证金/止损比/安全手数 + 趋势确认/多因子分歧/超买超卖/流动性/盈亏比合理性。<br>
+        <span style="color:#f59e0b;">⚠ 以下为精选Top5策略。同产业链允许多个，但同链合并仓位≤50%。全量信号见下方「全信号列表」。</span><br>
         <span style="color:#ef4444;">⚠ 当前入场/止损/目标价为闫判官估算值(基于ADX比例)，非观澜技术位验证，风控明对此进行了合理性检查。</span></div>
         {risk_html}
     </div>

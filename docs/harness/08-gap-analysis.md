@@ -38,6 +38,8 @@
 
 > G16/G14 已于 2026-07-14 19:04 修复并验证，至此全部 18 项差距关闭，8 个 Harness 维度均达到 5/5。
 
+**G19（2026-07-15 辩论机制重构）**：6策略管线场景下，正反方机制（证真论证信号方向有效/慎思质疑信号可靠性）不合理，改为多空头机制（多头分析员列举做多论据/空头分析员列举做空论据，闫判官在双方论据中裁决方向）。涉及文档 Schema（`StructuredDebate.json v3.1` / `ArgumentOutput.json`）、契约层（`debate_argument_schema.py v1.1`）、run_debate.py spawn_prompt 模板、agent_output.py schema 定义、7个测试文件同步更新。**状态: ✅ 已实施**
+
 ## 3. 已有能力清单 (Strengths)
 
 ### 3.1 错误恢复 — 业界领先

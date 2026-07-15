@@ -16,6 +16,7 @@ JSON-RPC 方式获取期货 K 线与行情快照，无需任何 LLM 依赖。
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Callable, Optional
 
 from futures_data_core.collectors.base import (
@@ -70,6 +71,7 @@ class TDXCollector(BaseCollector):
         self.timeout = timeout
         self._transport = transport
         self._contract_cache: Optional[dict] = None
+        self._contract_lock = asyncio.Lock()
 
     # ───────────────────────────────────────────────────────────
     # 传输层
@@ -127,8 +129,9 @@ class TDXCollector(BaseCollector):
         meta = get_symbol(symbol)
         if meta is None:
             raise CollectorUnavailableError(self.name, f"未知品种: {symbol}")
-        if self._contract_cache is None:
-            await self._load_contracts()
+        async with self._contract_lock:
+            if self._contract_cache is None:
+                await self._load_contracts()
         contracts = self._contract_cache or {}
         alpha = symbol.upper()
         if alpha in contracts:

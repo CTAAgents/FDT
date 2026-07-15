@@ -31,10 +31,10 @@
     "pattern_id": "lu-p002",
     "name": "多头趋势驱动型",
     "first_observed": "2026-07-14",
-    "last_used": "2026-07-14 12:27",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.6,
+    "last_used": "2026-07-14 23:34",
+    "use_count": 4,
+    "win_count": 4,
+    "win_rate": 0.863,
     "structure": "技术形态确认 → 趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [
@@ -43,6 +43,34 @@
       ],
       "signal_type": [
         "channel_breakout"
+      ]
+    },
+    "key_evidence_sources": [
+      "debate_results"
+    ],
+    "derived_from_debates": [
+      "unknown"
+    ],
+    "confidence": 0.6,
+    "consecutive_failures": 0,
+    "status": "active"
+  },
+  {
+    "pattern_id": "lu-p003",
+    "name": "多头突破跟随型",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 09:20",
+    "use_count": 2,
+    "win_count": 2,
+    "win_rate": 0.72,
+    "structure": "技术形态确认 → LU-pro2: 所属产业链同步支持... → LU-pro3: lu 具有持续上行动能...",
+    "applicable_conditions": {
+      "adx_range": [
+        35,
+        65
+      ],
+      "signal_type": [
+        "trend_following.bb"
       ]
     },
     "key_evidence_sources": [

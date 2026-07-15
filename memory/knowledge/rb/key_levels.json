@@ -182,6 +182,23 @@
       "confidence": "高",
       "round_id": "",
       "extracted_at": "2026-07-14 09:41"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 3057.0,
+        "condition": "价格反弹测试3065.7阻力区（硬阻力+OI验证）受阻后回落至3057附近入场；若价格直接跌破3032则等待反抽确认后再入场，勿追空"
+      },
+      "stop_loss": {
+        "price": 3072.0,
+        "type": "fixed",
+        "atr_multiple": 0
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "高",
+      "round_id": "",
+      "extracted_at": "2026-07-14 21:10"
     }
   ],
   "aggregated": {
@@ -201,8 +218,8 @@
     ],
     "resistance": [
       {
-        "level": 3060.2,
-        "count": 6,
+        "level": 3059.7,
+        "count": 7,
         "min": 3054.0,
         "max": 3077.0
       },
@@ -219,11 +236,11 @@
         "max": 3750.0
       }
     ],
-    "computed_at": "2026-07-14 09:41"
+    "computed_at": "2026-07-14 21:10"
   },
   "meta": {
     "variety": "rb",
-    "total_records": 9,
-    "last_updated": "2026-07-14 09:41"
+    "total_records": 10,
+    "last_updated": "2026-07-14 21:10"
   }
 }

@@ -1,20 +1,20 @@
 [
   {
-    "pattern_id": "l-p001",
+    "pattern_id": "eg-p001",
     "name": "多头趋势驱动型",
-    "first_observed": "2026-07-14",
-    "last_used": "2026-07-14 23:34",
-    "use_count": 8,
-    "win_count": 8,
-    "win_rate": 0.967,
-    "structure": "趋势确认 → 趋势确认 → 趋势确认 → l-pro4: 价格从0910到1159...",
+    "first_observed": "2026-07-15",
+    "last_used": "2026-07-15 09:20",
+    "use_count": 1,
+    "win_count": 1,
+    "win_rate": 0.6,
+    "structure": "趋势确认 → 趋势确认 → 技术形态确认 → 期限结构确认",
     "applicable_conditions": {
       "adx_range": [
         35,
         65
       ],
       "signal_type": [
-        "minor_signal"
+        "trend_following.bb"
       ]
     },
     "key_evidence_sources": [

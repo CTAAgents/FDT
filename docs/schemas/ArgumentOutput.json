@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgumentOutput",
-  "description": "辩手输出 - 证真/慎思统一格式",
+  "description": "辩手输出 - 多头/空头统一格式",
   "type": "object",
   "properties": {
     "version": {
@@ -13,8 +13,8 @@
     "role": {
       "type": "string",
       "enum": [
-        "证真",
-        "慎思"
+        "多头",
+        "空头"
       ]
     },
     "variant": {

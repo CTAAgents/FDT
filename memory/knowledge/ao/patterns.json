@@ -3,10 +3,10 @@
     "pattern_id": "ao-p001",
     "name": "空头趋势驱动型",
     "first_observed": "2026-07-12",
-    "last_used": "2026-07-14 09:40",
-    "use_count": 6,
-    "win_count": 6,
-    "win_rate": 0.933,
+    "last_used": "2026-07-14 23:35",
+    "use_count": 9,
+    "win_count": 9,
+    "win_rate": 0.977,
     "structure": "趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
       "adx_range": [

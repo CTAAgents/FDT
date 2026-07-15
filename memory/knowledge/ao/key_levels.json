@@ -33,15 +33,66 @@
       "confidence": "中",
       "round_id": "",
       "extracted_at": "2026-07-14 09:40"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2694.0,
+        "condition": "价格反弹至2694.0附近出现衰竭信号（15分钟上影线+量确认）后入场"
+      },
+      "stop_loss": {
+        "price": 2740.0,
+        "type": "fixed",
+        "atr_multiple": 1.2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 21:29"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2694.0,
+        "condition": "价格反弹至2694.0附近出现衰竭信号（15分钟上影线+量确认）后入场"
+      },
+      "stop_loss": {
+        "price": 2740.0,
+        "type": "fixed",
+        "atr_multiple": 1.2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 23:04"
+    },
+    {
+      "entry": {
+        "type": "limit",
+        "price": 2694.0,
+        "condition": "价格反弹至2694.0附近出现衰竭信号（15分钟上影线+量确认）后入场"
+      },
+      "stop_loss": {
+        "price": 2740.0,
+        "type": "fixed",
+        "atr_multiple": 1.2
+      },
+      "targets": [],
+      "direction": "bear",
+      "confidence": "中",
+      "round_id": "",
+      "extracted_at": "2026-07-14 23:35"
     }
   ],
   "aggregated": {
     "support": [],
     "resistance": [
       {
-        "level": 2735.0,
-        "count": 1,
-        "min": 2735.0,
+        "level": 2704.2,
+        "count": 4,
+        "min": 2694.0,
         "max": 2735.0
       },
       {
@@ -51,11 +102,11 @@
         "max": 23050.0
       }
     ],
-    "computed_at": "2026-07-14 09:40"
+    "computed_at": "2026-07-14 23:35"
   },
   "meta": {
     "variety": "ao",
-    "total_records": 2,
-    "last_updated": "2026-07-14 09:40"
+    "total_records": 5,
+    "last_updated": "2026-07-14 23:35"
   }
 }

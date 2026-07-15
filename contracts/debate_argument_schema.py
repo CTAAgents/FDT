@@ -1,9 +1,11 @@
 """
-辩论论点结构化 Schema — 证真/慎思之间的标准化信息交换格式（v1.0）
+辩论论点结构化 Schema — 多头/空头之间的标准化信息交换格式（v1.1 · 2026-07-15 机制重构）
 
 目的：
   消除自然语言辩论带来的语义歧义和解析成本。
   每条论据按结构化字段组织，闫判官可直接读取无需文本解析。
+  多空头机制下，多头方提供做多论据，空头方提供做空论据，
+  闫判官在双方论据中裁决最终方向。
 
 用法：
   辩手输出的 JSON 块仅需包含 "meta" + "arguments" 两个顶级键。
@@ -30,7 +32,7 @@ RebuttalType = Literal[
 # ----- 单条论据 -----
 class ArgumentItem(TypedDict, total=False):
     """一条完整的论据"""
-    id: str                          # 必填：论据唯一ID（如"证真-D3"）
+    id: str                          # 必填：论据唯一ID（如"多头-D3"）
     family: StrategyFamily           # 策略族标签
     claim: str                       # 一句话可证伪断言
     evidence: str                    # 数据支撑（数值+来源+日期）
@@ -45,7 +47,7 @@ class ArgumentItem(TypedDict, total=False):
 class ArgumentRound(TypedDict, total=False):
     """一轮辩论发言"""
     round: str                       # 轮次标识（如"RB_20260709_r1"）
-    speaker: Literal["zhengzhen", "shensi"]  # 发言人
+    speaker: Literal["bullish", "bearish"]  # 发言人：多头/空头
     phase: Literal["opening", "rebuttal", "free_debate", "final"]
     target: Optional[str]            # re阶段引用的对方论点ID（可选）
     arguments: list[ArgumentItem]    # 本轮论点列表（最少2条，最多5条）
@@ -55,6 +57,6 @@ class ArgumentRound(TypedDict, total=False):
 
 # ----- 完整发言 JSON 结构（顶级） -----
 class StructuredDebateArgument(TypedDict):
-    """辩手输出的顶层 JSON 结构"""
+    """辩手输出的顶层 JSON 结构（v1.1 · 多空头机制）"""
     meta: dict                       # 包含 phase/agent_name/version/target_symbol
     arguments: list[ArgumentItem]    # 论点列表

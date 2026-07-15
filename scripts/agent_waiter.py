@@ -12,8 +12,8 @@ S04协议实现:
   from scripts.agent_waiter import poll_file_ready, build_spawn_file_instruction
   
   # 在spawn prompt中追加文件输出指令
-  file_path = "/path/to/p4_zhengzhen.json"
-  prompt += build_spawn_file_instruction(file_path, "证真")
+  file_path = "/path/to/p4_bullish.json"
+  prompt += build_spawn_file_instruction(file_path, "多头分析员")
   
   # spawn Agent后轮询等待
   result = poll_file_ready(file_path, timeout=900)
