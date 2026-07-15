@@ -515,6 +515,28 @@ def calculate_dual_thrust(high, low, close, open_, lookback: int = 1,
     return float(rng), float(upper), float(lower)
 
 
+def calculate_turtle_n(high, low, close, window: int = 20) -> np.ndarray:
+    """Turtle N — N 单位头寸波动率基准（Dennis/Eckhardt 1983）。
+
+    N = window 日 True Range 的 Wilder 平滑（alpha=1/window），
+    即 Turtle 原版递推 N = (19 * N_prev + TR) / 20。
+    N 同时用于：① 头寸单位 sizing（unit = 1%账户 / (N × 合约乘数)）；
+    ② 金字塔加仓步长（0.5N）；③ 2N 退出止损。
+    返回与输入等长的 numpy 数组；长度不足 window 时返回全 NaN。
+    纯价量，零外部依赖；与 G30/G31/G32/G33 同属 FDC 单一真相源。
+    """
+    h = np.asarray(high, dtype=float)
+    l = np.asarray(low, dtype=float)
+    c = np.asarray(close, dtype=float)
+    n = len(c)
+    nan = np.full(n, np.nan)
+    if n < window:
+        return nan
+    prev_close = np.concatenate([[c[0]], c[:-1]])
+    tr = np.maximum(h - l, np.maximum(np.abs(h - prev_close), np.abs(l - prev_close)))
+    return _wilders_rma_numpy(tr, window)
+
+
 def calculate_linearreg_slope(data, window=14):
     """LINEARREG_SLOPE - 线性回归斜率（TA-Lib风格）"""
     return _linear_reg_slope(data, window)
@@ -2241,6 +2263,7 @@ __all__ = [
     "calculate_realized_vol",
     "calculate_vol_target_scale",
     "calculate_dual_thrust",
+    "calculate_turtle_n",
     "calculate_linearreg_slope",
     "calculate_linearreg_angle",
     "calculate_kama",

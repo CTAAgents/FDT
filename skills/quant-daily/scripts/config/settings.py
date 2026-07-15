@@ -535,6 +535,26 @@ TREND_G33_CONFIG = {
     "sub_conviction": "0.3 + distance/range",
 }
 
+# ═══════════════════════════════════════════════════════════
+# G34 Turtle 完整系统 — 参数集中配置（单一真相源）
+# Dennis/Eckhardt(1983) 海龟交易法则。FDT 已有 DC20/55+ATR(G30)，
+# 本 gap 补 N 单位头寸 + 金字塔加仓 + 2N 退出完整规则，落执行/风险 overlay 层
+# （与 G32 Vol Targeting 同层，接在其后）。纯 OHLC 派生，零新数据源。
+# 镜像 futures_data_core.indicators.tdx_compat.calculate_turtle_n 默认值；
+# legacy_numpy 单点注入 TURTLE_N 与之一致。
+TREND_G34_CONFIG = {
+    "n_window": 20,            # Turtle N：N 日 TR 的 Wilder 平滑（原版 (19*N_prev+TR)/20）
+    "system_s1": {"dc_period": 20},   # 系统一：20 日突破
+    "system_s2": {"dc_period": 55},   # 系统二：55 日突破
+    "pyramid_step": 0.5,       # 加仓步长 = 0.5N
+    "stop_mult": 2.0,          # 退出止损 = 2N
+    "max_units": 4,             # 单品种最大 4 单位
+    # 单位预算（由信号强度 abs_score 决定，映射至 1-4 单位）
+    "units_by_score": {"strong": 75, "very_strong": 85, "extreme": 92},
+    # 落点：执行/风险 overlay 层（非信号评分层）
+    "layer": "execution_risk_overlay",
+}
+
 
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护

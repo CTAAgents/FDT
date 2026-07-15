@@ -293,6 +293,20 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
     except Exception:
         tech["DT_RANGE"] = tech["DT_UPPER"] = tech["DT_LOWER"] = 0.0
 
+    # ---- Turtle N 单位头寸波动率基准（G34）— 参数与 settings.TREND_G34_CONFIG 一致 ----
+    # 主管线唯一入口单点注入（scan_all + 所有回测共用），自动贯穿全链路。
+    # N = 20 日 TR 的 Wilder 平滑；纯 OHLC 派生。n>=window 才有效。
+    try:
+        from futures_data_core.indicators.tdx_compat import calculate_turtle_n
+        _g34_win = 20
+        if n >= _g34_win:
+            _tn = calculate_turtle_n(h, l, c, window=_g34_win)
+            tech["TURTLE_N"] = float(_tn[-1]) if np.isfinite(_tn[-1]) else 0.0
+        else:
+            tech["TURTLE_N"] = 0.0
+    except Exception:
+        tech["TURTLE_N"] = 0.0
+
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1))
     vm_m = np.abs(l - np.roll(h, 1))

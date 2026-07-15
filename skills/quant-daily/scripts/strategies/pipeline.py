@@ -91,6 +91,8 @@ _FIELD_MAP = {
     "dt_range": "dt_range", "DT_RANGE": "dt_range",
     "dt_upper": "dt_upper", "DT_UPPER": "dt_upper",
     "dt_lower": "dt_lower", "DT_LOWER": "dt_lower",
+    # G34 Turtle 完整系统
+    "turtle_n": "turtle_n", "TURTLE_N": "turtle_n",
     # 均值/标准差
     "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
 }
@@ -422,6 +424,18 @@ class StrategyPipeline:
             _overlay = VolTargetingOverlay()
             for s in fused:
                 _overlay.apply(s, _tech_by_symbol.get(s.symbol, {}))
+        except Exception:
+            pass
+
+        # Phase 4.6: Turtle 完整系统 overlay（G34）— 执行/风险层
+        # 接在 Vol Targeting 之后：N 单位头寸 + 金字塔加仓 + 2N 退出。
+        # NO_FUSION 与各融合模式统一生效；overlay 不可用时不崩溃。
+        try:
+            from strategies.turtle_system import TurtleSystemOverlay
+            _tech_by_symbol_g34 = {t.get("symbol"): t for t in tech_list if isinstance(t, dict)}
+            _turtle = TurtleSystemOverlay()
+            for s in fused:
+                _turtle.apply(s, _tech_by_symbol_g34.get(s.symbol, {}))
         except Exception:
             pass
 
