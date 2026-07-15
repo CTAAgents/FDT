@@ -286,4 +286,123 @@ append_debate_journal(agent_name, action, {
 
 | 日期 | 版本 | 变更 |
 |:-----|:-----|:-----|
-| 2026-07-05 | 3.0 | 创建。新增 `FundamentalStateVector`、`PrepBrief`、`FinalJudgment`、`TeamDecisionOutput` schema。修复 `debate.py` 缺失的 `BaseSkillOutput` 导入。完整10角色协议映射。 |
+| 2026-07-16 | 3.1 | 新增 File Transport Layer v1（独立传输层，替代 WorkBuddy SendMessage） |
+| 2026-07-05 | 3.0 | 创建。新增 `FundamentalStateVector`、`PrepBrief`、`FinalJudgment`、`TeamDecisionOutput` schema。
+
+---
+
+## 附录: File Transport Layer v1（独立传输层）
+
+> FDT 独立运行时的 Agent 间通信机制。替代 WorkBuddy SendMessage。
+> 适用于 `agent_runner.py flow` 模式和独立调度器。
+
+### A1. 文件命名规范
+
+按辩论阶段和品种命名，确保不冲突、可追溯：
+
+```
+p0_initial_{trace_id}.json          # 闫判官初判
+p1_chain_{trace_id}.json            # 链证源
+p2_technical_{symbol}.json          # 观澜（每品种一个）
+p3_bullish_{symbol}.json            # 多头分析员
+p3_bearish_{symbol}.json            # 空头分析员
+p4_judge_{symbol}.json              # 闫判官终裁
+p4_coherence_{symbol}.json          # 一致性裁判
+p5_plan_{symbol}.json               # 策执远
+p5_risk_{symbol}.json               # 风控明
+```
+
+### A2. 原子写入规范
+
+所有文件必须通过原子写入，防止读半截：
+
+```python
+def atomic_write(path: str, content: str):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(content)
+    os.replace(tmp, path)  # Windows: os.replace, Unix: os.rename
+```
+
+### A3. 输出信封格式
+
+每个输出文件必须包含标准信封，包裹实际数据：
+
+```json
+{
+  "envelope": {
+    "agent": "judge",
+    "agent_display": "闫判官",
+    "version": "3.1",
+    "generated_at": "2026-07-16 04:20",
+    "phase": "p4",
+    "trace_id": "debate_20260716",
+    "status": "completed",
+    "checksum": "a1b2c3d4"
+  },
+  "data": {
+    ...实际 schema 内容...
+  }
+}
+```
+
+| 信封字段 | 必填 | 说明 |
+|:---------|:----:|:-----|
+| `agent` | ✅ | Agent 标识名（`judge`, `bullish_analyst` 等） |
+| `agent_display` | | 中文名 |
+| `version` | ✅ | 协议版本号 |
+| `generated_at` | ✅ | ISO 8601 生成时间 |
+| `phase` | ✅ | 辩论阶段（`p0`-`p5`） |
+| `trace_id` | ✅ | 本轮辩论追踪 ID |
+| `status` | ✅ | `running` / `completed` / `failed` |
+| `checksum` | | 数据内容的 SHA256 前 8 位（可选） |
+
+### A4. 轮询就绪协议
+
+消费方用轮询替代 SendMessage 通知：
+
+```python
+# agent_waiter.py
+def poll_file_ready(path: str, timeout: int = 900, interval: int = 15) -> bool:
+    \"\"\"轮询文件就绪——文件存在且 size ≥ 5 秒不变\"\"\"
+    deadline = time.time() + timeout
+    last_size = -1
+    stable_since = None
+    while time.time() < deadline:
+        if os.path.exists(path):
+            sz = os.path.getsize(path)
+            if sz == last_size and sz > 0:
+                if stable_since is None:
+                    stable_since = time.time()
+                elif time.time() - stable_since >= 5:
+                    return True
+            else:
+                last_size = sz
+                stable_since = None
+        time.sleep(interval)
+    return False
+```
+
+### A5. 文件生命周期
+
+```
+初始状态: 文件不存在（pending）
+Agent 开始写: 创建 .tmp 文件（running）
+写入完成: rename .tmp → .json（completed）
+消费方读取: 校验信封 status=completed + checksum 可选
+消费完成: 可删除（由编排层决定）
+
+异常: .tmp 文件存在但超过超时 → 标记 failed
+      信封内 status=failed → 跳过
+```
+
+### A6. 编排层职责
+
+`agent_runner.py flow` 模式承担编排层职责：
+
+1. 确定 trace_id（每轮辩论唯一）
+2. 按阶段顺序执行 Agent
+3. 为每个 Agent 构建信封上下文
+4. 将前序 Agent 的输出作为上下文传递给后续 Agent
+5. 监控超时和异常
+6. 汇总最终输出到 `debate_results.json`

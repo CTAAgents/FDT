@@ -276,7 +276,7 @@ def run_chain_analysis(
                        if r.get("symbol")]
             if all_syms:
                 cmd = [sys.executable, str(_CHAIN_SCRIPT), "--symbols", ",".join(all_syms),
-                       "--output", str(out_path)]
+                       "--json-only"]
                 print(f"  🔗 链证源分析 (从scan解析): {len(all_syms)} 品种")
             else:
                 print("  ⚠️ scan 无品种数据，跳过链分析")
@@ -348,7 +348,19 @@ def select_triggers(scan: dict, threshold: int, disable_filter: bool = False) ->
     当 disable_filter=True 时，从 _raw_total 读取原始总分构造候选（绕过 P0-4 伪突破过滤）。
     门禁单一真相源 = config.settings.signal_passes_entry_gate。
     """
-    from config.settings import signal_passes_entry_gate
+    import importlib.util
+    _cand = QUANT_DAILY / "config" / "settings.py"
+    if _cand.exists():
+        try:
+            _spec = importlib.util.spec_from_file_location("qd_settings_gate", str(_cand))
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            signal_passes_entry_gate = getattr(_mod, "signal_passes_entry_gate",
+                                                lambda s, t=threshold: abs(s.get("total", 0)) >= t)
+        except Exception:
+            signal_passes_entry_gate = lambda s, t=threshold: abs(s.get("total", 0)) >= t
+    else:
+        signal_passes_entry_gate = lambda s, t=threshold: abs(s.get("total", 0)) >= t
     ranked = scan.get("all_ranked", [])
     if disable_filter:
         cands = [s for s in ranked if signal_passes_entry_gate(
@@ -365,7 +377,7 @@ def select_triggers(scan: dict, threshold: int, disable_filter: bool = False) ->
 
 # ─────────────────────────────────────────────
 # 固定注入规则（ADX 角色反转 / WATCH 语义 / 置信度归一）
-# 与 fdt-spawn-debate SKILL.md 铁律一致，集中于此单一来源
+# 与 docs/skills/fdt-spawn-debate.md 铁律一致，集中于此单一来源
 # ─────────────────────────────────────────────
 def _adx_reversal_rule() -> str:
     return ("ADX角色反转：ADX低位(<20)视为趋势启动早期而非'无趋势不交易'；"
@@ -461,7 +473,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         f"1) 哪些产业链需要链证源深度分析（给出产业链名称列表）\n"
         f"2) 哪些品种进入正式辩论（从触发品种中筛选，多空双方均会辩论）\n"
         f"3) 辩论的侧重点（技术/基本面/链联动）\n\n"
-        f"{_adx_reversal_rule()}\n\n{f._strategy_knowledge_rule()}\n\n"
+        f"{_adx_reversal_rule()}\n\n{_strategy_knowledge_rule()}\n\n"
         f"触发品种列表（{len(symbols)}品种）:\n{_all_sym_details}\n\n"
         f"【重要】输出到 {ws / 'p0_judge_directive.json'}，用 agent_output.write()：\n"
         f"  import sys; sys.path.insert(0, r'{SCRIPTS}'); "
@@ -507,7 +519,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         bullish_prompt = (
         f"你是多头分析员，列举品种 {sym} 的多头(看多)论据。\n"
         f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
-        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
+        f"{_adx_reversal_rule()}\n{_strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条多头论据，每条附来源标注。\n"
@@ -527,7 +539,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         bearish_prompt = (
         f"你是空头分析员，列举品种 {sym} 的空头(看空)论据。\n"
         f"扫描信号倾向为{direction}({grade})，但请独立判断多空逻辑，不受该方向限制。\n"
-        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
+        f"{_adx_reversal_rule()}\n{_strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"从研究员/链证源资料中提炼≥3条空头论据，每条附来源标注。\n"
@@ -548,7 +560,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
         f"你是闫判官(终裁)，对品种 {sym} 做出最终裁决。\n"
         f"读取多头分析员论据 ({p4_bull}) 与空头分析员论据 ({p4_bear})，\n"
         f"在多头与空头双方论据中裁决最终方向。\n"
-        f"{_adx_reversal_rule()}\n{f._strategy_knowledge_rule()}\n"
+        f"{_adx_reversal_rule()}\n{_strategy_knowledge_rule()}\n"
             f"数据基准: {data_benchmark}。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"【重要】用 agent_output.write() 写入，不碰 JSON 字符串：\n"

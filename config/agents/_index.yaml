@@ -1,0 +1,76 @@
+# FDT Agent 注册中心
+# 独立于 WorkBuddy Expert 系统的 FDT 原生 Agent 配置。
+# 当 FDT 脱离 WorkBuddy 运行时，由此文件发现和加载 Agent。
+
+agents:
+  judge:
+    display_name: 闫判官
+    profession: 辩论裁决官
+    role: "主持辩论、评分判胜负"
+    file: judge.yaml
+
+  judge_deputy:
+    display_name: 闫判官副手
+    profession: 辅助裁决官
+    role: "初审辩论输出，提取论点树"
+    file: judge_deputy.yaml
+
+  judge_heldout:
+    display_name: 一致性裁判
+    profession: 辩论质量审计
+    role: "审计辩论一致性，不参与主流程"
+    file: judge_heldout.yaml
+
+  bullish_analyst:
+    display_name: 证真
+    profession: 多头分析员
+    role: "独立陈述做多论据"
+    file: bullish_analyst.yaml
+
+  bearish_analyst:
+    display_name: 慎思
+    profession: 空头分析员
+    role: "独立陈述做空论据"
+    file: bearish_analyst.yaml
+
+  chain_analyst:
+    display_name: 链证源
+    profession: 产业链分析师
+    role: "产业链事实描述+景气度分析，不下多空结论"
+    file: chain_analyst.yaml
+
+  datatech:
+    display_name: 数技源
+    profession: 数据管道
+    role: "运行通道突破扫描，不做分析"
+    file: datatech.yaml
+
+  fundamental_researcher:
+    display_name: 探源
+    profession: 基本面研究员
+    role: "供需/库存/利润数据供应"
+    file: fundamental_researcher.yaml
+
+  technical_researcher:
+    display_name: 观澜
+    profession: 技术面研究员
+    role: "量价数据+技术指标供应"
+    file: technical_researcher.yaml
+
+  risk_manager:
+    display_name: 风控明
+    profession: 风控审核官
+    role: "杠杆/回撤/叙事质检"
+    file: risk_manager.yaml
+
+  trading_strategist:
+    display_name: 策执远
+    profession: 交易策略师
+    role: "合约选型+执行方案"
+    file: trading_strategist.yaml
+
+  debate_team_team_lead:
+    display_name: 明鉴秋
+    profession: 团队主管
+    role: "选题+调度+汇总"
+    file: debate_team_team_lead.yaml

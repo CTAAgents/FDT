@@ -2,6 +2,38 @@
 
 一套 10-Agent 多角色交叉质询的 CTA 决策系统。8 策略管线并行扫描 → 多头空头独立举证辩论 → 闫判官终裁。扫描信号只是起点，辩论结论才是终局。
 
+**v8.2.0 起支持独立运行模式** — 不依赖任何宿主平台，CLI + Web Dashboard + 调度器 + LLM 驱动全自包含。
+
+```bash
+# 独立模式（无需 WorkBuddy）
+python fdt_cli.py serve --workspace ./data     # Web Dashboard
+python fdt_cli.py daemon start                 # 定时调度器
+python scripts/agent_runner.py flow --workspace ./data  # 辩论流程
+```
+
+### 独立运行说明（v8.2.0+）
+
+FDT 可脱离 WorkBuddy 独立运行。最小依赖：
+
+```bash
+pip install pandas numpy httpx psutil requests
+pip install fastapi uvicorn jinja2    # Web Dashboard 可选
+export FDT_LLM_API_KEY="sk-xxx"      # DeepSeek / OpenAI API Key
+python fdt_cli.py serve              # 启动 Dashboard
+```
+
+核心命令：
+
+| 命令 | 功能 |
+|:-----|:------|
+| `python fdt_cli.py serve --workspace <dir>` | Web Dashboard + REST API |
+| `python fdt_cli.py daemon start` | 内置定时调度器（替代 cron） |
+| `python fdt_cli.py self-check` | 系统自检 |
+| `python scripts/agent_runner.py flow --workspace <dir>` | 全自动辩论流程 |
+| `python scripts/notifier.py --channel wecom_bot --msg "..."` | 告警推送 |
+
+完整规划见 `docs/independence-roadmap.md`。
+
 ---
 
 ## 业务逻辑

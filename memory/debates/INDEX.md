@@ -11,3 +11,4 @@
 | FDT_20260713_1748_auto | m, j, RM, OI | m→execute, RM→execute, j→wait, OI→wait | mixed | 2026-07-13 17:48 |
 - debate_20260713_1848 | 2026-07-13 18:48 | 60扫描/14辩论(+1 PF) | bear主导(9熊/1牛/4中性) | SA/j可执行 | report: debate_report_20260713.html | 12/14萃取
 - [2301_20260713] 23:01夜盘后半段 — 14品种辩论（与21:04信号一致，7STRONG+7WEAK）m BULL/CJ::rb::SA::j::ao::FG::hc::ec::sc BEAR
+| FDT_20260716_auto | pb, SA, SF, SR, UR, br, lu, FG, cs, ec, PK | pb/SA/SF/SR execute | mixed(4熊1牛) | 2026-07-16 03:53 |

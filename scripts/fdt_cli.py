@@ -36,6 +36,9 @@
   # 快速查看系统资源
   python scripts/fdt_cli.py resource [--json]
 
+  # 自检（Pre-flight + 故障追溯）
+  python scripts/fdt_cli.py self-check [--workspace <dir>] [--scan <json>]
+
   # 低级命令（与原有用法兼容）
   python scripts/fdt_cli.py scan --output-dir <dir>
   python scripts/fdt_cli.py debate plan --scan <json> --workspace <ws>
@@ -46,8 +49,10 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -74,10 +79,18 @@ def _now_hhmm() -> str:
     return datetime.now().strftime("%H%M")
 
 
+def _normalize_path(p: str) -> str:
+    """归一化路径：将 Git Bash 的 /d/xx 转为 Windows D:/xx，避免 os.path/glob 不认。"""
+    m = re.match(r"^/([a-zA-Z])/(.*)", p.strip())
+    if m:
+        return f"{m.group(1).upper()}:/{m.group(2)}"
+    return p
+
+
 def _resolve_workspace(ws: str | None) -> str:
     """解析工作空间路径，未指定则使用默认路径+日期子目录。"""
     if ws:
-        return ws
+        return _normalize_path(ws)
     default = _ROOT / "data" / f"scan_{_today_str()}"
     return str(default)
 
@@ -178,15 +191,39 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         print("✅ scan-filter 模式完成（已过滤，未进入辩论）")
         return 0
 
-    # ── 模式1-2: 进入辩论阶段 ──
-    # 找到扫描生成的 JSON 文件
+    # ── 模式1-2: 进入辩论阶段前自动自检 ──
+    skip_check = getattr(args, "skip_self_check", False)
+    if not skip_check:
+        print(f"\n🔍 自动自检...")
+        sc_py = str(_SCRIPTS / "self_check.py")
+        sc_rc = subprocess.run(
+            [py, sc_py, "--workspace", workspace],
+            capture_output=True, text=True, timeout=30,
+        )
+        sc_out = sc_rc.stdout.strip() or sc_rc.stderr.strip()
+        if sc_out:
+            print(sc_out)
+        if sc_rc.returncode == 2:
+            print("⛔ 自检发现致命错误，终止流程")
+            return 2
+
+    # ── 找到扫描生成的 JSON 文件
     import glob
-    json_pattern = str(Path(workspace) / f"{scan_prefix}_*_{_today_str()}.json")
-    json_files = glob.glob(json_pattern)
-    if not json_files:
-        print(f"⛔ 未找到扫描 JSON: {json_pattern}")
+    today = _today_str()
+    json_candidates = []
+    # 兼容两种命名模式:
+    #   {prefix}_{middle}_{date}.json  → scan_pipe_0354_20260716.json
+    #   {prefix}_{date}.json           → scan_daily_20260716.json
+    for ptn in [f"{scan_prefix}_*_{today}.json",
+                f"{scan_prefix}_{today}.json"]:
+        p = str(Path(workspace) / ptn)
+        json_candidates.extend(glob.glob(p))
+    if not json_candidates:
+        print(f"⛔ 在 {workspace} 中未找到扫描 JSON")
+        print(f"   尝试模式: {scan_prefix}_*_{today}.json / {scan_prefix}_{today}.json")
         return 1
-    scan_json = json_files[0]
+    json_candidates.sort(key=os.path.getmtime, reverse=True)
+    scan_json = json_candidates[0]
     print(f"  使用扫描文件: {scan_json}")
 
     # plan → spawnAgent → finalize
@@ -226,7 +263,13 @@ def cmd_finalize_only(args: argparse.Namespace) -> int:
     json_pattern = str(Path(workspace) / f"scan_*_{today}.json")
     json_files = sorted(glob.glob(json_pattern), key=os.path.getmtime)
     if not json_files:
-        print(f"⛔ 未找到扫描 JSON 在: {workspace}")
+        # 再试一次：列出目录下所有 json 供诊断
+        all_json = glob.glob(str(Path(workspace) / "*.json"))
+        print(f"⛔ 未找到匹配 scan_*_{today}.json 在: {workspace}")
+        if all_json:
+            print(f"  目录下 JSON 文件 ({len(all_json)}): {', '.join(os.path.basename(p) for p in sorted(all_json)[:15])}")
+            if len(all_json) > 15:
+                print(f"  ... 还有 {len(all_json) - 15} 个")
         return 1
     scan_json = json_files[-1]
 
@@ -285,6 +328,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="启用多策略管线（6策略并行）代替单策略通道突破")
     p_pipe.add_argument("--strategies", default=None,
                         help='管线策略子集（逗号分隔），如 "trend_following,arbitrage"。不传=全部6策略')
+    p_pipe.add_argument("--skip-self-check", action="store_true",
+                        help="跳过辩论前的自动自检")
 
     # ── 低级命令保持兼容 ──
     p_scan = sub.add_parser("scan", help="运行信号扫描 (pass-through)")
@@ -358,6 +403,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_rs = sub.add_parser("resource", help="快速查看系统资源状态")
     p_rs.add_argument("--json", action="store_true",
                       help="JSON 格式输出")
+
+    # ── 自检 —— Pre-flight + 故障追溯 ──
+    p_sc = sub.add_parser("self-check", help="FDT 自检：Pre-flight + 故障追溯")
+    p_sc.add_argument("--workspace", default=None,
+                      help="工作空间目录（检查扫描文件用）")
+    p_sc.add_argument("--scan", default=None,
+                      help="指定扫描 JSON 路径（覆盖 workspace 自动查找）")
+
+    # ── 守护进程 —— 内置调度器 ──
+    p_daemon = sub.add_parser("daemon",
+                              help="FDT 守护进程：内置定时调度器（替代 WorkBuddy automation）")
+    p_daemon.add_argument("action", choices=["start", "stop", "status"],
+                          help="start=启动调度器, stop=停止, status=查看状态")
+    p_daemon.add_argument("--job", choices=["daily_debate"],
+                          default="daily_debate",
+                          help="要运行的作业（默认 daily_debate）")
+    p_daemon.add_argument("--background", action="store_true",
+                          help="后台运行（start 时生效）")
+
+    # ── Web 服务 ──
+    p_serve = sub.add_parser("serve",
+                             help="启动 Web Dashboard（独立界面，替代 WorkBuddy 界面）")
+    p_serve.add_argument("--host", default="127.0.0.1",
+                         help="监听地址（默认 127.0.0.1）")
+    p_serve.add_argument("--port", type=int, default=8765,
+                         help="监听端口（默认 8765）")
+    p_serve.add_argument("--workspace", default=None,
+                         help="工作空间数据目录（默认自动发现）")
 
     return ap
 
@@ -465,6 +538,47 @@ def main() -> int:
             print(f"  风险等级: {data.get('risk_level', '?')}")
             print(f"  实际并发建议: {data.get('safe_concurrent', '?')}")
             print(f"  详情: {data.get('reason', '')}")
+        return 0
+
+    # ── 自检 ──
+    if args.cmd == "self-check":
+        sc_args = [py, str(_SCRIPTS / "self_check.py")]
+        if getattr(args, "workspace", None):
+            sc_args += ["--workspace", args.workspace]
+        if getattr(args, "scan", None):
+            sc_args += ["--scan", args.scan]
+        return _run(sc_args)
+
+    # ── 守护进程 —— 内置调度器 ──
+    if args.cmd == "daemon":
+        action = args.action
+        job = getattr(args, "job", "daily_debate")
+        bg = getattr(args, "background", False)
+        sch_args = [py, str(_SCRIPTS / "scheduler.py")]
+        if action == "start":
+            sch_args += ["--job", job]
+            if bg:
+                sch_args.append("--daemon")
+        elif action == "stop":
+            sch_args.append("--stop")
+        elif action == "status":
+            sch_args.append("--status")
+        return _run(sch_args)
+
+    # ── Web 服务 ──
+    if args.cmd == "serve":
+        import uvicorn
+        sys.path.insert(0, str(_ROOT))
+        sys.path.insert(0, str(_SCRIPTS))
+        from webui import app
+        ws = getattr(args, "workspace", None)
+        if ws:
+            os.environ["FDT_WORKSPACE"] = ws
+            print(f"  工作空间: {ws}")
+        host = getattr(args, "host", "127.0.0.1")
+        port = getattr(args, "port", 8765)
+        print(f"🌐 FDT Dashboard: http://{host}:{port}")
+        uvicorn.run(app, host=host, port=port, log_level="info")
         return 0
 
     return 0

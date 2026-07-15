@@ -1,0 +1,55 @@
+# FDT LLM 配置
+# 
+# API Key 通过环境变量传递：
+#   OPENAI_API_KEY=sk-xxx          # OpenAI / 兼容 API
+#   FDT_LLM_API_KEY=sk-xxx         # 优先于 OPENAI_API_KEY（FDT 专用）
+#
+# 无需配置即可使用默认值。
+
+defaults:
+  api_base: "https://api.deepseek.com/v1"  # OpenAI 兼容端点
+  model: "deepseek-chat"
+  temperature: 0.7
+  max_tokens: 4096
+  timeout: 120
+
+# 按 Agent 类型的覆盖配置
+per_agent:
+  judge:
+    temperature: 0.3          # 裁决需要低温度，高确定性
+    max_tokens: 2048
+
+  judge_deputy:
+    temperature: 0.3
+    max_tokens: 2048
+
+  judge_heldout:
+    temperature: 0.3
+    max_tokens: 2048
+
+  bullish_analyst:
+    temperature: 0.7          # 辩论需要一定随机性
+
+  bearish_analyst:
+    temperature: 0.7
+
+  chain_analyst:
+    temperature: 0.5
+
+  fundamental_researcher:
+    temperature: 0.5
+
+  technical_researcher:
+    temperature: 0.5
+
+  risk_manager:
+    temperature: 0.4
+
+  trading_strategist:
+    temperature: 0.4
+
+  debate_team_team_lead:
+    temperature: 0.5
+
+  datatech:
+    temperature: 0.3

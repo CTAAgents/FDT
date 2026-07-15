@@ -17,6 +17,7 @@ skills/quant-daily/scripts/nul
 __pycache__/
 .DS_Store
 phase2_chain_output.json
+memory/logs/
 
 # Settings
 settings.json

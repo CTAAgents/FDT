@@ -89,10 +89,10 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 13,
+      "total_debates": 17,
       "effective_patterns": 2,
       "patterns_updated": "2026-07-15 11:15",
-      "key_levels_updated": "2026-07-15 11:16",
+      "key_levels_updated": "2026-07-16 03:59",
       "drivers_updated": "2026-07-15 11:16"
     },
     "ni": {
@@ -651,11 +651,11 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 13,
+      "total_debates": 17,
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 20:34",
       "drivers_updated": "2026-07-14 23:34",
-      "key_levels_updated": "2026-07-14 23:34"
+      "key_levels_updated": "2026-07-16 03:59"
     },
     "sh": {
       "name": "烧碱",
@@ -807,10 +807,11 @@
       "profile": true,
       "drivers": true,
       "patterns": false,
-      "key_levels": false,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 4,
+      "effective_patterns": 0,
+      "key_levels_updated": "2026-07-16 03:59"
     },
     "wh": {
       "name": "强麦",
@@ -855,10 +856,11 @@
       "profile": true,
       "drivers": true,
       "patterns": false,
-      "key_levels": false,
+      "key_levels": true,
       "data_quality": true,
-      "total_debates": 0,
-      "effective_patterns": 0
+      "total_debates": 4,
+      "effective_patterns": 0,
+      "key_levels_updated": "2026-07-16 03:59"
     },
     "jr": {
       "name": "粳稻",

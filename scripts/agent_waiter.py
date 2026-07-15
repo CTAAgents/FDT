@@ -1,36 +1,26 @@
 #!/usr/bin/env python3
 """
-FDT Agent产出轮询器 v1.0
-解决: 辩论Agent后台超时无产出，依赖不可靠的SendMessage通道
+FDT Agent产出轮询器 v1.1 — 独立传输层
 
-S04协议实现:
-  1. spawn Agent时在prompt中指定输出文件路径
-  2. spawn后轮询文件就绪(poll_file_ready, 15s间隔×60次=15min超时)
-  3. 超时→触发D06降级: 返回None, 由协调员基于已有数据裁决
+File Transport Layer v1 实现:
+  1. Agent 在 prompt 中指定输出文件路径
+  2. Agent 写完文件后，编排层轮询文件就绪 (poll_file_ready)
+  3. 超时 → 触发降级
 
-用法(明鉴秋协调员):
-  from scripts.agent_waiter import poll_file_ready, build_spawn_file_instruction
-  
-  # 在spawn prompt中追加文件输出指令
-  file_path = "/path/to/p4_bullish.json"
-  prompt += build_spawn_file_instruction(file_path, "多头分析员")
-  
-  # spawn Agent后轮询等待
-  result = poll_file_ready(file_path, timeout=900)
-  if result:
-      with open(file_path) as f:
-          output = json.load(f)
-  else:
-      # D06降级
+独立模式：不依赖 SendMessage，基于文件轮询。
 """
 
-import os, json, time, sys
+import os
+import json
+import time
+import sys
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
 
-def build_spawn_file_instruction(output_path: str, agent_name: str) -> str:
-    """生成Agent输出文件指令,追加到spawn prompt末尾"""
+def build_spawn_file_instruction(output_path: str, agent_name: str, trace_id: str = "") -> str:
+    """生成 Agent 输出文件指令（File Transport Layer v1，无 SendMessage 依赖）"""
     return f"""
 
 ## ⚠️ 文件输出要求（必须执行）
@@ -40,11 +30,54 @@ def build_spawn_file_instruction(output_path: str, agent_name: str) -> str:
 写入要求:
   1. 先写 `.tmp` 后缀: `{output_path}.tmp`
   2. 写完后 rename 为正式文件名
-  3. 文件必须包含有效的JSON(如果是结构化输出)或完整Markdown(如果是文本输出)
-  4. 写入完成后,用 SendMessage 发送简短通知给 main: "产出已写入 {output_path}"
+  3. 使用标准信封格式包裹输出:
+     {{
+       "envelope": {{
+         "agent": "{agent_name}",
+         "version": "3.1",
+         "generated_at": "YYYY-MM-DD HH:MM",
+         "phase": "p3",
+         "status": "completed"
+       }},
+       "data": {{ ... 实际分析内容 ... }}
+     }}
+  4. 写入完成后，文件就绪（编排层轮询检测）
 
-注意: 文件路径中的目录可能不存在,请先用 `mkdir -p` 或 `os.makedirs` 创建。
+注意: 文件路径中的目录可能不存在，请先用 mkdir -p 或 os.makedirs 创建。
 """
+
+
+def make_envelope(agent: str, data: dict, phase: str = "p3",
+                  trace_id: str = "", version: str = "3.1") -> dict:
+    """构建标准输出信封"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    env = {
+        "envelope": {
+            "agent": agent,
+            "version": version,
+            "generated_at": now,
+            "phase": phase,
+            "status": "completed",
+        },
+        "data": data,
+    }
+    if trace_id:
+        env["envelope"]["trace_id"] = trace_id
+    # 可选 checksum
+    try:
+        data_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
+        env["envelope"]["checksum"] = hashlib.sha256(data_str.encode()).hexdigest()[:8]
+    except Exception:
+        pass
+    return env
+
+
+def atomic_write(path: str, content: str):
+    """原子写入文件"""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(content)
+    os.replace(tmp, path)
 
 
 def from_config(config: dict | None = None) -> dict:

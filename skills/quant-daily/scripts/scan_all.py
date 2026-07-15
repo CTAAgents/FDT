@@ -779,64 +779,64 @@ def run_scan(
                 }
                 summary = summary
             else:
-                summary = {}
-        # ── v7.0 前置采集：基差+OI + 宏观制度（供管线策略 + 验证器共用）──
-        _ctx_extra: dict = {}
-        try:
-            _ctx_extra["basis_data"] = _guarded_call(
-                lambda: _collect_basis_data_sync(tech_list), timeout=25, default={})
-            _ctx_extra["oi_data"] = _guarded_call(
-                lambda: _collect_oi_data_sync(tech_list, kline_data), timeout=25, default={})
-        except Exception:
-            pass
-        # ── G27：多因子另类/基本面数据（仓单+库存+开工率）──
-        try:
-            _fund = _guarded_call(lambda: _collect_fundamental_sync(tech_list),
-                                  timeout=25, default={})
-            _ctx_extra["warrant_data"] = _fund.get("warrant_data", {})
-            _ctx_extra["inventory_data"] = _fund.get("inventory_data", {})
-            _ctx_extra["supply_data"] = _fund.get("supply_data", {})
-        except Exception:
-            pass
-        # ── G29：宏观数据（PMI + LPR1Y）→ rate_proxy/pmi_proxy 因子 ──
-        try:
-            _ctx_extra["macro_data"] = _guarded_call(
-                lambda: _get_macro_sync(), timeout=25,
-                default={"available": False})
-        except Exception:
-            _ctx_extra["macro_data"] = {"available": False}
+                    summary = {}
+            # ── v7.0 前置采集：基差+OI + 宏观制度（供管线策略 + 验证器共用）──
+            _ctx_extra: dict = {}
             try:
-                from optimizer.regime import compute_market_regime
-                _mr = compute_market_regime(period=period)
-                if _mr.get("regime") not in ("unknown", None):
-                    _ctx_extra["macro_signal"] = "bull" if _mr["regime"] in ("bull", "risk_on") else "bear"
-                    print(f"\n  [宏观制度] 市场制度: {_mr['regime']} → macro_signal={_ctx_extra['macro_signal']}")
-                else:
-                    # 制度检测不可用时：基于 tech_list 截面 ADX+RSI 降级推断
-                    # tech_list 中字段为 TDX 大写（ADX/RSI14），处理大小写兼容
-                    def _safe_float(v, default=0):
-                        try: return float(v)
-                        except: return default
-                    _trend_c = sum(1 for t in tech_list
-                                   if _safe_float(t.get("adx", t.get("ADX", 0))) > 25)
-                    _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
-                    _adx_rsi_pairs = [
-                        (_safe_float(t.get("adx", t.get("ADX", 0))),
-                         _safe_float(t.get("rsi", t.get("RSI14", 50))))
-                        for t in tech_list
-                    ]
-                    _bull_c = sum(1 for adx, rsi in _adx_rsi_pairs
-                                  if adx > 25 and (rsi > 60 or rsi <= 1))
-                    _bear_c = sum(1 for adx, rsi in _adx_rsi_pairs
-                                  if adx > 25 and 1 < rsi < 40)
-                    _total_c = len(tech_list)
-                    if _total_c > 5 and _trend_c / _total_c > 0.5:
-                        _ctx_extra["macro_signal"] = "bull" if _bull_c >= _bear_c else "bear"
-                        print(f"\n  [宏观制度·降级] 趋势市({_trend_c}/{_total_c}) bull={_bull_c} bear={_bear_c} → {_ctx_extra['macro_signal']}")
-                    else:
-                        _ctx_extra["macro_signal"] = "neutral"
+                _ctx_extra["basis_data"] = _guarded_call(
+                    lambda: _collect_basis_data_sync(tech_list), timeout=25, default={})
+                _ctx_extra["oi_data"] = _guarded_call(
+                    lambda: _collect_oi_data_sync(tech_list, kline_data), timeout=25, default={})
             except Exception:
-                _ctx_extra["macro_signal"] = "neutral"
+                pass
+            # ── G27：多因子另类/基本面数据（仓单+库存+开工率）──
+            try:
+                _fund = _guarded_call(lambda: _collect_fundamental_sync(tech_list),
+                                      timeout=25, default={})
+                _ctx_extra["warrant_data"] = _fund.get("warrant_data", {})
+                _ctx_extra["inventory_data"] = _fund.get("inventory_data", {})
+                _ctx_extra["supply_data"] = _fund.get("supply_data", {})
+            except Exception:
+                pass
+            # ── G29：宏观数据（PMI + LPR1Y）→ rate_proxy/pmi_proxy 因子 ──
+            try:
+                _ctx_extra["macro_data"] = _guarded_call(
+                    lambda: _get_macro_sync(), timeout=25,
+                    default={"available": False})
+            except Exception:
+                _ctx_extra["macro_data"] = {"available": False}
+                try:
+                    from optimizer.regime import compute_market_regime
+                    _mr = compute_market_regime(period=period)
+                    if _mr.get("regime") not in ("unknown", None):
+                        _ctx_extra["macro_signal"] = "bull" if _mr["regime"] in ("bull", "risk_on") else "bear"
+                        print(f"\n  [宏观制度] 市场制度: {_mr['regime']} → macro_signal={_ctx_extra['macro_signal']}")
+                    else:
+                        # 制度检测不可用时：基于 tech_list 截面 ADX+RSI 降级推断
+                        # tech_list 中字段为 TDX 大写（ADX/RSI14），处理大小写兼容
+                        def _safe_float(v, default=0):
+                            try: return float(v)
+                            except: return default
+                        _trend_c = sum(1 for t in tech_list
+                                       if _safe_float(t.get("adx", t.get("ADX", 0))) > 25)
+                        _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
+                        _adx_rsi_pairs = [
+                            (_safe_float(t.get("adx", t.get("ADX", 0))),
+                             _safe_float(t.get("rsi", t.get("RSI14", 50))))
+                            for t in tech_list
+                        ]
+                        _bull_c = sum(1 for adx, rsi in _adx_rsi_pairs
+                                      if adx > 25 and (rsi > 60 or rsi <= 1))
+                        _bear_c = sum(1 for adx, rsi in _adx_rsi_pairs
+                                      if adx > 25 and 1 < rsi < 40)
+                        _total_c = len(tech_list)
+                        if _total_c > 5 and _trend_c / _total_c > 0.5:
+                            _ctx_extra["macro_signal"] = "bull" if _bull_c >= _bear_c else "bear"
+                            print(f"\n  [宏观制度·降级] 趋势市({_trend_c}/{_total_c}) bull={_bull_c} bear={_bear_c} → {_ctx_extra['macro_signal']}")
+                        else:
+                            _ctx_extra["macro_signal"] = "neutral"
+                except Exception:
+                    _ctx_extra["macro_signal"] = "neutral"
             # ── 事件日历注入（供 event_driven 策略消费） ──
             try:
                 from data.event_calendar import build_event_calendar
@@ -953,7 +953,7 @@ def run_scan(
             else:
                 summary["filter_disabled"] = True
                 print("  [过滤] P0-4 伪信号过滤已禁用（--disable-filter），全部信号保留")
-            print(f"\n完成: {len(summary['all_ranked'])}品种 | 空头{len(summary['bear_signals'])} 多头{len(summary['bull_signals'])}")
+            print(f"\n完成: {len(summary.get('all_ranked', []))}品种 | 空头{len(summary.get('bear_signals', []))} 多头{len(summary.get('bull_signals', []))}")
 
     # ── 从 summary 提取数据 ──
     all_ranked = summary.get("all_ranked", [])
