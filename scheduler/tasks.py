@@ -50,13 +50,16 @@ class TaskResult:
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parent
+    """FDT_ROOT（futures-debate-team 包根）。本文件位于 FDT_ROOT/scheduler/，故上溯两级。
+    全文件路径基准：_run_script(rel)、root/'skills'、root/'scripts'、root/'ml'、root/'memory' 均以此为根。
+    ⚠️ 勿改回单层 .parent（会退回 scheduler/，令所有相对脚本路径失效）。"""
+    return Path(__file__).resolve().parent.parent
 
 
 # 品种代码列表（与 scan_all 保持一致），供三生产者统一扫描范围
 try:
     import sys as _sys
-    _sys.path.insert(0, str(_project_root().parent / "skills" / "quant-daily" / "scripts"))
+    _sys.path.insert(0, str(_project_root() / "skills" / "quant-daily" / "scripts"))
     from config.symbols import ALL_SYMBOLS
     ALL_SYMBOL_CODES = [s[0] for s in ALL_SYMBOLS]
 except Exception:
@@ -269,12 +272,14 @@ def auto_publish() -> TaskResult:
     start = datetime.now()
     _log("📦 开始自动发布")
 
-    sync_script = _project_root().parent.parent.parent.parent / "quant-bare" / "sync_experts_to_github.py"
+    # quant-bare 位于用户主目录（FDT 包外），用 expanduser 便携解析；保留硬编码兜底
+    sync_script = Path(os.path.expanduser("~")) / "quant-bare" / "sync_experts_to_github.py"
     if not sync_script.exists():
         sync_script = Path("C:/Users/yangd/quant-bare/sync_experts_to_github.py")
 
     if sync_script.exists():
-        success, summary = _run_script(str(sync_script.relative_to(_project_root().parent)), timeout=120)
+        # sync_script 在 FDT 包外，传绝对路径（_run_script 的 root/abs 会取绝对路径，避免 relative_to ValueError）
+        success, summary = _run_script(str(sync_script), timeout=120)
     else:
         success, summary = False, "sync脚本不存在"
 
