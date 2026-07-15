@@ -162,10 +162,10 @@ class TestTrajectoryAnalyzerIntegration:
 
         assert isinstance(trajectory, list)
         assert isinstance(faults, list)
-        # 空头 has invalid output → should produce fault
+        # 慎思 has invalid output → should produce fault
         if faults:
             assert faults[0]["fault_step_id"] == "P4"
-            assert faults[0]["fault_agent"] == "空头"
+            assert faults[0]["fault_agent"] == "慎思"
 
 
 class TestErrorHandling:

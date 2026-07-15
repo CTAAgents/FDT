@@ -18,14 +18,14 @@ def sample_debate_results() -> dict:
             "探源": {"valid": True, "summary": "库存下降，基差走强"}
         },
         "debaters": {
-            "多头": {
+            "证真": {
                 "valid": True,
                 "arguments": [
                     {"strategy": "F1", "text": "均线多头排列",
                      "impact": "HIGH", "confidence": 0.85}
                 ]
             },
-            "空头": {
+            "慎思": {
                 "valid": False,
                 "arguments": [
                     {"strategy": "F1", "text": "ADX开始掉头",
@@ -51,9 +51,9 @@ def sample_trajectory() -> list:
          "observation": "均线多头排列", "reward": 1.0, "skill_used": "technical-analysis"},
         {"step_id": "P3", "agent_role": "探源", "action": "research",
          "observation": "库存下降", "reward": 1.0, "skill_used": "fundamental-data-collector"},
-        {"step_id": "P4", "agent_role": "多头", "action": "argue",
+        {"step_id": "P4", "agent_role": "证真", "action": "argue",
          "observation": "[]", "reward": 1.0, "skill_used": "debate-argument-builder"},
-        {"step_id": "P4", "agent_role": "空头", "action": "argue",
+        {"step_id": "P4", "agent_role": "慎思", "action": "argue",
          "observation": '{"confidence": "str_instead_of_float", "type_error": true}',
          "reward": 0.0, "skill_used": "debate-argument-builder"},
         {"step_id": "P5_judge", "agent_role": "闫判官", "action": "verdict",

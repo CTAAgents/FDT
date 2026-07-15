@@ -96,7 +96,7 @@ class TestSkillEvolverContrastiveUpdate:
         agents_dir.mkdir()
 
         agent_file = agents_dir / "futures-opposition-debater.md"
-        agent_file.write_text("# 空头\n\n## Role\n空头分析员\n", encoding="utf-8")
+        agent_file.write_text("# 慎思\n\n## Role\n慎思分析员\n", encoding="utf-8")
 
         self.evolver = SkillEvolver(self.fake_root)
 
@@ -105,7 +105,7 @@ class TestSkillEvolverContrastiveUpdate:
         from scripts.skillevolver_evolution import SkillEvolver
         faults = [{
             "fault_step_id": "P4",
-            "fault_agent": "空头",
+            "fault_agent": "慎思",
             "fault_type": "skill_defect",
             "responsible_skill": "debate-argument-builder",
             "evidence": "confidence type mismatch",
@@ -113,7 +113,7 @@ class TestSkillEvolverContrastiveUpdate:
             "fix_suggestion": {
                 "action": "修正",
                 "target": "debate-argument-builder",
-                "content_hint": "修正空头 Agent MD 中与 P4 相关的约束"
+                "content_hint": "修正慎思 Agent MD 中与 P4 相关的约束"
             }
         }]
         updates = self.evolver._contrastive_update(faults)

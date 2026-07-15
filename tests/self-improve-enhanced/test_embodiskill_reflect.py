@@ -59,7 +59,7 @@ class TestEmbodiSkillReflection:
 
     def test_skill_defect_on_confidence_error(self):
         """Observation with 'confidence' + 'type' → SKILL_DEFECT."""
-        traj = [{"step_id": "P4", "agent_role": "空头", "observation": "confidence typeerror str",
+        traj = [{"step_id": "P4", "agent_role": "慎思", "observation": "confidence typeerror str",
                  "reward": 0.0}]
         reflections = self.reflector.reflect_on_trajectory(traj)
         assert len(reflections) >= 1

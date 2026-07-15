@@ -56,11 +56,11 @@ def _project_root() -> Path:
 # 品种代码列表（与 scan_all 保持一致），供三生产者统一扫描范围
 try:
     import sys as _sys
-    _sys.path.insert(0, str(_project_root() / "skills" / "quant-daily" / "scripts"))
+    _sys.path.insert(0, str(_project_root().parent / "skills" / "quant-daily" / "scripts"))
     from config.symbols import ALL_SYMBOLS
     ALL_SYMBOL_CODES = [s[0] for s in ALL_SYMBOLS]
 except Exception:
-    ALL_SYMBOL_CODES = [].parent
+    ALL_SYMBOL_CODES = []
 
 
 def _log(msg: str):
