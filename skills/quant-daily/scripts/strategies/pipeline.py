@@ -172,22 +172,28 @@ class StrategyFusion:
 
         fused: list[ScoredSignal] = []
         for symbol, sigs in by_symbol.items():
-            candidate = self._fuse_one(symbol, sigs)
-            if candidate is not None:
-                fused.append(candidate)
+            candidates = self._fuse_one(symbol, sigs)
+            if candidates:
+                if isinstance(candidates, list):
+                    fused.extend(candidates)
+                else:
+                    fused.append(candidates)
 
         # 按 abs_score 降序
         fused.sort(key=lambda s: s.abs_score, reverse=True)
         return fused
 
     def _fuse_one(self, symbol: str,
-                  signals: list[ScoredSignal]) -> Optional[ScoredSignal]:
-        """融合单个品种的多策略信号。"""
+                  signals: list[ScoredSignal]) -> ScoredSignal | list[ScoredSignal] | None:
+        """融合单个品种的多策略信号。
+
+        当方向冲突且冲突方信号有效（grade≠NOISE）时拆分输出，
+        让下游 debate 环节自行裁决，避免权重碾压丢失信息。
+        """
         if not signals:
             return None
 
         if self.fusion_method == self.SIGNAL_STACK:
-            # 信号叠加：保留所有信号，取最高 abs 的 grade
             best = max(signals, key=lambda s: s.abs_score)
             best.extra["strategy_breakdown"] = {
                 s.strategy_name: {"total": s.total, "weight": s.weight}
@@ -195,7 +201,43 @@ class StrategyFusion:
             }
             return best
 
-        # 按 weight 降序排列
+        sorted_sigs = sorted(signals, key=lambda s: s.weight, reverse=True)
+
+        # ══════════════════════════════════════════════════
+        # 方向冲突拆分逻辑（所有融合模式共享）
+        # ══════════════════════════════════════════════════
+        dirs = {s.direction for s in signals if s.direction not in ("neutral",)}
+        if len(dirs) > 1:
+            # 按方向分组
+            bull_sigs = [s for s in signals if s.direction == "bull"]
+            bear_sigs = [s for s in signals if s.direction == "bear"]
+            # 只保留有效信号（NOISE 级别的不参与冲突）
+            bull_active = [s for s in bull_sigs if s.grade != "NOISE"]
+            bear_active = [s for s in bear_sigs if s.grade != "NOISE"]
+
+            if bull_active and bear_active:
+                # 双方都有有效信号 → 拆分输出
+                bull_fused = self._fuse_dir(symbol, bull_active, "bull")
+                bear_fused = self._fuse_dir(symbol, bear_active, "bear")
+                result = []
+                if bull_fused:
+                    bull_fused.extra["direction_conflict"] = True
+                    bull_fused.extra["conflict_with"] = [s.signal_type for s in bear_active]
+                    result.append(bull_fused)
+                if bear_fused:
+                    bear_fused.extra["direction_conflict"] = True
+                    bear_fused.extra["conflict_with"] = [s.signal_type for s in bull_active]
+                    result.append(bear_fused)
+                return result if result else None
+
+        # 无冲突或单方向 → 正常融合
+        return self._fuse_dir(symbol, signals, None)
+
+    def _fuse_dir(self, symbol: str, signals: list[ScoredSignal],
+                  preferred_dir: str | None = None) -> Optional[ScoredSignal]:
+        """融合同一方向的策略信号。"""
+        if not signals:
+            return None
         sorted_sigs = sorted(signals, key=lambda s: s.weight, reverse=True)
 
         if self.fusion_method == self.WEIGHTED_MAX:
@@ -204,12 +246,8 @@ class StrategyFusion:
                 s.strategy_name: {"total": s.total, "weight": s.weight}
                 for s in signals
             }
-            # 检查方向冲突
-            dirs = {s.direction for s in signals if s.direction != "neutral"}
-            if len(dirs) > 1:
-                best.extra["direction_conflict"] = True
-                best.extra["direction_resolved_by"] = best.strategy_name
-                best.direction = best.direction  # 最高权重说了算
+            if preferred_dir:
+                best.direction = preferred_dir
             return best
 
         if self.fusion_method == self.WEIGHTED_AVG:
@@ -218,15 +256,7 @@ class StrategyFusion:
                 return sorted_sigs[0]
             avg_total = sum(s.total * s.weight for s in signals) / total_weight
             avg_abs = sum(s.abs_score * s.weight for s in signals) / total_weight
-            # 方向取加权投票
-            bull_weight = sum(s.weight for s in signals if s.direction == "bull")
-            bear_weight = sum(s.weight for s in signals if s.direction == "bear")
-            if bull_weight > bear_weight:
-                direction = "bull"
-            elif bear_weight > bull_weight:
-                direction = "bear"
-            else:
-                direction = "neutral"
+            direction = preferred_dir or sorted_sigs[0].direction
 
             result = ScoredSignal(
                 symbol=symbol,

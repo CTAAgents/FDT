@@ -60,11 +60,14 @@ class TestTopoSort:
 class TestStrategyFusion:
     """跨策略融合测试"""
 
-    def _sig(self, name, direction="bear", total=-38, abs_score=38, weight=1.0):
+    def _sig(self, name, direction="bear", total=-38, abs_score=38, weight=1.0, grade=None):
         from strategies.base_v2 import ScoredSignal
-        return ScoredSignal(symbol="RB", direction=direction, signal_type="t",
-                            strategy_name=name, total=total, abs_score=abs_score,
-                            weight=weight)
+        kwargs = dict(symbol="RB", direction=direction, signal_type="t",
+                      strategy_name=name, total=total, abs_score=abs_score,
+                      weight=weight)
+        if grade:
+            kwargs["grade"] = grade
+        return ScoredSignal(**kwargs)
 
     def test_weighted_max(self):
         from strategies.pipeline import StrategyFusion
@@ -94,10 +97,13 @@ class TestStrategyFusion:
     def test_direction_conflict(self):
         from strategies.pipeline import StrategyFusion
         fusion = StrategyFusion(StrategyFusion.WEIGHTED_MAX)
-        per = {"a": [self._sig("a", weight=1.0)], "b": [self._sig("b", direction="bull", total=20, abs_score=20, weight=0.5)]}
+        # 两个方向的有效信号（grade 非 NOISE）→ 冲突拆分
+        per = {"a": [self._sig("a", weight=1.0, grade="STRONG")],
+               "b": [self._sig("b", direction="bull", total=20, abs_score=20, weight=0.5, grade="WEAK")]}
         result = fusion.fuse(per)
-        assert result[0].extra.get("direction_conflict") is True
-        assert result[0].direction == "bear"
+        assert len(result) == 2  # 冲突 → 多头空头都保留
+        assert any(r.direction == "bear" and r.extra.get("direction_conflict") for r in result)
+        assert any(r.direction == "bull" and r.extra.get("direction_conflict") for r in result)
 
     def test_unknown_method_raises(self):
         from strategies.pipeline import StrategyFusion
