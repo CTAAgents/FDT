@@ -51,6 +51,7 @@ DATA_TYPES = {
     "SPREAD": "fdc.spread",
     "BASIS": "fdc.basis",
     "WARRANT": "fdc.warrant",
+    "MACRO": "fdc.macro",
     "FUNDAMENTAL": "fdc.fundamental",
     "F10": "fdc.f10",
     "SENTIMENT": "fdc.sentiment",

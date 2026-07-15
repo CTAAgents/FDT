@@ -304,6 +304,41 @@ def _collect_fundamental_sync(tech_list: list) -> dict:
     return out
 
 
+def _get_macro_sync() -> dict:
+    """同步采集宏观数据（PMI + LPR1Y），注入 ``ctx_extra['macro_data']``（G29）。
+
+    经 ``futures_data_core.f10.macro`` 直连东方财富宏观数据中心（免费公开源）。
+    沙箱 Python 网络受限时两个 payload 均 UNAVAILABLE → 返回 ``available=False``，
+    multi_factor 的 ``rate_proxy``/``pmi_proxy`` 因子惰性 0（不造假信号）。
+    """
+    out: dict = {
+        "available": False,
+        "source": "unavailable",
+        "pmi": None, "pmi_date": None, "pmi_mom": None,
+        "rate": None, "rate_date": None, "rate_mom": None,
+    }
+    try:
+        from futures_data_core.f10.macro import get_macro_pmi, get_macro_rate
+        pmi_p = asyncio.run(get_macro_pmi())
+        rate_p = asyncio.run(get_macro_rate())
+        if pmi_p.meta.get("data_grade") not in ("UNAVAILABLE", "STALE"):
+            d = pmi_p.data if isinstance(pmi_p.data, dict) else {}
+            out["pmi"] = d.get("pmi")
+            out["pmi_date"] = d.get("pmi_date")
+            out["pmi_mom"] = d.get("pmi_mom")
+        if rate_p.meta.get("data_grade") not in ("UNAVAILABLE", "STALE"):
+            d = rate_p.data if isinstance(rate_p.data, dict) else {}
+            out["rate"] = d.get("rate")
+            out["rate_date"] = d.get("rate_date")
+            out["rate_mom"] = d.get("rate_mom")
+        out["available"] = (out["pmi"] is not None) or (out["rate"] is not None)
+        if out["available"]:
+            out["source"] = "eastmoney"
+    except Exception:
+        pass
+    return out
+
+
 # ── P0-4 信号重校验门禁已迁至 signals/validators/p0_4_raw_kline.py ──
 # 原 _revalidate_breakouts 逻辑现由 signals.validators.run_signal_validators 按
 # config.settings.SIGNAL_VALIDATOR_MAP 路由调用（范式↔验证器声明式框架）。
@@ -624,6 +659,11 @@ def run_scan(
                 _ctx_extra["supply_data"] = _fund.get("supply_data", {})
             except Exception:
                 pass
+            # ── G29：宏观数据（PMI + LPR1Y）→ rate_proxy/pmi_proxy 因子 ──
+            try:
+                _ctx_extra["macro_data"] = _get_macro_sync()
+            except Exception:
+                _ctx_extra["macro_data"] = {"available": False}
             try:
                 from optimizer.regime import compute_market_regime
                 _mr = compute_market_regime(period=period)

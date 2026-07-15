@@ -1,5 +1,7 @@
-# Futures Debate Team — 期货交易辩论专家团 v8.0.0
+# Futures Debate Team — 期货交易辩论专家团 v8.0.2
 
+> 🌐 **v8.0.2 宏观因子接入真实公开源（G29）**：新增 `futures_data_core/f10/macro.py` 宏观连接器，`get_macro_pmi()`/`get_macro_rate()` 异步直连东方财富宏观数据中心（免费公开、零鉴权），取制造业 PMI 与 LPR1Y；`scan_all._get_macro_sync()` 注入 `ctx_extra['macro_data']`，`MultiFactorStrategy` 的 `pmi_proxy`/`rate_proxy` 两因子由硬 0 替换为真实评分（含本地状态持久化算环比动量）。实盘验证本环境可直连（PMI 50.3 / LPR1Y 3.0%，grade=DAILY）。库存/开工率因子仍惰性待付费产业分位源。
+>
 > 🚀 **v8.0.0 多因子量化策略（G24）**：新增 `MultiFactorStrategy` 作为管线第7策略——四维加权打分（量价40%/产业30%/宏观20%/另类10%），纯趋势/强弱对冲/行业中性三模式可切换。通过 FDC 数据网关读取基差/OI/持仓排名等基本面数据，在无其他策略信号时也能独立触发交易信号（ec/jm/SS 等品种已验证）。
 >
 > 🧬 **当前架构基线**：7策略并行管线（趋势跟踪/套利/均值回归/宏观制度/事件驱动/ML/多因子量化）全量扫描不过滤 → 多因子增强验证器自动执行（OI/基差/低波） → 辩论触发（STRONG/WATCH等级）→ 多空头辩论 → 终裁 → 风控 → 报告。本 README 基于权威流程文档（`docs/business_flow.md`、`docs/execution_modes_flowchart.md`），版本号唯一真相源为 `pyproject.toml`。

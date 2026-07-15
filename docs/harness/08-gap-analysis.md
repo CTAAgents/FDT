@@ -130,6 +130,7 @@
 | **G26** | 全量扫描卡慢（TQ-Local 离线时降级链超时累积） | `tdx.py` `DEFAULT_TIMEOUT=15` 导致离线时每采集器等 15s；`scan_all.py` 63 品种完全串行 → 离线时全量 ~30min 超出自动化窗口 | 高 | ① `tdx.py` 超时 15→3s（快速失败）；② `scan_all.py` 63 品种串行循环改为 `ThreadPoolExecutor(max_workers=4)` 并发；③ 采集器可用性一次性探测（breaker 已缓存，首个品种失败后其余跳过） | ✅ **2026-07-15 11:52 关闭**（tdx.py 超时 15→3s + scan_all.py 并发化 `collect_kline_for_all`；验证脚本 4.02x 提速 3.03s→0.75s、结果等价串行、10/10 OI 回归 + 126/126 核心/量化测试全绿） |
 | **G27** | MultiFactorStrategy 5 因子占位（inventory/capacity/warrant/rate/pmi 硬 0） | 多因子策略 `compute()` 中 5 个因子写死 0.0，仅 momentum/oi/basis/macro/position_rank 8 因子生效 → 因子覆盖 8/13，产业/另类维度缺失 | 中 | 数据源探查（2026-07-15）结论：**仅 `warrant_change` 有真实全量源**（`futures_data_core.f10.warrant.get_warrant` 覆盖 SHFE/DCE/CZCE/GFEX）；`inventory_pct`/`capacity` 经 `load_fundamental` 可接但缓存仅 CU/RB/AU 单点绝对值、无分位/无历史 → **惰性 0（不造假信号，待 Mysteel/隆众或参考区间）**；`rate_proxy`/`pmi_proxy` 无 FDC 源 → 维持 0。实现：scan_all 注入 `warrant_data`+`inventory_data`+`supply_data` 至 ctx_extra；multi_factor 替换 3 占位为 `_calc_warrant_change`/`_calc_inventory`/`_calc_capacity`（后两者惰性） | ✅ **2026-07-15 12:30 关闭**（scan_all 增 `_get_warrant_sync`+`_collect_fundamental_sync` 并注入 ctx_extra；multi_factor 接 3 真实函数；warrant 真实全量源已通（沙箱 UNAVAILABLE→部署激活），inventory/capacity 惰性（缓存无分位），rate/pmi 维持 0；12 G27 单测 + 82 策略套件 + 10 OI 回归全绿） |
 | **G28** | 策略无持久化启用/暂停开关 | 7 策略管线中，缺资源策略（多因子缺因子源/AI-ML缺模型/事件驱动事件宇宙小）无法发挥全能力，但无"暂停而非删除"的配置机制，只能手填 `--strategies` 或改代码 `unregister_v2` | 中 | 掌柜 2026-07-15 决策：暂停 ④多因子 + ⑦AI/ML + ⑤事件驱动（待因子源/模型/实时事件源完善再开）。实现：`config/settings.py` 增 `DISABLED_STRATEGIES={"multi_factor","ml_signal","event_driven"}`；`BaseStrategyV2` 增 `enabled: bool=True` 类属性；`registry_v2.get_pipeline()` 与 `run_scan` 注册循环跳过禁用策略（CLI `--strategies` 显式指定时覆盖禁用）。**7 策略代码零删除**，暂停=改配置项，恢复=改回配置项 | ✅ **2026-07-15 12:50 关闭**（config.settings.DISABLED_STRATEGIES 设 3 个；BaseStrategyV2.enabled 默认 True；get_pipeline/run_scan 跳过禁用；CLI --strategies 覆盖禁用；5 G28 单测 + 87 策略套件 + 22 OI/G27 回归全绿；冒烟确认默认管线仅 4 活跃） |
+| **G29** | MultiFactorStrategy 宏观因子 `rate_proxy`/`pmi_proxy` 硬 0 | G27 探查结论：`rate`/`pmi` 无 FDC 源 → 维持 0（占 2/13 因子权重 8% 恒失效）。宏观维度（宏观制度方向已通过 `macro_signal` 间接覆盖，但利率/景气度代理因子空置）无法发挥 | 中 | 掌柜 2026-07-15 决策：先建宏观连接器（免费公开源，工程量可控）。实现：新增 `futures_data_core/f10/macro.py`，`get_macro_pmi()`/`get_macro_rate()` 异步 A2APayload，httpx 直连**东方财富宏观数据中心**（端点经 WebSearch 核实：PMI=`RPT_ECONOMY_PMI` 取 `MAKE_INDEX`；利率=`RPTA_WEB_RATE` 取 `LPR1Y`，JSONP 包裹 `var WPuRCBoA=`），可注入 transport、本地状态持久化算环比动量（`fdt_macro_state.json`）；沙箱 Python 网络受限时 UNAVAILABLE → 因子惰性 0（不造假）。`scan_all._get_macro_sync()` 注入 `ctx_extra['macro_data']`；`multi_factor` 以 `_calc_rate_proxy`/`_calc_pmi_proxy` 替换硬 0（PMI 水平分 (pmi-50)/5 + 动量；利率优先动量 mom/0.25pp、否则水平分相对中性带 3.5%）。`DATA_TYPES` 补 `MACRO`；`f10/__init__.py` 注册 | ✅ **2026-07-15 13:30 关闭**（macro.py 连接器 + 注册 + ctx 注入 + 2 因子评分替换硬 0；test_macro.py 解析/动量/UNAVAILABLE 9 测试 + test_multi_factor.py 因子评分扩展 23 测试全绿；**实盘验证：本沙箱可直连东方财富宏观数据中心，PMI=50.3（2026-06）/LPR1Y=3.0%（2026-06-22）均返回 grade=DAILY 真实值**，与 G27 交易所端点被封锁不同——本连接器在当前环境即真实激活） |
 
 > **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
 
@@ -219,7 +220,7 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 
 ## 7. 总结（2026-07-14 23:45 — 策略层重构完成）
 
-**当前成熟度：8 维全 5/5**。G1-G24 关闭，**G25/G26/G27/G28 已关闭**（OI 全线补全 + 扫描 4x 提速 + 多因子因子接入 + 策略暂停开关）。CTA 策略覆盖 7/7（4 活跃 + 3 暂停）· pipeline 默认模式 · v8.0.0
+**当前成熟度：8 维全 5/5**。G1-G24 关闭，**G25/G26/G27/G28/G29 已关闭**（OI 全线补全 + 扫描 4x 提速 + 多因子因子接入 + 策略暂停开关 + 宏观 rate/pmi 真实公开源接入）。CTA 策略覆盖 7/7（4 活跃 + 3 暂停）· pipeline 默认模式 · v8.0.2
 
 2026-07-10 的「15 项全部修复、4.7/5.0」结论经本次整顿需修正为：
 
@@ -234,7 +235,7 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 
 **本次整顿收口**：2026-07-14 先后完成 Harness 文档对齐（8 篇）、流程文档重写（v4.0→v4.2）、角色边界钉死（闫判官调度权/三分析师平级互不调度）、G16 测试修复（10/10 全绿）、G14 版本迁移（contracts/migrations.py 新建）。至此 FDT 全系统达成 Harness 8 维满分的驾驭工程标准。
 
-**所有差距已关闭**（2026-07-15 12:50 — G25+G26+G27+G28 全部关闭）：G16 测试修复 + G14 版本迁移 + G17/G18 文档整顿 + G25 OI 数据全线补全（类型定义→三采集器→消费端闭环）+ G26 全量扫描并发提速（tdx 超时 15→3s + scan_all ThreadPool 4 工）+ G27 多因子因子接入（warrant 真实全量源已通、inventory/capacity 惰性待源）+ G28 策略持久化暂停开关（config DISABLED_STRATEGIES 暂停多因子/AI-ML/事件驱动，代码零删除）。FDT 全系统达成 Harness 8 维满分驾驭工程标准。
+**所有差距已关闭**（2026-07-15 13:30 — G25+G26+G27+G28+G29 全部关闭）：G16 测试修复 + G14 版本迁移 + G17/G18 文档整顿 + G25 OI 数据全线补全（类型定义→三采集器→消费端闭环）+ G26 全量扫描并发提速（tdx 超时 15→3s + scan_all ThreadPool 4 工）+ G27 多因子因子接入（warrant 真实全量源已通、inventory/capacity 惰性待源）+ G28 策略持久化暂停开关（config DISABLED_STRATEGIES 暂停多因子/AI-ML/事件驱动，代码零删除）+ G29 宏观 rate/pmi 因子接入真实公开源（东方财富宏观数据中心 PMI/LPR1Y，连接器+ctx 注入+因子评分替换硬 0，实盘验证本沙箱可直连、PMI 50.3/LPR1Y 3.0% grade=DAILY）。FDT 全系统达成 Harness 8 维满分驾驭工程标准。
 
 > 后续重构 SOP 按 G17 检查清单执行（见 §5），确保代码改动与 Harness 文档同步、测试同步更新。
 

@@ -1,10 +1,12 @@
 """
-MultiFactorStrategy G27 测试 — 5 因子数据源接入。
+MultiFactorStrategy G27/G29 测试 — 因子数据源接入。
 
 覆盖：
   - _calc_warrant_change：真实仓单数据→有符号分；无数据→惰性0
   - _calc_inventory：单点绝对值(无分位)→惰性0；含 pct 字段→激活
   - _calc_capacity：同上
+  - _calc_pmi_proxy（G29）：PMI 水平分 + 动量；无数据→惰性0
+  - _calc_rate_proxy（G29）：LPR1Y 动量优先 / 水平分；无数据→惰性0
   - compute()：ctx_extra 注入 warrant_data 后因子被消费（不再恒为0）
 """
 import pytest
@@ -15,11 +17,12 @@ def _mfs():
     return MultiFactorStrategy()
 
 
-def _ctx_extra(warrant=None, inventory=None, supply=None):
+def _ctx_extra(warrant=None, inventory=None, supply=None, macro_data=None):
     return {
         "warrant_data": warrant or {},
         "inventory_data": inventory or {},
         "supply_data": supply or {},
+        "macro_data": macro_data if macro_data is not None else {"available": False},
     }
 
 
@@ -112,3 +115,75 @@ class TestComputeConsumesWarrant:
         s = MultiFactorStrategy()
         assert s.name == "multi_factor"
         assert "warrant_change" in s._weights
+
+
+class TestPmiProxyG29:
+    def test_unavailable_inert(self):
+        from strategies.multi_factor_strategy import _calc_pmi_proxy
+        assert _calc_pmi_proxy({"symbol": "RB"}, None) == 0.0
+        assert _calc_pmi_proxy({"symbol": "RB"}, _ctx_extra()) == 0.0
+
+    def test_expansion_bullish(self):
+        from strategies.multi_factor_strategy import _calc_pmi_proxy
+        ctx = _ctx_extra(macro_data={"available": True, "pmi": 55.0, "pmi_mom": None})
+        score = _calc_pmi_proxy({"symbol": "RB"}, ctx)
+        assert score > 0  # PMI>50 扩张→偏多
+        assert -1.0 <= score <= 1.0
+
+    def test_contraction_bearish(self):
+        from strategies.multi_factor_strategy import _calc_pmi_proxy
+        ctx = _ctx_extra(macro_data={"available": True, "pmi": 45.0, "pmi_mom": None})
+        score = _calc_pmi_proxy({"symbol": "RB"}, ctx)
+        assert score < 0  # PMI<50 收缩→偏空
+
+    def test_neutral_zero(self):
+        from strategies.multi_factor_strategy import _calc_pmi_proxy
+        ctx = _ctx_extra(macro_data={"available": True, "pmi": 50.0, "pmi_mom": None})
+        assert _calc_pmi_proxy({"symbol": "RB"}, ctx) == 0.0
+
+    def test_momentum_blend(self):
+        from strategies.multi_factor_strategy import _calc_pmi_proxy
+        # PMI 50.5（水平分 +0.1）叠加动量 +0.5（权重0.4→+0.2）→ 综合 > 水平分
+        ctx = _ctx_extra(macro_data={"available": True, "pmi": 50.5, "pmi_mom": 0.5})
+        score = _calc_pmi_proxy({"symbol": "RB"}, ctx)
+        assert score > 0.1
+
+
+class TestRateProxyG29:
+    def test_unavailable_inert(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        assert _calc_rate_proxy({"symbol": "RB"}, None) == 0.0
+        assert _calc_rate_proxy({"symbol": "RB"}, _ctx_extra()) == 0.0
+
+    def test_momentum_up_bearish(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        # 利率上行 0.1pp → 偏空（-0.4）
+        ctx = _ctx_extra(macro_data={"available": True, "rate": 3.0, "rate_mom": 0.1})
+        score = _calc_rate_proxy({"symbol": "RB"}, ctx)
+        assert score < 0  # 利率上行→融资收紧→偏空
+
+    def test_momentum_down_bullish(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        # 利率下调 0.1pp → 偏多（+0.4）
+        ctx = _ctx_extra(macro_data={"available": True, "rate": 3.0, "rate_mom": -0.1})
+        score = _calc_rate_proxy({"symbol": "RB"}, ctx)
+        assert score > 0  # 利率下行→宽松→偏多
+
+    def test_level_above_band_bearish(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        # 无动量：利率 4.0% 高于中性带 3.5% → 偏空
+        ctx = _ctx_extra(macro_data={"available": True, "rate": 4.0, "rate_mom": None})
+        score = _calc_rate_proxy({"symbol": "RB"}, ctx)
+        assert score < 0
+
+    def test_level_below_band_bullish(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        # 无动量：利率 3.0% 低于中性带 3.5% → 偏多
+        ctx = _ctx_extra(macro_data={"available": True, "rate": 3.0, "rate_mom": None})
+        score = _calc_rate_proxy({"symbol": "RB"}, ctx)
+        assert score > 0
+
+    def test_level_neutral_zero(self):
+        from strategies.multi_factor_strategy import _calc_rate_proxy
+        ctx = _ctx_extra(macro_data={"available": True, "rate": 3.5, "rate_mom": None})
+        assert _calc_rate_proxy({"symbol": "RB"}, ctx) == 0.0

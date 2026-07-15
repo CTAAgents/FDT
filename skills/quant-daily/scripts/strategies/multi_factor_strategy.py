@@ -4,8 +4,13 @@
 因子体系（40/30/20/10 加权）：
   量价 40%: momentum(动量), volatility(波动率), volume_flow(资金流), oi(持仓量变化)
   产业 30%: basis(基差), inventory_pct(库存分位), capacity(开工率 proxy)
-  宏观 20%: macro_regime(宏观制度方向), rate(利率 proxy), pmi(景气度 proxy)
+  宏观 20%: macro_regime(宏观制度方向), rate_proxy(利率/LPR1Y代理), pmi_proxy(制造业PMI景气度)
   另类 10%: position_rank(龙虎持仓集中度), warrant(仓单变化)
+
+数据源（G29 已接入真实公开源）：
+  rate_proxy/pmi_proxy: futures_data_core.f10.macro（东方财富宏观数据中心，免费公开）
+    经 scan_all._get_macro_sync() 注入 ctx_extra['macro_data']；沙箱网络受限时惰性 0。
+  inventory_pct/capacity: 仍惰性待 Mysteel/隆众分位源（见 G27）。
 
 三模式：
   pure_momentum — 纯趋势多因子：量价权重提升至 60%
@@ -290,6 +295,52 @@ def _calc_capacity(t: dict, ctx_extra: dict | None) -> float:
     return 0.0
 
 
+def _calc_pmi_proxy(t: dict, ctx_extra: dict | None) -> float:
+    """制造业PMI景气度因子：PMI>50 扩张→偏多；<50 收缩→偏空。返回 -1 ~ +1。
+
+    G29 数据源：``ctx_extra['macro_data']``（东方财富 PMI，免费公开源），
+    经 scan_all._get_macro_sync() 注入。含环比动量 ``pmi_mom``（连接器本地
+    持久化计算）。无数据（含沙箱网络受限）时惰性返回 0.0（不造假信号）。
+
+    评分：水平分 ``(pmi-50)/5``（±5 指数点触顶）；若有环比动量则叠加
+    动量分（±1.0 指数点触顶，权重 0.4），水平分权重 0.6。
+    """
+    m = (ctx_extra or {}).get("macro_data") or {}
+    if not m.get("available"):
+        return 0.0
+    pmi = _safe_float(m.get("pmi"), None)
+    if pmi is None:
+        return 0.0
+    level = max(-1.0, min(1.0, (pmi - 50.0) / 5.0))
+    mom = m.get("pmi_mom")
+    if mom is not None:
+        mom_s = max(-0.5, min(0.5, _safe_float(mom) / 1.0 * 0.5))
+        return max(-1.0, min(1.0, level * 0.6 + mom_s * 0.4))
+    return level
+
+
+def _calc_rate_proxy(t: dict, ctx_extra: dict | None) -> float:
+    """利率因子（LPR1Y 代理）：利率上行→融资收紧→偏空；下行→偏多。返回 -1 ~ +1。
+
+    G29 数据源：``ctx_extra['macro_data']``（东方财富 LPR1Y，免费公开源），
+    经 scan_all._get_macro_sync() 注入。优先用环比动量 ``rate_mom``（百分点）；
+    无动量时用水平分（相对中性带 3.5%）。无数据（含沙箱网络受限）时惰性
+    返回 0.0（不造假信号）。
+    """
+    m = (ctx_extra or {}).get("macro_data") or {}
+    if not m.get("available"):
+        return 0.0
+    rate = _safe_float(m.get("rate"), None)
+    if rate is None:
+        return 0.0
+    mom = m.get("rate_mom")
+    if mom is not None and abs(_safe_float(mom)) > 1e-6:
+        # 利率上行(mom>0)→偏空(-)；下行→偏多(+)；±0.25pp 触顶
+        return max(-1.0, min(1.0, -_safe_float(mom) / 0.25))
+    # 水平分：高于中性带 3.5% → 偏空；低于 → 偏多；±1.5pp 触顶
+    return max(-1.0, min(1.0, (3.5 - rate) / 1.5))
+
+
 class MultiFactorStrategy(BaseStrategyV2):
     """多因子量化：四维因子加权打分预测品种未来收益。"""
 
@@ -343,8 +394,8 @@ class MultiFactorStrategy(BaseStrategyV2):
                 "inventory_pct": _calc_inventory(t, ctx_extra),    # G27: FDC库存(惰性待分位源)
                 "capacity": _calc_capacity(t, ctx_extra),           # G27: FDC开工率(惰性待参考区间)
                 "macro_regime": _calc_macro(t, context),
-                "rate_proxy": 0.0,         # 宏观利率因子占位
-                "pmi_proxy": 0.0,          # 宏观PMI因子占位
+                "rate_proxy": _calc_rate_proxy(t, ctx_extra),     # G29: 东方财富 LPR1Y（真实公开源）
+                "pmi_proxy": _calc_pmi_proxy(t, ctx_extra),       # G29: 东方财富 PMI（真实公开源）
                 "position_rank": _calc_position_rank(t, ctx_extra),
                 "warrant_change": _calc_warrant_change(t, ctx_extra),   # G27: FDC仓单(真实全量源)
             }

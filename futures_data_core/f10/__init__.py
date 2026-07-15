@@ -25,6 +25,7 @@ from futures_data_core.f10.term_structure import analyze_term_structure, get_ter
 from futures_data_core.f10.warrant import get_warrant, summarize_warrant
 from futures_data_core.f10.web_collector import search_fundamental_llm
 from futures_data_core.f10.sentiment import get_sentiment
+from futures_data_core.f10.macro import get_macro_pmi, get_macro_rate
 
 __all__ = [
     # term structure
@@ -58,4 +59,7 @@ __all__ = [
     "get_sentiment",
     # position ranking
     "get_position_ranking",
+    # macro
+    "get_macro_pmi",
+    "get_macro_rate",
 ]
