@@ -159,6 +159,8 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         scan_cmd.append("--disable-filter")
     if getattr(args, "symbols", None):
         scan_cmd += ["--symbols", args.symbols]
+    if getattr(args, "strategies", None):
+        scan_cmd += ["--strategies", args.strategies]
 
     # 执行扫描
     rc = _run(scan_cmd)
@@ -281,6 +283,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="资源感知动态并发")
     p_pipe.add_argument("--pipeline", action="store_true",
                         help="启用多策略管线（6策略并行）代替单策略通道突破")
+    p_pipe.add_argument("--strategies", default=None,
+                        help='管线策略子集（逗号分隔），如 "trend_following,arbitrage"。不传=全部6策略')
 
     # ── 低级命令保持兼容 ──
     p_scan = sub.add_parser("scan", help="运行信号扫描 (pass-through)")

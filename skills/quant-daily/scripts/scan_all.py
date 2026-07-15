@@ -574,20 +574,37 @@ def run_scan(
             _pipeline_default = not getattr(args, "strategy", None)
             if _pipeline_default:
                 try:
-                    from strategies.registry_v2 import get_pipeline
+                    # ── 策略子集筛选 ──
+                    _strat_selector = getattr(args, "strategies", None)
+                    if _strat_selector:
+                        _selected = {s.strip().lower() for s in _strat_selector.split(",")}
+                    else:
+                        _selected = None  # 全部加载
+
+                    _STRATEGY_REGISTRY: dict[str, type] = {}
                     from strategies.trend_following_strategy import TrendFollowingStrategy
+                    _STRATEGY_REGISTRY["trend_following"] = TrendFollowingStrategy
                     from strategies.arbitrage_strategy import ArbitrageStrategy
+                    _STRATEGY_REGISTRY["arbitrage"] = ArbitrageStrategy
                     from strategies.mean_reversion_strategy import MeanReversionStrategy
+                    _STRATEGY_REGISTRY["mean_reversion"] = MeanReversionStrategy
                     from strategies.macro_regime_strategy import MacroRegimeStrategy
+                    _STRATEGY_REGISTRY["macro_regime"] = MacroRegimeStrategy
                     from strategies.event_driven_strategy import EventDrivenStrategy
+                    _STRATEGY_REGISTRY["event_driven"] = EventDrivenStrategy
                     from strategies.ml_signal_strategy import MlSignalStrategy
-                    from strategies.registry_v2 import register_v2
-                    register_v2(TrendFollowingStrategy())
-                    register_v2(ArbitrageStrategy())
-                    register_v2(MeanReversionStrategy())
-                    register_v2(MacroRegimeStrategy())
-                    register_v2(EventDrivenStrategy())
-                    register_v2(MlSignalStrategy())
+                    _STRATEGY_REGISTRY["ml_signal"] = MlSignalStrategy
+
+                    from strategies.registry_v2 import get_pipeline, register_v2
+                    _active_names = []
+                    for _name, _cls in _STRATEGY_REGISTRY.items():
+                        if _selected is None or _name in _selected:
+                            register_v2(_cls())
+                            _active_names.append(_name)
+                    _skipped = set(_STRATEGY_REGISTRY) - set(_active_names)
+                    if _skipped:
+                        print(f"  [策略筛选] 跳过: {', '.join(sorted(_skipped))}")
+
                     pipeline = get_pipeline()
                     _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
                             "window_mode": window_mode, "mode": "full", "extra": _ctx_extra}
@@ -1105,6 +1122,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--pipeline", action="store_true", help="多策略管线模式（v7.0默认已是管线；保留此标志仅显式启用）"
+    )
+    parser.add_argument(
+        "--strategies", default=None,
+        help='选取指定策略（逗号分隔），如 "trend_following,arbitrage"。不传则全部 6 策略'
     )
     parser.add_argument(
         "--walk-forward",
