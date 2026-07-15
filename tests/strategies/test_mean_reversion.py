@@ -84,5 +84,27 @@ class TestMeanReversion:
         meta = signals[0].meta
         assert "kf_z_score" in meta
         assert "kf_suppressed" in meta
+        assert "bb_width" in meta
         assert meta["kf_z_score"] == 0.0  # 无 closes → 缺省值
         assert meta["kf_suppressed"] is False
+
+    def test_bb_bandwidth_suppresses_in_wide_volatility(self):
+        """BB 带宽很宽（>10%）且无 bb_width 时放行"""
+        from strategies.mean_reversion_strategy import MeanReversionStrategy
+        s = MeanReversionStrategy()
+        # 宽带宽（0.15=15%）→ 不属于压缩态，但 bb_width 条件为带宽<=0.10或<0.03
+        # 带宽 0.15 既不满足 <BB_BANDWIDTH_MIN 也不满足 <=0.10 → 压制
+        # 测试验证信号被压制
+        tech = {"symbol": "RB", "rsi": 15, "adx": 20, "cci": 0, "bb": 0.05, "price": 3000,
+                "bb_width": 0.15}
+        signals = MeanReversionStrategy().compute([tech], {})
+        assert len(signals) == 0  # 宽带宽 → 非压缩态 → 压制
+
+    def test_bb_bandwidth_pass_when_compressed(self):
+        """BB 带宽压缩（<3%）→ 信号放行"""
+        from strategies.mean_reversion_strategy import MeanReversionStrategy
+        s = MeanReversionStrategy()
+        tech = {"symbol": "RB", "rsi": 15, "adx": 20, "cci": 0, "bb": 0.05, "price": 3000,
+                "bb_width": 0.02}  # 2% < BB_BANDWIDTH_MIN(0.03) → 放行
+        signals = s.compute([tech], {})
+        assert len(signals) == 1

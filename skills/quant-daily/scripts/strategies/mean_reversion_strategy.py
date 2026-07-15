@@ -24,6 +24,7 @@ BB_UPPER_THRESHOLD = 0.9  # 布林带 %b 高于此 → 上轨外做空
 ADX_MAX = 25             # ADX 低于此 → 震荡市（反转策略偏好）
 KF_Z_MAX = 2.5           # KF 自适应 z 超过此值 → 均值加速偏移 → 压制回归信号 (G37 Phase 3)
 KF_MIN_BARS = 20         # KF 所需最小 bar 数
+BB_BANDWIDTH_MIN = 0.03  # 布林带带宽下限（< 3% = 极度压缩 → 反转高概率；G39）
 
 
 class MeanReversionStrategy(BaseStrategyV2):
@@ -63,6 +64,7 @@ class MeanReversionStrategy(BaseStrategyV2):
             cci = float(t.get("cci", 0))
             bb = t.get("bb", 0)
             price = float(t.get("price", 0))
+            bb_width = float(t.get("bb_width", 1.0))  # 1.0 缺省（可接受）
 
             # ── KF 制度过滤器（G37 Phase 3）：均值加速偏移 → 压制回归信号 ──
             kf_z = 0.0
@@ -76,6 +78,10 @@ class MeanReversionStrategy(BaseStrategyV2):
 
             # 趋势市不做反转（ADX > 25 或 KF 检测到均值加速偏移）
             in_ranging = (adx == 0 or adx < ADX_MAX) and kf_regime_ok
+            # 布林带带宽门禁（G39）：带宽极低 → 压缩态 → 反转高概率窗口
+            bb_bandwidth_ok = bb_width < BB_BANDWIDTH_MIN or bb_width <= 0.10
+            # 若无 bb_width 数据（缺省 1.0）→ 不压制信号
+            in_ranging = in_ranging and (bb_width >= 1.0 or bb_bandwidth_ok)
 
             sub_signals: list[tuple[str, float, str]] = []
 
@@ -129,6 +135,7 @@ class MeanReversionStrategy(BaseStrategyV2):
                         "sub_types": [s[0] for s in sub_signals],
                         "kf_z_score": round(kf_z, 2),
                         "kf_suppressed": not kf_regime_ok,
+                        "bb_width": round(bb_width, 4) if bb_width != 1.0 else None,
                     },
                 ))
 
