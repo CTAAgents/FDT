@@ -519,6 +519,23 @@ def run_scan(
     except Exception:
         spread_history = {}  # 整体降级，策略无操作
 
+    # ── Step 1.2 (G35 P2 续): 期现基差历史（受保护，JSONL 日志 → provider）──
+    basis_history: dict = {}
+    try:
+        from strategies.basis_reversion_strategy import fetch_basis_history
+        for _sym, _name in target_symbols:
+            _v = _sym[0] if isinstance(_sym, (list, tuple)) else _sym
+            try:
+                _bh = fetch_basis_history(_v, days=120)
+                if _bh:
+                    basis_history[_v] = _bh
+            except Exception:
+                continue
+        if basis_history:
+            print(f"  期现基差历史: {len(basis_history)} 品种就绪（BasisReversionStrategy）")
+    except Exception:
+        basis_history = {}
+
     # ── R24 全局闸门：如果没有任何品种有有效数据，拒绝整次扫描 ──
     if not kline_data:
         _fail_reasons = []
@@ -748,6 +765,8 @@ def run_scan(
                     _STRATEGY_REGISTRY["pairs_reversion"] = PairsReversionStrategy
                     from strategies.spread_reversion_strategy import SpreadReversionStrategy
                     _STRATEGY_REGISTRY["spread_reversion"] = SpreadReversionStrategy
+                    from strategies.basis_reversion_strategy import BasisReversionStrategy
+                    _STRATEGY_REGISTRY["basis_reversion"] = BasisReversionStrategy
                     from strategies.macro_regime_strategy import MacroRegimeStrategy
                     _STRATEGY_REGISTRY["macro_regime"] = MacroRegimeStrategy
                     from strategies.event_driven_strategy import EventDrivenStrategy
@@ -780,7 +799,7 @@ def run_scan(
                     pipeline = get_pipeline()
                     _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
                             "window_mode": window_mode, "mode": "full", "extra": _ctx_extra,
-                            "spread_history": spread_history}
+                            "spread_history": spread_history, "basis_history": basis_history}
                     summary = pipeline.run(tech_list, kline_data, _ctx)
                     summary["pipeline_mode"] = True
                     summary["active_strategies"] = _active_names.copy()
