@@ -1,9 +1,11 @@
-# Futures Debate Team — 期货交易辩论专家团 v8.0.4
+# Futures Debate Team — 期货交易辩论专家团 v8.0.5
 
 > 🧬 **架构基线**：7策略并行管线(NO_FUSION) → 策略内验证器 → 多因子增强验证器 → 辩论触发 → 多空辩论 → 闫判官终裁 → 风控 → 报告。
 > 辩论结论天然优先于扫描信号：多头分析员和空头分析员独立举证，闫判官在双方论据中裁决，可正面否决扫描层的方向判断（已验证：2026-07-15 fu 扫描 bull+514，辩论后判 bear）。
 >
 > 📈 **v8.0.4 TSMOM 时间序列动量（G31）**：`trend_following` 由 8 子信号扩展为 9 子信号共振——新增 TSMOM 时间序列动量（Moskowitz-Ooi-Pedersen 2012）。FDC 新增 `calculate_tsmom(close, windows=(21,63,126,252))` 纯函数（简单累计收益，不足窗口返回 NaN），主管线唯一计算入口单点注入 `TSMOM_1M/3M/6M/12M`（自动贯穿 scan_all + 所有回测）。`_score_tsmom` 对四窗口收益取平均符号定方向、`abs(avg)/10%` 缩放定强度（多窗口合成本身即降噪）。零新数据源（纯 OHLC 派生）。
+>
+> 📈 **v8.0.5 Vol Targeting 波动率目标化（G32）**：现代 CTA 趋势跟踪第二基石（与 TSMOM 并列），落点=执行/风险 overlay 层（非信号评分层，与 G34 Turtle N 单位统一）。FDC 新增 `calculate_realized_vol`（日收益 std×√252 年化）+ `calculate_vol_target_scale`（target/realized 截断 [0.2,3.0]），主管线唯一计算入口单点注入 `REALIZED_VOL`/`VOL_SCALE`（自动贯穿 scan_all + 所有回测）。`VolTargetingOverlay`（`StrategyPipeline` Phase 4.5）向每个信号注入 `extra.vol_target_scale`，`trade_plan` 据其缩放仓位——高波动降仓、低波动加仓，使组合波动贡献恒定（默认目标 10% 年化）。零新数据源（纯 OHLC 派生）。
 >
 > 📈 **v8.0.3 趋势跟踪指标衍生扩展（G30）**：`trend_following` 由 3 子信号扩展为 8 子信号共振——DC20/DC55/BB（原）+ Keltner 通道突破 / Supertrend 趋势状态 / Parabolic SAR 转向 / Chandelier Exit 吊灯退出 / MACD 系统。FDC 新增 `calculate_keltner`/`calculate_chandelier_exit`，主管线唯一计算入口单点注入 5 字段（自动贯穿 scan_all + 所有回测），零新数据源。
 >

@@ -84,6 +84,9 @@ _FIELD_MAP = {
     "tsmom_3m": "tsmom_3m", "TSMOM_3M": "tsmom_3m",
     "tsmom_6m": "tsmom_6m", "TSMOM_6M": "tsmom_6m",
     "tsmom_12m": "tsmom_12m", "TSMOM_12M": "tsmom_12m",
+    # G32 波动率目标化 Vol Targeting
+    "realized_vol": "realized_vol", "REALIZED_VOL": "realized_vol",
+    "vol_scale": "vol_target_scale", "VOL_SCALE": "vol_target_scale",
     # 均值/标准差
     "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
 }
@@ -404,6 +407,18 @@ class StrategyPipeline:
                     s.total = fd.get("total", s.total)
                     s._validator_demoted = fd.get("_validator_demoted", False)
         except ImportError:
+            pass
+
+        # Phase 4.5: 波动率目标化 overlay（G32）— 执行/风险层缩放
+        # 对每个融合后信号注入 vol_target_scale / realized_vol / note。
+        # NO_FUSION 与各融合模式统一生效；overlay 不可用时不崩溃。
+        try:
+            from strategies.vol_targeting import VolTargetingOverlay
+            _tech_by_symbol = {t.get("symbol"): t for t in tech_list if isinstance(t, dict)}
+            _overlay = VolTargetingOverlay()
+            for s in fused:
+                _overlay.apply(s, _tech_by_symbol.get(s.symbol, {}))
+        except Exception:
             pass
 
         # Phase 5: 打包输出

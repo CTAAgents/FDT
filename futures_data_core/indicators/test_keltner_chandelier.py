@@ -190,3 +190,93 @@ class TestCalculateTSMOMIntegration:
         # n=80：1m/3m 可用（正），6m/12m 不足 → 0.0（字段仍存在，策略层剔除）
         assert tech["TSMOM_1M"] > 0 and tech["TSMOM_3M"] > 0
         assert tech["TSMOM_6M"] == 0.0 and tech["TSMOM_12M"] == 0.0
+
+
+class TestCalculateRealizedVol:
+    def test_returns_annualized(self):
+        from futures_data_core.indicators.tdx_compat import calculate_realized_vol
+        rng = np.random.default_rng(5)
+        daily_ret = rng.normal(0, 0.01, 300)
+        close = 100.0 * np.cumprod(1.0 + daily_ret)
+        rv = calculate_realized_vol(close, window=63)
+        # 对照同一窗口的样本 std（消除 RNG 估计误差）
+        expected = float(np.std(daily_ret[-63:], ddof=1) * np.sqrt(252))
+        assert abs(rv - expected) < 1e-9
+
+    def test_short_series_nan(self):
+        from futures_data_core.indicators.tdx_compat import calculate_realized_vol
+        c = np.arange(1, 41, dtype=float)  # 40 < 63+1
+        assert np.isnan(calculate_realized_vol(c, window=63))
+
+    def test_flat_series_zero(self):
+        from futures_data_core.indicators.tdx_compat import calculate_realized_vol
+        c = np.full(200, 100.0)
+        assert calculate_realized_vol(c, window=63) == 0.0
+
+
+class TestCalculateVolTargetScale:
+    def test_high_vol_floored(self):
+        from futures_data_core.indicators.tdx_compat import calculate_vol_target_scale
+        # 50% 年化波动，目标 10% → 0.2，截断到 floor 0.2
+        assert calculate_vol_target_scale(0.50, target=0.10, floor=0.2, cap=3.0) == 0.2
+
+    def test_low_vol_capped(self):
+        from futures_data_core.indicators.tdx_compat import calculate_vol_target_scale
+        # 2% 年化波动，目标 10% → 5.0，截断到 cap 3.0
+        assert calculate_vol_target_scale(0.02, target=0.10, floor=0.2, cap=3.0) == 3.0
+
+    def test_zero_vol_neutral(self):
+        from futures_data_core.indicators.tdx_compat import calculate_vol_target_scale
+        assert calculate_vol_target_scale(0.0) == 1.0
+        assert calculate_vol_target_scale(float("nan")) == 1.0
+
+    def test_exact_target_one(self):
+        from futures_data_core.indicators.tdx_compat import calculate_vol_target_scale
+        assert calculate_vol_target_scale(0.10, target=0.10, floor=0.2, cap=3.0) == 1.0
+
+    def test_mid_vol_scales(self):
+        from futures_data_core.indicators.tdx_compat import calculate_vol_target_scale
+        # 20% 年化波动，目标 10% → 0.5
+        assert calculate_vol_target_scale(0.20, target=0.10, floor=0.2, cap=3.0) == 0.5
+
+
+class TestVolTargetingIntegration:
+    """主管线入口注入验证：_compute_indicators_numpy 产出 G32 字段。"""
+
+    def test_legacy_numpy_emits_g32_fields(self):
+        from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+        import pandas as pd
+        rng = np.random.default_rng(9)
+        n = 120
+        close = 100.0 + np.arange(n) * 0.4 + rng.normal(0, 0.5, n).cumsum()
+        df = pd.DataFrame({
+            "open": close + rng.normal(0, 0.2, n),
+            "high": close + np.abs(rng.normal(0, 0.5, n)) + 0.3,
+            "low": close - np.abs(rng.normal(0, 0.5, n)) - 0.3,
+            "close": close,
+            "volume": np.full(n, 1000.0),
+        })
+        tech = _compute_indicators_numpy(df, symbol=None)
+        assert "REALIZED_VOL" in tech, "缺失 G32 字段 REALIZED_VOL"
+        assert "VOL_SCALE" in tech, "缺失 G32 字段 VOL_SCALE"
+        assert tech["REALIZED_VOL"] > 0.0
+        # VOL_SCALE = 0.10 / REALIZED_VOL，截断 [0.2, 3.0]
+        assert 0.2 <= tech["VOL_SCALE"] <= 3.0
+
+    def test_legacy_numpy_flat_neutral_scale(self):
+        from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+        import pandas as pd
+        # n=70（>=60 早退线且 >=64 触发 G32）→ 持平序列 → 已实现波动 0 → 中性缩放 1.0
+        n = 70
+        close = np.full(n, 100.0)
+        df = pd.DataFrame({
+            "open": close,
+            "high": close + 0.1,
+            "low": close - 0.1,
+            "close": close,
+            "volume": np.full(n, 1000.0),
+        })
+        tech = _compute_indicators_numpy(df, symbol=None)
+        assert tech["VOL_SCALE"] == 1.0
+        assert tech["REALIZED_VOL"] == 0.0
+

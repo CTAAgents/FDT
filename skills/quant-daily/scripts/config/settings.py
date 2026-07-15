@@ -503,6 +503,24 @@ TREND_G31_CONFIG = {
 }
 
 
+# ═══════════════════════════════════════════════════════════
+# G32 波动率目标化 Vol Targeting — 参数集中配置（单一真相源）
+# 现代 CTA 趋势跟踪第二基石（与 TSMOM 并列）。目标使持仓对组合
+# 波动率贡献恒定 = target_ann_vol（默认 10%/年）。
+# scale = target / realized_vol，截断 [floor, cap]。
+# 镜像 futures_data_core.indicators.tdx_compat.calculate_* 默认值；
+# legacy_numpy 单点注入 REALIZED_VOL / VOL_SCALE 与之一致。
+# ═══════════════════════════════════════════════════════════
+TREND_G32_CONFIG = {
+    "window": 63,            # 已实现波动率回看（交易日）≈ 3 月，与 TSMOM 3m 对齐
+    "target_ann_vol": 0.10,  # 目标年化波动率 10%
+    "floor": 0.2,            # 高波动最多降仓到 0.2x
+    "cap": 3.0,              # 低波动最多加仓到 3.0x
+    # 落点：执行/风险 overlay 层（非信号评分层）；依赖 G31 收益序列做波动估计
+    "layer": "execution_risk_overlay",
+}
+
+
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护
     "channel_breakout":       ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing", "trend_direction"],

@@ -434,6 +434,50 @@ def calculate_tsmom(close, windows=(21, 63, 126, 252)):
     return tuple(out)
 
 
+def calculate_realized_vol(close, window: int = 63):
+    """已实现波动率（年化，G32 Vol Targeting 波动率真相源）。
+
+    基于日收盘 pct 收益序列标准差 × √252。不足 window+1 根返回 NaN。
+    纯函数、零外部依赖。
+
+    Args:
+        close: 收盘价序列（np.ndarray 或类数组）
+        window: 回看交易日数（默认 63 ≈ 3 月，与 TSMOM 3m 窗口对齐）
+    Returns:
+        年化已实现波动率（小数，如 0.20 = 20%/年）；数据不足返回 NaN
+    """
+    arr = np.asarray(close, dtype=float)
+    if arr.size < window + 1:
+        return float("nan")
+    rets = arr[1:] / arr[:-1] - 1.0
+    if rets.size < window:
+        return float("nan")
+    sd = float(np.std(rets[-window:], ddof=1))
+    return sd * np.sqrt(252)
+
+
+def calculate_vol_target_scale(realized_vol, target: float = 0.10,
+                               floor: float = 0.2, cap: float = 3.0) -> float:
+    """波动率目标化缩放系数（G32）。
+
+    目标：使持仓对组合波动率的贡献恒定 = target（默认 10%/年）。
+    scale = target / realized_vol，截断到 [floor, cap]。
+    真实波动率为 0 或 NaN 时返回 1.0（不缩放，中性）。
+
+    Args:
+        realized_vol: 年化已实现波动率（小数）
+        target: 目标年化波动率（默认 0.10）
+        floor: 最小缩放（高波动时最多降仓到 floor 倍，默认 0.2）
+        cap: 最大缩放（低波动时最多加仓到 cap 倍，默认 3.0）
+    Returns:
+        仓位缩放系数 ∈ [floor, cap]
+    """
+    if realized_vol is None or not np.isfinite(realized_vol) or realized_vol <= 1e-6:
+        return 1.0
+    scale = target / float(realized_vol)
+    return min(cap, max(floor, scale))
+
+
 def calculate_linearreg_slope(data, window=14):
     """LINEARREG_SLOPE - 线性回归斜率（TA-Lib风格）"""
     return _linear_reg_slope(data, window)
@@ -2157,6 +2201,8 @@ __all__ = [
     "calculate_keltner",
     "calculate_chandelier_exit",
     "calculate_tsmom",
+    "calculate_realized_vol",
+    "calculate_vol_target_scale",
     "calculate_linearreg_slope",
     "calculate_linearreg_angle",
     "calculate_kama",

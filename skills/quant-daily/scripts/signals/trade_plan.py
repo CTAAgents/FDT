@@ -466,7 +466,9 @@ def generate_trade_plan(
     else:
         adx_mult = 0.7  # 震荡市：-30%
 
-    pos = round(min(max(base * pos_mult * rr_mult * vol_mult * adx_mult, 2.0), 10.0), 1)
+    # G32 波动率目标化：tech_data.vol_target_scale 缩放仓位（默认 1.0，零回归）
+    vol_scale = (tech_data or {}).get("vol_target_scale", 1.0)
+    pos = round(min(max(base * pos_mult * rr_mult * vol_mult * adx_mult * vol_scale, 2.0), 10.0), 1)
 
     return {
         "pid": symbol_data["pid"],

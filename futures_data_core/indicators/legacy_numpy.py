@@ -259,6 +259,23 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
         tech["TSMOM_1M"] = tech["TSMOM_3M"] = 0.0
         tech["TSMOM_6M"] = tech["TSMOM_12M"] = 0.0
 
+    # ---- Vol Targeting (G32) — 参数与 settings.TREND_G32_CONFIG 一致 ----
+    try:
+        from futures_data_core.indicators.tdx_compat import (
+            calculate_realized_vol, calculate_vol_target_scale)
+        _g32_win, _g32_tgt, _g32_fl, _g32_cap = 63, 0.10, 0.2, 3.0
+        if n >= _g32_win + 1:
+            _rv = calculate_realized_vol(c, window=_g32_win)
+            tech["REALIZED_VOL"] = float(_rv) if np.isfinite(_rv) else 0.0
+            tech["VOL_SCALE"] = float(calculate_vol_target_scale(
+                tech["REALIZED_VOL"], _g32_tgt, _g32_fl, _g32_cap))
+        else:
+            tech["REALIZED_VOL"] = 0.0
+            tech["VOL_SCALE"] = 1.0
+    except Exception:
+        tech["REALIZED_VOL"] = 0.0
+        tech["VOL_SCALE"] = 1.0
+
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1))
     vm_m = np.abs(l - np.roll(h, 1))
