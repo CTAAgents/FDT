@@ -16,6 +16,7 @@ from strategies.spread_reversion_strategy import (
     _rolling_z,
     _build_spread_series,
     fetch_spread_history,
+    kalman_filter_ou,
 )
 
 
@@ -79,6 +80,45 @@ class TestSpreadHelpers:
         sp = _build_spread_series(np.array(near), np.array(far))
         assert len(sp) == 5
         assert np.allclose(sp, np.array(near) - np.array(far))
+
+
+# ───────────────────────────────────────────────────────────
+# Kalman Filter OU（G37 自适应 z-score）
+# ───────────────────────────────────────────────────────────
+
+class TestKalmanFilterOU:
+    def test_white_noise_z_around_zero(self):
+        # 白噪声 → 无系统性偏离，|z| 应远小于 2
+        rng = np.random.default_rng(42)
+        series = rng.normal(0, 1, 200)
+        kf = kalman_filter_ou(series)
+        assert abs(kf["z_score"]) < 1.0
+
+    def test_sharp_jump_detected(self):
+        # 平缓系列 + 单 bar 跳变 → |z| >> 2
+        series = np.zeros(120)
+        series[-1] = 10.0
+        kf = kalman_filter_ou(series)
+        assert abs(kf["z_score"]) > 2.0
+
+    def test_trend_tracked_no_signal(self):
+        # 线性趋势 → KF 自适应跟踪，z 应小于 Z_ENTRY（不触发出场信号）
+        series = np.linspace(0, 100, 200)
+        kf = kalman_filter_ou(series)
+        assert abs(kf["z_score"]) < 2.0
+
+    def test_short_series_fallback(self):
+        kf = kalman_filter_ou(np.array([1.0, 2.0, 3.0]))
+        assert kf["z_score"] == 0.0
+
+    def test_output_structure(self):
+        series = 5.0 + np.random.default_rng(99).normal(0, 0.5, 120)
+        kf = kalman_filter_ou(series)
+        assert "z_score" in kf
+        assert "filtered_mu" in kf
+        assert "state_sigma" in kf
+        assert len(kf["filtered_mu"]) == len(series)
+        assert len(kf["state_sigma"]) == len(series)
 
 
 # ───────────────────────────────────────────────────────────

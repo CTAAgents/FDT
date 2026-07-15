@@ -76,6 +76,60 @@ def _fit_ou_half_life(spread: np.ndarray) -> float:
     return float(-np.log(2) / b)
 
 
+def kalman_filter_ou(series: Any, Q: float = 1e-4, R: Optional[float] = None) -> dict:
+    """1D Kalman Filter 自适应均值跟踪 → 去趋势 z-score（G37）。
+
+    State: mu_t (隐均值)，随机游走 mu_t = mu_{t-1} + w_t, w_t ~ N(0,Q)
+    Observation: y_t = mu_t + v_t, v_t ~ N(0,R)
+
+    相比固定窗口 _rolling_z（滞后换月、均线突变时假信号），KF 自然应对制度切换：
+    - Q=1e-4：适应速度（≈40-60 bar 有效窗口）；Q 越大→适应越快
+    - R 缺省取序列初始方差自动估计
+    - 纯 numpy，零外部依赖
+
+    Returns:
+        {"z_score", "filtered_mu"(ndarray), "state_sigma"(ndarray),
+         "last_innovation"(float), "last_innovation_var"(float)}。
+        序列 < 5 返回 z=0 的 fallback。
+    """
+    x = np.asarray(series, dtype=float)
+    n = len(x)
+    if n < 5:
+        return {"z_score": 0.0, "filtered_mu": x, "state_sigma": np.ones(n, dtype=float) * 1e6,
+                "last_innovation": 0.0, "last_innovation_var": 1.0}
+    if R is None:
+        R = float(np.var(x)) if float(np.var(x)) > 0 else 1.0
+
+    mu = 0.0
+    P = R
+    filtered_mu = np.zeros(n, dtype=float)
+    P_diag = np.zeros(n, dtype=float)
+    innovations = np.zeros(n, dtype=float)
+    innov_vars = np.zeros(n, dtype=float)
+
+    for t in range(n):
+        mu_pred = mu
+        P_pred = P + Q
+        innov = x[t] - mu_pred
+        S = P_pred + R
+        K = P_pred / (S + 1e-12)
+        mu = mu_pred + K * innov
+        P = (1.0 - K) * P_pred
+        filtered_mu[t] = mu
+        P_diag[t] = P
+        innovations[t] = innov
+        innov_vars[t] = S
+
+    last_z = innovations[-1] / (float(np.sqrt(innov_vars[-1])) + 1e-12)
+    return {
+        "z_score": float(last_z),
+        "filtered_mu": filtered_mu,
+        "state_sigma": np.sqrt(P_diag),
+        "last_innovation": float(innovations[-1]),
+        "last_innovation_var": float(innov_vars[-1]),
+    }
+
+
 # ════════════════════════════════════════════════════════════
 # Provider：构建跨期价差历史（受 scan_all 调用，可注入 mock 测试）
 # ════════════════════════════════════════════════════════════
@@ -244,8 +298,9 @@ class SpreadReversionStrategy(BaseStrategyV2):
             if not np.isfinite(hl) or hl > HALF_LIFE_MAX or hl < HALF_LIFE_MIN:
                 continue
 
-            # ── 滚动 z 偏离 ──
-            z = _rolling_z(list(spread), SPREAD_WINDOW)
+            # ── Kalman 自适应 z 偏离（G37：替代固定窗口 _rolling_z）──
+            kf = kalman_filter_ou(spread)
+            z = kf["z_score"]
             if abs(z) < Z_ENTRY:
                 continue
 
@@ -270,6 +325,8 @@ class SpreadReversionStrategy(BaseStrategyV2):
                 "spread_pct": round(float(info.get("spread_pct", [0])[-1]), 4)
                 if info.get("spread_pct") else None,
                 "type": "spread_reversion",
+                "kf_state_sigma": round(float(kf["state_sigma"][-1]), 4),
+                "kf_innov_var": round(kf["last_innovation_var"], 4),
             }
 
             signals.append(RawSignal(
