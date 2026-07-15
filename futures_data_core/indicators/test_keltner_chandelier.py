@@ -102,3 +102,91 @@ class TestCalculateKeltnerChandelierIntegration:
         assert tech["SAR_TREND"] == 1
         # Keltner 上轨 > 中轨 > 下轨
         assert tech["KC_UPPER"] > tech["KC_MID"] > tech["KC_LOWER"]
+
+
+class TestCalculateTSMOM:
+    def test_returns_four_windows(self):
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        h, l, c = _make_ohlc(n=300)
+        ret = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        assert len(ret) == 4
+
+    def test_uptrend_positive(self):
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        # 单调上升序列 → 各窗口累计收益为正
+        c = np.arange(1, 301, dtype=float)
+        h = c + 0.5
+        l = c - 0.5
+        r1, r3, r6, r12 = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        assert r1 > 0 and r3 > 0 and r6 > 0 and r12 > 0
+
+    def test_downtrend_negative(self):
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        # 单调下降序列 → 各窗口累计收益为负
+        c = np.arange(300, 0, -1, dtype=float)
+        h = c + 0.5
+        l = c - 0.5
+        r1, r3, r6, r12 = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        assert r1 < 0 and r3 < 0 and r6 < 0 and r12 < 0
+
+    def test_short_series_nan(self):
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        # n=100：1m(21)/3m(63) 可用，6m(126)/12m(252) 不足 → NaN
+        c = np.arange(1, 101, dtype=float)
+        h = c + 0.5
+        l = c - 0.5
+        r1, r3, r6, r12 = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        assert np.isfinite(r1) and np.isfinite(r3)
+        assert np.isnan(r6) and np.isnan(r12)
+
+    def test_very_short_all_nan(self):
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        c = np.array([1.0, 2.0, 3.0])
+        h = c + 0.1
+        l = c - 0.1
+        ret = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        assert all(np.isnan(x) for x in ret)
+
+
+class TestCalculateTSMOMIntegration:
+    """主管线入口注入验证：_compute_indicators_numpy 产出 G31 TSMOM 字段。"""
+
+    def test_legacy_numpy_emits_g31_tsmom(self):
+        from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+        import pandas as pd
+        n = 260
+        rng = np.random.default_rng(11)
+        close = 100.0 + np.arange(n) * 0.5 + rng.normal(0, 0.5, n).cumsum()
+        df = pd.DataFrame({
+            "open": close + rng.normal(0, 0.2, n),
+            "high": close + np.abs(rng.normal(0, 0.5, n)) + 0.3,
+            "low": close - np.abs(rng.normal(0, 0.5, n)) - 0.3,
+            "close": close,
+            "volume": np.full(n, 1000.0),
+        })
+        tech = _compute_indicators_numpy(df, symbol=None)
+        for key in ("TSMOM_1M", "TSMOM_3M", "TSMOM_6M", "TSMOM_12M"):
+            assert key in tech, f"缺失 G31 字段 {key}"
+        # 上升序列 → 1/3/6/12 月收益均为正
+        assert tech["TSMOM_1M"] > 0
+        assert tech["TSMOM_3M"] > 0
+        assert tech["TSMOM_6M"] > 0
+        assert tech["TSMOM_12M"] > 0
+
+    def test_legacy_numpy_tsmom_degrades_short_history(self):
+        from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+        import pandas as pd
+        n = 80
+        rng = np.random.default_rng(7)
+        close = 100.0 + np.arange(n) * 0.4 + rng.normal(0, 0.5, n).cumsum()
+        df = pd.DataFrame({
+            "open": close + rng.normal(0, 0.2, n),
+            "high": close + np.abs(rng.normal(0, 0.5, n)) + 0.3,
+            "low": close - np.abs(rng.normal(0, 0.5, n)) - 0.3,
+            "close": close,
+            "volume": np.full(n, 1000.0),
+        })
+        tech = _compute_indicators_numpy(df, symbol=None)
+        # n=80：1m/3m 可用（正），6m/12m 不足 → 0.0（字段仍存在，策略层剔除）
+        assert tech["TSMOM_1M"] > 0 and tech["TSMOM_3M"] > 0
+        assert tech["TSMOM_6M"] == 0.0 and tech["TSMOM_12M"] == 0.0

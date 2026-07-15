@@ -245,6 +245,20 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
         tech["SAR"] = 0.0
         tech["SAR_TREND"] = 0
 
+    # ---- TSMOM 时间序列动量（G31: 1/3/6/12 月收益，多窗口合成降噪） ----
+    # 主管线唯一入口单点注入（scan_all + 所有回测共用），自动贯穿全链路。
+    # n>=60 早退已保证 1m/3m 必算；6m(n>=127)/12m(n>=253) 按序列长度条件可用。
+    try:
+        from futures_data_core.indicators.tdx_compat import calculate_tsmom
+        r1, r3, r6, r12 = calculate_tsmom(c, windows=(21, 63, 126, 252))
+        tech["TSMOM_1M"] = float(r1) if np.isfinite(r1) else 0.0
+        tech["TSMOM_3M"] = float(r3) if np.isfinite(r3) else 0.0
+        tech["TSMOM_6M"] = float(r6) if np.isfinite(r6) else 0.0
+        tech["TSMOM_12M"] = float(r12) if np.isfinite(r12) else 0.0
+    except Exception:
+        tech["TSMOM_1M"] = tech["TSMOM_3M"] = 0.0
+        tech["TSMOM_6M"] = tech["TSMOM_12M"] = 0.0
+
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1))
     vm_m = np.abs(l - np.roll(h, 1))

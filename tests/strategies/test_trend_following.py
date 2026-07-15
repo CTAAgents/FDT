@@ -167,7 +167,7 @@ class TestTrendFollowingV2:
         assert sigs[0].meta["macd_score"] > 0
 
     def test_full_confluence_all_subs(self):
-        """8 子信号全同向 → 子类型标签携全清单，raw 显著高于单信号。"""
+        """9 子信号全同向 → 子类型标签携全清单，raw 显著高于单信号。"""
         from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         tech = self._base_tech(
@@ -177,17 +177,56 @@ class TestTrendFollowingV2:
             supertrend=1, sar=3000, sar_trend=1,
             chandelier_long=2950, chandelier_short=3050,
             macd_dif=20.0, macd_dea=10.0,
+            tsmom_1m=0.05, tsmom_3m=0.06, tsmom_6m=0.07, tsmom_12m=0.08,
         )
         sigs = s.compute(tech, {})
         assert len(sigs) == 1
         st = sigs[0].signal_type
-        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd"):
+        for sub in ("dc20", "dc55", "bb", "keltner", "supertrend", "sar", "chandelier", "macd", "tsmom"):
             assert sub in st, f"缺失子信号 {sub}"
         # 全共振 raw 应高于仅 DC20 突破的 raw
         single = self._base_tech(price=3200, dc20_high=3100, dc20_low=2900,
                                  bb=0.98, dc55_high=3150, dc55_low=2800)
         s_single = s.compute(single, {})
         assert sigs[0].raw_score > s_single[0].raw_score
+
+    def test_tsmom_bull_multi_window(self):
+        """TSMOM 四窗口全多头 → 多头，命中 tsmom 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(
+            tsmom_1m=0.05, tsmom_3m=0.06, tsmom_6m=0.07, tsmom_12m=0.08,
+        )
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "tsmom" in sigs[0].signal_type
+        assert sigs[0].meta["tsmom_score"] > 0
+
+    def test_tsmom_bear_multi_window(self):
+        """TSMOM 四窗口全空头 → 空头，命中 tsmom 子标签。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        tech = self._base_tech(
+            tsmom_1m=-0.05, tsmom_3m=-0.06, tsmom_6m=-0.07, tsmom_12m=-0.08,
+        )
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bear"
+        assert "tsmom" in sigs[0].signal_type
+
+    def test_tsmom_partial_windows_vote(self):
+        """仅部分窗口可用（其余缺失/0.0）→ 按可用窗口投票，不崩溃。"""
+        from strategies.trend_following_strategy import TrendFollowingStrategy
+        s = TrendFollowingStrategy()
+        # 仅 1m 正、其余缺失（_base_tech 默认无 tsmom 字段 → 0.0 被剔除）
+        tech = self._base_tech(tsmom_1m=0.10)
+        sigs = s.compute(tech, {})
+        assert len(sigs) == 1
+        assert sigs[0].direction == "bull"
+        assert "tsmom" in sigs[0].signal_type
+        # 单窗口 avg=0.10 → 满强 1.0
+        assert sigs[0].meta["tsmom_score"] == 1.0
 
     def test_missing_g30_fields_no_crash(self):
         """G30 新字段缺失/为零 → 不崩溃，仅老 DC/BB 信号生效。"""

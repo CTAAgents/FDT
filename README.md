@@ -1,7 +1,9 @@
-# Futures Debate Team — 期货交易辩论专家团 v8.0.3
+# Futures Debate Team — 期货交易辩论专家团 v8.0.4
 
 > 🧬 **架构基线**：7策略并行管线(NO_FUSION) → 策略内验证器 → 多因子增强验证器 → 辩论触发 → 多空辩论 → 闫判官终裁 → 风控 → 报告。
 > 辩论结论天然优先于扫描信号：多头分析员和空头分析员独立举证，闫判官在双方论据中裁决，可正面否决扫描层的方向判断（已验证：2026-07-15 fu 扫描 bull+514，辩论后判 bear）。
+>
+> 📈 **v8.0.4 TSMOM 时间序列动量（G31）**：`trend_following` 由 8 子信号扩展为 9 子信号共振——新增 TSMOM 时间序列动量（Moskowitz-Ooi-Pedersen 2012）。FDC 新增 `calculate_tsmom(close, windows=(21,63,126,252))` 纯函数（简单累计收益，不足窗口返回 NaN），主管线唯一计算入口单点注入 `TSMOM_1M/3M/6M/12M`（自动贯穿 scan_all + 所有回测）。`_score_tsmom` 对四窗口收益取平均符号定方向、`abs(avg)/10%` 缩放定强度（多窗口合成本身即降噪）。零新数据源（纯 OHLC 派生）。
 >
 > 📈 **v8.0.3 趋势跟踪指标衍生扩展（G30）**：`trend_following` 由 3 子信号扩展为 8 子信号共振——DC20/DC55/BB（原）+ Keltner 通道突破 / Supertrend 趋势状态 / Parabolic SAR 转向 / Chandelier Exit 吊灯退出 / MACD 系统。FDC 新增 `calculate_keltner`/`calculate_chandelier_exit`，主管线唯一计算入口单点注入 5 字段（自动贯穿 scan_all + 所有回测），零新数据源。
 >

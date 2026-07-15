@@ -79,6 +79,11 @@ _FIELD_MAP = {
     "chandelier_short": "chandelier_short", "CHANDELIER_SHORT": "chandelier_short",
     "sar": "sar", "SAR": "sar",
     "sar_trend": "sar_trend", "SAR_TREND": "sar_trend",
+    # G31 时间序列动量 TSMOM
+    "tsmom_1m": "tsmom_1m", "TSMOM_1M": "tsmom_1m",
+    "tsmom_3m": "tsmom_3m", "TSMOM_3M": "tsmom_3m",
+    "tsmom_6m": "tsmom_6m", "TSMOM_6M": "tsmom_6m",
+    "tsmom_12m": "tsmom_12m", "TSMOM_12M": "tsmom_12m",
     # 均值/标准差
     "price_deviation_pct": "price_deviation", "PRICE_DEVIATION_PCT": "price_deviation",
 }

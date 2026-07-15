@@ -484,6 +484,25 @@ TREND_G30_CONFIG = {
 }
 
 
+# ═══════════════════════════════════════════════════════════
+# G31 时间序列动量 TSMOM — 参数集中配置（单一真相源）
+# Moskowitz-Ooi-Pedersen(2012) 多窗口（1/3/6/12 月）收益合成。
+# 镜像 futures_data_core.indicators.tdx_compat.calculate_tsmom 默认值；
+# 本字典为权威登记，trend_following_strategy._score_tsmom 的硬编码置信尺度
+# 与此处 conviction_scale_pct 一致（10% 平均收益 → 满强 1.0）。
+# ═══════════════════════════════════════════════════════════
+TREND_G31_CONFIG = {
+    # 回看窗口（交易日）：1月≈21 / 3月≈63 / 6月≈126 / 12月≈252
+    "windows": {"m1": 21, "m3": 63, "m6": 126, "m12": 252},
+    # 合成强度缩放：平均收益达此比例（10%）即满强（1.0）；按 abs(avg)/scale 截断
+    "conviction_scale_pct": 10.0,
+    # 合成方式：平均符号定方向、平均绝对值定强度（多窗口合成即降噪）
+    "synthesis": "mean_sign",
+    # 子信号置信度（与 _score_tsmom 一致）：满强=1.0（abs(avg)>=10%）
+    "sub_conviction": "min(1.0, abs(avg_ret)/0.10)",
+}
+
+
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护
     "channel_breakout":       ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing", "trend_direction"],

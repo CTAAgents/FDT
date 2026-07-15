@@ -414,6 +414,26 @@ def calculate_chandelier_exit(high, low, close, period=22, mult=3.0):
     return long_exit, short_exit
 
 
+def calculate_tsmom(close, windows=(21, 63, 126, 252)):
+    """TSMOM 时间序列动量 — 多窗口累计收益（Moskowitz-Ooi-Pedersen 2012）。
+
+    对收盘序列计算各窗口的简单累计收益率 ret = close[-1] / close[-window] - 1。
+    返回与 windows 等长的 tuple；序列长度不足 window+1 的窗口返回 np.nan。
+
+    调用方对四个窗口的收益取平均：sign(avg) 定方向、abs(avg) 定强度，
+    多窗口合成本身即噪声抑制（单窗口反转被平均稀释）。纯价量，零外部依赖。
+    """
+    c = np.asarray(close, dtype=float)
+    n = len(c)
+    out = []
+    for w in windows:
+        if n > w and c[-1 - w] != 0:
+            out.append(c[-1] / c[-1 - w] - 1.0)
+        else:
+            out.append(np.nan)
+    return tuple(out)
+
+
 def calculate_linearreg_slope(data, window=14):
     """LINEARREG_SLOPE - 线性回归斜率（TA-Lib风格）"""
     return _linear_reg_slope(data, window)
@@ -2136,6 +2156,7 @@ __all__ = [
     "calculate_sar",
     "calculate_keltner",
     "calculate_chandelier_exit",
+    "calculate_tsmom",
     "calculate_linearreg_slope",
     "calculate_linearreg_angle",
     "calculate_kama",
