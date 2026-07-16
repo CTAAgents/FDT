@@ -370,6 +370,12 @@ class StrategyPipeline:
             strategy_outputs[s.name] = scored
 
         # Phase 2: 策略内验证器（从 validators 注册表查找）
+        # ── G43 no-filter 语义（2026-07-16）──
+        # 当扫描以 --mode no-filter 运行时（ctx["filter_disabled"]=True），验证器仍
+        # 逐条运行以**附注**降级原因（_validator_reason 供辩论层参考），但**不**把
+        # grade/total 压成 NOISE/0 —— 原始分数保留、_raw_total 透传报告，符合掌柜
+        # 「no-filter 不过滤伪信号、交辩论层裁决」的语义。
+        _filter_disabled = bool(ctx.get("filter_disabled")) if isinstance(ctx, dict) else False
         try:
             from signals.validators import get_validator, ValidationContext
             # 将管线上下文包装为 ValidationContext（验证器需要 .kline_data 属性）
@@ -386,13 +392,20 @@ class StrategyPipeline:
                         vfn = get_validator(vid)
                         if vfn:
                             vfn(sig_dict, vctx)
-                    # 同步验证器修改回 ScoredSignal
-                    signal._validator_demoted = sig_dict.get("_validator_demoted", False)
+                    # 附注降级原因（无论是否 no-filter，均透传供辩论层参考）
                     signal._validator_reason = sig_dict.get("_validator_reason", "")
-                    if sig_dict.get("grade") != signal.grade:
-                        signal.grade = sig_dict.get("grade", signal.grade)
-                    if sig_dict.get("total", signal.total) != signal.total:
-                        signal.total = sig_dict.get("total", signal.total)
+                    if sig_dict.get("_validator_demoted"):
+                        # 记录拦前原始分（供报告 raw_total 列 & undemote 权衡）
+                        signal._raw_total = sig_dict.get("_raw_total", signal.total)
+                    if _filter_disabled:
+                        # no-filter：保留原始 grade/total，仅标注（不压 NOISE/0）
+                        signal._validator_demoted = False
+                    else:
+                        signal._validator_demoted = sig_dict.get("_validator_demoted", False)
+                        if sig_dict.get("grade") != signal.grade:
+                            signal.grade = sig_dict.get("grade", signal.grade)
+                        if sig_dict.get("total", signal.total) != signal.total:
+                            signal.total = sig_dict.get("total", signal.total)
         except ImportError:
             pass  # 验证器不可用时不崩溃
 
@@ -416,9 +429,10 @@ class StrategyPipeline:
             for s in fused:
                 if s.symbol in fd_map:
                     fd = fd_map[s.symbol]
-                    s.grade = fd.get("grade", s.grade)
-                    s.total = fd.get("total", s.total)
-                    s._validator_demoted = fd.get("_validator_demoted", False)
+                    if not _filter_disabled:
+                        s.grade = fd.get("grade", s.grade)
+                        s.total = fd.get("total", s.total)
+                        s._validator_demoted = fd.get("_validator_demoted", False)
         except ImportError:
             pass
 
@@ -445,6 +459,16 @@ class StrategyPipeline:
                 _turtle.apply(s, _tech_by_symbol_g34.get(s.symbol, {}))
         except Exception:
             pass
+
+        # Phase 4.7: 价格回填（G44 修复）
+        # 各策略 score() 未必透传 price，导致 ranking 中 price 恒为 0.0、
+        # 技术位距离测算缺基准。从 tech_list 按 symbol 取 price/last_price 注入，
+        # 单一真相源，不依赖策略内部是否赋值。
+        _tech_price = {t.get("symbol"): t for t in tech_list if isinstance(t, dict)}
+        for s in fused:
+            if s.price == 0.0:
+                _tp = _tech_price.get(s.symbol, {})
+                s.price = float(_tp.get("price") or _tp.get("last_price") or 0.0)
 
         # Phase 5: 打包输出
         all_dicts = [s.to_dict() for s in fused]

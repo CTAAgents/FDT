@@ -26,13 +26,16 @@ def _get_expert_root() -> str:
     # 基于脚本位置推算
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # futures-trading-analysis/scripts/ → 向上4层到skills/ → 再向上到futures-debate-team/
-    candidate = os.path.normpath(os.path.join(script_dir, os.pardir, os.pardir, os.pardir, os.pardir))
+    candidate = os.path.normpath(os.path.join(script_dir, os.pardir, os.pardir, os.pardir))
     if os.path.isdir(os.path.join(candidate, "agents")):
         return candidate
-    # hardcoded fallback
-    return os.path.join(
-        os.path.expanduser("~"), ".workbuddy", "plugins", "marketplaces", "my-experts", "plugins", "futures-debate-team"
-    )
+    # 兜底：向上级目录搜索含 agents/ 的 FDT 根（不再硬编码 WorkBuddy 路径）
+    cur = script_dir
+    for _ in range(6):
+        if os.path.isdir(os.path.join(cur, "agents")):
+            return cur
+        cur = os.path.dirname(cur)
+    return candidate
 
 
 def update_debate_index(round_id: str, judge_verdict: dict, results: dict) -> str:

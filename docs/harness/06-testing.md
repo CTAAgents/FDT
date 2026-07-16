@@ -241,3 +241,127 @@ python scripts/run_benchmark.py --replay
 | Harness 测试用例 | 0 | 43 | 原 43；**当前 pipeline 5/10 失效(G16)，全绿声明不成立** |
 | 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展（`pyproject.toml` 已配置） |
 | 测试目录数 | 8 | 11 | 当前实际 **12** |
+
+## 10. LangGraph 并行节点测试策略 (v8.3.0+)
+
+### 10.1 并行测试架构
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    LangGraph 并行测试体系                        │
+├────────────────────┬────────────────────┬───────────────────────┤
+│   节点单元测试      │   图集成测试        │   并行调度测试         │
+├────────────────────┼────────────────────┼───────────────────────┤
+│ node_scan          │ 全链路串行执行      │ 三源并行调度           │
+│ node_chain         │ 条件分支路径        │ 双源并行调度           │
+│ node_technical     │ 阶段状态流转        │ 单源调度               │
+│ node_fundamental   │ trace_id 传递       │ 空调度（无信号）       │
+│ node_merge_research│                     │                       │
+│ node_debate        │                     │                       │
+│ node_verdict       │                     │                       │
+└────────────────────┴────────────────────┴───────────────────────┘
+```
+
+### 10.2 测试目录结构
+
+```
+tests/fdt_langgraph/
+├── conftest.py                    # 测试配置 + mock 重 I/O 操作 (v8.3.0+)
+├── test_nodes.py                  # 节点单元测试
+├── test_parallel_dispatch.py      # 并行调度测试
+├── test_state.py                  # 状态管理测试
+├── test_e2e_integration.py        # 端到端集成测试
+├── test_postgres_integration.py   # PostgreSQL 集成测试
+├── test_benchmark_comparison.py   # 基准对比测试
+├── test_health.py                 # 健康检查测试
+└── test_integration_ab.py         # A/B 切换集成测试 (v8.4.0+ G55，18 用例)
+```
+
+### 10.3 节点单元测试
+
+| 测试项 | 节点 | 测试内容 | 断言 |
+|:-------|:-----|:---------|:-----|
+| `test_node_scan` | node_scan | 可插拔多策略扫描 | scan_results 包含策略键 |
+| `test_node_chain` | node_chain | 产业链分析输出 | chain_analysis 不为空 |
+| `test_node_technical` | node_technical | 技术面分析输出 | technical_data 不为空 |
+| `test_node_fundamental` | node_fundamental | 基本面分析输出 | fundamental_data 不为空 |
+| `test_node_merge` | node_merge_research | 三源数据合并 | research_data 包含三类数据 |
+| `test_node_debate` | node_debate | 辩论论据生成 | bullish/bearish_arguments 不为空 |
+| `test_node_verdict` | node_verdict | 裁决输出 | verdict 不为空 |
+
+### 10.4 图集成测试
+
+| 测试项 | 内容 | 断言 |
+|:-------|:-----|:-----|
+| `test_full_serial_path` | 默认模式全链路执行 | 所有阶段完成，无错误 |
+| `test_fast_mode_skip_debate` | fast 模式跳过辩论 | 跳过 debate 节点 |
+| `test_deep_research_mode` | deep_research 模式 | 分歧>0.7时进入深度辩论 |
+| `test_trace_id_propagation` | trace_id 全链路传递 | 所有节点输出包含相同 trace_id |
+
+### 10.5 并行调度测试
+
+| 测试项 | 调度源 | 内容 | 断言 |
+|:-------|:-------|:-----|:-----|
+| `test_all_sources_parallel` | chain+technical+fundamental | 三源并行执行 | 三个数据源节点都被调用 |
+| `test_two_sources_parallel` | chain+technical | 双源并行执行 | 仅两个数据源节点被调用 |
+| `test_single_source` | chain | 单源执行 | 仅 chain 节点被调用 |
+| `test_no_signal_early_exit` | 无信号 | 提前终止 | 在 P1 信号检查阶段终止 |
+
+### 10.6 PostgreSQL 集成测试
+
+| 测试项 | 内容 | 断言 |
+|:-------|:-----|:-----|
+| `test_pg_connection` | 连接池初始化 | 连接成功，健康检查通过 |
+| `test_pg_schema_create` | Schema 创建 | 所有表和视图创建成功 |
+| `test_pg_crud` | CRUD 操作 | 插入/查询/更新/删除正常 |
+| `test_pg_transaction` | 事务提交/回滚 | 提交成功，回滚正确 |
+
+### 10.7 测试运行命令
+
+```bash
+# LangGraph 全部测试
+python -m pytest tests/fdt_langgraph/ -v
+
+# 仅并行调度测试
+python -m pytest tests/fdt_langgraph/test_parallel_dispatch.py -v
+
+# PostgreSQL 集成测试
+python -m pytest tests/fdt_langgraph/test_pg_integration.py -v
+
+# 带覆盖率
+python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-report=term-missing
+```
+
+### 10.8 测试统计（v8.3.0+）
+
+| 指标 | 数量 |
+|:-----|:-----|
+| 测试文件数 | 8 |
+| 测试用例总数 | 99 |
+| 测试通过率 | 100% (99/99) |
+| conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
+| LangGraph 节点覆盖率 | 96% (nodes.py) |
+| State 覆盖率 | 100% (state.py) |
+| 并行调度场景覆盖率 | 100% (4/4) |
+| A/B 切换集成测试 (G55) | 18 用例 (test_integration_ab.py，v8.4.0+ 新增) |
+
+### 10.9 实际测试结果（2026-07-16）
+
+```
+tests/fdt_langgraph/test_nodes.py ............................. 21 passed
+tests/fdt_langgraph/test_parallel_dispatch.py .................. 9 passed
+tests/fdt_langgraph/test_state.py .............................. 2 passed
+tests/fdt_langgraph/test_e2e_integration.py ................... 18 passed
+tests/fdt_langgraph/test_postgres_integration.py .............. 12 passed
+tests/fdt_langgraph/test_benchmark_comparison.py .............. 10 passed
+tests/fdt_langgraph/test_health.py ............................. 9 passed
+tests/fdt_langgraph/test_integration_ab.py .................... 18 passed
+
+================= 99 passed, 1 warning in 5.08s =================
+```
+
+> **conftest.py mock 策略说明（v8.3.0+）**：`conftest.py` 对重 I/O 操作进行了 mock，确保测试在无 PostgreSQL / 无数据源 / 无 Agent spawn 的环境下可独立运行：
+> - PostgreSQL 连接池 mock（`fdt_pg.connection`）
+> - 数据采集 mock（`scan_all` / `futures_data_core` 采集器）
+> - Agent spawn mock（`debate_orchestrator` 子进程调用）
+> - LangGraph Checkpointer mock（SQLite 内存替代）

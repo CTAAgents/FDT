@@ -312,3 +312,181 @@ daemon_watchdog.py 检测 (每30分钟)
 |:-----|:------|
 | TDX 不返回 `oi` 字段 | `_collect_oi_data_sync()` 返回空 dict → V2 OI 量比联合跳过 → 退化为纯量比判断 |
 | **恢复** | 下次 TDX 查询自动恢复 |
+
+## 9. LangGraph 并行节点降级策略 (v8.3.0+)
+
+### 9.1 降级架构
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    LangGraph 降级体系                                │
+├────────────────────┬────────────────────┬───────────────────────────┤
+│   P3 数据源降级    │   P4 辩论降级       │   P5 裁决链降级            │
+├────────────────────┼────────────────────┼───────────────────────────┤
+│ 单源失败不影响其他 │ 单辩手失败继续辩论   │ 闫判官失败→策执远降级      │
+│ 超时自动跳过       │ 超时自动跳过        │ 策执远失败→风控明降级      │
+│ 部分结果继续流程   │ 部分论据继续裁决     │ 风控明失败→明鉴秋兜底      │
+└────────────────────┴────────────────────┴───────────────────────────┘
+```
+
+### 9.2 P3 并行数据源降级
+
+| 数据源 | 超时时间 | 降级行为 | 影响 |
+|:-------|:---------|:---------|:-----|
+| 链证源 | 300s | 自动跳过，标记 `chain_analysis=null` | 缺少产业链视角 |
+| 观澜 | 300s | 自动跳过，标记 `technical_data={}` | 缺少技术面视角 |
+| 探源 | 300s | 自动跳过，标记 `fundamental_data={}` | 缺少基本面视角 |
+
+**P3 降级流程**:
+```
+闫判官调度决策 → 并行触发三源
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+    [链证源]     [观澜]       [探源]
+        │           │           │
+        ├─ 成功 ───┼── 成功 ───┼─ 成功 → merge_research (完整)
+        │           │           │
+        ├─ 失败 ───┼── 成功 ───┼─ 成功 → merge_research (缺少产业链)
+        │           │           │
+        ├─ 失败 ───┼── 失败 ───┼─ 成功 → merge_research (仅基本面)
+        │           │           │
+        └─ 失败 ───┴── 失败 ───┴─ 失败 → 触发 P3 降级告警，继续辩论（无研究员资料）
+```
+
+### 9.3 P4 辩论降级
+
+| 辩手 | 超时时间 | 降级行为 | 影响 |
+|:-----|:---------|:---------|:-----|
+| 证真（多头） | 600s | 自动跳过，`bullish_arguments=[]` | 仅空头论据 |
+| 慎思（空头） | 600s | 自动跳过，`bearish_arguments=[]` | 仅多头论据 |
+
+### 9.4 P5 裁决链降级
+
+```
+闫判官 (verdict)
+    │
+    ├─ 成功 → 正常裁决 → 策执远 (trading_plan)
+    │                        │
+    │                        ├─ 成功 → 风控明 (risk_check)
+    │                        │              │
+    │                        │              ├─ 成功 → 报告输出
+    │                        │              │
+    │                        │              └─ 失败 → 明鉴秋兜底（记录风险警告）
+    │                        │
+    │                        └─ 失败 → 风控明兜底（简化策略）
+    │
+    └─ 失败 → D06 降级: 明鉴秋基于 P3+P4 论据独立裁决
+              ├─ 生成简化 verdict
+              ├─ 生成简化 trading_plan
+              └─ 生成简化 risk_check
+```
+
+### 9.5 节点超时配置
+
+| 节点 | 默认超时 | 可配置 |
+|:-----|:---------|:-------|
+| `node_scan` | 180s | 是 |
+| `node_judge_direction` | 120s | 是 |
+| `node_chain` | 300s | 是 |
+| `node_technical` | 300s | 是 |
+| `node_fundamental` | 300s | 是 |
+| `node_merge_research` | 60s | 是 |
+| `node_debate` | 600s | 是 |
+| `node_verdict` | 300s | 是 |
+| `node_trading_plan` | 120s | 是 |
+| `node_risk_check` | 120s | 是 |
+| `node_report` | 180s | 是 |
+
+### 9.6 PostgreSQL 降级
+
+| 场景 | 降级行为 | 恢复策略 |
+|:-----|:---------|:---------|
+| 连接池耗尽 | 使用 SQLite 内存模式缓存 | 连接池恢复后自动同步 |
+| OLAP 查询超时 | 跳过 OLAP 查询，使用 OLTP 数据 | 下次查询自动恢复 |
+| 数据库不可用 | 仅内存运行，结果不持久化 | 数据库恢复后手动同步 |
+
+### 9.7 LangGraph 检查点恢复
+
+```
+Checkpointer (PostgreSQL)
+    │
+    ├─ 正常: 每次节点执行后保存状态
+    │
+    ├─ 中断恢复:
+    │   ├─ graph.get_state(trace_id) 获取最近状态
+    │   ├─ 从失败节点重新执行
+    │   └─ 自动跳过已完成节点
+    │
+    └─ 断点续跑:
+        ├─ graph.continue_execution(trace_id)
+        └─ 从上次检查点继续执行
+```
+
+### 9.8 与原有降级体系的映射
+
+| 原有机制 | LangGraph 对应 | 状态 |
+|:---------|:--------------|:-----|
+| S04 轮询 | Checkpointer + 状态传递 | 已替代 |
+| D06 降级 | `node_verdict` 失败 → 明鉴秋兜底 | 已迁移 |
+| Agent 超时 | 节点超时配置 + 自动跳过 | 已迁移 |
+| 守护进程看门狗 | `fdt_cli.py daemon` + APScheduler | 已替代 |
+| WorkBuddy 心跳 | `fdt_api.py /health` + 进程监控 | 已替代 |
+
+### 9.9 生产化 A/B 切换与降级路径 (v8.4.0+ — G52-G55)
+
+> 本节登记 LangGraph 生产集成（G52-G55）引入的 A/B 切换机制与三级降级路径，确保生产 pipeline 从旧 subprocess 路径向 LangGraph 路径迁移过程中零风险。
+
+#### 9.9.1 A/B 切换机制
+
+```
+FDT_USE_LANGGRAPH 环境变量
+    │
+    ├─ false (默认) ──→ 旧 subprocess 路径 (pipeline/runner.py step_*)
+    │                   零风险，完全保留原有行为
+    │
+    └─ true ──────────→ LangGraph 路径 (run_langgraph_pipeline)
+                        │
+                        └─ FDT_LANGGRAPH_MODE 选择执行模式:
+                            ├─ default       (默认全链路)
+                            ├─ fast          (跳过辩论)
+                            ├─ deep_research (深度辩论)
+                            └─ tournament    (锦标赛模式)
+```
+
+#### 9.9.2 三级降级路径
+
+| 降级场景 | 触发条件 | 降级行为 | 影响 | 恢复 |
+|:---------|:---------|:---------|:-----|:-----|
+| **LangGraph 模块导入失败** | `fdt_langgraph` 包 import 抛异常 | 自动回退到 subprocess 模式（`run_langgraph_pipeline()` 捕获 ImportError 后调用旧 `step_*` 函数链） | LangGraph 特性不可用，其余功能正常 | 修复 import 错误后下次调用恢复 |
+| **PG Checkpointer 连接失败** | `FDT_CHECKPOINTER=pg` 时 PostgreSQL 连接超时/拒绝 | `_get_checkpointer()` 自动降级到 SQLite Checkpointer（内存/本地文件） | 检查点持久化从 PG 退化为 SQLite，单机可用 | PG 恢复后重启进程切换回 PG |
+| **A/B 切换零风险兜底** | `FDT_USE_LANGGRAPH=false` | 完全走旧 subprocess 路径，不 import `fdt_langgraph`，不触发任何 LangGraph 代码 | 零影响（与 v8.3.0 前行为完全一致） | 设置 `FDT_USE_LANGGRAPH=true` 启用 |
+
+#### 9.9.3 降级流程图
+
+```
+pipeline/runner.py run_pipeline()
+    │
+    ├─ FDT_USE_LANGGRAPH=false ──→ step_scan → step_chain → ... → step_report
+    │                              (旧路径，零风险)
+    │
+    └─ FDT_USE_LANGGRAPH=true ───→ run_langgraph_pipeline()
+                                   │
+                                   ├─ import fdt_langgraph 成功
+                                   │   │
+                                   │   ├─ _get_checkpointer(FDT_CHECKPOINTER)
+                                   │   │   │
+                                   │   │   ├─ pg ──→ PG 连接成功 → PostgresSaver
+                                   │   │   │
+                                   │   │   └─ pg 连接失败 → 降级 SqliteSaver (告警日志)
+                                   │   │
+                                   │   │   └─ sqlite ──→ SqliteSaver (默认)
+                                   │   │
+                                   │   └─ build_debate_graph().invoke() → 全链路执行
+                                   │
+                                   └─ import fdt_langgraph 失败 (ImportError)
+                                       │
+                                       └─ 自动回退 subprocess 模式 (告警日志)
+```
+
+> **测试验证**：`tests/fdt_langgraph/test_integration_ab.py`（G55，18 个测试）覆盖以上全部降级路径，确保 A/B 切换机制等价性。详见 `06-testing.md §10`。

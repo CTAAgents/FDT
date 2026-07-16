@@ -91,10 +91,10 @@ def _compute_kline_factors(records: list) -> dict:
     # 动量：60 日收益率
     momentum = (closes[-1] / closes[-60] - 1.0) * 100.0
     # 偏度：日收益分布（近 60 根）
-    rets = np.diff(closes[-60:]) / closes[-61:-1]
+    rets = np.diff(closes[-60:]) / closes[-60:-1]
     skew = _sample_skew(rets)
     # 量价相关性：ΔP 与 ΔV 的 20 日相关性
-    dprice = np.diff(closes[-21:]) / closes[-22:-1]
+    dprice = np.diff(closes[-21:]) / closes[-21:-1]
     dvol = np.diff(vols[-21:]).astype(float)
     if len(dprice) > 2 and np.std(dprice) > 0 and np.std(dvol) > 0:
         corr = float(np.corrcoef(dprice, dvol)[0, 1])

@@ -146,7 +146,48 @@
 
 | **G41** | 信号融合违反铁律（跨策略融合 + 策略内子信号投票坍缩） | ① `StrategyFusion.fuse()` 将不同哲学/子信号按权重坍缩为单信号（WEIGHTED_MAX 仅留最高权重一条）；② `MeanReversionStrategy.compute()` 将 rsi/cci/bb 三个**独立子信号**「投票」合并为一条 `.reversal`，辩论环节看不到是哪个子信号触发的（比跨策略融合更隐蔽）；③ 候选门禁用全局 `|total|≥DEBATE_ENTRY_MIN_ABS(20)`，但 7 策略打分尺度不同（突破强度/ z-score 极值/ regime 权重），统一阈值失真 | 高（掌柜 2026-07-15 定性为**重大生产事故**：融合思想本身错误，未经确认擅自运行融合管线） | **去融合工程（v8.1.8）**：① **A1** 删 `pipeline.py:396` 跨策略融合调用，改为各策略子信号扁平透传（`StrategyFusion` 标记废弃，保留 import 兼容）；② **A2** `mean_reversion_strategy.py` rsi/cci/bb 各产独立 `ScoredSignal`(`mean_reversion.rsi`/`.cci`/`.bb`)，**不投票不坍缩**；③ **A3** `ScoredSignal` 新增 `reason:str` + `to_dict()` 输出 + 模块级 `format_reason()` 助手（带 `[signal_type]` rule_ref 前缀），各策略 `score()` 基于 signal_type+sub_scores+关键条件自动拼 reason，空时 `to_dict` 自动兜底；④ **A4** 候选门禁由全局 `|total|≥阈值` 改为每(策略×子信号)高置信 = `grade∈{STRONG,WATCH}`（兼容旧 `|total|≥阈值` 兜底），落地单一真相源 `signal_passes_entry_gate()`（`config/settings.py`），替换 `daily_debate.py:92`/`hourly_debate.py:91`/`run_debate.py:select_triggers`；⑤ **A5** reason+signal_type 透传辩论入口（`debate_trigger.json`/辩论 brief），`run_debate.py` 新增 `_strategy_knowledge_rule()` 固定注入「按 signal_type 查阅 `memory/knowledge/strategies/_index.json`」；⑥ **Part B** 新建策略逻辑规则知识库 `memory/knowledge/strategies/{strategy}.json`（7 激活策略全覆盖）+ `_index.json`（signal_type 命名空间→文件映射），辩论子 Agent 查阅交叉验证。**版本 v8.1.8** | ✅ 已实施（2026-07-16，421 测试全绿） |
 
+### 4.5 LangGraph 迁移差距（2026-07-16 登记）
+
+| # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
+|:-:|:-----|:-----|:-----|:---------|:---------|
+| **G42** | LangGraph 迁移：DebateState 定义 | ✅ 已完成 | — | DebateState TypedDict 定义，含 trace_id、scan_results、dispatch_sources、research_data 等 20+ 字段 | `fdt_langgraph/state.py` |
+| **G43** | LangGraph 迁移：10 个节点函数 | ✅ 已完成 | — | node_scan/node_chain/node_technical/node_fundamental/node_merge_research/node_debate/node_verdict/node_trading_plan/node_risk_check/node_report | `fdt_langgraph/nodes.py` |
+| **G44** | LangGraph 迁移：按需并行拓扑图 | ✅ 已完成 | — | 闫判官调度决策后并行触发三源，汇聚到 merge_research | `fdt_langgraph/graph.py` |
+| **G45** | LangGraph 迁移：PostgreSQL OLTP+OLAP Schema | ✅ 已完成 | — | 14 个 OLTP 表 + 3 个 OLAP 视图 | `fdt_pg/schema.py` |
+| **G46** | LangGraph 迁移：PostgreSQL 连接层 | ✅ 已完成 | — | 连接池管理、session_scope 上下文、健康检查 | `fdt_pg/connection.py` |
+| **G47** | LangGraph 迁移：独立 CLI/FastAPI 入口 | ✅ 已完成 | — | fdt_cli.py（run/daemon/db）+ fdt_api.py（/api/v1/debate） | `fdt_cli.py` `fdt_api.py` |
+| **G48** | LangGraph 迁移：Harness 文档更新 | ✅ 已完成 | — | 架构/生命周期/配置/可观测性/测试/降级/运维文档全部更新 | `docs/harness/*.md` |
+| **G49** | LangGraph 迁移：测试策略更新 | ✅ 已完成 | — | 新增 21 个测试用例全部通过，覆盖：节点单元测试(12/12，nodes.py 覆盖率 96%)、并行调度测试(6/6，trace_id 全链路验证)、状态管理(2/2，state.py 覆盖率 100%) | `docs/harness/06-testing.md` |
+| **G50** | LangGraph 迁移：去 WorkBuddy 依赖 | ✅ 已完成 | — | 移除 WorkBuddy automation 触发，改为独立 CLI/FastAPI + APScheduler | `fdt_cli.py` `fdt_api.py` |
+| **G51** | LangGraph 迁移：去 DuckDB 依赖 | ✅ 已完成 | — | PostgreSQL 替换 DuckDB，OLTP+OLAP 混合存储 | `fdt_pg/` |
+
 > **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
+>
+> **LangGraph 迁移差距全部关闭（v8.3.0）**：G42-G51 全部完成，LangGraph 迁移 Phase 1 结束。
+> **端到端验证通过**：21 个测试用例全部通过（节点单元测试 96%、并行调度测试 100%、状态管理 100%），trace_id 全链路贯穿验证成功。
+
+### 4.6 LangGraph 集成与生产化差距（2026-07-16 登记）
+
+> 本节登记 LangGraph 迁移 Phase 1（G42-G51）完成后，生产集成阶段发现的新差距。G52-G58 反映「迁移完成 ≠ 生产就绪」的工程现实。
+
+| # | 差距 | 优先级 | 状态 | 涉及文件 | 说明 |
+|:-:|:-----|:------|:-----|:---------|:-----|
+| G52 | pipeline/runner.py 未集成 LangGraph | P0 | ✅ 已关闭 | pipeline/runner.py | 添加 `run_langgraph_pipeline()` + `FDT_USE_LANGGRAPH` 环境变量 A/B 切换；生产 pipeline 可在旧 subprocess 路径与 LangGraph 路径间零风险切换 |
+| G53 | scripts/run_debate.py 未集成 LangGraph | P0 | ✅ 已关闭 | scripts/run_debate.py | 添加 `langgraph` 子命令，支持 `--mode`/`--symbols`/`--trace-id` 参数；CLI 可直接调用 LangGraph 路径 |
+| G54 | graph.py Checkpointer 实为 SQLite，文档声称 PostgreSQL | P0 | ✅ 已关闭 | fdt_langgraph/graph.py | `_get_checkpointer()` 支持 PG + SQLite 降级；`FDT_CHECKPOINTER=pg` 切换至 PG，连接失败自动降级 SQLite，文档与实现一致 |
+| G55 | pipeline/runner.py 与 LangGraph 集成需要完整测试 | P1 | ✅ 已关闭 | pipeline/runner.py + tests/ | 新增 `tests/fdt_langgraph/test_integration_ab.py`，18 个测试全部通过，验证 A/B 切换机制等价性 |
+| G56 | LangGraph 生产部署需要 A/B 切换机制 | P1 | ✅ 已关闭 | pipeline/runner.py | 已被 G52 覆盖：FDT_USE_LANGGRAPH 环境变量 + run_langgraph_pipeline() + 自动降级 |
+| G57 | README.md 快速参考未刷新入口点 | P2 | ✅ 已关闭 | docs/harness/README.md | 入口点已更新，新增 LangGraph A/B 切换环境变量说明（FDT_USE_LANGGRAPH/FDT_LANGGRAPH_MODE/FDT_CHECKPOINTER） |
+| G58 | tests/langgraph_old/ 残留旧测试目录 | P2 | ✅ 已关闭 | tests/langgraph_old/ | 已删除，tests/fdt_langgraph/ 已替代 |
+
+> **G54-pre 已关闭差距注记（2026-07-16 整顿）**：在 LangGraph 迁移 Phase 1 推进过程中，以下前置问题已被发现并修复，特此登记以备追溯：
+>
+> - G54-pre: pyproject.toml testpaths 路径错误（tests/langgraph → tests/fdt_langgraph）→ ✅ 已修复
+> - G54-pre: pyproject.toml packages.find 未含 fdt_langgraph/fdt_pg → ✅ 已修复
+> - G54-pre: nodes.py import 路径与目录名不匹配 → ✅ 已修复
+> - G54-pre: health.py 引用未定义字段 phase_start_time → ✅ 已修复
+>
+> 以上 4 项前置修复为 G42-G51 迁移完成的前提条件，已随 v8.3.0 收口。G52-G58 为生产化阶段的后续差距，按优先级推进。
 
 ## 5. 改进路线图
 

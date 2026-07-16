@@ -17,6 +17,11 @@ DISABLED_STRATEGIES: set[str] = {
     "multi_factor",
     "ml_signal",
     "event_driven",
+    "arbitrage",
+    "pairs_reversion",
+    "spread_reversion",
+    "basis_reversion",
+    "macro_regime",
 }
 
 # ============================================================
@@ -342,7 +347,7 @@ SIGNAL_GRADE_THRESHOLDS = {
 # 入口底线 = 存在方向性信号（|total| ≥ DEBATE_ENTRY_MIN_ABS）即进入辩论候选池；
 #   哪些品种更适合交易，由下游 辩论→策略→风控→裁决 环节决定。
 # 当前值=20 → 过滤 NOISE 级（|total|<20），仅 WEAK 及以上进入辩论候选池。
-DEBATE_ENTRY_MIN_ABS = 20
+DEBATE_ENTRY_MIN_ABS = 40
 
 
 # ════════════════════════════════════════════════════════════

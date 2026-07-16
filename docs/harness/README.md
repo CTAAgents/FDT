@@ -25,8 +25,15 @@ FDT 项目根路径:
 
 入口点:
   bootstrap.py          — 一键启动 (once/daemon/interactive)
-  pipeline/runner.py    — 全自动零干预流水线
+  pipeline/runner.py    — 全自动零干预流水线（支持 FDT_USE_LANGGRAPH A/B 切换）
   scheduler/engine.py   — 心跳调度发动机
+  fdt_cli.py            — 独立 CLI 入口 (run/daemon/db，v8.3.0+ LangGraph 模式)
+  fdt_api.py            — 独立 FastAPI HTTP 服务入口 (/api/v1/debate，v8.3.0+)
+
+LangGraph A/B 切换环境变量:
+  FDT_USE_LANGGRAPH     — true/false，控制 pipeline 走 LangGraph 或 subprocess（默认 false）
+  FDT_LANGGRAPH_MODE    — default/fast/deep_research/tournament（默认 default）
+  FDT_CHECKPOINTER      — pg/sqlite，Checkpointer 后端（默认 sqlite，PG 不可用时自动降级）
 
 核心铁律数: 8 条 (时序/串线/文件就绪/辩手禁搜/胶水代码/记忆独立/鲁棒性/P5降级)
 鲁棒性层数: 5 层 (L1-L5)

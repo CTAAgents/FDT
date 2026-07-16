@@ -1,0 +1,211 @@
+import json
+import logging
+import os
+from typing import Dict, Optional, Any, List
+from datetime import datetime
+
+logger = logging.getLogger("fdt_agents")
+
+
+class FdtAgentExecutor:
+    def __init__(self, agent_config: Any):
+        if isinstance(agent_config, str):
+            self._load_from_registry(agent_config)
+        else:
+            self.agent_config = agent_config
+            self.agent_name = agent_config.get("name", "")
+            self.role = agent_config.get("role", "")
+            self.system_prompt = agent_config.get("system_prompt", "")
+            self.max_tokens = agent_config.get("max_tokens", 4096)
+            self.temperature = agent_config.get("temperature", 0.7)
+
+    def _load_from_registry(self, agent_name: str):
+        agent = AgentRegistry.get(agent_name)
+        if agent:
+            self.agent_name = agent.agent_name
+            self.role = agent.role
+            self.system_prompt = agent.system_prompt
+            self.max_tokens = agent.max_tokens
+            self.temperature = agent.temperature
+            self.agent_config = agent.agent_config
+        else:
+            self.agent_name = agent_name
+            self.role = ""
+            self.system_prompt = ""
+            self.max_tokens = 4096
+            self.temperature = 0.7
+            self.agent_config = {"name": agent_name}
+
+    def execute(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
+        logger.info(f"[trace_id={trace_id}] Executing agent: {self.agent_name}")
+
+        result = {
+            "agent_name": self.agent_name,
+            "role": self.role,
+            "timestamp": datetime.now().isoformat(),
+            "trace_id": trace_id,
+            "output": "",
+            "error": None,
+            "metadata": {
+                "prompt_tokens": len(prompt),
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+            },
+        }
+
+        try:
+            llm_output = self._call_llm(prompt, **kwargs)
+            result["output"] = llm_output
+            logger.info(f"[trace_id={trace_id}] Agent {self.agent_name} completed successfully")
+        except Exception as e:
+            result["error"] = str(e)
+            logger.error(f"[trace_id={trace_id}] Agent {self.agent_name} failed: {e}")
+
+        return result
+
+    async def run(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
+        return self.execute(prompt, trace_id, **kwargs)
+
+    def _call_llm(self, prompt: str, **kwargs) -> str:
+        import httpx
+        import time
+
+        api_key = os.environ.get("FDT_LLM_API_KEY")
+        api_base = os.environ.get("FDT_LLM_API_BASE", "https://api.deepseek.com/v1")
+
+        logger.debug(f"[LLM] FDT_LLM_API_KEY present: {bool(api_key)}, len={len(api_key) if api_key else 0}")
+
+        if not api_key:
+            # 尝试从其他环境变量获取
+            api_key = os.environ.get("OPENAI_API_KEY", "")
+            if api_key:
+                logger.info(f"[LLM] Using OPENAI_API_KEY instead (len={len(api_key)})")
+            else:
+                raise ValueError("FDT_LLM_API_KEY environment variable not set")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        data = {
+            "model": os.environ.get("FDT_LLM_MODEL", "deepseek-chat"),
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+        }
+
+        max_retries = 3
+        backoff = 2
+
+        for attempt in range(max_retries):
+            try:
+                with httpx.Client(timeout=120) as client:
+                    response = client.post(f"{api_base}/chat/completions", headers=headers, json=data)
+                    response.raise_for_status()
+                    return response.json()["choices"][0]["message"]["content"]
+            except httpx.HTTPError as e:
+                if attempt < max_retries - 1:
+                    time.sleep(backoff * (attempt + 1))
+                    continue
+                raise e
+            except Exception as e:
+                raise e
+
+
+class AgentRegistry:
+    _agents: Dict[str, FdtAgentExecutor] = {}
+
+    @classmethod
+    def register(cls, agent_name: str, executor: FdtAgentExecutor):
+        cls._agents[agent_name] = executor
+        logger.info(f"Registered agent: {agent_name}")
+
+    @classmethod
+    def get(cls, agent_name: str) -> Optional[FdtAgentExecutor]:
+        return cls._agents.get(agent_name)
+
+    @classmethod
+    def load_from_directory(cls, agents_dir: str = "agents"):
+        import glob
+
+        md_files = glob.glob(os.path.join(agents_dir, "*.md"))
+        for md_file in md_files:
+            agent_name = os.path.basename(md_file).replace(".md", "")
+            try:
+                config = cls._parse_agent_md(md_file)
+                executor = FdtAgentExecutor(config)
+                cls.register(agent_name, executor)
+            except Exception as e:
+                logger.warning(f"Failed to load agent {agent_name}: {e}")
+
+    @classmethod
+    def _parse_agent_md(cls, md_path: str) -> Dict[str, Any]:
+        with open(md_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        lines = content.split("\n")
+        config = {
+            "name": os.path.basename(md_path).replace(".md", ""),
+            "role": "",
+            "system_prompt": "",
+        }
+
+        in_role = False
+        in_system_prompt = False
+        system_prompt_lines = []
+
+        for line in lines:
+            if line.startswith("#"):
+                config["role"] = line.replace("#", "").strip()
+                in_role = True
+                continue
+            if line.startswith("##") and "system" in line.lower():
+                in_system_prompt = True
+                continue
+            if line.startswith("##") and in_system_prompt:
+                break
+            if in_system_prompt:
+                system_prompt_lines.append(line)
+
+        config["system_prompt"] = "\n".join(system_prompt_lines).strip()
+        return config
+
+
+class DebateAgentExecutor:
+    def __init__(self):
+        self.registry = AgentRegistry()
+        self.registry.load_from_directory()
+
+    def execute_agent(self, agent_name: str, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
+        executor = self.registry.get(agent_name)
+        if not executor:
+            raise ValueError(f"Agent {agent_name} not registered")
+        return executor.execute(prompt, trace_id, **kwargs)
+
+    def execute_parallel(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        results = []
+        for task in tasks:
+            try:
+                result = self.execute_agent(
+                    agent_name=task["agent_name"],
+                    prompt=task["prompt"],
+                    trace_id=task.get("trace_id", ""),
+                    **task.get("kwargs", {})
+                )
+                results.append(result)
+            except Exception as e:
+                results.append({
+                    "agent_name": task["agent_name"],
+                    "error": str(e),
+                    "trace_id": task.get("trace_id", ""),
+                })
+        return results
+
+
+AgentRegistry.load_from_directory()

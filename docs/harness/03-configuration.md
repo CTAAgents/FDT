@@ -83,7 +83,7 @@
 ```toml
 [project]
 name = "futures-debate-team"
-version = "6.3.1"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
+version = "8.3.0"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.0", "numpy>=1.24", "python-dateutil>=2.8",
@@ -114,6 +114,9 @@ line-length = 120
 | `PYTHONIOENCODING` | (未设置) | Python IO 编码 (pipeline 强制设为 `utf-8`) | `pipeline/runner.py` |
 | `DCE_API_KEY` | (未设置) | 大商所官方 API key；设置后 DCE 持仓排名走官方 API（见 `futures_data_core/f10/dce_api.py`） | `f10/position.py` |
 | `DCE_API_SECRET` | (未设置) | 大商所官方 API secret；与 `DCE_API_KEY` 配对 | `f10/position.py` |
+| `FDT_USE_LANGGRAPH` | `false` | 控制 `pipeline/runner.py` 使用 LangGraph 模式（A/B 切换）：`true`=走 LangGraph 路径，`false`=走旧 subprocess 路径（零风险） | `pipeline/runner.py` |
+| `FDT_LANGGRAPH_MODE` | `default` | LangGraph 模式选择：`default`/`fast`/`deep_research`/`tournament`；仅当 `FDT_USE_LANGGRAPH=true` 时生效 | `pipeline/runner.py` `fdt_langgraph/graph.py` |
+| `FDT_CHECKPOINTER` | `sqlite` | Checkpointer 后端选择：`pg`=PostgreSQL，`sqlite`=SQLite；`pg` 连接失败自动降级到 `sqlite` | `fdt_langgraph/graph.py` `_get_checkpointer()` |
 
 ### 环境变量设置示例
 
@@ -208,3 +211,162 @@ AKShare (优先级 3, 最后降级)
 | 环境变量 | ⚠️ 无类型检查 | FDB_LOG_LEVEL 写错值静默降级为 INFO |
 
 > 详见 [差距分析](08-gap-analysis.md) G1 / G14 状态。
+
+## 7. PostgreSQL 数据库配置 (v8.3.0 新增)
+
+### 7.1 数据库连接配置
+
+```yaml
+# config/database.yaml (新增)
+postgresql:
+  host: "localhost"
+  port: 5432
+  database: "fdt"
+  username: "fdt_user"
+  password: "${PG_PASSWORD}"  # 从环境变量读取
+  schema: "public"
+  
+  # 连接池
+  pool:
+    min_size: 2
+    max_size: 10
+    max_overflow: 5
+    pool_timeout: 30
+    pool_recycle: 3600
+  
+  # 超时设置
+  timeout:
+    connect: 10
+    query: 60
+    
+  # 迁移配置
+  migrations:
+    path: "fdt_pg/migrations"
+    auto_migrate: true
+    
+  # OLAP 视图刷新
+  olap:
+    refresh_interval: 3600  # 每小时刷新物化视图
+    
+# 降级: 连接失败时回退到 DuckDB (过渡期)
+failover:
+  enabled: true
+  fallback_db: "futures.db"
+  alert_webhook: "${WEBHOOK_URL}"
+```
+
+### 7.2 环境变量
+
+| 变量 | 默认值 | 用途 | 来源 |
+|:-----|:-------|:-----|:-----|
+| `PG_HOST` | `localhost` | PostgreSQL 主机 | `fdt_pg/config.py` |
+| `PG_PORT` | `5432` | PostgreSQL 端口 | `fdt_pg/config.py` |
+| `PG_DATABASE` | `fdt` | 数据库名 | `fdt_pg/config.py` |
+| `PG_USERNAME` | `fdt_user` | 用户名 | `fdt_pg/config.py` |
+| `PG_PASSWORD` | (必填) | 密码 | `fdt_pg/config.py` |
+| `PG_SCHEMA` | `public` | Schema | `fdt_pg/config.py` |
+| `PG_POOL_MAX` | `10` | 连接池最大连接数 | `fdt_pg/config.py` |
+
+### 7.3 表与视图清单
+
+| 对象 | 类型 | 用途 | 分区 |
+|:-----|:-----|:-----|:-----|
+| `scan_signals` | 表 | 信号扫描结果 | 按 `date` 分区 |
+| `chain_analysis` | 表 | 产业链分析 | 按 `date` 分区 |
+| `technical_scores` | 表 | 技术面评分 | 按 `date` 分区 |
+| `fundamental_scores` | 表 | 基本面评分 | 按 `date` 分区 |
+| `debate_verdicts` | 表 | 辩论裁决 | 按 `date` 分区 |
+| `trading_plans` | 表 | 交易方案 | 按 `date` 分区 |
+| `risk_checks` | 表 | 风控审核 | 按 `date` 分区 |
+| `langgraph_checkpoints` | 表 | LangGraph 状态历史 | 按 `thread_id` 分区 |
+| `log_entries` | 表 | 统一日志 | 按 `timestamp` 分区 |
+| `execution_followup` | 表 | 裁决回溯 | 按 `date` 分区 |
+| `agent_profiles` | 表 | Agent 进化参数 | — |
+| `calibration` | 表 | 权重校准 | — |
+| `v_debate_summary` | 视图 | 辩论汇总 (OLAP) | — |
+| `v_signal_performance` | 视图 | 信号绩效 (OLAP) | — |
+| `v_agent_effectiveness` | 视图 | Agent 效能 (OLAP) | — |
+
+## 8. 独立运行配置 (v8.3.0 新增)
+
+### 8.1 CLI 入口配置
+
+```yaml
+# config/cli.yaml (新增)
+cli:
+  # 守护进程模式
+  daemon:
+    cron: "0 9 * * 1-5"  # 工作日 9:00 触发
+    timezone: "Asia/Shanghai"
+    max_instances: 1      # 禁止并发执行
+    misfire_grace_time: 3600  # 错过触发后1小时内补执行
+    
+  # 日志
+  log:
+    level: "INFO"
+    format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+    file: "logs/fdt_daemon.log"
+    rotation: "1 day"
+    retention: "30 days"
+    
+  # 进程管理
+  pid_file: "memory/fdt_daemon.pid"
+  
+# 运行时参数 (命令行覆盖)
+run:
+  mode: "default"        # default / fast / deep_research / tournament
+  symbols: []            # 空=全量扫描，指定=单品种
+  skip_self_evolution: false
+  output_dir: "Commodities/Reports"
+```
+
+### 8.2 API 服务配置
+
+```yaml
+# config/api.yaml (新增)
+api:
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 1
+    reload: false
+    
+  # 认证
+  auth:
+    type: "api_key"      # api_key / jwt / none
+    api_key_header: "X-API-Key"
+    
+  # 限流
+  rate_limit:
+    requests_per_minute: 10
+    burst: 5
+    
+  # CORS
+  cors:
+    origins: ["http://localhost:3000"]
+    allow_credentials: true
+    
+  # 端点
+  endpoints:
+    debate: "/api/v1/debate"
+    status: "/api/v1/status"
+    health: "/health"
+    
+  # 异步任务
+  background:
+    max_concurrent: 2
+    timeout: 3600
+```
+
+### 8.3 独立运行环境变量
+
+| 变量 | 默认值 | 用途 | 来源 |
+|:-----|:-------|:-----|:-----|
+| `FDT_MODE` | `cli` | 运行模式: cli / api | `fdt_cli.py` / `fdt_api.py` |
+| `FDT_CRON` | `0 9 * * 1-5` | 守护进程 cron 表达式 | `fdt_cli.py` |
+| `FDT_API_HOST` | `0.0.0.0` | API 监听地址 | `fdt_api.py` |
+| `FDT_API_PORT` | `8000` | API 监听端口 | `fdt_api.py` |
+| `FDT_API_KEY` | (未设置) | API 认证密钥 | `fdt_api.py` |
+| `FDT_LOG_DIR` | `logs/` | 日志目录 (去 WorkBuddy) | `unified_logger.py` |
+
+> **WorkBuddy 路径迁移**: `~/Documents/WorkBuddy/Logs/` 已废弃，默认改为项目内 `logs/` 目录。通过 `FDT_LOG_DIR` 环境变量可自定义。

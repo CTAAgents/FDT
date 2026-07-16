@@ -16,9 +16,19 @@ _SPIKE_RETURN_CAP = 0.5  # 与 multi_source_adapter._SPIKE_RETURN_CAP 一致
 _BREAKOUT_SIGNALS = {"channel_breakout", "trend_confirmation", "bb_squeeze_prebreakout"}
 # v2 命名空间前缀（trend_following.dc20 等）
 _V2_TREND_PREFIXES = ("trend_following",)
+# ── G43 类别错误修复（2026-07-16）──
+# P0-4 校验语义 = 「末根 high/low/close 是否真实穿越前 20 根唐奇安极值」，
+# 仅对**真正的唐奇安通道突破**子信号成立。去融合（G41）后 trend_following 拆成
+# 10 个独立子信号，其中 supertrend/sar/chandelier/macd/tsmom/dual_thrust/bb/
+# keltner 均**非** 20 根极值突破，若一律套用此门禁会把它们误判为「伪突破」并降级
+# 为 total=0（实测 supertrend/sar/macd/tsmom 各 52/63、chandelier 25/33 被误降）。
+# 故 v2 命名空间下仅 dc20/dc55 两个唐奇安突破子信号进入 P0-4 重校验。
+_V2_BREAKOUT_SUFFIXES = ("dc20", "dc55")
 
-def _is_v2_trend(sig: str) -> bool:
-    return any(sig.startswith(p) for p in _V2_TREND_PREFIXES)
+def _is_v2_breakout(sig: str) -> bool:
+    if not any(sig.startswith(p) for p in _V2_TREND_PREFIXES):
+        return False
+    return sig.rsplit(".", 1)[-1] in _V2_BREAKOUT_SUFFIXES
 
 # ── 基差方向冲突阈值（从 config/settings.py 集中读取） ──
 try:
@@ -30,7 +40,7 @@ except Exception:
 
 def validate_p0_4_raw_kline(r: dict, context) -> None:
     sig = r.get("signal_type", "")
-    if sig not in _BREAKOUT_SIGNALS and not _is_v2_trend(sig):
+    if sig not in _BREAKOUT_SIGNALS and not _is_v2_breakout(sig):
         return
     sym = r.get("symbol", "")
     dlist = (context.kline_data.get(sym) or (None, []))[1]

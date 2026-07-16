@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.3 | 2026-07-15 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式
+> v4.4 | 2026-07-16 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式
 
 ---
 
@@ -228,6 +228,85 @@ python scripts/fdt_cli.py pipeline --mode finalize-only --workspace <dir>
 | 8 | **finalize-only** | ❌ | ❌ | ❌* | ❌(收口) | `pipeline --mode finalize-only` |
 
 > * finalize-only 阶段会读取 `p1_chain_analysis.json`（若 plan 阶段已生成），组装到中间数据中
+
+---
+
+## 模式九: `langgraph` — LangGraph 图编排模式（v8.4.0+）
+
+> 替代传统的 subprocess 文件传递模式，使用 LangGraph StateGraph 进行声明式图编排。
+> 通过 `FDT_USE_LANGGRAPH=true` 环境变量控制，支持零风险 A/B 切换。
+
+### LangGraph 模式流程图
+
+```
+输入: trace_id + selected_symbols + mode
+    │
+    ▼
+┌───────────────────────────────────────┐
+│ build_debate_graph(mode)             │ ← 声明式图定义
+│  scan → judge_direction              │
+│        → Parallel(chain/tech/fund)   │ ← 按需并行
+│        → merge_research              │
+│        → debate? → verdict           │ ← 条件边路由
+│        → trading_plan → risk_check   │
+│        → report → END                │
+└───────────────────────────────────────┘
+    │
+    ▼
+输出: DebateState (包含所有阶段产出)
+    │
+    ▼
+健康检查 → run_health_check(state)
+```
+
+### LangGraph 模式命令
+
+```bash
+# 方式1: 环境变量控制 pipeline/runner.py
+FDT_USE_LANGGRAPH=true FDT_LANGGRAPH_MODE=default python pipeline/runner.py
+
+# 方式2: 直接调用 run_debate.py langgraph 子命令
+python scripts/run_debate.py langgraph --symbols RB,CU --mode default
+
+# 方式3: 使用 fdt_cli.py langgraph 子命令（v8.4.0+）
+python scripts/fdt_cli.py langgraph --symbols RB,CU --mode default
+
+# 方式4: HTTP API（fdt_api.py）
+python fdt_api.py
+curl -X POST http://localhost:8000/api/v1/debate \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "default", "trace_id": "my-trace"}'
+```
+
+### LangGraph 模式对比
+
+| 维度 | subprocess 模式 | LangGraph 模式 |
+|------|-----------------|----------------|
+| 流程编排 | 文件传递 + subprocess | StateGraph 声明式 |
+| 并行执行 | 串行 + spawn Agent | 内置 Parallel 节点 |
+| 状态管理 | 分散在 JSON 文件 | 统一 DebateState |
+| 调试 | 日志 + 文件 | LangSmith + 状态快照 |
+| A/B 切换 | 无 | FDT_USE_LANGGRAPH 环境变量 |
+| Checkpointer | 无 | PostgreSQL/SQLite 持久化 |
+
+### LangGraph 模式速查表
+
+| 参数 | 选项 | 说明 |
+|:-----|:-----|:-----|
+| `FDT_USE_LANGGRAPH` | `true`/`false` | 是否启用 LangGraph 模式（默认 false） |
+| `FDT_LANGGRAPH_MODE` | `default`/`fast`/`deep_research`/`tournament` | 执行模式 |
+| `FDT_CHECKPOINTER` | `sqlite`/`pg` | Checkpointer 后端（默认 sqlite） |
+
+### LangGraph vs 传统模式对比
+
+| 维度 | 传统模式 | LangGraph 模式 |
+|:-----|:---------|:--------------|
+| 流程驱动 | subprocess 文件传递 | StateGraph 内存传递 |
+| 并行执行 | 串行触发 | 声明式并行 |
+| 状态管理 | 文件 + SQLite | DebateState + Checkpointer |
+| 错误恢复 | S04 轮询 | 节点级错误捕获 + 状态回溯 |
+| A/B 切换 | 无 | `FDT_USE_LANGGRAPH` 环境变量 |
+| 监控 | 文件日志 | 节点级计时 + 健康检查 |
 
 ---
 

@@ -1290,7 +1290,15 @@ def run_scan(
         tdx_pct = tdx_ct / results_count * 100 if results_count else 0
 
         # 构建 HTML（策略感知模板）
-        _th = "".join(f'<th onclick="sortBy({i})"{" data-num=\"1\"" if n else ""} style="text-align:{"center" if n else "left"}">{h}</th>' for i,(h,n) in enumerate(_cols))
+        def _dn(is_num):
+            return ' data-num="1"' if is_num else ""
+        def _ta(is_num):
+            return "center" if is_num else "left"
+
+        _th = "".join(
+            f'<th onclick="sortBy({i})"{_dn(n)} style="text-align:{_ta(n)}">{h}</th>'
+            for i, (h, n) in enumerate(_cols)
+        )
 
         period_label = "" if period == "daily" else f" ({period})"
         _title_label = ("多策略管线信号强度排序" if _is_pipeline else

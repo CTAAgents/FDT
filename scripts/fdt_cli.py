@@ -95,11 +95,97 @@ def _resolve_workspace(ws: str | None) -> str:
     return str(default)
 
 
+def _run_langgraph_debate(workspace: str, scan_json: str, threshold: int, trace_id: str) -> int:
+    """使用 LangGraph 自动完成辩论流程。"""
+    import asyncio
+    import json
+    import shutil
+    from datetime import datetime
+
+    # 确保 LLM API Key 设置
+    if not os.environ.get("FDT_LLM_API_KEY"):
+        # 尝试从 .env 文件读取
+        env_path = Path(_ROOT) / ".env"
+        if env_path.exists():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                if line.startswith("FDT_LLM_API_KEY="):
+                    os.environ["FDT_LLM_API_KEY"] = line.split("=", 1)[1].strip()
+                    print(f"  ✓ 从 .env 加载 FDT_LLM_API_KEY")
+                    break
+
+        if not os.environ.get("FDT_LLM_API_KEY"):
+            print("⚠️ FDT_LLM_API_KEY 未设置，LLM Agent 将失败")
+            print("   请设置环境变量: $env:FDT_LLM_API_KEY='your-key'")
+            print("   或创建 .env 文件: FDT_LLM_API_KEY=your-key")
+
+    sys.path.insert(0, str(_ROOT))
+    from fdt_langgraph.state import create_initial_state
+    from fdt_langgraph.graph import build_debate_graph_no_checkpoint
+    from fdt_langgraph.health import run_health_check
+
+    # 读取扫描结果
+    with open(scan_json, "r", encoding="utf-8") as f:
+        scan_results = json.load(f)
+
+    # 提取触发品种
+    all_ranked = scan_results.get("all_ranked", [])
+    trigger_symbols = [s["symbol"] for s in all_ranked if abs(s.get("total", 0)) >= threshold]
+
+    print("=" * 60)
+    print("🤖 FDT LangGraph 自动辩论模式")
+    print(f"   Trace: {trace_id}")
+    print(f"   扫描结果: {scan_json}")
+    print(f"   触发阈值: |total| ≥ {threshold}")
+    print(f"   触发品种数: {len(trigger_symbols)}")
+    if trigger_symbols:
+        print(f"   触发品种: {', '.join(trigger_symbols[:10])}{'...' if len(trigger_symbols) > 10 else ''}")
+    print("=" * 60)
+
+    if not trigger_symbols:
+        print("⚠️ 无触发品种，跳过辩论")
+        return 0
+
+    async def _run():
+        state = create_initial_state(trace_id, mode="default")
+        state["scan_results"] = scan_results
+        state["selected_symbols"] = trigger_symbols
+
+        graph = build_debate_graph_no_checkpoint(mode="default")
+        config = {"configurable": {"thread_id": trace_id}}
+
+        final_state = await graph.ainvoke(state, config=config)
+
+        health = run_health_check(state=final_state)
+        print("\n" + "=" * 60)
+        print("✅ LangGraph 辩论完成")
+        print("=" * 60)
+        print(f"Trace ID: {final_state.get('trace_id')}")
+        print(f"Completed Phases: {final_state.get('completed_phases')}")
+        print(f"Health Status: {health.get('overall_status')}")
+
+        report_path = final_state.get("report_path")
+        if report_path and Path(report_path).exists():
+            dest = Path(workspace) / f"debate_report_{datetime.now().strftime('%Y%m%d')}.html"
+            shutil.copy(report_path, dest)
+            print(f"📄 报告已生成: {dest}")
+
+        return final_state
+
+    try:
+        asyncio.run(_run())
+        return 0
+    except Exception as e:
+        print(f"⛔ LangGraph 辩论失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def cmd_pipeline(args: argparse.Namespace) -> int:
     """高级模式入口：根据 --mode 执行对应流程。"""
     mode = args.mode
     workspace = _resolve_workspace(getattr(args, "workspace", None))
-    scan_prefix = getattr(args, "scan_prefix", f"scan_pipe_{_now_hhmm()}")
+    scan_prefix = getattr(args, "scan_prefix", None) or f"scan_pipe_{_now_hhmm()}"
     no_cache = getattr(args, "no_cache", False)
     check_resources = getattr(args, "check_resources", False)
     py = sys.executable
@@ -226,6 +312,17 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     scan_json = json_candidates[0]
     print(f"  使用扫描文件: {scan_json}")
 
+    # 检查是否使用 LangGraph 自动模式
+    use_auto = getattr(args, "auto", False)
+    if use_auto:
+        # 使用 LangGraph 自动完成辩论流程
+        return _run_langgraph_debate(
+            workspace=workspace,
+            scan_json=scan_json,
+            threshold=getattr(args, "threshold", 40),
+            trace_id=f"fdt-pipe-{_today_str()}-{_now_hhmm()}"
+        )
+
     # plan → spawnAgent → finalize
     plan_cmd = [py, str(_RUN_DEBATE_PY), "plan",
                 "--scan", scan_json,
@@ -328,8 +425,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="启用多策略管线（6策略并行）代替单策略通道突破")
     p_pipe.add_argument("--strategies", default=None,
                         help='管线策略子集（逗号分隔），如 "trend_following,arbitrage"。不传=全部6策略')
+    p_pipe.add_argument("--force", action="store_true",
+                        help="强制执行，忽略系统资源红色警戒")
     p_pipe.add_argument("--skip-self-check", action="store_true",
                         help="跳过辩论前的自动自检")
+    p_pipe.add_argument("--auto", action="store_true",
+                        help="使用 LangGraph 自动完成辩论流程（跳过手动 spawn Agent）")
+    p_pipe.add_argument("--threshold", type=int, default=40,
+                        help="触发辩论的信号阈值（默认 40 分）")
 
     # ── 低级命令保持兼容 ──
     p_scan = sub.add_parser("scan", help="运行信号扫描 (pass-through)")
@@ -431,6 +534,17 @@ def build_parser() -> argparse.ArgumentParser:
                          help="监听端口（默认 8765）")
     p_serve.add_argument("--workspace", default=None,
                          help="工作空间数据目录（默认自动发现）")
+
+    # ── LangGraph 模式 ──
+    p_lg = sub.add_parser("langgraph",
+                          help="LangGraph 图编排模式：使用声明式图定义运行完整辩论流水线")
+    p_lg.add_argument("--mode", default="default",
+                      choices=["default", "fast", "deep_research", "tournament"],
+                      help="LangGraph 模式: default(默认) / fast(跳过辩论) / deep_research(深度研究) / tournament(锦标赛)")
+    p_lg.add_argument("--symbols", default=None,
+                      help="指定辩论品种（逗号分隔），默认自动扫描")
+    p_lg.add_argument("--trace-id", default=None,
+                      help="指定 trace_id（默认自动生成）")
 
     return ap
 
@@ -580,6 +694,56 @@ def main() -> int:
         print(f"🌐 FDT Dashboard: http://{host}:{port}")
         uvicorn.run(app, host=host, port=port, log_level="info")
         return 0
+
+    # ── LangGraph 模式 ──
+    if args.cmd == "langgraph":
+        import asyncio
+        sys.path.insert(0, str(_ROOT))
+        try:
+            from fdt_langgraph.state import create_initial_state
+            from fdt_langgraph.graph import build_debate_graph_no_checkpoint
+            from fdt_langgraph.health import run_health_check
+        except ImportError as e:
+            print(f"⛔ LangGraph 模块不可用: {e}")
+            return 1
+
+        mode = getattr(args, "mode", "default")
+        symbols = getattr(args, "symbols", None)
+        trace_id = getattr(args, "trace_id", None)
+
+        if not trace_id:
+            trace_id = f"fdt-{_today_str()}-{_now_hhmm()}-{os.getpid()}"
+
+        print(f"{'='*60}")
+        print(f"🤖 FDT LangGraph 模式")
+        print(f"   Trace: {trace_id}")
+        print(f"   Mode: {mode}")
+        print(f"   Symbols: {symbols or 'auto'}")
+        print(f"{'='*60}")
+
+        async def _run_lg():
+            state = create_initial_state(trace_id, mode=mode)
+            if symbols:
+                state["selected_symbols"] = [s.strip() for s in symbols.split(",")]
+            graph = build_debate_graph_no_checkpoint(mode=mode)
+            config = {"configurable": {"thread_id": trace_id}}
+            final_state = await graph.ainvoke(state, config=config)
+            health = run_health_check(state=final_state)
+            print(f"  健康状态: {health.get('overall_status', 'unknown')}")
+            report_path = final_state.get("report_path", "")
+            if report_path:
+                print(f"📄 报告已生成: {report_path}")
+            return final_state
+
+        try:
+            asyncio.run(_run_lg())
+            print("✅ LangGraph 流水线完成")
+            return 0
+        except Exception as e:
+            print(f"⛔ LangGraph 流水线失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return 1
 
     return 0
 

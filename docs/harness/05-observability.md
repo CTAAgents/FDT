@@ -300,3 +300,73 @@ self_improve.py (自改进脚手架)
 | SQLite 备份 | 同时写入 `memory/{round_id}/debate_journal.db` (支持并发) |
 | 线程锁 | `_journal_lock` 保护 journal 的读-改-写操作 |
 | 完整性校验 | `validate()` 检查缺失/重复/损坏 |
+
+## 8. PostgreSQL 监控指标 (v8.3.0+)
+
+### 8.1 监控架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   PostgreSQL 监控体系                        │
+├──────────────────┬──────────────────┬───────────────────────┤
+│   OLTP 性能指标   │   OLAP 查询指标  │   连接池健康指标       │
+├──────────────────┼──────────────────┼───────────────────────┤
+│ query_duration   │ mv_refresh_time  │ pool_active          │
+│ row_count        │ scan_rows        │ pool_idle            │
+│ transaction_rate │ query_cache_hit  │ pool_waiting         │
+│ deadlock_count   │ parallel_scans   │ connection_errors    │
+└──────────────────┴──────────────────┴───────────────────────┘
+```
+
+### 8.2 核心监控指标
+
+| 指标名 | 类型 | 说明 | 告警阈值 |
+|:-------|:-----|:-----|:---------|
+| `pg_pool_active` | Gauge | 当前活跃连接数 | > 80% of pool_max |
+| `pg_pool_idle` | Gauge | 当前空闲连接数 | < 10% of pool_max |
+| `pg_pool_waiting` | Gauge | 等待连接数 | > 5 |
+| `pg_connection_errors` | Counter | 连接错误总数 | 持续增长 |
+| `pg_query_duration_p95` | Histogram | 查询耗时 P95 | > 500ms |
+| `pg_transaction_rate` | Rate | 事务/秒 | < 1 (空闲), > 100 (繁忙) |
+| `pg_deadlock_count` | Counter | 死锁次数 | > 0 |
+| `pg_mv_refresh_time` | Histogram | 物化视图刷新耗时 | > 300s |
+| `pg_scan_rows` | Counter | 扫描行数 | 异常激增 |
+| `pg_query_cache_hit` | Gauge | 查询缓存命中率 | < 0.8 |
+
+### 8.3 日志输出规范
+
+所有 PostgreSQL 操作日志必须包含 `trace_id`：
+
+```python
+logger.info(f"[trace_id={trace_id}] PG query executed: scan_signals, rows={row_count}, duration={duration_ms}ms")
+logger.error(f"[trace_id={trace_id}] PG connection failed: {error}")
+```
+
+### 8.4 健康检查端点
+
+| 端点 | 方法 | 说明 |
+|:-----|:-----|:-----|
+| `/health` | GET | 应用健康检查 |
+| `/api/v1/status` | GET | 任务运行状态统计 |
+| `pg_health_check()` | 内部 | PostgreSQL 连接健康检查 |
+| `run_health_check(state)` | 内部 | LangGraph 状态健康检查（节点计时/错误记录/阶段超时检测） |
+| `check_graph_health(graph_config)` | 内部 | LangGraph 图配置健康检查（节点数/慢节点检测） |
+
+### 8.5 LangGraph 运行时指标（v8.4.0+）
+
+| 指标 | 类型 | 说明 |
+|:-----|:-----|:-----|
+| `node_durations` | 字典 | 各节点执行耗时（秒） |
+| `n_errors` | 整数 | 节点错误数 |
+| `current_phase` | 字符串 | 当前执行阶段 |
+| `completed_phases` | 列表 | 已完成阶段列表 |
+| `slow_nodes` | 列表 | 慢节点（>60s）名称 |
+| `overall_status` | 字符串 | 健康状态（healthy/degraded） |
+
+### 8.6 监控文件位置
+
+| 文件 | 路径 | 用途 |
+|:-----|:-----|:-----|
+| PostgreSQL 连接日志 | `logs/pg_connection.log` | 连接池状态变化 |
+| 查询性能日志 | `logs/pg_query.log` | 慢查询 (>100ms) 记录 |
+| API 访问日志 | `logs/api_access.log` | FastAPI 请求日志 |

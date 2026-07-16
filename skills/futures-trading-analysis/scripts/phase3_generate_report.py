@@ -1048,7 +1048,7 @@ def _init_risk_engine():
     """加载风控明 risk_engine 和 calc_position 模块"""
     global _risk_engine_loaded, select_stop_anchor, calculate_position, calc_position_risk
     try:
-        risk_dir = r'C:\Users\yangd\.workbuddy\plugins\marketplaces\my-experts\plugins\futures-debate-team\skills\debate-risk-manager\scripts'
+        risk_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, os.pardir, "skills", "debate-risk-manager", "scripts"))
         if risk_dir not in sys.path:
             sys.path.insert(0, risk_dir)
         from risk_engine import select_stop_anchor as _sa, calculate_position as _cp

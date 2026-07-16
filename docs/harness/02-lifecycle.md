@@ -1,14 +1,25 @@
 # 02 — 生命周期与编排
 
-## 1. 入口引导 (Bootstrap)
+## 1. 入口引导 (Bootstrap) — 独立运行模式
 
-### 1.1 三种启动模式
+### 1.1 三种启动模式（去 WorkBuddy）
 
 | 模式 | 命令 | 用途 | 退出条件 |
 |:-----|:-----|:-----|:---------|
-| `once` | `python bootstrap.py once` | 单次调度检查（集成到自循环前置） | 检查完即退出 |
-| `daemon` | `python bootstrap.py daemon` | 后台守护进程（持续运行） | 收到 SIGINT/SIGTERM |
-| `interactive` | `python bootstrap.py interactive` | 交互模式（对话界面） | 用户退出 |
+| `cli once` | `python fdt_cli.py --once` | 单次执行完整辩论流程 | 执行完即退出 |
+| `cli daemon` | `python fdt_cli.py --daemon --cron "0 9 * * 1-5"` | 后台守护进程（APScheduler） | 收到 SIGINT/SIGTERM |
+| `api` | `python fdt_api.py --host 0.0.0.0 --port 8000` | FastAPI HTTP 服务 | 收到 SIGINT/SIGTERM |
+| `api trigger` | `POST /api/v1/debate` | API 触发单次辩论 | 执行完返回 |
+
+### 1.1a 旧模式（已废弃）
+
+| 模式 | 状态 | 替代方案 |
+|:-----|:-----|:---------|
+| WorkBuddy automation (30min) | **已废弃** | `fdt_cli.py --daemon` |
+| `bootstrap.py` | **已废弃** | `fdt_cli.py` |
+| `scheduler/engine.py` (60s心跳) | **可选保留** | APScheduler / Celery Beat |
+
+> **迁移说明**: WorkBuddy 平台依赖已完全移除。FDT 现在作为独立 Python 应用运行，通过 CLI 或 HTTP API 触发。原有 `bootstrap.py` 和 `scheduler/engine.py` 保留为兼容层，但新入口推荐使用 `fdt_cli.py` 和 `fdt_api.py`。
 
 ### 1.2 启动序列
 
@@ -47,7 +58,7 @@ bootstrap.py main()
 
 ## 2. 六阶段流水线 (P1-P6)
 
-### 2.1 阶段状态机
+### 2.1 阶段状态机（v8.3.0+ 按需并行版本）
 
 ```
                     ┌─────────────────────────┐
@@ -57,8 +68,11 @@ bootstrap.py main()
                     └───────────┬─────────────┘
                                 │
                     ┌───────────▼─────────────┐
-              ┌─────│   P1: 通道突破扫描       │
+              ┌─────│   P1: 可插拔多策略扫描   │
               │     │   数技源 (scan_all.py)   │
+              │     │   trend_following(10信号)│
+              │     │   mean_reversion(3信号) │
+              │     │   + 自定义策略插件       │
               │     └───────────┬─────────────┘
               │                 │
               │     ┌───────────▼─────────────┐
@@ -70,19 +84,23 @@ bootstrap.py main()
               │         │ Yes           │ No
               │         ▼               ▼
               │  ┌──────────────┐  ┌──────────────┐
-              │  │ P1.5: 链证源  │  │ 提前终止     │
-              │  │ 产业链分析    │  │ 汇报"无信号" │
-              │  └──────┬───────┘  └──────────────┘
-              │         │
-              │  ┌──────▼───────┐
-              │  │ P2: 闫判官   │
-              │  │ 选品种+定方向 │
+              │  │ P2: 闫判官   │  │ 提前终止     │
+              │  │ 选品种+定方向 │  │ 汇报"无信号" │
+              │  │ + 调度决策    │  └──────────────┘
               │  └──────┬───────┘
               │         │
-              │  ┌──────▼───────┐
-              │  │ P3: 研究员   │ ← 并行
-              │  │ 观澜 + 探源  │
-              │  └──────┬───────┘
+              │         ▼ (按需并行调度)
+              │  ┌──────────────────────────┐
+              │  │  P3: 并行数据源           │
+              │  │  ┌─────────┬───────────┐  │
+              │  │  │ 链证源  │ 观澜     │  │
+              │  │  │ 产业链  │ 技术面   │  │
+              │  │  └─────────┴───────────┘  │
+              │  │  ┌───────────────────┐    │
+              │  │  │ 探源              │    │
+              │  │  │ 基本面            │    │
+              │  │  └───────────────────┘    │
+              │  └──────┬────────────────────┘
               │         │
               │  ┌──────▼───────┐
               │  │ P4: 辩论     │ ← 并行
@@ -92,7 +110,7 @@ bootstrap.py main()
               │  ┌──────▼───────┐
               │  │ P5: 裁决链   │ ← 串行
               │  │ 闫判官→策执远 │
-              │  │ →风控明→明鉴秋│
+              │  │ →风控明      │
               │  └──────┬───────┘
               │         │
               └─────────┘ (循环每个品种)
@@ -104,23 +122,38 @@ bootstrap.py main()
                         │
               ┌─────────▼─────────┐
               │ 归档               │
-              │ record_verdicts.py │
-              │ → execution_followup│
+              │ pg.execution_followup│
               └───────────────────┘
 ```
 
-### 2.2 阶段详细规格
+> **阶段变更说明**:
+> - **P1 重构**: 从"通道突破扫描"升级为"可插拔多策略并行扫描"，支持 trend_following(10子信号)、mean_reversion(3子信号) 及自定义策略插件
+> - **P1.5 废弃**: 链证源不再作为独立串行阶段，改为 P3 按需并行数据源之一
+> - **P2 增强**: 闫判官新增"调度决策"能力，决定 P3 需要哪些数据源
+> - **P3 重构**: 改为"按需并行数据源"，由闫判官调度链证源/观澜/探源并行执行
+> - **P5 拆分**: 裁决链拆分为 verdict → trading_plan → risk_check 三步骤
+
+### 2.2 阶段详细规格（按需并行数据源 v8.3.0+）
 
 | 阶段 | 名称 | 执行者 | 输入 | 输出 | 超时 | 降级 |
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
-| P0 | 自进化前置 | 明鉴秋 | execution_followup.json | calibration.json + agent_profiles.json 更新 | 60s/步 | 跳过该步 |
-| P1 | 通道突破扫描 + 分析师能力按需 | 数技源(信号) + 观澜/探源(按需能力) | 品种列表 | full_scan_summary_{date}.json(数技源) + full_scan_l1l4_{date}.json(观澜按需) + full_scan_factor_timing_{date}.json(探源按需) | 600s | 提前终止 |
-| P1.5 | 产业链分析（链证源·无调度权） | 链证源 | P1 信号文件 | chain_analysis_{date}.json | 300s | 跳过链分析 |
-| P2 | 品种筛选 + 判断调度 | 闫判官（调度权） | P1+P1.5 产出 | p2_judge_direction.json（指定链/品种/方向 + dispatch 三分析师） | 420s | D06 降级 |
-| P3 | 研究员供弹 | 观澜+探源 | P2 方向指定 | p3_technical_*.json + p3_fundamental_*.json | 420s/Agent | D06 降级 |
-| P4 | 多空辩论 | 证真+慎思 | P3 研究员资料 | p4_affirmative_*.json + p4_opposition_*.json | 420s/Agent | D06 降级 |
-| P5 | 裁决链 | 闫判官→策执远→风控明 | P4 辩论论据 | p_judge_final_*.json + plan + risk | 420s/Agent | D06 降级 |
-| P6 | 汇总输出 | 明鉴秋 | 全部产出 | debate_results.json + .html | 120s | 拒绝生成报告 |
+| P0 | 自进化前置 | 系统 | `pg.execution_followup` | `pg.calibration` + `pg.agent_profiles` 更新 | 60s/步 | 跳过该步 |
+| P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` | 600s | 提前终止 |
+| P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+定方向+**调度哪些源**） | 420s | D06 降级 |
+| P3 | **按需并行数据源** | 链证源+观澜+探源（闫判官按需调度） | P2 调度指令 | `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` | **max(被调度的源)** | 单源失败不影响其他源 |
+| P3a | 链证源产业链（按需） | 链证源 | 品种+产业链 | `pg.chain_analysis` | 300s | 跳过链分析 |
+| P3b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
+| P3c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
+| P4 | 多空辩论 | 证真+慎思 | P3 合并分析结果 | `pg.debate_arguments` | 420s/Agent | D06 降级 |
+| P5 | 裁决链 | 闫判官→策执远→风控明 | P4 辩论论据 | `pg.debate_verdicts` + `pg.trading_plans` + `pg.risk_checks` | 420s/Agent | D06 降级 |
+| P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML报告 + `pg.debate_index` | 120s | 拒绝生成报告 |
+
+> **阶段变更说明 (v8.3.0)**:
+> - **P1-P2-P3 重构**: 从「数技源串行 → P1.5 链证源 → P2 闫判官 → P3 研究」改为「P1 数技源 → P2 闫判官**调度决策** → P3 **按需并行**触发被调度的源」
+> - **调度权**: 闫判官在 P2 阶段不仅选品种定方向，还决定需要哪些数据源（如趋势信号侧重观澜、周期品种侧重链证源）
+> - **P1.5 废弃**: 链证源不再作为 P1 后的固定串行步骤，而是作为 P3 的按需并行源之一
+> - **数据存储**: 所有中间产出从文件系统迁移到 PostgreSQL (OLTP 层)
+> - **并行粒度**: 被调度的源在 LangGraph 中通过 `ParallelMap` 并发执行，超时取 max 而非 sum
 
 > **调度权边界（2026-07-14 澄清，见 G18）**：辩论调度权（决定辩论品种/产业链/方向、dispatch 哪些分析师）属于**闫判官**；链证源/观澜/探源只做各自分析、**无调度权**；明鉴秋负责按闫判官指令执行 spawn 与资源/生命周期管控。该边界已在 `docs/execution_modes_flowchart.md` v4.1 与 `docs/business_flow.md` 固化。
 

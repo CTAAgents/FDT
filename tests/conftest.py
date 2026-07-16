@@ -5,6 +5,7 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 _PATHS = [
     os.path.join(_ROOT, "..", "scripts"),
     os.path.join(_ROOT, "..", "skills", "quant-daily", "scripts"),
+    os.path.join(_ROOT, ".."),
 ]
 for p in _PATHS:
     rp = os.path.realpath(p)

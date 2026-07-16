@@ -5,36 +5,47 @@
 ### 1.1 单机模式 (默认)
 
 ```
-┌─────────────────────────────────────────────┐
-│              单机部署架构                     │
-│                                             │
-│  ┌───────────┐    ┌──────────────────────┐  │
-│  │ WorkBuddy  │    │  FDT 项目目录         │  │
-│  │ Platform   │───▶│  (plugins/.../        │  │
-│  │            │    │   futures-debate-team)│  │
-│  │ automation │    │                      │  │
-│  │ (30min)    │    │  ┌────────────────┐  │  │
-│  └───────────┘    │  │ bootstrap.py   │  │  │
-│                    │  │ (daemon模式)   │  │  │
-│  ┌───────────┐    │  └───────┬────────┘  │  │
-│  │ Python     │    │          │           │  │
-│  │ 3.12/3.13  │    │  ┌───────▼────────┐  │  │
-│  │            │    │  │ SchedulerEngine │  │  │
-│  └───────────┘    │  │ (60s心跳)       │  │  │
-│                    │  └───────┬────────┘  │  │
-│  ┌───────────┐    │          │           │  │
-│  │ DuckDB     │    │  ┌───────▼────────┐  │  │
-│  │ futures.db │    │  │ Pipeline Runner │  │  │
-│  │            │    │  │ (6步流水线)     │  │  │
-│  └───────────┘    │  └────────────────┘  │  │
-│                    └──────────────────────┘  │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│              单机部署架构 (v8.3.0+ — 独立运行)                │
+│                                                             │
+│  ┌──────────────────┐    ┌──────────────────────────────┐  │
+│  │ fdt_cli.py       │    │ fdt_api.py                   │  │
+│  │ (CLI入口)        │    │ (FastAPI HTTP服务)           │  │
+│  └────────┬─────────┘    └─────────────┬────────────────┘  │
+│           │                            │                    │
+│           └──────────────┬─────────────┘                    │
+│                          ▼                                  │
+│              ┌────────────────────┐                         │
+│              │ APScheduler        │                         │
+│              │ (cron: 0 9 * * 1-5)│                         │
+│              └──────────┬─────────┘                         │
+│                         │ 触发                              │
+│              ┌──────────▼─────────┐                         │
+│              │ FdtDebateGraph     │ ← LangGraph 编译图      │
+│              │ (fdt_langgraph/)   │                         │
+│              └──────────┬─────────┘                         │
+│                         │                                   │
+│              ┌──────────▼─────────┐                         │
+│              │ PostgreSQL 16+     │ ← OLTP+OLAP 混合存储    │
+│              │ scan_signals       │                         │
+│              │ chain_analysis     │                         │
+│              │ debate_verdicts    │                         │
+│              │ langgraph_checkpoints│                        │
+│              │ v_debate_summary   │ ← OLAP 视图            │
+│              └────────────────────┘                         │
+│                                                             │
+│  ┌───────────┐                                              │
+│  │ Python    │                                              │
+│  │ 3.12/3.13 │                                              │
+│  └───────────┘                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **特点**:
 - 所有组件在同一台机器运行
-- 通过 WorkBuddy automation 触发 daemon_watchdog.py (每30分钟)
-- Python 直接运行，无需容器化
+- 独立运行，不依赖 WorkBuddy 平台
+- CLI (`fdt_cli.py`) + FastAPI (`fdt_api.py`) 双入口
+- PostgreSQL OLTP+OLAP 混合存储（替代 DuckDB）
 - 依赖本地数据源 (TDX/TqSDK)
 
 ### 1.2 分布式模式 (可选)
@@ -282,7 +293,7 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `pyproject.toml` | 6.3.1 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
+| `pyproject.toml` | 8.3.0 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
 | `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
 | `README.md` | v6.3.1 | 与 pyproject.toml 同步 |
 
@@ -290,6 +301,9 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
+| v8.4.0 | 2026-07-16 | **G52-G55 生产集成完成**：① G52 `pipeline/runner.py` 集成 LangGraph A/B 切换（`run_langgraph_pipeline()` + `FDT_USE_LANGGRAPH` 环境变量）；② G53 `scripts/run_debate.py` 添加 `langgraph` 子命令（支持 `--mode`/`--symbols`/`--trace-id`）；③ G54 `fdt_langgraph/graph.py` Checkpointer 支持 PG + SQLite 降级（`_get_checkpointer()` + `FDT_CHECKPOINTER=pg` 切换）；④ G55 新增 `tests/fdt_langgraph/test_integration_ab.py` 18 个集成测试验证 A/B 切换机制等价性；**总测试数：99 passed, 1 warning in 5.08s**（8 文件 / 99 用例）；新增 3 个环境变量 `FDT_USE_LANGGRAPH`/`FDT_LANGGRAPH_MODE`/`FDT_CHECKPOINTER`；三级降级路径（LangGraph import 失败→subprocess / PG Checkpointer 失败→SQLite / A/B 默认 false 零风险） |
+| v8.3.0 | 2026-07-16 | **LangGraph 迁移完成**：DebateState TypedDict(19字段+create_initial_state工厂)、10个异步节点函数、按需并行拓扑图(闫判官→链证源/观澜/探源并行→merge_research)、PostgreSQL OLTP+OLAP 混合架构(14表+3视图)、独立 CLI/FastAPI 双入口；更新9篇Harness文档；**21个pytest测试用例全部通过**(节点96%/State 100%/Graph 77%/Agents 65%)；移除 WorkBuddy 依赖；P1 可插拔多策略扫描、P3 三源平行关系无先后次序 |
+| v8.2.0 | 2026-07-16 | Harness 工程规范全面固化：用户规则 + 项目记忆 + harness-checker 技能 + commit前12项检查清单 + Git Hook 强制检查 |
 | v6.3.2 | 2026-07-14 | P0-4 多因子增强：select_triggers disable_filter 读 _raw_total；V1 OI/基差覆写；V2 OI+量比联合；V3 基差+低波联合；numpy 60s 品种级超时；finalize-only glob mtime 排序；G19 新登记(9 测试全绿)；阈值常量 G20/100ppi 降级 G21 待后续 |
 | v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
 | v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |

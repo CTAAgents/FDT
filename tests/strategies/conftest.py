@@ -13,6 +13,7 @@ def pytest_configure(config):
 
 
 def _add_path():
-    qd = r"C:\Users\yangd\.workbuddy\plugins\marketplaces\my-experts\plugins\futures-debate-team\skills\quant-daily\scripts"
+    PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    qd = os.path.join(PROJECT_ROOT, "skills", "quant-daily", "scripts")
     if qd not in sys.path:
         sys.path.insert(0, qd)

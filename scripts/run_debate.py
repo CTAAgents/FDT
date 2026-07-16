@@ -1281,6 +1281,15 @@ def main():
     p_rep.add_argument("--scan", required=True)
     p_rep.add_argument("--workspace", required=True)
 
+    p_lg = sub.add_parser("langgraph", help="LangGraph 模式：使用图编排运行完整辩论流水线")
+    p_lg.add_argument("--symbols", default=None,
+                      help="指定辩论品种（逗号分隔），默认自动扫描")
+    p_lg.add_argument("--mode", default="default",
+                      choices=["default", "fast", "deep_research", "tournament"],
+                      help="LangGraph 模式: default(默认) / fast(跳过辩论) / deep_research(深度研究) / tournament(锦标赛)")
+    p_lg.add_argument("--trace-id", default=None,
+                      help="指定 trace_id（默认自动生成）")
+
     args = ap.parse_args()
     # 归一化路径（Git Bash /d/… → D:\…）
     if getattr(args, 'workspace', None):
@@ -1299,6 +1308,46 @@ def main():
             run_validate(str(ws), getattr(args, 'scan', None))
         elif args.cmd == "a2a":
             run_a2a(str(ws))
+        return
+
+    # langgraph 模式：直接走 LangGraph 图编排，不需要 scan 文件
+    if args.cmd == "langgraph":
+        import asyncio as _asyncio
+        from scripts.trace_id import new_trace as _new_trace
+        from fdt_langgraph.state import create_initial_state as _create_state
+        from fdt_langgraph.graph import build_debate_graph_no_checkpoint as _build_graph
+        from fdt_langgraph.health import run_health_check as _health_check
+
+        trace_id = args.trace_id or _new_trace("lg")
+        mode = args.mode
+        symbols = args.symbols.split(",") if args.symbols else []
+
+        print(f"🤖 LangGraph 模式启动")
+        print(f"   Trace: {trace_id}")
+        print(f"   Mode:  {mode}")
+        print(f"   Symbols: {symbols or '(自动)'}")
+
+        async def _lg_run():
+            state = _create_state(trace_id, mode=mode)
+            if symbols:
+                state["selected_symbols"] = symbols
+            graph = _build_graph(mode=mode)
+            config = {"configurable": {"thread_id": trace_id}}
+            final_state = await graph.ainvoke(state, config=config)
+            return final_state
+
+        try:
+            result = _asyncio.run(_lg_run())
+            health = _health_check(state=result)
+            print(f"\n✅ LangGraph 流水线完成")
+            print(f"   健康状态: {health.get('overall_status', 'unknown')}")
+            print(f"   报告路径: {result.get('report_path', 'N/A')}")
+            print(f"   当前阶段: {result.get('current_phase', 'N/A')}")
+        except Exception as e:
+            print(f"\n❌ LangGraph 流水线失败: {e}")
+            import traceback as _tb
+            _tb.print_exc()
+            sys.exit(1)
         return
 
     # plan/assemble/finalize 需要 scan 文件

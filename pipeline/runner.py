@@ -118,12 +118,20 @@ def step_scan() -> bool:
     观澜 run_l1l4_scan.py                  → full_scan_l1l4_{date}.json
     探源 run_factor_timing_scan.py         → full_scan_factor_timing_{date}.json
     三者均落地到 REPORT_DIR，供 step_debate_brief 读取。
+
+    环境变量控制：
+    - FDT_SCAN_MODE: no-filter 禁用伪信号过滤
+    - FDT_STRATEGIES: 指定策略列表，逗号分隔（如 trend_following,mean_reversion）
     """
     logger.info("=" * 60)
     logger.info("Step 1/6: 三生产者扫描 (数技源 + 观澜 + 探源)")
     logger.info("=" * 60)
 
     sym_arg = ",".join(ALL_SYMBOL_CODES) if ALL_SYMBOL_CODES else None
+
+    # 环境变量读取
+    scan_mode = os.environ.get("FDT_SCAN_MODE", "")
+    strategies = os.environ.get("FDT_STRATEGIES", "")
 
     # 1) 数技源: 通道突破（默认 channel_breakout）
     cmd_cb = [
@@ -132,6 +140,11 @@ def step_scan() -> bool:
         "-o", REPORT_DIR,
         "-p", "full_scan_summary",
     ]
+    if scan_mode == "no-filter":
+        cmd_cb.append("--disable-filter")
+    if strategies:
+        cmd_cb.append("--strategies")
+        cmd_cb.append(strategies)
     run_cmd(cmd_cb, "通道突破扫描", check=False)
 
     # 2) 观澜: L1-L4 分层指标
@@ -411,6 +424,59 @@ def clean_xgboost_warning():
     warnings.filterwarnings("ignore", message="XGBoost is not installed")
 
 
+def run_langgraph_pipeline(trace_id: str) -> int:
+    """LangGraph 模式流水线 — 使用 fdt_langgraph 图编排替代 subprocess 步骤。
+
+    当 FDT_USE_LANGGRAPH=true 时由 main() 调用。
+    保持与旧 pipeline 相同的 6 步骤语义，但通过 LangGraph 节点函数执行。
+    """
+    logger.info("=" * 60)
+    logger.info("🤖 期货辩论专家团 — LangGraph 模式")
+    logger.info(f"   Trace: {trace_id}")
+    logger.info(f"   日期: {DATE_STR}")
+    logger.info("=" * 60)
+
+    try:
+        import asyncio
+        from fdt_langgraph.state import create_initial_state
+        from fdt_langgraph.graph import build_debate_graph_no_checkpoint
+        from fdt_langgraph.health import run_health_check
+    except ImportError as e:
+        logger.error(f"LangGraph 模块不可用: {e}，回退到 subprocess 模式")
+        return -1
+
+    async def _run():
+        mode = os.environ.get("FDT_LANGGRAPH_MODE", "default")
+        state = create_initial_state(trace_id, mode=mode)
+        state["selected_symbols"] = ALL_SYMBOL_CODES[:10] if ALL_SYMBOL_CODES else ["RB"]
+
+        graph = build_debate_graph_no_checkpoint(mode=mode)
+        config = {"configurable": {"thread_id": trace_id}}
+
+        logger.info(f"▶ LangGraph 图执行开始 (mode={mode})")
+        final_state = await graph.ainvoke(state, config=config)
+
+        # 健康检查
+        health = run_health_check(state=final_state)
+        logger.info(f"  健康状态: {health.get('overall_status', 'unknown')}")
+
+        # 报告路径
+        report_path = final_state.get("report_path", "")
+        if report_path:
+            logger.info(f"📄 报告已生成: {report_path}")
+
+        return final_state
+
+    try:
+        result = asyncio.run(_run())
+        logger.info("✅ LangGraph 流水线完成")
+        return 0
+    except Exception as e:
+        logger.error(f"LangGraph 流水线失败: {e}")
+        traceback.print_exc()
+        return 1
+
+
 def main():
     """全自动管道主流程"""
     clean_xgboost_warning()
@@ -418,11 +484,20 @@ def main():
     # 生成 trace_id（贯穿全链路，注入子进程环境变量）
     trace_id = new_trace("daily")
 
+    # ── A/B 切换：FDT_USE_LANGGRAPH=true 走 LangGraph 图编排 ──
+    use_langgraph = os.environ.get("FDT_USE_LANGGRAPH", "").lower() in ("true", "1", "yes")
+    if use_langgraph:
+        logger.info("🔧 FDT_USE_LANGGRAPH=true → LangGraph 模式")
+        ret = run_langgraph_pipeline(trace_id)
+        if ret >= 0:
+            return ret
+        logger.warning("LangGraph 模式不可用，回退到 subprocess 模式")
+
     # 确保报告目录存在
     os.makedirs(REPORT_DIR, exist_ok=True)
 
     logger.info("=" * 60)
-    logger.info(f"🤖 期货辩论专家团 — 全自动流水线")
+    logger.info(f"🤖 期货辩论专家团 — 全自动流水线 (subprocess 模式)")
     logger.info(f"   Trace: {trace_id}")
     logger.info(f"   日期: {DATE_STR}")
     logger.info(f"   项目: {PROJECT_DIR}")
