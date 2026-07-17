@@ -22,9 +22,12 @@ _logger = get_logger("compliance")
 
 from typing import Dict, List, Any, Optional
 from datetime import datetime, date
-import json, os, hashlib, time
-from pathlib import Path
+import hashlib
+import json
+import os
+import time
 from collections import defaultdict
+from pathlib import Path
 
 
 class ComplianceAgent:

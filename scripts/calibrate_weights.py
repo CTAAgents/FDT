@@ -207,7 +207,7 @@ def compute_effective_adjustment(verdict: dict, calibrations: dict) -> int:
 
 # ─── 可视化 ───────────────────────────────────────────
 
-def print_calibration(calibrations: dict):
+def print_calibration(calibrations: dict) -> None:
     """打印校准表"""
     meta = calibrations["_meta"]
     print(f"校准时间: {meta['calibrated_at']}")
@@ -282,7 +282,8 @@ def main():
     print(f"{'='*50}")
 
     # 读取最新裁决作为示例
-    followup = json.load(open(args.followup, 'r', encoding='utf-8'))
+    with open(args.followup, 'r', encoding='utf-8') as f:
+        followup = json.load(f)
     if followup["records"]:
         latest = followup["records"][-1]
         verdicts_by_score = sorted(latest["verdicts"], key=lambda v: v.get("score",0), reverse=True)

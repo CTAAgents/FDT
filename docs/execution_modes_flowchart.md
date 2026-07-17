@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.4 | 2026-07-16 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式
+> v4.5 | 2026-07-17 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式 | 闫判官(含交易参数)，新增 signal_output(CTP)
 
 ---
 
@@ -36,12 +36,12 @@
 ### 辩论流程
 
 ```
-数技源出信号 → [过滤?] → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明
-                           ↑                ↑                ↑         ↑           ↑         ↑
-                     ┌─────┴────────────────┴────────────────┴─────────┴───────────┴─────────┘
-                     │ 闫判官拥有调度权；链证源/观澜/探源只做各自分析、无调度权
-                     │ 每批 spawn 前查资源，完成后 shutdown 释放（明鉴秋管控）
-                     └────────────────────────────────────────────────────────────────────
+数技源出信号 → [过滤?] → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 闫判官终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
+                            ↑                ↑                ↑         ↑                   ↑         ↑         ↑         ↑
+                      ┌─────┴────────────────┴────────────────┴─────────┴───────────────────┴─────────┴─────────┴─────────┘
+                      │ 闫判官拥有调度权；链证源/观澜/探源只做各自分析、无调度权
+                      │ 每批 spawn 前查资源，完成后 shutdown 释放（明鉴秋管控）
+                      └────────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
 **三分析师（由闫判官判断调度）**
@@ -96,8 +96,7 @@ Phase2 观澜(技术面)+探源(基本面)×N → spawn 2N → register → wait
 Phase3 多头/空头辩论×N → spawn N → register → wait → shutdown ✅ 释放N
 Phase4 闫判官终裁 → spawn N → register → wait → shutdown ✅ 释放N
 Phase5 一致性×N   → spawn N → register → wait → shutdown ✅ 释放N
-Phase6 策执远×N   → spawn N → register → wait → shutdown ✅ 释放N
-Phase7 风控明×N   → spawn N → register → wait → shutdown ✅ 释放N
+Phase6 风控明×N   → spawn N → register → wait → shutdown ✅ 释放N
                                   ↑
                       每批完成后立即清空，不跨批积压
 ```
@@ -132,7 +131,7 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
 ### 模式一: `full` — 全流程
 
 ```
-数技源信号 → P0-4伪信号过滤 → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
+数技源信号 → P0-4伪信号过滤 → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
 ```
 - `scan_all.py`（channel_breakout，数技源）62品种扫描 → `full_scan_summary_{date}.json`
 - validator P0-4 伪信号门禁
@@ -174,7 +173,7 @@ python scripts/fdt_cli.py pipeline --mode scan-filter --workspace <dir>
 ### 模式五: `debate` — 指定品种辩论
 
 ```
-(跳过扫描) → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁 → 一致性 → 策执远/风控明 → 报告
+(跳过扫描) → 闫判官判断调度(链证源+观澜+探源) → 多头/空头辩论 → 闫判官终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
 ```
 - 闫判官初判（无扫描，虚拟触发）指定品种与方向，dispatch 三分析师
 
@@ -185,7 +184,7 @@ python scripts/fdt_cli.py pipeline --mode debate --symbols pb,sc,l --workspace <
 ### 模式六: `debate-group` — 指定产业链辩论
 
 ```
-(跳过扫描) → 品种解析 → 闫判官判断调度(产业链列表) → 三分析师 → 辩论 → 终裁 → 报告
+(跳过扫描) → 品种解析 → 闫判官判断调度(产业链列表) → 三分析师 → 辩论 → 终裁 → 报告 → signal_output(CTP)
 ```
 
 ```bash
@@ -195,7 +194,7 @@ python scripts/fdt_cli.py pipeline --mode debate-group --chain 黑色系 --works
 ### 模式七: `debate-all` — 强制全品种辩论
 
 ```
-(跳过扫描) → 全品种列表 → 闫判官判断调度(全品种) → 三分析师 → 辩论 → 终裁 → 报告
+(跳过扫描) → 全品种列表 → 闫判官判断调度(全品种) → 三分析师 → 辩论 → 终裁 → 报告 → signal_output(CTP)
 ```
 
 ```bash
@@ -205,7 +204,7 @@ python scripts/fdt_cli.py pipeline --mode debate-all --workspace <dir>
 ### 模式八: `finalize-only` — 仅收口
 
 ```
-(spawn完成后) → 组装(含链数据) → 萃取 → 报告生成 → 输出
+(spawn完成后) → 组装(含链数据) → 萃取 → 报告生成 → signal_output(CTP)
 ```
 
 ```bash
@@ -248,8 +247,8 @@ python scripts/fdt_cli.py pipeline --mode finalize-only --workspace <dir>
 │        → Parallel(chain/tech/fund)   │ ← 按需并行
 │        → merge_research              │
 │        → debate? → verdict           │ ← 条件边路由
-│        → trading_plan → risk_check   │
-│        → report → END                │
+│        → verdict(含交易参数) → risk_check   │
+│        → report → signal_output(CTP) → END  │
 └───────────────────────────────────────┘
     │
     ▼
@@ -338,8 +337,7 @@ debate 子命令: 解析品种 → 链分析(analyze_chain.py --symbols) → bui
 | **fundamental** | 探源(基本面研究员) | 产业链上下游基本面联动（成本/库存/开工传导） |
 | **bullish** | 多头分析员 | 引用产业链同向品种作为论据 |
 | **bearish** | 空头分析员 | 引用产业链反向品种质疑信号 |
-| **judge** | 闫判官(裁决) | 产业链一致性/冗余/趋势作为裁决维度 |
-| **trading_plan** | 策执远(出方案) | 产业链联动性影响止损/目标位设定 |
+| **judge** | 闫判官(裁决+交易参数) | 产业链一致性/冗余/趋势作为裁决维度；产业链联动性影响止损/目标位设定 |
 
 ### 注入效果示例
 
@@ -386,8 +384,9 @@ python scripts/run_debate.py plan --scan <scan.json> --workspace <dir>
 #    Phase1 链证源×N     → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase2 观澜+探源×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
 #    Phase3 多头/空头×N  → spawn → lifecycle register → wait-and-shutdown → shutdown
-#    Phase4 闫判官终裁 → spawn → lifecycle register → wait-and-shutdown → shutdown
-#    Phase5-7 同上
+#    Phase4 闫判官终裁(含交易参数) → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase5 一致性×N → spawn → lifecycle register → wait-and-shutdown → shutdown
+#    Phase6 风控明×N → spawn → lifecycle register → wait-and-shutdown → shutdown
 
 # 4. 收口
 python scripts/run_debate.py finalize --scan <scan.json> --workspace <dir>
@@ -477,25 +476,19 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
                  │   →出裁决)      │
                  └───────┬────────┘
                          │
-                 ┌───────┴────────┐
-                 │  一致性裁判     │
-                 │  → 策执远方案   │
-                 │  → 风控明审核   │
-                 └───────┬────────┘
-                         │
-                         ▼
-                 ┌───────┴────────┐
-                 │  组装收口       │
-                 │  知识萃取       │
-                 │  报告生成       │
-                 │  输出           │
-                 └────────────────┘
+                 ┌──────────┴───────────────┐
+                 │  一致性裁判            │
+                 │  → verdict(含交易参数)  │
+                 │  → 风控明审核          │
+                 │  → 报告                │
+                 │  → signal_output(CTP)  │
+                 └───────┬───────────────┘
 ```
 
 ### 直接辩论模式（跳过扫描）
 
 ```
-指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 终裁 → 一致性 → 策执远/风控明 → 报告
+指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
 ```
 
 ---
@@ -527,13 +520,14 @@ flowchart LR
         P3 --> J4[闫判官终裁<br/>Judge Final]
         J0 -.->|读取指令| J4
         J4 --> CO[一致性裁判]
-        CO --> TP[策执远方案]
-        TP --> RK[风控明审核]
+        CO --> V[闫判官裁决(含交易参数)]
+        V --> RK[风控明审核]
     end
 
     subgraph 收口层
         RK --> FINALIZE[run_debate.py finalize]
         FINALIZE --> REPORT[debate_report.html]
+        FINALIZE --> SO[signal_output(CTP)]
     end
 
     subgraph 直接辩论层
@@ -570,4 +564,4 @@ flowchart LR
 
 ---
 
-*文档版本 v4.2 | 2026-07-14 18:28 | FDT v6.3.1 | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源)*
+*文档版本 v4.5 | 2026-07-17 | FDT v8.7.0 | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源) | 闫判官(含交易参数) | 新增 signal_output(CTP)*

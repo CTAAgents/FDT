@@ -20,13 +20,17 @@
     writer.validate()
 """
 
+import json
+import os
+import sqlite3
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("memory_writer")
-import os, json, sqlite3, time
-from datetime import datetime
-from typing import Dict, List, Any, Optional
-from pathlib import Path
 
 
 class MemoryWriter:
@@ -353,15 +357,15 @@ def build_seed_debate_record_from_verdict(verdict_entry: Dict, followup: Dict = 
 
     pro_args, con_args = [], []
     if direction == "bear":
-        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 极强趋势，趋势运行顺畅", "evidence": f"ADX={adx}", "source": "L1-L4/信号"})
+        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 极强趋势，趋势运行顺畅", "evidence": f"ADX={adx}", "source": "技术分析评分/信号"})
         if l1l4_cons:
-            pro_args.append({"id": f"{sym}-pro2", "claim": f"L1-L4 CONS={l1l4_cons} 全层一致看空", "evidence": f"l1l4_cons={l1l4_cons}, l1l4_dir={l1l4_dir}", "source": "L1-L4"})
+            pro_args.append({"id": f"{sym}-pro2", "claim": f"技术分析评分 CONS={l1l4_cons} 全层一致看空", "evidence": f"l1l4_cons={l1l4_cons}, l1l4_dir={l1l4_dir}", "source": "技术分析评分"})
         con_args.append({"id": f"{sym}-con1", "claim": f"Factor 中性({factor_dir})，无因子共振确认", "evidence": f"factor_direction={factor_dir}", "source": "因子择时"})
-        con_args.append({"id": f"{sym}-con2", "claim": f"ADX={adx} 趋势运行过远，追空末端风险", "evidence": f"ADX={adx}", "source": "L1-L4"})
+        con_args.append({"id": f"{sym}-con2", "claim": f"ADX={adx} 趋势运行过远，追空末端风险", "evidence": f"ADX={adx}", "source": "技术分析评分"})
     else:
-        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 强势多头趋势", "evidence": f"ADX={adx}", "source": "L1-L4/信号"})
+        pro_args.append({"id": f"{sym}-pro1", "claim": f"ADX={adx} 强势多头趋势", "evidence": f"ADX={adx}", "source": "技术分析评分/信号"})
         if l1l4_cons:
-            pro_args.append({"id": f"{sym}-pro2", "claim": f"L1-L4 CONS={l1l4_cons} 全层一致看多", "evidence": f"l1l4_cons={l1l4_cons}", "source": "L1-L4"})
+            pro_args.append({"id": f"{sym}-pro2", "claim": f"技术分析评分 CONS={l1l4_cons} 全层一致看多", "evidence": f"l1l4_cons={l1l4_cons}", "source": "技术分析评分"})
         con_args.append({"id": f"{sym}-con1", "claim": f"Factor 中性({factor_dir})，无因子共振确认", "evidence": f"factor_direction={factor_dir}", "source": "因子择时"})
 
     verdict = {
@@ -443,7 +447,7 @@ def append_knowledge_extraction(
         verdict: 闫判官裁决
         technical_data: 观澜产出（可选）
         fundamental_data: 探源产出（可选）
-        trading_plan: 策执远方案（可选）
+        trading_plan: 闫判官方案（可选）
 
     Returns:
         extract_knowledge.py 的返回 dict（含 patterns_added 等）

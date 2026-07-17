@@ -97,7 +97,8 @@ def _estimate_d4(violations_before: int, fixable: int) -> float:
 
 def dry_run():
     import copy
-    followup = json.load(open(FOLLOWUP_PATH, "r", encoding="utf-8"))
+    with open(FOLLOWUP_PATH, "r", encoding="utf-8") as f:
+        followup = json.load(f)
     orig = copy.deepcopy(followup)
     all_v_before = [v for rec in orig["records"] for v in rec["verdicts"]]
     n = len(all_v_before)
@@ -141,7 +142,8 @@ def apply():
     shutil.copy2(FOLLOWUP_PATH, bak)
     print(f"  已备份: {bak}")
 
-    followup = json.load(open(FOLLOWUP_PATH, "r", encoding="utf-8"))
+    with open(FOLLOWUP_PATH, "r", encoding="utf-8") as f:
+        followup = json.load(f)
     changes, followup = clamp_verdicts(followup)
     with open(FOLLOWUP_PATH, "w", encoding="utf-8") as f:
         json.dump(followup, f, ensure_ascii=False, indent=2)

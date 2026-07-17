@@ -6,8 +6,8 @@
 将双策略或单策略扫描产出适配为 phase3_generate_report.py 的输入格式。
 
 兼容两种 scan 产出格式：
-  1. 双策略 (--dual): summary["symbols"] 含 l1l4/factor_timing 子dict
-  2. 单策略 (--strategy layered_l1l4): summary["all_ranked"] 平铺dict列表
+  1. 双策略 (--dual): summary["symbols"] 含子dict
+  2. 单策略: summary["all_ranked"] 平铺dict列表
 
 用法：
   python scripts/assemble_intermediate_data.py \\
@@ -38,13 +38,12 @@ def _extract_symbols(summary: dict) -> tuple:
     """兼容双策略(symbols)和单策略(all_ranked)两种scan产出格式。
 
     返回 (items, format_type):
-      format_type = "dual" → items含l1l4/factor_timing子dict
+      format_type = "dual" → items含子dict
       format_type = "single" → items是平铺dict(all_ranked格式)
     """
-    # 双策略模式: symbols 字段包含 l1l4/factor_timing 子dict
     if "symbols" in summary and isinstance(summary["symbols"], list):
         items = summary["symbols"]
-        if items and isinstance(items[0], dict) and ("l1l4" in items[0] or "factor_timing" in items[0]):
+        if items and isinstance(items[0], dict) and "signal" in items[0]:
             return items, "dual"
 
     # 单策略模式: all_ranked 是平铺dict列表
@@ -87,7 +86,7 @@ def _build_chain_map(chain_analysis: dict = None) -> dict:
 def build_intermediate(summary: dict, chain_analysis: dict = None, chain_strategy: dict = None) -> dict:
     """
     从 scan 产出 + chain_analysis(可选) 构建 intermediate_data.json。
-    兼容双策略(--dual)和单策略(--strategy layered_l1l4)两种格式。
+    兼容双策略(--dual)和单策略两种格式。
     """
     meta = summary.get("_meta", {})
     items, format_type = _extract_symbols(summary)
@@ -126,15 +125,15 @@ def build_intermediate(summary: dict, chain_analysis: dict = None, chain_strateg
 
     if format_type == "dual":
         for s in items:
-            l1l4 = s.get("l1l4", {})
+            sig = s.get("signal", {})
             sym = s["symbol"]
-            price = l1l4.get("price", l1l4.get("last_price", 0))
-            direction = "BUY" if l1l4.get("direction") == "bull" else ("SELL" if l1l4.get("direction") == "bear" else "HOLD")
+            price = sig.get("price", sig.get("last_price", 0))
+            direction = "BUY" if sig.get("direction") == "bull" else ("SELL" if sig.get("direction") == "bear" else "HOLD")
             symbols_summary.append({
                 "pid": sym,
                 "product_name": s.get("name", sym),
                 "direction": direction,
-                "confidence": abs(l1l4.get("total", 0)) / 100.0,
+                "confidence": abs(sig.get("total", 0)) / 100.0,
                 "price": price,
                 "entry_price": price,
                 "target_price": price * (1.05 if direction == "BUY" else 0.95),
@@ -142,8 +141,8 @@ def build_intermediate(summary: dict, chain_analysis: dict = None, chain_strateg
                 "risk_reward_ratio": 1.5,
                 "position_size": 5,
                 "chain": chain_map.get(sym.upper(), ""),
-                "score": l1l4.get("total", 0),
-                "adx": l1l4.get("adx", 0),
+                "score": sig.get("total", 0),
+                "adx": sig.get("adx", 0),
                 "signal_direction": direction,
                 "decision": direction,
             })
@@ -231,15 +230,11 @@ def build_debate_results(summary: dict, chain_analysis: dict = None, candidates:
     for s in items:
         sym = s.get("symbol", "")
         if format_type == "dual":
-            l1l4 = s.get("l1l4", {})
-            factor = s.get("factor_timing", {})
-            l_dir = l1l4.get("direction", "neutral")
-            f_dir = factor.get("direction", "neutral")
-            l_total = l1l4.get("total", 0)
-            f_total = factor.get("total", 0)
-            direction_map = {("bull", "bull"): "BUY", ("bear", "bear"): "SELL"}
-            eng_dir = direction_map.get((l_dir, f_dir), "HOLD")
-            raw_conf = (abs(l_total) + abs(f_total)) / 2
+            sig = s.get("signal", {})
+            l_dir = sig.get("direction", "neutral")
+            l_total = sig.get("total", 0)
+            eng_dir = "BUY" if l_dir == "bull" else ("SELL" if l_dir == "bear" else "HOLD")
+            raw_conf = abs(l_total)
         else:
             # 单策略模式
             raw_dir = s.get("direction", "neutral")

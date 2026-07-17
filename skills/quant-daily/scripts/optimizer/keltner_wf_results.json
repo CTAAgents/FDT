@@ -1,0 +1,165 @@
+{
+  "timestamp": "2026-07-17 15:56:07",
+  "param_space": {
+    "period_candidates": [
+      10,
+      15,
+      20,
+      25,
+      30,
+      40
+    ],
+    "atr_mult_candidates": [
+      1.5,
+      1.75,
+      2.0,
+      2.25,
+      2.5,
+      2.75,
+      3.0,
+      3.25,
+      3.5
+    ],
+    "total_combinations": 54
+  },
+  "summary": {
+    "valid_symbols": 10,
+    "total_symbols": 10,
+    "mode_period": 40,
+    "mode_atr_mult": 1.5,
+    "wavg_period": 37.3,
+    "wavg_atr_mult": 1.51
+  },
+  "per_symbol": [
+    {
+      "symbol": "sc",
+      "name": "原油",
+      "best_period": 40,
+      "best_atr_mult": 1.5,
+      "robust_score": 5.4,
+      "peak_score": 14.2,
+      "train_accuracy": 0.406,
+      "train_signals": 64,
+      "test_accuracy": 0.659,
+      "test_signals": 41,
+      "test_avg_pnl": 1.804
+    },
+    {
+      "symbol": "SM",
+      "name": "锰硅",
+      "best_period": 40,
+      "best_atr_mult": 1.5,
+      "robust_score": 17.8,
+      "peak_score": 40.6,
+      "train_accuracy": 0.515,
+      "train_signals": 33,
+      "test_accuracy": 0.552,
+      "test_signals": 29,
+      "test_avg_pnl": 0.172
+    },
+    {
+      "symbol": "SF",
+      "name": "硅铁",
+      "best_period": 40,
+      "best_atr_mult": 1.5,
+      "robust_score": 31.4,
+      "peak_score": 38.3,
+      "train_accuracy": 0.434,
+      "train_signals": 53,
+      "test_accuracy": 0.462,
+      "test_signals": 13,
+      "test_avg_pnl": -0.762
+    },
+    {
+      "symbol": "rb",
+      "name": "螺纹钢",
+      "best_period": 15,
+      "best_atr_mult": 1.75,
+      "robust_score": 38.5,
+      "peak_score": 66.5,
+      "train_accuracy": 0.6,
+      "train_signals": 5,
+      "test_accuracy": 0.333,
+      "test_signals": 3,
+      "test_avg_pnl": -0.528
+    },
+    {
+      "symbol": "i",
+      "name": "铁矿石",
+      "best_period": 25,
+      "best_atr_mult": 1.5,
+      "robust_score": 20.7,
+      "peak_score": 27.8,
+      "train_accuracy": 0.429,
+      "train_signals": 7,
+      "test_accuracy": 0.333,
+      "test_signals": 6,
+      "test_avg_pnl": -0.239
+    },
+    {
+      "symbol": "jm",
+      "name": "焦煤",
+      "best_period": 10,
+      "best_atr_mult": 1.5,
+      "robust_score": 0.0,
+      "peak_score": 0.0,
+      "train_accuracy": 0.0,
+      "train_signals": 1,
+      "test_accuracy": 0.333,
+      "test_signals": 3,
+      "test_avg_pnl": -1.859
+    },
+    {
+      "symbol": "hc",
+      "name": "热卷",
+      "best_period": 20,
+      "best_atr_mult": 1.5,
+      "robust_score": 70.1,
+      "peak_score": 95.6,
+      "train_accuracy": 0.692,
+      "train_signals": 13,
+      "test_accuracy": 0.0,
+      "test_signals": 0,
+      "test_avg_pnl": 0.0
+    },
+    {
+      "symbol": "j",
+      "name": "焦炭",
+      "best_period": 10,
+      "best_atr_mult": 1.5,
+      "robust_score": 0.0,
+      "peak_score": 0.0,
+      "train_accuracy": 0.0,
+      "train_signals": 0,
+      "test_accuracy": 0.0,
+      "test_signals": 0,
+      "test_avg_pnl": 0.0
+    },
+    {
+      "symbol": "lu",
+      "name": "低硫燃油",
+      "best_period": 10,
+      "best_atr_mult": 1.5,
+      "robust_score": 336.0,
+      "peak_score": 397.1,
+      "train_accuracy": 0.75,
+      "train_signals": 4,
+      "test_accuracy": 0.0,
+      "test_signals": 0,
+      "test_avg_pnl": 0.0
+    },
+    {
+      "symbol": "fu",
+      "name": "燃油",
+      "best_period": 15,
+      "best_atr_mult": 2.25,
+      "robust_score": 438.3,
+      "peak_score": 629.2,
+      "train_accuracy": 0.8,
+      "train_signals": 5,
+      "test_accuracy": 0.0,
+      "test_signals": 0,
+      "test_avg_pnl": 0.0
+    }
+  ]
+}

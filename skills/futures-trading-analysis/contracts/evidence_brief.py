@@ -17,7 +17,7 @@ from .base import BaseSkillOutput
 class SignalSummary(BaseModel):
     """单路信号的摘要"""
 
-    source: Literal["l1l4", "factor_timing", "ml_ensemble", "chain", "fundamental", "technical"]
+    source: Literal["ml_ensemble", "chain", "fundamental", "technical"]
     direction: Literal["bull", "bear", "neutral", "mixed"]
     confidence: float = Field(ge=0, le=1)
     key_finding: str  # 一句话

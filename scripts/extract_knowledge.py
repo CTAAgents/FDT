@@ -16,7 +16,11 @@
     extractor.extract_from_debate(variety="rb", debate_record={...}, verdict={...})
 """
 
-import os, json, shutil, time, re
+import json
+import os
+import re
+import shutil
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
@@ -33,7 +37,17 @@ MIN_CONFIDENCE = 0.6           # 最低置信度
 
 # 置信度归一化统一委托给 confidence_utils（#5修复·单一来源，避免语义漂移）
 # 别名保留，历史调用点 _normalize_confidence(...) 无需改动
-from confidence_utils import normalize_confidence as _normalize_confidence
+try:
+    from confidence_utils import normalize_confidence as _normalize_confidence
+except ImportError:
+    CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8, "LOW": 0.4, "MEDIUM": 0.6, "HIGH": 0.8}
+
+    def _normalize_confidence(conf):
+        if isinstance(conf, (int, float)):
+            return float(conf)
+        if isinstance(conf, str):
+            return CONFIDENCE_LABEL_MAP.get(conf.upper(), 0.5)
+        return 0.5
 
 MAX_PATTERNS_PER_VARIETY = 20  # 每品种有效模式上限
 PATTERN_TTL_DAYS = 60          # 模式未使用自动降级天数
@@ -44,7 +58,7 @@ ATOMIC_WRITE_STABLE_S = 2      # 原子写入稳定等待秒数
 class KnowledgeExtractor:
     """品种知识萃取引擎。"""
 
-    def __init__(self, knowledge_dir: str = None):
+    def __init__(self, knowledge_dir: str | None = None) -> None:
         self.knowledge_dir = Path(knowledge_dir) if knowledge_dir else _KNOWLEDGE_DIR
         self.knowledge_dir.mkdir(parents=True, exist_ok=True)
         self.index_path = self.knowledge_dir / "variety_index.json"
@@ -61,13 +75,13 @@ class KnowledgeExtractor:
                 pass
         return {"meta": {"version": "1.0", "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "total_varieties": 0}, "varieties": {}}
 
-    def _save_index(self):
+    def _save_index(self) -> None:
         """原子写入索引文件。"""
         tmp = self.index_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self._index, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(self.index_path)
 
-    def _update_index_entry(self, variety: str, field: str):
+    def _update_index_entry(self, variety: str, field: str) -> None:
         """更新品种索引中的时间戳和计数。"""
         idx = self._index.get("varieties", {}).get(variety, {})
         if idx:
@@ -112,7 +126,7 @@ class KnowledgeExtractor:
             verdict: 闫判官裁决（含 winner/confidence/reasoning）
             technical_data: 观澜技术分析产出（可选）
             fundamental_data: 探源基本面产出（可选）
-            trading_plan: 策执远交易方案（可选）
+            trading_plan: 闫判官交易方案（可选）
             bypass_quality_gate: 是否绕过质量门控（仅用于初始化/回填）
 
         Returns:
@@ -598,7 +612,7 @@ class KnowledgeExtractor:
                 pass
         return default if default is not None else {}
 
-    def _ensure_variety_in_index(self, variety: str):
+    def _ensure_variety_in_index(self, variety: str) -> None:
         """确保品种在索引中。"""
         if "varieties" not in self._index:
             self._index["varieties"] = {}
@@ -762,10 +776,16 @@ if __name__ == "__main__":
         ap.add_argument("--plan", default=None)
         ap.add_argument("--bypass", action="store_true")
         args = ap.parse_args(sys.argv[2:])
-        pro = json.load(open(args.pro, encoding="utf-8"))
-        con = json.load(open(args.con, encoding="utf-8"))
-        judge = json.load(open(args.judge, encoding="utf-8"))
-        plan = json.load(open(args.plan, encoding="utf-8")) if args.plan else None
+        with open(args.pro, encoding="utf-8") as f:
+            pro = json.load(f)
+        with open(args.con, encoding="utf-8") as f:
+            con = json.load(f)
+        with open(args.judge, encoding="utf-8") as f:
+            judge = json.load(f)
+        plan = None
+        if args.plan:
+            with open(args.plan, encoding="utf-8") as f:
+                plan = json.load(f)
         rec = {
             "symbol": args.symbol,
             "signal_type": judge.get("signal_type"),
@@ -787,7 +807,8 @@ if __name__ == "__main__":
         _a.add_argument("--from", dest="from_path", required=True, help="debate_results.json 路径")
         _a.add_argument("--bypass", action="store_true", help="绕过质量门控（仅初始化/回填用）")
         _ns = _a.parse_args(sys.argv[2:])
-        _dr = json.load(open(_ns.from_path, encoding="utf-8"))
+        with open(_ns.from_path, encoding="utf-8") as f:
+            _dr = json.load(f)
         _skipped = 0
         _ingested = 0
         for _sym, _v in _dr.get("verdicts", {}).items():
@@ -835,11 +856,11 @@ if __name__ == "__main__":
             "round_id": "test_extract",
             "symbol": "rb",
             "pro_args": [
-                {"claim": "ADX=45趋势确认，多头趋势运行顺畅", "evidence": "ADX=45, RSI=62", "source": "L1-L4/信号"},
+                {"claim": "ADX=45趋势确认，多头趋势运行顺畅", "evidence": "ADX=45, RSI=62", "source": "技术分析评分/信号"},
                 {"claim": "库存连续4周下降，去库加速", "evidence": "库存数据", "source": "Mysteel"},
             ],
             "con_args": [
-                {"claim": "RSI接近超买区域", "evidence": "RSI=68", "source": "L1-L4"},
+                {"claim": "RSI接近超买区域", "evidence": "RSI=68", "source": "技术分析评分"},
             ],
             "volatility": {"adx": 45, "atr": 120},
         }

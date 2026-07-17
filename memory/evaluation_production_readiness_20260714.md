@@ -34,7 +34,7 @@
 - 辩论降级保留：子 Agent 失败则该轮缺员继续，而非整轮中止（现有 tiered 降级 + agent_waiter 已部分覆盖）
 
 ### B. LLM 调用工程化（4.5）→ 优先级 ★★★（与 A 同批）
-- 角色化 LLM 档案 `LLM_PROFILE_MAP`（role → {model, temperature, top_p, max_tokens, cache_ttl}）：观澜(技术)低温精准、闫判官(裁决)近确定、策执远(策略)可略激进
+- 角色化 LLM 档案 `LLM_PROFILE_MAP`（role → {model, temperature, top_p, max_tokens, cache_ttl}）：观澜(技术)低温精准、闫判官(裁决)近确定、交易策略(策略)可略激进
 - Token 预算：每轮上限 + 日级总上限，超额预警/熔断
 - 响应缓存：相同 prompt-hash 复用（同品种同日辩论收益极大）
 - 重试 + 回退模型（主 → 备）

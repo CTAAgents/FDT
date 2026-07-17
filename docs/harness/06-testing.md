@@ -23,14 +23,16 @@
 
 ```
 tests/
-├── commodity-chain/              # 产业链分析 (5个测试)
+├── commodity-chain/              # 产业链分析 (6个测试)
 │   ├── conftest.py
+│   ├── test_chain_full_analysis.py
 │   ├── test_chains.py            # 链聚类/相关性
 │   ├── test_config.py            # 配置加载
 │   ├── test_debate.py            # 辩论接口
 │   ├── test_risk.py              # 风控逻辑
 │   └── test_screen.py            # 筛选逻辑
 ├── contracts/                    # 契约Schema (1个测试)
+│   ├── conftest.py
 │   └── test_contracts.py         # 9个JSON Schema校验
 ├── debate-argument-builder/      # 辩论论点 (1个测试)
 │   ├── conftest.py
@@ -41,32 +43,92 @@ tests/
 ├── fdt-gate/                     # 质量门禁 (1个测试)
 │   ├── conftest.py
 │   └── test_quality_gate.py      # L1-L5鲁棒性防线
+├── fdt_langgraph/                # LangGraph 节点/图/集成 (10个测试)
+│   ├── conftest.py
+│   ├── test_nodes.py             # 节点单元测试
+│   ├── test_parallel_dispatch.py  # 并行调度测试
+│   ├── test_state.py             # 状态管理测试
+│   ├── test_e2e_integration.py   # 端到端集成
+│   ├── test_e2e_report_layer.py  # 报告层端到端
+│   ├── test_reports.py           # 报告层单元测试
+│   ├── test_postgres_integration.py
+│   ├── test_benchmark_comparison.py
+│   ├── test_health.py            # 健康检查测试
+│   └── test_integration_ab.py    # A/B 切换集成
 ├── fundamental-data-collector/   # 基本面采集 (1个测试)
 │   ├── conftest.py
 │   └── test_collector.py         # 供需/库存/利润
-├── quant-daily/                  # 量化日评 (5个测试)
+├── memory/                        # 记忆写入 (9个测试)
+│   ├── conftest.py
+│   └── test_writer.py             # Journal/Index/Record 原子性+去重
+├── pipeline/                      # 流水线 (10个测试)
+│   ├── conftest.py
+│   └── test_runner.py             # 6阶段主流程+失败不阻断+trace注入
+├── quant-daily/                  # 量化日评 (6个测试)
 │   ├── conftest.py
 │   ├── test_auto_train_orchestrator.py  # ML训练
 │   ├── test_coverage_boost.py           # 覆盖率补充
 │   ├── test_debate_brief.py             # 辩论精选
 │   ├── test_debate_history.py           # 历史反馈
+│   ├── test_keltner_wf.py               # Keltner通道
 │   └── test_quality_filter.py           # 研报过滤
-└── technical-analysis/           # 技术分析 (1个测试)
+├── scheduler/                     # 调度器 (3个测试)
+│   ├── conftest.py
+│   ├── test_engine.py             # 触发器匹配+防重复
+│   └── test_tasks_paths.py        # 任务路径测试
+├── self-improve-enhanced/        # 自改进增强 (4个测试)
+│   ├── conftest.py
+│   ├── test_analyze_trajectory.py
+│   ├── test_embodiskill_reflect.py
+│   ├── test_skillevolver_evolution.py
+│   └── test_verify_evolution.py
+├── strategies/                    # 策略层测试 (19个测试)
+│   ├── conftest.py
+│   ├── test_adapter.py
+│   ├── test_arbitrage.py
+│   ├── test_base_v2.py
+│   ├── test_basis_reversion.py
+│   ├── test_event_driven.py
+│   ├── test_macro_regime.py
+│   ├── test_mean_reversion.py
+│   ├── test_ml_signal.py
+│   ├── test_multi_factor.py
+│   ├── test_pairs_reversion.py
+│   ├── test_pipeline.py
+│   ├── test_pipeline_e2e.py
+│   ├── test_pipeline_nofilter.py
+│   ├── test_pipeline_price_backfill.py
+│   ├── test_spread_reversion.py
+│   ├── test_strategy_pause.py
+│   ├── test_trend_following.py
+│   ├── test_turtle_system.py
+│   └── test_vol_targeting.py
+├── technical-analysis/           # 技术分析 (1个测试)
+│   ├── conftest.py
+│   └── test_technical.py         # 支撑阻力/形态
+└── validators/                    # 验证器测试 (4个测试)
     ├── conftest.py
-    └── test_technical.py         # 支撑阻力/形态
-├── memory/                        # 记忆写入 (9个测试)
-│   ├── conftest.py
-│   └── test_writer.py             # Journal/Index/Record 原子性+去重
-├── pipeline/                      # 流水线 (10个测试，⚠️ G16: 5/10 失效)
-│   ├── conftest.py
-│   └── test_runner.py             # 6阶段主流程+失败不阻断+trace注入
-├── scheduler/                     # 调度器 (10个测试)
-│   ├── conftest.py
-│   └── test_engine.py             # 触发器匹配+防重复
-└── self-improve-enhanced/        # 自改进增强
-    ├── conftest.py
-    └── test_*.py
+    ├── test_atr_vol_timing_enhanced.py
+    ├── test_p0_4_raw_kline.py
+    ├── test_select_triggers_filter.py
+    └── test_volume_confirm_enhanced.py
 ```
+
+### 2.1 报告层测试 (v8.8.0+)
+
+`tests/fdt_langgraph/test_reports.py` 覆盖明鉴秋报告层调度的五个阶段：
+
+| 测试用例 | 覆盖阶段 | 验证内容 |
+|:---------|:---------|:---------|
+| `test_scan_report_written` | P1 | `node_scan` 产出 `scan_report_path`、HTML 文件存在、含 trace_id |
+| `test_research_report_written` | P3 | `node_merge_research` 产出 `research_report_path`、含三源数据 |
+| `test_verdict_report_written` | P5 | `node_risk_check` 产出 `verdict_report_path`、含裁决+风控 |
+| `test_signal_report_written` | P6a | `node_signal_output` 产出 `signal_report_path`、含信号状态 |
+| `test_debate_report_fallback` | P6 | `node_report` 在主脚本失败时 fallback 到工作空间 |
+| `test_report_dir_uses_workspace_env` | 全阶段 | `FDT_REPORT_WORKSPACE` 环境变量生效 |
+| `test_report_dir_fallback_to_temp` | 全阶段 | 无环境变量时回退到 `tempfile.gettempdir()` |
+| `test_e2e_all_reports_generated` | E2E | 端到端验证 5 个报告路径全部有效 |
+| `test_report_path_unique_per_phase` | 契约 | 5 个状态字段互不干扰，各有独立值 |
 
 ## 3. 测试框架配置
 
@@ -208,12 +270,14 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | debate-risk-manager | ✅ | — | ✅ | ✅ | — |
 | fundamental-data-collector | ✅ | — | — | — | — |
 | technical-analysis | ✅ | — | — | — | — |
-| contracts | ✅ | — | ✅ | — | — | 14 用例 (G14) |
+| contracts | ✅ | — | ✅ | — | — |
 | fdt-gate (L1-L5) | — | — | — | ✅ | — |
-| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 (⚠️ G16: 5/10 失效) |
-| scheduler (engine) | ✅ | ✅ | — | — | — | 10 用例 (G6) |
-| memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 (G8) |
-| **validators** (v6.3.2 新增) | ✅ | — | — | — | — | **9 用例** (G19: V2/V3 增强 + select_triggers filter) |
+| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 ✅ |
+| scheduler (engine) | ✅ | ✅ | — | — | — | 3 用例 |
+| memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 |
+| **validators** | ✅ | — | — | — | — | **4 用例** |
+| **strategies** | ✅ | ✅ | — | — | — | **19 用例** |
+| **fdt_langgraph** | ✅ | ✅ | — | — | — | **99 用例** |
 
 > ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明曾因 v6.3.0 重构后 `tests/pipeline/test_runner.py` mock 重命名函数失配而失真（5/10 失败）。**该问题已于 2026-07-14 19:04 修复**，当前 pipeline 10/10 全绿。
 
@@ -235,12 +299,13 @@ python scripts/run_benchmark.py --replay
 
 ## 9. 测试统计（G7 覆盖率扩展后）
 
-| 指标 | v5.6 初始 | v5.7 最终 | 变化 |
-|:-----|:--------:|:--------:|:----:|
-| 测试文件数 | 23 | 26 | 当前实际 **24 文件 / 12 目录**（含 memory/pipeline/scheduler/self-improve-enhanced） |
-| Harness 测试用例 | 0 | 43 | 原 43；**当前 pipeline 5/10 失效(G16)，全绿声明不成立** |
+| 指标 | v5.6 初始 | v5.7 最终 | v8.8.6 当前 |
+|:-----|:--------:|:--------:|:-----------:|
+| 测试文件数 | 23 | 26 | **60+ 文件 / 16 目录**（含 `fdt_langgraph` 10文件 + `strategies` 19文件 + `validators` 4文件） |
+| Harness 测试用例 | 0 | 43 | fdt_langgraph 累计 **99+ 用例**（test_nodes 21 + test_reports 12 + test_parallel_dispatch 9 + test_e2e 18 + test_state 2 + test_pg 12 + test_benchmark 10 + test_health 9 + test_integration_ab 18） |
 | 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展（`pyproject.toml` 已配置） |
-| 测试目录数 | 8 | 11 | 当前实际 **12** |
+| 测试目录数 | 8 | 11 | **16** |
+| conftest.py 数 | — | 8 | **16** |
 
 ## 10. LangGraph 并行节点测试策略 (v8.3.0+)
 
@@ -267,10 +332,12 @@ python scripts/run_benchmark.py --replay
 ```
 tests/fdt_langgraph/
 ├── conftest.py                    # 测试配置 + mock 重 I/O 操作 (v8.3.0+)
-├── test_nodes.py                  # 节点单元测试
+├── test_nodes.py                  # 节点单元测试 (11 用例)
 ├── test_parallel_dispatch.py      # 并行调度测试
-├── test_state.py                  # 状态管理测试
+├── test_state.py                  # 状态管理测试 (2 用例)
 ├── test_e2e_integration.py        # 端到端集成测试
+├── test_e2e_report_layer.py       # 报告层端到端快速验证 (v8.8.0+，1 用例)
+├── test_reports.py                # 报告层单元测试 (v8.8.0+，12 用例)
 ├── test_postgres_integration.py   # PostgreSQL 集成测试
 ├── test_benchmark_comparison.py   # 基准对比测试
 ├── test_health.py                 # 健康检查测试
@@ -336,14 +403,15 @@ python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-rep
 
 | 指标 | 数量 |
 |:-----|:-----|
-| 测试文件数 | 8 |
-| 测试用例总数 | 99 |
-| 测试通过率 | 100% (99/99) |
+| 测试文件数 | 9 |
+| 测试用例总数 | 474 (99 langgraph + 375 scripts) |
+| 测试通过率 | 100% (474/474) |
 | conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
 | LangGraph 节点覆盖率 | 96% (nodes.py) |
 | State 覆盖率 | 100% (state.py) |
 | 并行调度场景覆盖率 | 100% (4/4) |
 | A/B 切换集成测试 (G55) | 18 用例 (test_integration_ab.py，v8.4.0+ 新增) |
+| scripts/ 测试 (cov-5 完成) | **474 用例** (test_scripts.py，覆盖 **68 模块**；全部通过) |
 
 ### 10.9 实际测试结果（2026-07-16）
 

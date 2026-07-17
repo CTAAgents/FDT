@@ -5,21 +5,13 @@ import os
 from pathlib import Path
 from .state import DebateState
 from .nodes import (
-    node_scan, node_judge_direction,
+    node_scan, node_judge_direction, node_prepare_data,
     node_chain, node_technical, node_fundamental, node_merge_research,
-    node_debate, node_verdict, node_trading_plan, node_risk_check, node_report
+    node_debate, node_verdict, node_risk_check, node_report, node_signal_output
 )
 
 
 def _get_checkpointer():
-    """获取 Checkpointer 实例。
-
-    优先级：
-    1. FDT_CHECKPOINTER=pg 且 PG 可连接 → PostgreSQL Checkpointer
-    2. 默认 → SQLite Checkpointer（memory/langgraph.db）
-
-    PG Checkpointer 需要安装 langgraph-checkpoint-postgres 包。
-    """
     use_pg = os.environ.get("FDT_CHECKPOINTER", "").lower() == "pg"
 
     if use_pg:
@@ -27,7 +19,6 @@ def _get_checkpointer():
             from langgraph.checkpoint.postgres import PostgresSaver
             from fdt_pg.connection import PGConnection
             engine = PGConnection.get_engine()
-            # PostgresSaver 需要同步连接
             import psycopg2
             config = PGConnection._config
             conn = psycopg2.connect(
@@ -37,11 +28,10 @@ def _get_checkpointer():
             )
             return PostgresSaver(conn)
         except ImportError:
-            pass  # 降级到 SQLite
+            pass
         except Exception:
-            pass  # 降级到 SQLite
+            pass
 
-    # 默认 SQLite Checkpointer
     db_path = Path("memory/langgraph.db")
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
@@ -76,19 +66,21 @@ def build_debate_graph(mode: str = "default") -> StateGraph:
 
     graph.add_node("scan", node_scan)
     graph.add_node("judge_direction", node_judge_direction)
+    graph.add_node("prepare_data", node_prepare_data)
     graph.add_node("chain", node_chain)
     graph.add_node("technical", node_technical)
     graph.add_node("fundamental", node_fundamental)
     graph.add_node("merge_research", node_merge_research)
     graph.add_node("debate", node_debate)
     graph.add_node("verdict", node_verdict)
-    graph.add_node("trading_plan", node_trading_plan)
     graph.add_node("risk_check", node_risk_check)
     graph.add_node("report", node_report)
+    graph.add_node("signal_output", node_signal_output)
 
     graph.set_entry_point("scan")
 
     graph.add_edge("scan", "judge_direction")
+    graph.add_edge("judge_direction", "prepare_data")
 
     p3_nodes = []
     if "chain" in mode or mode == "default":
@@ -99,15 +91,15 @@ def build_debate_graph(mode: str = "default") -> StateGraph:
         p3_nodes.append("fundamental")
 
     for node_name in p3_nodes:
-        graph.add_edge("judge_direction", node_name)
+        graph.add_edge("prepare_data", node_name)
         graph.add_edge(node_name, "merge_research")
 
     graph.add_conditional_edges("merge_research", should_skip_debate)
     graph.add_conditional_edges("debate", should_deep_debate)
-    graph.add_edge("verdict", "trading_plan")
-    graph.add_edge("trading_plan", "risk_check")
+    graph.add_edge("verdict", "risk_check")
     graph.add_edge("risk_check", "report")
-    graph.add_edge("report", END)
+    graph.add_edge("report", "signal_output")
+    graph.add_edge("signal_output", END)
 
     from pathlib import Path
     memory = _get_checkpointer()
@@ -121,19 +113,21 @@ def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
 
     graph.add_node("scan", node_scan)
     graph.add_node("judge_direction", node_judge_direction)
+    graph.add_node("prepare_data", node_prepare_data)
     graph.add_node("chain", node_chain)
     graph.add_node("technical", node_technical)
     graph.add_node("fundamental", node_fundamental)
     graph.add_node("merge_research", node_merge_research)
     graph.add_node("debate", node_debate)
     graph.add_node("verdict", node_verdict)
-    graph.add_node("trading_plan", node_trading_plan)
     graph.add_node("risk_check", node_risk_check)
     graph.add_node("report", node_report)
+    graph.add_node("signal_output", node_signal_output)
 
     graph.set_entry_point("scan")
 
     graph.add_edge("scan", "judge_direction")
+    graph.add_edge("judge_direction", "prepare_data")
 
     p3_nodes = []
     if "chain" in mode or mode == "default":
@@ -144,15 +138,15 @@ def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
         p3_nodes.append("fundamental")
 
     for node_name in p3_nodes:
-        graph.add_edge("judge_direction", node_name)
+        graph.add_edge("prepare_data", node_name)
         graph.add_edge(node_name, "merge_research")
 
     graph.add_conditional_edges("merge_research", should_skip_debate)
     graph.add_conditional_edges("debate", should_deep_debate)
-    graph.add_edge("verdict", "trading_plan")
-    graph.add_edge("trading_plan", "risk_check")
+    graph.add_edge("verdict", "risk_check")
     graph.add_edge("risk_check", "report")
-    graph.add_edge("report", END)
+    graph.add_edge("report", "signal_output")
+    graph.add_edge("signal_output", END)
 
     graph = graph.compile()
 

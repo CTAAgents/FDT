@@ -73,7 +73,8 @@ def build_seed(followup_path: str, benchmarks_dir: str, cost_bps: float = 2.0) -
         root = Path(followup_path).resolve().parent.parent
         journal_path = root / "memory" / "debate_journal.json"
         if journal_path.exists():
-            j = json.load(open(journal_path, 'r', encoding='utf-8'))
+            with open(journal_path, 'r', encoding='utf-8') as f:
+                j = json.load(f)
             for e in j.get("entries", []):
                 if e.get("action") == "debate_record":
                     debate_map[(_norm_variety(e.get("round_id")), _norm_variety(e.get("symbol") or e.get("variety")))] = e
@@ -198,9 +199,11 @@ def run_benchmark(test_cases_path: str, out_dir: str) -> dict:
 def run_replay_benchmark(journal_path: str, followup_path: str, out_dir: str) -> dict:
     """运行 ViBench 回放：消费 debate_record，join ground_truth，产出结构一致性报告。"""
     from replay_harness import run_replay as _rp
-    journal = json.load(open(journal_path, 'r', encoding='utf-8'))
+    with open(journal_path, 'r', encoding='utf-8') as f:
+        journal = json.load(f)
     debate_records = [e for e in journal.get("entries", []) if e.get("action") == "debate_record"]
-    followup = json.load(open(followup_path, 'r', encoding='utf-8'))
+    with open(followup_path, 'r', encoding='utf-8') as f:
+        followup = json.load(f)
     report = _rp(debate_records, followup)
 
     os.makedirs(out_dir, exist_ok=True)

@@ -12,7 +12,8 @@
     cfg.get("webhook.wecom")  # 企微webhook地址
 """
 
-import os, json
+import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 

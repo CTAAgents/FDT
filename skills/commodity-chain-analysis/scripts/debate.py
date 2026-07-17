@@ -283,14 +283,14 @@ def bull_argument(chain_name: str, chain_data: dict, fund_data: dict = None) -> 
     member = chain_data["members"][0] if chain_data.get("members") else {}
     is_buy_signal = direction == "BUY"
 
-    # ── 1. L1-L4技术面论证（40%权重） ──
+    # ── 1. 技术面论证（40%权重） ──
     if is_buy_signal:
         tech_weight = int(10 * weights.get("technical_weight", 1.0))
         if score >= 60:
             bull_case["arguments"].append(
                 {
                     "type": "technical",
-                    "point": f"多头信号（L1-L4总分{score:.0f}），多层级共振，趋势明确",
+                    "point": f"多头信号（总分{score:.0f}），多层级共振，趋势明确",
                     "weight": tech_weight,
                     "source": "commodity-trend-signal",
                 }
@@ -300,7 +300,7 @@ def bull_argument(chain_name: str, chain_data: dict, fund_data: dict = None) -> 
             bull_case["arguments"].append(
                 {
                     "type": "technical",
-                    "point": f"多头信号（L1-L4总分{score:.0f}），有一定技术支撑",
+                    "point": f"多头信号（总分{score:.0f}），有一定技术支撑",
                     "weight": int(6 * weights["technical_weight"]),
                     "source": "commodity-trend-signal",
                 }
@@ -380,14 +380,14 @@ def bear_argument(chain_name: str, chain_data: dict, fund_data: dict = None) -> 
     member = chain_data["members"][0] if chain_data.get("members") else {}
     is_sell_signal = direction == "SELL"
 
-    # ── 1. L1-L4技术面论证（40%权重） ──
+    # ── 1. 技术面论证（40%权重） ──
     if is_sell_signal:
         tech_weight = int(10 * weights.get("technical_weight", 1.0))
         if score >= 60:
             bear_case["arguments"].append(
                 {
                     "type": "technical",
-                    "point": f"空头信号（L1-L4总分{score:.0f}），多层级共振，下行趋势明确",
+                    "point": f"空头信号（总分{score:.0f}），多层级共振，下行趋势明确",
                     "weight": tech_weight,
                     "source": "commodity-trend-signal",
                 }
@@ -397,7 +397,7 @@ def bear_argument(chain_name: str, chain_data: dict, fund_data: dict = None) -> 
             bear_case["arguments"].append(
                 {
                     "type": "technical",
-                    "point": f"空头信号（L1-L4总分{score:.0f}），有一定下行压力",
+                    "point": f"空头信号（总分{score:.0f}），有一定下行压力",
                     "weight": int(6 * weights["technical_weight"]),
                     "source": "commodity-trend-signal",
                 }
@@ -470,7 +470,7 @@ def research_manager_decision(
     """研究主管：多维度证据加权裁决
 
     不再仅凭bull-bear分差做决定，而是检查各维度的证据一致性：
-    - 技术面（L1-L4得分）：40%
+    - 技术面得分：40%
     - 资金面（oi_ranking）：25%
     - 供应面（warehouse）：15%
     - 催化事件（news）：10%

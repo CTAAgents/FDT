@@ -60,7 +60,7 @@ def _predict(session: Any, features: list[float]) -> float:
         return 0.0
 
 
-# ── 内置特征列（与 factor_timing 五因子对齐） ──
+# ── 内置特征列 ──
 FEATURE_NAMES = ["carry", "momentum", "inventory_pct", "skew", "corr"]
 
 

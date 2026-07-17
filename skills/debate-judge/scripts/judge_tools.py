@@ -145,8 +145,7 @@ def flip_proposition(
     symbol: str,
     bull_reason: str,  # 证真写的"为什么我该当正方"
     bear_reason: str,  # 慎思写的"为什么我该当正方"
-    l1l4_signal: dict,  # L1-L4信号
-    factor_signal: dict,  # factor_timing信号
+    signal: dict,  # 信号
 ) -> dict:
     """闫判官不预设正方——看双方申请后定。
 

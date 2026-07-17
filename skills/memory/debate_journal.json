@@ -37,13 +37,13 @@
           "id": "RB-pro1",
           "claim": "ADX=67.2 极强趋势，趋势运行顺畅",
           "evidence": "ADX=67.2",
-          "source": "L1-L4/信号"
+          "source": "技术分析评分/信号"
         },
         {
           "id": "RB-pro2",
-          "claim": "L1-L4 CONS=4 全层一致看空",
+          "claim": "技术分析评分 CONS=4 全层一致看空",
           "evidence": "l1l4_cons=4, l1l4_dir=bear",
-          "source": "L1-L4"
+          "source": "技术分析评分"
         }
       ],
       "con_args": [
@@ -57,14 +57,14 @@
           "id": "RB-con2",
           "claim": "ADX=67.2 趋势运行过远，追空末端风险",
           "evidence": "ADX=67.2",
-          "source": "L1-L4"
+          "source": "技术分析评分"
         }
       ],
       "verdict": {
         "direction": "bear",
         "confidence": "高",
         "winner": "short_win",
-        "reasoning": "ADX=67.2极强趋势+L1-L4 CONS=4/4全层一致看空构成高确定性做空信号。Factor中性仅降置信度不反转方向。"
+        "reasoning": "ADX=67.2极强趋势+技术分析评分 CONS=4/4全层一致看空构成高确定性做空信号。Factor中性仅降置信度不反转方向。"
       },
       "held_out_judge": {
         "coherence_score": 0.8,

@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "8.4.0"
+version = "8.8.8"
 description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v8.1.8: 去融合工程（G41 掌柜铁律）—— 不同策略哲学、甚至同策略内子信号均独立产出、独立送辩论层裁决；融合层已废弃。新增 reason 字段 + signal_passes_entry_gate 门禁 + 策略逻辑规则知识库（memory/knowledge/strategies/）。trend_following 10 子信号 + mean_reversion 3 子信号均已独立 emit。77 测试覆盖。v8.1.7: ..."
 readme = "README.md"
 requires-python = ">=3.10"

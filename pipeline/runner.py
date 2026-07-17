@@ -4,7 +4,7 @@
 =========================================
 
 用途: 每日收盘后全自动运行，无人值守。
-流程: 三生产者扫描(数技源 channel_breakout + 观澜 L1-L4 + 探源 factor_timing) → chain_analysis → debate_brief(增强版)
+流程: 数技源 channel_breakout 扫描 → chain_analysis → debate_brief(增强版)
       → assemble_intermediate → phase3_generate_report
       → debate_history自动记录 → TrainingOrchestrator检查
 
@@ -34,8 +34,6 @@ QDAILY_DIR = os.path.join(SKILLS_DIR, "quant-daily", "scripts")
 COMMODITY_DIR = os.path.join(SKILLS_DIR, "commodity-chain-analysis", "scripts")
 FT_ANALYSIS_DIR = os.path.join(SKILLS_DIR, "futures-trading-analysis", "scripts")
 SIGNALS_DIR = os.path.join(QDAILY_DIR, "signals")
-TECHA_DIR = os.path.join(SKILLS_DIR, "technical-analysis", "scripts")
-FDC_DIR = os.path.join(SKILLS_DIR, "fundamental-data-collector", "scripts")
 
 # 品种列表（从 config/symbols.py 导入，与 scan_all 保持一致）
 try:
@@ -112,19 +110,16 @@ def run_cmd(cmd: list, desc: str, check: bool = True) -> subprocess.CompletedPro
 
 
 def step_scan() -> bool:
-    """Step 1: 三生产者信号生成（辩论流水线 P1）
+    """Step 1: 通道突破信号生成
 
     数技源 scan_all.py (channel_breakout，默认) → full_scan_summary_{date}.json
-    观澜 run_l1l4_scan.py                  → full_scan_l1l4_{date}.json
-    探源 run_factor_timing_scan.py         → full_scan_factor_timing_{date}.json
-    三者均落地到 REPORT_DIR，供 step_debate_brief 读取。
 
     环境变量控制：
     - FDT_SCAN_MODE: no-filter 禁用伪信号过滤
     - FDT_STRATEGIES: 指定策略列表，逗号分隔（如 trend_following,mean_reversion）
     """
     logger.info("=" * 60)
-    logger.info("Step 1/6: 三生产者扫描 (数技源 + 观澜 + 探源)")
+    logger.info("Step 1/6: 通道突破扫描")
     logger.info("=" * 60)
 
     sym_arg = ",".join(ALL_SYMBOL_CODES) if ALL_SYMBOL_CODES else None
@@ -147,25 +142,11 @@ def step_scan() -> bool:
         cmd_cb.append(strategies)
     run_cmd(cmd_cb, "通道突破扫描", check=False)
 
-    # 2) 观澜: L1-L4 分层指标
-    cmd_l1l4 = [python_exe(), os.path.join(TECHA_DIR, "run_l1l4_scan.py"), "--output-dir", REPORT_DIR]
-    cmd_l1l4 += ["--symbols", sym_arg] if sym_arg else ["--all"]
-    run_cmd(cmd_l1l4, "L1-L4 扫描", check=False)
-
-    # 3) 探源: 因子择时（五因子）
-    cmd_ft = [python_exe(), os.path.join(FDC_DIR, "run_factor_timing_scan.py"), "--output-dir", REPORT_DIR]
-    cmd_ft += ["--symbols", sym_arg] if sym_arg else ["--all"]
-    run_cmd(cmd_ft, "因子择时扫描", check=False)
-
-    files = [
-        os.path.join(REPORT_DIR, f"full_scan_summary_{DATE_COMPACT}.json"),
-        os.path.join(REPORT_DIR, f"full_scan_l1l4_{DATE_COMPACT}.json"),
-        os.path.join(REPORT_DIR, f"full_scan_factor_timing_{DATE_COMPACT}.json"),
-    ]
-    missing = [f for f in files if not os.path.exists(f)]
-    if missing:
-        logger.warning(f"以下扫描产物缺失，下游可能降级: {[os.path.basename(m) for m in missing]}")
-    return len(missing) == 0
+    summary_file = os.path.join(REPORT_DIR, f"full_scan_summary_{DATE_COMPACT}.json")
+    if not os.path.exists(summary_file):
+        logger.warning(f"扫描产物缺失: full_scan_summary_{DATE_COMPACT}.json")
+        return False
+    return True
 
 
 def step_chain_analysis() -> bool:
@@ -196,11 +177,9 @@ def step_debate_brief() -> bool:
     logger.info("=" * 60)
 
     summary_path = os.path.join(REPORT_DIR, f"full_scan_summary_{DATE_COMPACT}.json")
-    l1l4_path = os.path.join(REPORT_DIR, f"full_scan_l1l4_{DATE_COMPACT}.json")
-    factor_path = os.path.join(REPORT_DIR, f"full_scan_factor_timing_{DATE_COMPACT}.json")
 
-    if not all(os.path.exists(p) for p in [summary_path, l1l4_path, factor_path]):
-        logger.error("scan_all 输出文件不完整，跳过分歧品种评选")
+    if not os.path.exists(summary_path):
+        logger.error("扫描产物缺失，跳过分歧品种评选")
         return False
 
     # 查找最近的 chain_analysis JSON
@@ -228,13 +207,16 @@ def step_debate_brief() -> bool:
     history_dir = os.path.join(os.path.dirname(os.path.dirname(QDAILY_DIR)), "data", "debate_history")
     history_file = os.path.join(history_dir, "debate_feedback.json")
 
+    l1l4_path = os.path.join(REPORT_DIR, f"full_scan_l1l4_{DATE_COMPACT}.json")
+    factor_path = os.path.join(REPORT_DIR, f"full_scan_factor_timing_{DATE_COMPACT}.json")
+
     cmd = [
         python_exe(),
         os.path.join(SIGNALS_DIR, "debate_brief.py"),
-        l1l4_path,
-        factor_path,
         "-o",
         REPORT_DIR,
+        l1l4_path,
+        factor_path,
         "--select-debate",
         chain_file,
         "--min-count",
@@ -308,6 +290,10 @@ def step_generate_report() -> bool:
         return False
 
     cmd = [python_exe(), report_script]
+    # 设置 phase3 环境变量，让子进程能找到正确的中间数据文件
+    os.environ["PHASE3_INTERMEDIATE"] = os.path.join(REPORT_DIR, "intermediate_data.json")
+    os.environ["PHASE3_DEBATE_RESULTS"] = os.path.join(REPORT_DIR, "debate_results.json")
+    os.environ["PHASE3_OUTPUT_DIR"] = REPORT_DIR
     r = run_cmd(cmd, "报告生成", check=False)
     return r.returncode == 0
 
@@ -448,7 +434,7 @@ def run_langgraph_pipeline(trace_id: str) -> int:
     async def _run():
         mode = os.environ.get("FDT_LANGGRAPH_MODE", "default")
         state = create_initial_state(trace_id, mode=mode)
-        state["selected_symbols"] = ALL_SYMBOL_CODES[:10] if ALL_SYMBOL_CODES else ["RB"]
+        state["selected_symbols"] = ALL_SYMBOL_CODES if ALL_SYMBOL_CODES else ["RB"]
 
         graph = build_debate_graph_no_checkpoint(mode=mode)
         config = {"configurable": {"thread_id": trace_id}}
@@ -538,7 +524,9 @@ def main():
         if not ok:
             all_ok = False
 
-    html_path = os.path.join(REPORT_DIR, f"daily_analysis_{DATE_COMPACT}.html")
+    html_path = os.path.join(REPORT_DIR, f"debate_report_{DATE_COMPACT}.html")
+    if not os.path.exists(html_path):
+        html_path = os.path.join(REPORT_DIR, f"daily_analysis_{DATE_COMPACT}.html")
     if os.path.exists(html_path):
         logger.info(f"\n📄 报告已生成: {html_path}")
     else:

@@ -19,9 +19,13 @@ def test_debate_state_defaults():
     assert state["bullish_arguments"] == []
     assert state["bearish_arguments"] == []
     assert state["verdict"] is None
-    assert state["trading_plan"] is None
     assert state["risk_check"] is None
     assert state["report_path"] is None
+    # v8.8.0 阶段报告字段
+    assert state["scan_report_path"] is None
+    assert state["research_report_path"] is None
+    assert state["verdict_report_path"] is None
+    assert state["signal_report_path"] is None
     assert state["current_phase"] == "P0"
     assert state["error"] is None
     assert state["completed_phases"] == []
@@ -45,9 +49,12 @@ def test_debate_state_with_values():
         bullish_arguments=[{"confidence": 0.8}],
         bearish_arguments=[{"confidence": 0.3}],
         verdict={"direction": "bullish"},
-        trading_plan={"position": "long"},
         risk_check={"risk_level": "low"},
         report_path="/tmp/report.html",
+        scan_report_path="/tmp/scan.html",
+        research_report_path="/tmp/research.html",
+        verdict_report_path="/tmp/verdict.html",
+        signal_report_path=None,
         current_phase="P5",
         error=None,
         completed_phases=["P1", "P2", "P3", "P4"],
@@ -58,3 +65,6 @@ def test_debate_state_with_values():
     assert state["dispatch_sources"] == ["chain", "technical"]
     assert state["current_phase"] == "P5"
     assert state["completed_phases"] == ["P1", "P2", "P3", "P4"]
+    # v8.8.0 阶段报告字段
+    assert state["scan_report_path"] == "/tmp/scan.html"
+    assert state["research_report_path"] == "/tmp/research.html"

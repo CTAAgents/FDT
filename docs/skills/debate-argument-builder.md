@@ -1,16 +1,10 @@
 ---
 name: debate-argument-builder
-version: 2.4.0
+version: 2.0
 description: >
-  期货辩论角色论点构建器 v2.3.0。双角色（多头·做多论据 / 空头·做空论据）× 双模式（独立/并行）。
+  期货辩论角色论点构建器。双角色（多头·做多论据 / 空头·做空论据）× 双模式（独立/并行）。
   6维度分析框架：趋势结构、量价关系、期限结构、产业链验证、基本面/市场情绪、风险点。
-  修复硬编码路径；备用链映射覆盖66+品种。
 agent_created: true
-changelog: |
-  v2.2.0 (2026-07-04): 架构重写 — 主框架从多空方向(bull/bear)改为辩论角色(多头分析员/空头分析员)；修复硬编码路径；备用链映射66+品种；20测试
-  v2.1.0 (2026-07-03): 双模式拆分 — 独立模式保留WebSearch主动搜索，辩论专家团模式改为基于研究员快照数据
-  v1.1.0 (2026-07-01): 重构为通用接口 — 支持独立使用模式，输入输出格式去辩论化
-  v1.0.0 (2026-07-01): 初始版本 — 从 futures-trading-analysis 剥离
 disable: false
 ---
 
@@ -19,7 +13,6 @@ disable: false
 ## 依赖
 - **输入方**：`DebateRoleOutput`（`contracts/debate.py`，含 role=多头分析员/空头分析员）
 - **上游依赖**：依赖 P1 `DataCollectionOutput`（data）、P1 `TechnicalOutput`（tech）、P2 `ChainAnalysisOutput`（chain）
-- **版本**：`2.2`（所有 schema 带 `version` 字段，编排层 `parse_and_migrate` 自动路由）
 - **输出方式**：正文（Markdown 人类可读）+ 末尾 ```json fence 结构化摘要
 
 ## 概述
@@ -216,7 +209,7 @@ echo '{"symbols":[{"id":"rb","direction":"BUY","price":3200,...}]}' | \
   "full_text": "见上方正文",                              // 固定值，与正文一致
   "confidence": 0.76,                                     // 整体置信度0-1
   "rebuttal_targets": [],                                  // 本轮反驳了对手的哪些维度，空数组表示首轮
-  "scenarios": {                                           // 场景分离（v2新增）
+  "scenarios": {                                           // 场景分离
     "baseline": {"target": 3850, "probability": "60%", "desc": "基准情景：库存去化+利润回升"},
     "bull_case": {"target": 4200, "probability": "20%", "desc": "乐观情景：限产超预期"},
     "bear_case": {"target": 3400, "probability": "20%", "desc": "悲观情景：需求崩塌"}

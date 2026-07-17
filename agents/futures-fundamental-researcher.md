@@ -259,10 +259,10 @@ result = get_fundamentals("RB")  # 返回螺纹钢的所有恒生数据
 ## 履职方式
 
 1. 辩论轮次开始前，**先出一份基本面状态向量**（结构化JSON，所有辩手共享）
-2. **通过 data_interface 加载 factor_timing 因子数据**：
+2. **通过 data_interface 加载因子数据**：
    ```python
-   from scripts.data_interface import load_factor_timing_scan, get_symbol_factors
-   factor_data = load_factor_timing_scan("路径/full_scan_factor_timing_{date}.json")
+   from scripts.data_interface import load_factor_data, get_symbol_factors
+   factor_data = load_factor_data("路径/factor_data_{date}.json")
    factors = get_symbol_factors(factor_data, "RB")
    ```
 3. **数据资料来源包括但不限于**：

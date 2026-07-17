@@ -1,7 +1,8 @@
-# coordination_config.yaml — FDT 协调配置
+# coordination_config.yaml — FDT 协调配置 (v8.7.0)
 # 参考: Coordination Layer (arXiv:2605.03310)
 # 使用: coordinator.py 加载此配置并调度 Agent
-version: 2.1
+# 闫判官直接输出完整交易参数（含裁决+交易参数）
+version: 2.2
 
 # ── Agent 定义 ──
 
@@ -40,17 +41,12 @@ agents:
 
   yanpanguan:
     type: judge
-    description: "主持+裁决+时序控制+边界检查"
-    timeout: 300
-
-  cezhiyuan:
-    type: strategist
-    description: "交易策略师，接收判决合成方案"
+    description: "主持+裁决+交易参数输出"
     timeout: 300
 
   fengkongming:
     type: risk_manager
-    description: "风险控制官，仓位沙盘推演+逻辑质检"
+    description: "风险控制官，仓位沙盘推演+逻辑质检（v8.7.0 直接基于闫判官 verdict 审核）"
     timeout: 300
 
 # ── 编排模式 ──
@@ -69,8 +65,6 @@ topology:
     - from: [zhengfang, fanfang]
       to: [yanpanguan]
     - from: [yanpanguan]
-      to: [cezhiyuan]
-    - from: [cezhiyuan]
       to: [fengkongming]
     - from: [fengkongming]
       to: [yanpanguan]
@@ -81,7 +75,7 @@ topology:
 
   broadcast:
     targets: [shujiyuan, tanyuan, guanlan, lianzhengyuan, zhengfang,
-              fanfang, yanpanguan, cezhiyuan, fengkongming]
+              fanfang, yanpanguan, fengkongming]
     triggers: ["phase_complete", "verdict_published"]
 
 # ── 权限规则 ──
@@ -162,8 +156,6 @@ profiles:
         - from: [zhengfang, fanfang]
           to: [yanpanguan]
         - from: [yanpanguan]
-          to: [cezhiyuan]
-        - from: [cezhiyuan]
           to: [fengkongming]
         - from: [fengkongming]
           to: [yanpanguan]

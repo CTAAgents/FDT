@@ -8,8 +8,10 @@ FDT 配置 Schema 校验模块 v1.0
 用法:
     from config.schema import validate_settings, validate_team_config
 
-    settings = validate_settings(json.load(open("settings.json")))
-    team_config = validate_team_config(json.load(open("config/team_config.json")))
+    with open("settings.json") as f:
+        settings = validate_settings(json.load(f))
+    with open("config/team_config.json") as f:
+        team_config = validate_team_config(json.load(f))
 """
 
 from __future__ import annotations

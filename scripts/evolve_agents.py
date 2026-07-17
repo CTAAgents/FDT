@@ -4,7 +4,7 @@
 
 被监控的Agent和进化维度:
   风控明:   止损触发率 → ATR乘数 / 最大仓位%
-  策执远:   方向+入场 → 仓位公式系数 / RR目标
+  闫判官:   方向+入场 → 仓位公式系数 / RR目标（v8.7.0 合并自原执行方案）
   证真/慎思: 辩论胜率 → 论据策略权重
   链证源:   去重准确率 → 相关系数阈值
 
@@ -25,18 +25,18 @@ from collections import defaultdict
 
 # ─── 工具函数 ───────────────────────────────────────────
 
-def load_json(path):
+def load_json(path: str) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
-def save_json(path, data):
+def save_json(path: str, data: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def load_or_create_profile(profiles_path):
+def load_or_create_profile(profiles_path: str) -> dict:
     if os.path.exists(profiles_path):
         return load_json(profiles_path)
     return {
@@ -45,7 +45,7 @@ def load_or_create_profile(profiles_path):
     }
 
 
-def get_validated_verdicts(followup_path):
+def get_validated_verdicts(followup_path: str) -> list:
     """提取所有已验证的裁决（含真实stop/target触发标签）"""
     followup = load_json(followup_path)
     results = []
@@ -85,7 +85,7 @@ def get_validated_verdicts(followup_path):
 
 # ─── Agent1: 风控明 ─────────────────────────────────────
 
-def evolve_risk_manager(verdicts, profile):
+def evolve_risk_manager(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - ATR乘数: 止损距 = atr_multiplier × ATR。真实止损触发率 > 15% → 放宽
@@ -174,9 +174,9 @@ def evolve_risk_manager(verdicts, profile):
     }
 
 
-# ─── Agent2: 策执远 ─────────────────────────────────────
+# ─── Agent2: 原策执远(已合并至闫判官) ────────────────────
 
-def evolve_strategist(verdicts, profile):
+def evolve_strategist(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - RR目标系数: 当前RR=2.0。真实T1达标率 > 70% → 可调高
@@ -246,7 +246,7 @@ def evolve_strategist(verdicts, profile):
 
 # ─── Agent3: 证真 + 慎思 (辩手) ─────────────────────────
 
-def evolve_debaters(verdicts, profile):
+def evolve_debaters(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - bullish_argument_count: 多头辩手使用的论据数量 → 影响辩论时长
@@ -316,7 +316,7 @@ def evolve_debaters(verdicts, profile):
 
 # ─── Agent4: 链证源 ────────────────────────────────────
 
-def evolve_chain_analyst(verdicts, profile):
+def evolve_chain_analyst(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - dedup_threshold: 链内去重相关系数阈值（默认0.80）
@@ -387,7 +387,7 @@ def evolve_chain_analyst(verdicts, profile):
 
 # ─── Agent5: 数技源 ────────────────────────────────────
 
-def evolve_data_tech(verdicts, profile):
+def evolve_data_tech(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - source_priority: 数据源优先级 [通达信, 东方财富, AKShare]
@@ -607,11 +607,11 @@ def evolve_technical_researcher(verdicts, profile):
     - signal_lag_tolerance: 信号延迟容忍度
 
     衡量指标:
-    - L1-L4信号方向与价格方向的一致性
+    - 技术分析评分信号方向与价格方向的一致性
     - ADX作为趋势识别有效性的代理
 
-    注: 观澜基于L1-L4数据做技术面分析。
-    进化通过: L1-L4信号准确率反馈调整技术分析参数。
+    注: 观澜基于技术分析评分数据做技术面分析。
+    进化通过: 技术分析评分信号准确率反馈调整技术分析参数。
     """
     total = len(verdicts)
     if total < 5:
@@ -759,7 +759,7 @@ def extract_knowledge_from_validated_verdicts(followup_path: str) -> int:
 
 # ─── 主程序 ───────────────────────────────────────────
 
-def main():
+def main() -> None:
     script_dir = Path(__file__).parent.parent
     followup_path = str(script_dir / "memory" / "execution_followup.json")
     profiles_path = str(script_dir / "memory" / "agent_profiles.json")
@@ -776,7 +776,7 @@ def main():
     # 按顺序进化
     for agent_name, evolve_fn, default_profile in [
         ("风控明", evolve_risk_manager, {"atr_multiplier": 1.5, "max_position_pct_high": 5.0}),
-        ("策执远", evolve_strategist, {"rr_target": 2.0, "position_coefficient": 1.0}),
+        ("闫判官", evolve_strategist, {"rr_target": 2.0, "position_coefficient": 1.0}),
         ("链证源", evolve_chain_analyst, {"dedup_threshold": 0.80, "max_chain_reps": 1}),
         ("数技源", evolve_data_tech, {"source_priority": ["通达信", "东方财富", "AKShare"], "retry_limit": 3}),
         ("训辩权重", evolve_debate_weights, {"weights": {"signal": 40.0, "quality": 25.0, "extreme": 20.0, "data": 10.0, "chain": 5.0}}),
@@ -802,7 +802,7 @@ def main():
     for name in ["证真", "慎思"]:
         p = new_profiles.get(name, {})
         if p:
-            def _fmt_num(v, suffix=""):
+            def _fmt_num(v: float, suffix: str = "") -> str:
                 try:
                     return f"{float(v):+.1f}{suffix}"
                 except (ValueError, TypeError):

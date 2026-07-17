@@ -102,6 +102,6 @@ def set_default(name: str):
 # 注册策略
 # channel_breakout = 默认（唐奇安DC20/DC55 + 布林带）
 # three_signal = 三类信号（突破/回踩/跳空）可选
-# 注：layered_l1l4 / factor_timing 已迁出独立 skill（technical-analysis / fundamental-data-collector）
+# 注：多策略已迁出独立 skill
 from . import channel_breakout_strategy  # noqa: F401, E402
 from . import three_signal_strategy  # noqa: F401, E402  # 三类信号（可选）

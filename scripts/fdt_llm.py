@@ -1,4 +1,4 @@
-"""FDT LLM API 客户端 [INDEPENDENT]。
+﻿"""FDT LLM API 客户端 [INDEPENDENT]。
 
 OpenAI 兼容 API 封装，支持多后端切换（DeepSeek / OpenAI / 本地模型）。
 
@@ -62,7 +62,7 @@ def _get_mock_reply(prompt: str, system: str | None = None) -> str:
             "analysis": "模拟产业链分析：下游需求疲弱",
         }, ensure_ascii=False, indent=2)
 
-    if "策执远" in (system or "") or "trading" in (system or ""):
+    if "闫判官" in (system or "") or "trading" in (system or ""):
         return json.dumps({
             "contract": "RB主力",
             "entry": 3500,

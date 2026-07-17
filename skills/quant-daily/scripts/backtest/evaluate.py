@@ -34,7 +34,7 @@ import pandas as pd
 import numpy as np
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
-from signals.scoring_system import calculate_composite_score, WL1, WL2, WL3, WL4
+from signals.scoring_system import calculate_composite_score
 from config.symbols import ALL_SYMBOLS
 
 
@@ -281,7 +281,7 @@ def evaluate_performance(scores, forward_days=5):
 
 
 def generate_grid():
-    """生成L1-L4权重组合网格。"""
+    """生成权重组合网格。"""
     combos = []
     for l1 in range(30, 55, 5):
         for l2 in range(20, 40, 5):

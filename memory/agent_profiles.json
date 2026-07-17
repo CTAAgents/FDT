@@ -4,7 +4,7 @@
     "version": "5.2",
     "last_evolved_at": "2026-07-07 16:49",
     "total_samples": 20,
-    "note": "v5.2架构重构：三类信号替代L1-L4+因子为主信号源，证真/慎思改为动态正反方，ADX角色反转"
+    "note": "v5.2架构重构：三类信号替代原多策略为主信号源，证真/慎思改为动态正反方，ADX角色反转"
   },
   "闫判官": {
     "type": "judge",
@@ -34,32 +34,6 @@
       "total_validated": 20,
       "real_stop_hit_rate": 5.0,
       "gap_stop_rate": 0.0,
-      "avg_realized_pnl_pct": -0.3
-    }
-  },
-  "策执远": {
-    "rr_target": 1.7,
-    "position_coefficient": 1.0,
-    "_last_updated": "2026-07-07 16:49",
-    "_evolution_log": [
-      {
-        "time": "2026-07-07 16:49",
-        "action": "rr_target",
-        "from": 2.0,
-        "to": 1.7,
-        "reason": "真实T1达标率仅0%, RR过高, 下调"
-      },
-      {
-        "time": "2026-07-07 16:49",
-        "action": "position_coefficient",
-        "from": 1.0,
-        "to": 1.0,
-        "reason": "均实现盈亏-0.3%合理"
-      }
-    ],
-    "_stats": {
-      "total_validated": 20,
-      "real_target_hit_rate": 0.0,
       "avg_realized_pnl_pct": -0.3
     }
   },

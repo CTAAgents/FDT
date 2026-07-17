@@ -65,18 +65,18 @@ _AGENT_PROFILES_PATH = _FDT_ROOT / "memory" / "agent_profiles.json"
 
 
 def _load_strategist_profile() -> dict:
-    """加载策执远进化参数（rr_target / position_coefficient / 统计）。"""
+    """加载闫判官交易参数（rr_target / position_coefficient / 统计）。"""
     try:
         if _AGENT_PROFILES_PATH.exists():
             ap = json.loads(_AGENT_PROFILES_PATH.read_text(encoding="utf-8"))
-            return ap.get("策执远", {})
+            return ap.get("闫判官", {})
     except Exception:
         pass
     return {}
 
 
 def _strategist_experience_inject(profile: dict) -> str:
-    """从进化参数生成经验注入文本，追加到策执远 spawn prompt。"""
+    """从进化参数生成经验注入文本，追加到闫判官 spawn prompt。"""
     if not profile:
         return ""
     rr = profile.get("rr_target", 2.0)
@@ -448,7 +448,7 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
                             "max_concurrent": 5,
                             "depends_on": ["phase4"]},
                  "phase6": {"agents": ["trading_plan"],
-                            "label": "P5a 策执远出方案(需读p2+p4a)",
+                            "label": "P5a 闫判官裁决(含交易参数)",
                             "max_concurrent": 5,
                             "depends_on": ["phase2","phase4"]},
                  "phase7": {"agents": ["risk"],
@@ -616,11 +616,11 @@ def build_spawn_plan(symbols: list, workspace: str, data_benchmark: str,
             f"注意：不下多空结论，不参与辩论，只提供技术位事实。\n"
             f"写完用 SendMessage(recipient='main') 通知。"
         )
-        # 策执远
+        # 闫判官(合并原交易策略职责)
         strategist_profile = _load_strategist_profile()
         exp_inject = _strategist_experience_inject(strategist_profile)
         plan_prompt = (
-            f"你是策执远，基于 {p5_j} 裁决为 {sym} 制定可执行方案。\n"
+            f"你是闫判官(交易参数制订)，基于 {p5_j} 裁决为 {sym} 制定可执行方案。\n"
             f"【链证源数据】{chain_snippet}\n"
             f"【支撑阻力参考】观澜技术分析已输出到 {p3_tech}，内含支撑阻力位。\n"
             f"止损应设在关键阻力/支撑位外延，目标应基于关键位之间的空间。\n"
@@ -779,15 +779,20 @@ def assemble(scan: dict, workspace: str, data_benchmark: str,
         p4_bull = p4_bear = p5j = p5t = p5r = None
         try:
             if os.path.exists(f.get("p4_bullish", "")):
-                p4_bull = json.load(open(f["p4_bullish"], encoding="utf-8"))
+                with open(f["p4_bullish"], encoding="utf-8") as _f:
+                    p4_bull = json.load(_f)
             if os.path.exists(f.get("p4_bearish", "")):
-                p4_bear = json.load(open(f["p4_bearish"], encoding="utf-8"))
+                with open(f["p4_bearish"], encoding="utf-8") as _f:
+                    p4_bear = json.load(_f)
             if os.path.exists(f["p5_judge"]):
-                p5j = json.load(open(f["p5_judge"], encoding="utf-8"))
+                with open(f["p5_judge"], encoding="utf-8") as _f:
+                    p5j = json.load(_f)
             if os.path.exists(f["p5_trading_plan"]):
-                p5t = json.load(open(f["p5_trading_plan"], encoding="utf-8"))
+                with open(f["p5_trading_plan"], encoding="utf-8") as _f:
+                    p5t = json.load(_f)
             if os.path.exists(f["p5_risk_review"]):
-                p5r = json.load(open(f["p5_risk_review"], encoding="utf-8"))
+                with open(f["p5_risk_review"], encoding="utf-8") as _f:
+                    p5r = json.load(_f)
         except json.JSONDecodeError:
             pass
 
@@ -876,34 +881,34 @@ def _scan_row(scan, sym):
     return next((s for s in scan.get("all_ranked", []) if s.get("symbol") == sym), {})
 
 
-def scan_signal_type(scan, sym):
+def scan_signal_type(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("signal_type", "channel_breakout")
 
 
-def scan_atr(scan, sym):
+def scan_atr(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("atr")
 
 
-def scan_adx(scan, sym):
+def scan_adx(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("adx")
 
 
-def scan_rsi(scan, sym):
+def scan_rsi(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("rsi")
 
 
-def scan_cci(scan, sym):
+def scan_cci(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("cci")
 
 
-def scan_chain(scan, sym):
+def scan_chain(scan: dict, sym: str) -> Any:
     return _scan_row(scan, sym).get("chain")
 
 
 # ─────────────────────────────────────────────
 # 中间数据生成（给 phase3_generate_report.py 喂 all_actionable / chain_results / symbols_summary）
 # ─────────────────────────────────────────────
-def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
+def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str) -> dict:
     """从 scan 数据生成 phase3 报告器依赖的 intermediate_data.json
 
     链分析数据优先从 p1_chain_analysis.json 读取，无则用 scan.chain 字段或硬编码映射。
@@ -1012,7 +1017,8 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str):
     debate_data = {}
     if debate_path.exists():
         try:
-            debate_data_raw = json.load(open(debate_path, encoding="utf-8"))
+            with open(debate_path, encoding="utf-8") as _df:
+                debate_data_raw = json.load(_df)
             debate_data = debate_data_raw.get("verdicts", {})
         except (json.JSONDecodeError, Exception):
             debate_data = {}
@@ -1157,7 +1163,7 @@ def run_extract(workspace: str) -> int:
             str(SCRIPTS / "extract_knowledge.py"), "ingest_from",
             "--from", str(dr)]
     print(f"🔍 知识萃取（批量，conf<0.6 自动跳过）: {' '.join(cmd)}")
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, timeout=300)
 
 
 # ─────────────────────────────────────────────
@@ -1179,7 +1185,7 @@ def run_validate(workspace: str, scan_path: str | None = None) -> int:
     if scan_path:
         cmd += ["--scan", str(Path(scan_path).resolve())]
     print(f"🔴 信号复查: {' '.join(cmd)}")
-    ret = subprocess.call(cmd)
+    ret = subprocess.call(cmd, timeout=300)
     if ret != 0:
         print(f"⛔ 信号复查失败，中止管道 — 修复后重新 assemble")
     return ret
@@ -1196,7 +1202,7 @@ def run_report(workspace: str) -> int:
             "--intermediate", str(ws / "intermediate_data.json"),
             "--workspace", str(ws)]
     print(f"📊 生成辩论报告: {' '.join(cmd)}")
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, timeout=600)
 
 
 def run_a2a(workspace: str) -> int:
@@ -1205,13 +1211,13 @@ def run_a2a(workspace: str) -> int:
             str(SCRIPTS / "export_a2a.py"),
             "--workspace", str(workspace)]
     print(f"🔗 A2A 导出: {' '.join(cmd)}")
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, timeout=120)
 
 
 # ─────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────
-def main():
+def main() -> None:
     if setup_logging is not None:
         try:
             setup_logging()
@@ -1351,7 +1357,8 @@ def main():
         return
 
     # plan/assemble/finalize 需要 scan 文件
-    scan = json.load(open(args.scan, encoding="utf-8"))
+    with open(args.scan, encoding="utf-8") as f:
+        scan = json.load(f)
     threshold = load_debate_threshold()
     data_benchmark = derive_data_benchmark(scan)
 

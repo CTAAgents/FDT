@@ -31,7 +31,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 | **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口 | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
-| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/checkpoint.py` |
+| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`（Checkpointer 逻辑在 graph.py 内联） |
 | **L5 可观测性** | 质量度量、诊断、改进 | `apm_scorecard.py`, `cluster_failures.py`, `run_benchmark.py`, `self_improve.py`, LangGraph `get_state_history()` |
 
 ### L4 LangGraph 层详细说明
@@ -65,7 +65,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 
 ```
                     ┌──────────────┐
-                    │  bootstrap   │ ← 入口 (once/daemon/interactive)
+                    │  fdt_cli     │ ← 入口 (once/daemon/interactive)
                     └──────┬───────┘
                            │
               ┌────────────▼────────────┐
@@ -135,6 +135,12 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │ • [scan] 数技源               │  │
                     │  │       │                       │  │
                     │  │       ▼                       │  │
+                    │  │ • [judge_direction] 闫判官     │  │
+                    │  │   选品种+定方向+调度决策        │  │
+                    │  │       │                       │  │
+                    │  │       ▼                       │  │
+                    │  │ • [prepare_data] 数据准备      │  │
+                    │  │       │                       │  │
                     │  │  ┌────┴────┬────────┬──────┐  │  │
                     │  │  ▼         ▼        ▼      │  │  │
                     │  │ [链证源] [观澜]   [探源]    │  │  │ ← 并行数据源
@@ -144,10 +150,11 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │  [merge_research] 合并节点  │  │  │
                     │  │       │                    │  │  │
                     │  │       ▼                    │  │  │
-                    │  │ • [judge_direction] 闫判官  │  │  │
                     │  │ • [debate] 证真+慎思        │  │  │
                     │  │ • [verdict] 裁决+风控       │  │  │
                     │  │ • [report] 明鉴秋           │  │  │
+                    │  │ • [risk_check] 风控明       │  │  │
+                    │  │ • [signal_output] CTP信号    │  │  │
                     │  └───────────────────────────────┘  │
                     │                                     │
                     │  ┌───────────────────────────────┐  │
@@ -177,7 +184,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 [自进化前置] ──→ validate_verdicts.py ──→ calibrate_weights.py ──→ evolve_agents.py
     │                    (K线验证)           (权重校准)              (参数进化)
     ▼
-[P1] 可插拔多策略并行扫描（v8.3.0+ 架构）
+[P1] 可插拔多策略并行扫描（v8.8.6+ 架构）
     ├─ trend_following (10子信号)       ──→ scan_result_tf_{date}.json
     ├─ mean_reversion (3子信号)         ──→ scan_result_mr_{date}.json
     └─ 自定义策略插件                    ──→ scan_result_{plugin}_{date}.json
@@ -195,15 +202,12 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │
     ▼
 [P5] 裁决链 (串行)
-    ├─ 闫判官裁决 ──→ p5_verdict_{trace_id}.json
-    ├─ 策执远 ──→ p5_trading_plan_{sym}.json
-    └─ 风控明 ──→ p5_risk_check_{sym}.json
+    ├─ 闫判官裁决(含完整交易参数) ──→ p5_verdict_{trace_id}.json
+    └─ 风控明审核（直接基于闫判官 verdict）──→ p5_risk_check_{sym}.json
     │
     ▼
-[P6] 明鉴秋汇总 ──→ debate_results.json + debate_results.html
-    │
-    ▼
-record_verdicts.py ──→ execution_followup.json (供下次自进化验证)
+[P6] 明鉴秋报告生成 ──→ debate_results.json + debate_results.html
+[P6a] CTP 信号输出（v8.7.0 新增）──→ signal_output.json（根据风控 risk_color 决定是否输出 CTP 交易信号）
 ```
 
 > **与 LangGraph 模式的关键差异**:
@@ -267,8 +271,7 @@ record_verdicts.py ──→ execution_followup.json (供下次自进化验证)
     │                          state["bearish_arguments"]
     │       │
     │       ▼
-    │  [verdict] 闫判官 ──→ state["verdict"]
-    │       │                 state["trading_plan"] (策执远)
+    │  [verdict] 闫判官 ──→ state["verdict"] (含交易参数)
     │       │                 state["risk_check"] (风控明)
     │       │
     │       ▼
@@ -306,6 +309,11 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 链证源分析 | `Commodities/Reports/.../{date}/` | `pg.chain_analysis` | PostgreSQL | `node_chain` | OLTP |
 | 观澜技术面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.technical_scores` | PostgreSQL | `node_technical` | OLTP |
 | 探源基本面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.fundamental_scores` | PostgreSQL | `node_fundamental` | OLTP |
+| 扫描阶段报告 | `{workspace}/{date}/scan_report_{trace_id}.html` | `pg.scan_signals` | HTML+JSON | `node_scan` (嵌入) | 文件+OLTP |
+| 研究阶段报告 | `{workspace}/{date}/research_report_{trace_id}.html` | - | HTML | `node_merge_research` | 文件 |
+| 裁决阶段报告 | `{workspace}/{date}/verdict_report_{trace_id}.html` | `pg.debate_verdicts` | HTML+JSON | `node_verdict` (嵌入) | 文件+OLTP |
+| 辩论阶段报告 | `{workspace}/{date}/debate_report_{date}.html` | - | HTML | `node_report` | 文件 |
+| CTP信号扫描报告 | `{workspace}/{date}/signal_report_{trace_id}.html` | - | HTML+JSON | `node_signal_output` | 文件 |
 | 辩论裁决 | `Commodities/Reports/.../{date}/debate_results.json` | `pg.debate_verdicts` | PostgreSQL | `node_verdict` | OLTP |
 | HTML 报告 | `Commodities/Reports/.../{date}/debate_results.html` | 保持不变 | HTML | `phase3_generate_report.py` | - |
 | 辩论日志 | `memory/debate_journal.json` | `pg.langgraph_checkpoints` | PostgreSQL | Checkpointer | OLTP |
@@ -391,8 +399,9 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                   │                             │
                   │                  ┌──────────▼──────────┐
                   │                  │  P5 裁决链 (串行)     │
-                  │                  │  闫判官 → 策执远     │
+                  │                  │  闫判官(含交易参数)   │
                   │                  │        → 风控明      │
+                  │                  │                  │
                   │                  └──────────┬──────────┘
                   └─────────────────────────────┘
 ```
@@ -402,7 +411,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 > - P2: 闫判官兼具方向决策和数据源调度权
 > - P3: 链证源/观澜/探源三源并行，平行关系无先后次序
 > - P4: 证真+慎思并行辩论
-> - P5: 裁决链串行执行（闫判官→策执远→风控明）
+> - P5: 裁决链串行执行（闫判官含交易参数→风控明）
 > - 通信方式: 文件传递 + S04 轮询
 
 ### 4.2 LangGraph 拓扑（迁移后 — 并行数据源）
@@ -420,6 +429,9 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  │       ▼                                       │   │
                     │  │  [judge_direction] 闫判官                      │   │
                     │  │  选品种 + 定方向 + 调度决策                     │   │
+                    │  │       │                                       │   │
+                    │  │       ▼                                       │   │
+                    │  │  [prepare_data] 数据准备                       │   │
                     │  │       │                                       │   │
                     │  │       ▼ (按需并行调度)                         │   │
                     │  │  ┌─────────┬──────────┬──────────┐           │   │
@@ -440,7 +452,8 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  │  [verdict] 闫判官 ──→ 裁决+方案+风控            │   │
                     │  │                 │                              │   │
                     │  │                 ▼                              │   │
-                    │  │  [report] 明鉴秋 ──→ HTML报告                   │   │
+                    │  │  [report] 明鉴秋 ──→ HTML辩论报告+signal_output │   │
+                    │  │  [signal_output] 明鉴秋 ──→ CTP信号扫描报告      │   │
                     │  │                                               │   │
                     │  └─────────────────────────────────────────────┘   │
                     │                                                    │
@@ -448,6 +461,9 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  │  Edges (边)                                    │   │
                     │  │                                               │   │
                     │  │  scan ──→ judge_direction (闫判官调度决策)    │   │
+                    │  │              │                                │   │
+                    │  │              ▼                                │   │
+                    │  │  prepare_data (数据准备)                      │   │
                     │  │              │                                │   │
                     │  │              ▼ (按需并行调度三源)              │   │
                     │  │  ParallelMap(链证源,观澜,探源)                │   │
@@ -477,15 +493,16 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 |:------|:---------|:-----|:---------|:-----|:-------|
 | 数技源 | `node_scan` | 信号扫描 | 否 | P1 | 无 |
 | 闫判官 | `node_judge_direction` | 选品种+定方向+**调度决策** | 否 | P2 | **有** |
+| 数据准备 | `node_prepare_data` | 数据准备（解析K线/计算指标） | 否 | P2→P3 | 无 |
 | 链证源 | `node_chain` | 产业链分析（按需） | **是**（与观澜、探源并行） | P3 | 无 |
 | 观澜 | `node_technical` | 技术面分析（按需） | **是**（与链证源、探源并行） | P3 | 无 |
 | 探源 | `node_fundamental` | 基本面分析（按需） | **是**（与链证源、观澜并行） | P3 | 无 |
 | 证真/多头分析员 | `node_debate` | 多头论据 | 是（与慎思并行） | P4 | 无 |
 | 慎思/空头分析员 | `node_debate` | 空头论据 | 是（与证真并行） | P4 | 无 |
-| 闫判官 | `node_verdict` | 裁决 | 否 | P5 | 有 |
-| 策执远 | `node_trading_plan` | 交易策略 | 否 | P5 | 无 |
-| 风控明 | `node_risk_check` | 风控审核 | 否 | P5 | 无 |
-| 明鉴秋 | 图调度 | 流程控制 | 否 | P6 | 有 |
+| 闫判官 | `node_verdict` | 裁决(含交易参数) | 否 | P5 | 有 |
+| 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
+| 明鉴秋(报告) | `node_report` | 报告生成 | 否 | P6 | 有 |
+| 明鉴秋(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6a | 有 |
 
 #### 按需并行数据源设计说明
 
@@ -502,7 +519,9 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
   scan ──→ judge_direction (闫判官)
     │              │
     │              ▼ 调度决策：需要哪些源？
-    │       ┌─────────────┬─────────────┐
+    │       [prepare_data] 数据准备
+    │              │
+    │       ┌──────┴──────┬─────────────┐
     │       ▼             ▼             ▼
     │   [链证源]      [观澜]       [探源]      ← 按需并行（仅调度需要的源）
     │   产业链       技术面        基本面

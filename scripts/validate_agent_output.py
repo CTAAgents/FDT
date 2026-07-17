@@ -71,7 +71,7 @@ P5_JUDGE_REQUIRED = [
 P5_PLAN_REQUIRED = [
     "agent", "symbol", "action", "position_pct", "contract", "timeframe",
 ]
-# 策执远v3.0嵌套格式（含保守/中性/进取三方案），作为备选schema
+# 原策执远v3.0嵌套格式（含保守/中性/进取三方案），作为备选schema
 P5_PLAN_V3_REQUIRED = ["variant", "symbol", "plans", "scenarios"]
 P5_RISK_REQUIRED = [
     "agent", "symbol", "risk_level", "veto", "risk_items", "recommendation",

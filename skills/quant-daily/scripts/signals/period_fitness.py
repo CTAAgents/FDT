@@ -195,4 +195,6 @@ if __name__ == "__main__":
     out = build_period_fitness(
         [(s, SYMBOL_CHAIN_MAP.get(s, "未知")) for s in demo_syms], _scan, out_dir
     )
-    print(json.dumps(json.load(open(out, encoding="utf-8")), ensure_ascii=False, indent=2))
+    with open(out, encoding="utf-8") as f:
+        _data = json.load(f)
+    print(json.dumps(_data, ensure_ascii=False, indent=2))

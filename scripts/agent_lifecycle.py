@@ -286,7 +286,7 @@ def cmd_cleanup():
 # CLI
 # ═══════════════════════════════════════════════
 
-def main():
+def main() -> None:
     import argparse
     ap = argparse.ArgumentParser(description="明鉴秋 Agent 生命周期管理器")
     sub = ap.add_subparsers(dest="cmd", required=True)

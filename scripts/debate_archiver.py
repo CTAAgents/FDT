@@ -14,7 +14,9 @@ FDT 辩论自动归档器 v1.0
   - 容错: 写入失败不阻断辩论流程
 """
 
-import json, os, sys
+import json
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
 

@@ -167,7 +167,7 @@ def check_fix_coverage() -> list[dict]:
     fixes = {
         "F01": ("路径归一化", "scripts/fdt_cli.py", "_normalize_path"),
         "F02": ("Confidence 标签", "scripts/confidence_utils.py", "CONFIDENCE_LABEL_MAP"),
-        "F03": ("策执远 Schema", "scripts/validate_agent_output.py", "variant"),
+        "F03": ("原策执远 Schema", "scripts/validate_agent_output.py", "variant"),
         "F07": ("评分缩进", "skills/quant-daily/scripts/scan_all.py", "len(target_symbols)"),
         "F08": ("--disable-filter KeyError", "skills/quant-daily/scripts/scan_all.py", "summary.get"),
         "F10": ("glob 不匹配", "scripts/fdt_cli.py", "cmd_finalize_only"),

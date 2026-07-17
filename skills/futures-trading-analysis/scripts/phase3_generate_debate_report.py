@@ -119,10 +119,8 @@ parts = [
 <h2>📡 P0-① · 数技源 — 全品种双策略信号</h2>
 <div class="card">
 <div class="stat-grid">
-  <div class="stat-item"><div class="stat-value" style="color:{GREEN}">{l1l4_bull}</div><div class="stat-label">L1-L4多头</div></div>
-  <div class="stat-item"><div class="stat-value" style="color:{RED}">{l1l4_bear}</div><div class="stat-label">L1-L4空头</div></div>
-  <div class="stat-item"><div class="stat-value" style="color:{GREEN}">{ft_bull}</div><div class="stat-label">因子择时多头</div></div>
-  <div class="stat-item"><div class="stat-value" style="color:{RED}">{ft_bear}</div><div class="stat-label">因子择时空头</div></div>
+  <div class="stat-item"><div class="stat-value" style="color:{GREEN}">{l1l4_bull}</div><div class="stat-label">多头</div></div>
+  <div class="stat-item"><div class="stat-value" style="color:{RED}">{l1l4_bear}</div><div class="stat-label">空头</div></div>
 </div>
 </div>
 
@@ -163,11 +161,10 @@ if kept:
     rows = ""
     for sym in kept:
         s = sym_map.get(sym) or sym_map.get(sym.upper()) or {}
-        l = s.get("l1l4", {})
-        ft = s.get("factor_timing", {})
-        rows += f'<tr><td>{sym}</td><td>{cr.get(sym, {}).get("chain", "?")}</td><td class="bear">🔴做空</td><td>{l.get("total", 0):+d}</td><td>{l.get("grade", "")}</td><td>{ft.get("total", 0):+d}</td><td>{l.get("adx", 0):.1f}</td></tr>'
+        s_data = sym_map.get(sym) or sym_map.get(sym.upper()) or {}
+        rows += f'<tr><td>{sym}</td><td>{cr.get(sym, {}).get("chain", "?")}</td><td class="bear">🔴做空</td><td>{s_data.get("total", 0):+d}</td><td>{s_data.get("grade", "")}</td><td>{s_data.get("adx", 0):.1f}</td></tr>'
     parts.append(f"""<div class="card">
-<table><tr><th>品种</th><th>产业链</th><th>方向</th><th>L1L4</th><th>等级</th><th>FT</th><th>ADX</th></tr>{rows}</table>
+<table><tr><th>品种</th><th>产业链</th><th>方向</th><th>总分</th><th>等级</th><th>ADX</th></tr>{rows}</table>
 </div>""")
 
 # Top5
@@ -244,7 +241,7 @@ for sym, (name, price, l1l4, ft, adx, verdict, conf, tgt, stop, rr) in top5_info
 parts.append("</div></div>")
 
 # 方案
-parts.append(f"""<h2>🟡 P3 · 风控明 + 📋 P4 · 策执远</h2>
+parts.append(f"""<h2>🟡 P3 · 风控明 + 📋 P4 · 闫判官(含交易参数)</h2>
 <div class="card">
 <table>
 <tr><th>方案</th><th>品种</th><th>仓位</th><th>预期收益</th><th>回撤</th><th>分散链数</th><th>建议</th></tr>
@@ -256,7 +253,7 @@ parts.append(f"""<h2>🟡 P3 · 风控明 + 📋 P4 · 策执远</h2>
 
 <hr class="divider">
 <div style="text-align:center;color:{SEC};font-size:11px;padding:20px">
-<p>期货交易辩论专家团 {args.version} | 明鉴秋 · 数技源 · 链证源 · 闫判官 · 牛势研 · 熊谋略 · 风控明 · 策执远</p>
+<p>期货交易辩论专家团 {args.version} | 明鉴秋 · 数技源 · 链证源 · 闫判官 · 牛势研 · 熊谋略 · 风控明</p>
 <p>⚠️ 决策辅助工具，不构成投资建议。数据截止: {now}</p>
 </div></body></html>""")
 

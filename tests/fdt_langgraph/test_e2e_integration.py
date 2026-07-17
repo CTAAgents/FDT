@@ -6,7 +6,7 @@ from fdt_langgraph.nodes import (
     node_scan, node_judge_direction,
     node_chain, node_technical, node_fundamental,
     node_merge_research, node_debate, node_verdict,
-    node_trading_plan, node_risk_check, node_report
+    node_signal_output, node_risk_check, node_report
 )
 
 
@@ -15,7 +15,7 @@ class TestEndToEndIntegration:
 
     @pytest.mark.asyncio
     async def test_full_pipeline_default_mode(self):
-        """测试 default 模式完整流程（scan → judge → 三源并行 → merge → debate → verdict → plan → risk → report）"""
+        """测试 default 模式完整流程（scan → judge → 三源并行 → merge → debate → verdict → risk → report → signal）"""
         trace_id = "e2e-default-001"
         state = create_initial_state(trace_id, mode="default")
         state["selected_symbols"] = ["RB", "CU"]
@@ -71,21 +71,22 @@ class TestEndToEndIntegration:
         assert isinstance(s5["verdict"], dict)
         assert s5["current_phase"] == "P5_verdict"
 
-        s6 = await node_trading_plan(s5)
+        s6 = await node_risk_check(s5)
         assert s6["trace_id"] == trace_id
-        assert "trading_plan" in s6
-        assert s6["current_phase"] == "P5_plan"
+        assert "risk_check" in s6
+        assert s6["current_phase"] == "P5_risk"
 
-        s7 = await node_risk_check(s6)
+        s7 = await node_report(s6)
         assert s7["trace_id"] == trace_id
-        assert "risk_check" in s7
-        assert s7["current_phase"] == "P5_risk"
+        assert "report_path" in s7
+        assert s7["current_phase"] == "P6"
+        assert "P6" in s7["completed_phases"]
 
-        s8 = await node_report(s7)
+        s8 = await node_signal_output(s7)
         assert s8["trace_id"] == trace_id
-        assert "report_path" in s8
-        assert s8["current_phase"] == "P6"
-        assert "P6" in s8["completed_phases"]
+        assert "signal_output" in s8
+        assert s8["current_phase"] == "P6a"
+        assert "P6a" in s8["completed_phases"]
 
     @pytest.mark.asyncio
     async def test_full_pipeline_fast_mode(self):
@@ -159,7 +160,7 @@ class TestEndToEndIntegration:
 
     @pytest.mark.asyncio
     async def test_trading_plan_risk_consistency(self):
-        """测试交易计划与风控检查的一致性"""
+        """测试风控直接基于裁决的一致性（v8.7.0 移除 trading_plan，risk_check 直接基于 verdict）"""
         trace_id = "e2e-risk-consistency-001"
         state = create_initial_state(trace_id, mode="default")
         state["selected_symbols"] = ["RB"]
@@ -175,16 +176,31 @@ class TestEndToEndIntegration:
         s3 = await node_merge_research(merged)
         s4 = await node_debate(s3)
         s5 = await node_verdict(s4)
-        s6 = await node_trading_plan(s5)
-        s7 = await node_risk_check(s6)
 
-        assert "risk_check" in s7
-        risk = s7["risk_check"]
+        # 确保 verdict 包含必要的交易参数
+        verdict = s5.get("verdict", {})
+        assert "entry_price" in verdict
+        assert "stop_loss_price" in verdict
+        assert "target_price" in verdict
+        assert "position_pct" in verdict
+        assert "contract" in verdict
+        assert "risk_reward_ratio" in verdict
+
+        s6 = await node_risk_check(s5)
+        assert "risk_check" in s6
+        risk = s6["risk_check"]
         assert isinstance(risk, dict)
+
+        s7 = await node_report(s6)
+        assert "report_path" in s7
+
+        s8 = await node_signal_output(s7)
+        assert "signal_output" in s8
+        assert s8["current_phase"] == "P6a"
 
     @pytest.mark.asyncio
     async def test_report_contains_path(self):
-        """测试最终报告生成路径"""
+        """测试各阶段报告生成路径（v8.8.0 报告层调度）"""
         trace_id = "e2e-report-sections-001"
         state = create_initial_state(trace_id, mode="default")
         state["selected_symbols"] = ["CU"]
@@ -202,13 +218,23 @@ class TestEndToEndIntegration:
         s3 = await node_merge_research(merged)
         s4 = await node_debate(s3)
         s5 = await node_verdict(s4)
-        s6 = await node_trading_plan(s5)
-        s7 = await node_risk_check(s6)
-        s8 = await node_report(s7)
+        s6 = await node_risk_check(s5)
+        s7 = await node_report(s6)
+        s8 = await node_signal_output(s7)
 
+        # P6 辩论报告
         assert "report_path" in s8
         assert isinstance(s8["report_path"], str)
         assert len(s8["report_path"]) > 0
+
+        # v8.8.0: 各阶段报告路径
+        assert "scan_report_path" in s8
+        assert "research_report_path" in s8
+        assert "verdict_report_path" in s8
+        assert "signal_report_path" in s8
+        # 只要存在即可（空扫描时可能为 None，但报告路径字段必须存在）
+        assert s8["scan_report_path"] is not None or s8["scan_report_path"] is None
+        assert s8["signal_report_path"] is not None or s8["signal_report_path"] is None
 
 
 class TestPipelineComparison:

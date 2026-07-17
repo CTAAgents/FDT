@@ -9,7 +9,7 @@ import subprocess
 import shutil
 
 FDT_ROOT = r"D:\Programs\FDT"
-REPORT_ROOT = r"D:\FDTReports"
+REPORT_ROOT = r"D:\FDTWorkspace"
 
 sys.path.insert(0, FDT_ROOT)
 
@@ -36,6 +36,7 @@ def configure_strategies():
     "ml_signal",
     "event_driven",
     "arbitrage",
+    "mean_reversion",
     "pairs_reversion",
     "spread_reversion",
     "basis_reversion",
@@ -49,14 +50,15 @@ def configure_strategies():
     with open(settings_path, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print("Configured: trend_following + mean_reversion, debate threshold 40")
+    print("Configured: trend_following only, debate threshold 40, filter ON")
 
 
 def run_pipeline():
     env = os.environ.copy()
-    env["FDT_USE_LANGGRAPH"] = "false"
-    env["FDT_SCAN_MODE"] = "no-filter"
-    env["FDT_STRATEGIES"] = "trend_following,mean_reversion"
+    env["FDT_USE_LANGGRAPH"] = "true"
+    # FDT_SCAN_MODE removed → default filter ON
+    env["FDT_STRATEGIES"] = "trend_following"
+    env["FDT_DAILY_WORKSPACE"] = REPORT_ROOT
 
     pipeline_script = os.path.join(FDT_ROOT, "pipeline", "runner.py")
     result = subprocess.run(
@@ -90,11 +92,22 @@ def copy_report():
     target_dir = os.path.join(REPORT_ROOT, DATE_STR)
     os.makedirs(target_dir, exist_ok=True)
 
+    # 按文件类型分类存放：html 放 html/ 子目录，json 放 json/ 子目录
+    html_dir = os.path.join(target_dir, "html")
+    json_dir = os.path.join(target_dir, "json")
+    os.makedirs(html_dir, exist_ok=True)
+    os.makedirs(json_dir, exist_ok=True)
+
     if os.path.exists(source_dir):
         for item in os.listdir(source_dir):
             src = os.path.join(source_dir, item)
-            dst = os.path.join(target_dir, item)
             if os.path.isfile(src):
+                if item.endswith(".html"):
+                    dst = os.path.join(html_dir, item)
+                elif item.endswith(".json"):
+                    dst = os.path.join(json_dir, item)
+                else:
+                    dst = os.path.join(target_dir, item)
                 shutil.copy2(src, dst)
         print(f"Report copied to: {target_dir}")
         return target_dir
@@ -116,9 +129,11 @@ def main():
     if success:
         print("FDT Daily Automation Complete")
         if report_dir:
-            html_files = [f for f in os.listdir(report_dir) if f.endswith(".html")]
-            if html_files:
-                print(f"HTML Reports: {', '.join(html_files)}")
+            html_path = os.path.join(report_dir, "html")
+            if os.path.exists(html_path):
+                html_files = [f for f in os.listdir(html_path) if f.endswith(".html")]
+                if html_files:
+                    print(f"HTML Reports: {', '.join(html_files)}")
         return 0
     else:
         print("FDT Daily Automation Failed")

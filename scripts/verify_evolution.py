@@ -3,7 +3,7 @@ scripts/verify_evolution.py — Autoresearch-style A/B verification for FDT.
 
 5 FDT-domain expert personas score evolved configs against baselines:
 1. 闫判官 — verdict logic consistency and direction correctness
-2. 策执远 — trade plan feasibility and risk/reward soundness
+2. 闫判官 — trade plan feasibility and risk/reward soundness
 3. 风控明 — position sizing discipline and constraint compliance
 4. 证真 — argument coverage of key drivers
 5. 探源 — fundamental data accuracy
@@ -37,7 +37,7 @@ FDT_EXPERT_PANEL: List[Dict[str, str]] = [
         "scoring_lens": "裁决逻辑是否自洽？方向是否正确？论据是否充分支持结论？",
     },
     {
-        "name": "策执远",
+        "name": "闫判官",
         "role": "交易策略师",
         "scoring_lens": "交易方案是否可行？R:R 是否合理？止损/目标设置是否恰当？",
     },

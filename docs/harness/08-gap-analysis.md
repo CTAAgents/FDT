@@ -94,6 +94,8 @@
 | **G16** | pipeline 测试随重构失效 | `tests/pipeline/test_runner.py` mock `step_scan_dual`，但 v6.3.0 已将 Step1 重构为 `step_scan()` → 实测 5/10 失败 | 已修复 | `step_scan_dual` → `step_scan`；2026-07-14 19:04 修复 10/10 全绿 | `tests/pipeline/test_runner.py` ✅ |
 | **G17** | Harness 文档未随重构同步 | v6.3.0/6.3.1 重构后，所有 Harness 文档仍写 v5.7.0、数据流为单生产者、库存/脚本计数过期 | 文档与代码长期背离，误导运维与后续重构 | 建立「代码重构 → Harness 文档同步」纪律与检查清单（见 §5 Phase 5） | `docs/harness/*.md` |
 | **G18** | 流程文档未对齐当前架构 | `execution_modes_flowchart.md` 写 v5.12.1、单生产者 scan_all、未体现三分析师供弹与闫判官判断调度；链证源角色边界（无调度权）未固化 | 流程文档与代码/角色长期背离，易被误解为「链证源是调度者」 | 刷新 `execution_modes_flowchart.md`(v4.1/6.3.1)+`business_flow.md`+`futures-chain-analyst.md`+`02-lifecycle.md` 对齐新流程；钉死「闫判官调度权 / 链证源无调度权」 | `docs/execution_modes_flowchart.md` `docs/business_flow.md` `agents/futures-chain-analyst.md` `docs/harness/02-lifecycle.md` |
+| **G65** | scripts/ 模块 0% 覆盖率 | ~~scripts/ 目录下 60+ 个模块长期 0% 覆盖率~~ → **已修复** | 代码变更无回归测试，技术债务累积 | cov-4 分阶段批量覆盖全部完成：Phase 1 (v8.7.1) 16 模块/69 用例；Phase 2 (v8.8.2) 新增 44 用例覆盖 4 模块；累计 **63 模块/413 用例** (412 passed / 1 skipped) | `scripts/test_scripts.py` `docs/harness/06-testing.md` ✅ |
+| **G66** | 明鉴秋报告层调度不完整 | 1) P1/P3/P5/P6a 阶段无独立阶段报告，仅最终辩论报告；2) P6 `node_report` fallback 写入 `/tmp/`，报告路径可能无效；3) `fdt_cli.run_debate()` 仅打印 `report_path`，未列出全部阶段报告 | 用户无法追溯扫描/研究/裁决/信号的中间产出，自动化任务下报告散落程序目录 | v8.8.0：① `state.py` 新增 4 个阶段报告字段；② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`）；③ P6 fallback 改为工作空间下；④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出；⑤ 新增 `tests/fdt_langgraph/test_reports.py` 12 测试全绿 | `fdt_langgraph/state.py` `fdt_langgraph/nodes.py` `fdt_cli.py` `tests/fdt_langgraph/test_reports.py` |
 
 ### 4.2 P1 — 中优先级（影响可维护性）
 
@@ -151,7 +153,7 @@
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | **G42** | LangGraph 迁移：DebateState 定义 | ✅ 已完成 | — | DebateState TypedDict 定义，含 trace_id、scan_results、dispatch_sources、research_data 等 20+ 字段 | `fdt_langgraph/state.py` |
-| **G43** | LangGraph 迁移：10 个节点函数 | ✅ 已完成 | — | node_scan/node_chain/node_technical/node_fundamental/node_merge_research/node_debate/node_verdict/node_trading_plan/node_risk_check/node_report | `fdt_langgraph/nodes.py` |
+| **G43** | LangGraph 迁移：10 个节点函数（v8.7.0 调整为 verdict/risk_check/report/signal_output） | ✅ 已完成 | — | node_scan/node_chain/node_technical/node_fundamental/node_merge_research/node_debate/node_verdict/node_risk_check/node_report/node_signal_output | `fdt_langgraph/nodes.py` |
 | **G44** | LangGraph 迁移：按需并行拓扑图 | ✅ 已完成 | — | 闫判官调度决策后并行触发三源，汇聚到 merge_research | `fdt_langgraph/graph.py` |
 | **G45** | LangGraph 迁移：PostgreSQL OLTP+OLAP Schema | ✅ 已完成 | — | 14 个 OLTP 表 + 3 个 OLAP 视图 | `fdt_pg/schema.py` |
 | **G46** | LangGraph 迁移：PostgreSQL 连接层 | ✅ 已完成 | — | 连接池管理、session_scope 上下文、健康检查 | `fdt_pg/connection.py` |
@@ -188,6 +190,33 @@
 > - G54-pre: health.py 引用未定义字段 phase_start_time → ✅ 已修复
 >
 > 以上 4 项前置修复为 G42-G51 迁移完成的前提条件，已随 v8.3.0 收口。G52-G58 为生产化阶段的后续差距，按优先级推进。
+
+### 4.7 Bug 修复新增差距（2026-07-17 登记）
+
+| # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 |
+|:-:|:-----|:-----|:------|:-----|:---------|
+| **G67** | `compute_indicators()` API 不匹配（LangGraph node_prepare_data） | `node_prepare_data` 在第 467 行调用 `compute_indicators(closes, highs, lows, volumes)` 传了 4 个独立数组，但函数签名 `compute_indicators(df, indicators="all")` 期望一个含 OHLCV 键的 dict/DataFrame → 所有品种 FDC indicators 字段均为 `UNAVAILABLE`，LLM 辩论时缺失技术指标上下文 | **P1**（影响辩论数据质量） | 修正为 `compute_indicators({"close":closes, "high":highs, "low":lows, "volume":volumes})` | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+| **G68** | 裁决/信号报告生成 `None` 值格式化异常 | `_write_verdict_report` 和 `_write_signal_report` 中 `verdict.get("confidence", 0.5)` 等取值，当 LLM 返回 JSON 含 `null` 值时（key 存在但 value 为 None），`.get()` 返回 None → `{None:.0%}` 触发 `unsupported format string passed to NoneType.__format__` | **P2**（不影响核心流程，仅报告生成告警） | 改为 `or 0` 模式：`verdict.get("confidence", 0.5) or 0.5` 确保 None 被替换为兜底值 | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+| **G69** | subprocess pipeline `debate_brief.py` 缺少必需位置参数 | `step_debate_brief()` 只传可选参数（`-o`/`--select-debate` 等），但 `debate_brief.py` 要求两个必需位置参数 `l1l4_path`（技术分析评分 JSON）和 `factor_path`（因子择时 JSON）→ 调用失败，`argparse` 报 `the following arguments are required: l1l4_path, factor_path` | **P2**（当前主路径为 LangGraph，subprocess runner 已降级为备用） | 添加 `full_scan_l1l4_{DATE_COMPACT}.json` 和 `full_scan_factor_timing_{DATE_COMPACT}.json` 两个位置参数到命令列表 | `pipeline/runner.py` ✅ **2026-07-17 已修复** |
+
+### 4.8 代码审计新增差距（2026-07-17 登记）
+
+| # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 |
+|:-:|:-----|:-----|:------|:-----|:---------|
+| **G70** | docs/harness/ 文档与实际代码存在 17 处不一致 | ✅ **已修复** — 已逐项更新 01-architecture.md（补充 node_prepare_data、移除 checkpoint.py/bootstrap.py 引用）、02-lifecycle.md（更新调度器任务、移除 bootstrap.py）、03-configuration.md（删除不存在的 YAML 配置引用、更新 mode/版本号）、05-observability.md（更新日志路径、标记未实现指标）、06-testing.md（补充策略/fdt_langgraph/validators 目录、更新统计计数） | **P1**（文档误导运维与后续开发） | ✅ **已修复**：见本表“现状”列 | 已于 2026-07-17 修复 |
+| **G71** | scripts/ 目录 50+ 函数缺少类型注解 | 50+ 个函数缺少参数和/或返回类型注解 | **P2**（降低代码可维护性） | ✅ **已部分修复**：为 auto_publish/calibrate_weights/memory_enforcer/agent_lifecycle 中 6 个关键公共函数补充了返回注解。其余 44+ 待后续 | `scripts/` ✅ 部分修复 |
+| **G72** | 18+ 个文件导入组织不合规 | 一行 `import os, json...` 模式广泛存在于 18+ 文件 | **P3**（代码风格） | ✅ **已修复**：18 个文件全部拆分为每行一个 import 并按标准库/第三方/本地分组 | `scripts/` 18 ✅ 2026-07-17 |
+| **G73** | 2 处裸 except: pass | `auto_publish.py:78` 和 `init_knowledge_base.py:265` | **P1**（风险） | ✅ **已修复**：改为具体异常类型 | ✅ 2026-07-17 |
+| **G74** | 数据接口 21 个问题 | ①路径穿越 ②subprocess无timeout ③SQLAlchemy 2.0兼容 ④json.load无with ⑤deploy.py未实现 | **P0/P1** | ✅ **全部修复**：①②③④⑤ 均已修复/标记 | ✅ 2026-07-17 |
+
+
+### 4.8 报告质量与数据流修复新增差距（2026-07-17 登记）
+
+| # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 |
+|:-:|:-----|:-----|:------|:-----|:---------|
+| **G75** | node_scan 无法正确读取扫描结果 | `node_scan` 尝试 `json.loads(result.stdout)` 解析 scan_all.py 的终端输出（非JSON格式文本）→ 始终失败，`scan_results` 始终为 `{"error":...}`，全下游依赖 `all_ranked` 的节点功能失效 | **P0**（阻塞报告生成） | 改为读取 scan_all.py 写入的 `full_scan_summary_{date}.json` 文件：添加 `-o`/`-p` 参数，执行后读取文件而非解析 stdout | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+| **G71** | node_report 所有品种套用同一全局裁决 | `node_report` 为 `selected_symbols` 中每个品种写入相同的 `verdict` 对象（单个LLM裁决），导致所有品种方向/置信度/价格完全一致 → 报告无差异化交易信号 | **P1**（影响报告决策价值） | 改用 `all_ranked` 扫描数据的逐品种 total/price/ATR 生成差异化方向、入场/止损/目标价和仓位比例；`report_syms` 覆盖 all_actionable + selected_symbols + grade>=WATCH；保留 LLM 全局裁决作为市场总体判断 | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+| **G72** | node_signal_output 仅输出单品种全局信号 | `signal_output["signal"]` 为单个 verdict 方向的单一信号（neutral→无信号），无逐品种可执行信号清单 | **P2**（影响CTP对接） | 新增 `signal_output["signals"]` 列表，从 `all_ranked` 提取 `abs(total)>=60` 的 BUY/SELL 信号，按评分排序输出前10个，`signal` 字段设为最强的信号 | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
 
 ## 5. 改进路线图
 
@@ -242,6 +271,14 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 ```
 
 **预期收益**：文档与代码一致性恢复；CI 门禁能拦截重构回归；schema 升级有向后兼容保障。
+
+**G66 明鉴秋报告层（v8.8.0 关闭）**：
+- ① `state.py` 新增 4 个阶段报告字段（`scan_report_path` / `research_report_path` / `verdict_report_path` / `signal_report_path`）
+- ② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`），覆盖 P1/P3/P5/P6/P6a 五个阶段
+- ③ P6 `node_report` fallback 路径修复：原 `/tmp/` 改为用户工作空间下，保证 `report_path` 永远有效
+- ④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出各阶段报告路径
+- ⑤ `tests/fdt_langgraph/test_reports.py` 12 测试全绿（覆盖工具函数/节点/契约）
+- ⑥ 同步更新 `01-architecture.md §3.3` / `02-lifecycle.md §2.4` / `04-resilience.md §9.5.1` / `06-testing.md §2.1`
 
 **G17 文档同步检查清单（每次重构后必查）**：
 

@@ -41,56 +41,36 @@ def _find_file(pattern):
 
 def load_qd_data():
     summary_path = _find_file("full_scan_summary_{DATE_COMPACT}.json")
-    l1l4_path = _find_file("full_scan_l1l4_{DATE_COMPACT}.json")
-    ft_path = _find_file("full_scan_factor_timing_{DATE_COMPACT}.json")
     with open(summary_path, "r") as f:
         summary = json.load(f)
-    with open(l1l4_path, "r") as f:
-        l1l4 = json.load(f)
-    with open(ft_path, "r") as f:
-        ft = json.load(f)
-    return summary, l1l4, ft
+    return summary
 
 
 def _index_by_symbol(data):
-    """将 all_ranked 列表按 symbol 建索引（三生产者各自独立 JSON）"""
     return {s["symbol"]: s for s in data.get("all_ranked", [])}
 
 
-def build_symbol_map(summary, l1l4, ft):
-    """构建 symbol->方向映射（2026-07-14 迁移后：三生产者独立 JSON，不再嵌套）
-
-    旧 --dual 合并结构把 l1l4 / factor_timing 嵌套在 summary['symbols'] 每项内；
-    新架构下 channel_breakout(summary) / L1-L4(l1l4) / 因子择时(ft) 是三个独立文件，
-    load_qd_data 已分别加载，此处做三源合并。
-    """
+def build_symbol_map(summary):
     smap = {}
     s_idx = _index_by_symbol(summary)
-    l_idx = _index_by_symbol(l1l4)
-    f_idx = _index_by_symbol(ft)
-    for sym in sorted(set(s_idx) | set(l_idx) | set(f_idx)):
-        s = s_idx.get(sym, {})
-        l = l_idx.get(sym, {})
-        f = f_idx.get(sym, {})
+    for sym, s in s_idx.items():
         smap[sym] = {
             "symbol": sym,
-            "name": s.get("name") or l.get("name") or f.get("name") or sym,
-            "l1l4_total": l.get("total", 0),
-            "l1l4_direction": l.get("direction", "neutral"),
-            "l1l4_grade": l.get("grade", "NOISE"),
-            "ft_total": f.get("total", 0),
-            "ft_direction": f.get("direction", "neutral"),
-            "adx": l.get("adx", s.get("adx", 0)),
-            "z_score_l1": l.get("z_score", 0),
-            "stage": l.get("stage", "unknown"),
-            "volume": l.get("volume", 0),
+            "name": s.get("name", sym),
+            "total": s.get("total", 0),
+            "direction": s.get("direction", "neutral"),
+            "grade": s.get("grade", "NOISE"),
+            "adx": s.get("adx", 0),
+            "z_score": s.get("z_score", 0),
+            "stage": s.get("stage", "unknown"),
+            "volume": s.get("volume", 0),
         }
     return smap
 
 
-def build_price_dict(l1l4):
+def build_price_dict(summary):
     pdict = {}
-    for s in l1l4["all_ranked"]:
+    for s in summary.get("all_ranked", []):
         pdict[s["symbol"]] = {
             "price": s.get("price", 0),
             "total": s.get("total", 0),
@@ -310,22 +290,22 @@ FUNDAMENTAL_NOTES = {
         "LME锡注销仓单占比从11.2%跳升至15.01%，近六分之一锡被提前锁定（来源：百家号/行业资讯，截至7月3日）",
     ],
     "贵金属": [
-        "沪金价格911.4元/克（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "沪金价格911.4元/克（数据来源：数技源，截至7月4日收盘）",
     ],
     "油脂油料": [
-        "豆粕2962元/吨，菜粕2257元/吨，ADX均<20，无明显趋势（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "豆粕2962元/吨，菜粕2257元/吨，ADX均<20，无明显趋势（数据来源：数技源，截至7月4日收盘）",
     ],
     "谷物软商品": [
-        "L1L4信号分化：棉花/花生/生猪偏多 vs 玉米/白糖/鸡蛋偏空（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "信号分化：棉花/花生/生猪偏多 vs 玉米/白糖/鸡蛋偏空（数据来源：数技源，截至7月4日收盘）",
     ],
     "煤化工": [
-        "甲醇2377元/吨，ADX=80.6为全市场最高，下行趋势极强但接近超卖区域（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "甲醇2377元/吨，ADX=80.6为全市场最高，下行趋势极强但接近超卖区域（数据来源：数技源，截至7月4日收盘）",
     ],
     "橡胶": [
-        "橡胶16755元/吨，NR14465元/吨，BR12125元/吨，三者均为下行趋势（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "橡胶16755元/吨，NR14465元/吨，BR12125元/吨，三者均为下行趋势（数据来源：数技源，截至7月4日收盘）",
     ],
     "纸浆造纸": [
-        "纸浆4752元/吨，双胶纸3958元/吨，下游op跌幅小于上游sp（数据来源：数技源 channel_breakout + 观澜 L1-L4扫描结果，截至7月4日收盘）",
+        "纸浆4752元/吨，双胶纸3958元/吨，下游op跌幅小于上游sp（数据来源：数技源，截至7月4日收盘）",
     ],
 }
 
@@ -344,7 +324,7 @@ def main():
     strategy_lines.append("# 链证源策略报告 — 给闫判官参考辩论方向\n")
     _meta = summary.get("_meta", {})
     strategy_lines.append(
-        f"**日期**: 2026-07-05 | **数据源**: 数技源 channel_breakout + 观澜 L1-L4 | **全品种多头**: {_meta.get('l1l4_bull', _meta.get('bull', 0))} | **全品种空头**: {_meta.get('l1l4_bear', _meta.get('bear', 0))}\n"
+        f"**日期**: 2026-07-05 | **数据源**: 数技源 | **全品种多头**: {_meta.get('bull', 0)} | **全品种空头**: {_meta.get('bear', 0)}\n"
     )
     strategy_lines.append("---\n")
 

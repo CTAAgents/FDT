@@ -33,9 +33,28 @@ async def run_debate(mode: str = "default") -> DebateState:
 
     graph = build_debate_graph(mode=mode)
     result = await graph.ainvoke(initial_state)
-    logger.info(f"Debate completed: {result.get('report_path')}")
-    logger.info(f"Completed phases: {result.get('completed_phases')}")
+    # v8.8.0: 输出各阶段报告路径
+    logger.info(f"Debate completed. Phases: {result.get('completed_phases')}")
+    _print_phase_reports(result)
     return result
+
+
+def _print_phase_reports(result: DebateState) -> None:
+    """统一输出各阶段报告路径（v8.8.0）"""
+    phase_reports = [
+        ("P1 扫描报告", result.get("scan_report_path")),
+        ("P3 研究报告", result.get("research_report_path")),
+        ("P5 裁决报告", result.get("verdict_report_path")),
+        ("P6 辩论报告", result.get("report_path")),
+        ("P6a 信号扫描报告", result.get("signal_report_path")),
+    ]
+    print("\n=== 📑 阶段报告汇总 ===")
+    for label, path in phase_reports:
+        if path:
+            print(f"  ✅ {label}: {path}")
+        else:
+            print(f"  ⚠️  {label}: 未生成")
+    print("=" * 40 + "\n")
 
 
 async def daemon_mode(cron_expr: str, timezone: str = "Asia/Shanghai"):

@@ -9,6 +9,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fdt_pg.connection import PGConnection
 from fdt_pg.schema import Base, OLAP_VIEWS
 from sqlalchemy import text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def deploy_schema():
@@ -36,6 +39,10 @@ def migrate_json_to_pg():
     """从 JSON 文件迁移历史数据到 PostgreSQL"""
     memory_dir = Path(__file__).parent.parent / "memory"
     migrated = 0
+
+    if not memory_dir.exists():
+        print(f"⚠️  memory/ 目录不存在: {memory_dir}")
+        return 0
 
     journal_path = memory_dir / "debate_journal.json"
     if journal_path.exists():
@@ -80,6 +87,13 @@ def migrate_json_to_pg():
         print("ℹ️  agent_profiles.json 不存在，跳过")
 
     print(f"\n📊 数据迁移完成，共处理 {migrated} 条记录")
+
+    # TODO: 实现实际的 INSERT 写入逻辑
+    # 当前仅打印找到的记录数，未写入 PostgreSQL
+    # 需要从 fdt_pg/connection.py 导入 session_scope
+    # 然后执行 INSERT INTO ... 语句
+    logger.warning("migrate_json_to_pg() 当前仅打印不写入 — 待实现 INSERT 逻辑 (G74-⑤)")
+
     return migrated
 
 

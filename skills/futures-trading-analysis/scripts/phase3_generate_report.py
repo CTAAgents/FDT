@@ -167,13 +167,13 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         elif rsi < 50:
             bear.append(f"RSI={rsi:.1f} 中轴下方，空头占优")
 
-        # L1-L4总分
+        # 总分
         if abs(l1l4_total) >= 65:
-            bear.append(f"L1-L4={l1l4_total} 四层共振确认空头，方向一致性高(CONS={cons}/4)")
+            bear.append(f"总分={l1l4_total} 高分空头，方向一致性高(CONS={cons}/4)")
         elif abs(l1l4_total) >= 55:
-            bear.append(f"L1-L4={l1l4_total} 中高分空头")
+            bear.append(f"总分={l1l4_total} 中高分空头")
         elif abs(l1l4_total) >= 40:
-            bear.append(f"L1-L4={l1l4_total} 弱势空头，需配合趋势阶段判断")
+            bear.append(f"总分={l1l4_total} 弱势空头，需配合趋势阶段判断")
 
         # 趋势阶段
         if stage == "trending":
@@ -200,7 +200,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         if fdir == "bear":
             bear.append(f"因子择时共振(bear) — 辅助验证空头方向")
         elif conflict:
-            bear.append("多因子分歧 — L1-L4空头 vs 因子择时非空，需警惕反向风险")
+            bear.append("多因子分歧 — 空头信号 vs 因子择时非空，需警惕反向风险")
 
         # CCI
         if cci and cci < -100:
@@ -235,11 +235,11 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
         # 因子分歧
         if fdir == "bull":
-            bull.append(f"⚠️ 因子择时反向(bull) — 因子模型显示多头信号，与L1-L4空头矛盾")
+            bull.append(f"⚠️ 因子择时反向(bull) — 因子模型显示多头信号，与空头信号矛盾")
 
         # 多因子分歧
         if conflict:
-            bull.append("⚠️ 多因子方向分歧 — L1-L4与因子择时方向不一致，仓位应减半")
+            bull.append("⚠️ 多因子方向分歧 — 信号与因子择时方向不一致，仓位应减半")
 
         # Z-score反方向极端
         if z > 1.5:
@@ -262,9 +262,9 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
         elif rsi > 50:
             bull.append(f"RSI={rsi:.1f} 中轴上方")
         if abs(l1l4_total) >= 65:
-            bull.append(f"L1-L4={l1l4_total} 四层共振确认多头")
+            bull.append(f"总分={l1l4_total} 高分多头")
         elif abs(l1l4_total) >= 55:
-            bull.append(f"L1-L4={l1l4_total} 中高分多头")
+            bull.append(f"总分={l1l4_total} 中高分多头")
         if stage == "trending":
             bull.append("阶段: trending 主趋势运行中")
         if z > 1:
@@ -280,9 +280,9 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
     # 双方向都有论据时，确保各至少1条
     if direction == "SELL" and not bear:
-        bear.append(f"P1信号空头: L1-L4={l1l4_total}, ADX={adx:.1f}")
+        bear.append(f"信号空头: 总分={l1l4_total}, ADX={adx:.1f}")
     if not bull:
-        bull.append(f"P1信号: L1-L4={l1l4_total}, 方向={direction}, 阶段={stage}")
+        bull.append(f"信号: 总分={l1l4_total}, 方向={direction}, 阶段={stage}")
 
     return "<br>".join(bear) if bear else "", "<br>".join(bull) if bull else ""
 
@@ -511,7 +511,7 @@ if os.path.exists(DEBATE_PATH):
                 elif isinstance(dims, list):
                     debate_results[pid]['bear_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
 
-    # ── 加载策执远交易方案并注入 per-pid（合约/入场/止损/目标） ──
+    # ── 加载交易方案并注入 per-pid（合约/入场/止损/目标） ──
     for fname in [f'p5_trading_plan_{REPORT_DATE_COMPACT}.json', 'p5_trading_plan.json']:
         fpath = os.path.join(os.path.dirname(DEBATE_PATH), fname) if os.path.exists(DEBATE_PATH) else ''
         if not fpath or not os.path.exists(fpath):
@@ -549,6 +549,11 @@ chain_results = intermediate.get("chain_results", {})
 symbols_summary = intermediate.get("symbols_summary", [])
 BUY_top5_ids = intermediate.get("BUY_top5", [])
 SELL_top5_ids = intermediate.get("SELL_top5", [])
+
+# v8.8.0+: 从 intermediate_data 加载逐品种结构化数据（来自LLM输出）
+technical_per_symbol = intermediate.get("technical_per_symbol", {})
+fundamental_per_symbol = intermediate.get("fundamental_per_symbol", {})
+print(f"✓ 逐品种技术面: {len(technical_per_symbol)} 品种, 基本面: {len(fundamental_per_symbol)} 品种")
 
 print(f"✓ 读取中间数据: {len(symbols_summary)} 品种, {len(chain_results)} 产业链")
 print(f"✓ 有效方案: {len(all_actionable)}")
@@ -827,7 +832,7 @@ for s in T1_signals[:10]:
 
 
 # ==================== 探源模块：基本面状态向量生成 ====================
-# 模拟探源Agent的职责：基于factor_timing数据和品种特征生成基本面状态向量
+# 模拟探源Agent的职责：基于因子数据和品种特征生成基本面状态向量
 def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list) -> dict:
     """探源：生成基本面状态向量"""
     s = None
@@ -893,9 +898,9 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
 
     # 领先信号
     if fdir == "bear":
-        fundamentals["leading_signals"].append(f"因子择时偏空(f_total={f_total})，因子信号与L1-L4空头方向一致")
+        fundamentals["leading_signals"].append(f"因子择时偏空(f_total={f_total})，因子信号与空头方向一致")
     elif fdir == "bull":
-        fundamentals["leading_signals"].append(f"因子择时偏多(f_total={f_total})，与L1-L4方向{'一致' if l1l4_dir=='bull' else '分歧'}")
+        fundamentals["leading_signals"].append(f"因子择时偏多(f_total={f_total})，与方向{'一致' if l1l4_dir=='bull' else '分歧'}")
     if z < -1.5:
         fundamentals["leading_signals"].append(f"Z={z:.1f}统计显著偏空，为空头方向内极端品种")
     elif z > 1.5:
@@ -903,7 +908,7 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
     if cons >= 3:
         fundamentals["leading_signals"].append(f"四层一致性CONS={cons}/4，技术面多维度共振")
     if conflict:
-        fundamentals["leading_signals"].append("⚠️ 多因子方向分歧（L1-L4 vs 因子择时不一致），基本面信号混乱需谨慎")
+        fundamentals["leading_signals"].append("⚠️ 多因子方向分歧（信号 vs 因子择时不一致），基本面信号混乱需谨慎")
     if cci < -100:
         fundamentals["leading_signals"].append(f"CCI={cci:.0f}进入超卖区，短期可能存在均值修复需求")
     elif cci > 100:
@@ -954,9 +959,9 @@ def _generate_technical_analysis(pid: str, symbols_summary: list) -> dict:
     # 趋势判断（多维度，不只是ADX）
     trend_parts = []
     if l1l4_dir == "bear":
-        trend_parts.append(f"方向: 空头主导(L1-L4={l1l4_total})")
+        trend_parts.append(f"方向: 空头主导(总分={l1l4_total})")
     elif l1l4_dir == "bull":
-        trend_parts.append(f"方向: 多头主导(L1-L4={l1l4_total})")
+        trend_parts.append(f"方向: 多头主导(总分={l1l4_total})")
     else:
         trend_parts.append("方向: 中性")
 
@@ -1005,7 +1010,7 @@ def _generate_technical_analysis(pid: str, symbols_summary: list) -> dict:
     if l1l4_dir == "bear" and fdir == "bear":
         volume_parts.append("多因子共振空头，量价配合确认下行")
     elif l1l4_dir == "bear" and fdir == "bull":
-        volume_parts.append("L1-L4空 vs 因子多，方向分歧，量价信号混乱")
+        volume_parts.append("信号空 vs 因子多，方向分歧，量价信号混乱")
     tech["volume_price"] = " | ".join(volume_parts)
 
     # 背离
@@ -1144,7 +1149,7 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
 
         # 多因子分歧
         if conflict:
-            flags.append("🟡 多因子方向分歧(L1-L4 vs 因子)，仓位建议减半")
+            flags.append("🟡 多因子方向分歧(信号 vs 因子)，仓位建议减半")
             if risk_level == "green": risk_level = "yellow"
 
         # 超卖追空风险
@@ -1202,8 +1207,8 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
     return reviews
 
 
-# ==================== 策执远模块：精选Top5标准化策略 ====================
-# 模拟策执远Agent的职能：从裁决数据中提取最可执行的5个交易策略
+# ==================== 闫判官(交易参数)：精选Top5标准化策略 ====================
+# v8.7.0: 原交易策略职责合并至闫判官，从裁决数据中提取最可执行的5个交易策略
 # 输出标准化格式：合约/方向/入场/止损/目标/仓位/盈亏比/建仓节奏/触发条件
 
 # 主力合约映射表（仅参考，实际需对接CTP）
@@ -1243,7 +1248,7 @@ EXCHANGE_MAP = {
 
 def _select_top5_strategies(all_signals: list, risk_level_map: dict = None,
                             chain_position_limit: float = 0.50) -> list:
-    """策执远：从裁决信号中精选不超过5个最可执行策略
+    """闫判官：从裁决信号中精选不超过5个最可执行策略
     精选规则：
     1. 优先选择置信度最高的品种
     2. 同产业链允许多个，但同链合并仓位不超过 chain_position_limit (默认50%)
@@ -1305,7 +1310,7 @@ def _select_top5_strategies(all_signals: list, risk_level_map: dict = None,
 
 
 def _build_strategy_cards(strategies: list) -> str:
-    """策执远：生成标准化策略卡片（CTP就绪格式）"""
+    """闫判官：生成标准化策略卡片（CTP就绪格式）"""
     if not strategies:
         return '<p style="color:#888;">无满足条件的可执行策略</p>'
 
@@ -1485,7 +1490,7 @@ if any(v["count"] > 1 for v in chain_pos_summary.values()):
         if info["count"] > 1:
             print(f"  {ch}: {info['count']}品种 | 合并仓位 {info['total_pos']:.0f}%")
 
-print(f"\n[策执远] 精选Top5可执行策略:")
+print(f"\n[闫判官] 精选Top5可执行策略:")
 for s in top5_strategies:
     icon = "🟢" if s["direction"] == "BUY" else "🔴"
     print(f"  {icon} #{top5_strategies.index(s)+1} {s['product_name']}({s['product_id']}) {s['direction']} 入场{s['entry']:.0f} 目标{s['target']:.0f} 止损{s['stop_loss']:.0f} RR={s['risk_reward']:.2f}")
@@ -1645,12 +1650,18 @@ def build_debate_report():
     debate_rows = ""
     for pid in sorted(SYMBOL_KEYS):
         d = debate_results[pid]
+        pid_upper = pid.upper()
 
-        # 探源：基本面状态向量
-        fund_state = _generate_fundamental_state(pid, d.get("chain", ""), all_actionable)
+        # 观澜：多层次技术分析 — 优先使用LLM逐品种输出，fallback到合成数据
+        tech_analysis = technical_per_symbol.get(pid, technical_per_symbol.get(pid_upper, {}))
+        if not tech_analysis:
+            tech_analysis = _generate_technical_analysis(pid, symbols_summary)
 
-        # 观澜：多层次技术分析
-        tech_analysis = _generate_technical_analysis(pid, symbols_summary)
+        # 探源：基本面状态向量 — 优先使用LLM逐品种输出，fallback到合成数据
+        fund_state = fundamental_per_symbol.get(pid, fundamental_per_symbol.get(pid_upper, {}))
+        if not fund_state:
+            fund_state = _generate_fundamental_state(pid, d.get("chain", ""), all_actionable)
+
         jv = d.get("judge_verdict", {})
         if isinstance(jv, dict) and "final_direction" in jv:
             v = jv["final_direction"]
@@ -1817,13 +1828,13 @@ def build_debate_report():
 
     <div class="section">
         <h2>⚖️ 辩论详情与交易建议</h2>
-        <div class="sub-title">以下为专家团9Agent联合产出的逐品种分析（数技源→链证源→证真+慎思→闫判官→风控明→策执远）</div>
+        <div class="sub-title">以下为专家团9Agent联合产出的逐品种分析（数技源→链证源→证真+慎思→闫判官(含交易参数)→风控明）</div>
         {debate_rows}
     </div>
 
     <div class="section" style="border-color:#f59e0b66;">
-        <h2>🎯 策执远精选：标准化可执行策略（Top5）</h2>
-        <div class="sub-title">以下为策执远Agent从辩论裁决中精选的Top5最可执行策略，按置信度排序，同产业链最多1个。合约代码为CTP标准格式，可直接对接交易系统。</div>
+        <h2>🎯 闫判官精选：标准化可执行策略（Top5）</h2>
+        <div class="sub-title">以下为闫判官从辩论裁决中精选的Top5最可执行策略，按置信度排序，同产业链最多1个。合约代码为CTP标准格式，可直接对接交易系统。</div>
         <div class="strategy-container">
         {strategy_cards_html}
         </div>

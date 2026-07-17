@@ -118,7 +118,7 @@ unified_logger.py
     │
     ├─ 输出目标:
     │   ├─ 控制台 (StreamHandler → stdout)
-    │   └─ 文件 (FileHandler → ~/Documents/WorkBuddy/Logs/fdb_{date}.log)
+    │   └─ 文件 (FileHandler → logs/fdb_{date}.log)
     │
     ├─ Logger 缓存: _loggers dict (避免重复创建)
     │
@@ -140,10 +140,9 @@ logger.error("连接失败", exc_info=True)
 
 | 日志文件 | 路径 | 写入者 | 用途 |
 |:---------|:-----|:-------|:-----|
-| `fdb_{date}.log` | `~/Documents/WorkBuddy/Logs/` | `unified_logger.py` | 统一日志 (所有模块) |
+| `fdb_{date}.log` | `logs/` | `unified_logger.py` | 统一日志 (所有模块) |
 | `pipeline_{date}.log` | `Commodities/Reports/.../` | `pipeline/runner.py` | 流水线执行日志 |
-| `scheduler.log` | `scheduler/` | `scheduler/engine.py` | 调度器心跳日志 |
-| `daemon.log` | `scheduler/` | `bootstrap.py daemon` | 守护进程输出 |
+| `scheduler.log` | `logs/` | `scheduler/engine.py` | 调度器心跳日志 |
 
 ### 3.4 日志统一状态
 
@@ -301,7 +300,9 @@ self_improve.py (自改进脚手架)
 | 线程锁 | `_journal_lock` 保护 journal 的读-改-写操作 |
 | 完整性校验 | `validate()` 检查缺失/重复/损坏 |
 
-## 8. PostgreSQL 监控指标 (v8.3.0+)
+## 8. PostgreSQL 监控指标 (v8.3.0+) — ⚠️ 未实现
+
+> **说明**：本节 10 个 PostgreSQL 监控指标尚未实现，保留为设计参考。实际 PG 监控通过 `fdt_pg/connection.py` 健康检查和 LangGraph 运行时指标（§8.5）覆盖。
 
 ### 8.1 监控架构
 

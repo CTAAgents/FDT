@@ -6,7 +6,7 @@
 
 ## 总览
 
-五阶段串行 + 双通道并行：
+五阶段串行 + 双通道并行（闫判官直达风控）：
 
 ```
 P1 数据采集与双通道分离
@@ -17,7 +17,7 @@ P2 闫判官双通道分流
     ├── 通道A: 直接推荐（跳过辩论）
     └── 通道B: 辩论（完整辩论流程）
     ↓
-P3 方案合成与风控审核（双通道在此合并）
+P3/P5 裁决+风控+报告+CTP信号（双通道在此合并）
     ↓
 P4 合并双通道 → 归档输出
 ```
@@ -33,10 +33,9 @@ P4 合并双通道 → 归档输出
 ### 步骤
 
 ```
-① 信号扫描：数技源 scan_all.py（channel_breakout）产出 full_scan_summary_{date}.json；观澜 L1-L4 / 探源因子择时为分析师按需能力，分别由 run_l1l4_scan.py / run_factor_timing_scan.py 按需执行
+① 信号扫描：数技源 scan_all.py（channel_breakout）产出 full_scan_summary_{date}.json；观澜 TechnicalOutput（LLM推理）/ 探源 FundamentalStateVector（LLM推理）为分析师按需能力
     ├── 数技源 scan_all.py（默认 channel_breakout）→ full_scan_summary_{date}.json（通道突破信号）
-    ├── 观澜 run_l1l4_scan.py（technical-analysis）→ full_scan_l1l4_{date}.json（L1-L4 技术指标）
-    └── 探源 run_factor_timing_scan.py（fundamental-data-collector）→ full_scan_factor_timing_{date}.json（5因子信号）
+    └── 探源（fundamental-data-collector）→ full_scan_factor_timing_{date}.json（FundamentalStateVector 信号）
 
 ② debate_brief.py --select-debate chain_analysis.json
     读取 full_scan_summary.json，对每个品种计算五维辩论价值评分后分离：
@@ -51,8 +50,8 @@ P4 合并双通道 → 归档输出
 |:-----|:-----|:-----|
 | `full_scan_summary_{date}.json` | 通道突破原始信号（数技源） | 闫判官 + 链证源 |
 | `signal_summary_candidates.json` | 双通道分离结果 | 闫判官分流决策 |
-| `full_scan_l1l4_{date}.json` | L1-L4 明细（观澜） | 研究员供弹参考 |
-| `full_scan_factor_timing_{date}.json` | factor_timing 明细（探源） | 研究员供弹参考 |
+| `full_scan_l1l4_{date}.json` | L1-L4 明细（v8.7.0 模块已废弃，保留历史兼容） | 历史参照 |
+| `full_scan_factor_timing_{date}.json` | FundamentalStateVector 明细（探源 LLM推理） | 研究员供弹参考 |
 
 ### 数据源优先级
 
@@ -118,7 +117,7 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 │     ├── 入场区间（如当前价±0.3×ATR）                     │
 │     ├── 止损距（如1.5×ATR，不超过2.5×ATR）               │
 │     └── 目标价（T1/T2/T3分步止盈，最小盈亏比1:2）        │
-│  3. 发送 direct_recommend_to_strategist 消息 → 策执远    │
+│  3. 闫判官直接输出完整交易参数       │
 └──────────────────────────────────────────────────────────┘
 
 ┌─── 通道B ──────────────────────────────────────────────┐
@@ -173,30 +172,28 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 
 ---
 
-## 阶段四：方案合成与风控审核（双通道合并）
+## 阶段四：裁决+风控+报告+CTP信号（双通道合并，含原 P3/P5 职责）
 
 ### 执行者
 
-策执远 Agent（`futures-trading-strategist`）→ 风控明 Agent（`futures-risk-manager`）。
+闫判官（含交易参数）→ 风控明 Agent（直接基于闫判官 verdict 审核）。
 
-### 策执远输入来源
+### 闫判官输出交易参数
 
-| 来源 | 路径 | 输入格式 |
-|:-----|:-----|:---------|
-| 通道A | `direct_recommend_to_strategist` | symbol, direction, price, atr, 闫判官参数的entry/stop/target |
-| 通道B | `judgment_to_strategist` | winner, winning_proposal(entry/target/stop/lots), scores |
-
-### 策执远处理流程（两路径统一）
+| 输出参数 | 来源 | 格式 |
+|:---------|:-----|:-----|
+| 通道A | 闫判官手动设定 | symbol, direction, entry区间, stop距, target, lots, contract |
+| 通道B | 闫判官在胜方方案基础上审核修订 | symbol, direction, entry, stop, target, lots, contract |
 
 ```
-① 合约选型（主力→次主→交割月检查）
-② 校验参数合理性（通道A：闫判官参数；通道B：胜方提案）
-③ 仓位计算（凯利公式/固定分数模型）
-④ 建仓节奏（一次性/分批）
-⑤ 对冲检查
-⑥ 移仓计划
-⑦ 净盈亏比计算（扣手续费+滑点+保证金利息+移仓成本）
-⑧ 打包 → 传给风控明
+① 合约选型（闫判官在判决后直接指定主力/次主合约）
+② 校验参数合理性（基于闫判官自身判决逻辑）
+③ 仓位计算（闫判官结合凯利公式/固定分数模型估算）
+④ 建仓节奏（闫判官在 verdict 中注明一次性/分批）
+⑤ 对冲检查（闫判官跨品种裁决时考虑）
+⑥ 移仓计划（闫判官长单标注移仓节奏）
+⑦ 净盈亏比验证（闫判官在判决理由中计算）
+⑧ 直接打包 → 传给风控明审核
 ```
 
 ### 风控明审核红线
@@ -214,7 +211,7 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 **审核结果**：
 - `green` → 通过，直接进入 P5
 - `yellow` → 通过但标注关注项
-- `red` → 退回策执远修改（最多1轮），仍为 red 则暂停
+- `red` → 退回闫判官修订（最多1轮），仍为 red 则暂停
 
 ---
 
@@ -270,7 +267,7 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 | **研究员供弹** | 无 | 需要 |
 | **辩论** | 无 | 48min 多轮陈述+rebuttal |
 | **判决** | 无（直接认定方向） | 六维评分判胜负 |
-| **策执远介入** | 闫判官给参数后立即 | 辩论判决后 |
+| **闫判官输出交易参数** | 闫判官直接输出 | 辩论判决后 |
 | **风控** | 标准审核 | 标准审核 |
 | **输出格式** | 同一 `TeamDecisionOutput` | 同一 `TeamDecisionOutput` |
 
@@ -281,7 +278,7 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 ```
 输入信号
     │
-    ├── L1L4方向 == factor方向 且 非中性
+    ├── 观澜方向 == factor方向 且 非中性
     │   ├── stage=="launch" + RSI 30-70 + |Z|<2.0 + 信号>=30
     │   │   └──→ STRONG_RECOMMEND（直接推荐，免辩论）
     │   ├── (launch或非极端) + 信号>=30
@@ -289,10 +286,10 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
     │   └── 其他
     │       └──→ debate_candidates（共识品种入辩论池）
     │
-    └── L1L4方向 != factor方向 且 均非中性
+    └── 观澜方向 != factor方向 且 均非中性
         ├── RSI>75/<25 或 |Z|>2.5
         │   └──→ 左侧反转机会标记 + 辩论池（proposition_side=逆转方向）
-        ├── max(|l1l4_total|,|factor_total|) >= 30
+        ├── max(|technical_output|,|factor_total|) >= 30
         │   └──→ debate_candidates（常规分歧品种）
         └── 信号弱
             └──→ 跳过（避免为辩论而辩论）
@@ -303,14 +300,14 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 ## 执行顺序（完整 CLI 链路）
 
 ```bash
-# P1: 数技源扫描（channel_breakout）+ 观澜/探源能力按需
+# P1: 数技源扫描（channel_breakout）+ 探源能力按需
 python skills/quant-daily/scripts/scan_all.py -o reports -p full_scan_summary          # 数技源：通道突破
-python skills/technical-analysis/scripts/run_l1l4_scan.py --output-dir reports          # 观澜：L1-L4
-python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir reports  # 探源：因子择时
+# 观澜能力由 LLM 推理层按需调用，探源由 fundamental-data-collector skill 独立运行
+# 探源产出：full_scan_factor_timing_{date}.json（FundamentalStateVector 信号）
 
 # P1: 辩论品种精选 + 双通道分离
 python skills/quant-daily/scripts/signals/debate_brief.py \
-  reports/full_scan_l1l4_*.json reports/full_scan_factor_timing_*.json \
+  reports/full_scan_factor_timing_*.json \
   --select-debate chain_analysis.json --min-count 22
 
 # P1.5: 数据适配（将 candidates 透传到中间数据）
@@ -323,4 +320,4 @@ python skills/quant-daily/scripts/assemble_intermediate_data.py \
 python skills/futures-trading-analysis/scripts/phase3_generate_report.py
 ```
 
-P2 / 通道B辩论期 / P3-P4（风控审核）由 LLM Agent 层在 spawn 后自动执行。
+P2 / 通道B辩论期 / 阶段四（裁决+风控+报告+CTP信号）由 LLM Agent 层在 spawn 后自动执行。

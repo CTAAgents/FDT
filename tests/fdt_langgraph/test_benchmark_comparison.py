@@ -11,7 +11,7 @@ from fdt_langgraph.nodes import (
     node_scan, node_judge_direction,
     node_chain, node_technical, node_fundamental,
     node_merge_research, node_debate, node_verdict,
-    node_trading_plan, node_risk_check, node_report
+    node_signal_output, node_risk_check, node_report
 )
 
 
@@ -44,14 +44,24 @@ class TestBenchmarkComparison:
         s5 = await node_verdict(s4)
         assert s5["current_phase"] == "P5_verdict"
 
-        s6 = await node_trading_plan(s5)
-        assert s6["current_phase"] == "P5_plan"
+        s5["verdict"] = {
+            **s5.get("verdict", {}),
+            "entry_price": 3500.0,
+            "stop_loss_price": 3450.0,
+            "target_price": 3600.0,
+            "position_pct": 0.3,
+            "contract": "RB",
+            "risk_reward_ratio": 2.0
+        }
 
-        s7 = await node_risk_check(s6)
-        assert s7["current_phase"] == "P5_risk"
+        s6 = await node_risk_check(s5)
+        assert s6["current_phase"] == "P5_risk"
 
-        s8 = await node_report(s7)
-        assert s8["current_phase"] == "P6"
+        s7 = await node_report(s6)
+        assert s7["current_phase"] == "P6"
+
+        s8 = await node_signal_output(s7)
+        assert s8["current_phase"] == "P6a"
 
     @pytest.mark.asyncio
     async def test_completed_phases_monotonic(self):
@@ -82,13 +92,23 @@ class TestBenchmarkComparison:
         current = await node_verdict(current)
         phases_seen.append(current["current_phase"])
 
-        current = await node_trading_plan(current)
-        phases_seen.append(current["current_phase"])
+        current["verdict"] = {
+            **current.get("verdict", {}),
+            "entry_price": 3500.0,
+            "stop_loss_price": 3450.0,
+            "target_price": 3600.0,
+            "position_pct": 0.3,
+            "contract": "CU",
+            "risk_reward_ratio": 2.0
+        }
 
         current = await node_risk_check(current)
         phases_seen.append(current["current_phase"])
 
         current = await node_report(current)
+        phases_seen.append(current["current_phase"])
+
+        current = await node_signal_output(current)
         phases_seen.append(current["current_phase"])
 
         assert len(phases_seen) == 8
@@ -253,7 +273,7 @@ class TestRegressionGuard:
 
     @pytest.mark.asyncio
     async def test_report_phase_is_last(self):
-        """回归测试：report 必须是最后一个阶段（P6）"""
+        """回归测试：signal_output 必须是最后一个阶段（P6a）"""
         trace_id = "regression-report-last-001"
         state = create_initial_state(trace_id, mode="default")
         state["selected_symbols"] = ["RB"]
@@ -268,9 +288,18 @@ class TestRegressionGuard:
         s3 = await node_merge_research(merged)
         s4 = await node_debate(s3)
         s5 = await node_verdict(s4)
-        s6 = await node_trading_plan(s5)
-        s7 = await node_risk_check(s6)
-        s8 = await node_report(s7)
+        s5["verdict"] = {
+            **s5.get("verdict", {}),
+            "entry_price": 3500.0,
+            "stop_loss_price": 3450.0,
+            "target_price": 3600.0,
+            "position_pct": 0.3,
+            "contract": "RB",
+            "risk_reward_ratio": 2.0
+        }
+        s6 = await node_risk_check(s5)
+        s7 = await node_report(s6)
+        s8 = await node_signal_output(s7)
 
-        assert s8["current_phase"] == "P6"
-        assert "P6" in s8["completed_phases"]
+        assert s8["current_phase"] == "P6a"
+        assert "P6a" in s8["completed_phases"]

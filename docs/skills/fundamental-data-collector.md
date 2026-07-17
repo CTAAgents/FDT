@@ -1,7 +1,7 @@
 ---
 name: fundamental-data-collector
-version: 1.5.0
-description: 基本面数据采集器 v1.5.0 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源v2 "基本面状态向量"输出框架。新增因子择时独立生产者 run_factor_timing_scan.py。v1.5: factor_timing._zscore 全 NaN 防护（消 RuntimeWarning）。
+version: 2.0
+description: 基本面数据采集器 — 为辩论专家团·基本面研究员（探源）提供5大维度基本面数据查询。匹配探源"基本面状态向量"输出框架。
 agent_created: true
 user_invocable: false
 triggers:
@@ -14,7 +14,7 @@ triggers:
   - 宏观联动
 ---
 
-# 基本面数据采集器 v1.1.0
+# 基本面数据采集器
 
 ## 定位
 
@@ -47,19 +47,19 @@ triggers:
 
 ## 因子择时扫描（探源按需分析能力）
 
-辩论流水线自动调用本 skill 提前产出 5 因子择时信号（2026-07-14 从 quant-daily scan_all 迁出，作为探源独立能力）：
+辩论流水线自动调用本 skill 提前产出 5 因子择时信号（从 quant-daily scan_all 迁出，作为探源独立能力）：
 
 ```bash
 # 默认全品种（或 --symbols RB,MA）
-python skills/fundamental-data-collector/scripts/run_factor_timing_scan.py --output-dir <reports_dir>
+python skills/fundamental-data-collector/scripts/run_all.py --mode factor_timing --output-dir <reports_dir>
 # 产出: full_scan_factor_timing_{date}.json（供 data_interface.load_factor_timing_scan 读取）
 ```
 
 因子构成：carry(展期) / momentum(60日) / inventory_pct(库存分位) / skew(偏度) / corr(量价相关)，截面 Z-score + 十分组投票。探源 Agent 通过 `scripts/data_interface.py` 的 `load_factor_timing_scan(path)` 加载。
 
-## 探源 Agent 输出格式（基本面状态向量 v2）
+## 探源 Agent 输出格式（基本面状态向量）
 
-探源 Agent 输出必须采用以下结构化JSON格式，替代v1.0的扁平文本：
+探源 Agent 输出必须采用以下结构化JSON格式，替代扁平文本：
 
 ```json
 {
@@ -212,27 +212,3 @@ print(basis["curve"])  # "backwardation"
 ```
 
 ---
-
-## 版本历史
-
-### v1.1.0 (2026-07-06)
-- 新增 `macro_link.py` 模块 — 宏观/外盘联动指标
-- 新增 `chain_balance.py` 模块 — 供需平衡表估算
-- `term_basis.py` 升级 → 改名为 `query_basis()`，新增持有成本理论价
-- `inventory.py` 升级：新增库存结构分类输出（主动/被动累库/去库）
-- 对齐探源 Agent v2 的"基本面状态向量"输出框架
-- 新增 `narrative_for_bull/bear` 双向标记规范
-- 新增 `expectation_gap` 预期差字段规范
-- 新增 `data_staleness_days` / `data_reliable` 数据保鲜标记
-- 新增输出校验规则9条
-
-### v1.0.0 (2026-07-04)
-- 从 commodity-chain-analysis 剥离独立
-- 继承 researcher_tools.py 的6个 query_* 函数
-- 新增 WebSearch 数据采集路由
-- 数据源可扩展架构
-- **v1.3.0** — 新增徽商期货数据中心(徽商智汇)数据源
-  - 3100+ 基本面数据主题（库存/产量/开工率/价格/基差/供需）
-  - 本地 DuckDB 缓存，`data_interface.py` 提供 `get_fundamentals(symbol)` 接口
-  - 品种中文名搜索映射（覆盖62个主力品种）
-  - 探源通过 `from scripts.data_interface import get_fundamentals` 调用

@@ -18,6 +18,7 @@ DISABLED_STRATEGIES: set[str] = {
     "ml_signal",
     "event_driven",
     "arbitrage",
+    "mean_reversion",
     "pairs_reversion",
     "spread_reversion",
     "basis_reversion",
@@ -206,7 +207,7 @@ INDICATOR_CONFIG = {
 
 
 # ============================================================
-# 100分制打分系统配置（v2.13 L1-L4四层架构）
+# 100分制打分系统配置（v2.13 技术分析评分四层架构）
 # ============================================================
 SCORING_CONFIG = {
     "thresholds": {
@@ -496,7 +497,7 @@ CHANNEL_BREAKOUT_CONFIG = {
 # 供调参/复盘时统一查阅；当前实现以 FDC 默认值为准，本字典为权威登记。
 # ═══════════════════════════════════════════════
 TREND_G30_CONFIG = {
-    "keltner":        {"period": 20, "atr_mult": 2.25},   # EMA±ATR 通道（Linda Raschke）
+    "keltner":        {"period": 40, "atr_mult": 1.5},    # EMA±ATR 通道（Linda Raschke）— WF优化后更新
     "chandelier":     {"period": 22, "mult": 3.0},        # 吊灯退出（Chuck LeBeau）
     "sar":            {"acceleration": 0.02, "maximum": 0.20},  # 抛物线转向
     "supertrend":     {"period": 10, "multiplier": 3.0},  # 趋势状态（legacy_numpy 同参）
@@ -608,7 +609,7 @@ LLM_PROFILE_MAP = {
     "zhengzhen":  {"model": "deepseek-v4-flash", "temperature": 0.4, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 证真
     "zhensi":     {"model": "deepseek-v4-flash", "temperature": 0.4, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 慎思
     "judge":      {"model": "deepseek-v4-flash", "temperature": 0.0, "top_p": 0.8,  "max_tokens": 2000, "cache_ttl": 86400},  # 闫判官·裁决
-    "trading_plan":{"model": "deepseek-v4-flash", "temperature": 0.5, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 策执远·策略
+    "trading_plan":{"model": "deepseek-v4-flash", "temperature": 0.5, "top_p": 0.95, "max_tokens": 3000, "cache_ttl": 86400},  # 闫判官·策略
     "risk":       {"model": "deepseek-v4-flash", "temperature": 0.2, "top_p": 0.85, "max_tokens": 2000, "cache_ttl": 86400},  # 风控明
     "coherence":  {"model": "deepseek-v4-flash", "temperature": 0.0, "top_p": 0.8,  "max_tokens": 1500, "cache_ttl": 86400},  # 一致性裁判
 }

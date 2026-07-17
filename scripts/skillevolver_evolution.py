@@ -58,7 +58,7 @@ ROLE_TO_FILE_ID: Dict[str, str] = {
     "探源": "futures-fundamental-researcher",
     "证真": "futures-affirmative-debater",
     "慎思": "futures-opposition-debater",
-    "策执远": "futures-trading-strategist",
+    "闫判官": "futures-judge",
     "风控明": "futures-risk-manager",
 }
 

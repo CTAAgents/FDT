@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-"""build_symbol_map 三生产者合并回归测试 (2026-07-14 迁移后)。
+"""build_symbol_map 回归测试 (2026-07-14 迁移后)。
 
-迁移前 build_symbol_map 硬读 summary['symbols'] 且期望嵌套 l1l4/factor_timing；
-迁移后 scan_all 只出 channel_breakout，l1l4/ft 是独立文件（run_l1l4_scan.py /
-run_factor_timing_scan.py 各自产出）。本测试固化新架构下的三源合并逻辑，防止回归。
+本测试固化 scan_all 输出的三源合并逻辑，防止回归。
 """
 
 import sys

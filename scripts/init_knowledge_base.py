@@ -15,8 +15,13 @@
     python scripts/init_knowledge_base.py [--force]
 """
 
-import os, json, yaml, re, sys
+import json
+import os
+import re
+import sys
 from datetime import datetime
+
+import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -262,7 +267,7 @@ def update_variety_index():
             try:
                 patterns = json.loads((variety_dir / "patterns.json").read_text(encoding="utf-8"))
                 effective = len([p for p in patterns if p.get("status", "active") == "active"])
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         if variety_code not in index.get("varieties", {}):

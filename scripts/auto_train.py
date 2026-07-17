@@ -18,7 +18,10 @@
     0 15 * * 1-5 cd /path && python scripts/auto_train.py --auto
 """
 
-import sys, os, json, argparse
+import argparse
+import json
+import os
+import sys
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

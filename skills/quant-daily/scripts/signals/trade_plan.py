@@ -9,22 +9,10 @@ def calc_confidence(
     term_basis: dict = None,
     composite_score: dict = None,
 ) -> float:
-    """计算品种置信度 (0.0 ~ 1.0)（v2.13 L1-L4四层架构）。
-
-    v2.13 公式：
-    - L1-L4四层得分 50%（L1萌芽40% + L2量价20% + L3结构15% + L4确认15% + 否决10%，归一化到0-1）
-    - 产业链验证 20%
-    - 期限/基差 20%（期货专属，已内置在L1中）
-    - L1萌芽加成 10%（萌芽因子得分高→额外加分）
-
-    v2.17维度满分：L1=40, L2=25, L3=25, L4=10, 否决=-20
-
-    如果有 composite_score（来自v2.13打分系统），直接使用四层得分。
-    否则降级到v2.11逻辑（兼容性）。
-    """
+    """计算品种置信度 (0.0 ~ 1.0)。"""
     is_bullish = symbol_score > 0
 
-    # --- L1-L4四层得分（v2.13优先） ---
+    # --- 四层得分 ---
     if composite_score and isinstance(composite_score, dict) and "dimensions" in composite_score:
         dims = composite_score["dimensions"]
         # 兼容v2.12和v2.13两种dimension key
@@ -231,20 +219,13 @@ def generate_trade_plan(
     term_basis: dict = None,
     composite_score: dict = None,
 ) -> dict:
-    """生成交易方案（v2.13 L1-L4四层架构）。
-
-    v2.13 变更：
-    - 接收 composite_score 参数（四维度打分结果）
-    - 使用composite_score中的direction字段判断方向（不再依赖score正负）
-    - 置信度计算使用四维度得分
-    - 支持阶梯化阈值（T1/T2/T3）
-    """
+    """生成交易方案。"""
     price = symbol_data["price"]
     score = symbol_data["score"]
     atr = symbol_data.get("atr", 0)
     daily_vol = symbol_data.get("volatility", 0.02)
 
-    # v2.13: 使用composite_score中的direction判断方向
+    # 使用composite_score中的direction判断方向
     if composite_score and isinstance(composite_score, dict) and "direction" in composite_score:
         direction = composite_score["direction"]
     else:

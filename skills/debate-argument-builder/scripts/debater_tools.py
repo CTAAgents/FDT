@@ -1,4 +1,4 @@
-"""
+﻿"""
 辩手弹药构建引擎 v3.0 — 替代"中译中"，实现选择性建构叙事
 ========================================================
 证真(多方) 和 慎思(空方) 从同一份观澜+探源+链证源数据中，
@@ -169,7 +169,7 @@ def build_ammunition(
     # ── 预判对方攻击方向 ──
     rebuttal_strategy = _build_rebuttal_strategy(patterns, tech_evidence, fund_evidence, is_bull)
 
-    # ── 方案（简化版，策执远会细化） ──
+    # ── 方案（简化版，闫判官会细化交易参数） ──
     entry_plan = _build_entry_plan(guanlan, is_bull)
 
     # ── 置信度 ──
@@ -589,7 +589,7 @@ def _build_rebuttal_strategy(
 
 
 def _build_entry_plan(guanlan: dict, is_bull: bool) -> Optional[dict]:
-    """构建入场方案（简化版，策执远会细化）。"""
+    """构建入场方案（简化版，闫判官会细化交易参数）。"""
     guanlan = guanlan or {}
     price = guanlan.get("last_price", 0)
     if not price:

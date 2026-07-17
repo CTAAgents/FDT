@@ -23,17 +23,17 @@
 
 **设计文档**: `docs/design/tech_debt_s1_indicator_extraction_plan.md`（v0.3，含 byte-diff 与数值回归单测步骤）。
 
-## 2. L1-L4策略打分迁移 — ✅ 已落地 2026-07-14
+## 2. 策略打分迁移 — ✅ 已落地 2026-07-14
 
-**当前状态**: `layered_l1l4` 已重构式迁出 quant-daily：`technical-analysis/scripts/`（layered_l1l4.py + l1l4_scoring.py + run_l1l4_scan.py），去 BaseStrategy/registry 框架，依赖改走 FDC；scan_all.py 不再生产 L1-L4（默认仅 channel_breakout 单策略）。数据经 `run_l1l4_scan.py` 产出 `full_scan_l1l4_{date}.json`，由 technical-analysis 的 data_interface 读取。quant-daily 内原 `strategies/layered_l1l4.py` 已删除、registry 已注销。
+**当前状态**: `layered_l1l4` 已在 v8.7.0 中完全删除。L1-L4 评分模块（run_l1l4_scan.py、l1l4_scoring.py、layered_l1l4.py）及整个 technical-analysis skill 的 L1-L4 部分已移除。观澜技术面分析现由 LLM 推理直接生成 TechnicalOutput。
 
-**目标达成**: 作为观澜的技术分析工具箱的一部分，不提供独立交易信号。
+**目标达成**: 模块已删除，无需进一步操作。
 
-## 3. factor_timing策略打分迁移 — ✅ 已落地 2026-07-14
+## 3. 因子择时策略打分迁移 — ✅ 已落地 2026-07-14
 
-**当前状态**: `factor_timing` 已重构式迁出 quant-daily：`fundamental-data-collector/scripts/`（factor_timing.py + run_factor_timing_scan.py），五因子截面 Z-score + 十分组投票；scan_all.py 不再生产 factor_timing。数据经 `run_factor_timing_scan.py` 产出 `full_scan_factor_timing_{date}.json`，由 fundamental-data-collector 的 data_interface 读取。quant-daily 内原 `strategies/factor_timing.py` 与 `strategies/factor_modules/` 空壳已删除、registry 已注销。
+**当前状态**: `factor_timing` 已在 v8.7.0 中完全删除。factor_timing.py、run_factor_timing_scan.py 已移除。探源基本面分析现由 LLM 推理直接生成 FundamentalStateVector。
 
-**目标达成**: 作为探源的基本面分析工具箱的一部分，因子数据归基本面分析师管。
+**目标达成**: 模块已删除，无需进一步操作。
 
 ## 4. 删除不必要的环节（2026-07-06 已完成）
 
@@ -76,8 +76,8 @@ scan_all              → 按映射串验证器（策略无关）
 
 **落地状态**：已落地（2026-07-14）。验证器库 + 声明式映射 + 范式包均建成，全用公开主流因子，无黑盒。设计见 `automations/automation-1783403060853/signal_paradigm_validator_framework.md`（框架 Diff v1）。后续加范式/验证器 = 注册 + 在 `SIGNAL_VALIDATOR_MAP` 登记一行，不改扫描主链。
 
-- ✅ L1-L4独立策略注册 → 取消
-- ✅ factor_timing独立策略注册 → 取消
+- ✅ 独立策略注册 → 取消
+- ✅ 因子择时独立策略注册 → 取消
 - ✅ quant-daily中双通道辩论筛选(debate_brief) → 不再使用
 - ✅ 固定多空辩手 → 改为动态正反方（根据signal_type）
-- ✅ scan_all.py --dual 模式 → 已删除（2026-07-14 Phase C）；三类信号改由三独立生产者产出：scan_all.py(channel_breakout)→full_scan_summary / run_l1l4_scan.py→full_scan_l1l4 / run_factor_timing_scan.py→full_scan_factor_timing
+- ✅ scan_all.py --dual 模式 → 已删除（2026-07-14 Phase C）；三类信号改由独立生产者产出：scan_all.py(channel_breakout)→full_scan_summary

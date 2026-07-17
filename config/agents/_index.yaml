@@ -63,12 +63,6 @@ agents:
     role: "杠杆/回撤/叙事质检"
     file: risk_manager.yaml
 
-  trading_strategist:
-    display_name: 策执远
-    profession: 交易策略师
-    role: "合约选型+执行方案"
-    file: trading_strategist.yaml
-
   debate_team_team_lead:
     display_name: 明鉴秋
     profession: 团队主管

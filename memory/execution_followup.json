@@ -697,6 +697,44 @@
       "source_path": "debate",
       "note": "闫判官判决bear方向，慎思获胜。ADX过热(67.1)为风控重点",
       "realized": false
+    },
+    {
+      "round_id": "debate_20260717_1243",
+      "generated_at": "2026-07-17 12:43",
+      "data_source": "",
+      "total_verdicts": 0,
+      "sell_count": 0,
+      "buy_count": 0,
+      "sell_high_count": 0,
+      "buy_midplus_count": 0,
+      "chains_covered": 0,
+      "total_exposure_pct": 0,
+      "l1l4_bull": 0,
+      "l1l4_bear": 0,
+      "factor_bull": 0,
+      "factor_bear": 0,
+      "verdicts": [],
+      "validated": false,
+      "validation_results": null
+    },
+    {
+      "round_id": "debate_20260717_1602",
+      "generated_at": "2026-07-17 16:02",
+      "data_source": "",
+      "total_verdicts": 0,
+      "sell_count": 0,
+      "buy_count": 0,
+      "sell_high_count": 0,
+      "buy_midplus_count": 0,
+      "chains_covered": 0,
+      "total_exposure_pct": 0,
+      "l1l4_bull": 0,
+      "l1l4_bear": 0,
+      "factor_bull": 0,
+      "factor_bear": 0,
+      "verdicts": [],
+      "validated": false,
+      "validation_results": null
     }
   ]
 }

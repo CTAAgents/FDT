@@ -220,7 +220,7 @@ def _compute_indicators_numpy(klines, symbol: str = None, period: str = "daily")
             calculate_sar,
         )
         if n >= 20:
-            kc_u, kc_l, kc_m = calculate_keltner(h, l, c, period=20, atr_mult=2.25)
+            kc_u, kc_l, kc_m = calculate_keltner(h, l, c, period=40, atr_mult=1.5)
             tech["KC_UPPER"] = float(kc_u[-1]) if np.isfinite(kc_u[-1]) else 0.0
             tech["KC_LOWER"] = float(kc_l[-1]) if np.isfinite(kc_l[-1]) else 0.0
             tech["KC_MID"] = float(kc_m[-1]) if np.isfinite(kc_m[-1]) else 0.0

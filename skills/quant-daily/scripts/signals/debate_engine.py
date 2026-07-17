@@ -23,7 +23,7 @@ Level 0: 数技源, 链证源, 事件日历  (互相独立，可并行)
 Level 1: 探源, 观澜              (独立，依赖数技源数据)
 Level 2: 闫判官准备期            (综合Level 0+1)
 Level 3: 证真, 慎思             (依赖闫判官方向，可并行)
-Level 4: 策执远, 风控明          (策执远→风控明，串行)
+Level 4: 闫判官裁决(含交易参数), 风控明          (闫判官→风控明，串行)
 Level 5: 闫判官最终裁决           (依赖风控)
 Level 6: 明鉴秋汇总              (最终)
 ```
@@ -297,9 +297,9 @@ def build_default_pipeline(data_funcs: Dict[str, Callable]) -> DebateEngine:
     engine.add_node(DAGNode("证真", 3, ["闫判官准备期"], data_funcs.get("bull"), timeout=120))
     engine.add_node(DAGNode("慎思", 3, ["闫判官准备期"], data_funcs.get("bear"), timeout=120))
 
-    # Level 4: 策略+风控（策执远→风控明串行）
-    engine.add_node(DAGNode("策执远", 4, ["证真", "慎思", "闫判官准备期"], data_funcs.get("strategist"), timeout=60))
-    engine.add_node(DAGNode("风控明", 4, ["策执远"], data_funcs.get("risk"), timeout=60))
+    # Level 4: 策略+风控（闫判官(含交易参数)→风控明串行）
+    engine.add_node(DAGNode("闫判官(裁决含交易参数)", 4, ["证真", "慎思", "闫判官准备期"], data_funcs.get("strategist"), timeout=60))
+    engine.add_node(DAGNode("风控明", 4, ["闫判官(裁决含交易参数)"], data_funcs.get("risk"), timeout=60))
 
     # Level 5-6: 裁决和汇总
     engine.add_node(DAGNode("闫判官裁决", 5, ["风控明", "证真", "慎思"], data_funcs.get("judge_final"), timeout=60))
@@ -383,7 +383,7 @@ class MultiTimeframeDebate:
             )
         )
 
-        # Level 4: 策执远+风控
+        # Level 4: 闫判官(含交易参数)+风控
         engine.add_node(DAGNode("strategist", 4, ["debaters"], data_funcs.get("strategy"), timeout=120))
         engine.add_node(DAGNode("risk", 4, ["strategist"], data_funcs.get("risk"), timeout=60))
 

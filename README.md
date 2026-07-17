@@ -1,8 +1,8 @@
 # Futures Debate Team — 期货交易辩论专家团
 
-一套 **10-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
+一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v8.4.0 — 完整 LangGraph 迁移完成**
+**v8.7.0 — 报告层统一 + CTP 信号输出**
 
 ---
 
@@ -10,7 +10,9 @@
 
 - **NO_FUSION 策略管线**: 8 策略各自独立打分，方向冲突不融合、不掩盖、不平均
 - **三层信号门禁**: 震荡市(ADX+BB+KF) + 去趋势(Hurst+VR) + P0-4 伪突破拦截，共 20+ 道校验
-- **多空辩论机制**: 多头/空头分析员独立举证，闫判官裁决
+- **多空辩论机制**: 多头/空头分析员独立举证，闫判官裁决（含完整交易参数）
+- **观澜/探源 LLM 推理（v8.6.0+）**: 技术面/基本面由 LLM 推理生成结构化 TechnicalOutput/FundamentalStateVector
+- **CTP 信号输出（v8.7.0+）**: 闫判官裁决→风控明审核→明鉴秋统一调度 CTP 信号输出
 - **自进化闭环**: T+1 回测验证 → 累计样本 → 校准权重 → 进化 Agent Prompt → ML 增量训练
 - **LangGraph 架构**: 可配置并行数据源、条件路由、状态持久化、断点恢复
 - **独立运行**: 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
@@ -67,7 +69,7 @@ curl -X POST http://localhost:8000/api/v1/debate \
   -H "Content-Type: application/json" \
   -d '{"mode": "default"}'
 
-curl http://localhost:8000/api/v1/debate/fdt-20260716-100000-12345
+curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 ```
 
 ---
@@ -76,7 +78,7 @@ curl http://localhost:8000/api/v1/debate/fdt-20260716-100000-12345
 
 每天开盘前，系统自动执行一套固定管道：
 
-**数据采集 → 策略扫描 → 辩论 → 裁决 → 方案 → 风控 → 报告**
+**数据采集 → 策略扫描 → 辩论 → 裁决（含交易参数）→ 风控 → 报告 → CTP 信号输出**
 
 各环节独立运行，前序的输出是后序的输入。任何一个环节可单独重跑。
 
@@ -100,9 +102,10 @@ curl http://localhost:8000/api/v1/debate/fdt-20260716-100000-12345
 └──────────────────────┬───────────────────────────┘
                        ↓
 ┌──────────────────────────────────────────────────┐
-│ 辩论层: 10 Agent 分工制衡 (LangGraph)            │
+│ 辩论层: 9 Agent 分工制衡 (LangGraph)             │
 │ 数技源扫描 → 闫判官调度 → 三源并行(链证源/观澜/探源)│
-│ → 多空辩论 → 闫判官裁决 → 策执远方案 → 风控明审核 │
+│ → 多空辩论 → 闫判官裁决(含交易参数)→ 风控明审核   │
+│ → 报告生成 → CTP信号输出（v8.7.0）               │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -125,22 +128,21 @@ curl http://localhost:8000/api/v1/debate/fdt-20260716-100000-12345
 
 ---
 
-## 10 Agent 辩论制衡
+## 9 Agent 辩论制衡
 
-10 个 Agent 各司其职，**不越界、不重叠**：
+9 个 Agent 各司其职，**不越界、不重叠**：
 
 | Agent | 职责 | 不做什么 |
 |:------|:-----|:---------|
 | 数技源 | 跑 8 策略管线产信号 | 不下方向结论 |
-| 观澜 | 技术分析（支撑/阻力/POC） | 不判断多空 |
-| 探源 | 基本面分析（产业链数据） | 不判断多空 |
+| 观澜 | 技术面分析（v8.6.0+ LLM 推理生成 TechnicalOutput） | 不判断多空 |
+| 探源 | 基本面分析（v8.6.0+ LLM 推理生成 FundamentalStateVector） | 不判断多空 |
 | 链证源 | 产业链关联分析 | 不下交易结论 |
 | 多头分析员 | 独立列举 ≥3 条做多论据 | 不做空头分析 |
 | 空头分析员 | 独立列举 ≥3 条做空论据 | 不做多头分析 |
-| 闫判官 | 在多空论据中裁决方向 | 不独立分析行情 |
-| 策执远 | 制定可执行交易方案 | 不改裁决方向 |
-| 风控明 | 6 层风控红线审核 | 不参与方向判断 |
-| 明鉴秋 | 管道调度 + 报告归档 | 不介入内容决策 |
+| 闫判官 | 裁决方向+输出完整交易参数 | 不独立分析行情 |
+| 风控明 | 直接基于闫判官 verdict 审核 | 不参与方向判断 |
+| 明鉴秋 | 管道调度 + 报告生成 + CTP 信号输出（v8.7.0） | 不介入内容决策 |
 
 ---
 
@@ -158,7 +160,7 @@ curl http://localhost:8000/api/v1/debate/fdt-20260716-100000-12345
 
 | 模式 | 说明 | 特点 |
 |:-----|:-----|:-----|
-| `default` | 默认模式 | 完整流程：扫描→闫判官→三源并行→辩论→裁决→方案→风控→报告 |
+| `default` | 默认模式 | 完整流程：扫描→闫判官→三源并行→辩论→裁决(含交易参数)→风控→报告→CTP信号输出 |
 | `fast` | 快速模式 | 跳过辩论，直接裁决（适用于高频扫描） |
 | `deep_research` | 深度研究 | 分歧>0.7时循环辩论（适用于复杂市场） |
 | `tournament` | 锦标赛模式 | 多轮辩论+投票（适用于重大决策） |
@@ -181,7 +183,7 @@ FDT_USE_LANGGRAPH=true python pipeline/runner.py
 
 ```
 FDT/
-├── agents/                    # Agent 配置文件（10个）
+├── agents/                    # Agent 配置文件（9个）
 ├── config/                    # 配置文件
 ├── contracts/                 # 契约定义（Schema）
 ├── debate/                    # 辩论历史管理
@@ -215,6 +217,7 @@ FDT/
 ├── tests/                     # 测试用例
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
+├── coordination_config.yaml   # 协调配置
 ├── pyproject.toml             # 项目配置
 └── README.md                  # 项目说明
 ```
@@ -233,6 +236,7 @@ FDT/
 | `FDT_CHECKPOINTER` | Checkpointer 类型（pg/sqlite） | `sqlite` |
 | `FDT_SCAN_MODE` | 扫描模式（no-filter） | - |
 | `FDT_STRATEGIES` | 指定策略列表 | - |
+| `FDT_RISK_THRESHOLD` | CTP 信号风控阈值（green/yellow/red，v8.7.0） | `yellow` |
 
 ---
 
@@ -265,6 +269,11 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
+| **v8.7.0** | 🎯 **报告层统一 + CTP 信号输出**：① 闫判官直接输出完整交易参数 ② 风控明直接基于闫判官 verdict 审核 ③ 新增 `node_signal_output` 节点，根据风控 risk_color 决定 CTP 信号输出 ④ 流程简化为 `verdict → risk_check → report → signal_output → END` |
+| **v8.6.0** | 🎯 **报告层统一 + 观澜/探源 LLM 推理**：① 观澜 LLM 推理生成 `TechnicalOutput` ② 探源 LLM 推理生成 `FundamentalStateVector` ③ 报告层优先使用 LLM 分析结果 |
+| v8.5.4 | cov-3 候选模块测试覆盖（unified_logger / fdt_version / config_manager / fdt_llm 共 144 用例） |
+| v8.5.3 | cov-2 任务：新增 178 个测试用例（fdt_paths / trace_id / confidence_utils） |
+| v8.5.0 | FDC 数据注入架构 + 16 个 schema 增强 |
 | v8.4.0 | 完整 LangGraph 迁移完成 |
 | v8.3.0 | LangGraph 架构支持、独立 CLI/FastAPI 入口 |
 | v8.2.0 | PostgreSQL OLTP+OLAP 混合存储 |

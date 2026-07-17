@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 目标品种量化分析脚本
-数据采集 → 指标计算 → L1-L4信号评分
+数据采集 → 指标计算 → 信号评分
 
 用法:
   python analyze_targets.py                          # 默认: PK,RB,B,UR
@@ -89,8 +89,8 @@ for sym in TARGETS:
 
 print(f"  成功采集: {len(kline_data)}/{len(TARGETS)}")
 
-# ── Step 2: 指标计算 + L1-L4评分 ──
-print("\n[2] 指标计算 + L1-L4评分...")
+# ── Step 2: 指标计算 + 评分 ──
+print("\n[2] 指标计算 + 评分...")
 
 results = {}
 detailed = {}

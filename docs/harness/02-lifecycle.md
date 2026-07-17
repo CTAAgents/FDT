@@ -24,7 +24,7 @@
 ### 1.2 启动序列
 
 ```
-bootstrap.py main()
+fdt_cli.py main()
     │
     ├─ 1. 路径校准: os.chdir(_ROOT) + sys.path.insert
     │
@@ -50,8 +50,7 @@ bootstrap.py main()
 
 | 组件 | 文件 | 行号 |
 |:-----|:-----|:-----|
-| 入口函数 | `bootstrap.py` | `main()` L65 |
-| 记忆加载 | `bootstrap.py` | `load_memory()` L22 |
+| 入口函数 | `fdt_cli.py` | `main()` |
 | 守护进程 | `scheduler/engine.py` | `run_forever()` L170 |
 | 信号处理 | `scheduler/engine.py` | `_handle_sig()` L185 |
 | 进程分离 | `scheduler/engine.py` | `_daemonize()` L131 |
@@ -109,8 +108,9 @@ bootstrap.py main()
               │         │
               │  ┌──────▼───────┐
               │  │ P5: 裁决链   │ ← 串行
-              │  │ 闫判官→策执远 │
-              │  │ →风控明      │
+              │  │ 闫判官→风控明│
+              │  │ (闫判官含    │
+              │  │  交易参数)   │
               │  └──────┬───────┘
               │         │
               └─────────┘ (循环每个品种)
@@ -118,6 +118,12 @@ bootstrap.py main()
               ┌─────────▼─────────┐
               │ P6: 汇总输出      │
               │ 4铁律核验→JSON→HTML│
+              └─────────┬─────────┘
+                        │
+              ┌─────────▼─────────┐
+              │ P6a: CTP信号输出  │
+              │ 交易参数→CTP指令  │
+              │ (风控明审核通过后) │
               └─────────┬─────────┘
                         │
               ┌─────────▼─────────┐
@@ -131,22 +137,23 @@ bootstrap.py main()
 > - **P1.5 废弃**: 链证源不再作为独立串行阶段，改为 P3 按需并行数据源之一
 > - **P2 增强**: 闫判官新增"调度决策"能力，决定 P3 需要哪些数据源
 > - **P3 重构**: 改为"按需并行数据源"，由闫判官调度链证源/观澜/探源并行执行
-> - **P5 拆分**: 裁决链拆分为 verdict → trading_plan → risk_check 三步骤
+> - **P5**: 裁决链为两步串行：闫判官（含交易参数）→ 风控明
 
 ### 2.2 阶段详细规格（按需并行数据源 v8.3.0+）
 
 | 阶段 | 名称 | 执行者 | 输入 | 输出 | 超时 | 降级 |
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
 | P0 | 自进化前置 | 系统 | `pg.execution_followup` | `pg.calibration` + `pg.agent_profiles` 更新 | 60s/步 | 跳过该步 |
-| P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` | 600s | 提前终止 |
+| P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` + **P1 阶段报告 `scan_report_path`** | 600s | 提前终止 |
 | P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+定方向+**调度哪些源**） | 420s | D06 降级 |
-| P3 | **按需并行数据源** | 链证源+观澜+探源（闫判官按需调度） | P2 调度指令 | `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` | **max(被调度的源)** | 单源失败不影响其他源 |
+| P3 | **按需并行数据源** | 链证源+观澜+探源（闫判官按需调度） | P2 调度指令 | `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` + **P3 阶段报告 `research_report_path`** | **max(被调度的源)** | 单源失败不影响其他源 |
 | P3a | 链证源产业链（按需） | 链证源 | 品种+产业链 | `pg.chain_analysis` | 300s | 跳过链分析 |
 | P3b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
 | P3c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
 | P4 | 多空辩论 | 证真+慎思 | P3 合并分析结果 | `pg.debate_arguments` | 420s/Agent | D06 降级 |
-| P5 | 裁决链 | 闫判官→策执远→风控明 | P4 辩论论据 | `pg.debate_verdicts` + `pg.trading_plans` + `pg.risk_checks` | 420s/Agent | D06 降级 |
-| P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML报告 + `pg.debate_index` | 120s | 拒绝生成报告 |
+| P5 | 裁决链 | 闫判官(含交易参数)→风控明 | P4 辩论论据 | `pg.debate_verdicts`(含交易参数) + `pg.risk_checks` + **P5 阶段报告 `verdict_report_path`** | 420s/Agent | D06 降级 |
+| P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |
+| P6a | CTP信号输出 | 明鉴秋 | P6 汇总 + 风控明审核 | CTP交易指令 (`pg.ctp_signals`) + **P6a 阶段报告 `signal_report_path`** | 60s | 跳过信号输出 |
 
 > **阶段变更说明 (v8.3.0)**:
 > - **P1-P2-P3 重构**: 从「数技源串行 → P1.5 链证源 → P2 闫判官 → P3 研究」改为「P1 数技源 → P2 闫判官**调度决策** → P3 **按需并行**触发被调度的源」
@@ -189,6 +196,33 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 - **D05 铁律**: 辩论 Agent 必须用 `subagent_type: "general-purpose"` spawn（expert 类型 Write 工具不可用）
 - **S02 铁律**: Agent 之间禁止 SendMessage，统一由明鉴秋通过文件传递
 - **S03 铁律**: Agent 写文件先写 `.tmp`，完成后 rename
+
+### 2.4 报告层数据存储 (v8.8.0+)
+
+明鉴秋负责 P1/P3/P5/P6/P6a 五个阶段报告的调度与输出。报告输出目录由环境变量决定：
+
+| 环境变量 | 作用 | 默认 |
+|:---------|:-----|:-----|
+| `FDT_REPORT_WORKSPACE` | 用户指定工作空间根目录 | 无 |
+| `FDT_DAILY_WORKSPACE` | 每日自动化任务工作空间（D:\FDTWorkspace 之类） | 无 |
+| 无环境变量 | 使用系统临时目录 `tempfile.gettempdir()/fdt_reports` | 兜底 |
+
+**目录规则**：所有报告按日期归档至 `{workspace}/{YYYY-MM-DD}/` 子目录。
+
+**阶段报告字段映射**（位于 `DebateState`）：
+
+| 字段 | 阶段 | 文件名模式 | 格式 |
+|:-----|:-----|:-----------|:-----|
+| `scan_report_path` | P1 信号扫描 | `scan_report_{trace_id}.html` | HTML |
+| `research_report_path` | P3 三源研究 | `research_report_{trace_id}.html` | HTML |
+| `verdict_report_path` | P5 裁决链 | `verdict_report_{trace_id}.html` | HTML |
+| `report_path` | P6 辩论汇总 | `debate_report_{date}.html` | HTML |
+| `signal_report_path` | P6a CTP信号 | `signal_report_{trace_id}.html` | HTML |
+
+**降级策略**：
+- P1/P3/P5/P6a 报告生成失败时，记录 warning 不中断主流程
+- P6 辩论报告失败时，fallback 写入工作空间下的 `debate_report_{trace_id}.html`，保证 `report_path` 永远有效
+- 所有 fallback 报告统一使用 `_render_html()` 模板，trace_id 全链路贯穿
 
 ## 3. 自进化闭环
 
@@ -286,11 +320,9 @@ while self._running:
 | `update_dominant_mapping` | TimeTrigger | 工作日 15:30 | 主力合约映射更新 |
 | `validate_and_evolve` | EventTrigger | 有未验证记录 | validate→calibrate→evolve→ML |
 | `ml_training_check` | DataTrigger | ≥50 条新样本 + 3天冷却 | ML 模型训练 |
-| `cluster_failures` | TimeTrigger | 每周一 08:00 | 失败模式聚类 |
-| `apm_scorecard` | TimeTrigger | 每周一 08:30 | APM-CS 五轴评分 |
-| `vibench_baseline` | DataTrigger | ≥30 案例 | ViBench 基准回放 |
-| `d3_auto_light` | DebateRecordTrigger | 辩论 ≥5 轮 | D3 镇定度自动点亮 |
-| `discipline_enforce` | TimeTrigger | 每周一 08:45 | D4 纪律钳制 |
+| `self_optimize_analysis` | TimeTrigger | 每日 02:00 | SkillAdaptor 归因分析 |
+| `self_optimize_evolve` | TimeTrigger | 每日 03:00 | Skillevolver 技能层进化 |
+| `self_optimize_verify` | TimeTrigger | 每日 04:00 | Autoresearch A/B 验证 |
 
 ## 5. 全自动流水线 (Pipeline Runner)
 
@@ -300,7 +332,7 @@ while self._running:
 
 | 步骤 | 函数 | 脚本 | 失败策略 |
 |:-----|:-----|:-----|:---------|
-| 1/6 | `step_scan()` | `scan_all.py`(channel_breakout) + `run_l1l4_scan.py` + `run_factor_timing_scan.py` | 三文件缺失则告警继续 |
+| 1/6 | `step_scan()` | `scan_all.py`(channel_breakout) | 文件缺失则告警继续 |
 | 2/6 | `step_chain_analysis()` | `analyze_chain.py` | 跳过链分析 |
 | 3/6 | `step_debate_brief()` | `debate_brief.py` | 跳过品种精选 |
 | 4/6 | `step_assemble_intermediate()` | `assemble_intermediate_data.py` | 跳过数据适配 |

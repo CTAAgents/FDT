@@ -37,8 +37,6 @@ class TestProjectRoot:
         root = _project_root()
         rels = [
             "skills/quant-daily/scripts/scan_all.py",
-            "skills/technical-analysis/scripts/run_l1l4_scan.py",
-            "skills/fundamental-data-collector/scripts/run_factor_timing_scan.py",
             "skills/futures-trading-analysis/scripts/phase3_generate_report.py",
             "scripts/validate_verdicts.py",
             "scripts/calibrate_weights.py",

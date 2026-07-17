@@ -44,7 +44,7 @@ from config.symbols import ALL_SYMBOLS
 
 
 def generate_grid():
-    """生成L1-L4权重组合网格（L1≥L2≥L3≥L4, 各层范围约束）。"""
+    """生成权重组合网格。"""
     combos = []
     for l1 in range(30, 55, 5):
         for l2 in range(20, 40, 5):

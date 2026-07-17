@@ -68,6 +68,7 @@ _RUN_DEBATE_PY = _SCRIPTS / "run_debate.py"
 
 def _run(cmd: list[str], **kwargs) -> int:
     print(f"▶ {' '.join(str(c) for c in cmd)}")
+    kwargs.setdefault("timeout", 300)
     return subprocess.call(cmd, **kwargs)
 
 

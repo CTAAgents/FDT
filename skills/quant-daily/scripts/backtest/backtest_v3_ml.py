@@ -5,7 +5,7 @@
 =============================================
 核心改进：
 - 使用 DirectionClassifier(lightGBM) 替代5因子人工打分
-- EnsemblePredictor 融合规则层(L1-L4) + ML层(lightGBM)
+- EnsemblePredictor 融合规则层 + ML层(lightGBM)
 - 首次运行自动采集训练数据+训练模型
 - 后续运行加载已训练模型进行推理
 
@@ -87,12 +87,12 @@ def calc_mdd(equity: List[float]) -> float:
 
 
 # ================================================================
-# L1-L4 评分（规则层）
+# 评分（规则层）
 # ================================================================
 
 
 def score_l1l4(tech: dict, price: float) -> dict:
-    """透明L1-L4评分 → 输出 EnsemblePredictor 兼容格式。"""
+    """透明评分 → 输出 EnsemblePredictor 兼容格式。"""
     ma5 = tech.get("MA5")
     ma10 = tech.get("MA10")
     ma20 = tech.get("MA20")
@@ -316,7 +316,7 @@ def run_ml_backtest(
         tech = _compute_indicators_numpy(df, symbol)
         price = tech.get("last_price", closes[pos])
 
-        # 规则层 (L1-L4)
+        # 规则层
         rule_out = score_l1l4(tech, price)
 
         # ML层
@@ -494,7 +494,7 @@ td{{padding:6px 8px;border-top:1px solid #2a2d3a30}}
 <div class="card">
     <h2>🧠 ML 模型统计</h2>
     <table style="width:auto">
-        <tr><td>集成方式</td><td><span class="tag-ml">规则层(L1-L4)+ML(LightGBM)</span></td></tr>
+        <tr><td>集成方式</td><td><span class="tag-ml">规则层+ML(LightGBM)</span></td></tr>
         <tr><td>ML层出手比例</td><td>{ms.get("signal_agreement", 0)}%</td></tr>
         <tr><td>ML平均概率</td><td>{ms.get("avg_ml_prob", 0):.3f}</td></tr>
         <tr><td>交易笔数</td><td>{m.get("total_trades", 0)}</td></tr>

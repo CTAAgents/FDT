@@ -1,11 +1,9 @@
 ---
 name: futures-data-technician
-version: 1.0.0
+version: 2.0
 description: >
   数技师 — 辩论专家团数据管道（只做数据不做分析）。封装quant-daily scan_all.py为"数据管道模式"，含data_manifest溯源。输出干净数据包供研究员加工。
 agent_created: true
-changelog: |
-  v1.0.0 (2026-07-03): 初始版本 — 基于quant-daily提炼，专为辩论团队数技师角色设计。核心：数据管道模式(不做分析)、data_manifest溯源、scan_all.py --symbols CLI封装
 disable: false
 ---
 
@@ -31,7 +29,7 @@ disable: false
 
 - **数据层**：依赖 `quant-daily` 的 `scan_all.py`（含 `run_scan` 函数）
 - **指标层**：依赖 `quant-daily` 的 `_compute_indicators_numpy`（44项指标）
-- **评分层**：本 skill **不包含** L1-L4 评分——那是研究员和辩手分析的事，数技师只提供原始指标值
+- **评分层**：本 skill **不包含**任何评分——那是研究员和辩手分析的事，数技师只提供原始指标值
 
 ## 唯一入口：run_scan()
 
@@ -97,7 +95,7 @@ result = run_scan(output_dir="/path/to/output", symbols=targets)
 }
 ```
 
-> ⚠️ **数据边界**：本skill不输出L1-L4评分、不输出方向判定、不输出多空建议。ADX/RSI/CCI等只是数值，分析留给研究员。
+> ⚠️ **数据边界**：本skill不输出评分、不输出方向判定、不输出多空建议。ADX/RSI/CCI等只是数值，分析留给研究员。
 
 ## 数据溯源（data_manifest）
 
@@ -115,7 +113,7 @@ result = run_scan(output_dir="/path/to/output", symbols=targets)
 | 维度 | quant-daily | futures-data-technician |
 |:----|:------------|:------------------------|
 | 服务对象 | 通用期货量化分析 | 辩论专家团数技师专用 |
-| 分析能力 | 含L1-L4评分+方向判定 | ❌ **不做分析** |
+| 分析能力 | ❌ **不做分析** |
 | 角色定位 | 分析师工具 | 数据管道 |
 | 调用方式 | `scan_all.py` 直接跑 | 同上，但**使用限制更严格** |
 | 输出用途 | 自由使用 | 仅供研究员/辩手加工 |
@@ -138,6 +136,6 @@ result = run_scan(output_dir="/path/to/output", symbols=targets)
 - ❌ 不做供需/库存/利润分析（那是基本面研究员的事）
 - ❌ 不做量价/形态/资金流分析（那是技术面研究员的事）
 - ❌ 不做多空判断
-- ❌ 不做 L1-L4 评分（那是 commodity-trend-signal 的事）
+- ❌ 不做评分（那是研究员的工作）
 - ✅ 数据采集 + 清洗 + 时效校验 + 指标计算
 - ✅ 提供带溯源标记的原始数据包

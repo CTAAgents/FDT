@@ -6,7 +6,7 @@
 
 功能：
 - load_memory(symbol): 读取某品种的历史决策记录+盈亏
-- build_reflection_prompt(symbol): 生成供闫判官/策执远参考的反思prompt
+- build_reflection_prompt(symbol): 生成供闫判官参考的反思prompt
 - record_decision(symbol, direction, entry, reason): 记录本次决策
 - record_outcome(symbol, exit_price, pnl): 记录结果
 
@@ -106,7 +106,7 @@ def record_outcome(trade_id: str, exit_price: float, pnl_pct: float) -> bool:
 
 
 def build_reflection_prompt(symbol: str) -> str:
-    """生成供闫判官/策执远参考的反思prompt注入。"""
+    """生成供闫判官参考的反思prompt注入。"""
     records = load_memory(symbol, max_records=5)
     if not records:
         return ""

@@ -6,7 +6,7 @@
 【Phase 2 增强】基差方向校验：
 - 突破方向与基差方向冲突时标记 _basis_conflict，不降级仅告警
   （多头突破但基差负值=Contango，空头突破但基差正值=Backwardation）
-- 供下游策执远/阎判官辩论时参考，也供 V2/V3 的 undemote 权衡
+- 供闫判官辩论时参考，也供 V2/V3 的 undemote 权衡
 """
 
 from . import register_validator

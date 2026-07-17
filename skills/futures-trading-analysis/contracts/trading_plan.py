@@ -14,7 +14,7 @@ class TradeAction(BaseModel):
 
 
 class TradingPlanOutput(BaseSkillOutput):
-    """策执远的输出：最终交易计划"""
+    """闫判官的输出(含交易参数)：最终交易计划"""
 
     variant: Literal["trading_plan"]
     actions: list[TradeAction]

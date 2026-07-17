@@ -4,7 +4,11 @@
 
 在每日辩论流水线完成后自动执行，无需人工介入。
 """
-import json, os, re, subprocess, sys
+import json
+import os
+import re
+import subprocess
+import sys
 from datetime import datetime
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,13 +73,13 @@ def append_changelog(current_version: str, new_version: str):
     return False
 
 
-def record_change(change_desc: str):
+def record_change(change_desc: str) -> None:
     """记录本次变更到 .version_history.json"""
     history = {}
     if os.path.exists(VERSION_FILE):
         with open(VERSION_FILE, encoding="utf-8") as f:
             try: history = json.load(f)
-            except: pass
+            except json.JSONDecodeError: pass
     today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     history[today] = change_desc
     with open(VERSION_FILE, "w", encoding="utf-8") as f:
@@ -112,7 +116,7 @@ def run_sync() -> bool:
         return False
 
 
-def main():
+def main() -> int:
     change_desc = os.environ.get("CHANGE_DESC", sys.argv[1] if len(sys.argv) > 1 else "自动发布：代码变更")
     change_type = os.environ.get("CHANGE_TYPE", "patch")
 

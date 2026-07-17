@@ -4,7 +4,7 @@ from fdt_langgraph.nodes import (
     node_scan, node_judge_direction,
     node_chain, node_technical, node_fundamental,
     node_merge_research, node_debate,
-    node_verdict, node_trading_plan, node_risk_check, node_report
+    node_verdict, node_signal_output, node_risk_check, node_report
 )
 from datetime import datetime
 
@@ -94,19 +94,37 @@ async def test_node_verdict():
 
 
 @pytest.mark.asyncio
-async def test_node_trading_plan():
+async def test_node_signal_output():
     state = create_test_state()
-    state["verdict"] = {"direction": "bullish"}
-    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict"]
-    result = await node_trading_plan(state)
-    assert result["trading_plan"] is not None
+    state["verdict"] = {
+        "direction": "bullish",
+        "entry_price": 3100,
+        "stop_loss_price": 3050,
+        "target_price": 3250,
+        "position_pct": 5,
+        "contract": "RB2410",
+    }
+    state["risk_check"] = {"risk_color": "green", "approved": True}
+    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict", "P5_risk"]
+    result = await node_signal_output(state)
+    assert result["signal_output"] is not None
+    assert result["signal_output"]["status"] == "sent"
+    assert "signal" in result["signal_output"]
+    assert result["signal_output"]["signal"]["direction"] == "bullish"
 
 
 @pytest.mark.asyncio
 async def test_node_risk_check():
     state = create_test_state()
-    state["trading_plan"] = {"position": "long"}
-    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict", "P5_plan"]
+    state["verdict"] = {
+        "direction": "bullish",
+        "entry_price": 3100,
+        "stop_loss_price": 3050,
+        "target_price": 3250,
+        "position_pct": 5,
+        "contract": "RB2410",
+    }
+    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict"]
     result = await node_risk_check(state)
     assert result["risk_check"] is not None
 
@@ -114,10 +132,16 @@ async def test_node_risk_check():
 @pytest.mark.asyncio
 async def test_node_report():
     state = create_test_state()
-    state["verdict"] = {"direction": "bullish"}
-    state["trading_plan"] = {"position": "long"}
-    state["risk_check"] = {"risk_level": "low"}
-    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict", "P5_plan", "P5_risk"]
+    state["verdict"] = {
+        "direction": "bullish",
+        "entry_price": 3100,
+        "stop_loss_price": 3050,
+        "target_price": 3250,
+        "position_pct": 5,
+        "contract": "RB2410",
+    }
+    state["risk_check"] = {"risk_level": "low", "risk_color": "green"}
+    state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict", "P5_risk"]
     result = await node_report(state)
     assert result["report_path"] is not None
     assert result["current_phase"] == "P6"

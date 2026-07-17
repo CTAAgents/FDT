@@ -23,7 +23,8 @@ _logger = get_logger("market_game")
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-import json, math
+import json
+import math
 
 
 class MarketGameAgent:

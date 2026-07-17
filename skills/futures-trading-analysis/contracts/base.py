@@ -12,7 +12,7 @@ class PhaseMeta(BaseModel):
     model_config = ConfigDict(extra="ignore")  # P1-1: Pydantic v2 向前兼容
 
     phase: str  # P1 / P2 / P3 / P4 / P5
-    agent_name: str  # 探源 / 观澜 / 链证源 / 证真 / 慎思 / 闫判官 / 风控明 / 策执远
+    agent_name: str  # 探源 / 观澜 / 链证源 / 证真 / 慎思 / 闫判官 / 风控明 / 明鉴秋
     variant: str  # 品种代码，如 CU.SHF
     trace_id: str  # 一次完整辩论的唯一 ID
     depends_on: list[str] = []  # 依赖的上游 phase，如 ["P1_data", "P1_tech"]

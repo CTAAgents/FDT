@@ -121,7 +121,7 @@ def daily_debate() -> TaskResult:
     日常辩论 — 完整全量管道
 
     流程:
-      Step 1: 三生产者扫描（数技源 channel_breakout + 观澜 L1-L4 + 探源 factor_timing）
+      Step 1: 数技源 channel_breakout 扫描
       Step 2: 查找最新summary + 链分析 → assemble_intermediate_data.py
       Step 3: phase3_generate_report.py → HTML报告
       Step 4: 复制报告到 Commodities/
@@ -138,32 +138,18 @@ def daily_debate() -> TaskResult:
     scan_report_dir = workbuddy_dir / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
     os.makedirs(scan_report_dir, exist_ok=True)
 
-    # ── Step 1: 三生产者扫描（数技源 + 观澜 + 探源） ──
-    _log("  Step 1/4: 三生产者扫描 (通道突破 + L1-L4 + 因子择时)")
+    # ── Step 1: 通道突破扫描 ──
+    _log("  Step 1/4: 通道突破扫描")
     sym_codes = ",".join(ALL_SYMBOL_CODES) if ALL_SYMBOL_CODES else ""
 
-    # 1) 数技源: 通道突破（默认 channel_breakout）
+    # 数技源: 通道突破（默认 channel_breakout）
     ok_cb, msg_cb = _run_script(
         "skills/quant-daily/scripts/scan_all.py",
         "-o", str(scan_report_dir), "-p", "full_scan_summary",
         timeout=300,
     )
-    # 2) 观澜: L1-L4 分层指标
-    l1l4_args = ["--output-dir", str(scan_report_dir)]
-    l1l4_args += ["--symbols", sym_codes] if sym_codes else ["--all"]
-    ok_l1l4, msg_l1l4 = _run_script(
-        "skills/technical-analysis/scripts/run_l1l4_scan.py",
-        *l1l4_args, timeout=300,
-    )
-    # 3) 探源: 因子择时（五因子）
-    ft_args = ["--output-dir", str(scan_report_dir)]
-    ft_args += ["--symbols", sym_codes] if sym_codes else ["--all"]
-    ok_ft, msg_ft = _run_script(
-        "skills/fundamental-data-collector/scripts/run_factor_timing_scan.py",
-        *ft_args, timeout=300,
-    )
     steps.append(
-        f"扫描: 通道突破{'✅' if ok_cb else '❌'} | L1-L4{'✅' if ok_l1l4 else '❌'} | 因子择时{'✅' if ok_ft else '❌'}"
+        f"扫描: 通道突破{'✅' if ok_cb else '❌'}"
     )
 
     # 至少通道突破汇总须存在，否则后续无数据可用

@@ -5,14 +5,14 @@
 
 ## 2026-07-11 | ADX角色反转规则未注入spawn prompt → JD辩论ADX主导裁决
 
-**事件**: 周六盘后自动化扫描，JD鸡蛋WATCH(+41)触发完整辩论。闫判官裁决以ADX=17.1为"致命伤"判HOLD，策执远监控条件第一条为"ADX>20"，风控明风险表第一项为"ADX趋势强度高"。三个Agent均以ADX为首要判断依据。
+**事件**: 周六盘后自动化扫描，JD鸡蛋WATCH(+41)触发完整辩论。闫判官裁决以ADX=17.1为"致命伤"判HOLD，监控条件第一条为"ADX>20"，风控明风险表第一项为"ADX趋势强度高"。三个Agent均以ADX为首要判断依据。
 
 **根因**: judgment_revisions.md已有R11-R18关于ADX角色反转的规则（2026-07-06确立），但fdt-spawn-debate/SKILL.md的spawn prompt模板中没有引用这些规则。Agent通过general-purpose spawn时拿到的只是裸数据（ADX=17.1），自然按传统解读处理。
 
 **改正**:
 1. fdt-spawn-debate/SKILL.md: 核心规则表新增#11 ADX角色反转铁律
 2. fdt-spawn-debate/SKILL.md: 闫判官spawn模板新增ADX角色反转规则段
-3. fdt-spawn-debate/SKILL.md: 策执远spawn模板新增监控条件编写规则
+3. fdt-spawn-debate/SKILL.md: spawn模板新增监控条件编写规则
 4. futures-judge.md: 新增"ADX角色反转铁律"段（P0不可违反）
 5. futures-trading-strategist.md: Constraints新增ADX监控约束
 6. futures-debate-team-team-lead.md: 新增"ADX角色反转·spawn注入铁律"
@@ -47,7 +47,7 @@
 | P3 观澜/探源 | 600s | 明鉴秋WebSearch自行完成 |
 | P4 证真/慎思 | 600s | 明鉴秋基于数据构建论据 |
 | P5 闫判官 | 300s | D06降级→独立裁决 |
-| P5 策执远 | 300s | ATR公式计算 |
+| P5 策略方案 | 300s | ATR公式计算 |
 | P5 风控明 | 300s | 基于规则审核 |
 
 **修改文件**：
@@ -219,7 +219,7 @@
 
 ### 修复
 - `base.py`: SignalResult新增`atr`字段 + to_dict()输出
-- `layered_l1l4.py`/`factor_timing.py`: 从tech/entry传ATR到SignalResult
+- `layered_l1l4.py`: 从tech/entry传ATR到SignalResult
 - `debate_brief.py`: fallback改为`price*0.02` / `_extract_l1l4`新增atr
 
 ### 验证
@@ -314,7 +314,7 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 3. **辩论流程铁律D05新增**: "辩论Agent必须spawn为general-purpose，不得使用expert subagent_type。角色prompt注入替代expert自动加载。"
 
 ### 预防
-- 所有辩论团队Agent(观澜/探源/证真/慎思/闫判官/策执远/风控明)统一使用`subagent_type: "general-purpose"` spawn
+- 所有辩论团队Agent(观澜/探源/证真/慎思/闫判官/风控明)统一使用`subagent_type: "general-purpose"` spawn
 - 不再依赖expert subagent_type的工具加载机制
 
 ---
@@ -323,7 +323,7 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 
 ### 事件摘要
 2026-07-11 日线盘后扫盘，JD鸡蛋WATCH信号触发完整辩论（v1 08:00 + v2 08:12-08:19两场）。
-辩论Agent产物（证真/慎思/闫判官/策执远/风控明）全部齐全，但跑完即present JSON结束，缺失三件事：
+辩论Agent产物（证真/慎思/闫判官/风控明）全部齐全，但跑完即present JSON结束，缺失三件事：
 1. 知识库未更新：knowledge/JD/drivers.md 仍显示"暂无辩论记录"，两场辩论对品种知识库完全不可见
 2. P6最终报告缺失：v2辩论未生成HTML辩论报告，只present了JSON（后于08:23人工补齐）
 3. JSON数据质量bug：p5_judge_JD_v2.json 的reasoning字段含未转义裸引号 "全市场共振"，致JSON解析失败
@@ -381,7 +381,7 @@ BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
 ### 修复（已执行）
 1. **#3**：fdt-spawn-debate 新增规则13 + `spawn_with_retry()` 重试协议（瞬时错误重试2次→降级）
 2. **#4**：futures-trading-analysis 顶部插入"执行协议单一来源声明"横幅，列出废弃模式对照表，指明以 fdt-spawn-debate 为唯一权威
-3. **#5**：新建 confidence_utils.py（高0.8/中0.6/低0.4/数值直通）；validate_agent_output.py 增 confidence 类型校验+归一回传；闫判官模板改数值0-1+confidence_label；策执远按数值映射仓位；extract_knowledge.py 改为 import 别名（调用点不变）
+3. **#5**：新建 confidence_utils.py（高0.8/中0.6/低0.4/数值直通）；validate_agent_output.py 增 confidence 类型校验+归一回传；闫判官模板改数值0-1+confidence_label；策略Agent按数值映射仓位；extract_knowledge.py 改为 import 别名（调用点不变）
 4. **#6**：自动化prompt增步骤0交易日检查（weekday<5才继续，否则跳过）
 
 ### 验证

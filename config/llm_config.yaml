@@ -45,9 +45,6 @@ per_agent:
   risk_manager:
     temperature: 0.4
 
-  trading_strategist:
-    temperature: 0.4
-
   debate_team_team_lead:
     temperature: 0.5
 

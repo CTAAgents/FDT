@@ -65,8 +65,8 @@ def apply_selection_gate(
     杜绝LLM随机乱选题，保证决策可复现性。
 
     Args:
-        l1l4_data: L1-L4策略输出（含每个品种的signal_score, confidence）
-        factor_data: factor_timing策略输出（含每个品种的total, vote_net, g_group）
+        l1l4_data: 技术分析评分策略输出（含每个品种的signal_score, confidence）
+        factor_data: 因子择时策略输出（含每个品种的total, vote_net, g_group）
         liquidity_data: 流动性数据（含每个品种的volume_ratio, liquidity_trap）
         threshold: 双策略置信度硬阈值（默认0.65）
         min_conflicting_signals: 至少需要的冲突信号数（用于分歧品种筛选）
@@ -95,14 +95,14 @@ def apply_selection_gate(
         l1l4 = l1l4_data.get(sym, {})
         factor = factor_data.get(sym, {})
 
-        # 检查1: L1-L4置信度
+        # 检查1: 技术分析评分置信度
         l1l4_conf = l1l4.get("confidence", 0.0)
         if l1l4_conf < threshold:
             rejected.append(sym)
-            reasons[sym] = f"L1-L4置信度{l1l4_conf:.2f} < 阈值{threshold}"
+            reasons[sym] = f"技术分析评分置信度{l1l4_conf:.2f} < 阈值{threshold}"
             continue
 
-        # 检查2: factor_timing置信度（通过vote_net绝对值和g_group判断）
+        # 检查2: 因子择时置信度（通过vote_net绝对值和g_group判断）
         vote_net = abs(factor.get("vote_net", 0))
         max_votes = 6  # 6因子总投票数
         factor_conf = vote_net / max_votes
@@ -111,14 +111,14 @@ def apply_selection_gate(
             reasons[sym] = f"factor置信度{factor_conf:.2f} < 阈值{threshold}"
             continue
 
-        # 检查3: 产业链信号无明显矛盾（L1-L4和factor方向一致）
+        # 检查3: 产业链信号无明显矛盾（技术分析评分和因子择时方向一致）
         l1l4_dir = l1l4.get("direction", 0)
         factor_dir = factor.get("total", 0)
         if l1l4_dir * factor_dir < 0:
             # 方向冲突 = 高辩论价值品种，但需置信度都达标才放行
             if l1l4_conf < threshold + 0.05 or factor_conf < threshold + 0.05:
                 rejected.append(sym)
-                reasons[sym] = f"方向冲突但置信度不足(L1-L4:{l1l4_conf:.2f}, factor:{factor_conf:.2f})"
+                reasons[sym] = f"方向冲突但置信度不足(技术分析评分:{l1l4_conf:.2f}, factor:{factor_conf:.2f})"
                 continue
 
         # 检查4: 流动性达标

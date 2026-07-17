@@ -283,8 +283,10 @@ async def workspace(path: str = Query(...)):
 
 @app.get("/view", response_class=HTMLResponse)
 async def view(path: str = Query(...)):
-    """查看文件内容"""
-    fpath = Path(path)
+    """查看文件内容（仅限项目目录内）"""
+    fpath = Path(path).resolve()
+    if not str(fpath).startswith(str(ROOT.resolve())):
+        return HTMLResponse(HTML_HEADER + "<p>不允许访问项目目录外的文件</p>" + HTML_FOOTER)
     if not fpath.exists():
         return HTMLResponse(HTML_HEADER + "<p>文件不存在</p>" + HTML_FOOTER)
 

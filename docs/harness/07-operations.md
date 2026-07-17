@@ -293,20 +293,35 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `pyproject.toml` | 8.3.0 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
+| `pyproject.toml` | 8.8.0 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
 | `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
-| `README.md` | v6.3.1 | 与 pyproject.toml 同步 |
+| `README.md` | v8.8.0 | 与 pyproject.toml 同步 |
 
 ### 5.2 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
+| v8.8.8 | 2026-07-17 | **cov-5 测试覆盖（P1/P2 模块）+ G71 类型注解收口**：① 新增 61 个测试用例覆盖 compliance_agent (19)/enforce_discipline (14)/evidence_scorer (14)/pre_commit_harness_check (24)/inference_gate (20)—全部通过；② G71 为 evolve_agents(11个)/extract_knowledge(4个)/run_debate(8个) 共 23 个函数补充类型注解；③ G72 导入组织 18 个文件全部闭合。累计 scripts/ 测试 **474 用例**，覆盖 **68 模块**。版本号 bump 8.8.7→8.8.8 |
+| v8.8.5 | 2026-07-17 | **系统级代码审计**：对 FDT 全系统进行 5 维度审计（编码标准/trace_id 全链路/数据接口正确性/文档一致性/12 项检查清单），覆盖 4 大目录（scripts/ 66 文件 / fdt_langgraph/ / fdt_pg/ / skills/），登记 5 项新差距（G70-G74）。**严重发现**：`webui.py` 路径穿越漏洞、`run_debate.py` 4 处 subprocess 无超时、`fdt_pg/connection.py` SQLAlchemy 2.0 兼容 bug。全量登记至 `08-gap-analysis.md §4.8`。版本号 bump 8.8.4→8.8.5 |
+| v8.8.5 | 2026-07-17 | **LangGraph 管线 Bug 修复（P0/P1/P2）**：① G70 `node_scan` 修复——改从文件读取扫描结果而非解析 stdout，scan_all 数据正确流入全管线；② G71 `node_report` 修复——逐品种基于扫描数据生成差异化方向/价格/仓位，报告含6个差异化信号（4BUY/2SELL）；③ G72 `node_signal_output` 修复——新增逐品种信号清单（abs>=60），按评分排序输出最强信号；④ 配套修复 `fdt_daily_runner.py` 禁用均值回归（加 `mean_reversion` 到 `DISABLED_STRATEGIES`）、LangGraph 模式启用、工作空间设置；⑤ `runner.py` 全品种传递。同步更新 `08-gap-analysis.md` G70-G72。版本号 bump 8.8.4→8.8.5 |
+|
+| v8.8.4 | 2026-07-17 | **P1/P2 Bug 修复批**：① G67 `compute_indicators()` API 不匹配修复（`node_prepare_data` 传 OHLCV dict 替代四个独立数组）；② G68 裁决/信号报告 None 格式化修复（`or 0` 模式防御 None）；③ G69 subprocess runner `debate_brief.py` 补全 l1l4/factor 两个必需位置参数；④ `fdt_daily_runner.py` 添加 `mean_reversion` 到 `DISABLED_STRATEGIES`，切换 LangGraph 模式，设置 `FDT_DAILY_WORKSPACE`；⑤ `runner.py` 传递全部品种而非限 10 个。同步更新 `08-gap-analysis.md`。版本号 bump 8.8.3→8.8.4 |
+| v8.8.3 | 2026-07-17 | **Keltner 鲁棒参数训练（鲁棒评分加权）**：① 修改 `keltner_wf.py` 评分函数为鲁棒性加权（`0.1×峰值 + 0.9×3×3邻域均值`），优先选择参数平原广阔的组合；② 对63个品种完成全品种训练，`period=40, atr_mult=1.5` 被验证为最鲁棒的全局参数（25/63品种选该组合，信号加权均值 period=37.0, atr_mult=1.62，全局平均训练准确率61%/测试准确率21%）；③ 新增 `keltner_robustness.py` 鲁棒性分析器；④ 固定参数 `(40, 1.5)` 在10个代表性品种上的平均峰值得分51.4与邻域均值51.5几乎一致，验证了参数平原的广阔性（邻域平坦）；版本号 bump 8.8.2→8.8.3 |
+| v8.8.2 | 2026-07-17 | **cov-4 批量测试覆盖（第二阶段·收官）**：扩展 `scripts/test_scripts.py` 新增 44 个测试用例，覆盖 4 个 scripts/ 模块（run_debate/fdt_cli/extract_knowledge/webui），累计 scripts/ 测试 **413 用例**，覆盖 **63 模块**（**412 passed / 1 skipped**）；修复 `extract_knowledge.py` 的 `confidence_utils` 导入 fallback；同步更新 `docs/harness/06-testing.md` / `08-gap-analysis.md`；G65 关闭；版本号 bump 8.8.1→8.8.2 |
+| v8.8.1 | 2026-07-17 | **Keltner 通道参数 Walk-Forward 优化**：① 新增 `keltner_wf.py` 参数训练脚本，对 `period`（10/15/20/25/30/40）和 `atr_mult`（1.5~3.5，步长0.25）共54种组合进行网格搜索；② 对61个品种完成Walk-Forward训练+测试分割（70%训练/30%测试）；③ 众数参数：period=40, atr_mult=1.5；④ 更新 `TREND_G30_CONFIG.keltner`（20→40, 2.25→1.5）和 `legacy_numpy.py` Keltner计算参数；⑤ 新增 `tests/quant-daily/test_keltner_wf.py` 17个单元测试全部通过；版本号 bump 8.8.0→8.8.1 |
+| v8.8.0 | 2026-07-17 | **明鉴秋报告层调度增强**：① `state.py` 新增 4 个阶段报告字段（`scan_report_path` / `research_report_path` / `verdict_report_path` / `signal_report_path`）；② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`），覆盖 P1/P3/P5/P6/P6a 五个阶段；③ P6 `node_report` 修复 fallback 路径，输出到用户指定工作空间（`FDT_REPORT_WORKSPACE` / `FDT_DAILY_WORKSPACE`）而非 `/tmp`；④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出各阶段报告路径；⑤ 新增 `tests/fdt_langgraph/test_reports.py` 12 个测试用例全部通过；⑥ 同步更新 Harness 文档（01-architecture / 02-lifecycle §2.4 / 04-resilience §9.5.1 / 06-testing §2.1）；版本号 bump 8.7.1→8.8.0 |
+| v8.7.1 | 2026-07-17 | **cov-4 批量测试覆盖（第一阶段）**：扩展 `scripts/test_scripts.py` 新增 57 个测试用例，覆盖 16 个 scripts/ 根目录及子目录模块（logutil/fdt_version/health_check/run_reporter/record_verdicts/notifier/llm.cache/llm.token_budget/spawn_resource_check/model_registry/debate_archiver/ops_monitor/auto_publish/auto_train/market_game_agent/marl_trainer），累计 scripts/ 测试 69 用例；**总测试 69 passed**；版本号 bump 8.7.0→8.7.1；同步更新 `docs/harness/06-testing.md` / `07-operations.md` / `08-gap-analysis.md` |
+| v8.7.0 | 2026-07-17 | **架构精简 v2**：删除策略师子 Agent（策执远），将其职责合并到闫判官（直接输出完整交易参数）和风控明（复验止盈止损/盈亏比）；删除 `node_trading_plan` 节点、`trading_strategist.yaml` 配置；更新 LangGraph 流程为 verdict→risk_check→report→signal_output→END；同步更新 `execution_modes_flowchart.md` v4.6、`agent-protocol.md` v4.1、Harness 文档；版本号 bump 8.6.0→8.7.0 |
+| v8.6.0 | 2026-07-17 | **架构精简 v1**：明鉴秋职责聚焦流程调度（P1-P5 阶段、自进化、记忆归档），删除 L1-L4 评分模块；新增 `node_report`（报告生成）和 `node_signal_output`（CTP 信号输出）；修复探源 Agent（产出 FundamentalStateVector）和观澜 Agent（产出 TechnicalOutput）的 LLM 推理生成逻辑；更新 LangGraph 架构为 risk_check→report→signal_output→END；同步更新 Harness 文档；版本号 bump 8.5.4→8.6.0 |
+| v8.5.4 | 2026-07-17 | **cov-3 候选模块覆盖**：新增 4 个测试文件（test_unified_logger.py/test_fdt_version.py/test_config_manager.py/test_fdt_llm.py）共 144 个用例，覆盖率 91%/100%/92%/71%；解决 `tests/conftest.py` sys.path 遮蔽问题；累计 scripts 测试 7 文件/322 用例全绿；同步更新 pyproject.toml、07-operations.md、06-testing.md、08-gap-analysis.md；G65 Phase B 关闭 |
+| v8.5.3 | 2026-07-17 | **cov-2 候选模块覆盖**：新增 178 个测试用例，覆盖 test_fdt_paths.py（84%）/test_trace_id.py（94%）/test_confidence_utils.py（87%）；累计 13 文件/339 用例（161 langgraph + 178 scripts）；同步更新版本号和文档；G65 Phase A 关闭 |
+| v8.5.0 | 2026-07-17 | **G65 测试覆盖扩展**：启动 scripts/ 模块测试覆盖率提升专项，目标消除 0% 覆盖率模块；cov-1/2/3 阶段规划 |
 | v8.4.0 | 2026-07-16 | **G52-G55 生产集成完成**：① G52 `pipeline/runner.py` 集成 LangGraph A/B 切换（`run_langgraph_pipeline()` + `FDT_USE_LANGGRAPH` 环境变量）；② G53 `scripts/run_debate.py` 添加 `langgraph` 子命令（支持 `--mode`/`--symbols`/`--trace-id`）；③ G54 `fdt_langgraph/graph.py` Checkpointer 支持 PG + SQLite 降级（`_get_checkpointer()` + `FDT_CHECKPOINTER=pg` 切换）；④ G55 新增 `tests/fdt_langgraph/test_integration_ab.py` 18 个集成测试验证 A/B 切换机制等价性；**总测试数：99 passed, 1 warning in 5.08s**（8 文件 / 99 用例）；新增 3 个环境变量 `FDT_USE_LANGGRAPH`/`FDT_LANGGRAPH_MODE`/`FDT_CHECKPOINTER`；三级降级路径（LangGraph import 失败→subprocess / PG Checkpointer 失败→SQLite / A/B 默认 false 零风险） |
 | v8.3.0 | 2026-07-16 | **LangGraph 迁移完成**：DebateState TypedDict(19字段+create_initial_state工厂)、10个异步节点函数、按需并行拓扑图(闫判官→链证源/观澜/探源并行→merge_research)、PostgreSQL OLTP+OLAP 混合架构(14表+3视图)、独立 CLI/FastAPI 双入口；更新9篇Harness文档；**21个pytest测试用例全部通过**(节点96%/State 100%/Graph 77%/Agents 65%)；移除 WorkBuddy 依赖；P1 可插拔多策略扫描、P3 三源平行关系无先后次序 |
 | v8.2.0 | 2026-07-16 | Harness 工程规范全面固化：用户规则 + 项目记忆 + harness-checker 技能 + commit前12项检查清单 + Git Hook 强制检查 |
 | v6.3.2 | 2026-07-14 | P0-4 多因子增强：select_triggers disable_filter 读 _raw_total；V1 OI/基差覆写；V2 OI+量比联合；V3 基差+低波联合；numpy 60s 品种级超时；finalize-only glob mtime 排序；G19 新登记(9 测试全绿)；阈值常量 G20/100ppi 降级 G21 待后续 |
 | v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
-| v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；L1-L4→technical-analysis(run_l1l4_scan)，factor_timing→fundamental-data-collector(run_factor_timing_scan) |
+| v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；technical-analysis 和 fundamental-data-collector 独立运行 |
 | v6.2.0 | — | A2A Agent-to-Agent 协议文件桥（agent-card.json + a2a_results.json）+ validate_final_signals 置信度归一 |
 | v6.1.0 | — | 信号验证门（validate_final_signals.py）+ 行动对账（execute/hold/wait）+ 方向-价格一致性检查 |
 | v6.0.0 | — | FDC 数据引擎合并：QMT(0) 主源，TDX/TqSDK 降级，移除 AKShare/EastMoney 直连 |

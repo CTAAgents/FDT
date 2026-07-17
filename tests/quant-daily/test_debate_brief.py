@@ -52,32 +52,7 @@ class TestComputeDebateScore:
         assert r["breakdown"]["data"] < 5
 
 
-class TestBuildJudgeBrief:
-    def test_conflict(self, sample_symbol_entry):
-        s = db.compute_debate_score(sample_symbol_entry["l1l4"], sample_symbol_entry["factor_timing"])
-        b = db.build_judge_brief(sample_symbol_entry, s)
-        assert b["conflict"] is True
 
-    def test_consensus(self):
-        e = {
-            "l1l4": dict(total=50, direction="bull", adx=30, rsi=60),
-            "factor_timing": dict(total=40, direction="bull"),
-        }
-        b = db.build_judge_brief(e, db.compute_debate_score(e["l1l4"], e["factor_timing"]))
-        assert b["conflict"] is False
-
-    def test_risk_flags(self):
-        e = {
-            "l1l4": dict(total=-40, direction="bear", adx=55, rsi=22, stage="exhaustion", cons=2, z_score=-2.8),
-            "factor_timing": dict(total=-30, direction="bear"),
-        }
-        b = db.build_judge_brief(e, db.compute_debate_score(e["l1l4"], e["factor_timing"]))
-        assert "衰竭阶段" in b["risk_flags"]
-
-    def test_with_risk_input(self, sample_symbol_entry):
-        s = db.compute_debate_score(sample_symbol_entry["l1l4"], sample_symbol_entry["factor_timing"])
-        b = db.build_judge_brief(sample_symbol_entry, s, risk_input=sample_symbol_entry["risk_input"])
-        assert "direction_conflict" in b
 
 
 class TestExtractFunctions:
@@ -237,26 +212,6 @@ class TestSelectDebateSymbols:
                 macd_cross="none",
                 dc20_break="none",
                 ma_align="mixed",
-                l1=0,
-                l2=0,
-                l3=0,
-                l4=0,
-            ),
-            "factor_timing": dict(
-                total=ft,
-                direction=fd,
-                adx=adx,
-                grade="B",
-                vote_net=0,
-                vote_confidence=0.5,
-                g_group="none",
-                ts_type="unknown",
-                ts_slope=0,
-                resonance=0,
-                market_state="unknown",
-                stage=st,
-                cons=cs,
-                veto=vt,
                 l1=0,
                 l2=0,
                 l3=0,

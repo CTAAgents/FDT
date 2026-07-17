@@ -18,7 +18,8 @@
     reg.rollback("v4.4.0-20260704")  # 如果新版本表现不如旧版本
 """
 
-import json, os
+import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional

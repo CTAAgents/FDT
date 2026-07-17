@@ -196,7 +196,7 @@ def get_replay_buffer() -> List[Dict]:
 def query_history(symbol: str, lookback_days: int = 30) -> List[Dict]:
     """查询某品种近期历史交易决策。
 
-    供闫判官/策执远做跨轮次学习：
+    供闫判官做跨轮次学习：
     - 同品种上次看多看亏了钱→本次更保守
     - 同方向历史胜率统计
 

@@ -4,7 +4,7 @@
 期货辩论专家团 — 回测引擎 v3.0
 ================================
 三大改进：
-1. 双策略共振：L1-L4 + factor_timing 信号同向才出手
+1. 双策略共振：多策略信号同向才出手
 2. 非重叠窗口：平仓后再开新仓，权益真实复合增长
 3. PnL反馈闭环：trade_journal记录+按策略表现动态调权重
 
@@ -80,7 +80,7 @@ def calc_mdd(equity_curve: List[float]) -> float:
 
 
 def compute_l1l4_score(tech: dict, close_arr: List[float], start: int) -> dict:
-    """透明L1-L4评分 + factor_timing代理。"""
+    """透明评分。"""
     price = tech.get("last_price", close_arr[start])
     ma5 = tech.get("MA5")
     ma10 = tech.get("MA10")
@@ -99,7 +99,7 @@ def compute_l1l4_score(tech: dict, close_arr: List[float], start: int) -> dict:
     obv = tech.get("OBV", 0)
     obv_ma = tech.get("OBV_MA20", 0)
 
-    # ══ L1-L4评分 ══
+    # ══ 评分 ══
     l1_score = 0
     if price > ma60:
         l1_score += 20
@@ -150,7 +150,7 @@ def compute_l1l4_score(tech: dict, close_arr: List[float], start: int) -> dict:
     abs_total = abs(total)
     grade = "WATCH" if abs_total >= 55 else ("WEAK" if abs_total >= 35 else "NOISE")
 
-    # ══ factor_timing 代理（5因子简化版） ══
+    # ══ 因子代理 ══
     # F1: 动量 (momentum) — ROC10 + 价格vsMA
     f1_score = 0
     if roc10 > 0:
@@ -293,11 +293,9 @@ def run_non_overlap_backtest(
         f_dir = sc["f_direction"]
         f_conf = sc["f_confidence"]
 
-        # ── 策略分类 ──
-        # L1-L4信号
+        # 策略信号
         l1_signal = l_dir if l_grade in ("WATCH", "WEAK") else "HOLD"
 
-        # factor_timing信号
         f_signal = (
             "BUY" if f_dir == "bull" and f_conf >= 0.2 else ("SELL" if f_dir == "bear" and f_conf >= 0.2 else "HOLD")
         )
@@ -326,7 +324,7 @@ def run_non_overlap_backtest(
         if dual_signal != "HOLD":
             open_trade = True
         elif l1_signal != "HOLD" and f_signal == "HOLD":
-            # 只有L1-L4信号但factor无信号 → 可辩论级别
+            # 只有技术分析评分信号但因子择时无信号 → 可辩论级别
             open_trade = True
 
         if open_trade:
@@ -464,11 +462,7 @@ def run_non_overlap_backtest(
 
 
 def adjust_weights(trades: List[Dict], results: List[Dict]) -> Dict:
-    """按近期表现动态调整L1-L4各层权重和factor_timing置信度阈值。
-
-    Returns:
-        {'l_weights': [l1,l2,l3,l4], 'f_threshold': float, 'adx_min': float}
-    """
+    """按近期表现动态调整权重。"""
     if len(trades) < 10:
         return {"note": "样本不足(需要10+交易)", "l_weights": [35, 35, 20, 10], "f_threshold": 0.2, "adx_min": 25}
 
@@ -484,7 +478,7 @@ def adjust_weights(trades: List[Dict], results: List[Dict]) -> Dict:
     f_threshold = 0.2
     adx_min = 25
 
-    # 如果双策略共振优于单L1-L4，提升factor权重（降低阈值）
+    # 如果双策略共振优于单技术分析评分，提升因子择时权重（降低阈值）
     if dual_wr > l1_wr + 0.05:
         f_threshold = max(0.1, f_threshold - 0.02)
     elif l1_wr > dual_wr + 0.05:
@@ -579,10 +573,10 @@ td{{padding:6px 10px;border-top:1px solid #2a2d3a30}}
 <div class="card">
     <h2>🔀 双策略共振分析</h2>
     <table style="width:auto">
-        <tr><td>双策略信号</td><td><span class="tag-dual">L1-L4+因子共振</span></td>
+        <tr><td>双策略信号</td><td><span class="tag-dual">双策略共振</span></td>
             <td>{db.get("total_dual_signals", 0)}次</td>
             <td>胜率 {db.get("dual_win_rate", 0)}%</td></tr>
-        <tr><td>单L1-L4信号</td><td><span class="tag-l1">仅L1-L4</span></td>
+        <tr><td>单信号</td><td><span class="tag-l1">仅单策略</span></td>
             <td>{db.get("l1_only_signals", 0)}次</td>
             <td>胜率 {db.get("l1_win_rate", 0)}%</td></tr>
     </table>
@@ -683,7 +677,7 @@ def main():
         db = report.get("dual_signal_breakdown", {})
         print(
             f"  {m.get('total_trades', 0)}笔 | 双策略{db.get('total_dual_signals', 0)}笔(胜率{db.get('dual_win_rate', 0)}%)"
-            f" | L1-L4{db.get('l1_only_signals', 0)}笔(胜率{db.get('l1_win_rate', 0)}%)"
+            f" | 技术分析评分{db.get('l1_only_signals', 0)}笔(胜率{db.get('l1_win_rate', 0)}%)"
         )
         print(
             f"  CR={m.get('cumulative_return', 0):+.2f}% SR={m.get('sharpe_ratio', 0):.2f} 胜率={m.get('win_rate', 0):.1f}%"

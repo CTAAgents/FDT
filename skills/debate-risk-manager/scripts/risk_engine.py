@@ -301,7 +301,7 @@ def _avoid_round_number(price: float) -> float:
     return round(price, 1)
 
 
-# ── 策执远 vs 风控明 止损覆写 ──
+# ── 闫判官 vs 风控明 止损覆写 ──
 
 
 def override_trader_stop(
@@ -309,7 +309,7 @@ def override_trader_stop(
     risk_anchor: Dict,
     direction: str = "long",
 ) -> Dict:
-    """风控明覆写策执远的止损价。"""
+    """风控明覆写闫判官的止损价。"""
     risk_stop = risk_anchor.get("stop_price", 0)
     if risk_stop <= 0:
         return {"accepted_stop": trader_stop, "override": False, "reason": "风控明无有效锚"}
@@ -321,12 +321,12 @@ def override_trader_stop(
         return {
             "accepted_stop": round(risk_stop, 1),
             "override": True,
-            "reason": f"风控明锚({risk_stop})比策执远({trader_stop})更紧，强制采用",
+            "reason": f"风控明锚({risk_stop})比闫判官({trader_stop})更紧，强制采用",
         }
     return {
         "accepted_stop": round(trader_stop, 1),
         "override": False,
-        "reason": f"策执远({trader_stop})比风控明({risk_stop})更紧，保留原方案",
+        "reason": f"闫判官({trader_stop})比风控明({risk_stop})更紧，保留原方案",
     }
 
 

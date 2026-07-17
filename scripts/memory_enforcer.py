@@ -108,7 +108,7 @@ def archive_to_index(debate_data: dict):
 # ─── 步骤3: 工作空间日志校验 ───
 
 FORBIDDEN = [
-    "证真", "慎思", "闫判官", "策执远", "风控明", "链证源", "观澜", "探源",
+    "证真", "慎思", "闫判官", "风控明", "链证源", "观澜", "探源",
     "claim", "evidence", "论据", "rebuttal", "置信度",
     "铁水", "盈利率", "Mysteel", "产能利用率", "检修计划",
     "提涨", "焦化利润", "吨焦", "库存拐点", "负反馈闭环",
@@ -203,7 +203,7 @@ def mirror_to_workspace():
 
 # ─── 主入口 ───
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="FDT 记忆执行器")
     parser.add_argument("--workspace-log", help="工作空间日志路径")

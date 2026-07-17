@@ -17,5 +17,7 @@
   "2026-07-09 18:37:00": "🧬 v5.5.0 OmniOpt分类法集成里程碑：基于OmniOpt论文(arXiv:2607.04033)方法论，新增F1-F5论证策略族分类系统(技术面(F1)/基本面(F2)/持仓(F3)/宏观(F4)/套利(F5))、品种×策略族适应性矩阵(memory/instrument_strategy_matrix.json, EMA在线更新)、scripts/update_matrix.py更新脚本、闫判官加权裁决升级(WEAS族加权预处理+族多样性检查)。正反方辩手输出格式扩展(含策略族标签)，闫判官裁决reasoning追加WEAS摘要。论据标注→加权裁决→自动更新全链路闭环。",
   "2026-07-09 22:07:00": "🧬 v5.5.1 Multi-Agent通信效率优化里程碑：基于Multi-Agent协同设计方法论诊断FDT三大通信瓶颈(Manager全量转发/辩论自由文本/风控后置重来)，实施三项优化 — P0: 新增contracts/debate_argument_schema.py辩论论点结构化Schema，证真/慎思输出改为JSON结构化格式，闫判官直接从字段读取减少50%解析耗时；P1: 闫判官按Agent类型差异化分发信息包(证真慎思仅收4类/策执远5类/风控明4类)，下游Agent上下文噪声减少约35%；P2: 风控明拆为前置(品种级审核与研究员并行)+后置(方案级审核保持现有逻辑)，避免辩论结束后风控打回重来。版本号: 5.5.0→5.5.1。",
   "2026-07-11 09:23:00": "🔧 v5.9.0 版本号统一对齐：确立 pyproject.toml 为唯一版本真相源，team-lead agent(5.3.0→5.9.0)、debate_results.json(debate_version v5.3→v5.9.0)、bootstrap 横幅全部对齐；新增 scripts/fdt_paths.py:get_fdt_version() 运行时读取，禁止任何位置写死版本号，根治历史漂移(team-lead 卡 5.3.0 / debate_results 写死 v5.3 / pyproject 5.7.0 与 README 5.9.0 矛盾)。知识库 v5.9 能力见 README。",
-  "2026-07-12 01:30:00": "🔧 v5.12.1 版本对齐：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更；team-lead agent frontmatter/标题/正文版本统一对齐至 5.12.1（补 v5.12.1 对齐遗漏）。"
+  "2026-07-12 01:30:00": "🔧 v5.12.1 版本对齐：pyproject.toml 版本号同步(5.12.0→5.12.1)，无功能变更；team-lead agent frontmatter/标题/正文版本统一对齐至 5.12.1（补 v5.12.1 对齐遗漏）。",
+  "2026-07-17 10:45:00": "🧬 v8.6.0 报告层统一+观澜/探源LLM推理：删除L1-L4评分模块；观澜改为LLM推理生成TechnicalOutput；探源改为LLM推理生成FundamentalStateVector；报告层优先使用LLM分析结果，fallback到量化指标。",
+  "2026-07-17 11:10:00": "🧬 v8.7.0 取消策执远+CTP信号输出：取消策执远Agent，闫判官直接输出完整交易参数(entry_price/stop_loss_price/target_price/position_pct/contract/risk_reward_ratio)；风控明直接基于闫判官verdict审核；新增node_signal_output节点(根据risk_color决定CTP信号输出)；流程改为verdict→risk_check→report→signal_output→END。"
 }

@@ -68,7 +68,6 @@ def sample_symbol_entry(sample_l1l4_entry, sample_factor_entry):
         "symbol": "RB",
         "name": "螺纹钢",
         "l1l4": sample_l1l4_entry,
-        "factor_timing": sample_factor_entry,
         "risk_input": {
             "ATR": {"value": 45.2, "period": 14},
             "confidence": 72,

@@ -180,7 +180,7 @@ def strategy_rsi(observations: List[dict], forward: int = 10, oversold: float = 
 
 
 def strategy_watch_buy(observations: List[dict], forward: int = 10) -> Dict:
-    """策略4: L1-L4 WATCH+BUY — 本系统策略"""
+    """策略4: WATCH+BUY — 本系统策略"""
     key = f"ret_{forward}d"
     returns = []
     for ob in observations:
@@ -192,7 +192,7 @@ def strategy_watch_buy(observations: List[dict], forward: int = 10) -> Dict:
 
 
 def strategy_weak_sell(observations: List[dict], forward: int = 10) -> Dict:
-    """策略5: L1-L4 WEAK+SELL — 本系统策略"""
+    """策略5: 技术分析评分 WEAK+SELL — 本系统策略"""
     key = f"ret_{forward}d"
     returns = []
     for ob in observations:
@@ -401,7 +401,7 @@ def run_symbol_backtest(
             "l3": l3_score,
             "l4": l4_score,
         }
-        # 双策略共识：L1-L4 + factor的共振
+        # 双策略共识：技术分析评分 + 因子择时的共振
         ob["dual_consensus_sell"] = (
             direction == "SELL" and grade in ("WEAK", "WATCH", "STRONG") and ob["adx"] > 25
         )  # 趋势过滤
@@ -434,7 +434,7 @@ def run_symbol_backtest(
         strategies[f"consensus_buy_{fd}d"] = dc_buy
         strategies[f"consensus_sell_{fd}d"] = dc_sell
 
-        # 基线策略（在截面上评估，与L1-L4使用同一组数据）
+        # 基线策略（在截面上评估，与技术分析评分使用同一组数据）
         bh = strategy_buy_hold(observations, fd)
         ma = strategy_ma_cross(observations, fd)
         rsi_s = strategy_rsi(observations, fd)

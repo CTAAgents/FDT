@@ -1,17 +1,5 @@
 # -*- coding: utf-8 -*-
-"""信号筛选模块（v2.13 L1-L4四层架构）。
-
-核心改进（v2.13）：
-1. L1-L4四层打分：L1萌芽(40分) + L2量价(30分) + L3结构(20分) + L4确认(10分)
-2. 阈值阶梯化：T1观察(60-75)、T2主仓(75-90)、T3警惕(>90)
-3. 排序赛马制：取 Top N，不设绝对分数线
-4. 期货专属：OI三角、基差、期限结构、跨期Spread信号
-5. 时间衰减：突破后走远的信号递减
-
-v2.12 基础：
-- 萌芽+确认混合打分
-- 四阶段趋势生命周期：launch / trending / exhausted / reversal
-"""
+"""信号筛选模块"""
 
 from typing import List
 
@@ -37,33 +25,7 @@ def detect_trend_stage(tech: dict, score: int) -> dict:
 
 
 def count_resonance(tech: dict, score: int) -> dict:
-    """计算多指标共振度（v2.13 L1-L4四层架构）。
-
-    共振指标（按层分组）：
-    L1 萌芽层：
-    1. ROC方向（>0多, <0空）
-    2. MA斜率方向
-    3. %b位置（>0.5多, <0.5空）
-    4. OBV方向（>MA20多, <MA20空）
-    5. CMF方向（>0多, <0空）
-    6. OI信号（增仓多/增仓空）
-
-    L2 量价层：
-    7. Vortex方向（VI+>VI-多）
-    8. CCI方向（>+100多, <-100空）
-    9. Supertrend方向
-    10. HMA交叉方向
-
-    L3 结构层：
-    11. RSI方向（>50多, <50空）
-    12. DMI方向（PDI>MDI多）
-
-    L4 确认层：
-    13. MA排列方向
-    14. MACD DIF方向
-    15. 价格位置（>MA20多）
-    16. 通道突破确认
-    """
+    """计算多指标共振度。"""
     is_bull = score > 0
     confirmations = 0
     total_checks = 0
@@ -293,8 +255,7 @@ def screen_signals(
 
     返回：按信号质量排序的候选列表（赛马制排名）
     """
-    # v2.13: 使用L1-L4综合得分和方向判断市场方向
-    # 注意：L1-L4得分是0-100的正数，需要根据direction判断多空
+    # 使用综合得分和方向判断市场方向
     buy_count = sum(1 for s in symbols if s.get("direction", "") == "BUY" and s.get("score", 0) > score_threshold)
     sell_count = sum(1 for s in symbols if s.get("direction", "") == "SELL" and s.get("score", 0) > score_threshold)
     market_bearish = sell_count > buy_count * 1.5
@@ -303,18 +264,14 @@ def screen_signals(
     candidates = []
 
     for sym in symbols:
-        # v2.13: 优先使用L1-L4综合得分，fallback到旧趋势得分
-        l1_l4_score = sym.get("score", 0)
-        l1_l4_direction = sym.get("direction", "")
+        score = sym.get("score", 0)
         old_score = sym.get("trend", {}).get("score", 0)
-
-        # 使用L1-L4得分作为主要筛选依据
-        score = l1_l4_score if l1_l4_score != 0 else old_score
+        score = score if score != 0 else old_score
 
         tech = sym.get("tech", {})
         trend_info = sym.get("trend", {})
 
-        # v2.13: score是0-100的正数，直接比较
+        # score是正数，直接比较
         if score < score_threshold:
             continue
 
@@ -327,8 +284,7 @@ def screen_signals(
 
         resonance = count_resonance(tech_with_price, score)
 
-        # v2.13: 使用L1-L4方向，fallback到得分方向
-        direction = l1_l4_direction if l1_l4_direction else ("BUY" if score > 0 else "SELL")
+        direction = sym.get("direction", "") if sym.get("direction", "") else ("BUY" if score > 0 else "SELL")
         required_resonance = min_resonance
         if market_bearish and direction == "BUY":
             required_resonance = 0.6
@@ -342,9 +298,7 @@ def screen_signals(
         stage_factor = {"launch": 1.3, "trending": 1.0, "exhausted": 0.4, "reversal": 0.2}.get(stage["stage"], 0.8)
         signal_quality = round(abs(score) / 100.0 * resonance["ratio"] * stage_factor, 3)
 
-        # v2.13: 使用L1-L4综合得分作为阶梯标记依据
-        composite = sym.get("l1_l4_score", {})
-        total_100 = composite.get("total", 0) if isinstance(composite, dict) else sym.get("score", 0)
+        total_100 = sym.get("score", 0)
         if total_100 >= 75:
             tier = "T2"  # 主仓
         elif total_100 >= 60:

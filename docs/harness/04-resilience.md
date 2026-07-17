@@ -323,8 +323,8 @@ daemon_watchdog.py 检测 (每30分钟)
 ├────────────────────┬────────────────────┬───────────────────────────┤
 │   P3 数据源降级    │   P4 辩论降级       │   P5 裁决链降级            │
 ├────────────────────┼────────────────────┼───────────────────────────┤
-│ 单源失败不影响其他 │ 单辩手失败继续辩论   │ 闫判官失败→策执远降级      │
-│ 超时自动跳过       │ 超时自动跳过        │ 策执远失败→风控明降级      │
+│ 单源失败不影响其他 │ 单辩手失败继续辩论   │ 闫判官(含交易参数)失败→风控明降级 │
+│ 超时自动跳过       │ 超时自动跳过        │ 闫判官失败→风控明降级      │
 │ 部分结果继续流程   │ 部分论据继续裁决     │ 风控明失败→明鉴秋兜底      │
 └────────────────────┴────────────────────┴───────────────────────────┘
 ```
@@ -364,22 +364,26 @@ daemon_watchdog.py 检测 (每30分钟)
 ### 9.4 P5 裁决链降级
 
 ```
-闫判官 (verdict)
+闫判官 (verdict，含完整交易参数)
     │
-    ├─ 成功 → 正常裁决 → 策执远 (trading_plan)
-    │                        │
-    │                        ├─ 成功 → 风控明 (risk_check)
-    │                        │              │
-    │                        │              ├─ 成功 → 报告输出
-    │                        │              │
-    │                        │              └─ 失败 → 明鉴秋兜底（记录风险警告）
-    │                        │
-    │                        └─ 失败 → 风控明兜底（简化策略）
+    ├─ 成功 → 风控明 (risk_check，直接基于闫判官 verdict 审核)
+    │              │
+    │              ├─ 成功 → 报告生成
+    │              │              │
+    │              │              ├─ 成功 → CTP 信号输出 (v8.7.0 新增)
+    │              │              │              │
+    │              │              │              ├─ risk_color=green → 输出 CTP 交易信号
+    │              │              │              ├─ risk_color=yellow → 按阈值决定
+    │              │              │              └─ risk_color=red → 信号阻断
+    │              │              │
+    │              │              └─ 失败 → 明鉴秋兜底（记录风险警告）
+    │              │
+    │              └─ 失败 → 明鉴秋兜底（简化风控审核）
     │
     └─ 失败 → D06 降级: 明鉴秋基于 P3+P4 论据独立裁决
-              ├─ 生成简化 verdict
-              ├─ 生成简化 trading_plan
-              └─ 生成简化 risk_check
+              ├─ 生成简化 verdict（含默认交易参数）
+              ├─ 生成简化 risk_check
+              └─ CTP 信号输出节点继续按 risk_color 决定
 ```
 
 ### 9.5 节点超时配置
@@ -394,9 +398,25 @@ daemon_watchdog.py 检测 (每30分钟)
 | `node_merge_research` | 60s | 是 |
 | `node_debate` | 600s | 是 |
 | `node_verdict` | 300s | 是 |
-| `node_trading_plan` | 120s | 是 |
 | `node_risk_check` | 120s | 是 |
 | `node_report` | 180s | 是 |
+| `node_signal_output` (v8.7.0 新增) | 60s | 是 |
+
+### 9.5.1 报告层降级 (v8.8.0+)
+
+明鉴秋负责 P1/P3/P5/P6/P6a 五个阶段报告生成。各阶段报告均具备降级策略：
+
+| 阶段 | 节点 | 失败降级 | 用户感知 |
+|:-----|:-----|:---------|:---------|
+| P1 | `node_scan` | 写日志 warning，状态 `scan_report_path=None`，主流程继续 | 无扫描报告，不影响后续阶段 |
+| P3 | `node_merge_research` | 写日志 warning，状态 `research_report_path=None` | 无研究报告，不影响辩论 |
+| P5 | `node_risk_check` | 写日志 warning，状态 `verdict_report_path=None` | 无裁决报告，信号输出正常 |
+| P6 | `node_report` | fallback 写入工作空间下 `debate_report_{trace_id}.html`（使用 `_render_html()` 模板），保证 `report_path` 永远有效 | 报告内容简化但不丢失 |
+| P6a | `node_signal_output` | 写日志 warning，状态 `signal_report_path=None`，CTP 信号正常输出 | 无信号扫描报告，CTP 正常 |
+
+**环境变量降级**：
+- `FDT_REPORT_WORKSPACE` 不可用（路径不可写）→ 回退到 `FDT_DAILY_WORKSPACE`
+- 两者皆不可用 → 回退到 `tempfile.gettempdir()/fdt_reports`（永远可写）
 
 ### 9.6 PostgreSQL 降级
 

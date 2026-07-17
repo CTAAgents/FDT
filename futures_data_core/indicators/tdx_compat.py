@@ -8,7 +8,7 @@ Technical Indicator Calculator v2.2.0
 核心升级：
   1. pandas→numpy向量化：速度提升5-10x（特别是CCI/ATR）
   2. 45项技术指标（含Donchian/Vortex/HMA/CMF/BB分析/HHHL/量价背离）
-  3. 覆盖commodity-trend-signal L1-L4四层打分全部技术指标
+  3. 覆盖commodity-trend-signal 技术分析评分四层打分全部技术指标
   4. 零额外依赖：仅需pandas+numpy（未引入TA-Lib C扩展）
 
 使用方法：

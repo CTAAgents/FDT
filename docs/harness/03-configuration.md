@@ -83,7 +83,7 @@
 ```toml
 [project]
 name = "futures-debate-team"
-version = "8.3.0"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
+version = "8.8.6"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.0", "numpy>=1.24", "python-dateutil>=2.8",
@@ -216,44 +216,7 @@ AKShare (优先级 3, 最后降级)
 
 ### 7.1 数据库连接配置
 
-```yaml
-# config/database.yaml (新增)
-postgresql:
-  host: "localhost"
-  port: 5432
-  database: "fdt"
-  username: "fdt_user"
-  password: "${PG_PASSWORD}"  # 从环境变量读取
-  schema: "public"
-  
-  # 连接池
-  pool:
-    min_size: 2
-    max_size: 10
-    max_overflow: 5
-    pool_timeout: 30
-    pool_recycle: 3600
-  
-  # 超时设置
-  timeout:
-    connect: 10
-    query: 60
-    
-  # 迁移配置
-  migrations:
-    path: "fdt_pg/migrations"
-    auto_migrate: true
-    
-  # OLAP 视图刷新
-  olap:
-    refresh_interval: 3600  # 每小时刷新物化视图
-    
-# 降级: 连接失败时回退到 DuckDB (过渡期)
-failover:
-  enabled: true
-  fallback_db: "futures.db"
-  alert_webhook: "${WEBHOOK_URL}"
-```
+> PG 配置通过环境变量管理（见 §7.2），由 `fdt_pg/config.py` 中的代码默认值提供，无独立 YAML 配置文件。
 
 ### 7.2 环境变量
 
@@ -291,72 +254,12 @@ failover:
 
 ### 8.1 CLI 入口配置
 
-```yaml
-# config/cli.yaml (新增)
-cli:
-  # 守护进程模式
-  daemon:
-    cron: "0 9 * * 1-5"  # 工作日 9:00 触发
-    timezone: "Asia/Shanghai"
-    max_instances: 1      # 禁止并发执行
-    misfire_grace_time: 3600  # 错过触发后1小时内补执行
-    
-  # 日志
-  log:
-    level: "INFO"
-    format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-    file: "logs/fdt_daemon.log"
-    rotation: "1 day"
-    retention: "30 days"
-    
-  # 进程管理
-  pid_file: "memory/fdt_daemon.pid"
-  
-# 运行时参数 (命令行覆盖)
-run:
-  mode: "default"        # default / fast / deep_research / tournament
-  symbols: []            # 空=全量扫描，指定=单品种
-  skip_self_evolution: false
-  output_dir: "Commodities/Reports"
-```
+> CLI 参数通过命令行参数和环境变量配置，`config/cli.yaml` 不存在。
 
 ### 8.2 API 服务配置
 
-```yaml
-# config/api.yaml (新增)
-api:
-  server:
-    host: "0.0.0.0"
-    port: 8000
-    workers: 1
-    reload: false
-    
-  # 认证
-  auth:
-    type: "api_key"      # api_key / jwt / none
-    api_key_header: "X-API-Key"
-    
-  # 限流
-  rate_limit:
-    requests_per_minute: 10
-    burst: 5
-    
-  # CORS
-  cors:
-    origins: ["http://localhost:3000"]
-    allow_credentials: true
-    
-  # 端点
-  endpoints:
-    debate: "/api/v1/debate"
-    status: "/api/v1/status"
-    health: "/health"
-    
-  # 异步任务
-  background:
-    max_concurrent: 2
-    timeout: 3600
-```
+> API 配置通过环境变量管理，`config/api.yaml` 不存在。
+
 
 ### 8.3 独立运行环境变量
 

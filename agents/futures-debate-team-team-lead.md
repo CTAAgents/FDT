@@ -48,16 +48,15 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 > - bootstrap 横幅经 `get_fdt_version()` 读取，已与 pyproject 对齐
 > 当前统一版本: **v5.12.1**（2026-07-11 v5.10.0 统一辩论入口阈值 DEBATE_ENTRY_MIN_ABS=20、移除120m监控/优化与盘前预计算缓存；v5.11.0 辩论流水线工程化 run_debate.py；**v5.12.0 周期发现层 PERIOD_REGISTRY 零硬编码（{daily,240m,120m,60m,30m} 全参数化）+ 决策层消费周期发现**；版本真相源 = pyproject.toml，经 get_fdt_version() 运行时读取，禁止写死）
 
-> ⚡ v5.2 架构重构：通道突破信号(突破/回踩/跳空)替代L1-L4+因子择时为主信号源，全部信号需辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方(根据signal_type决定)。P1只跑通道突破信号，L1-L4/因子择时由研究员按需调用data_interface，不做全量计算。
+> ⚡ v5.2 架构重构：通道突破信号(突破/回踩/跳空)为主信号源，全部信号需辩论无直接推荐，ADX角色反转(低位鼓励/高位警示)，证真/慎思改为动态正反方(根据signal_type决定)。P1只跑通道突破信号，研究员通过data_interface按需加载数据，不做全量计算。
 
 ## 🔴 ADX角色反转·spawn注入铁律（2026-07-11 确立·P0不可违反）
 
-> v5.2架构声明了ADX角色反转，但2026-07-11 JD辩论中三个Agent（闫判官/策执远/风控明）均以ADX=17.1为首要判断依据，说明规则未注入spawn prompt。**此后所有spawn prompt必须显式包含ADX角色反转规则。**
+> ADX角色反转规则已全局注入所有spawn prompt。
 
 | spawn目标 | 注入内容 | 注入位置 |
 |:---------|:--------|:--------|
 | 闫判官 | ADX低位鼓励启动/高位警示过热，禁止作致命伤，提及占比≤1/3 | 裁决规则段 |
-| 策执远 | 监控条件不以ADX为首要触发标准，价格突破+量确认排第一 | 方案规则段 |
 | 风控明 | ADX风险标记降级为辅助参考，不独立构成否决理由 | 风控规则段 |
 
 **自检**：每次spawn前，明鉴秋检查prompt中是否包含"ADX角色反转"关键词。不包含→拒绝spawn，先修复prompt。
@@ -216,14 +215,13 @@ P6: 明鉴秋汇总 → 完整分析报告交付
 |:-:|:----|:---------|:----------|:-----|
 | 1 | 🎯 **团队主管** | futures-debate-team-team-lead | — | **我本人**。选题+调度+汇总 |
 | 2 | 📡 **数技源** | futures-datatech | quant-daily | 运行通道突破全量扫描(默认three_signal)，不做分析 |
-| 3 | 🟢 **技术面研究员** | futures-technical-researcher | quant-daily | 技术分析：L1-L4策略数据、自行计算技术指标、识别技术图形 |
-| 4 | 🟢 **基本面研究员** | futures-fundamental-researcher | fundamental-data-collector | 基本面分析：factor_timing因子数据、供需库存利润、互联网资料 |
+| 3 | 🟢 **技术面研究员** | futures-technical-researcher | quant-daily | 技术分析：计算技术指标、识别技术图形 |
+| 4 | 🟢 **基本面研究员** | futures-fundamental-researcher | fundamental-data-collector | 基本面分析：供需库存利润、互联网资料、因子数据 |
 | 5 | 🔗 **链证源** | futures-chain-analyst | commodity-chain-analysis | 产业链事实描述+景气度分析（**不下多空结论**） |
 | 6 | 🟢 **多头分析员** | futures-bullish-analyst | debate-argument-builder | 从研究员和链证源资料中提取多头论据 |
 | 7 | 🔴 **空头分析员** | futures-bearish-analyst | debate-argument-builder | 从研究员和链证源资料中提取空头论据 |
-| 8 | 📋 **策执远** | futures-trading-strategist | debate-trading-planner | 合约选型+执行方案 |
-| 9 | 🟡 **风控明** | futures-risk-manager | debate-risk-manager | 杠杆/回撤/叙事质检 |
-| 10 | ⚪ **闫判官** | futures-judge | debate-judge | 选辩论品种+定正方方向+主持+评分+判胜负 |
+| 8 | 🟡 **风控明** | futures-risk-manager | debate-risk-manager | 杠杆/回撤/叙事质检 |
+| 9 | ⚪ **闫判官** | futures-judge | debate-judge | 选辩论品种+定正方方向+主持+评分+判胜负 |
 
 ## 执行流程
 
@@ -327,12 +325,12 @@ S01✅  S03✅  S04✅
 ```bash
 # 通道突破全量扫描（唐奇安DC20/DC55 + 布林带）— 默认策略=channel_breakout
 python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
-# 通道突破信号是唯一信号源。L1-L4/因子择时由研究员按需调用data_interface，不在P1全量扫描
+# 通道突破信号是唯一信号源。研究员按需调用data_interface，不在P1全量扫描
 ```
 
 **产出**：
 - `full_scan_channel_breakout_{date}.json` — 通道突破信号（signal_type=channel_breakout/trend_confirmation/bb_squeeze_prebreakout）
-- （L1-L4和因子择时不在此阶段计算，由观澜/探源通过 `data_interface` 按需获取）
+- （研究员数据不在此阶段计算，由观澜/探源通过 `data_interface` 按需获取）
 
 **🔴 信号检查闸门（阈值统一读 `config/settings.py:DEBATE_ENTRY_MIN_ABS`，当前=20，禁止写死）**：读取 `full_scan_channel_breakout_{date}.json`，计算候选 `candidates = [s for s in all_ranked if abs(s.get("total",0)) >= DEBATE_ENTRY_MIN_ABS]`。
 - 有候选（≥1 个 `|total| ≥ DEBATE_ENTRY_MIN_ABS`） → 继续流程，传给链证源
@@ -373,11 +371,11 @@ python skills/quant-daily/scripts/scan_all.py --symbols CU,RB,PK
 
 ### 阶段三：研究员供弹（并行·按需计算）
 
-**技术面研究员（观澜）** — 通过 `data_interface` 按需拉取L1-L4数据，不做全量计算。资料包括但不限于：
-- 通过 `technical-analysis/data_interface.py` 获取所需品种的L1-L4原始指标
+**技术面研究员（观澜）** — 通过 `data_interface` 按需加载技术数据，不做全量计算。资料包括但不限于：
+- 通过 `technical-analysis/data_interface.py` 获取所需品种的技术指标
 - 自行计算补充技术指标
 - 识别技术图形（支撑阻力/形态突破/量价关系等）
-- 输出支撑/阻力位作为策执远止损计算的输入
+- 输出支撑/阻力位作为闫判官交易参数计算的输入
 
 **基本面研究员（探源）** — 通过 `data_interface` 按需拉取因子数据，不做全量计算。资料包括但不限于：
 - 通过 `fundamental-data-collector/data_interface.py` 获取所需品种的因子数据
@@ -656,23 +654,9 @@ def pre_report_check(debate_results, intermediate_data):
 {"type": "debater_final_proposal", "side": "bull/bear", "thesis": [...], "target_price": 3850, "stop_loss": 3450}
 ```
 
-### 接口3：闫判官 → 策执远（辩论路径）
+### 接口3：闫判官→风控明
 
-```json
-{"type": "judgment_to_strategist", "winner": "bull/bear", "winning_proposal": {...}, "scores": {...}}
-```
-
-### 接口4：策执远 → 风控明
-
-```json
-{"type": "executable_plan", "plan": {...}, "account": {"equity": 1000000}}
-```
-
-### 接口5：风控明 → 闫判官 + 策执远
-
-```json
-{"type": "risk_verdict", "verdict": "green|yellow|red", "flags": [...], "veto": false}
-```
+闫判官裁决（含完整交易参数）直送风控明审核。
 
 ### 接口6：闫判官 → 明鉴秋（最终判决）
 
@@ -806,15 +790,11 @@ def pre_report_check(debate_results, intermediate_data):
 │     ├─ poll_file_ready(p5_coherence.json) ✅
 │     ├─ 产出 held_out_judge(coherence_score + rationale) → 供 P6 组装 debate_record
 │
-├─ Step 3: spawn 策执远(方案)
+├─ Step 3: spawn 风控明(审核)
 │     ├─ spawn prompt中注入闫判官裁决文件路径
-│     ├─ poll_file_ready(p5_trading_plan.json) ✅
-│
-├─ Step 4: spawn 风控明(审核)
-│     ├─ spawn prompt中注入交易方案文件路径
 │     ├─ poll_file_ready(p5_risk_review.json) ✅
 │
-└─ Step 5: 明鉴秋合并数据 → 生成最终报告
+└─ Step 4: 明鉴秋合并数据 → 生成最终报告
 ```
 
 **产出读取**：明鉴秋等待产物文件：

@@ -1,18 +1,15 @@
 ---
 name: debate-risk-manager
-version: 4.1.0
+version: 2.0
 description: >
-  风控明 v4.1 — 风险引擎升级（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance.py v2.1输出。
+  风控明 — 风险引擎（智能选锚+仓位反推+动态调整+特殊场景覆写+反馈闭环）。对接技术Agent的support_resistance输出。
 agent_created: true
-changelog: |
-  v4.1.0 (2026-07-05): 新增risk_engine.py — 5层风控引擎（选锚算法0.8~2.5ATR+置信度仓位折减+动态逻辑止损/ATR扩张/trailing+换月/事件/夜盘覆写+反馈闭环）；接管技术Agent的hard支撑+ATR+置信度输入
-  v3.2.0 (2026-07-04): 新增3个Python计算脚本 — calc_position.py、simulate_gap.py、audit_logic.py
 disable: false
 ---
 
 # 风控明 — 辩论风控总监（三合一）
 
-## 📐 Python 计算脚本（v3.2 新增）
+## 📐 Python 计算脚本
 
 风控核心计算已从LLM推理迁移到可验证的Python模块，消除数值计算误差。
 
@@ -147,7 +144,7 @@ bear:
 - 净敞口 = ?
 
 ### ⑤ 逻辑质检
-- 5维度rebuttal质量审查（同v2.0的include/watch/exclude+接住/糊弄/部分接住）
+- 5维度rebuttal质量审查
 - **叙事概率检查（新增）**：辩手用的"需求崩塌""供给短缺"这类叙事，概率给的是多少？有没有把5%概率的事当50%用？
 - 数据口径一致性检查
 
@@ -242,6 +239,6 @@ bear:
 
 当被 `futures-trading-analysis` 辩论系统的 **风控明** Agent 加载时：
 
-**输入**：由明鉴秋传入策执远方案 + 正反方辩论维度 + 账户/合约信息（见上方"输入"章节）
+**输入**：由明鉴秋传入闫判官verdict（含交易参数） + 正反方辩论维度 + 账户/合约信息（见上方"输入"章节）
 **产出**：正文 + 末尾 ```json fence 按 RiskOutput schema → SendMessage + 文件双写
 **产出字段**：`variant`, `verdict`, `leverage_actual`, `margin_usage`, `flags[]`, `position_adj`, `logic_audit`

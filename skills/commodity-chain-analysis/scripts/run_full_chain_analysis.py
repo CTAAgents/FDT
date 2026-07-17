@@ -45,63 +45,40 @@ def _find_file(pattern):
 def load_qd_data():
     """从 quant-daily JSON 加载信号数据"""
     summary_path = _find_file("full_scan_summary_{DATE_COMPACT}.json")
-    l1l4_path = _find_file("full_scan_l1l4_{DATE_COMPACT}.json")
-    ft_path = _find_file("full_scan_factor_timing_{DATE_COMPACT}.json")
     with open(summary_path, "r") as f:
         summary = json.load(f)
-    with open(l1l4_path, "r") as f:
-        l1l4 = json.load(f)
-    with open(ft_path, "r") as f:
-        ft = json.load(f)
-    return summary, l1l4, ft
+    return summary
 
 
 def _index_by_symbol(data):
-    """将 all_ranked 列表按 symbol 建索引（三生产者各自独立 JSON）"""
     return {s["symbol"]: s for s in data.get("all_ranked", [])}
 
 
-def build_symbol_map(summary, l1l4, ft):
-    """构建 symbol->方向映射（2026-07-14 迁移后：三生产者独立 JSON，不再嵌套）
-
-    旧 --dual 合并结构把 l1l4 / factor_timing 嵌套在 summary['symbols'] 每项内；
-    新架构下 channel_breakout(summary) / L1-L4(l1l4) / 因子择时(ft) 是三个独立文件，
-    load_qd_data 已分别加载，此处做三源合并。
-    """
+def build_symbol_map(summary):
     smap = {}
     s_idx = _index_by_symbol(summary)
-    l_idx = _index_by_symbol(l1l4)
-    f_idx = _index_by_symbol(ft)
-    for sym in sorted(set(s_idx) | set(l_idx) | set(f_idx)):
-        s = s_idx.get(sym, {})
-        l = l_idx.get(sym, {})
-        f = f_idx.get(sym, {})
+    for sym, s in s_idx.items():
         smap[sym] = {
             "symbol": sym,
-            "name": s.get("name") or l.get("name") or f.get("name") or sym,
-            "l1l4_total": l.get("total", 0),
-            "l1l4_direction": l.get("direction", "neutral"),
-            "l1l4_grade": l.get("grade", "NOISE"),
-            "ft_total": f.get("total", 0),
-            "ft_direction": f.get("direction", "neutral"),
-            "ft_grade": f.get("grade", "NOISE"),
-            "adx": l.get("adx", s.get("adx", 0)),
-            "rsi": l.get("rsi", s.get("rsi", 50)),
-            "z_score_l1": l.get("z_score", 0),
-            "stage": l.get("stage", "unknown"),
-            "volume": l.get("volume", 0),
+            "name": s.get("name", sym),
+            "total": s.get("total", 0),
+            "direction": s.get("direction", "neutral"),
+            "grade": s.get("grade", "NOISE"),
+            "adx": s.get("adx", 0),
+            "rsi": s.get("rsi", 50),
+            "z_score": s.get("z_score", 0),
+            "stage": s.get("stage", "unknown"),
+            "volume": s.get("volume", 0),
         }
     return smap
 
 
-def build_price_dict(l1l4):
-    """从 l1l4 JSON 构建 {symbol: abs_total} 信号强度"""
+def build_price_dict(summary):
     pdict = {}
-    for s in l1l4["all_ranked"]:
+    for s in summary.get("all_ranked", []):
         pdict[s["symbol"]] = {
             "price": s.get("price", 0),
             "total": s.get("total", 0),
-            "abs_total": s.get("abs", 0),
             "direction": s.get("direction", "neutral"),
             "grade": s.get("grade", "NOISE"),
             "z_score": s.get("z_score", 0),
@@ -355,7 +332,7 @@ def main():
     # === 报告1：策略报告 ===
     strategy_report = []
     strategy_report.append("# 链证源策略报告 — 给闫判官参考辩论方向\n")
-    strategy_report.append(f"**数据来源**: 数技源 channel_breakout + 观澜 L1-L4 扫描结果 | **日期**: 2026-07-05\n")
+    strategy_report.append(f"**数据来源**: 数技源 | **日期**: 2026-07-05\n")
     strategy_report.append("---\n")
 
     for chain_name in sorted(chain_data.keys()):
@@ -389,7 +366,7 @@ def main():
     # === 报告2：产业链分析报告 ===
     analysis_report = []
     analysis_report.append("# 链证源产业链分析报告 — 给闫判官做辩论品种取舍\n")
-    analysis_report.append(f"**数据来源**: 数技源 channel_breakout + 观澜 L1-L4 扫描结果 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
+    analysis_report.append(f"**数据来源**: 数技源 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
     analysis_report.append("---\n")
 
     # 冗余排除建议

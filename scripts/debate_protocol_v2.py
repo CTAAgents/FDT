@@ -19,7 +19,9 @@
     result = protocol.run_debate(affirmative_args, opposition_args, evidence_data)
 """
 
-import json, math, random
+import json
+import math
+import random
 from datetime import datetime, date
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict

@@ -32,7 +32,8 @@ def _load(rel: str):
     if not fp.exists():
         return None
     try:
-        return json.load(open(fp, "r", encoding="utf-8"))
+        with open(fp, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
         return None
 
@@ -213,7 +214,8 @@ def main():
     log = []
     if log_path.exists():
         try:
-            log = json.load(open(log_path, "r", encoding="utf-8"))
+            with open(log_path, "r", encoding="utf-8") as lf:
+                log = json.load(lf)
             if isinstance(log, dict):
                 log = log.get("entries", [])
         except Exception:

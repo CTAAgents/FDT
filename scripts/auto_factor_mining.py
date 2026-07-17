@@ -22,7 +22,11 @@ _logger = get_logger("factor_mining")
 
 from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime, timedelta
-import json, os, math, random, itertools
+import itertools
+import json
+import math
+import os
+import random
 from pathlib import Path
 import numpy as np
 

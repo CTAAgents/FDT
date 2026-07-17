@@ -12,7 +12,7 @@ class DimensionItem(BaseModel):
 
 
 class EvidenceItem(BaseModel):
-    """结构化证据项 — 便于策执远抽取 + 闫判官回溯"""
+    """结构化证据项 — 便于闫判官回溯"""
 
     claim_id: str = ""  # 论点ID（如 "证真-D1"），反驳时引用
     point: str  # 论点
@@ -36,7 +36,7 @@ class CounterRisk(BaseModel):
 
 
 class EntryPlan(BaseModel):
-    """交易方案 — 直接喂给策执远"""
+    """交易方案 — 直接供闫判官裁决"""
 
     price_zone: str  # "6860-6880"
     stop: str  # "6763（观澜锚6850-0.4ATR）"
@@ -51,7 +51,7 @@ class StructuredDebate(BaseSkillOutput):
     1. thesis: 一句话论点（不是复述数据，是建构叙事）
     2. evidence: 分技术/基本面，标注source（观澜/探源/链证源）
     3. counter_risks: 主动列弱点（不列=闫判官扣分）
-    4. entry_plan: 直供给策执远
+    4. entry_plan: 直供给闫判官裁决
     5. rebuttal_strategy: 预判对方主攻方向+防守方案
     """
 
@@ -74,7 +74,7 @@ class StructuredDebate(BaseSkillOutput):
     # 主动承认的己方弱点（不列则扣分）
     counter_risks: List[CounterRisk] = Field(default_factory=list)
 
-    # 交易方案（直接喂给策执远）
+    # 交易方案（直接供闫判官裁决）
     entry_plan: Optional[EntryPlan] = None
 
     # 预判对方攻击方向+己方防守方案

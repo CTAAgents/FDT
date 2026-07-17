@@ -26,7 +26,7 @@
 **凡涉及子周期OHLCV数据的技术分析、指标计算、回测、策略评分——均须使用会话感知K线。**
 
 - 数据入口: `multi_source_adapter.get_kline(period=60m/120m/240m)` → 已内置R0归一化
-- 策略层: channel_breakout / layered_l1l4 / factor_timing / three_signal — 均从tech dict读取预计算指标 ✓
+- 策略层: channel_breakout / three_signal — 均从tech dict读取预计算指标 ✓
 - 技术分析skill: `data_interface.py` 通过multi_source_adapter间接访问 ✓
 - 回测/优化器: `backtest/` `optimizer/` 使用预采集数据 ✓
 - **禁止**: 任何模块直接调用akshare/tqsdk/tdx原始接口获取子周期OHLCV后直接使用
