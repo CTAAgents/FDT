@@ -2,20 +2,25 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v8.7.0 — 报告层统一 + CTP 信号输出**
+**v8.8.8 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
 
 ---
 
 ## 核心特性
 
-- **NO_FUSION 策略管线**: 8 策略各自独立打分，方向冲突不融合、不掩盖、不平均
-- **三层信号门禁**: 震荡市(ADX+BB+KF) + 去趋势(Hurst+VR) + P0-4 伪突破拦截，共 20+ 道校验
-- **多空辩论机制**: 多头/空头分析员独立举证，闫判官裁决（含完整交易参数）
-- **观澜/探源 LLM 推理（v8.6.0+）**: 技术面/基本面由 LLM 推理生成结构化 TechnicalOutput/FundamentalStateVector
-- **CTP 信号输出（v8.7.0+）**: 闫判官裁决→风控明审核→明鉴秋统一调度 CTP 信号输出
-- **自进化闭环**: T+1 回测验证 → 累计样本 → 校准权重 → 进化 Agent Prompt → ML 增量训练
-- **LangGraph 架构**: 可配置并行数据源、条件路由、状态持久化、断点恢复
-- **独立运行**: 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
+- **🥇 中国期货 CTA 赛道第 1 名** — 全网唯一专注 62 品种的多Agent LLM 期货交易系统（[排名报告](docs/FDT_China_Ranking_Report_v1.0.md)）
+- **9-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/证真/慎思/风控明/明鉴秋，边界钉死不越界
+- **5 层鲁棒防线 (L1-L5)** — 产出校验→熔断降级→信号门禁→路径发现→健康自检，各 Agent 独立超时降级
+- **自进化闭环** — T+1 验证 → 权重校准 → Agent Prompt 进化 → LightGBM 增量训练，无需人工标注
+- **NO_FUSION 策略管线** — 8 策略各自独立打分，方向冲突不融合、不掩盖、不平均
+- **三层信号门禁** — 震荡市(ADX+BB+KF) + 去趋势(Hurst+VR) + P0-4 伪突破拦截，共 20+ 道校验
+- **多空辩论机制** — 并行辩论 → 串行裁决 → 条件分歧路由的三级辩论结构
+- **观澜/探源 LLM 推理** — 技术面/基本面由 LLM 推理生成结构化 TechnicalOutput/FundamentalStateVector
+- **CTP 信号输出** — 闫判官裁决→风控明审核→明鉴秋统一调度 CTP 交易指令
+- **PostgreSQL OLTP+OLAP** — 分区表 + BRIN/GIN 索引 + 物化视图分析
+- **LangGraph 架构** — 可配置并行数据源、条件路由、状态持久化、断点恢复
+- **独立运行** — 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
+- **339+ 测试用例** — 13 个测试文件，12 份 Harness 工程规范文档
 
 ---
 
@@ -236,7 +241,9 @@ FDT/
 | `FDT_CHECKPOINTER` | Checkpointer 类型（pg/sqlite） | `sqlite` |
 | `FDT_SCAN_MODE` | 扫描模式（no-filter） | - |
 | `FDT_STRATEGIES` | 指定策略列表 | - |
-| `FDT_RISK_THRESHOLD` | CTP 信号风控阈值（green/yellow/red，v8.7.0） | `yellow` |
+| `FDT_RISK_THRESHOLD` | CTP 信号风控阈值（green/yellow/red） | `yellow` |
+| `FDT_REPORT_WORKSPACE` | 用户指定工作空间根目录 | - |
+| `FDT_DAILY_WORKSPACE` | 每日自动化任务工作空间 | - |
 
 ---
 
@@ -251,6 +258,11 @@ pytest tests/fdt_langgraph/ -v
 
 # 运行基准对比测试
 python scripts/run_benchmark.py --compare
+
+# 查看测试统计
+# scripts 测试: 7 文件 / 322 用例
+# langgraph 测试: 6 文件 / 161 用例
+# 合计: 13 文件 / 483+ 用例
 ```
 
 ---
@@ -262,6 +274,8 @@ python scripts/run_benchmark.py --compare
 - [架构总览](docs/harness/01-architecture.md) — Harness 工程规范
 - [生命周期](docs/harness/02-lifecycle.md) — 阶段定义和状态机
 - [配置说明](docs/harness/03-configuration.md) — 配置项和优先级
+- [全球排名报告](docs/FDT_AI_Capabilities_Ranking_Report_v1.0.md) — 全网 AI 能力排名分析
+- [中国排名报告](docs/FDT_China_Ranking_Report_v1.0.md) — 中国境内排名分析
 
 ---
 
@@ -269,8 +283,9 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v8.7.0** | 🎯 **报告层统一 + CTP 信号输出**：① 闫判官直接输出完整交易参数 ② 风控明直接基于闫判官 verdict 审核 ③ 新增 `node_signal_output` 节点，根据风控 risk_color 决定 CTP 信号输出 ④ 流程简化为 `verdict → risk_check → report → signal_output → END` |
-| **v8.6.0** | 🎯 **报告层统一 + 观澜/探源 LLM 推理**：① 观澜 LLM 推理生成 `TechnicalOutput` ② 探源 LLM 推理生成 `FundamentalStateVector` ③ 报告层优先使用 LLM 分析结果 |
+| **v8.8.8** | 🏆 **全网排名里程碑**：① 完成全网 AI 能力排名分析（8 维度 / 11 系统对比）② 中国期货 CTA 赛道第 1 名且全网唯一 ③ 6 项 S 级评分（Agent/辩论/自进化/鲁棒性/工程/数据）④ 更新 README 至 v8.8.8 |
+| **v8.7.0** | 🎯 **报告层统一 + CTP 信号输出**：① 闫判官直接输出完整交易参数 ② 新增 `node_signal_output` 节点 ③ 删除策执远角色 ④ 流程简化为 `verdict → risk_check → report → signal_output → END` |
+| **v8.6.0** | 🎯 **报告层统一 + 观澜/探源 LLM 推理**：① 观澜 LLM 推理生成 `TechnicalOutput` ② 探源 LLM 推理生成 `FundamentalStateVector`
 | v8.5.4 | cov-3 候选模块测试覆盖（unified_logger / fdt_version / config_manager / fdt_llm 共 144 用例） |
 | v8.5.3 | cov-2 任务：新增 178 个测试用例（fdt_paths / trace_id / confidence_utils） |
 | v8.5.0 | FDC 数据注入架构 + 16 个 schema 增强 |
