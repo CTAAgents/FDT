@@ -186,7 +186,43 @@ def print_results(results: Dict):
     print("-" * 70)
 
 
+def auto_update_readme():
+    """自动更新 README.md 中的版本号（从 pyproject.toml 同步）"""
+    readme_path = PROJECT_ROOT / "README.md"
+    version_path = PROJECT_ROOT / "pyproject.toml"
+    if not readme_path.exists() or not version_path.exists():
+        return
+    
+    import re
+    with open(version_path, "r", encoding="utf-8") as f:
+        vcontent = f.read()
+    match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', vcontent)
+    if not match:
+        return
+    version = match.group(1)
+    
+    with open(readme_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    original = content
+    # 更新 header 版本号: **vX.Y.Z** → **v{version}**
+    content = re.sub(r'\*\*v\d+\.\d+\.\d+\*\*', f'**v{version}**', content, count=1)
+    
+    if content != original:
+        with open(readme_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        try:
+            import subprocess
+            subprocess.run(["git", "add", "README.md"], cwd=PROJECT_ROOT,
+                         capture_output=True, text=True)
+        except Exception:
+            pass
+
+
 def main():
+    # 自动同步 README 版本号
+    auto_update_readme()
+    
     changes = get_git_changes()
     
     if not changes:
