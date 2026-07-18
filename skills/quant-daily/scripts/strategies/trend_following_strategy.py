@@ -224,7 +224,9 @@ class TrendFollowingStrategy(BaseStrategyV2):
             dc55_h = float(t.get("dc55_high", t.get("dc55_max", 0)))
             dc55_l = float(t.get("dc55_low", t.get("dc55_min", 0)))
             bb_val = t.get("bb", 0.5)
-            adx = float(t.get("adx", 0))
+            adx = float(t.get("adx", t.get("ADX", t.get("ADX14", 0))))
+            rsi_val = float(t.get("rsi", t.get("RSI14", 50)))
+            volume_val = int(t.get("volume", 0))
 
             # 十层打分（DC20/DC55/BB + G30: Keltner/Supertrend/SAR/Chandelier/MACD + G31: TSMOM + G33: Dual Thrust）
             s20, d20 = _score_dc20(close, dc20_h, dc20_l)
@@ -284,6 +286,8 @@ class TrendFollowingStrategy(BaseStrategyV2):
                     meta={
                         f"{_name}_score": round(_score, 3),
                         "adx": adx,
+                        "rsi": rsi_val,
+                        "volume": volume_val,
                         "close": close,
                     },
                 ))
@@ -308,6 +312,10 @@ class TrendFollowingStrategy(BaseStrategyV2):
                 grade=grade,
                 weight=self.weight,
             )
+            # G76：从 meta 回填技术指标（adx/rsi/volume），供下游报告使用
+            ss.adx = float(s.meta.get("adx", 0))
+            ss.rsi = float(s.meta.get("rsi", 50))
+            ss.volume = int(s.meta.get("volume", 0))
             # reason：子信号身份 + 关键条件，供辩论环节识别"为什么选这个信号"
             _sub = s.signal_type.split(".")[-1] if "." in s.signal_type else "mixed"
             _score_key = f"{_sub}_score"

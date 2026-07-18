@@ -470,8 +470,75 @@ class StrategyPipeline:
                 _tp = _tech_price.get(s.symbol, {})
                 s.price = float(_tp.get("price") or _tp.get("last_price") or 0.0)
 
+        # Phase 4.8: 按品种合并子信号（同品种只输出一条综合信号）
+        # 将多个子信号（supertrend/sar/macd/tsmom/dual_thrust 等）合并为一条品种信号，
+        # 保留子信号明细在 sub_signals 字段供下游辩论层参考。
+        _merged_by_symbol: dict[str, ScoredSignal] = {}
+        _sub_signal_map: dict[str, list[dict]] = defaultdict(list)
+        _grade_rank = {"NOISE": 0, "WEAK": 1, "WATCH": 2, "STRONG": 3}
+
+        for s in fused:
+            sym = s.symbol
+            # 记录子信号明细
+            _sub_signal_map[sym].append({
+                "signal_type": s.signal_type,
+                "total": s.total,
+                "direction": s.direction,
+                "grade": s.grade,
+                "abs_score": s.abs_score,
+                "reason": s.reason,
+                "_validator_demoted": s._validator_demoted,
+            })
+
+            if sym not in _merged_by_symbol:
+                _merged_by_symbol[sym] = s
+                continue
+
+            existing = _merged_by_symbol[sym]
+            # 合并 total: 平均
+            existing.total = (existing.total + s.total) / 2.0
+            # 合并 abs_score: 平均
+            existing.abs_score = (existing.abs_score + s.abs_score) / 2.0
+            # 保留最佳 grade
+            if _grade_rank.get(s.grade, 0) > _grade_rank.get(existing.grade, 0):
+                existing.grade = s.grade
+                existing.direction = s.direction
+                existing.signal_type = s.signal_type
+                existing.reason = s.reason
+            # 保留价格/ADX/RSI 等指标（取非零值优先）
+            if s.price and not existing.price:
+                existing.price = s.price
+            if s.adx and not existing.adx:
+                existing.adx = s.adx
+            if s.rsi and not existing.rsi:
+                existing.rsi = s.rsi
+            # 保留体积
+            if s.volume > existing.volume:
+                existing.volume = s.volume
+
+        # 重新赋值 direction 为合并后的平均方向
+        for sym, merged in _merged_by_symbol.items():
+            if merged.total > 0:
+                merged.direction = "bull"
+            elif merged.total < 0:
+                merged.direction = "bear"
+            else:
+                merged.direction = "neutral"
+            # 注入子信号明细
+            merged._sub_signals = _sub_signal_map.get(sym, [])
+
+        fused = list(_merged_by_symbol.values())
+        # 按 abs(total) 降序排序
+        fused.sort(key=lambda x: abs(x.total), reverse=True)
+
         # Phase 5: 打包输出
         all_dicts = [s.to_dict() for s in fused]
+        # 注入子信号列表到 dict
+        for d in all_dicts:
+            sym = d.get("symbol", "")
+            subs = _sub_signal_map.get(sym, [])
+            if subs:
+                d["sub_signals"] = subs
         bull = [d for d in all_dicts if d.get("direction") == "bull" and d.get("grade") != "NOISE"]
         bear = [d for d in all_dicts if d.get("direction") == "bear" and d.get("grade") != "NOISE"]
 

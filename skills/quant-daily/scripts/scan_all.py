@@ -131,10 +131,14 @@ def _split_symbol_contract(sym: str):
 
 # ── 多因子增强过滤器：基差数据采集（生意社现货价 → 基差）──
 def _collect_basis_data_sync(all_ranked: list) -> dict:
-    """同步采集基差数据：一次 HTTP GET 拉取 100ppi.com/sf/ 现期表。
+    """同步采集基差数据：100ppi.com/sf/ 现期表 → 降级 TdxCollector 近月代理。
 
     对 all_ranked 中每个品种，用期货价（price）与生意社现货价计算基差。
     单位换算：FG(×80), jd(/500), lh(/1000) 已内置。
+
+    [v8.8.7] 降级策略：100ppi 不可用时（HW_CHECK 反爬/超时/页面变更），
+    自动降级到 TdxCollector 近月合约价格作为现货代理。
+    原理：近月合约临近交割时价格收敛于现货，可作为高质量现货近似值。
     """
     import requests
     from bs4 import BeautifulSoup
@@ -143,11 +147,11 @@ def _collect_basis_data_sync(all_ranked: list) -> dict:
     try:
         resp = requests.get("https://www.100ppi.com/sf/", timeout=15)
         if resp.status_code != 200:
-            return result
+            return _collect_basis_via_nearmonth(all_ranked)
         soup = BeautifulSoup(resp.text, "lxml")
         table = soup.find("table", class_="sf-table") or soup.find("table", id="sf-table") or soup.find("table")
         if not table:
-            return result
+            return _collect_basis_via_nearmonth(all_ranked)
         # 导入映射表与换算配置
         from data.spot_100ppi import PPI_SYMBOL_MAP, UNIT_CONVERSIONS
         fut_prices = {}
@@ -199,6 +203,79 @@ def _collect_basis_data_sync(all_ranked: list) -> dict:
                 "basis_pct": round(basis_pct, 4),
                 "unit": conv.get("target_unit", "元/吨"),
             }
+    except Exception:
+        pass
+
+    # ── 降级路径：100ppi 无数据 → TDX 近月合约作为现货代理 ──
+    if not result:
+        result = _collect_basis_via_nearmonth(all_ranked)
+    return result
+
+
+def _collect_basis_via_nearmonth(all_ranked: list) -> dict:
+    """降级方案：使用 TdxCollector 近月合约价格作为现货代理。
+
+    当生意社 100ppi 不可用时（HW_CHECK 反爬/网络超时/页面结构变更），
+    使用通达信本地 TdxCollector 获取各品种近月合约价格作为现货代理。
+
+    原理：期货近月合约临近交割时基差趋近于零，价格收敛于现货。
+    对于无交割月的指数类品种（如集运指数 ec），跳过降级。
+    返回格式与 _collect_basis_data_sync 同构，unit 标注为"近月代理"。
+
+    Returns:
+        {SYM: {spot: float, futures: float, basis: float, basis_pct: float,
+               unit: str, data_source: str, spot_raw: float}}
+    """
+    result: dict[str, dict] = {}
+    try:
+        from data.collectors.tdx_collector import TdxCollector
+        from data.spot_100ppi import UNIT_CONVERSIONS
+
+        tdx = TdxCollector()
+        if not tdx.is_available:
+            return result
+
+        # 构建品种→期货价格映射
+        fut_prices = {}
+        for r in all_ranked:
+            sym = r.get("symbol", "").upper()
+            price = r.get("price", 0)
+            if sym and price:
+                fut_prices[sym] = float(price)
+
+        for sym_upper, fut in fut_prices.items():
+            try:
+                ts = tdx.get_term_structure(sym_upper)
+                if not ts or not ts.get("near_price"):
+                    continue
+                near_price = float(ts["near_price"])
+                if near_price <= 0:
+                    continue
+
+                # JD/LH 单位换算：与 100ppi 路径保持一致
+                conv = UNIT_CONVERSIONS.get(sym_upper, {})
+                fut_converted = fut
+                if sym_upper == "JD" and "futures_conversion" in conv:
+                    fut_converted = fut * conv["futures_conversion"]["factor"]  # /500
+                elif sym_upper == "LH" and "futures_conversion" in conv:
+                    fut_converted = fut * conv["futures_conversion"]["factor"]  # /1000
+
+                if not fut_converted:
+                    continue
+
+                basis = near_price - fut_converted
+                basis_pct = basis / fut_converted * 100.0
+                result[sym_upper] = {
+                    "spot_raw": near_price,
+                    "spot": round(near_price, 2),
+                    "futures": round(fut_converted, 2),
+                    "basis": round(basis, 2),
+                    "basis_pct": round(basis_pct, 4),
+                    "unit": "元/吨(近月代理)",
+                    "data_source": "near_month_proxy",
+                }
+            except Exception:
+                continue
     except Exception:
         pass
     return result
@@ -1411,9 +1488,12 @@ function filterTable(f) {{
 render();
 </script>
 </body></html>"""
-        html_path = os.path.join(output_dir, f"{output_prefix}_ranking_{today_str}.html")
-        _atomic_write(html_path, html, mode="text")
-        print(f"[OK] HTML: {html_path} ({os.path.getsize(html_path)} bytes)")
+        if os.environ.get("FDT_GENERATE_SCAN_REPORT", "").lower() == "true":
+            html_path = os.path.join(output_dir, f"{output_prefix}_ranking_{today_str}.html")
+            _atomic_write(html_path, html, mode="text")
+            print(f"[OK] HTML: {html_path} ({os.path.getsize(html_path)} bytes)")
+        else:
+            print("[SKIP] 全品种排序HTML报告跳过 (FDT_GENERATE_SCAN_REPORT 未设置)")
 
     return summary
 

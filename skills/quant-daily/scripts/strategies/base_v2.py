@@ -229,10 +229,24 @@ class BaseStrategyV2(ABC):
 
 def _copy_fields(src: dict, dst: ScoredSignal) -> None:
     """从 v1 输出 dict 复制指标字段到 ScoredSignal。"""
+    # G76：大小写兼容映射表（legacy_numpy 输出大写 ADX/RSI14，
+    # TDX bridge 也输出大写，但下游统一以小写消费）
+    _upper_fallback = {
+        "adx": ("ADX", "ADX14"),
+        "rsi": ("RSI14", "RSI"),
+        "volume": ("VOL",),
+        "atr": ("ATR14", "ATR"),
+        "cci": ("CCI20", "CCI"),
+    }
     for k in ("price", "change_pct", "volume", "adx", "rsi", "cci",
               "ma_slope", "macd_cross", "dc20_break", "ma_align",
               "z_score", "stage", "atr"):
         v = src.get(k)
+        if v is None and k in _upper_fallback:
+            for fk in _upper_fallback[k]:
+                v = src.get(fk)
+                if v is not None:
+                    break
         if v is not None:
             setattr(dst, k, v)
     dst._tdx_patched = src.get("_tdx_patched", False)

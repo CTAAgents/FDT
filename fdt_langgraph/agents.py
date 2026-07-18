@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from typing import Dict, Optional, Any, List
 from datetime import datetime
 
@@ -18,6 +19,21 @@ class FdtAgentExecutor:
             self.system_prompt = agent_config.get("system_prompt", "")
             self.max_tokens = agent_config.get("max_tokens", 4096)
             self.temperature = agent_config.get("temperature", 0.7)
+
+    @staticmethod
+    def _normalize_env_name(agent_name: str) -> str:
+        """将 Agent 名称转换为环境变量命名格式：大写 + 非字母数字下划线转为下划线"""
+        name = agent_name.upper()
+        name = re.sub(r"[^A-Z0-9_]", "_", name)
+        name = re.sub(r"_+", "_", name).strip("_")
+        return name
+
+    def _resolve_llm_config(self, suffix: str, default: str) -> str:
+        """解析逐Agent LLM 配置。优先级：逐Agent 环境变量 > 全局环境变量 > 传入默认值"""
+        if not self.agent_name:
+            return default
+        env_key = f"FDT_LLM_{self._normalize_env_name(self.agent_name)}_{suffix}"
+        return os.environ.get(env_key, default)
 
     def _load_from_registry(self, agent_name: str):
         agent = AgentRegistry.get(agent_name)
@@ -70,16 +86,19 @@ class FdtAgentExecutor:
         import httpx
         import time
 
-        api_key = os.environ.get("FDT_LLM_API_KEY")
-        api_base = os.environ.get("FDT_LLM_API_BASE", "https://api.deepseek.com/v1")
+        # 逐Agent LLM 配置（动态解析，支持环境变量在运行时修改）
+        api_key = self._resolve_llm_config("API_KEY", os.environ.get("FDT_LLM_API_KEY"))
+        api_base = self._resolve_llm_config("API_BASE", os.environ.get("FDT_LLM_API_BASE", "https://api.deepseek.com/v1"))
+        model = self._resolve_llm_config("MODEL", os.environ.get("FDT_LLM_MODEL", "deepseek-chat"))
 
-        logger.debug(f"[LLM] FDT_LLM_API_KEY present: {bool(api_key)}, len={len(api_key) if api_key else 0}")
+        logger.debug(f"[LLM] Agent={self.agent_name}, API_BASE={api_base}, "
+                     f"API_KEY present: {bool(api_key)}, len={len(api_key) if api_key else 0}")
 
         if not api_key:
-            # 尝试从其他环境变量获取
+            # 尝试从其他环境变量获取（OPENAI_API_KEY 作为兜底 fallback）
             api_key = os.environ.get("OPENAI_API_KEY", "")
             if api_key:
-                logger.info(f"[LLM] Using OPENAI_API_KEY instead (len={len(api_key)})")
+                logger.info(f"[LLM] Agent={self.agent_name}, Using OPENAI_API_KEY instead (len={len(api_key)})")
             else:
                 raise ValueError("FDT_LLM_API_KEY environment variable not set")
 
@@ -94,7 +113,7 @@ class FdtAgentExecutor:
         ]
 
         data = {
-            "model": os.environ.get("FDT_LLM_MODEL", "deepseek-chat"),
+            "model": model,
             "messages": messages,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,

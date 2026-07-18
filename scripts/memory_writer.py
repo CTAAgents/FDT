@@ -36,7 +36,7 @@ _logger = get_logger("memory_writer")
 class MemoryWriter:
     """竞态安全的记忆写入器，每个Agent独立文件 + SQLite 备份。"""
 
-    def __init__(self, round_id: str, base_dir: str = None):
+    def __init__(self, round_id: str, base_dir: str = None) -> None:
         """
         Args:
             round_id: 本轮辩论唯一ID（如 "RB_20260705"）
@@ -236,7 +236,7 @@ class MemoryWriter:
 
 
 # ── 兼容旧API ──
-def append_debate_journal(agent_id: str, data_type: str, data: Dict[str, Any], round_id: str = None):
+def append_debate_journal(agent_id: str, data_type: str, data: Dict[str, Any], round_id: str = None) -> str:
     """兼容旧版 debate_journal 写入接口。"""
     if round_id is None:
         round_id = datetime.now().strftime("%Y%m%d")
@@ -244,7 +244,7 @@ def append_debate_journal(agent_id: str, data_type: str, data: Dict[str, Any], r
     return writer.write(agent_id, data, data_type)
 
 
-def append_debate_index(round_id: str, symbols: List[str], direction: str):
+def append_debate_index(round_id: str, symbols: List[str], direction: str) -> str:
     """兼容旧版 debate_index 写入接口。"""
     writer = MemoryWriter(round_id=round_id)
     return writer.write("team-lead", {"symbols": symbols, "direction": direction}, "index")

@@ -1,4 +1,5 @@
-from typing import TypedDict, Optional, Literal
+from typing import TypedDict, Optional, Literal, Annotated
+import operator
 from datetime import datetime
 
 
@@ -47,8 +48,15 @@ class DebateState(TypedDict, total=False):
     fundamental_data: dict
     research_data: Optional[dict]
 
-    bullish_arguments: list
-    bearish_arguments: list
+    # v9.0 多空头攻防模式 — 六阶段辩论
+    bullish_arguments: Annotated[list, operator.add]              # P4_1 多头立论
+    bearish_arguments: Annotated[list, operator.add]              # P4_2 空头立论
+    bearish_rebuttal_arguments: Annotated[list, operator.add]     # P4_3 空头反驳多头
+    bullish_rebuttal_arguments: Annotated[list, operator.add]     # P4_4 多头反驳空头
+    bear_final_arguments: Annotated[list, operator.add]           # P4_5 空头最终陈述
+    bull_final_arguments: Annotated[list, operator.add]           # P4_6 多头最终陈述
+    data_sources: list                                            # 数据溯源清单
+    debate_round: int
 
     verdict: Optional[dict]
     risk_check: Optional[dict]
@@ -85,6 +93,12 @@ def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
         research_data=None,
         bullish_arguments=[],
         bearish_arguments=[],
+        bearish_rebuttal_arguments=[],
+        bullish_rebuttal_arguments=[],
+        bear_final_arguments=[],
+        bull_final_arguments=[],
+        data_sources=[],
+        debate_round=0,
         verdict=None,
         risk_check=None,
         signal_output=None,

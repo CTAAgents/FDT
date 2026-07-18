@@ -38,7 +38,13 @@
 
 > G16/G14 已于 2026-07-14 19:04 修复并验证，至此全部 18 项差距关闭，8 个 Harness 维度均达到 5/5。
 
-**G19（2026-07-15 辩论机制重构）**：6策略管线场景下，正反方机制（证真论证信号方向有效/慎思质疑信号可靠性）不合理，改为多空头机制（多头分析员列举做多论据/空头分析员列举做空论据，闫判官在双方论据中裁决方向）。涉及文档 Schema（`StructuredDebate.json v3.1` / `ArgumentOutput.json`）、契约层（`debate_argument_schema.py v1.1`）、run_debate.py spawn_prompt 模板、agent_output.py schema 定义、7个测试文件同步更新。**状态: ✅ 已实施**
+**G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
+
+**G20（2026-07-18 辩论重构·来源标签格式一致性）**：v9.0 新增的数据来源标注功能中，标签格式不统一 — 存在 `[观澜]`（短格式）、`[technical:观澜]`（domain:source格式）、`[scan]`（英文）、`[数技源]`（无 prefix）等多种格式。需要统一为 `[domain:source]` 规范格式。
+- 优先级: P2
+- 状态: 已开放
+- 目标: 统一为 `[domain:source]` 格式，如 `[technical:观澜]`、`[fundamental:探源]`、`[scan:数技源]`、`[chain:链证源]`
+- 工作量: 小（仅修改 `_build_debate_context()` 中的字符串模板）
 
 ## 3. 已有能力清单 (Strengths)
 
@@ -216,7 +222,24 @@
 |:-:|:-----|:-----|:------|:-----|:---------|
 | **G75** | node_scan 无法正确读取扫描结果 | `node_scan` 尝试 `json.loads(result.stdout)` 解析 scan_all.py 的终端输出（非JSON格式文本）→ 始终失败，`scan_results` 始终为 `{"error":...}`，全下游依赖 `all_ranked` 的节点功能失效 | **P0**（阻塞报告生成） | 改为读取 scan_all.py 写入的 `full_scan_summary_{date}.json` 文件：添加 `-o`/`-p` 参数，执行后读取文件而非解析 stdout | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
 | **G71** | node_report 所有品种套用同一全局裁决 | `node_report` 为 `selected_symbols` 中每个品种写入相同的 `verdict` 对象（单个LLM裁决），导致所有品种方向/置信度/价格完全一致 → 报告无差异化交易信号 | **P1**（影响报告决策价值） | 改用 `all_ranked` 扫描数据的逐品种 total/price/ATR 生成差异化方向、入场/止损/目标价和仓位比例；`report_syms` 覆盖 all_actionable + selected_symbols + grade>=WATCH；保留 LLM 全局裁决作为市场总体判断 | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+| **G76** | 100ppi.com 启用 HW_CHECK 反爬，现货基差数据全面断裂 | 2026-07-17 发现：100ppi.com/sf/ 部署 JS Challenge 验证，所有 HTTP 请求仅返回 636 bytes 挑战页面，`_collect_basis_data_sync()` 静默返回空字典 | **P0**（基差信号全部失能，V1/V2/V3 验证器 gap_risk/弹簧压缩/高波过热判断失效） | 新增 `_collect_basis_via_nearmonth()` 降级函数，通过 TdxCollector 获取近月合约价格作为现货代理，方向性判断已恢复；`data_source` 标注 `near_month_proxy` | `skills/quant-daily/scripts/scan_all.py` ✅ **2026-07-17 关闭**（近月代理降级已部署，标注清晰） |
 | **G72** | node_signal_output 仅输出单品种全局信号 | `signal_output["signal"]` 为单个 verdict 方向的单一信号（neutral→无信号），无逐品种可执行信号清单 | **P2**（影响CTP对接） | 新增 `signal_output["signals"]` 列表，从 `all_ranked` 提取 `abs(total)>=60` 的 BUY/SELL 信号，按评分排序输出前10个，`signal` 字段设为最强的信号 | `fdt_langgraph/nodes.py` ✅ **2026-07-17 已修复** |
+
+
+### 4.9 深度辩论模式 Bug 修复新增差距（2026-07-18 登记）
+
+| # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 |
+|:-:|:-----|:-----|:------|:-----|:---------|
+| **G77** | `graph.py` `_register_p3_nodes()` `deep_research` 模式 P3 节点全被跳过 | `FDT_LANGGRAPH_MODE=deep_research` 时，条件 `"chain" in mode` (False) 和 `mode == "default"` (False) 同时为假 → chain/technical/fundamental 三个 P3 节点均未注册到图中 → `prepare_data` 无出边，图直接跳至 END，辩论/裁决/报告流程完全跳过 | **P0**（深度辩论模式完全不可用） | 将条件改为 `mode in {"default", "deep_research", "tournament"} or "chain" in mode`，确保全量模式正确注册所有 P3 节点 | `fdt_langgraph/graph.py` ✅ **2026-07-18 已修复** |
+| **G78** | L2 因子演化循环缺失（Loop Engineering Phase 1） | FDT 系统缺少自动化因子发现与进化能力：因子库长期静态、人工撰写、无回测验证、无经济逻辑筛选、无多重检验防伪；无法持续产出 alpha | **P0**（核心生产能力缺失） | ✅ **已关闭（v8.9.3）**：新增 `loop_engine/` 包（12 模块）+ `tests/loop_engine/`（7 文件 / 96 测试全绿）；Karpathy 五步法落地：`program.md`（因子程序模板）+ Verifier 协议锁定 + 状态文件 + 经验链（成功/失败轨迹）+ 四重熔断停止条件；agentic 三级评估链：Level 1 回测验证（IC>0.03/夏普>1.5）→ Level 2 经济逻辑（四维≥3/4）→ Level 3 多重检验（Bonferroni+FDR）；factorengine 三层分离：逻辑分离（LLM 改逻辑）/资源分离（API vs CPU）/时间分离（慢决策 vs 快迭代）；12 个种子因子（来自 trend_following/mean_reversion/多因子策略）；scheduler 集成：`l2_evolution_loop` 任务 + 每晚 20:00 TimeTrigger | `loop_engine/` `tests/loop_engine/` `scheduler/tasks.py` `scheduler/triggers.py` `pyproject.toml` ✅ **2026-07-18 已关闭** |
+| **G79** | 数据源配置文档与代码实际不一致 | `docs/harness/03-configuration.md §5` 仍写降级链为 "TDX→TqSDK→东方财富→AKShare"，但代码（`futures_data_core/core/multi_source_adapter.py` `_default_collectors()`）已演进为 TDX(0)→WebFallback(1)→QMT(2)→TqSDK(98)；同时 `futures_data_core/config/data_sources.yaml` 仅声明 tdx/tqsdk 两源，缺 web_fallback/qmt，TqSDK priority 写 1 而代码为 98；AKShare 已从主链移除但文档多处残留 | **P1**（文档误导运维与后续开发，G70 范畴的延续） | ✅ **已关闭（v8.9.4）**：① `03-configuration.md §5` 全面重写：降级链图示更新、新增数据源能力矩阵、数据源选择逻辑表补齐；② `data_sources.yaml` 补充 web_fallback/qmt 配置，TqSDK priority 修正为 98；③ 移除所有 AKShare 残留描述；④ 同步更新 §1.2 中 data_sources.yaml 路径和 §2.3 pyproject.toml 示例版本号 | `docs/harness/03-configuration.md` `futures_data_core/config/data_sources.yaml` ✅ **2026-07-18 已关闭** |
+| **G80** | L1 Meta-Loop 缺失（Loop Engineering Phase 2） | FDT 缺少“因子知识补给”子系统：每日市场感知（f10/web_collector）、辩论质量缺口反馈、Bootstrapping Agent 链自动发现候选因子、L1 Verifier 锁定判定、factor_pool.json 种子池管理等功能未实现 | **P0**（核心生产能力缺失，L2 演化引擎上游空白） | ✅ **已关闭（v8.10.0）**：新增 loop_engine/meta_loop.py（~1159 行）实现 L1 五步流程；contracts.py 追加 L1 契约层（~160 行新增）；seed_pool.py 新增 inject_from_l1()；scheduler 集成（l1_meta_loop 任务 + 每日 05:00 TimeTrigger）；51 个测试全绿。版本号 bump 8.9.4→8.10.0 | loop_engine/meta_loop.py loop_engine/contracts.py loop_engine/seed_pool.py tests/loop_engine/test_meta_loop.py scheduler/tasks.py scheduler/triggers.py |
+| **G81** | L3 Portfolio Loop 缺失（Loop Engineering Phase 3） | FDT 缺少自动化组合构建子系统：信号合成、因子正交化、衰减检验、组合构建等功能未实现 | **P1**（组合更新滞后） | ✅ **已关闭（v8.10.0）**：新增 loop_engine/portfolio_loop.py 实现 L3 五步流程；contracts.py 追加 L3 契约层；34 个测试全绿。全量 loop_engine 测试 181 用例全绿。 | loop_engine/portfolio_loop.py loop_engine/contracts.py tests/loop_engine/test_portfolio_loop.py scheduler/tasks.py scheduler/triggers.py |
+| **G82** | v9.0.0 六阶段辩论测试覆盖缺失 | `fdt_langgraph/state.py` 新增 `bearish_rebuttal_arguments`/`bullish_rebuttal_arguments`/`bear_final_arguments`/`bull_final_arguments`/`data_sources` 共 5 个字段，`fdt_langgraph/nodes.py` 新增 `node_bearish_rebuttal`/`node_bear_final`/`node_bull_final` 共 3 个节点，`fdt_langgraph/graph.py` 新增 6 节点辩论图路由，但测试文件（`test_state.py`/`test_nodes.py`/`test_graph.py`）仍仅覆盖 v8.9.0 的 3 步交叉质询模式——新字段、新节点、新路由函数均无测试覆盖；`calculate_divergence()` 已扩展使用 `bull_final_arguments`/`bear_final_arguments` 但测试未更新 | **P0**（代码变动未经测试验证，可能引入回归） | ✅ **已关闭（v9.0.0）**：① `test_state.py` 新增 9 条断言覆盖 5 个新字段；② `test_nodes.py` 新增 `test_node_bearish_rebuttal`/`test_node_bear_final`/`test_node_bull_final` 三个测试（mock LLM 调用避免依赖 API）；③ `test_graph.py` 更新 `calculate_divergence` 测试覆盖 `bull_final_arguments`/`bear_final_arguments` 路径；④ `test_graph.py` 新增 `_register_debate_nodes` 验证六节点全部注册。版本号 bump 8.10.0→9.0.0 | `tests/fdt_langgraph/test_state.py` `tests/fdt_langgraph/test_nodes.py` `tests/fdt_langgraph/test_graph.py` `fdt_langgraph/state.py` `fdt_langgraph/nodes.py` `fdt_langgraph/graph.py` ✅ **2026-07-18 已关闭** |
+| **G83** | v9.0.0 六阶段辩论文档同步滞后（5 篇 Harness 文档 + Agent MD 未更新） | 01-architecture.md P4 线更新、02-lifecycle.md P4 阶段表 3→6 步扩展、03-configuration.md Agent 映射表 3 新节点、04-resilience.md P4 降级表 3→6 行扩展、05-observability.md 辩论轮次指标表 3→6 步扩展、09-advancement-plan.md 里程碑追加 Phase 10 → 全部文档已对齐六阶段攻防架构 | **P1**（文档与代码长期背离，误导运维与后续重构） | ✅ 已关闭（v9.0.0，2026-07-18） | `docs/harness/01-architecture.md` `docs/harness/02-lifecycle.md` `docs/harness/03-configuration.md` `docs/harness/04-resilience.md` `docs/harness/05-observability.md` `docs/harness/09-advancement-plan.md` ✅ **已关闭** |
+| **G84** | `calculate_divergence()` 遗漏反驳阶段置信度 | `calculate_divergence()`（`fdt_langgraph/graph.py:44-67`）在汇总多空置信度时，原实现仅纳入 `bullish_arguments`/`bearish_arguments`/`bull_final_arguments`/`bear_final_arguments`，遗漏了 `bullish_rebuttal_arguments` 和 `bearish_rebuttal_arguments` 两个反驳阶段的论据，分歧度指标可能不准确 | **P1**（影响分歧度计算准确性） | ✅ **已修复（v9.0.0）**：在 `calculate_divergence()` 中增加 `bullish_rebuttal_arguments` 和 `bearish_rebuttal_arguments` 置信度汇总循环 | `fdt_langgraph/graph.py` ✅ **2026-07-18 已关闭（审计后即时修复）** |
+
+
 
 ## 5. 改进路线图
 

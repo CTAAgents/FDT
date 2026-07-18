@@ -57,7 +57,7 @@ class Coordinator:
     根据 YAML 配置执行 Agent 编排。
     """
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str) -> None:
         config_path = Path(config_path)
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")

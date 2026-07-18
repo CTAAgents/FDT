@@ -8,9 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from .state import DebateState, FdcDataStatus
+from .state import DebateState
 from .agents import FdtAgentExecutor
-from typing import List, Dict, Optional
 
 _SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
@@ -132,12 +131,14 @@ def _write_scan_report(trace_id: str, scan_results: dict, output_dir: Path) -> s
         ("信号数", str(len(all_ranked))),
     ])
     out_path = output_dir / f"scan_report_{trace_id}.html"
+
     out_path.write_text(html, encoding="utf-8")
     return str(out_path)
 
 
 def _write_verdict_report(trace_id: str, verdict: dict, risk_check: dict,
-                          selected_symbols: list, output_dir: Path) -> str:
+                          selected_symbols: list, output_dir: Path,
+                          scan_summary: list = None) -> str:
     """生成裁决报告 (P5 阶段) — 闫判官裁决 + 风控明审核"""
     direction = verdict.get("direction", verdict.get("verdict", "neutral"))
     direction_cn = {"bull": "多头", "bullish": "多头", "BUY": "做多",
@@ -180,6 +181,18 @@ def _write_verdict_report(trace_id: str, verdict: dict, risk_check: dict,
  · 风险分类: {risk_level} · 审核结果: {risk_approved}</p>
 <ul>{warn_html}</ul>
 </div>"""
+
+    # Per-symbol table from scan data
+    if scan_summary:
+        sym_rows_str = '<table><thead><tr><th>\u54c1\u79cd</th><th>\u65b9\u5411</th><th class="num">\u4fe1\u53f7\u5206</th><th class="num">\u5f53\u524d\u4ef7</th></tr></thead><tbody>'
+        for x in sorted(scan_summary, key=lambda v: abs(v.get("total", 0)), reverse=True)[:30]:
+            sym = x.get("symbol", x.get("pid", ""))
+            sd = x.get("decision", x.get("direction", "HOLD"))
+            st = x.get("total", 0) or 0
+            sp = float(x.get("price", 0) or 0)
+            sym_rows_str += '<tr><td>%s</td><td>%s</td><td class="num">%d</td><td class="num">%.2f</td></tr>' % (sym, sd, abs(st), sp)
+        sym_rows_str += '</tbody></table>'
+        body += '<div class="section"><h2>\U0001f4ca \u9010\u54c1\u79cd\u91cf\u5316\u4fe1\u53f7</h2>' + sym_rows_str + '</div>'
 
     html = _render_html("⚖️ 裁决报告", body, [
         ("trace_id", trace_id),
@@ -253,7 +266,8 @@ def _write_research_report(trace_id: str, research_data: dict, output_dir: Path)
     return str(out_path)
 
 
-def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path) -> str:
+def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path,
+                           signals_list: list = None) -> str:
     """生成 CTP 信号扫描报告 (P6a 阶段) — 风控通过/阻断 + 完整交易信号清单"""
     risk_color = signal_output.get("risk_color", "red")
     status = signal_output.get("status", "blocked")
@@ -296,6 +310,17 @@ def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path) -
 <pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{str(risk_check)[:1500]}</pre>
 </div>"""
 
+    if signals_list:
+        sig_rows = '<table><thead><tr><th>\u54c1\u79cd</th><th>\u65b9\u5411</th><th class="num">\u4fe1\u5fc3\u5ea6</th><th class="num">\u5165\u573a\u4ef7</th></tr></thead><tbody>'
+        for x in sorted(signals_list, key=lambda v: abs(v.get("score", 0)), reverse=True):
+            nm = x.get("symbol", "")
+            sd = x.get("direction", "")
+            sc = x.get("score", 0) or 0
+            ep = float(x.get("entry_price", 0) or 0)
+            sig_rows += '<tr><td>%s</td><td>%s</td><td class="num">%d%%</td><td class="num">%.2f</td></tr>' % (nm, sd, min(100, sc), ep)
+        sig_rows += '</tbody></table>'
+        body += '<div class="section"><h2>\U0001f4ca \u5168\u90e8\u53ef\u6267\u884c\u4fe1\u53f7\u6e05\u5355</h2>' + sig_rows + '</div>'
+
     html = _render_html("📡 CTP 信号扫描报告", body, [
         ("trace_id", trace_id),
         ("状态", status_label),
@@ -324,14 +349,13 @@ def _import_from_skill(skill_dir: str, module_path: str, function_name: str):
 async def node_scan(state: DebateState) -> DebateState:
     import subprocess
     import sys
-    import json
     from pathlib import Path
 
     existing_results = state.get("scan_results", {})
     if existing_results and existing_results.get("all_ranked"):
         print("[SCAN] 已有扫描结果，跳过重新扫描")
         scan_report_path = state.get("scan_report_path")
-        if not scan_report_path:
+        if not scan_report_path and os.environ.get("FDT_GENERATE_SCAN_REPORT", "").lower() == "true":
             try:
                 report_dir = _resolve_report_dir()
                 scan_report_path = _write_scan_report(state["trace_id"], existing_results, report_dir)
@@ -369,14 +393,17 @@ async def node_scan(state: DebateState) -> DebateState:
         except Exception:
             pass
 
-    # v8.8.0: 生成信号扫描报告 (P1 阶段)
+    # v8.8.0: 生成信号扫描报告 (P1 阶段) — 仅 FDT_GENERATE_SCAN_REPORT=true 时生成
     scan_report_path = None
-    try:
-        report_dir = _resolve_report_dir()
-        scan_report_path = _write_scan_report(state["trace_id"], scan_results, report_dir)
-        logger.info(f"[SCAN] 扫描报告: {scan_report_path}")
-    except Exception as e:
-        logger.warning(f"[SCAN] 扫描报告生成失败: {e}")
+    if os.environ.get("FDT_GENERATE_SCAN_REPORT", "").lower() == "true":
+        try:
+            report_dir = _resolve_report_dir()
+            scan_report_path = _write_scan_report(state["trace_id"], scan_results, report_dir)
+            logger.info(f"[SCAN] 扫描报告: {scan_report_path}")
+        except Exception as e:
+            logger.warning(f"[SCAN] 扫描报告生成失败: {e}")
+    else:
+        logger.info("[SCAN] 扫描报告跳过 (FDT_GENERATE_SCAN_REPORT 未设置)")
 
     return {**state, "scan_results": scan_results, "scan_report_path": scan_report_path,
             "current_phase": "P1", "completed_phases": ["P1"]}
@@ -387,46 +414,62 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     judge = FdtAgentExecutor("judge")
 
     scan_summary = state.get("scan_results", {}).get("all_ranked", [])[:20]
-    context = f"""基于以下扫描结果，判断当前市场趋势方向并选择值得辩论的品种：
+    context = f"""你是数技源（信号扫描引擎），基于多策略扫描结果输出候选辩论品种。
+
+说明：
+- 每条信号已是按品种合并后的综合信号（sub_signals 列出所有参与的因子子策略）
+- sub_signals 中每个子信号的 total 有方向（正=多头，负=空头），grade 为 STRONG/WATCH/WEAK/NOISE
+- 多个子策略一致性越高（同向共振），该品种的信号越可靠
+- ⚠️ 重要：以下方向仅为"扫描参考方向"，辩论环节会基于研究数据重新论证，
+  闫判官会根据辩论质量做最终裁决。数技源不锁定辩论方向。
 
 扫描结果 TOP20（按信号强度排序）：
-{scan_summary}
+{json.dumps(scan_summary, ensure_ascii=False, indent=2)[:8000]}
 
 请以 JSON 格式返回：
-1. direction: 市场整体方向 (bullish/bearish/neutral)
-2. confidence: 置信度 (0-1)
-3. symbols: 推荐辩论的品种列表（仅包含强烈信号的品种）
-4. reason: 判断理由
+1. scan_direction: 数技源扫描参考方向 (bullish/bearish/neutral) — **仅供参考，辩论环节可推翻**
+2. confidence: 扫描置信度 (0-1)
+3. symbols: 推荐辩论的品种列表（优先选 total 绝对值高或 sub_signals 一致性强的）
+4. reason: 扫描判断理由（引用哪些子策略形成共识）
+5. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
 
 返回 JSON 格式：
-{{"direction": "bearish", "confidence": 0.8, "symbols": ["UR", "SA"], "reason": "多数品种空头信号强烈"}}
+{{"scan_direction": "bearish", "confidence": 0.8, "symbols": ["SF", "SM"], "dispatch_sources": ["chain", "technical"], "reason": "SF/SM 空头信号强（supertrend+sar+macd+tsmom+dual_thrust 五策略共振）"}}
 """
 
     result = await judge.run(context, state["trace_id"])
 
     output = result.get("output", "")
-    import json
     try:
         if "{" in output and "}" in output:
             start = output.find("{")
             end = output.rfind("}") + 1
             verdict = json.loads(output[start:end])
         else:
-            verdict = {"direction": "neutral", "symbols": [], "reason": output}
+            verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
     except Exception as e:
         logger.warning(f"Failed to parse judge output: {e}")
-        verdict = {"direction": "neutral", "symbols": [], "reason": output}
+        verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
 
     selected_symbols = verdict.get("symbols", [])
     if not selected_symbols:
         selected_symbols = state.get("selected_symbols", [])
+
+    # 兼容新旧字段名: scan_direction (新) 或 direction (旧)
+    scan_dir = verdict.get("scan_direction", verdict.get("direction", "neutral"))
+    scan_reason = verdict.get("reason", "")
 
     dispatch_sources = verdict.get("dispatch_sources", ["chain", "technical", "fundamental"])
 
     new_phases = state["completed_phases"] + ["P2"]
     return {
         **state,
-        "judge_direction": verdict,
+        "judge_direction": {
+            "direction": scan_dir,
+            "confidence": verdict.get("confidence", 0.5),
+            "symbols": selected_symbols,
+            "reason": scan_reason,
+        },
         "selected_symbols": selected_symbols,
         "dispatch_sources": dispatch_sources,
         "current_phase": "P2",
@@ -741,7 +784,6 @@ async def node_technical(state: DebateState) -> dict:
     tech_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
 
     # Parse structured per-symbol data from LLM output
-    import json
     output = tech_result.get("output", "")
     per_symbol_tech = {}
     try:
@@ -800,7 +842,6 @@ async def node_fundamental(state: DebateState) -> dict:
     fund_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
 
     # Parse structured per-symbol data from LLM output
-    import json
     output = fund_result.get("output", "")
     per_symbol_fund = {}
     try:
@@ -851,123 +892,502 @@ async def node_merge_research(state: DebateState) -> DebateState:
     }
 
 
-async def node_debate(state: DebateState) -> DebateState:
-    _ensure_llm_key()
-    bullish = FdtAgentExecutor("bullish_analyst")
-    bearish = FdtAgentExecutor("bearish_analyst")
-
+def _build_debate_context(state: DebateState) -> str:
+    """构建辩论上下文：扫描指标 + 研究员快照（技术面+基本面+产业链），带来源标记"""
     research = state.get("research_data", {})
     symbols = state.get("selected_symbols", [])
-    judge_dir = state.get("judge_direction", {})
+    scan_data = state.get("scan_results", {})
+    all_ranked = scan_data.get("all_ranked", []) if isinstance(scan_data, dict) else []
 
-    # Build per-symbol context from research data
-    research_context_lines = []
+    sym_indicators = {}
+    for item in all_ranked:
+        sym = item.get("symbol", item.get("pid", "")).upper()
+        if sym not in sym_indicators:
+            sym_indicators[sym] = {
+                "price": item.get("price", 0),
+                "adx": item.get("adx", 0),
+                "rsi": item.get("rsi", 50),
+                "volume": item.get("volume", 0),
+                "total": item.get("total", 0),
+                "grade": item.get("grade", ""),
+                "direction": item.get("direction", ""),
+                "change_pct": item.get("change_pct", 0),
+            }
+
+    chain = research.get("chain_analysis", {}) or {}
+    tech = research.get("technical_data", {}) or {}
+    fund = research.get("fundamental_data", {}) or {}
+
+    lines = []
     for sym in symbols:
-        lines = [f"\n==={sym}==="]
-        tech = research.get('technical_data', {})
-        fund = research.get('fundamental_data', {})
-        # Extract agent output text for this symbol
-        if isinstance(tech, dict) and tech.get("output"):
-            lines.append(f"技术面: {tech['output'][:300]}")
-        if isinstance(fund, dict) and fund.get("output"):
-            lines.append(f"基本面: {fund['output'][:300]}")
-        research_context_lines.append("\n".join(lines))
-    research_context = "\n".join(research_context_lines)
+        lines.append(f"\n==={sym}===")
+        ind = sym_indicators.get(sym.upper(), sym_indicators.get(sym, {}))
+        if ind:
+            lines.append(
+                f"[scan] ADX={ind['adx']:.1f} RSI={ind['rsi']:.1f} "
+                f"\u4ef7\u683c={ind['price']} \u4fe1\u53f7\u603b\u5206={ind['total']} \u65b9\u5411={ind['direction']}"
+            )
 
-    context = f"""作为辩论分析师，请对每个品种分别给出论据（多头或空头，取决于你的角色）。
+        # \u6280\u672f\u9762\uff08\u89c2\u6f9c\uff09
+        tech_per_sym = tech.get("per_symbol", {}) if isinstance(tech, dict) else {}
+        if sym in tech_per_sym:
+            td = tech_per_sym[sym]
+            trend = td.get("trend", "")
+            score = td.get("score", "")
+            lines.append(f"[technical:\u89c2\u6f9c] \u8d8b\u52bf={trend} \u8bc4\u5206={score}")
+        elif isinstance(tech, dict) and tech.get("output"):
+            lines.append(f"[technical:\u89c2\u6f9c] {tech['output'][:200]}")
+
+        # \u57fa\u672c\u9762\uff08\u63a2\u6e90\uff09
+        fund_per_sym = fund.get("per_symbol", {}) if isinstance(fund, dict) else {}
+        if sym in fund_per_sym:
+            fd = fund_per_sym[sym]
+            sd = fd.get("supply_demand", "")
+            inv = fd.get("inventory", "")
+            basis = fd.get("basis_term", "")
+            lines.append(f"[fundamental:\u63a2\u6e90] \u4f9b\u9700={sd} \u5e93\u5b58={inv} \u57fa\u5dee/\u671f\u9650={basis}")
+        elif isinstance(fund, dict) and fund.get("output"):
+            lines.append(f"[fundamental:\u63a2\u6e90] {fund['output'][:200]}")
+
+        # \u4ea7\u4e1a\u94fe\uff08\u94fe\u8bc1\u6e90\uff09
+        if chain and isinstance(chain, dict) and len(str(chain)) > 50:
+            lines.append(f"[chain:\u94fe\u8bc1\u6e90] {str(chain)[:200]}")
+
+    return "\n".join(lines)
+def _parse_per_symbol_debate(result: dict, symbols: list) -> dict | None:
+    """从LLM输出解析逐品种论据"""
+    output = result.get("output", "")
+    try:
+        if "{" in output and "}" in output:
+            start = output.find("{")
+            end = output.rfind("}") + 1
+            parsed = json.loads(output[start:end])
+            per_symbol = parsed.get("per_symbol", {})
+            validated = {}
+            for sym in symbols:
+                sym_key = sym.upper()
+                if sym_key in per_symbol and isinstance(per_symbol[sym_key], dict):
+                    validated[sym] = {
+                        "arguments": per_symbol[sym_key].get("arguments", []),
+                        "confidence": per_symbol[sym_key].get("confidence", 0.5),
+                    }
+            if validated:
+                return validated
+    except Exception:
+        pass
+    return None
+
+
+async def node_bullish_v1(state: DebateState) -> DebateState:
+    """P4 步1: 多头立论 — 多头分析员独立寻找做多理由"""
+    _ensure_llm_key()
+    bullish = FdtAgentExecutor("bullish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+    research_context = _build_debate_context(state)
+
+    context = f"""你是多头分析员，代表多头利益，必须只从分析师资料中寻找做多理由。
 
 品种列表: {symbols}
-市场整体判断: {judge_dir}
+数技源参考方向: {judge_dir}（仅供参考，你完全不受扫描方向限制）
 
-研究数据（逐品种）:
+研究数据（逐品种，带来源标记）:
 {research_context}
 
-请以 JSON 格式返回逐品种论据，格式如下：
+这是辩论的**多头立论阶段（v1）**——你的职责：
+1. 代表多头利益，基于研究员提供的资料寻找做多理由
+2. 每条论据必须标注引用的分析师资料来源（如 [technical:观澜] / [fundamental:探源] / [chain:链证源] / [scan:数技源]）
+3. 按照 6 维度框架（趋势结构、量价关系、期限结构、产业链验证、基本面/市场情绪、风险点）组织论证
+4. 每个品种至少构建3条支持多头的论据
+5. 禁止使用 WebSearch/WebFetch 自行搜集数据
+
+如果分析师资料中完全找不到做多理由，可以给出低置信度和"缺乏做多依据"的说明。
+
+请以 JSON 格式返回：
 {{"per_symbol": {{
-    "RB": {{"arguments": ["论据1", "论据2", ...], "confidence": 0.7}},
-    "CU": {{"arguments": ["论据3", "论据4", ...], "confidence": 0.6}}
+    "RB": {{"arguments": ["[technical:观澜] 论据1...", "[fundamental:探源] 论据2...", ...], "confidence": 0.7}},
+    "CU": {{"arguments": ["[chain:链证源] 论据3...", "[scan:数技源] 论据4...", ...], "confidence": 0.6}}
   }},
-  "overall_summary": "总体判断"
-}}
-对每个品种给出2-4条针对性论据，confidence为0-1之间的置信度。
-"""
+  "overall_summary": "总体多头判断"
+}}"""
 
-    bull_result = await bullish.run(context, state["trace_id"])
-    bear_result = await bearish.run(context, state["trace_id"])
-
-    import json
-    def parse_per_symbol(result):
-        """从LLM输出解析逐品种论据"""
+    result = await bullish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
         output = result.get("output", "")
-        try:
-            if "{" in output and "}" in output:
-                start = output.find("{")
-                end = output.rfind("}") + 1
-                parsed = json.loads(output[start:end])
-                per_symbol = parsed.get("per_symbol", {})
-                # Validate: return only known symbols
-                validated = {}
-                for sym in symbols:
-                    sym_key = sym.upper()
-                    if sym_key in per_symbol and isinstance(per_symbol[sym_key], dict):
-                        validated[sym] = {
-                            "arguments": per_symbol[sym_key].get("arguments", []),
-                            "confidence": per_symbol[sym_key].get("confidence", 0.5),
-                        }
-                if validated:
-                    return validated
-        except Exception:
-            pass
-        # Fallback: return generic arguments
-        return None
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
-    bull_per_symbol = parse_per_symbol(bull_result)
-    bear_per_symbol = parse_per_symbol(bear_result)
-
-    # If per-symbol parsing failed, fallback to generic arguments
-    if bull_per_symbol is None:
-        def parse_generic(result):
-            output = result.get("output", "")
-            try:
-                if "{" in output and "}" in output:
-                    start = output.find("{")
-                    end = output.rfind("}") + 1
-                    return json.loads(output[start:end]).get("arguments", [])
-            except:
-                pass
-            return [output[:200]] if output else []
-        bull_per_symbol = {sym: {"arguments": parse_generic(bull_result), "confidence": 0.5} for sym in symbols}
-    if bear_per_symbol is None:
-        def parse_generic(result):
-            output = result.get("output", "")
-            try:
-                if "{" in output and "}" in output:
-                    start = output.find("{")
-                    end = output.rfind("}") + 1
-                    return json.loads(output[start:end]).get("arguments", [])
-            except:
-                pass
-            return [output[:200]] if output else []
-        bear_per_symbol = {sym: {"arguments": parse_generic(bear_result), "confidence": 0.5} for sym in symbols}
-
-    new_phases = state["completed_phases"] + ["P4"]
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bullish_v1"]
     return {
         **state,
-        "bullish_arguments": bull_per_symbol,
-        "bearish_arguments": bear_per_symbol,
-        "current_phase": "P4",
-        "completed_phases": new_phases
+        "bullish_arguments": [{"round": 1, "role": "bullish", "phase": "v1", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bullish_v1",
+        "completed_phases": new_phases,
+    }
+async def node_bearish_v1(state: DebateState) -> DebateState:
+    """P4 步2: 空头立论 — 空头分析员独立寻找做空理由（不再是对多头质疑）"""
+    _ensure_llm_key()
+    bearish = FdtAgentExecutor("bearish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+    research_context = _build_debate_context(state)
+
+    context = f"""你是空头分析员，代表空头利益，独立从分析师资料中寻找做空理由。
+
+品种列表: {symbols}
+数技源参考方向: {judge_dir}（仅供参考，你完全不受扫描方向限制）
+
+研究数据（逐品种，带来源标记）:
+{research_context}
+
+这是辩论的**空头立论阶段（v1）**——你的职责：
+1. 代表空头利益，独立从研究员提供的资料中寻找做空理由
+2. 每条论据必须标注引用的分析师资料来源（如 [technical:观澜] / [fundamental:探源] / [chain:链证源] / [scan:数技源]）
+3. 按照 6 维度框架（趋势结构、量价关系、期限结构、产业链验证、基本面/市场情绪、风险点）组织论证
+4. 每个品种至少构建3条支持空头的论据
+5. 禁止引用多头论据，不做"反驳"——你与多头平级，独立产出
+6. 禁止使用 WebSearch/WebFetch 自行搜集数据
+
+如果分析师资料中完全找不到做空理由，可以给出低置信度和"缺乏做空依据"的说明。
+
+请以 JSON 格式返回：
+{{"per_symbol": {{
+    "RB": {{"arguments": ["[technical:观澜] 论据1...", "[fundamental:探源] 论据2...", ...], "confidence": 0.7}},
+    "CU": {{"arguments": ["[chain:链证源] 论据3...", "[scan:数技源] 论据4...", ...], "confidence": 0.6}}
+  }},
+  "overall_summary": "总体空头判断"
+}}"""
+
+    result = await bearish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
+        output = result.get("output", "")
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
+
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bearish_v1"]
+    return {
+        **state,
+        "bearish_arguments": [{"round": 2, "role": "bearish", "phase": "v1", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bearish_v1",
+        "completed_phases": new_phases,
+    }
+
+async def node_bearish_rebuttal(state: DebateState) -> DebateState:
+    """P4 步3: 空头反驳多头立论 — 针对多头的做多论据进行反驳"""
+    _ensure_llm_key()
+    bearish = FdtAgentExecutor("bearish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+    research_context = _build_debate_context(state)
+
+    # 读取多头立论 bullish_arguments
+    prev_bullish = state.get("bullish_arguments", [])
+    bull_text = ""
+    for entry in prev_bullish:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                conf = data.get("confidence", 0.5)
+                args_text = '\n'.join(str(a) for a in args)
+                bull_text += f"\n{sym} (置信度={conf}): {args_text}\n"
+
+    context = f"""你是空头分析员，针对多头的做多论据进行反驳。
+
+品种列表: {symbols}
+数技源参考方向: {judge_dir}（仅供参考）
+
+研究数据（逐品种，带来源标记）:
+{research_context}
+
+【多头立论 v1 论据 — 请逐条反驳】
+{bull_text}
+
+这是辩论的**空头反驳阶段（bearish_rebuttal）**——
+1. 对每个品种，逐条阅读多头的做多论据
+2. 引用分析师资料中的数据做反证，拆解多头逻辑
+3. 必须标注每条反驳引用的分析师资料来源（如 [technical:观澜] / [fundamental:探源]）
+4. 每个品种至少反驳2条多头论据
+5. 禁止使用 WebSearch/WebFetch 自行搜集数据
+
+请以 JSON 格式返回：
+{{"per_symbol": {{
+    "RB": {{"arguments": ["驳[technical:观澜] 反驳1...", "驳[fundamental:探源] 反驳2..."], "confidence": 0.7}},
+    "CU": {{"arguments": ["驳[chain:链证源] 反驳3...", "驳[scan:数技源] 反驳4..."], "confidence": 0.6}}
+  }},
+  "overall_summary": "反驳总体摘要"
+}}"""
+
+    result = await bearish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
+        output = result.get("output", "")
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
+
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bearish_rebuttal"]
+    return {
+        **state,
+        "bearish_rebuttal_arguments": [{"round": 3, "role": "bearish", "phase": "rebuttal_v1", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bearish_rebuttal",
+        "completed_phases": new_phases,
+    }
+async def node_bullish_rebuttal(state: DebateState) -> DebateState:
+    """P4 步4: 多头反驳 — 针对空头的做空论据和空头反驳进行再反驳"""
+    _ensure_llm_key()
+    bullish = FdtAgentExecutor("bullish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+    research_context = _build_debate_context(state)
+
+    # 将空头立论和空头反驳注入上下文
+    prev_bearish = state.get("bearish_arguments", [])
+    bear_rebuttal = state.get("bearish_rebuttal_arguments", [])
+
+    bear_text = ""
+    for entry in prev_bearish:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                conf = data.get("confidence", 0.5)
+                args_text = '\n'.join(str(a) for a in args)
+                bear_text += f"\n{sym} (置信度={conf}): {args_text}\n"
+
+    bear_rebuttal_text = ""
+    for entry in bear_rebuttal:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                args_text = '\n'.join(str(a) for a in args)
+                bear_rebuttal_text += f"\n{sym}: {args_text}\n"
+
+    context = f"""你是多头分析员，针对空头的做空论据和反驳进行反驳。
+
+品种列表: {symbols}
+数技源参考方向: {judge_dir}（仅供参考）
+
+研究数据（逐品种，带来源标记）:
+{research_context}
+
+【空头立论 v1 论据】
+{bear_text}
+
+【空头反驳（对我的多头立论的质疑）】
+{bear_rebuttal_text}
+
+这是辩论的**多头反驳阶段（bullish_rebuttal）**——
+1. 针对空头立论中的做空论据，用研究员数据正面反驳
+2. 针对空头反驳中的质疑，逐条回应
+3. 每条反驳必须引用分析师资料中的数据并标注来源（如 [technical:观澜] / [fundamental:探源]）
+4. 如果某条论据确实成立（证据不足），承认并降置信度
+5. 禁止使用 WebSearch/WebFetch 自行搜集数据
+
+请以 JSON 格式返回：
+{{"per_symbol": {{
+    "RB": {{"arguments": ["[technical:观澜] 驳空头立论：...（反证数据）", "[fundamental:探源] 驳空头反驳：...（反证数据）"], "confidence": 0.7}},
+    "CU": {{"arguments": ["[chain:链证源] 驳空头立论：...（反证数据）"], "confidence": 0.6}}
+  }},
+  "rebuttal_summary": "反驳总体摘要"
+}}"""
+
+    result = await bullish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
+        output = result.get("output", "")
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
+
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bullish_rebuttal"]
+    return {
+        **state,
+        "bullish_rebuttal_arguments": [{"round": 4, "role": "bullish", "phase": "rebuttal", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bullish_rebuttal",
+        "completed_phases": new_phases,
     }
 
 
+
+async def node_bear_final(state: DebateState) -> DebateState:
+    """P4 步5: 空头最终陈述 — 整合空头立论+反驳，给出最终信心度"""
+    _ensure_llm_key()
+    bearish = FdtAgentExecutor("bearish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+
+    # 整合空头所有论据
+    bear_v1 = state.get("bearish_arguments", [])
+    bear_rebuttal = state.get("bearish_rebuttal_arguments", [])
+
+    bear_text = ""
+    for entry in bear_v1:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                conf = data.get("confidence", 0.5)
+                args_text = '\n'.join(str(a) for a in args)
+                bear_text += f"\n{sym} (置信度={conf}): {args_text}\n"
+
+    rebuttal_text = ""
+    for entry in bear_rebuttal:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                args_text = '\n'.join(str(a) for a in args)
+                rebuttal_text += f"\n{sym}: {args_text}\n"
+
+    context = f"""你是空头分析员，做空头最终陈述。
+
+品种列表: {symbols}
+数技源参考方向: {judge_dir}
+
+【我方立论 v1 论据汇总】
+{bear_text}
+
+【我方反驳多头立论汇总】
+{rebuttal_text}
+
+这是辩论的**空头最终陈述阶段（bear_final）**——
+1. 整合空头所有论据（每条论据保持来源标注格式），给出完整的空头立场汇总
+2. 调整置信度并说明理由
+3. 包含风险提示（做空可能面临的风险）
+4. 禁止使用 WebSearch/WebFetch
+
+请以 JSON 格式返回：
+{{"per_symbol": {{
+    "RB": {{"arguments": ["最终论据1...", "最终论据2..."], "confidence": 0.7, "risk_note": "做空风险说明"}},
+    "CU": {{"arguments": ["最终论据1...", "最终论据2..."], "confidence": 0.6, "risk_note": "做空风险说明"}}
+  }},
+  "final_summary": "空头最终陈述摘要"
+}}"""
+
+    result = await bearish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
+        output = result.get("output", "")
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
+
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bear_final"]
+    return {
+        **state,
+        "bear_final_arguments": [{"round": 5, "role": "bearish", "phase": "final", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bear_final",
+        "completed_phases": new_phases,
+    }
+
+
+async def node_bull_final(state: DebateState) -> DebateState:
+    """P4 步6: 多头最终陈述 — 整合多头立论+反驳，给出最终信心度"""
+    _ensure_llm_key()
+    bullish = FdtAgentExecutor("bullish_analyst")
+
+    symbols = state.get("selected_symbols", [])
+    judge_dir = state.get("judge_direction", {})
+
+    # 整合多头所有论据
+    bull_v1 = state.get("bullish_arguments", [])
+    bull_rebuttal = state.get("bullish_rebuttal_arguments", [])
+
+    bull_text = ""
+    for entry in bull_v1:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                conf = data.get("confidence", 0.5)
+                args_text = '\n'.join(str(a) for a in args)
+                bull_text += f"\n{sym} (置信度={conf}): {args_text}\n"
+
+    rebuttal_text = ""
+    for entry in bull_rebuttal:
+        if isinstance(entry, dict) and entry.get("symbols"):
+            for sym, data in entry["symbols"].items():
+                args = data.get("arguments", [])
+                args_text = '\n'.join(str(a) for a in args)
+                rebuttal_text += f"\n{sym}: {args_text}\n"
+    context = f"""你是多头分析员，做多头最终陈述。
+
+品种列表: {symbols}
+数技源参考方向: {judge_dir}
+
+【我方立论 v1 论据汇总】
+{bull_text}
+
+【我方反驳空头论据及反驳汇总】
+{rebuttal_text}
+
+这是辩论的**多头最终陈述阶段（bull_final）**——
+1. 整合多头所有论据（每条论据保持来源标注格式），给出完整的做多立场汇总
+2. 调整置信度并说明理由
+3. 包含风险提示（做多可能面临的风险）
+4. 禁止使用 WebSearch/WebFetch
+
+请以 JSON 格式返回：
+{{"per_symbol": {{
+    "RB": {{"arguments": ["最终论据1...", "最终论据2..."], "confidence": 0.7, "risk_note": "做多风险说明"}},
+    "CU": {{"arguments": ["最终论据1...", "最终论据2..."], "confidence": 0.6, "risk_note": "做多风险说明"}}
+  }},
+  "final_summary": "多头最终陈述摘要"
+}}"""
+
+    result = await bullish.run(context, state["trace_id"])
+    per_symbol = _parse_per_symbol_debate(result, symbols)
+    if per_symbol is None:
+        output = result.get("output", "")
+        per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
+
+    new_round = state.get("debate_round", 0) + 1
+    new_phases = state["completed_phases"] + ["P4_bull_final"]
+    return {
+        **state,
+        "bull_final_arguments": [{"round": 6, "role": "bullish", "phase": "final", "symbols": per_symbol}],
+        "debate_round": new_round,
+        "current_phase": "P4_bull_final",
+        "completed_phases": new_phases,
+    }
 async def node_verdict(state: DebateState) -> DebateState:
     _ensure_llm_key()
     judge = FdtAgentExecutor("judge")
 
-    # Build per-symbol debate context
-    bull_args_dict = state.get("bullish_arguments", {})
-    bear_args_dict = state.get("bearish_arguments", {})
+    # Build per-symbol debate context (v9.0 six-phase format)
+    _all_bull_entries = []
+    for _lst_key in ["bullish_arguments", "bullish_rebuttal_arguments", "bull_final_arguments"]:
+        _raw = state.get(_lst_key, [])
+        if isinstance(_raw, list):
+            _all_bull_entries.extend(_raw)
+        elif isinstance(_raw, dict):
+            _all_bull_entries.append(_raw)
+
+    _all_bear_entries = []
+    for _lst_key in ["bearish_arguments", "bearish_rebuttal_arguments", "bear_final_arguments"]:
+        _raw = state.get(_lst_key, [])
+        if isinstance(_raw, list):
+            _all_bear_entries.extend(_raw)
+        elif isinstance(_raw, dict):
+            _all_bear_entries.append(_raw)
+
+    bull_args_dict = {}
+    for _entry in _all_bull_entries:
+        if isinstance(_entry, dict) and _entry.get("symbols"):
+            bull_args_dict.update(_entry["symbols"])
+
+    bear_args_dict = {}
+    for _entry in _all_bear_entries:
+        if isinstance(_entry, dict) and _entry.get("symbols"):
+            bear_args_dict.update(_entry["symbols"])
+
     symbols = state.get("selected_symbols", [])
+    scan_dir = state.get("judge_direction", {}).get("direction", "neutral")
 
     debate_context_lines = []
     for sym in symbols:
@@ -982,33 +1402,38 @@ async def node_verdict(state: DebateState) -> DebateState:
         )
     debate_context = "\n".join(debate_context_lines)
 
-    context = f"""作为裁决官，请基于以下辩论内容对每个品种给出最终裁决并输出完整交易参数。
+    context = f"""作为闫判官（裁决官），请基于以下全部辩论内容对每个品种给出最终裁决。
 
-逐品种辩论论据:
+核心原则：
+- **你的裁决完全基于辩论质量，可以且应当推翻数技源的扫描方向**
+- 数技源扫描参考方向: {scan_dir} — 这仅作参考，你可以推翻
+- 如果空头论据更扎实 裁决空头（即使数技源方向为多头）
+- 如果多头论据更扎实 裁决多头（即使数技源方向为空头）
+- 双方论证均不充分 裁决 neutral / 低仓位
+- 输出完整交易参数
+
+以下为多轮攻防的全部辩论论据（多头立论空头立论空头反驳多头反驳空头最终多头最终）:
+
 {debate_context}
 
-请以 JSON 格式返回逐品种裁决及交易参数：
+请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"：
 {{"per_symbol": {{
-    "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由",
+    "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）",
+            "overturn_scan": true, "overturn_reason": "推翻数技源方向的理由",
             "entry_price": 3100, "stop_loss_price": 3050, "target_price": 3250,
             "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}},
-    "CU": {{"direction": "bullish", "confidence": 0.7, "reason": "裁决理由",
+    "CU": {{"direction": "bullish", "confidence": 0.7, "reason": "裁决理由（引用辩论中的关键论据）",
+            "overturn_scan": false, "overturn_reason": "与数技源方向一致",
             "entry_price": 71000, "stop_loss_price": 70000, "target_price": 73000,
             "position_pct": 3, "contract": "CU2409", "risk_reward_ratio": 2.5}}
   }},
   "overall_direction": "bearish/neutral/bullish",
-  "overall_reason": "总体摘要"
-}}
-每个品种请确保:
-- direction: bullish/bearish/neutral
-- entry_price, stop_loss_price, target_price 为数值
-- position_pct 为0-100的数值
-- risk_reward_ratio 为数值
-"""
+  "overall_reason": "总体摘要（总结哪方论证更优，是否推翻扫描方向）",
+  "scan_overturned": true/false
+}}"""
 
     result = await judge.run(context, state["trace_id"])
 
-    import json
     output = result.get("output", "")
     try:
         if "{" in output and "}" in output:
@@ -1098,7 +1523,6 @@ async def node_risk_check(state: DebateState) -> DebateState:
 
     result = await risk_manager.run(context, state["trace_id"])
 
-    import json
     output = result.get("output", "")
     try:
         if "{" in output and "}" in output:
@@ -1119,11 +1543,20 @@ async def node_risk_check(state: DebateState) -> DebateState:
     verdict_report_path = None
     try:
         report_dir = _resolve_report_dir()
+        # Build scan_summary from all_ranked
+        _scan_results_ = state.get('scan_results', {})
+        _all_ranked_ = _scan_results_.get('all_ranked', [])
+        _scan_summary_ = []
+        for _item_ in _all_ranked_:
+            _raw_dir_ = _item_.get('direction', '')
+            _total_ = _item_.get('total', 0) or 0
+            if abs(_total_) >= 20:
+                _scan_summary_.append({'symbol': _item_.get('symbol', _item_.get('pid', '')),  'decision': 'BUY' if _raw_dir_ in ('bull', 'BUY', 'buy') else 'SELL' if _raw_dir_ in ('bear', 'SELL', 'sell') else 'HOLD', 'total': _total_, 'price': _item_.get('price', 0), 'atr': _item_.get('atr', 0)})
         verdict_report_path = _write_verdict_report(
             state["trace_id"], verdict, risk_check,
             state.get("selected_symbols", []), report_dir,
+            scan_summary=_scan_summary_,
         )
-        logger.info(f"[RISK] 裁决报告: {verdict_report_path}")
     except Exception as e:
         logger.warning(f"[RISK] 裁决报告生成失败: {e}")
 
@@ -1225,7 +1658,8 @@ async def node_signal_output(state: DebateState) -> DebateState:
     signal_report_path = None
     try:
         report_dir = _resolve_report_dir()
-        signal_report_path = _write_signal_report(state["trace_id"], signal_output, report_dir)
+        _signals_list_ = signal_output.get("signals", [])
+        signal_report_path = _write_signal_report(state["trace_id"], signal_output, report_dir, signals_list=_signals_list_)
         logger.info(f"[SIGNAL] CTP 信号扫描报告: {signal_report_path}")
     except Exception as e:
         logger.warning(f"[SIGNAL] CTP 信号扫描报告生成失败: {e}")
@@ -1242,7 +1676,6 @@ async def node_signal_output(state: DebateState) -> DebateState:
 async def node_report(state: DebateState) -> DebateState:
     import subprocess
     import sys
-    import json
     import tempfile
     from pathlib import Path
 
@@ -1337,9 +1770,24 @@ async def node_report(state: DebateState) -> DebateState:
     # Get per-symbol data from judge verdict (v8.8.0+ per-symbol output)
     judge_per_symbol = verdict.get("per_symbol", {}) if isinstance(verdict, dict) else {}
 
-    # Get per-symbol arguments from debate (v8.8.0+ per-symbol output)
-    bull_args_dict = state.get("bullish_arguments", {})
-    bear_args_dict = state.get("bearish_arguments", {})
+    # Get per-symbol arguments from debate (v8.9.0+ reducer list format)
+    _bull_raw = state.get("bullish_arguments", {})
+    bull_args_dict = {}
+    if isinstance(_bull_raw, list):
+        for _entry in _bull_raw:
+            if isinstance(_entry, dict) and _entry.get("symbols"):
+                bull_args_dict.update(_entry["symbols"])
+    elif isinstance(_bull_raw, dict):
+        bull_args_dict = _bull_raw
+
+    _bear_raw = state.get("bearish_arguments", {})
+    bear_args_dict = {}
+    if isinstance(_bear_raw, list):
+        for _entry in _bear_raw:
+            if isinstance(_entry, dict) and _entry.get("symbols"):
+                bear_args_dict.update(_entry["symbols"])
+    elif isinstance(_bear_raw, dict):
+        bear_args_dict = _bear_raw
 
     verdict_overall = verdict.get("direction", verdict.get("verdict", "neutral")) if verdict else "neutral"
     verdict_confidence = float(verdict.get("confidence", 0.5)) if verdict else 0.5
@@ -1353,6 +1801,8 @@ async def node_report(state: DebateState) -> DebateState:
     }
 
     # Build report_syms from scan data
+    # 规则：仅含已辩论品种 或 信号≥WATCH/|total|≥20的品种，不输出NOISE且未辩论品种
+    _debated_list = [s.upper() for s in (state.get("selected_symbols", []) or [])]
     report_syms = set()
     if symbols_summary:
         for item in all_actionable:
@@ -1362,16 +1812,19 @@ async def node_report(state: DebateState) -> DebateState:
         for item in symbols_summary:
             g = item.get("grade", item.get("level", ""))
             t = abs(item.get("total", 0))
-            if g in ("STRONG", "WATCH") or t >= 20:
-                report_syms.add(item["pid"])
-        if len(report_syms) < 5:
-            for item in sorted(symbols_summary, key=lambda x: abs(x.get("total", 0)), reverse=True)[:30]:
-                report_syms.add(item["pid"])
+            pid = item.get("pid", "").lower()
+            is_debated = pid.upper() in _debated_list
+            if is_debated or g in ("STRONG", "WATCH") or t >= 20:
+                report_syms.add(pid)
+        if len(report_syms) < 3:
+            for item in sorted(symbols_summary, key=lambda x: abs(x.get("total", 0)), reverse=True)[:5]:
+                if abs(item.get("total", 0)) >= 15:
+                    report_syms.add(item["pid"])
     else:
         for sym in state.get("selected_symbols", []):
             report_syms.add(sym.lower())
         if not report_syms:
-            report_syms.update(["rb", "hc", "i", "au", "ag", "cu", "al", "sc", "SA"])
+            report_syms.update(["sc", "au", "ag", "cu"])
 
     # Build per-symbol verdicts: prefer judge per-symbol, fallback to scan data
     scan_data_map = {item["pid"]: item for item in symbols_summary}
@@ -1401,16 +1854,13 @@ async def node_report(state: DebateState) -> DebateState:
         if isinstance(bull_sym, dict) and bull_sym.get("arguments"):
             bull_args_list = bull_sym["arguments"]
         else:
-            bull_args_list = state.get("bullish_arguments", [])
-            if isinstance(bull_args_list, dict):
-                bull_args_list = []
+            # 未找到该品种辩论论据 → 留空，不fallback到全局state（会泄露raw dict）
+            bull_args_list = []
 
         if isinstance(bear_sym, dict) and bear_sym.get("arguments"):
             bear_args_list = bear_sym["arguments"]
         else:
-            bear_args_list = state.get("bearish_arguments", [])
-            if isinstance(bear_args_list, dict):
-                bear_args_list = []
+            bear_args_list = []
 
         # Compute entry/target/stop: prefer judge values, fallback to scan-based calculation
         if judge_sym and isinstance(judge_sym, dict):
@@ -1441,7 +1891,7 @@ async def node_report(state: DebateState) -> DebateState:
             elif per_sym_dir == "SELL":
                 sl_p = entry_p + atr_val * 1.5 if atr_val > 0 else entry_p * 1.03
                 tg_p = entry_p - atr_val * 2.5 if atr_val > 0 else entry_p * 0.95
-            # Compute position from score
+            # Compute position from score (仅当judge没有给出判决策略时)
             abs_sc = abs(item.get("total", 0) or 0)
             if abs_sc >= 75:
                 pos_pct = 5.0
@@ -1451,6 +1901,8 @@ async def node_report(state: DebateState) -> DebateState:
                 pos_pct = 1.5
             elif abs_sc >= 20:
                 pos_pct = 0.5
+            else:
+                pos_pct = 0.0  # 弱信号品种不分配仓位
             # Compute RR
             if entry_p and sl_p and tg_p and abs(entry_p - sl_p) > 0:
                 risk = abs(entry_p - sl_p)
@@ -1557,3 +2009,21 @@ async def node_report(state: DebateState) -> DebateState:
 
     new_phases = state["completed_phases"] + ["P6"]
     return {**state, "report_path": report_path, "current_phase": "P6", "completed_phases": new_phases}
+
+
+def _build_data_sources(state: DebateState) -> list:
+    """从 state 中提取并返回数据溯源列表"""
+    sources = []
+    research = state.get("research_data", {})
+    if research.get("technical_data"):
+        sources.append({"source": "technical", "agent": "观澜", "phase": "P3"})
+    if research.get("fundamental_data"):
+        sources.append({"source": "fundamental", "agent": "探源", "phase": "P3"})
+    if research.get("chain_analysis"):
+        sources.append({"source": "chain", "agent": "链证源", "phase": "P3"})
+    if state.get("fdc_data_status", {}).get("collected"):
+        sources.append({"source": "fdc", "agent": "FDC", "phase": "P2.5"})
+    scan = state.get("scan_results", {})
+    if scan.get("all_ranked"):
+        sources.append({"source": "scan", "agent": "数技源", "phase": "P1"})
+    return sources

@@ -301,10 +301,29 @@ daemon_watchdog.py 检测 (每30分钟)
 
 | 场景 | 现象 | 降级路径 |
 |:-----|:-----|:---------|
-| 100ppi.com/sf/ 被 Cloudflare 拦截 | `_collect_basis_data_sync()` 返回空 dict | V3 基差+低波联合增强静默跳过，退化为纯 ATR% 判断 |
-| 100ppi 页面结构变化 | `_parse_100ppi_sf_page()` 解析器返回空 | 同上；日志打印 `⚠️ 100ppi 解析失败` |
-| **影响** | 基差信号消失，`arbitrage.basis` 子类型无产出 | 跨品种配对（pair spread）不受影响（仅用期货价） |
-| **恢复** | 下次扫描自动重试；无需人工干预 |
+| 100ppi.com/sf/ 被 HW_CHECK 拦截 | `_collect_basis_data_sync()` 返回空 dict | **自动降级到 TdxCollector 近月合约代理（v8.8.7）**，`_collect_basis_via_nearmonth()` 使用近月合约价作为现货代理 |
+| 100ppi 页面结构变化 | `_parse_100ppi_sf_page()` 解析器返回空 | 同上；自动降级到近月代理 |
+| TDX 本地也不可用 | TdxCollector.is_available=False | V3 基差+低波联合增强静默跳过，退化为纯 ATR% 判断 |
+| **影响** | 基差来源变为近月代理（标注 `data_source=near_month_proxy`，`unit=元/吨(近月代理)`），方向信号可靠但幅度为近似值 | 跨品种配对（pair spread）不受影响（仅用期货价） |
+| **恢复** | 100ppi 恢复后自动切回真实现货价；下次扫描自动重试 |
+
+#### 8.1.1 近月代理降级原理
+
+当 100ppi 不可用时，`_collect_basis_data_sync()` 自动调用 `_collect_basis_via_nearmonth()` 降级函数：
+
+1. 通过 TdxCollector.get_term_structure(symbol) 获取品种的**全部合约期限结构**
+2. 取**近月合约价格**（最靠近交割月）作为现货价格的代理
+3. 计算 `basis = near_price - main_contract_price`（信号中的主力合约价）
+4. 返回格式与真实基差同构，但 `unit` 标注为 `"元/吨(近月代理)"`，新增 `data_source: "near_month_proxy"`
+
+**金融逻辑支撑**：期货近月合约临近交割时通过期现套利收敛于现货。用近月价 vs 主力价的价差方向与真实基差一致（Backwardation->basis>0, Contango->basis<0），可用于信号验证器的方向性判断。
+
+**下游标注要求**：消费方（`atr_vol_timing.py` / `p0_4_raw_kline.py`）读取 `basis_pct` 时，各阈值判断逻辑不变，但认知上应视为方向性参考而非精确基差幅度。
+
+**适用边界**：
+- 有实物交割的黑色/有色/能化/农产品 -- 收敛机制可靠
+- 现金结算品种（如 ec 集运指数）-- 无实物交割，跳过降级
+- 近月流动性差的品种 -- TdxCollector 返回空合约列表则跳过
 
 ### 8.2 OI 数据不可用
 
@@ -354,12 +373,16 @@ daemon_watchdog.py 检测 (每30分钟)
         └─ 失败 ───┴── 失败 ───┴─ 失败 → 触发 P3 降级告警，继续辩论（无研究员资料）
 ```
 
-### 9.3 P4 辩论降级
+### 9.3 P4 六阶段辩论降级 (v9.0.0)
 
-| 辩手 | 超时时间 | 降级行为 | 影响 |
-|:-----|:---------|:---------|:-----|
-| 证真（多头） | 600s | 自动跳过，`bullish_arguments=[]` | 仅空头论据 |
-| 慎思（空头） | 600s | 自动跳过，`bearish_arguments=[]` | 仅多头论据 |
+| 辩论阶段 | 节点 | 超时时间 | 降级行为 | 影响 |
+|:---------|:-----|:---------|:---------|:-----|
+| 多头初论 P4_1 | `node_bullish_v1` | 600s | 自动跳过，`bullish_arguments=[]` | 缺少多头初论 |
+| 空头初论 P4_2 | `node_bearish_v1` | 600s | 自动跳过，`bearish_arguments=[]` | 缺少空头初论 |
+| 空头驳论 P4_3 | `node_bearish_rebuttal` | 600s | 自动跳过，`bearish_rebuttal_arguments=[]` | 缺少空头反驳 |
+| 多头驳论 P4_4 | `node_bullish_rebuttal` | 600s | 自动跳过，`bullish_rebuttal_arguments=[]` | 缺少多头反驳 |
+| 空头结辩 P4_5 | `node_bear_final` | 600s | 自动跳过，`bear_final_arguments=[]` | 缺少空头结辩 |
+| 多头结辩 P4_6 | `node_bull_final` | 600s | 自动跳过，`bull_final_arguments=[]` | 缺少多头结辩 |
 
 ### 9.4 P5 裁决链降级
 

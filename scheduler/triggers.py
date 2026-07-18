@@ -351,4 +351,32 @@ def get_default_triggers() -> list:
             hour=8,
             minute=50,
         ),
+        # 14. L2 因子演化循环：每晚 20:00 触发 Loop Engineering
+        #     宏观（LLM 改逻辑）+ 微观（optuna 调参）+ agentic 三级评估链
+        #     夜间 4h 演化窗口，熔断机制兜底（token/连续低IC/失败率）
+        TimeTrigger(
+            task_name="l2_evolution_loop",
+            weekdays=None,  # 每天
+            hour=20,
+            minute=0,
+        ),
+        # 15. L1 Meta-Loop：每日 05:00 触发 Loop Engineering Phase 2
+        #     agentic 感知(f10 web_collector) + factorengine Bootstrapping Agent 链
+        #     + debate_round 质量分析 → 种子因子注入 factor_pool.json
+        #     1h 白天补给窗口，熔断机制兜底（token/连续低质量/失败率）
+        TimeTrigger(
+            task_name="l1_meta_loop",
+            weekdays=None,  # 每天
+            hour=5,
+            minute=0,
+        ),
+        # 16. L3 Portfolio Loop：每周五 15:30 触发 Loop Engineering Phase 3
+        #     信号合成 + 因子正交化 + 衰减检验 + 组合构建 → 注入 FDT
+        #     1h 窗口，Verifier 锁定判定（夏普>2.0/相关性<0.3/换手率<50%）
+        TimeTrigger(
+            task_name="l3_portfolio_loop",
+            weekdays=[4],  # 周五（0=周一, 4=周五）
+            hour=15,
+            minute=30,
+        ),
     ]

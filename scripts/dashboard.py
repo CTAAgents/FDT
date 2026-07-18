@@ -144,7 +144,7 @@ def _render_debates(debates: list) -> str:
     return "\n".join(rows) or '<div style="color:var(--muted)">暂无记录</div>'
 
 
-def main(output="dashboard.html"):
+def main(output: str = "dashboard.html") -> None:
     data = build_dashboard_data()
     html = render_html(data)
 

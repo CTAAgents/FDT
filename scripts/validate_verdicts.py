@@ -373,7 +373,7 @@ def validate_round(record: dict, bar_cache: dict = None) -> dict:
 
 # ─── 分组统计 ───────────────────────────────────────────
 
-def save_feedback_entries(results: list, verdicts: list, followup_dir: str):
+def save_feedback_entries(results: list, verdicts: list, followup_dir: str) -> None:
     """将验证结果写为 risk_engine.build_feedback_entry 格式。
 
     对接风险引擎的反馈闭环:
@@ -523,7 +523,7 @@ def compute_group_stats(all_records: list) -> dict:
 
 # ─── 主程序 ───────────────────────────────────────────
 
-def main():
+def main() -> None:
     global COST_BPS
     import argparse
     parser = argparse.ArgumentParser(description="裁决验证器（成本感知）")

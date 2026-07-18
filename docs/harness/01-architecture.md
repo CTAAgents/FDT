@@ -198,7 +198,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 [P3] 链证源+观澜+探源 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json
     │                    ← 三源平行关系，无先后次序
     ▼
-[P4] 证真+慎思 (并行) ──→ p4_affirmative_{sym}.json + p4_opposition_{sym}.json
+[P4] 六阶段攻防 (串行) ──→ state.bullish_arguments + bearish_arguments + bearish_rebuttal + bullish_rebuttal + bear_final + bull_final
     │
     ▼
 [P5] 裁决链 (串行)
@@ -497,8 +497,9 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 链证源 | `node_chain` | 产业链分析（按需） | **是**（与观澜、探源并行） | P3 | 无 |
 | 观澜 | `node_technical` | 技术面分析（按需） | **是**（与链证源、探源并行） | P3 | 无 |
 | 探源 | `node_fundamental` | 基本面分析（按需） | **是**（与链证源、观澜并行） | P3 | 无 |
-| 证真/多头分析员 | `node_debate` | 多头论据 | 是（与慎思并行） | P4 | 无 |
-| 慎思/空头分析员 | `node_debate` | 空头论据 | 是（与证真并行） | P4 | 无 |
+| 证真/多头分析员(v1) | `node_bullish_v1` | 多头立论（正方 v1） | 否（串行交叉质询） | P4 步1 | 无 |
+| 慎思/空头分析员(v1) | `node_bearish_v1` | 空头质疑（反方 v1） | 否（串行交叉质询） | P4 步2 | 无 |
+| 证真/多头分析员(v2) | `node_bullish_rebuttal` | 多头反驳（正方 v2 rebuttal） | 否（串行交叉质询） | P4 步3 | 无 |
 | 闫判官 | `node_verdict` | 裁决(含交易参数) | 否 | P5 | 有 |
 | 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
 | 明鉴秋(报告) | `node_report` | 报告生成 | 否 | P6 | 有 |

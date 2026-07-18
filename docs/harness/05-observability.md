@@ -144,7 +144,24 @@ logger.error("连接失败", exc_info=True)
 | `pipeline_{date}.log` | `Commodities/Reports/.../` | `pipeline/runner.py` | 流水线执行日志 |
 | `scheduler.log` | `logs/` | `scheduler/engine.py` | 调度器心跳日志 |
 
-### 3.4 日志统一状态
+### 3.4 辩论轮次指标 (v9.0.0)
+
+P4 六阶段攻防阶段新增 `debate_round` 指标，记录辩论进行到第几轮：
+
+| 字段 | 类型 | 说明 | 初始值 | 增量时机 |
+|:-----|:-----|:-----|:-------|:---------|
+| `state.debate_round` | `int` | 辩论轮次计数器 | 0 | 每步节点完成后 +1 |
+| | | P4_1 (bullish_v1) → 1 | | |
+| | | P4_2 (bearish_v1) → 2 | | |
+| | | P4_3 (bearish_rebuttal) → 3 | | |
+| | | P4_4 (bullish_rebuttal) → 4 | | |
+| | | P4_5 (bear_final) → 5 | | |
+| | | P4_6 (bull_final) → 6 | | |
+| `MAX_DEBATE_ROUNDS` | `int` | 最大辩论轮次 | 6 | graph.py 常量 |
+
+**追踪方式**：`debate_round` 值通过 LangGraph Checkpointer 持久化至 PostgreSQL/SQLite，可通过 `get_state_history()` 回溯每轮状态。
+
+### 3.5 日志统一状态
 
 > **2026-07-14 整顿**：G3 已落地——`pipeline/runner.py` L26/L66 已改为 `from scripts.unified_logger import get_logger` + `logger = get_logger("pipeline", log_dir=_log_dir)`，流水线日志与统一日志格式一致。此前「pipeline 使用 basicConfig」的注记已过时，特此校正。
 

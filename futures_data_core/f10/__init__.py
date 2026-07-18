@@ -23,7 +23,8 @@ from futures_data_core.f10.position import get_position_ranking
 from futures_data_core.f10.spread import compute_spread, get_spread
 from futures_data_core.f10.term_structure import analyze_term_structure, get_term_structure
 from futures_data_core.f10.warrant import get_warrant, summarize_warrant
-from futures_data_core.f10.web_collector import search_fundamental_llm
+from futures_data_core.f10.web_collector import fetch_quote, fetch_kline, search_news, collect_fundamental_web
+from futures_data_core.f10.web_collector_llm import search_fundamental_llm
 from futures_data_core.f10.sentiment import get_sentiment
 from futures_data_core.f10.macro import get_macro_pmi, get_macro_rate
 
@@ -55,6 +56,10 @@ __all__ = [
     "get_fundamental",
     # web collector
     "search_fundamental_llm",
+    "fetch_quote",
+    "fetch_kline",
+    "search_news",
+    "collect_fundamental_web",
     # sentiment
     "get_sentiment",
     # position ranking

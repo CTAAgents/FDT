@@ -7,7 +7,6 @@ sources:
     type: independent
     enabled: true
     description: 通达信 TQ-Local 本地服务
-    # 运行时探测：本机是否运行 TdxW.exe 且端口存活
     detection:
       kind: http_probe
       url: "http://127.0.0.1:17709/"
@@ -15,11 +14,34 @@ sources:
       base_url: "http://127.0.0.1:17709"
       timeout: 3.0
 
-  - name: tqsdk
+  - name: web_fallback
     priority: 1
     type: independent
     enabled: true
-    description: 天勤量化 TqSDK (需账号)
+    description: Web 兜底采集器（新浪 + 东方财富免费公开 API）
+    detection:
+      kind: always_available
+    config:
+      primary: sina
+      secondary: eastmoney
+      confidence: 0.85
+
+  - name: qmt_xtquant
+    priority: 2
+    type: independent
+    enabled: true
+    description: QMT/xtquant 本地 TCP 直取
+    detection:
+      kind: import
+      import: xtdata
+    config:
+      timeout: 20.0
+
+  - name: tqsdk
+    priority: 98
+    type: independent
+    enabled: true
+    description: 天勤量化 TqSDK (需账号，末位兜底)
     detection:
       kind: env_and_import
       env:
@@ -29,6 +51,9 @@ sources:
     config:
       username_env: TQSDK_USERNAME
       password_env: TQSDK_PASSWORD
+      connect_timeout: 15.0
+      kline_timeout: 25.0
+      close_timeout: 5.0
 
   - name: postgres_cache
     priority: 3

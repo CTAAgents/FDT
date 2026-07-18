@@ -2,25 +2,26 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v8.8.8 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
+**v9.0.0 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
 
 ---
 
 ## 核心特性
 
 - **🥇 中国期货 CTA 赛道第 1 名** — 全网唯一专注 62 品种的多Agent LLM 期货交易系统（[排名报告](docs/FDT_China_Ranking_Report_v1.0.md)）
-- **9-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/证真/慎思/风控明/明鉴秋，边界钉死不越界
+- **9-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/多头分析员/空头分析员/风控明/明鉴秋，边界钉死不越界
 - **5 层鲁棒防线 (L1-L5)** — 产出校验→熔断降级→信号门禁→路径发现→健康自检，各 Agent 独立超时降级
 - **自进化闭环** — T+1 验证 → 权重校准 → Agent Prompt 进化 → LightGBM 增量训练，无需人工标注
 - **NO_FUSION 策略管线** — 8 策略各自独立打分，方向冲突不融合、不掩盖、不平均
 - **三层信号门禁** — 震荡市(ADX+BB+KF) + 去趋势(Hurst+VR) + P0-4 伪突破拦截，共 20+ 道校验
-- **多空辩论机制** — 并行辩论 → 串行裁决 → 条件分歧路由的三级辩论结构
+- **六阶段攻防辩论** — 多头立论(P4_1)→空头立论(P4_2)→空头驳论(P4_3)→多头驳论(P4_4)→空头结辩(P4_5)→多头结辩(P4_6)，多头只做多、空头只做空，来源可追溯
 - **观澜/探源 LLM 推理** — 技术面/基本面由 LLM 推理生成结构化 TechnicalOutput/FundamentalStateVector
 - **CTP 信号输出** — 闫判官裁决→风控明审核→明鉴秋统一调度 CTP 交易指令
 - **PostgreSQL OLTP+OLAP** — 分区表 + BRIN/GIN 索引 + 物化视图分析
 - **LangGraph 架构** — 可配置并行数据源、条件路由、状态持久化、断点恢复
 - **独立运行** — 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
-- **339+ 测试用例** — 13 个测试文件，12 份 Harness 工程规范文档
+- **L2 因子演化循环** — 自动化因子发现与进化，12 个种子因子，4 重熔断（Token/IC/失败率/时效）
+- **1300+ 测试用例** — 19+ 测试文件，12 份 Harness 工程规范文档
 
 ---
 
@@ -94,7 +95,7 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 ```
 ┌──────────────────────────────────────────────────┐
 │ 数据层: FDC 统一数据引擎                          │
-│ TQ-Local(主) → TqSDK(备) → QMT(备) → Web降级链   │
+│ TQ-Local(主) → WebFallback(备) → QMT(备) → TqSDK(末位兜底)  │
 │ 采集: 日线120天K线 / 实时报价 / 持仓排名 / 仓单   │
 │       基差(100ppi) / 宏观(东方财富) / 跨期价差    │
 └──────────────────────┬───────────────────────────┘
@@ -109,7 +110,8 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 ┌──────────────────────────────────────────────────┐
 │ 辩论层: 9 Agent 分工制衡 (LangGraph)             │
 │ 数技源扫描 → 闫判官调度 → 三源并行(链证源/观澜/探源)│
-│ → 多空辩论 → 闫判官裁决(含交易参数)→ 风控明审核   │
+│ → 六阶段攻防: 多头立论→空头立论→空头驳论→多头驳论│
+│ → 空头结辩→多头结辩→闫判官裁决(含交易参数)→风控明审核│
 │ → 报告生成 → CTP信号输出（v8.7.0）               │
 └──────────────────────────────────────────────────┘
 ```
@@ -209,6 +211,13 @@ FDT/
 │   ├── schema.py              # ORM 模型
 │   ├── deploy.py              # 部署工具
 │   └── migrations/            # 数据库迁移
+├── loop_engine/               # L2 因子演化循环
+│   ├── evolution_loop.py      # 主循环
+│   ├── factor_program.py      # 安全沙箱执行器
+│   ├── state.py               # 演化状态管理
+│   ├── contracts.py           # 契约定义
+│   ├── verifier_protocol.py   # 验证协议
+│   └── elite_archive.py       # 精英因子存档
 ├── futures_data_core/         # 期货数据核心
 │   ├── core/                  # 核心层（降级链、缓存、类型）
 │   ├── collectors/            # 采集器（TDX/TqSDK/QMT/Web）
@@ -233,9 +242,12 @@ FDT/
 
 | 变量 | 说明 | 默认值 |
 |:-----|:-----|:-------|
-| `FDT_LLM_API_KEY` | LLM API Key | - |
-| `FDT_LLM_API_BASE` | LLM API Base URL | `https://api.deepseek.com/v1` |
-| `FDT_LLM_MODEL` | LLM 模型名称 | `deepseek-chat` |
+| `FDT_LLM_API_KEY` | LLM 全局 API Key | - |
+| `FDT_LLM_API_BASE` | LLM 全局 API Base URL | `https://api.deepseek.com/v1` |
+| `FDT_LLM_MODEL` | LLM 全局模型名称 | `deepseek-chat` |
+| `FDT_LLM_<NAME>_API_KEY` | 逐Agent API Key（覆盖全局） | - |
+| `FDT_LLM_<NAME>_API_BASE` | 逐Agent API Base URL（覆盖全局） | - |
+| `FDT_LLM_<NAME>_MODEL` | 逐Agent 模型名（覆盖全局） | - |
 | `FDT_PG_DSN` | PostgreSQL 连接字符串 | - |
 | `FDT_USE_LANGGRAPH` | 是否使用 LangGraph 模式 | `false` |
 | `FDT_CHECKPOINTER` | Checkpointer 类型（pg/sqlite） | `sqlite` |
@@ -260,9 +272,10 @@ pytest tests/fdt_langgraph/ -v
 python scripts/run_benchmark.py --compare
 
 # 查看测试统计
-# scripts 测试: 7 文件 / 322 用例
-# langgraph 测试: 6 文件 / 161 用例
-# 合计: 13 文件 / 483+ 用例
+# fdt_langgraph 测试: 5 文件 / 43 用例（六阶段辩论全绿）
+# loop_engine 测试: 7 文件 / 181 用例
+# scripts 测试: 7 文件 / 474+ 用例
+# 合计: 19+ 文件 / 1300+ 用例（42+ 测试全绿，G82 六阶段辩论测试已关闭）
 ```
 
 ---
@@ -283,9 +296,14 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v8.8.8** | 🏆 **全网排名里程碑**：① 完成全网 AI 能力排名分析（8 维度 / 11 系统对比）② 中国期货 CTA 赛道第 1 名且全网唯一 ③ 6 项 S 级评分（Agent/辩论/自进化/鲁棒性/工程/数据）④ 更新 README 至 v8.8.8 |
-| **v8.7.0** | 🎯 **报告层统一 + CTP 信号输出**：① 闫判官直接输出完整交易参数 ② 新增 `node_signal_output` 节点 ③ 删除策执远角色 ④ 流程简化为 `verdict → risk_check → report → signal_output → END` |
-| **v8.6.0** | 🎯 **报告层统一 + 观澜/探源 LLM 推理**：① 观澜 LLM 推理生成 `TechnicalOutput` ② 探源 LLM 推理生成 `FundamentalStateVector`
+| **v9.0.0** | **辩论流程重大重构：正反方→多空头六阶段攻防模式**：① 多头只论证做多，空头只论证做空；② 六阶段辩论——多头立论(P4_1)→空头立论(P4_2)→空头驳论(P4_3)→多头驳论(P4_4)→空头结辩(P4_5)→多头结辩(P4_6)→闫判官裁决；③ 分析师中立化，来源可追溯（`[scan]/[technical:观澜]/[fundamental:探源]/[chain:链证源]`）；④ 闫判官可推翻数技源方向，新增 `overturn_scan` 标记；⑤ `calculate_divergence()` 修复遗漏反驳阶段置信度（G84）；⑥ 全量 Harness 文档同步六阶段架构（G83关闭）；版本号 bump 8.10.0→9.0.0 |
+| **v8.10.0** | **L1/L3 Loop Engineering（Phase 2+3）**：L1 Meta-Loop（每日自动感知因子池缺口 + Bootstrapping Agent 链自动补种）；L3 Portfolio Loop（信号合成→正交化→组合构建→衰减检验→注入FDT）；loop_engine 累计 181 测试全绿 |
+| **v8.9.4** | **数据源配置文档同步（G79）**：修正 `03-configuration.md` 降级链描述与代码一致，`data_sources.yaml` 补充 web_fallback/qmt 配置，移除 AKShare 残留 |
+| **v8.9.3** | **L2 因子演化循环**：新增 `loop_engine/` 包（12 模块），96 测试全绿；四重熔断（Token/IC/失败率/时效）；12 种子因子；scheduler 集成每晚 20:00 触发 |
+| **v8.9.0** | **辩论模式重构**：P4 从并行改为串行交叉质询（多头立论→空头质疑→多头反驳）；新增 `debate_round` 轮次计数器 + Reducer 自动合并；新增 `docs/TECH_STACK_DECISIONS.md`；graph.py 25%→93%，agents.py 71%→97%，health.py 0%→100% |
+| **v8.8.8** | 🏆 **全网排名里程碑**：① 完成全网 AI 能力排名分析（8 维度 / 11 系统对比）② 中国期货 CTA 赛道第 1 名且全网唯一 ③ 6 项 S 级评分 ④ 更新 README 至 v8.8.8 |
+| **v8.7.0** | 🎯 **架构精简 v2**：删除策执远角色，闫判官直接输出完整交易参数，风控明直接基于 verdict 审核，流程简化为 verdict → risk_check → report → signal_output → END |
+| **v8.6.0** | 🎯 **架构精简 v1**：明鉴秋聚焦调度，删除 L1-L4 评分，新增 node_report/node_signal_output，观澜/探源 LLM 推理产出 TechnicalOutput/FundamentalStateVector |
 | v8.5.4 | cov-3 候选模块测试覆盖（unified_logger / fdt_version / config_manager / fdt_llm 共 144 用例） |
 | v8.5.3 | cov-2 任务：新增 178 个测试用例（fdt_paths / trace_id / confidence_utils） |
 | v8.5.0 | FDC 数据注入架构 + 16 个 schema 增强 |

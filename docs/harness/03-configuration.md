@@ -19,7 +19,7 @@
 |:-----|:-----|:-----|
 | `varieties.yaml` | `skills/quant-daily/scripts/references/` | 62 个期货品种定义 |
 | `overseas_varieties.yaml` | `skills/quant-daily/scripts/references/` | 海外品种定义 |
-| `data_sources.yaml` | `skills/quant-daily/scripts/references/` | 数据源降级链 (TDX→TqSDK→EM→AKShare) |
+| `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (TDX→WebFallback→QMT→TqSDK) |
 
 ### 1.3 记忆级配置 (JSON, 运行时可变)
 
@@ -67,6 +67,7 @@
     "run_evolve_when_total_samples_ge_5": true,
     "skip_ml_when_feedback_lt_50": true      // 反馈<50跳过ML
   },
+  "max_debate_rounds": 2,                     // v8.9.0 交叉质询最大轮次
   "skip_for_single_variety": {
     "full_62_scan": false,                   // 单品种仍扫全量(用于对比)
     "cross_chain_dedup_30plus": true         // 跳过30+品种去重
@@ -83,7 +84,7 @@
 ```toml
 [project]
 name = "futures-debate-team"
-version = "8.8.6"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
+version = "9.0.0"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.0", "numpy>=1.24", "python-dateutil>=2.8",
@@ -164,25 +165,41 @@ if _LOG_DIR is None:
 ### 5.1 降级链 (data_sources.yaml)
 
 ```
-通达信TDX TQ-Local (优先级 0, 最高)
+通达信 TDX TQ-Local (优先级 0, 最高)
     ↓ 不可用时降级
-TqSDK (优先级 1, 盘中live模式)
+WebFallback (优先级 1, 东方财富+新浪免费API)
     ↓ 不可用时降级
-东方财富 EastMoney (优先级 2)
+QMT/xtquant (优先级 2, 本地TCP直取)
     ↓ 不可用时降级
-AKShare (优先级 3, 最后降级)
+TqSDK (优先级 98, 末位兜底, 云端API)
+    ↓ 全部实时源失败
+缓存兜底 (Postgres / Redis)
+    ↓ 缓存未命中
+UNAVAILABLE (无数据)
 ```
 
-### 5.2 数据源选择逻辑
+> **2026-07-15 调整说明**：WebFallback 前置于 QMT/TqSDK，以规避 TqSDK `TqApi.close()` 偶发挂死 300s 的问题。TqSDK 作为末位兜底，由超时保护（建连 15s + 拉取 25s + close 5s）兜住。
+
+### 5.2 数据源能力矩阵
+
+| 数据源 | K线周期 | 行情快照 | 技术指标 | Tick | F10数据 | 超时 |
+|:-------|:--------|:--------|:--------|:-----|:--------|:-----|
+| **TDX TQ-Local** | daily/60m/120m/240m/weekly | ✅ | ✅ (DMI/RSI/CCI/MACD/MA/BOLL/OBV) | ❌ | ❌ | 3s |
+| **WebFallback** | daily (新浪主, 东方财富辅) | ❌ | ❌ | ❌ | ❌ | — |
+| **QMT/xtquant** | tick/1m/5m/15m/30m/60m/daily/weekly/monthly | ❌ | ❌ | ✅ | ✅ (期限结构/基差期货端) | 20s |
+| **TqSDK** | 全周期 (含 tick) | ✅ | ❌ | ✅ | ✅ (EDB库存/基差/宏观/利润) | 建连15s/拉取25s |
+
+### 5.3 数据源选择逻辑
 
 | 场景 | 盘中 | 盘后 | 实时价 |
 |:-----|:-----|:-----|:-------|
 | TDX 可用 | TDX (close=实时价) | TDX | TDX |
-| TDX 不可用 | TqSDK (live模式) | TqSDK | TqSDK |
-| TqSDK 不可用 | 东方财富 | 东方财富 | (无实时价) |
-| 东方财富不可用 | (无数据) | AKShare | (无实时价) |
+| TDX 不可用 | WebFallback | WebFallback | (无实时价) |
+| WebFallback 不可用 | QMT | QMT | (无实时价) |
+| QMT 不可用 | TqSDK | TqSDK | TqSDK |
+| 全部实时源不可用 | 缓存兜底 | 缓存兜底 | (无实时价) |
 
-### 5.3 K线一致性
+### 5.4 K线一致性
 
 > **MA60 真实合约铁律**: `get_kline` 不传 `contract` 时默认取主力连续合约(L8)，其 MA60 与真实合约不符。单品种分析须带合约月份（如 `LH2609`），`scan_all -s LH2609` 自动解析并透传。
 
@@ -209,6 +226,7 @@ AKShare (优先级 3, 最后降级)
 | `data_sources.yaml` | ⚠️ 未纳入 schema | 优先级配置错误不报错 |
 | `agent_profiles.json` | ⚠️ 未纳入 schema | 进化参数越界不报错 |
 | 环境变量 | ⚠️ 无类型检查 | FDB_LOG_LEVEL 写错值静默降级为 INFO |
+| 逐Agent LLM 环境变量 (v8.9.1) | ⚠️ 无类型校验 | `FDT_LLM_<NAME>_API_KEY` 空值不报错、`FDT_LLM_<NAME>_API_BASE` 格式错误不报错 |
 
 > 详见 [差距分析](08-gap-analysis.md) G1 / G14 状态。
 
@@ -271,5 +289,85 @@ AKShare (优先级 3, 最后降级)
 | `FDT_API_PORT` | `8000` | API 监听端口 | `fdt_api.py` |
 | `FDT_API_KEY` | (未设置) | API 认证密钥 | `fdt_api.py` |
 | `FDT_LOG_DIR` | `logs/` | 日志目录 (去 WorkBuddy) | `unified_logger.py` |
+
+### 3.3 逐Agent LLM 配置 (v8.9.1)
+
+每个子 Agent 可独立配置不同的 LLM（API Key、Base URL、模型名）。优先级：**逐Agent 环境变量 > 全局 LLM 环境变量 > 代码默认值**。
+
+**环境变量命名规则：**
+
+```
+FDT_LLM_<AGENT_NAME>_API_KEY    # 逐Agent API Key
+FDT_LLM_<AGENT_NAME>_API_BASE   # 逐Agent API Base URL
+FDT_LLM_<AGENT_NAME>_MODEL      # 逐Agent 模型名
+```
+
+其中 `<AGENT_NAME>` 为 Agent 注册名的大写蛇形（如 `TECHNICAL_RESEARCHER`、`FUNDAMENTAL_RESEARCHER`）。
+
+**当前注册的 Agent 列表**（来自 `agents/` 目录）：
+
+| Agent 注册名 | 对应文件 | 默认角色 |
+|:-------------|:---------|:---------|
+| `futures-affirmative-debater` | `agents/futures-affirmative-debater.md` | 正方辩手 |
+| `futures-chain-analyst` | `agents/futures-chain-analyst.md` | 产业链分析师（链证源） |
+| `futures-datatech` | `agents/futures-datatech.md` | 数技源 |
+| `futures-debate-team-team-lead` | `agents/futures-debate-team-team-lead.md` | 明鉴秋（调度） |
+| `futures-fundamental-researcher` | `agents/futures-fundamental-researcher.md` | 基本面研究员（探源） |
+| `futures-judge-deputy` | `agents/futures-judge-deputy.md` | 副裁官 |
+| `futures-judge-heldout` | `agents/futures-judge-heldout.md` | 独立裁官 |
+| `futures-judge` | `agents/futures-judge.md` | 闫判官 |
+| `futures-opposition-debater` | `agents/futures-opposition-debater.md` | 反方辩手 |
+| `futures-risk-manager` | `agents/futures-risk-manager.md` | 风控明 |
+| `futures-technical-researcher` | `agents/futures-technical-researcher.md` | 技术面研究员（观澜） |
+
+**各节点实际使用的 Agent 映射**（`fdt_langgraph/nodes.py` 内）：
+
+| LangGraph 节点 | Agent 注册名 | 可用的逐Agent 环境变量前缀 |
+|:---------------|:-------------|:---------------------------|
+| `node_judge_direction` | `judge` | `FDT_LLM_JUDGE_*` |
+| `node_technical` | `technical_researcher` | `FDT_LLM_TECHNICAL_RESEARCHER_*` |
+| `node_fundamental` | `fundamental_researcher` | `FDT_LLM_FUNDAMENTAL_RESEARCHER_*` |
+| `node_bullish_v1` | `bullish_analyst` | `FDT_LLM_BULLISH_ANALYST_*` |
+| `node_bearish_v1` | `bearish_analyst` | `FDT_LLM_BEARISH_ANALYST_*` |
+| `node_bullish_rebuttal` | `bullish_analyst` | `FDT_LLM_BULLISH_ANALYST_*` |
+| `node_bearish_rebuttal` | `bearish_analyst` | `FDT_LLM_BEARISH_ANALYST_*` |
+| `node_bear_final` | `bearish_analyst` | `FDT_LLM_BEARISH_ANALYST_*` |
+| `node_bull_final` | `bullish_analyst` | `FDT_LLM_BULLISH_ANALYST_*` |
+| `node_verdict` | `judge` | `FDT_LLM_JUDGE_*` |
+| `node_risk_check` | `risk_manager` | `FDT_LLM_RISK_MANAGER_*` |
+
+**配置示例：**
+
+```bash
+# 全局默认（所有 Agent 共用 Deepseek）
+set FDT_LLM_API_KEY=sk-your-deepseek-key
+set FDT_LLM_API_BASE=https://api.deepseek.com/v1
+set FDT_LLM_MODEL=deepseek-chat
+
+# 覆盖：观澜（技术面研究员）使用 GPT-4o
+set FDT_LLM_TECHNICAL_RESEARCHER_API_KEY=sk-your-openai-key
+set FDT_LLM_TECHNICAL_RESEARCHER_API_BASE=https://api.openai.com/v1
+set FDT_LLM_TECHNICAL_RESEARCHER_MODEL=gpt-4o
+
+# 覆盖：探源（基本面研究员）使用 Claude
+set FDT_LLM_FUNDAMENTAL_RESEARCHER_API_KEY=sk-ant-your-claude-key
+set FDT_LLM_FUNDAMENTAL_RESEARCHER_API_BASE=https://api.anthropic.com/v1
+set FDT_LLM_FUNDAMENTAL_RESEARCHER_MODEL=claude-3-5-sonnet-20241022
+
+# 覆盖：风控明使用本地部署模型
+set FDT_LLM_RISK_MANAGER_API_KEY=not-needed
+set FDT_LLM_RISK_MANAGER_API_BASE=http://localhost:1234/v1
+set FDT_LLM_RISK_MANAGER_MODEL=local-model
+```
+
+**回退链逻辑（`fdt_langgraph/agents.py`）：**
+
+```
+逐Agent 环境变量 FDT_LLM_<NAME>_XXX
+    ↓ 不存在时回退
+全局环境变量 FDT_LLM_XXX
+    ↓ 不存在时回退
+代码默认值（FDT_LLM_API_BASE 默认 https://api.deepseek.com/v1）
+```
 
 > **WorkBuddy 路径迁移**: `~/Documents/WorkBuddy/Logs/` 已废弃，默认改为项目内 `logs/` 目录。通过 `FDT_LOG_DIR` 环境变量可自定义。

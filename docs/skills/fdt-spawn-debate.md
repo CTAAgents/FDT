@@ -229,13 +229,16 @@ atr: ATR值
 ```
 每个品种循环执行以下完整链条（品种之间可并行）:
 
-  多头分析员(正方) → Write(p4_bullish_{sym}.json)
-     并行              
-  空头分析员(反方) → Write(p4_bearish_{sym}.json)
+  **步1** 多头分析员(正方) v1 → Write(p4_bullish_{sym}.json) — 立论
+     ↓ 等待多头文件就绪
      
-     ↓ 等待两个文件就绪
+  **步2** 空头分析员(反方) v1 → Read(p4_bullish) → Write(p4_bearish_{sym}.json) — 质疑
+     ↓ 等待空头文件就绪
      
-  闫判官(裁决+交易参数) → Read(多头分析员+空头分析员) → Write(p5_judge_{sym}.json)
+  **步3** 多头分析员(正方) v2 → Read(p4_bearish) → Write(p4_bullish_rebuttal_{sym}.json) — 反驳 (max=1)
+     ↓ 等待反驳文件就绪
+     
+  闫判官(裁决+交易参数) → Read(多头v1 + 空头v1 + 反弹v2) → Write(p5_judge_{sym}.json)
   
      ↓ 等待裁决文件就绪
      
@@ -251,7 +254,7 @@ atr: ATR值
 明鉴秋汇总 → 合并全部产出的JSON → 生成debate_results.json + HTML报告
 ```
 
-### Step 1: spawn 多头分析员 — 每个品种独立
+### Step 1: spawn 多头分析员 v1（立论）— 每个品种独立
 
 ```python
 Agent(
@@ -291,7 +294,7 @@ DC20方向: {dc20_dir}, DC55趋势: {dc55_trend}
 )
 ```
 
-### Step 2: spawn 空头分析员 — 每个品种独立（可与Step 1并行）
+### Step 2: spawn 空头分析员 v1（质疑）— 每个品种独立（读多头v1后触发）
 
 ```python
 Agent(
@@ -326,7 +329,42 @@ DC20方向: {dc20_dir}, DC55趋势: {dc55_trend}
 )
 ```
 
-### Step 3: 轮询等待
+### Step 3: spawn 多头分析员 v2（反驳）— 每个品种独立（读空头v1后触发）
+
+**注意**：此步仅在 `debate_round < MAX_DEBATE_ROUNDS` 时执行。读空头v1的 opposition 后，对每个质疑点针对性反驳。
+
+```python
+Agent(
+    description=f"多头反驳-{symbol}",
+    subagent_type="general-purpose",
+    model="default",
+    max_turns=10,
+    prompt=f"""
+你是多头分析员（正方），对空头的质疑进行针对性反驳。
+
+❗JSON要求：所有字符串文本中禁止使用任何引号。
+
+闫判官指定的信号方向: {direction}
+品种: {symbol} {name}
+价格: {price}
+
+【空头 v1 质疑 — 请逐条回应】
+（从 p4_bearish_{symbol}.json 读取）
+
+研究数据同上轮。
+
+这是**反驳阶段（rebuttal v2）**：
+1. 针对每条质疑，用研究员数据正面回应
+2. 禁止"你说得对""但是反过来"开头
+3. 如果质疑成立，承认并降置信度
+4. 至少覆盖空头提出的主要质疑点
+
+输出文件：{symbol}_rebuttal.json
+"""
+)
+```
+
+### Step 4: 轮询等待
 
 ```python
 import os, time
@@ -348,7 +386,7 @@ def poll_file(path, timeout=300, stable_seconds=3):
     return False
 ```
 
-### Step 4: spawn 闫判官（裁决）— 每个品种独立
+### Step 5: spawn 闫判官（裁决）— 每个品种独立
 
 ```python
 Agent(
@@ -423,7 +461,7 @@ HOLD裁决交易参数规则：0%仓位，仅给监控方案
 )
 ```
 
-### Step 5: spawn 一致性裁判（held-out judge）— 非阻断审计步
+### Step 6: spawn 一致性裁判（held-out judge）— 非阻断审计步
 
 **不能被裁剪。这是独立审计层，与闫判官形成制衡。**
 
@@ -455,7 +493,7 @@ Agent(
 )
 ```
 
-### Step 6: spawn 风控明（风控审核）— 每个品种独立
+### Step 7: spawn 风控明（风控审核）— 每个品种独立
 
 ```python
 Agent(
@@ -488,7 +526,7 @@ Agent(
 )
 ```
 
-### Step 7: 明鉴秋汇总
+### Step 8: 明鉴秋汇总
 
 读取**所有**品种的**全部**5个产出文件：
 
@@ -524,8 +562,9 @@ python extract_knowledge.py ingest   --symbol {sym}   --pro p4_bullish_{sym}.jso
 
 | 阶段 | 产出文件 | 说明 |
 |:----|:---------|:-----|
-| P4 | `p4_bullish_{sym}.json` | 多头分析员论据（至少5条） |
-| P4 | `p4_bearish_{sym}.json` | 空头分析员论据（至少5条） |
+| P4 步1 | `p4_bullish_{sym}.json` | 多头分析员论据 v1（立论，至少5条） |
+| P4 步2 | `p4_bearish_{sym}.json` | 空头分析员论据 v1（质疑，至少3条） |
+| P4 步3 | `p4_rebuttal_{sym}.json` | 多头反驳 v2（rebuttal，max=1，如有） |
 | P5 | `p5_judge_{sym}.json` | 闫判官裁决（含六维评分+交易参数） |
 | P5 | `p5_coherence_{sym}.json` | 一致性裁判审计意见 |
 | P5 | `p5_risk_review_{sym}.json` | 风控明审核 |

@@ -32,7 +32,7 @@ def load_followup(followup_path: str) -> dict:
     }
 
 
-def save_followup(followup_path: str, data: dict):
+def save_followup(followup_path: str, data: dict) -> None:
     os.makedirs(os.path.dirname(followup_path), exist_ok=True)
     with open(followup_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -91,7 +91,7 @@ def build_record(debate_data: dict) -> dict:
     }
 
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="裁决记录器")
     parser.add_argument("--input", required=True, help="debate_results.json 路径")

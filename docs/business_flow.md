@@ -1,4 +1,4 @@
-# 期货辩论专家团 — 业务逻辑流程（v1.1 · 多空头机制）
+# 期货辩论专家团 — 业务逻辑流程（v1.2 · 多空头多轮攻防）
 
 > 本文档为专家团完整业务流程的**规范参考**，所有 Agent MD 和 pipeline 执行逻辑以此为准。
 
@@ -144,20 +144,41 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 
 | 角色 | Agent | 动作 |
 |:-----|:------|:-----|
-| 观澜 | `futures-technical-researcher` | 技术分析供弹 |
-| 探源 | `futures-fundamental-researcher` | 基本面分析供弹 |
-| 多头分析员 | `futures-bullish-analyst` | 列举做多论据（多空头机制） |
-| 空头分析员 | `futures-bearish-analyst` | 列举做空论据（多空头机制） |
-| 闫判官 | `futures-judge` | 在多空论据中裁决方向 |
+| 观澜 | `futures-technical-researcher` | 技术分析供弹（客观中立） |
+| 探源 | `futures-fundamental-researcher` | 基本面分析供弹（客观中立） |
+| 链证源 | `futures-chain-analyst` | 产业链分析供弹（客观中立） |
+| 多头分析员 | `futures-bullish-analyst` | 列举做多论据，反驳空头质疑 |
+| 空头分析员 | `futures-bearish-analyst` | 列举做空论据，反驳多头质疑 |
+| 闫判官 | `futures-judge` | 在多空论据中裁决方向，可推翻数技源扫描方向 |
 
-### 多空头辩论机制（2026-07-15 重构）
+### 多空头多轮攻防机制（v9.0 重构）
 
 **正反方→多空头**：不再设定"正方论证信号方向、反方质疑信号可靠性"的辩论框架。
-- **多头分析员**：独立列举做多论据，不受扫描方向限制
-- **空头分析员**：独立列举做空论据，不受扫描方向限制
-- **闫判官**：在多空论据之间裁决方向
 
-多空双方独立并行产出论据，不进行多轮rebuttal式交锋。闫判官读取双方论据后，在bull/bear/neutral三项中选择裁决，并给出bull_score和bear_score量化评分。
+- **多头分析员**：代表多头利益，从研究员资料中独立寻找做多理由，反驳空头质疑
+- **空头分析员**：代表空头利益，从研究员资料中独立寻找做空理由，反驳多头质疑
+- **分析师中立供弹**：观澜（技术面）、探源（基本面）、链证源（产业链）作为客观研究员，只提供分析数据，不参与辩论。辩手只能使用分析师提供的资料，不能自行搜集数据
+- **闫判官独立裁决**：基于辩论质量做出最终裁决，可以且应当推翻数技源的扫描方向
+
+### 六阶段辩论流程
+
+```
+merge_research（研究员合并供弹）
+    ↓
+① bullish_v1 — 多头立论（多头分析员独立做多论据）
+    ↓
+② bearish_v1 — 空头立论（空头分析员独立做空论据）
+    ↓
+③ bearish_rebuttal — 空头反驳（针对多头立论逐条反驳）
+    ↓
+④ bullish_rebuttal — 多头反驳（针对空头立论+空头反驳再反驳）
+    ↓
+⑤ bear_final — 空头最终陈述（整合空头全部论据，含风险提示）
+    ↓
+⑥ bull_final — 多头最终陈述（整合多头全部论据，含风险提示）
+    ↓
+verdict — 闫判官裁决（基于全部六轮辩论，可推翻数技源方向）
+```
 
 ### 判决评分模型
 
@@ -264,8 +285,8 @@ K线数据降级链（`MultiSourceAdapter.get_kline()`）：
 | **触发条件** | 共识方向+launch+非极端 | 分歧/极端/链补品种 |
 | **耗时** | 短（分钟级） | 长（~60min 辩论+评审） |
 | **入场参数来源** | 闫判官手动设定 | 辩手提案→闫判官判决 |
-| **研究员供弹** | 无 | 需要 |
-| **辩论** | 无 | 48min 多轮陈述+rebuttal |
+| **研究员供弹** | 无 | 需要（观澜+探源+链证源） |
+| **辩论** | 无 | 六阶段多轮攻防（立论→反驳→最终） |
 | **判决** | 无（直接认定方向） | 六维评分判胜负 |
 | **闫判官输出交易参数** | 闫判官直接输出 | 辩论判决后 |
 | **风控** | 标准审核 | 标准审核 |
@@ -306,15 +327,10 @@ python skills/quant-daily/scripts/scan_all.py -o reports -p full_scan_summary   
 # 探源产出：full_scan_factor_timing_{date}.json（FundamentalStateVector 信号）
 
 # P1: 辩论品种精选 + 双通道分离
-python skills/quant-daily/scripts/signals/debate_brief.py \
-  reports/full_scan_factor_timing_*.json \
-  --select-debate chain_analysis.json --min-count 22
+python skills/quant-daily/scripts/signals/debate_brief.py   reports/full_scan_factor_timing_*.json   --select-debate chain_analysis.json --min-count 22
 
 # P1.5: 数据适配（将 candidates 透传到中间数据）
-python skills/quant-daily/scripts/assemble_intermediate_data.py \
-  --summary reports/full_scan_summary_*.json \
-  --chain-analysis chain_analysis.json \
-  --candidates candidates.json
+python skills/quant-daily/scripts/assemble_intermediate_data.py   --summary reports/full_scan_summary_*.json   --chain-analysis chain_analysis.json   --candidates candidates.json
 
 # P3(P5): 报告生成
 python skills/futures-trading-analysis/scripts/phase3_generate_report.py

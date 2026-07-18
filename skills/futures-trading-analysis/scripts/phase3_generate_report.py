@@ -211,7 +211,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
             bear.append(f"CCI={cci:.1f} > 100，多头过热但仍需看方向")  # 用于反方论据
 
         # 成交量
-        if volume:
+        if volume and volume > 0:
             bear.append(f"成交量: {volume:,}手")
 
     # ====== 多头论据 ======
@@ -373,11 +373,11 @@ def _nested_to_per_pid(verdicts: dict, overall: dict, intermediate: dict) -> dic
             risk_note = v.get("risk_note", "")
             key_tension = v.get("key_tension", "")
             if direction == "SELL":
-                bear_args = reasoning[:200] if reasoning else "空头方向"
-                bull_args = risk_note[:200] if risk_note else (key_tension[:200] if key_tension else "")
+                bear_args = reasoning[:2000] if reasoning else "空头方向"
+                bull_args = risk_note[:2000] if risk_note else (key_tension[:2000] if key_tension else "")
             elif direction == "BUY":
-                bull_args = reasoning[:200] if reasoning else "多头方向"
-                bear_args = risk_note[:200] if risk_note else ""
+                bull_args = reasoning[:2000] if reasoning else "多头方向"
+                bear_args = risk_note[:2000] if risk_note else ""
 
         per_pid[pid] = {
             "judge_verdict": {
@@ -500,16 +500,16 @@ if os.path.exists(DEBATE_PATH):
             if isinstance(zz, dict):
                 thesis = zz.get('thesis', zz.get('core_claim', ''))
                 dims = zz.get('dimensions', zz.get('evidence', []))
-                if thesis: debate_results[pid]['bull_args'] = thesis[:200]
+                if thesis: debate_results[pid]['bull_args'] = thesis[:2000]
                 elif isinstance(dims, list):
-                    debate_results[pid]['bull_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
+                    debate_results[pid]['bull_args'] = '; '.join([d.get('claim','')[:200] for d in dims[:8]])
         if not debate_results[pid].get('bear_args'):
             if isinstance(zs, dict):
                 thesis = zs.get('thesis', zs.get('core_claim', ''))
                 dims = zs.get('dimensions', zs.get('evidence', []))
-                if thesis: debate_results[pid]['bear_args'] = thesis[:200]
+                if thesis: debate_results[pid]['bear_args'] = thesis[:2000]
                 elif isinstance(dims, list):
-                    debate_results[pid]['bear_args'] = '; '.join([d.get('claim','')[:60] for d in dims[:3]])
+                    debate_results[pid]['bear_args'] = '; '.join([d.get('claim','')[:200] for d in dims[:8]])
 
     # ── 加载交易方案并注入 per-pid（合约/入场/止损/目标） ──
     for fname in [f'p5_trading_plan_{REPORT_DATE_COMPACT}.json', 'p5_trading_plan.json']:
@@ -689,6 +689,47 @@ chain_results_agg = aggregated_chains
 print(f"✓ 产业链聚合: {len(chain_results_agg)} 条链")
 
 
+# ── 补充：从 debate_results 补充已裁决但不在 all_actionable 中的品种 ──
+debate_pids = {pid.lower() for pid in debate_results if isinstance(debate_results.get(pid), dict)
+               and isinstance(debate_results[pid].get("judge_verdict"), dict)
+               and debate_results[pid]["judge_verdict"].get("final_direction") in ("BUY", "SELL")}
+actionable_pids = {s.get("pid", "").lower() for s in all_actionable}
+missing_pids = debate_pids - actionable_pids
+if missing_pids:
+    for pid_lower in sorted(missing_pids):
+        d = debate_results.get(pid_lower) or debate_results.get(pid_lower.upper()) or {}
+        if not isinstance(d, dict):
+            continue
+        jv = d.get("judge_verdict", {})
+        direction = jv.get("final_direction", "HOLD")
+        dc_raw = jv.get("confidence", 50)
+        if isinstance(dc_raw, str):
+            _cm = {"HIGH": 0.85, "MEDIUM": 0.60, "LOW": 0.35}
+            conf = _cm.get(dc_raw, 0.5)
+        else:
+            conf = float(dc_raw) / 100.0 if float(dc_raw) > 1 else float(dc_raw)
+        all_actionable.append({
+            "pid": pid_lower,
+            "product_name": pid_lower.upper(),
+            "decision": direction,
+            "confidence": conf,
+            "price": d.get("price", 0),
+            "entry_price": d.get("entry_price", 0),
+            "target_price": d.get("target_price", 0),
+            "stop_loss_price": d.get("stop_loss_price", 0),
+            "risk_reward_ratio": d.get("risk_reward_ratio", 0),
+            "position_size": d.get("position_size", 0),
+            "chain": d.get("chain", ""),
+            "adx": d.get("adx", 0),
+            "stage": "",
+            "signal_type": "debate_only",
+            "last_price": d.get("price", 0),
+            "grade": d.get("grade", "DEBATE"),
+            "l1l4_total": 0,
+        })
+    print(f"✓ 补充辩论裁决品种: {len(missing_pids)} 个 → {', '.join(sorted(missing_pids))}")
+    print(f"✓ 有效方案(补充后): {len(all_actionable)}")
+
 # ==================== Step 3: 智能筛选 ====================
 print("\n[Step 3] 智能筛选...")
 
@@ -724,12 +765,29 @@ for s in all_actionable:
     cat = debate.get("category", "")
     risk_detail = debate.get("risk_detail", "")
 
-    if confidence < 0.4:
-        continue
-    if direction not in ["BUY", "SELL"]:
-        continue
-    if verdict in ("HOLD", "WATCH", "—"):
-        continue
+    # ── 已辩论裁决的品种跳过扫描置信度和方向过滤 ──
+    has_debate_verdict = bool(
+        debate and isinstance(debate.get("judge_verdict"), dict)
+        and debate["judge_verdict"].get("final_direction") in ("BUY", "SELL")
+    )
+    if has_debate_verdict:
+        # 使用辩论裁决方向取代扫描信号方向
+        direction = debate["judge_verdict"]["final_direction"]
+        verdict = direction
+        # 使用辩论裁决置信度
+        dc_raw = debate["judge_verdict"].get("confidence", 50)
+        if isinstance(dc_raw, str):
+            _cm = {"HIGH": 0.85, "MEDIUM": 0.60, "LOW": 0.35}
+            confidence = _cm.get(dc_raw, 0.5)
+        else:
+            confidence = float(dc_raw) / 100.0 if float(dc_raw) > 1 else float(dc_raw)
+    else:
+        if confidence < 0.4:
+            continue
+        if direction not in ["BUY", "SELL"]:
+            continue
+        if verdict in ("HOLD", "WATCH", "—"):
+            continue
 
     if debate:
         jv = debate.get("judge_verdict", {})
@@ -1780,17 +1838,17 @@ def build_debate_report():
                 </div>
                 <div style="background:#1a1d28;border-radius:6px;padding:12px 14px;">
                     <div style="color:#f59e0b;font-size:0.78em;margin-bottom:6px;">⚖️ 裁决依据</div>
-                    <div style="color:#aaa;font-size:0.82em;line-height:1.6;">{h_escape(v_reason[:300]) if v_reason else "—"}</div>
+                    <div style="color:#aaa;font-size:0.82em;line-height:1.6;">{h_escape(v_reason[:1000]) if v_reason else "—"}</div>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div style="background:#1a1d28;border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;">
                     <div style="color:#22c55e;font-size:0.78em;margin-bottom:6px;">🟢 多头论据</div>
-                    <div style="color:#ccc;font-size:0.85em;line-height:1.6;word-break:break-word;">{bull_args[:500] if bull_args else "—"}</div>
+                    <div style="color:#ccc;font-size:0.85em;line-height:1.6;word-break:break-word;">{bull_args if bull_args else "—"}</div>
                 </div>
                 <div style="background:#1a1d28;border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;">
                     <div style="color:#ef4444;font-size:0.78em;margin-bottom:6px;">🔴 空头论据</div>
-                    <div style="color:#ccc;font-size:0.85em;line-height:1.6;word-break:break-word;">{bear_args[:500] if bear_args else "—"}</div>
+                    <div style="color:#ccc;font-size:0.85em;line-height:1.6;word-break:break-word;">{bear_args if bear_args else "—"}</div>
                 </div>
             </div>
         </div>"""

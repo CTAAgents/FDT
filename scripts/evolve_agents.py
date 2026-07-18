@@ -430,7 +430,7 @@ def evolve_data_tech(verdicts: list, profile: dict) -> dict:
 
 # ─── Agent6: 辩论五维权重 ───────────────────────────────
 
-def evolve_debate_weights(verdicts, profile):
+def evolve_debate_weights(verdicts: list, profile: dict) -> dict:
     """
     进化维度: debate_brief.py 的 compute_debate_score 五维权重。
     - signal/quality/extreme/data/chain
@@ -527,7 +527,7 @@ def evolve_debate_weights(verdicts, profile):
 
 # ─── Agent7: 探源(基本面研究员) ─────────────────────────
 
-def evolve_fundamental_researcher(verdicts, profile):
+def evolve_fundamental_researcher(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - fundamental_weight: 基本面在综合评分中的权重
@@ -600,7 +600,7 @@ def evolve_fundamental_researcher(verdicts, profile):
 
 # ─── Agent7: 观澜(技术面研究员) ─────────────────────────
 
-def evolve_technical_researcher(verdicts, profile):
+def evolve_technical_researcher(verdicts: list, profile: dict) -> dict:
     """
     进化维度:
     - atr_period: ATR计算周期（影响支撑/阻力区间宽度）

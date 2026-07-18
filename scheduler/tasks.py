@@ -424,6 +424,259 @@ def self_optimize_verify() -> TaskResult:
     )
 
 
+# ─── L2 因子演化循环（Loop Engineering） ─────────────────
+
+@register_task("l2_evolution_loop")
+def l2_evolution_loop() -> TaskResult:
+    """L2 因子演化循环 — Loop Engineering 主入口。
+
+    每晚 20:00 触发，运行 max_generation 代宏观+微观协同演化。
+    通过 `python -m loop_engine.evolution_loop --once` 执行。
+
+    环境变量可覆盖默认参数:
+        FDT_L2_MAX_GENERATION  — 最大代数（默认 50）
+        FDT_L2_MEMORY_DIR      — 状态目录（默认 memory/evolution）
+        FDT_L2_ELITE_DIR       — 精英池目录（默认 memory/knowledge/factors/elite）
+    """
+    start = datetime.now()
+    _log("🧬 L2 因子演化循环启动（Loop Engineering）")
+
+    max_gen = os.environ.get("FDT_L2_MAX_GENERATION", "50")
+    memory_dir = os.environ.get("FDT_L2_MEMORY_DIR", "memory/evolution")
+    elite_dir = os.environ.get("FDT_L2_ELITE_DIR", "memory/knowledge/factors/elite")
+
+    # 探测 Python 解释器
+    root = _project_root()
+    candidates = [
+        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),
+        str(root / "venv" / "Scripts" / "python.exe"),
+    ]
+    venv_python = sys.executable
+    for c in candidates:
+        if os.path.exists(c):
+            venv_python = c
+            break
+
+    # 通过 -m 模块方式调用（避免相对导入失败）
+    cmd = [
+        venv_python, "-m", "loop_engine.evolution_loop",
+        "--once",
+        f"--max-generation={max_gen}",
+        f"--memory-dir={memory_dir}",
+        f"--elite-dir={elite_dir}",
+    ]
+    _log(f"运行: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(root), capture_output=True, text=True,
+            timeout=4 * 3600,  # 4 小时夜间演化窗口
+            encoding="utf-8", errors="replace",
+        )
+        if result.returncode == 0:
+            lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
+            summary = lines[-1] if lines else "L2 演化完成"
+            ok = True
+        else:
+            summary = (result.stderr or result.stdout or "未知错误").strip()[:300]
+            ok = False
+    except subprocess.TimeoutExpired:
+        ok, summary = False, "L2 演化超时（4h）"
+    except Exception as e:
+        ok, summary = False, f"L2 演化异常: {e}"
+
+    return TaskResult(
+        task_name="l2_evolution_loop",
+        success=ok,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if ok else summary,
+        details={
+            "max_generation": max_gen,
+            "memory_dir": memory_dir,
+            "elite_dir": elite_dir,
+        },
+    )
+
+
+# ─── L1 Meta-Loop（Loop Engineering Phase 2） ─────────────
+
+@register_task("l1_meta_loop")
+def l1_meta_loop() -> TaskResult:
+    """L1 Meta-Loop — Loop Engineering Phase 2 知识补给循环。
+
+    每日 05:00 触发，运行 max_bootstraps 次 Bootstrapping 链。
+    通过 `python -m loop_engine.meta_loop --once` 执行。
+
+    流程（5 步）:
+        Step 1: f10/web_collector 拉取市场快照
+        Step 2: debate_round 分析（识别论证薄弱维度）
+        Step 3: factorengine Bootstrapping Agent 链
+        Step 4: L1 Verifier 判定（economic_logic >= 2/4）
+        Step 5: 注入 factor_pool.json + memory/knowledge/factors/l1_injected/
+
+    环境变量可覆盖默认参数:
+        FDT_L1_MAX_BOOTSTRAPS  — 单次最大 Bootstrapping 数（默认 5）
+        FDT_L1_MEMORY_DIR      — L1 状态目录（默认 memory/meta_loop）
+        FDT_L1_FACTOR_POOL     — factor_pool.json 路径
+                                 （默认 memory/knowledge/factors/factor_pool.json）
+        FDT_L1_INJECT_DIR      — L1 注入目录
+                                 （默认 memory/knowledge/factors/l1_injected）
+    """
+    start = datetime.now()
+    _log("🧠 L1 Meta-Loop 启动（Loop Engineering Phase 2）")
+
+    max_bootstraps = os.environ.get("FDT_L1_MAX_BOOTSTRAPS", "5")
+    memory_dir = os.environ.get("FDT_L1_MEMORY_DIR", "memory/meta_loop")
+    factor_pool = os.environ.get(
+        "FDT_L1_FACTOR_POOL",
+        "memory/knowledge/factors/factor_pool.json",
+    )
+    inject_dir = os.environ.get(
+        "FDT_L1_INJECT_DIR",
+        "memory/knowledge/factors/l1_injected",
+    )
+
+    # 探测 Python 解释器
+    root = _project_root()
+    candidates = [
+        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),
+        str(root / "venv" / "Scripts" / "python.exe"),
+    ]
+    venv_python = sys.executable
+    for c in candidates:
+        if os.path.exists(c):
+            venv_python = c
+            break
+
+    # 通过 -m 模块方式调用（避免相对导入失败）
+    cmd = [
+        venv_python, "-m", "loop_engine.meta_loop",
+        "--once",
+        f"--max-bootstraps={max_bootstraps}",
+        f"--memory-dir={memory_dir}",
+        f"--factor-pool={factor_pool}",
+        f"--inject-dir={inject_dir}",
+    ]
+    _log(f"运行: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(root), capture_output=True, text=True,
+            timeout=1 * 3600,  # 1 小时白天补给窗口
+            encoding="utf-8", errors="replace",
+        )
+        if result.returncode == 0:
+            lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
+            summary = lines[-1] if lines else "L1 Meta-Loop 完成"
+            ok = True
+        else:
+            summary = (result.stderr or result.stdout or "未知错误").strip()[:300]
+            ok = False
+    except subprocess.TimeoutExpired:
+        ok, summary = False, "L1 Meta-Loop 超时（1h）"
+    except Exception as e:
+        ok, summary = False, f"L1 Meta-Loop 异常: {e}"
+
+    return TaskResult(
+        task_name="l1_meta_loop",
+        success=ok,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if ok else summary,
+        details={
+            "max_bootstraps": max_bootstraps,
+            "memory_dir": memory_dir,
+            "factor_pool": factor_pool,
+            "inject_dir": inject_dir,
+        },
+    )
+
+
+# ─── L3 Portfolio Loop（Loop Engineering Phase 3） ─────────
+
+@register_task("l3_portfolio_loop")
+def l3_portfolio_loop() -> TaskResult:
+    """L3 Portfolio Loop — Loop Engineering Phase 3 组合构建循环。
+
+    每周五 15:30 触发，读取 elite 因子库进行信号合成 + 正交化 + 组合构建。
+    通过 `python -m loop_engine.portfolio_loop --once` 执行。
+
+    流程（5 步）:
+        Step 1: 信号合成（等权/夏普加权）
+        Step 2: 因子正交化（剔除相关性 > 0.7）
+        Step 3: 组合构建（权重归一化 + 十分位 + 多空 + 成本估算）
+        Step 4: 衰减检验（6 月滚动窗口，衰减 > 30% 剔除）
+        Step 5: 注入 FDT（combo.json + factor_weights.json + Agent 优化建议）
+
+    环境变量可覆盖默认参数:
+        FDT_L3_MODE        — 信号合成模式（equal_weight / sharpe_weight，默认 equal_weight）
+        FDT_L3_MEMORY_DIR  — 组合状态目录（默认 memory/portfolio）
+        FDT_L3_ELITE_DIR   — 精英因子目录（默认 memory/knowledge/factors/elite）
+    """
+    start = datetime.now()
+    _log("📊 L3 Portfolio Loop 启动（Loop Engineering Phase 3）")
+
+    mode = os.environ.get("FDT_L3_MODE", "equal_weight")
+    memory_dir = os.environ.get("FDT_L3_MEMORY_DIR", "memory/portfolio")
+    elite_dir = os.environ.get("FDT_L3_ELITE_DIR", "memory/knowledge/factors/elite")
+
+    # 探测 Python 解释器
+    root = _project_root()
+    candidates = [
+        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),
+        str(root / "venv" / "Scripts" / "python.exe"),
+    ]
+    venv_python = sys.executable
+    for c in candidates:
+        if os.path.exists(c):
+            venv_python = c
+            break
+
+    cmd = [
+        venv_python, "-m", "loop_engine.portfolio_loop",
+        "--once",
+        f"--mode={mode}",
+        f"--memory-dir={memory_dir}",
+        f"--elite-dir={elite_dir}",
+    ]
+    _log(f"运行: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(root), capture_output=True, text=True,
+            timeout=1 * 3600,  # 1 小时窗口（周五 15:30-16:30）
+            encoding="utf-8", errors="replace",
+        )
+        if result.returncode == 0:
+            lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
+            summary = lines[-1] if lines else "L3 组合构建完成"
+            ok = True
+        else:
+            summary = (result.stderr or result.stdout or "未知错误").strip()[:300]
+            ok = False
+    except subprocess.TimeoutExpired:
+        ok, summary = False, "L3 Portfolio Loop 超时（1h）"
+    except Exception as e:
+        ok, summary = False, f"L3 Portfolio Loop 异常: {e}"
+
+    return TaskResult(
+        task_name="l3_portfolio_loop",
+        success=ok,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if ok else summary,
+        details={
+            "mode": mode,
+            "memory_dir": memory_dir,
+            "elite_dir": elite_dir,
+        },
+    )
+
+
 # ─── 直接运行（模拟调度） ──────────────────────────────
 
 if __name__ == "__main__":
