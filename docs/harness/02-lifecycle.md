@@ -179,6 +179,16 @@ fdt_cli.py main()
 > - **Redux**: 引入 `Annotated[list, operator.add]` reducer 自动追加多轮辩论产物，不覆盖
 > - **路由**: 新增 `debate_round` 计数器 + `MAX_DEBATE_ROUNDS` 常量精确控制轮次
 
+### 2.2a 运行模式
+
+FDT 支持两种执行模式：
+
+1. **全量分析模式**（默认）：现有六阶段流水线不变 — P1 信号扫描 → P2 闫判官调度决策 → P3 按需并行数据源 → P4 六阶段攻防辩论 → P5 裁决链 → P6 汇总输出。从品种列表全量扫描开始，逐级传递。
+
+2. **指定品种辩论模式**：当设置 `FDT_DIRECT_DEBATE=true` 和 `FDT_DEBATE_SYMBOLS=SF,SM,SC` 时，跳过 P1 扫描阶段。系统从 `fdt_cache/` 本地 SQLite 缓存直接加载指定品种的 K 线数据、基本面数据和基差数据，进入 P2→P3→P4→P5→P6 流程。适用于快速对已缓存品种启动辩论，无需等待实时扫描信号。
+
+**配置方式**：通过环境变量 `FDT_DIRECT_DEBATE`（启用开关）和 `FDT_DEBATE_SYMBOLS`（品种列表，逗号分隔）控制。缓存目录由 `FDT_CACHE_DIR` 指定（默认 `FDT_ROOT/memory/`）。详见 [03-configuration.md](03-configuration.md)。
+
 > **调度权边界（2026-07-14 澄清，见 G18）**：辩论调度权（决定辩论品种/产业链/方向、dispatch 哪些分析师）属于**闫判官**；链证源/观澜/探源只做各自分析、**无调度权**；明鉴秋负责按闫判官指令执行 spawn 与资源/生命周期管控。该边界已在 `docs/execution_modes_flowchart.md` v4.1 与 `docs/business_flow.md` 固化。
 
 ### 2.3 Agent 生成与销毁
@@ -341,131 +351,6 @@ while self._running:
 | `self_optimize_evolve` | TimeTrigger | 每日 03:00 | Skillevolver 技能层进化 |
 | `self_optimize_verify` | TimeTrigger | 每日 04:00 | Autoresearch A/B 验证 |
 
-## 4a. L2 因子演化循环 (Loop Engineering, v8.9.3+)
-
-L2 演化循环独立于 P1-P6 主流水线，作为 FDT 的「因子自动发现与进化」子系统，每晚 20:00 由 scheduler 触发。
-
-### 4a.1 Karpathy 五步法落地
-
-| 步骤 | 实现 | 文件 |
-|:-----|:-----|:-----|
-| 1. program.md | 因子程序模板（name + code + 经济逻辑 + dependencies + verifiers） | `loop_engine/factor_program.py` |
-| 2. 锁定验证器 | Verifier 协议锁定后不可修改，任何修改尝试抛 RuntimeError | `loop_engine/verifier_protocol.py` |
-| 3. 启动循环 | L2 主循环逐代演化（变异 → 评估 → 筛选 → 繁殖） | `loop_engine/evolution_loop.py` |
-| 4. 状态文件 | `evolution_state.json` + `evolution_state.backup`（先写主文件再镜像） | `loop_engine/state.py` |
-| 5. 停止条件 | 四重熔断：Token>2x / 连续 3 代 IC<0.01 / 失败率>90% / 状态 24h 未更新 | `loop_engine/evolution_loop.py` |
-
-### 4a.2 三层评估链（agentic-factor-investing）
-
-```
-Level 1: 回测验证
-   │  IC > 0.03 / 夏普 > 1.5 / 回撤 < 30%
-   ▼
-Level 2: 经济逻辑
-   │  四维（可解释性/市场结构/数据质量/统计鲁棒性）≥ 3/4 通过
-   ▼
-Level 3: 多重检验
-   │  Bonferroni 校正 + FDR 控制（防 p-hacking）
-   ▼
-入精英库（elite_archive）
-```
-
-### 4a.3 三层分离原则（factorengine）
-
-| 分离维度 | 实现 |
-|:---------|:-----|
-| 逻辑分离 | LLM 修改因子代码逻辑（变异），不接触回测/评估代码 |
-| 资源分离 | API 调用（LLM）与 CPU 计算（回测）使用不同执行器 |
-| 时间分离 | 慢决策（夜间演化）与快迭代（日间扫描）解耦 |
-
-### 4a.4 经验链与种子因子
-
-- **经验链**：成功/失败轨迹按 `trace_id` 存储，LLM 每次变异必须读取最近 20 条避免重复踩坑
-- **种子因子**：12 个来自现有 `trend_following`（10 子信号）+ `mean_reversion`（3 子信号）+ 多因子策略的因子
-- **精英库**：通过三级评估链的因子入 `memory/knowledge/factors/elite/`，可供 FDT 主流水线消费
-
-### 4a.5 调度集成
-
-| 任务 | 触发器 | 触发条件 | 执行内容 |
-|:-----|:-------|:---------|:---------|
-| `l2_evolution_loop` | TimeTrigger | 每晚 20:00 | `python -m loop_engine.evolution_loop --once`（4h timeout） |
-
-**环境变量配置**：
-- `FDT_L2_MAX_GENERATION`：最大演化代数（默认 50）
-- `FDT_L2_MEMORY_DIR`：演化状态存储目录（默认 `memory/evolution`）
-- `FDT_L2_ELITE_DIR`：精英因子库目录（默认 `memory/knowledge/factors/elite`）
-
-### 4a.6 安全沙箱
-
-因子代码在受限沙箱中执行：
-- `_safe_import` 白名单：仅允许 `numpy`/`pandas`/`scipy`/`statsmodels`/`talib`/`math`/`statistics`
-- `FORBIDDEN_MODULES`：禁止 `os`/`sys`/`subprocess`/`socket` 等系统级模块
-- `builtins` 白名单：仅暴露 `len`/`range`/`min`/`max`/`sum`/`abs`/`hasattr`/`callable` 等纯函数
-- 因子 ID 使用 `secrets.token_hex(8)` 确保全局唯一性
-
-## 4b. L1 Meta-Loop (Loop Engineering Phase 2, v8.10.0+)
-
-L1 Meta-Loop 独立于 P1-P6 主流水线和 L2 演化循环，作为 FDT 的「因子知识补给」子系统，每日 05:00 由 scheduler 触发，承担"感知市场 → 识别辩论缺口 → Bootstrapping 候选因子 → L1 Verifier 判定 → 注入 factor_pool"的五步流程。
-
-### 4b.1 五步流程落地
-
-| 步骤 | 实现 | 文件 |
-|:-----|:-----|:-----|
-| 1. 感知 | f10/web_collector (fetch_quote/fetch_kline/search_news/collect_fundamental_web) | `loop_engine/meta_loop.py:MetaLoop._perceive_market()` |
-| 2. 质量分析 | DebateQualityAnalyzer 识别 4 种缺口 (bullish_weak/bearish_weak/insufficient_rounds/no_debate) | `loop_engine/meta_loop.py:DebateQualityAnalyzer` |
-| 3. Bootstrapping | 3 个内置模板 + LLM 注入接口 | `loop_engine/meta_loop.py:BootstrappingChain` |
-| 4. L1 Verifier 判定 | 4 维度锁定判定 (economic_logic/is_executable/not_duplicate/narrative_length) | `loop_engine/meta_loop.py:L1Verifier` |
-| 5. 注入 factor_pool | FactorPoolManager.add_or_update() + seed_pool.inject_from_l1() | `loop_engine/meta_loop.py:FactorPoolManager` + `loop_engine/seed_pool.py` |
-
-### 4b.2 L1 Verifier 锁定协议
-
-```python
-# 4 维度判定（配置不可运行时修改）
-class L1Verifier:
-    def __init__(self, config: L1VerifierConfig):
-        self._locked = True
-        self._config = config  # 锁定后不可修改
-
-    def check(self, candidate: SeedCandidate) -> tuple[bool, list[str]]:
-        if not self._locked:
-            raise RuntimeError("L1 Verifier 未锁定")
-        # 严格按配置判定，不接受任何 override
-        # 维度1: economic_logic >= min_economic_score (默认 2/4)
-        # 维度2: is_executable (factor_program 安全沙箱编译通过)
-        # 维度3: not_duplicate (factor_id 不与 factor_pool 重复)
-        # 维度4: narrative_length >= min_narrative_length (默认 20 字符)
-```
-
-### 4b.3 L1 熔断机制
-
-| 熔断条件 | 阈值 | 行为 |
-|:---------|:-----|:-----|
-| Token 超额 | tokens_consumed > 2.0 × daily_token_limit (100,000) | status = circuit_broken |
-| 失败率 | total_failed / total_candidates > 0.95 | status = circuit_broken |
-| 连续低质量 | consecutive_low_quality > 5 | status = circuit_broken |
-
-### 4b.4 调度集成
-
-| 任务 | 触发器 | 触发条件 | 执行内容 |
-|:-----|:-------|:---------|:---------|
-| `l1_meta_loop` | TimeTrigger | 每日 05:00 | `python -m loop_engine.meta_loop --once`（1h timeout） |
-
-**环境变量配置**：
-- `FDT_L1_MAX_BOOTSTRAPS`：单次运行最大 bootstrapping 候选数（默认 5）
-- `FDT_L1_MEMORY_DIR`：L1 状态存储目录（默认 `memory/meta_loop`）
-- `FDT_L1_FACTOR_POOL`：factor_pool.json 路径（默认 `memory/meta_loop/factor_pool.json`）
-- `FDT_L1_INJECT_DIR`：L2 种子注入目录（默认 `memory/evolution`）
-
-### 4b.5 与 L2 的衔接
-
-- L1 产出 `SeedCandidate` → 通过 `seed_pool.inject_from_l1()` 注入 L2 种子池
-- L2 演化时优先消费 L1 注入的 pending 候选（标记 `injected_to_l2=True`）
-- L1 通过 `debate_round` 质量反馈识别 L2 演化失败模式（形成 L1↔L2 闭环）
-
-### 4b.6 测试覆盖
-
-- `tests/loop_engine/test_meta_loop.py`：51 个测试用例（8 个测试类）全部通过
-- 全量 loop_engine 测试：147 用例（96 L2 + 51 L1）全绿
 
 ## 5. 全自动流水线 (Pipeline Runner)
 

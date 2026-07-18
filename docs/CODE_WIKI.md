@@ -7,11 +7,11 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 **核心特性**:
 - **NO_FUSION 策略管线**: 8 策略各自独立打分，方向冲突不融合
 - **三层信号门禁**: 震荡市 + 去趋势 + P0-4 伪突破拦截，共 20+ 道校验
-- **多空辩论机制**: 多头/空头分析员独立举证，闫判官裁决
+- **六阶段攻防辩论**: 多头只做多、空头只做空，来源可追溯
 - **自进化闭环**: T+1 回测验证 → 累计样本 → 校准权重 → 进化 Agent Prompt → ML 增量训练
 - **LangGraph 架构**: 可配置并行数据源、条件路由、状态持久化
 
-**版本**: v8.7.0
+**版本**: v9.2.0
 
 ---
 
@@ -52,23 +52,28 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
     │  [judge_direction] 闫判官 (选品种 + 定方向 + 调度决策)
     │       │
     │       ▼ (按需并行调度)
-    │  ┌──────────────────────────────────────┐
-    │  │      按需并行数据源 (Parallel)        │
-    │  │  [链证源]   [观澜]     [探源]         │
-    │  │  产业链     技术面     基本面          │
-    │  └──────────────────────────────────────┘
+    │  ┌──────────────────────────────────────────────┐
+    │  │       按需并行数据源 (Parallel)                │
+    │  │  [链证源]   [观澜]     [探源]                 │
+    │  │  产业链     技术面     基本面                  │
+    │  └──────────────────────────────────────────────┘
     │       │
     │       ▼
     │  [merge_research] 合并分析结果
     │       │
     │       ▼
-    │  [debate] 证真+慎思 ──→ 多空论据
+    │  [debate] 六阶段攻防 (串行交叉质询)
+    │  多头立论(P4_1)→空头立论(P4_2)→空头驳论(P4_3)
+    │  →多头驳论(P4_4)→空头结辩(P4_5)→多头结辩(P4_6)
     │       │
     │       ▼
-    │  [verdict] 闫判官 ──→ 裁决+方案+风控
+    │  [verdict] 闫判官 ──→ 裁决+完整交易参数
     │       │
     │       ▼
-    └─ [report] 明鉴秋 ──→ HTML报告
+    │  [risk_check] 风控明 ──→ 风控审核
+    │       │
+    │       ▼
+    └─ [report] 明鉴秋 ──→ HTML报告 + CTP信号输出
 ```
 
 ---
@@ -81,11 +86,11 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 |:-----|:-----|:-----------|
 | `state.py` | 统一辩论状态定义 | `DebateState`, `create_initial_state()` |
 | `graph.py` | 图结构定义与编译 | `build_debate_graph()`, `calculate_divergence()` |
-| `nodes.py` | 节点函数实现 | `node_scan`, `node_debate`, `node_verdict` |
+| `nodes.py` | 节点函数实现 | `node_scan`, `node_debate_*`, `node_verdict` |
 | `agents.py` | Agent 执行器 | `FdtAgentExecutor`, `AgentRegistry` |
 | `health.py` | 健康检查与监控 | `HealthChecker`, `run_health_check()` |
 
-**DebateState 字段**:
+**DebateState 关键字段**:
 
 | 字段 | 类型 | 说明 |
 |:-----|:-----|:-----|
@@ -99,10 +104,16 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `chain_analysis` | dict | 链证源分析结果 |
 | `technical_data` | dict | 观澜技术面数据 |
 | `fundamental_data` | dict | 探源基本面数据 |
-| `bullish_arguments` | list | 多头论据 |
-| `bearish_arguments` | list | 空头论据 |
-| `verdict` | dict | 裁决结果 |
-| `signal_output` | dict | CTP 信号输出(v8.7.0) |
+| `bullish_arguments` | list | 多头立论 (P4_1) |
+| `bearish_arguments` | list | 空头立论 (P4_2) |
+| `bearish_rebuttal_arguments` | list | 空头驳论 (P4_3, v9.0.0) |
+| `bullish_rebuttal_arguments` | list | 多头驳论 (P4_4, v9.0.0) |
+| `bear_final_arguments` | list | 空头结辩 (P4_5, v9.0.0) |
+| `bull_final_arguments` | list | 多头结辩 (P4_6, v9.0.0) |
+| `debate_round` | int | 辩论轮次计数器 (v9.0.0) |
+| `data_sources` | dict | 来源标记映射 (v9.0.0) |
+| `verdict` | dict | 裁决结果（含 `overturn_scan` 标记） |
+| `signal_output` | dict | CTP 信号输出 |
 | `risk_check` | dict | 风控审核结果 |
 | `report_path` | str | 报告路径 |
 
@@ -123,8 +134,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `technical_scores` | 技术面评分 |
 | `fundamental_scores` | 基本面评分 |
 | `debate_arguments` | 辩论论据 |
-| `debate_verdicts` | 辩论裁决 |
-| `trading_plans` | 交易方案 (v8.7.0 废弃，由 debate_verdicts 含交易参数替代) |
+| `debate_verdicts` | 辩论裁决（含完整交易参数） |
 | `risk_checks` | 风控审核 |
 | `execution_followup` | 执行跟进 |
 
@@ -141,16 +151,16 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | 子模块 | 职责 | 核心类/函数 |
 |:-------|:-----|:-----------|
 | `core` | 降级链、缓存、新鲜度、品种注册 | `MultiSourceAdapter`, `KlineData`, `QuoteData` |
-| `collectors` | 数据采集器（TDX/TqSDK/QMT/Web） | `TDXCollector`, `TqSdkCollector`, `QMTCollector`, `WebFallbackCollector` |
+| `collectors` | 数据采集器（TDX/QMT/TqSDK/Web） | `TDXCollector`, `TqSdkCollector`, `QMTCollector`, `WebFallbackCollector` |
 | `f10` | F10 衍生品数据 | `get_term_structure()`, `compute_basis()`, `get_fundamental()` |
 | `indicators` | 技术指标计算 | `compute_indicators()` |
 | `cache` | 缓存管理 | `CacheStore` |
 
 **采集器优先级**:
-1. `TDXCollector` — 通达信本地 TQ-Local（第一数据源）
-2. `TqSdkCollector` — 天勤量化（降级）
-3. `QMTCollector` — QMT/xtquant（降级）
-4. `WebFallbackCollector` — 东方财富+新浪（最后兜底）
+1. `TDXCollector` — 通达信本地 TQ-Local（优先级 0，首选）
+2. `WebFallbackCollector` — 东方财富 HTTP API（优先级 1）
+3. `QMTCollector` — QMT/xtquant（优先级 2）
+4. `TqSdkCollector` — 天勤量化（优先级 98，末位兜底）
 
 ### 3.4 pipeline — 流水线执行
 
@@ -160,7 +170,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `quality_filter.py` | 信号质量过滤 |
 
 **流水线步骤**:
-1. 三生产者扫描（数技源 + 观澜 + 探源）
+1. 多策略并行扫描（数技源）
 2. 产业链分析
 3. 辩论品种精选
 4. 数据适配
@@ -176,7 +186,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `fdt_cli.py` | 命令行接口 |
 | `fdt_api.py` | FastAPI 接口 |
 | `extract_knowledge.py` | 知识萃取 |
-| `evolve_agents.py` | Agent 进化 |
+| `evolve_agents.py` | Agent 进化（8 维度参数自调整） |
 | `calibrate_weights.py` | 权重校准 |
 | `validate_verdicts.py` | 裁决验证 |
 | `unified_logger.py` | 统一日志 |
@@ -187,28 +197,23 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 |:-----|:-----|:---------|
 | `quant-daily` | 量化日扫描 | `scan_all.py`, `strategies/` |
 | `commodity-chain-analysis` | 产业链分析 | `analyze_chain.py` |
-| `technical-analysis` | 技术分析 | `support_resistance.py` (v8.7.0 L1-L4 模块已废弃) |
+| `technical-analysis` | 技术分析 | 指标计算（LLM 推理替代） |
 | `fundamental-data-collector` | 基本面采集 | 因子择时扫描 |
 | `futures-trading-analysis` | 交易分析报告 | `phase3_generate_report.py` |
 
-### 3.7 v8.7.0 新特性
+### 3.7 主要版本特性
 
-**核心变更**:
-
-| 变更项 | 说明 |
-|:-------|:-----|
-| **CTP 信号输出** | `trading_plan` 字段更名为 `signal_output`，直接输出 CTP 信号格式 |
-| **观澜/探源 LLM 推理** | 链证源、观澜、探源三个数据源 Agent 统一接入 LLM 推理，不再依赖规则计算 |
-| **L1-L4 模块废弃** | 技术分析仅保留 `support_resistance.py` |
-| **9-Agent 架构** | 从 10-Agent 精简为 9-Agent，移除冗余角色 |
-
-**版本演进路线**:
-
-| 版本 | 关键特性 |
-|:-----|:---------|
-| v8.7.0 | CTP 信号输出 · 观澜/探源 LLM 推理 |
-| v8.6.0 | L1-L4 模块废弃 · 链证源 Agent LLM 推理切换 |
-| v8.5.0 | 多数据源按需并行 · 闫判官方向决策模块重构 |
+| 版本 | 特性 |
+|:-----|:------|
+| v9.2.0 | **Loop Engineering 剥离** — 因子自演化移出 FDT 系统 |
+| v9.1.0 | **本地增量缓存** — `fdt_cache/` SQLite 缓存层；指定品种辩论模式 |
+| v9.0.0 | **六阶段攻防辩论** — 多头只做多、空头只做空；来源可追溯；闫判官可推翻数技源方向 |
+| v8.7.0 | **架构精简** — 策执远合并到闫判官；CTP 信号输出；观澜/探源 LLM 推理 |
+| v8.4.0 | **LangGraph 生产集成** — A/B 切换；PG+SQLite Checkpointer 降级 |
+| v8.3.0 | **LangGraph 迁移** — StateGraph + 按需并行 + PostgreSQL OLTP+OLAP |
+| v8.2.0 | **Harness 规范固化** — commit 前 12 项检查清单 |
+| v8.1.8 | **NO_FUSION 策略管线** — 去融合工程 |
+| v8.0.0 | **去 WorkBuddy 依赖** — 独立 CLI/FastAPI 入口 |
 
 ---
 
@@ -225,7 +230,7 @@ class FdtAgentExecutor:
     async def run(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]
 ```
 
-**功能**: Agent 执行器，负责加载 Agent 配置、调用 LLM、返回结构化输出。
+**功能**: Agent 执行器，负责加载 Agent 配置、调用 LLM、返回结构化输出。支持逐 Agent 独立 LLM 配置（`FDT_LLM_<NAME>_*` 环境变量）。
 
 ### 4.2 AgentRegistry
 
@@ -305,7 +310,7 @@ class PGConnection:
 
 | 模式 | 说明 | 特点 |
 |:-----|:-----|:-----|
-| `default` | 默认模式 | 完整流程：扫描→闫判官→三源并行→辩论→裁决→方案→风控→报告 |
+| `default` | 默认模式 | 完整流程：扫描→闫判官→三源并行→六阶段辩论→裁决→风控→报告→CTP信号 |
 | `fast` | 快速模式 | 跳过辩论，直接裁决（适用于高频扫描） |
 | `deep_research` | 深度研究 | 分歧>0.7时循环辩论（适用于复杂市场） |
 | `tournament` | 锦标赛模式 | 多轮辩论+投票（适用于重大决策） |
@@ -387,11 +392,16 @@ ruff>=0.1            # 代码检查
 | `FDT_LLM_API_KEY` | LLM API Key | - |
 | `FDT_LLM_API_BASE` | LLM API Base URL | `https://api.deepseek.com/v1` |
 | `FDT_LLM_MODEL` | LLM 模型名称 | `deepseek-chat` |
+| `FDT_LLM_<NAME>_API_KEY` | 逐 Agent API Key（覆盖全局） | - |
+| `FDT_LLM_<NAME>_MODEL` | 逐 Agent 模型名（覆盖全局） | - |
 | `FDT_PG_DSN` | PostgreSQL 连接字符串 | - |
 | `FDT_USE_LANGGRAPH` | 是否使用 LangGraph 模式 | `false` |
 | `FDT_CHECKPOINTER` | Checkpointer 类型（pg/sqlite） | `sqlite` |
 | `FDT_SCAN_MODE` | 扫描模式（no-filter） | - |
 | `FDT_STRATEGIES` | 指定策略列表 | - |
+| `FDT_DIRECT_DEBATE` | 指定品种辩论模式开关 | `false` |
+| `FDT_DEBATE_SYMBOLS` | 指定辩论品种列表 | - |
+| `FDT_CACHE_DIR` | 本地缓存目录 | `memory/fdt_cache` |
 
 ---
 
@@ -399,15 +409,17 @@ ruff>=0.1            # 代码检查
 
 ```
 FDT/
-├── agents/                    # Agent 配置文件（10个）
+├── agents/                    # Agent 配置文件（9个）
 ├── config/                    # 配置文件
 ├── contracts/                 # 契约定义（Schema）
 ├── debate/                    # 辩论历史管理
 ├── docs/                      # 文档
+│   ├── archive/               # 已归档的历史文档
 │   ├── harness/               # Harness 工程规范
 │   ├── design/                # 设计文档
 │   ├── schemas/               # JSON Schema
 │   └── skills/                # 技能文档
+├── fdt_cache/                 # 本地 SQLite 增量缓存
 ├── fdt_langgraph/             # LangGraph 核心模块
 │   ├── state.py               # DebateState 定义
 │   ├── graph.py               # 图结构
@@ -421,7 +433,7 @@ FDT/
 │   └── migrations/            # 数据库迁移
 ├── futures_data_core/         # 期货数据核心
 │   ├── core/                  # 核心层（降级链、缓存、类型）
-│   ├── collectors/            # 采集器（TDX/TqSDK/QMT/Web）
+│   ├── collectors/            # 采集器（TDX/QMT/TqSDK/Web）
 │   ├── f10/                   # F10 衍生品数据
 │   ├── indicators/            # 技术指标
 │   └── cache/                 # 缓存
@@ -440,18 +452,21 @@ FDT/
 
 ## 9. 测试覆盖
 
-| 测试目录 | 测试文件数 | 测试用例数 | 说明 |
-|:---------|:-----------|:-----------|:-----|
-| `tests/fdt_langgraph/` | 7 | 81 | LangGraph 核心测试 |
-| `tests/strategies/` | 14 | - | 策略管线测试 |
-| `tests/quant-daily/` | 5 | - | 量化日扫描测试 |
-| `tests/commodity-chain/` | 6 | - | 产业链分析测试 |
-| `tests/debate-argument-builder/` | 1 | - | 辩论论据构建测试 |
-| `tests/debate-risk-manager/` | 1 | - | 风控测试 |
-| `tests/fdt-gate/` | 1 | - | 质量门禁测试 |
-| `tests/scheduler/` | 2 | - | 调度器测试 |
-| `tests/memory/` | 1 | - | 记忆系统测试 |
-| `tests/validators/` | 4 | - | 信号验证器测试 |
+| 测试目录 | 说明 |
+|:---------|:-----|
+| `tests/fdt_langgraph/` | LangGraph 核心测试（节点/状态/图/Agents/健康/E2E） |
+| `tests/strategies/` | 策略管线测试（19+ 文件） |
+| `tests/quant-daily/` | 量化日扫描测试 |
+| `tests/commodity-chain/` | 产业链分析测试 |
+| `tests/debate-argument-builder/` | 辩论论据构建测试 |
+| `tests/debate-risk-manager/` | 风控测试 |
+| `tests/fdt-gate/` | 质量门禁测试 |
+| `tests/scheduler/` | 调度器测试 |
+| `tests/memory/` | 记忆系统测试 |
+| `tests/validators/` | 信号验证器测试 |
+| `tests/self-improve-enhanced/` | 自改进测试 |
+| `tests/pipeline/` | 流水线测试 |
+| `tests/fdt_cache/` | 本地增量缓存测试 |
 
 ---
 
@@ -477,17 +492,24 @@ Agent 职责不可越界，严格按照生命周期定义执行。
 
 重大技术债务必须登记到 `docs/harness/08-gap-analysis.md`，按 P0/P1/P2 优先级推进。
 
+### 10.6 文档先行原则
+
+Harness 文档 = design spec，测试 = validation spec，代码 = implementation。**改代码前先改文档**。
+
 ---
 
 ## 11. 版本历史
 
 | 版本 | 变更 |
 |:-----|:-----|
-| v8.7.0 | CTP 信号输出 · 观澜/探源 LLM 推理 · 9-Agent 架构 · L1-L4 废弃 |
-| v8.6.0 | L1-L4 模块废弃前置 · 链证源 Agent LLM 推理切换 |
-| v8.5.0 | 多数据源按需并行 · 闫判官方向决策模块重构 |
-| v8.4.0 | 完整 LangGraph 迁移完成 |
-| v8.3.0 | LangGraph 架构支持、独立 CLI/FastAPI 入口 |
-| v8.2.0 | PostgreSQL OLTP+OLAP 混合存储 |
-| v8.1.8 | NO_FUSION 策略管线 |
-| v8.0.0 | 去 WorkBuddy 依赖 |
+| v9.2.0 | Loop Engineering 剥离（因子自演化移出 FDT 系统）；文档归档与翻新 |
+| v9.1.0 | 本地增量缓存 fdt_cache/；指定品种辩论模式 |
+| v9.0.0 | 六阶段攻防辩论：多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩；来源可追溯；闫判官可推翻数技源方向 |
+| v8.10.0 | L1/L3 Loop Engineering（已剥离） |
+| v8.9.3 | L2 因子演化循环（已剥离） |
+| v8.7.0 | 架构精简：策执远合并到闫判官；CTP 信号输出；观澜/探源 LLM 推理 |
+| v8.4.0 | LangGraph 生产集成：A/B 切换；PG+SQLite 降级 |
+| v8.3.0 | LangGraph 迁移完成：按需并行拓扑；PostgreSQL OLTP+OLAP |
+| v8.2.0 | Harness 规范固化：12 项 commit 检查清单 |
+| v8.1.8 | NO_FUSION 策略管线：去融合工程 |
+| v8.0.0 | 去 WorkBuddy 依赖：独立 CLI/FastAPI 入口 |

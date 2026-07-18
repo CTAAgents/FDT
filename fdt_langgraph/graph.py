@@ -11,6 +11,7 @@ from .nodes import (
     node_bearish_rebuttal, node_bullish_rebuttal,
     node_bear_final, node_bull_final,
     node_verdict, node_risk_check, node_report, node_signal_output,
+    node_load_cache, node_update_cache,
 )
 
 
@@ -150,6 +151,34 @@ def _register_common_nodes(graph: StateGraph) -> None:
     graph.add_edge("signal_output", END)
 
 
+def _register_direct_debate_nodes(graph: StateGraph) -> None:
+    """注册跳过P1扫描直接进入辩论的节点（load_cache 替代 scan）。
+
+    流程: load_cache -> judge_direction -> prepare_data -> ... -> update_cache -> END
+    """
+    graph.add_node("load_cache", node_load_cache)
+    graph.add_node("update_cache", node_update_cache)
+    graph.add_node("judge_direction", node_judge_direction)
+    graph.add_node("prepare_data", node_prepare_data)
+    graph.add_node("chain", node_chain)
+    graph.add_node("technical", node_technical)
+    graph.add_node("fundamental", node_fundamental)
+    graph.add_node("merge_research", node_merge_research)
+    graph.add_node("verdict", node_verdict)
+    graph.add_node("risk_check", node_risk_check)
+    graph.add_node("report", node_report)
+    graph.add_node("signal_output", node_signal_output)
+
+    graph.set_entry_point("load_cache")
+    graph.add_edge("load_cache", "judge_direction")
+    graph.add_edge("judge_direction", "prepare_data")
+    graph.add_edge("verdict", "risk_check")
+    graph.add_edge("risk_check", "report")
+    graph.add_edge("report", "signal_output")
+    graph.add_edge("signal_output", "update_cache")
+    graph.add_edge("update_cache", END)
+
+
 def build_debate_graph(mode: str = "default") -> StateGraph:
     graph = StateGraph(DebateState)
     _register_common_nodes(graph)
@@ -163,9 +192,15 @@ def build_debate_graph(mode: str = "default") -> StateGraph:
 
 def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
     graph = StateGraph(DebateState)
-    _register_common_nodes(graph)
+
+    direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"
+
+    if direct_debate:
+        _register_direct_debate_nodes(graph)
+    else:
+        _register_common_nodes(graph)
+
     _register_p3_nodes(graph, mode)
     _register_debate_nodes(graph)
-
     graph = graph.compile()
     return graph

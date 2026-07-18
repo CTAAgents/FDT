@@ -56,16 +56,6 @@ tests/
 │   ├── test_postgres_integration.py
 │   ├── test_benchmark_comparison.py
 │   └── test_integration_ab.py    # A/B 切换集成
-├── loop_engine/                  # Loop Engineering L1+L2 (9测试文件, 181用例, v8.10.0+)
-│   ├── conftest.py               # 测试 fixtures (tmp_memory_dir 等)
-│   ├── test_factor_program.py    # 因子程序安全沙箱 + ID 唯一性
-│   ├── test_state.py             # 状态管理 + backup 恢复 + 版本校验
-│   ├── test_evolution_loop.py    # L2 主循环 + 经验链 + 四重熔断
-│   ├── test_verifier_protocol.py # Verifier 锁定协议
-│   ├── test_elite_archive.py     # 精英因子库
-│   ├── test_contracts.py         # 契约层 (含 L1 扩展)
-│   ├── test_integration.py       # 端到端集成
-│   └── test_meta_loop.py         # L1 Meta-Loop (51用例, v8.10.0+ 新增)
 ├── fundamental-data-collector/   # 基本面采集 (1个测试)
 │   ├── conftest.py
 │   └── test_collector.py         # 供需/库存/利润
@@ -123,6 +113,10 @@ tests/
     ├── test_p0_4_raw_kline.py
     ├── test_select_triggers_filter.py
     └── test_volume_confirm_enhanced.py
+├── fdt_cache/                     # 本地增量缓存 (G85 新增)
+    ├── conftest.py
+    ├── test_cache_read_write.py    # 缓存读写/过期/压缩测试
+    └── test_cache_integration.py   # 缓存与 LangGraph 集成测试
 ```
 
 ### 2.1 报告层测试 (v8.8.0+)
@@ -445,115 +439,5 @@ tests/fdt_langgraph/test_integration_ab.py .................... 18 passed
 > - Agent spawn mock（`debate_orchestrator` 子进程调用）
 > - LangGraph Checkpointer mock（SQLite 内存替代）
 
-## 11. Loop Engine 测试策略 (v8.10.0+)
 
-### 11.1 测试架构
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                    Loop Engine 测试体系 (v8.10.0)                │
-├────────────────────┬────────────────────┬───────────────────────┤
-│   单元测试          │   契约测试          │   集成测试             │
-├────────────────────┼────────────────────┼───────────────────────┤
-│ factor_program     │ contracts          │ evolution_loop E2E    │
-│ state              │ verifier_protocol  │ (种子→变异→评估→入精英)│
-│ elite_archive      │ l1_verifier        │ meta_loop E2E         │
-│ meta_state         │ l3_verifier        │ (感知→分析→bootstrap  │
-│ factor_pool        │                    │  →verifier→注入)      │
-│ debate_analyzer    │                    │ portfolio_loop E2E    │
-│ bootstrapping      │                    │ (合成→正交化→构建     │
-│ portfolio_signal   │                    │  →衰减→注入 FDT)      │
-│ meta_state         │                    │ (感知→分析→bootstrap  │
-│ factor_pool        │                    │  →verifier→注入)      │
-│ debate_analyzer    │                    │                       │
-│ bootstrapping      │                    │                       │
-└────────────────────┴────────────────────┴───────────────────────┘
-```
-
-### 11.2 测试目录结构
-
-```
-tests/loop_engine/
-├── conftest.py                    # 测试 fixtures (tmp_memory_dir 等)
-├── test_factor_program.py         # 因子程序安全沙箱测试
-├── test_state.py                  # 状态管理测试 (L2 EvolutionStateManager)
-├── test_evolution_loop.py         # L2 主循环测试
-├── test_verifier_protocol.py      # Verifier 锁定协议测试 (L2)
-├── test_elite_archive.py          # 精英因子库测试
-├── test_contracts.py              # 契约层测试 (含 L1 扩展)
-├── test_integration.py            # L2 端到端集成测试
-└── test_meta_loop.py              # L1 Meta-Loop 测试 (v8.10.0+ 新增, 51用例)
-```
-
-### 11.3 关键测试用例
-
-| 测试项 | 模块 | 测试内容 | 断言 |
-|:-------|:-----|:---------|:-----|
-| `test_safe_import_blocks_forbidden_modules` | factor_program | 沙箱禁止导入 os/sys/subprocess | ImportError raised |
-| `test_safe_import_allows_numpy` | factor_program | 沙箱允许导入 numpy/pandas/scipy | import succeeds |
-| `test_generate_factor_id_uniqueness` | factor_program | 因子 ID 全局唯一（secrets.token_hex） | 1000 次 ID 无碰撞 |
-| `test_state_manager_recovers_from_backup` | state | 主文件损坏时从 backup 恢复 | 状态字段正确恢复 |
-| `test_state_manager_version_check` | state | 版本号不匹配抛 StateError | StateError raised |
-| `test_evolution_loop_record_experience_traces` | evolution_loop | 经验链轨迹按 trace_id 存储 | 每代有独立 trace 文件 |
-| `test_evolution_loop_circuit_breaker_on_token` | evolution_loop | Token 超 2x 触发熔断 | status == 'circuit_broken' |
-| `test_verifier_protocol_locked` | verifier_protocol | 锁定后修改抛 RuntimeError | RuntimeError raised |
-| `test_elite_archive_promotion` | elite_archive | 通过三级评估入精英库 | factor in elite |
-| `test_e2e_evolution_with_seed_factors` | integration | 12 个种子因子端到端演化 | 至少 1 个入精英 |
-
-### 11.4 测试运行命令
-
-```bash
-# Loop Engine 全部测试
-python -m pytest tests/loop_engine/ -v --no-cov
-
-# 带覆盖率
-python -m pytest tests/loop_engine/ --cov=loop_engine --cov-report=term-missing
-
-# 仅熔断测试
-python -m pytest tests/loop_engine/test_evolution_loop.py -v -k "circuit_breaker"
-```
-
-### 11.5 测试统计（v8.10.0）
-
-| 指标 | L2 (v8.9.3) | L1+L2 (v8.10.0) |
-|:-----|:-----------:|:----------------:|
-| 测试文件数 | 7 | **9** |
-| 测试用例总数 | 96 | **181** (96 L2 + 51 L1 + 34 L3) |
-| 测试通过率 | 100% (96/96) | **100% (147/147)** |
-| 因子程序沙箱覆盖率 | 100% (factor_program.py) | 100% (factor_program.py) |
-| 状态管理覆盖率 | 100% (state.py) | 100% (state.py + meta_loop.py MetaStateManager) |
-| 演化循环覆盖率 | 95%+ (evolution_loop.py) | 95%+ (evolution_loop.py) |
-| Verifier 协议覆盖率 | 100% (verifier_protocol.py) | 100% (verifier_protocol.py + L1Verifier) |
-| L1 Meta-Loop 覆盖率 | — | 95%+ (meta_loop.py, 51 测试 / 8 类) |
-
-### 11.6 实际测试结果
-
-#### v8.9.3 (2026-07-18, L2 only)
-
-```
-tests/loop_engine/test_factor_program.py ..................... 14 passed
-tests/loop_engine/test_state.py ................................ 12 passed
-tests/loop_engine/test_evolution_loop.py ...................... 22 passed
-tests/loop_engine/test_verifier_protocol.py .................... 8 passed
-tests/loop_engine/test_elite_archive.py ....................... 14 passed
-tests/loop_engine/test_contracts.py ........................... 12 passed
-tests/loop_engine/test_integration.py ......................... 14 passed
-
-================= 96 passed in 3.42s =================
-```
-
-#### v8.10.0 (2026-07-18, L1+L2+L3)
-
-```
-tests/loop_engine/test_factor_program.py ..................... 14 passed
-tests/loop_engine/test_state.py ................................ 12 passed
-tests/loop_engine/test_evolution_loop.py ...................... 22 passed
-tests/loop_engine/test_verifier_protocol.py .................... 8 passed
-tests/loop_engine/test_elite_archive.py ....................... 14 passed
-tests/loop_engine/test_contracts.py ........................... 12 passed
-tests/loop_engine/test_integration.py ......................... 14 passed
-tests/loop_engine/test_meta_loop.py ........................... 51 passed  ← v8.10.0 新增
-
-================= 181 passed in 2.16s =================
-```
 

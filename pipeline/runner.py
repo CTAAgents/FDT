@@ -433,13 +433,33 @@ def run_langgraph_pipeline(trace_id: str) -> int:
 
     async def _run():
         mode = os.environ.get("FDT_LANGGRAPH_MODE", "default")
+        direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"
+        symbol_arg = os.environ.get("FDT_DEBATE_SYMBOLS", "")
+
         state = create_initial_state(trace_id, mode=mode)
-        state["selected_symbols"] = ALL_SYMBOL_CODES if ALL_SYMBOL_CODES else ["RB"]
+        if direct_debate and symbol_arg:
+            symbols = [s.strip().upper() for s in symbol_arg.split(",") if s.strip()]
+            state["selected_symbols"] = symbols
+            logger.info(f"🔧 指定品种辩论模式: {symbols}")
+        else:
+            state["selected_symbols"] = ALL_SYMBOL_CODES if ALL_SYMBOL_CODES else ["RB"]
+
+        # 确保缓存目录存在
+        if direct_debate:
+            try:
+                from fdt_cache import CacheManager
+                cm = CacheManager.get_instance()
+                cm.ensure_schema()
+                logger.info(f"📦 本地缓存已就绪: {cm.db_path}")
+            except ImportError:
+                logger.warning("fdt_cache 模块不可用，缓存功能跳过")
+            except Exception as e:
+                logger.warning(f"缓存初始化失败: {e}")
 
         graph = build_debate_graph_no_checkpoint(mode=mode)
         config = {"configurable": {"thread_id": trace_id}}
 
-        logger.info(f"▶ LangGraph 图执行开始 (mode={mode})")
+        logger.info(f"▶ LangGraph 图执行开始 (mode={mode}, direct_debate={direct_debate})")
         final_state = await graph.ainvoke(state, config=config)
 
         # 健康检查

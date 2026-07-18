@@ -18,6 +18,10 @@ __pycache__/
 .DS_Store
 phase2_chain_output.json
 memory/logs/
+_tmp_*
+fdt_cache/
+tests/fdt_cache/
+memory/*.db
 
 # Settings
 settings.json

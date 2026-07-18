@@ -20,15 +20,15 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 ├─────────────────────────────────────────────────────────────────────┤
 │                     L1 — 基础设施层 (Infrastructure)                   │
 │   PostgreSQL(OLTP+OLAP) · memory系统 · unified_logger · memory_writer │
-│   · debate_archiver · fdt_pg(连接层) · 独立CLI/FastAPI入口           │
-└─────────────────────────────────────────────────────────────────────┘
+│   · fdt_cache(SQLite增量缓存) · debate_archiver · fdt_pg(连接层)      │
+│   · 独立CLI/FastAPI入口                                              │
 ```
 
 ### 各层职责
 
 | 层 | 职责 | 核心组件 |
 |:--|:-----|:---------|
-| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口 | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
+| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
 | **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`（Checkpointer 逻辑在 graph.py 内联） |
@@ -477,6 +477,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  │  条件边: fast模式  → 跳过debate直达verdict    │   │
                     │  │        deep模式  → debate循环(分歧>0.7)       │   │
                     │  │        tournament → 多轮辩论+投票             │   │
+                    │  │        direct_debate → 跳过P1扫描,从fdt_cache/加载数据 │   │
                     │  └─────────────────────────────────────────────┘   │
                     │                                                    │
                     │  ┌─────────────────────────────────────────────┐   │
@@ -504,6 +505,15 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
 | 明鉴秋(报告) | `node_report` | 报告生成 | 否 | P6 | 有 |
 | 明鉴秋(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6a | 有 |
+
+#### 运行模式说明
+
+FDT 支持两种执行模式，通过环境变量控制：
+
+| 模式 | 环境变量 | 流程 | 适用场景 |
+|:-----|:---------|:-----|:---------|
+| **全量分析模式** (默认) | 无需设置 | scan → judge_direction → prepare_data → 三源并行 → merge → debate → verdict → report | 常规每日全品种扫描分析 |
+| **指定品种辩论模式** | `FDT_DIRECT_DEBATE=true` + `FDT_DEBATE_SYMBOLS=SF,SM,SC` | 跳过 P1 scan 节点；从 `fdt_cache/` 直接加载指定品种的缓存K线/基本面/基差数据；进入闫判官方向判定 → P3 三源并行 → P4 辩论 → P5 裁决 → P6 报告 | 快速对已知品种启动辩论，不依赖实时扫描信号 |
 
 #### 按需并行数据源设计说明
 
