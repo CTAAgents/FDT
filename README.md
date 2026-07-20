@@ -2,7 +2,7 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.2.0 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
+**v9.6.1 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
 
 ---
 
@@ -20,7 +20,13 @@
 - **PostgreSQL OLTP+OLAP** — 分区表 + BRIN/GIN 索引 + 物化视图分析
 - **LangGraph 架构** — 可配置并行数据源、条件路由、状态持久化、断点恢复
 - **独立运行** — 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
-- **9 份 Harness 工程规范文档** — 架构/生命周期/配置/鲁棒性/可观测性/测试/运维/差距/编码规范
+- **FDC 数据注入 (P2.5)** — 预采集所有选中品种的结构化数据（K线/指标/期限结构/基差/仓单/基本面/持仓排名）供子 Agent 使用
+- **Data-Core 集成** — 统一 F10 数据入口，自动降级到原有采集器
+- **主力合约统一解析** — `dominant_resolver` 统一主力合约判定与换月追踪
+- **字段标准化** — `field_normalizer` 统一规范 8 类子 Agent 数据栏位
+- **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型缓存 K 线/基本面/基差，增量 UPSERT
+- **指定品种辩论模式** — 跳过 P1 扫描，直接从本地缓存加载数据进入辩论流程
+- **Harness 工程规范** — 12 项 commit 前检查清单 + 10 条反模式检测规则 + Loop Contract 循环契约
 
 ---
 
@@ -94,9 +100,10 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 ```
 ┌──────────────────────────────────────────────────┐
 │ 数据层: FDC 统一数据引擎                          │
-│ TQ-Local(主) → WebFallback(备) → QMT(备) → TqSDK(末位兜底)  │
+│ Data-Core(0) → TDX(1) → WebFallback(2) → QMT(3) → TqSDK(98) │
 │ 采集: 日线120天K线 / 实时报价 / 持仓排名 / 仓单   │
 │       基差(100ppi) / 宏观(东方财富) / 跨期价差    │
+│       期限结构 / 基本面(F10) / 持仓排名            │
 └──────────────────────┬───────────────────────────┘
                        ↓
 ┌──────────────────────────────────────────────────┐
@@ -108,7 +115,8 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
                        ↓
 ┌──────────────────────────────────────────────────┐
 │ 辩论层: 9 Agent 分工制衡 (LangGraph)             │
-│ 数技源扫描 → 闫判官调度 → 三源并行(链证源/观澜/探源)│
+│ 数技源扫描 → 闫判官调度 → P2.5 FDC数据准备        │
+│ → 三源并行(链证源/观澜/探源)                      │
 │ → 六阶段攻防: 多头立论→空头立论→空头驳论→多头驳论│
 │ → 空头结辩→多头结辩→闫判官裁决(含交易参数)→风控明审核│
 │ → 报告生成 → CTP信号输出                          │
@@ -162,6 +170,82 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 
 ---
 
+## Harness & Loop Engineering
+
+FDT 不仅仅是一个多 Agent 辩论系统，更是 **Harness Engineering 与 Loop Engineering 的生产级实践案例**。
+
+### Harness 六维控制空间
+
+FDT 的 Agent Harness 覆盖 MemoHarness 定义的全部六个控制维度：
+
+| 维度 | FDT 实现 | 成熟度 |
+|------|----------|:------:|
+| **Context（上下文组装）** | `AGENTS.md` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
+| **Tool（工具交互）** | 4 级数据降级链 + 8 策略管线 + CTP 交易接口 | ★★★★☆ |
+| **Generation（解码控制）** | 逐 Agent 模型配置 + 结构化输出约束 | ★★★☆☆ |
+| **Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 4 种运行模式 | ★★★★★ |
+| **Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + 辩论日志 | ★★★★☆ |
+| **Output（输出处理）** | JSON Schema 校验 + 4 铁律 + 风控门控 + HTML 报告 | ★★★★☆ |
+
+### 双层循环结构
+
+FDT 天然支持 Inner Loop（内循环）和 Outer Loop（外循环）：
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Outer Loop（外循环）— 跨会话持续进化                 │
+│  T+1验证 → 权重校准 → Agent进化 → ML训练 → 注入下一轮 │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│  Inner Loop（内循环）— 单次辩论攻防                   │
+│  P1→P2→P3→P4六阶段→P5裁决链→P6输出                    │
+│  含 D06 降级、Maker-Checker 分离、分歧度控制          │
+└─────────────────────────────────────────────────────┘
+```
+
+### 循环契约（Loop Contract）
+
+每个自动化循环都有明确的六维度契约（TRIGGER / SCOPE / ACTION / BUDGET / STOP / REPORT）：
+
+| 循环 ID | 名称 | 验证档位 | 权限 |
+|---------|------|----------|------|
+| `daily-debate` | 每日自动辩论 | **L3** (独立 Agent 审查) | Write（含 CTP 信号输出） |
+| `self-evolve` | 自进化闭环 | L2 (测试套件) | Draft |
+| `ml-training` | ML 模型训练循环 | L2 (测试套件) | Draft |
+| `health-check` | 健康自检循环 | L1 (自检) | 只读 |
+| `data-collection` | 数据采集循环 | L1 (自检) | 只读 |
+
+详细契约定义见 [docs/harness/loop-contracts/](docs/harness/loop-contracts/README.md)。
+
+### 10 篇 Harness 工程规范文档
+
+FDT 将工程实践系统性地文档化，覆盖架构、生命周期、配置、鲁棒性、可观测性、测试、运维、差距分析、晋级计划、编码规范 10 个维度：
+
+| # | 文档 | 内容 |
+|:-:|:-----|:-----|
+| 01 | [架构总览](docs/harness/01-architecture.md) | Harness 分层架构、组件关系图、数据流、Loop Engineering 视角 |
+| 02 | [生命周期与编排](docs/harness/02-lifecycle.md) | 入口引导、6 阶段流水线、Agent 生成/销毁、自进化闭环、循环契约 |
+| 03 | [配置管理](docs/harness/03-configuration.md) | 配置文件清单、环境变量、优先级覆盖链、校验机制 |
+| 04 | [错误恢复与鲁棒性](docs/harness/04-resilience.md) | L1-L5 五层防线、S04 轮询协议、D06 降级、熔断 |
+| 05 | [可观测性](docs/harness/05-observability.md) | APM-CS 五轴、统一日志、健康自检、ViBench 回放 |
+| 06 | [测试策略](docs/harness/06-testing.md) | 测试金字塔、契约校验、门禁审计、覆盖率 |
+| 07 | [运维与部署](docs/harness/07-operations.md) | 部署模式、调度器、看门狗、运维 Runbook |
+| 08 | [差距分析与改进路线](docs/harness/08-gap-analysis.md) | 现状 vs 目标、缺失项清单、优先级排序 |
+| 09 | [晋级计划](docs/harness/09-advancement-plan.md) | Harness 成熟度晋级路线、Phase 1-5 里程碑 |
+| 10 | [编码规范](docs/harness/10-coding-standards.md) | 文档先行、契约优先、测试随重构、12 项 commit 纪律 |
+| 11 | [循环契约规范](docs/harness/loop-contracts/README.md) | Loop Contract 六维度、验证档位、权限三档 |
+
+### 关键设计理念
+
+- **Maker-Checker 分离**：闫判官裁决 + 风控明独立审核，杜绝自我验证偏差（误接受率从 76.9% 降至 30.8%）
+- **配方优于产物**：自进化记忆存"配方+评分"，不存产物本体，存储成本从 O(产物×轮数) 降到 O(配方×轮数)
+- **验证器是瓶颈**：Loop 质量取决于可验证信号质量。接入真实行情验证 → 可测量提升；接入模型自评 → 几乎不动
+- **每一次失败都是规则**：AGENTS.md 的每一行都追溯到一次真实失败。只在见过真实故障时加约束，只在能力足够时删约束
+
+---
+
 ## 运行模式
 
 | 模式 | 说明 | 特点 |
@@ -205,10 +289,10 @@ FDT/
 │   └── execution_modes_flowchart.md  # 执行模式流程图
 ├── fdt_cache/                 # 本地 SQLite 增量缓存
 ├── fdt_langgraph/             # LangGraph 核心模块
-│   ├── state.py               # DebateState 定义
-│   ├── graph.py               # 图结构
-│   ├── nodes.py               # 节点函数
-│   ├── agents.py              # Agent 执行器
+│   ├── state.py               # DebateState 定义（含 FdcDataStatus）
+│   ├── graph.py               # 图结构（含 P2.5 FDC 数据准备）
+│   ├── nodes.py               # 节点函数（含 node_prepare_data）
+│   ├── agents.py              # Agent 执行器（逐Agent LLM 配置）
 │   └── health.py              # 健康检查
 ├── fdt_pg/                    # PostgreSQL 模块
 │   ├── connection.py          # 连接管理
@@ -217,10 +301,14 @@ FDT/
 │   └── migrations/            # 数据库迁移
 ├── futures_data_core/         # 期货数据核心
 │   ├── core/                  # 核心层（降级链、缓存、类型）
-│   ├── collectors/            # 采集器（TDX/QMT/TqSDK/Web）
+│   │   ├── dominant_resolver.py   # 主力合约解析
+│   │   ├── field_normalizer.py    # 字段标准化
+│   │   └── _datacore_bridge.py    # Data-Core F10 桥接器
+│   ├── collectors/            # 采集器（TDX/QMT/TqSDK/Web/DataCore）
 │   ├── f10/                   # F10 衍生品数据
 │   ├── indicators/            # 技术指标
 │   └── cache/                 # 缓存
+├── data_source_adapter.py     # 统一数据入口封装
 ├── memory/                    # 知识库和记忆系统
 ├── pipeline/                  # 流水线执行
 ├── scripts/                   # 辅助脚本
@@ -253,8 +341,12 @@ FDT/
 | `FDT_REPORT_WORKSPACE` | 用户指定工作空间根目录 | - |
 | `FDT_DAILY_WORKSPACE` | 每日自动化任务工作空间 | - |
 | `FDT_DIRECT_DEBATE` | 指定品种辩论模式开关 | `false` |
-| `FDT_DEBATE_SYMBOLS` | 指定辩论品种列表 | - |
+| `FDT_DEBATE_SYMBOLS` | 指定辩论品种列表（逗号分隔） | - |
 | `FDT_CACHE_DIR` | 本地缓存目录 | `memory/fdt_cache` |
+| `FDT_FDC_INJECTION_ENABLED` | 是否启用 FDC 数据注入（P2.5） | `true` |
+| `FDT_FDC_KLINE_DAYS` | FDC K线数据天数 | `120` |
+| `FDT_FDC_F10_ENABLED` | 是否启用 F10 数据采集 | `true` |
+| `FDT_FDC_POSITION_RANKING_ENABLED` | 是否启用持仓排名采集 | `true` |
 
 ---
 
@@ -294,11 +386,20 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
+| **v9.6.1** | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
+| **v9.6.0** | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
+| **v9.5.0** | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；差距分析登记 G20/G21/G22 |
+| **v9.4.3** | **G91 同品种多子信号合并方向覆盖 bug 修复** — `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器；新增 `TestSubSignalMerge` 4 用例 |
+| **v9.4.2** | **G89/G90 修复** — debate_only 信号多空论据丢失修复；信号排序改为交易可靠性优先（置信度 × 盈亏比） |
+| **v9.4.1** | **G88 K 线数据链路根因修复（P0）** — 修复 `MultiSourceAdapter.get_kline()` 入口处的"自动主力解析" bug |
+| **v9.4.0** | **G87 Data-Core F10 全面集成** — 新增 `_datacore_bridge.py`；改造 6 个 F10 模块入口；新增 2 个测试文件共 36 用例 |
+| **v9.3.0** | **G86 主力合约统一解析 + DataCore 集成 + 字段标准化** — 新增 `dominant_resolver.py`、`DataCoreCollector`、`field_normalizer.py` |
 | **v9.2.0** | **Loop Engineering 剥离** — 因子自演化移出 FDT 系统；文档归档与翻新 |
 | **v9.1.0** | **本地增量缓存** — `fdt_cache/` SQLite 缓存层；指定品种辩论模式（`FDT_DIRECT_DEBATE`） |
-| **v9.0.0** | **辩论流程重构建：正反方→多空头六阶段攻防模式** — 多头只做多、空头只做空；来源可追溯；闫判官可推翻数技源方向 |
+| **v9.0.0** | **六阶段攻防辩论** — 多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩；来源可追溯；闫判官可推翻数技源方向 |
+| **v8.9.0** | **交叉质询串行化 + 逐Agent LLM** — P4 拆分为串行三步骤；FDT_LLM_<NAME>_* 逐 Agent 独立模型配置 |
+| **v8.8.0** | **明鉴秋报告层调度** — 5 阶段独立 HTML 报告（信号扫描/三源研究/裁决风控/辩论/CTP 信号） |
 | **v8.7.0** | **架构精简** — 策执远合并到闫判官；CTP 信号输出；观澜/探源 LLM 推理 |
-| v8.6.0 | 架构精简 v1：明鉴秋聚焦调度，删除 L1-L4 评分模块 |
 | v8.4.0 | 完整 LangGraph 迁移完成 |
 | v8.3.0 | LangGraph 架构支持、独立 CLI/FastAPI 入口 |
 | v8.2.0 | PostgreSQL OLTP+OLAP 混合存储 |
