@@ -174,6 +174,14 @@
 > **LangGraph 迁移差距全部关闭（v8.3.0）**：G42-G51 全部完成，LangGraph 迁移 Phase 1 结束。
 > **端到端验证通过**：21 个测试用例全部通过（节点单元测试 96%、并行调度测试 100%、状态管理 100%），trace_id 全链路贯穿验证成功。
 
+
+### 4.7 本轮修复差距（2026-07-20 登记）
+
+| # | 差距 | 优先级 | 状态 | 涉及文件 | 说明 |
+|:-:|:-----|:------|:-----|:---------|:-----|
+| **G89** | debate_only 信号多空论据为空 | P1 | ✅ 已关闭 | `phase3_generate_report.py` `fdt_langgraph/nodes.py` | 扫描信号弱（|total|<40）但 judge 给出裁决的品种，被补充逻辑以 `signal_type="debate_only"` 加入报告时，`bull_args`/`bear_args` 字段丢失；同时 LLM 辩论节点遗漏品种时无 fallback。修复：① phase3 补充逻辑复制 `debate_results` 中已有论据；② node_report 增加 judge reasoning → `[裁决摘要]` fallback；③ 新增 3 个测试验证 |
+| **G90** | 信号输出按字母序排列而非交易可靠性 | P1 | ✅ 已关闭 | `phase3_generate_report.py` | 辩论详情与交易建议模块按 `sorted(SYMBOL_KEYS)` 字母序渲染，对交易决策无价值。修复：T1/T2/T3 排序改为 `置信度 × 盈亏比` 降序；辩论详情遍历同步改为可靠性排序；全信号列表保持一致 |
+
 ### 4.6 LangGraph 集成与生产化差距（2026-07-16 登记）
 
 > 本节登记 LangGraph 迁移 Phase 1（G42-G51）完成后，生产集成阶段发现的新差距。G52-G58 反映「迁移完成 ≠ 生产就绪」的工程现实。
@@ -245,7 +253,14 @@
 |:-:|:-----|:-----|:------|:-----|:---------|
 | **G85** | 数据源每次全量拉取无增量缓存；缺乏指定品种直接辩论模式 | ① 每次运行均从数据源全量拉取K线/基本面/基差数据，同日期内多次运行重复请求；② 仅有全量扫描→辩论一条路径，无法跳过扫描直接对指定品种辩论（复盘/信号复查）；③ 没有历史行情数据的版本管理 | **P1** | ① 新增 dt_cache/ 模块：SQLite持久化增量缓存，按品种+数据类型分表；② 
 ode_scan 新增缓存读取分支；③ 新增 FDT_DIRECT_DEBATE + FDT_DEBATE_SYMBOLS 环境变量，跳过P1从缓存加载直接进入辩论；④ 新增 
-ode_load_cache 节点；⑤ 每次运行结束增量写回缓存 | dt_cache/ dt_langgraph/nodes.py dt_langgraph/graph.py pipeline/runner.py docs/harness/*.md |
+ode_load_cache 节点；⑤ 每次运行结束增量写回缓存 | dt_cache/ dt_langgraph/nodes.py dt_langgraph/graph.py pipeline/runner.py docs/harness/*.md |
+
+### 4.11 Data-Core F10 集成回归与 K 线链路根因修复（2026-07-20 登记）
+
+| # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 | 状态 |
+|:-:|:-----|:-----|:------|:-----|:---------|:-----|
+| **G87** | Data-Core F10 桥接器缺少集中化封装 + 降级路径无测试覆盖 | 6 个 F10 模块各自直接 `import datacore.fdc_compat`，异常处理散乱；Data-Core 不可用时降级路径无测试覆盖 | **P1** | 新增 `_datacore_bridge.py` 集中式桥接器 + 36 个测试（24 bridge + 12 fallback）覆盖全部降级路径 | `futures_data_core/core/_datacore_bridge.py` + 6 个 F10 模块 + 2 个测试文件 | ✅ 已完成 (v9.4.0) |
+| **G88** | `MultiSourceAdapter.get_kline()` 入口自动主力解析导致 K 线返回空 — 整个数据链路断裂 | `DominantResolver.resolve()` 在 `memory/dominant_map.json` 不存在时返回 `f"{variety}00"`（如 `RB00`），此合约代码在 WebFallback/TqSDK/DataCore 等所有采集器中均识别失败 → `get_kline("RB")` 返回 0 根 → 下游 `compute_indicators` / 信号扫描 / F10 子块 / FDT 整个数据链路全断 | **P0** | ① 移除 `MultiSourceAdapter.get_kline()` 入口处的自动主力解析，让 symbol 直接透传给采集器，各采集器内部自行处理品种→合约转换（如 TqSdk 的 `_resolve_continuous` 转 `KQ.m@SHFE.rb`）；② 修复 `test_fdc_fallback.py` 的 `_mock_datacore_unavailable` fixture — 用 `sys.modules["datacore"] = None` 替代 `del sys.modules["datacore"]`，避免触发真实包 `__init__.py` 加载导致 Prometheus Counter 重复注册 | `futures_data_core/core/multi_source_adapter.py` + `tests/dominant-resolver/test_fdc_fallback.py` | ✅ 已修复 (v9.4.1) |
 
 ## 5. 改进路线图
 

@@ -10,6 +10,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from .state import DebateState
 from .agents import FdtAgentExecutor
+from futures_data_core.core.field_normalizer import (
+    normalize_signal_list,
+    normalize_verdict,
+    normalize_risk_check,
+    normalize_direction_raw,
+)
 
 _SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
@@ -405,6 +411,11 @@ async def node_scan(state: DebateState) -> DebateState:
     else:
         logger.info("[SCAN] 扫描报告跳过 (FDT_GENERATE_SCAN_REPORT 未设置)")
 
+    # v9.3.0: 标准化扫描信号输出字段（direction/total/grade/confidence 统一）
+    _all_ranked = scan_results.get("all_ranked", [])
+    if _all_ranked:
+        scan_results["all_ranked"] = normalize_signal_list(_all_ranked)
+
     return {**state, "scan_results": scan_results, "scan_report_path": scan_report_path,
             "current_phase": "P1", "completed_phases": ["P1"]}
 
@@ -450,6 +461,10 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     except Exception as e:
         logger.warning(f"Failed to parse judge output: {e}")
         verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
+
+    # v9.3.0: 标准化方向字段
+    raw_dir = verdict.get("scan_direction", verdict.get("direction", "neutral"))
+    verdict["scan_direction"] = normalize_direction_raw(raw_dir)
 
     selected_symbols = verdict.get("symbols", [])
     if not selected_symbols:
@@ -516,7 +531,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     errors: dict[str, str] = {}
 
     try:
-        from futures_data_core import get_kline, compute_indicators
+        from data_source_adapter import get_kline, compute_indicators
     except ImportError:
         logger.warning("[FDC] futures_data_core 导入失败，降级无FDC模式")
         return {
@@ -569,7 +584,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         if f10_enabled and not error:
             try:
-                from futures_data_core import get_term_structure, get_spread, get_basis, get_warrant, get_fundamental
+                from data_source_adapter import get_term_structure, get_spread, get_basis, get_warrant, get_fundamental
 
                 for name, fn in [("term_structure", get_term_structure), ("spread", get_spread),
                                  ("basis", get_basis), ("warrant", get_warrant),
@@ -597,7 +612,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         if position_ranking_enabled and not error:
             try:
-                from futures_data_core import get_position_ranking
+                from data_source_adapter import get_position_ranking
                 pr_payload = await get_position_ranking(symbol)
                 symbol_data["position_ranking"] = {
                     "data": pr_payload.data,
@@ -615,7 +630,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, (Exception, BaseException)):
             logger.error(f"[FDC] 数据采集异常: {result}")
             continue
         symbol, data, error = result
@@ -786,6 +801,7 @@ async def node_technical(state: DebateState) -> dict:
     # Parse structured per-symbol data from LLM output
     output = tech_result.get("output", "")
     per_symbol_tech = {}
+    llm_parse_ok = False
     try:
         if "{" in output and "}" in output:
             start = output.find("{")
@@ -796,8 +812,31 @@ async def node_technical(state: DebateState) -> dict:
                 sym_key = sym.upper()
                 if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                     per_symbol_tech[sym] = raw_per_symbol[sym_key]
-    except Exception:
-        pass
+            llm_parse_ok = len(per_symbol_tech) > 0
+        if not llm_parse_ok:
+            logger.warning(f"[TECH] LLM 返回未解析出逐品种数据 ({len(output)} chars), 回退FDC数据")
+    except Exception as e:
+        logger.warning(f"[TECH] LLM 输出解析失败: {e}")
+        llm_parse_ok = False
+
+    # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
+    if not llm_parse_ok and fdc_data:
+        for sym in selected:
+            if sym in per_symbol_tech:
+                continue
+            sym_data = fdc_data.get(sym) or fdc_data.get(sym.upper()) or fdc_data.get(sym.lower())
+            if sym_data and sym_data.get("kline", {}).get("bars"):
+                bars = sym_data["kline"]["bars"]
+                latest = bars[-1] if bars else {}
+                close_val = float(latest.get("close", 0)) if latest else 0
+                per_symbol_tech[sym] = {
+                    "trend": f"K线数据可用({len(bars)}根), 最新价={close_val}, 需人工复核趋势方向",
+                    "key_levels": "支撑/阻力位待计算",
+                    "volume_price": "量价数据来自实时K线",
+                    "divergence": "无明确背离信号",
+                    "pattern": "形态待识别",
+                    "score": 50,
+                }
 
     return {
         "technical_data": {
@@ -844,6 +883,7 @@ async def node_fundamental(state: DebateState) -> dict:
     # Parse structured per-symbol data from LLM output
     output = fund_result.get("output", "")
     per_symbol_fund = {}
+    llm_parse_ok = False
     try:
         if "{" in output and "}" in output:
             start = output.find("{")
@@ -854,8 +894,31 @@ async def node_fundamental(state: DebateState) -> dict:
                 sym_key = sym.upper()
                 if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                     per_symbol_fund[sym] = raw_per_symbol[sym_key]
-    except Exception:
-        pass
+            llm_parse_ok = len(per_symbol_fund) > 0
+        if not llm_parse_ok:
+            logger.warning(f"[FUND] LLM 返回未解析出逐品种数据 ({len(output)} chars), 回退FDC数据")
+    except Exception as e:
+        logger.warning(f"[FUND] LLM 输出解析失败: {e}")
+        llm_parse_ok = False
+
+    # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
+    if not llm_parse_ok and fdc_data:
+        for sym in selected:
+            if sym in per_symbol_fund:
+                continue
+            sym_data = fdc_data.get(sym) or fdc_data.get(sym.upper()) or fdc_data.get(sym.lower())
+            f10_fields = []
+            if sym_data:
+                for fn in ["term_structure", "spread", "basis", "warrant", "fundamental"]:
+                    if sym_data.get(fn) and "error" not in sym_data.get(fn, {}):
+                        f10_fields.append(fn)
+            per_symbol_fund[sym] = {
+                "supply_demand": f"基本面数据{'(可用' + ', '.join(f10_fields) + ')' if f10_fields else '暂缺'}",
+                "inventory": "库存数据待核实",
+                "profit_margin": "利润和开工率数据待查",
+                "basis_term": "期限结构与基差待计算",
+                "leading_signals": ["数据暂缺，需实时F10接口"],
+            }
 
     return {
         "fundamental_data": {
@@ -1497,6 +1560,9 @@ async def node_verdict(state: DebateState) -> DebateState:
         "per_symbol": {},
     }
 
+    # v9.3.0: 标准化裁决字段
+    verdict = normalize_verdict(verdict)
+
     new_phases = state["completed_phases"] + ["P5_verdict"]
     return {
         **state,
@@ -1536,6 +1602,9 @@ async def node_risk_check(state: DebateState) -> DebateState:
         risk_check = {"approved": True, "risk_color": "yellow", "warnings": [output]}
 
     risk_check.setdefault("risk_color", "green" if risk_check.get("approved", True) else "red")
+
+    # v9.3.0: 标准化风控输出字段
+    risk_check = normalize_risk_check(risk_check)
 
     new_phases = state["completed_phases"] + ["P5_risk"]
 
@@ -1914,6 +1983,14 @@ async def node_report(state: DebateState) -> DebateState:
         rsi = float(judge_sym.get("rsi", 50)) or (float(item.get("rsi", 50)) if item else 50)
         score = float(judge_sym.get("score", 0)) or (abs(item.get("total", 0)) if item else 0)
 
+        # G35: 论据为空时从 judge reasoning 生成最小论据
+        _ba = "<br>".join(str(a) for a in bull_args_list) if bull_args_list else ""
+        _bea = "<br>".join(str(a) for a in bear_args_list) if bear_args_list else ""
+        _reason = judge_reason or verdict_reason
+        if not _ba and _reason:
+            _ba = f"[裁决摘要] {_reason}"
+        if not _bea and _reason:
+            _bea = f"[裁决摘要] {_reason}"
         verdicts[sym_key] = {
             "direction": per_sym_dir,
             "confidence": judge_confidence if judge_sym else min(1.0, score / 100 + 0.1),
@@ -1922,8 +1999,8 @@ async def node_report(state: DebateState) -> DebateState:
                 "confidence": judge_confidence if judge_sym else min(1.0, score / 100 + 0.1),
                 "reasoning": judge_reason or verdict_reason,
             },
-            "bull_args": "<br>".join(str(a) for a in bull_args_list) if bull_args_list else "",
-            "bear_args": "<br>".join(str(a) for a in bear_args_list) if bear_args_list else "",
+            "bull_args": _ba,
+            "bear_args": _bea,
             "entry_price": round(entry_p, 2),
             "target_price": round(tg_p, 2),
             "stop_loss_price": round(sl_p, 2),
@@ -2075,7 +2152,7 @@ async def node_load_cache(state: DebateState) -> DebateState:
         if _qdaily_dir not in sys.path:
             sys.path.insert(0, _qdaily_dir)
 
-        from futures_data_core import get_kline as _fdc_get_kline
+        from data_source_adapter import get_kline as _fdc_get_kline
         import asyncio as _asyncio
 
         for sym in symbols:

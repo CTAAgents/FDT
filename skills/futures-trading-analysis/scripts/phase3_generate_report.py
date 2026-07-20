@@ -726,6 +726,9 @@ if missing_pids:
             "last_price": d.get("price", 0),
             "grade": d.get("grade", "DEBATE"),
             "l1l4_total": 0,
+            # G35: 从 debate_results 携带多空论据，避免 HTML 报告中论据为空
+            "bull_args": d.get("bull_args", ""),
+            "bear_args": d.get("bear_args", ""),
         })
     print(f"✓ 补充辩论裁决品种: {len(missing_pids)} 个 → {', '.join(sorted(missing_pids))}")
     print(f"✓ 有效方案(补充后): {len(all_actionable)}")
@@ -879,9 +882,14 @@ for s in all_actionable:
 
     filtered_signals.append(info)
 
-T1_signals.sort(key=lambda x: x["confidence"], reverse=True)
-T2_signals.sort(key=lambda x: x["confidence"], reverse=True)
-T3_signals.sort(key=lambda x: x["confidence"], reverse=True)
+# G37: 交易可靠性排序 = 置信度 × 盈亏比（隐含胜率 × 潜在盈亏比）
+def _reliability(s):
+    rr = float(s.get("risk_reward", 0) or s.get("risk_reward_ratio", 0) or 0)
+    return float(s.get("confidence", 0) or 0) * max(rr, 0.01)
+T1_signals.sort(key=_reliability, reverse=True)
+T2_signals.sort(key=_reliability, reverse=True)
+T3_signals.sort(key=_reliability, reverse=True)
+filtered_signals.sort(key=_reliability, reverse=True)
 
 print(f"  T1观察: {len(T1_signals)}, T2主仓: {len(T2_signals)}, T3警惕: {len(T3_signals)}")
 for s in T1_signals[:10]:
@@ -899,7 +907,16 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
             s = item
             break
     if not s:
-        return {}
+        # Return basic fallback when no actionable signal data
+        chain_hint = f"产业链: {chain_name}" if chain_name else ""
+        direction_hint = "方向待确认"
+        return {
+            "supply_demand": f"供需数据暂缺（{chain_hint}）" if chain_name else "供需数据暂缺",
+            "inventory": "库存水平待核实",
+            "profit_margin": "利润和开工率数据暂不可用",
+            "basis_term": "基差与期限结构待查",
+            "leading_signals": ["数据暂缺，需通过F10接口获取实时基本面", f"{chain_hint}"],
+        }
 
     fdir = s.get("factor_direction", "neutral")
     f_total = s.get("factor_total", 0)
@@ -982,12 +999,23 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
 # ==================== 观澜模块：多层次技术面分析 ====================
 def _generate_technical_analysis(pid: str, symbols_summary: list) -> dict:
     """观澜：生成多层次技术面分析快照"""
+    s = None
     for item in symbols_summary:
         if isinstance(item, dict) and item.get("symbol", item.get("pid", "")).lower() == pid.lower():
             s = item
             break
-    else:
-        return {}
+
+    # Build default tech dict for fallback when no scan data
+    tech = {
+        "trend": "趋势待确认（无详细扫描信号数据，需实时K线分析）",
+        "key_levels": "暂缺实时价位信息",
+        "volume_price": "量价数据暂不可用",
+        "divergence": "无背离信号",
+        "pattern": "形态待观察",
+        "score": 50,
+    }
+    if not s:
+        return tech
 
     adx = s.get("adx", 0)
     rsi = s.get("rsi", 50)
@@ -1695,10 +1723,16 @@ def build_debate_report():
     for name, info in sorted(chain_active, key=lambda x: x[1].get("avg_score", 0), reverse=True):
         chain_rows += chain_row(name, info)
 
-    # 辩论详情
+    # 辩论详情 — G37: 按交易可靠性排序（置信度×盈亏比），同级别再按置信度降序
     SYMBOL_KEYS = {
         pid for pid in debate_results if isinstance(debate_results[pid], dict) and "direction" in debate_results[pid]
     }
+    def _pid_reliability(pid):
+        d = debate_results.get(pid, {})
+        conf = float(d.get("confidence", 0) or 0)
+        rr = float(d.get("risk_reward_ratio", 0) or d.get("risk_reward", 0) or 0)
+        return (conf * max(rr, 0.01), conf)
+    SYMBOL_KEYS = sorted(SYMBOL_KEYS, key=_pid_reliability, reverse=True)
     product_names = {}
     for s in all_actionable:
         pn = s.get("product_name", "") or s.get("pid", "")

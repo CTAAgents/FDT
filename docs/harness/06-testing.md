@@ -114,9 +114,16 @@ tests/
     ├── test_select_triggers_filter.py
     └── test_volume_confirm_enhanced.py
 ├── fdt_cache/                     # 本地增量缓存 (G85 新增)
-    ├── conftest.py
-    ├── test_cache_read_write.py    # 缓存读写/过期/压缩测试
-    └── test_cache_integration.py   # 缓存与 LangGraph 集成测试
+│   ├── conftest.py
+│   ├── test_cache_read_write.py    # 缓存读写/过期/压缩测试
+│   └── test_cache_integration.py   # 缓存与 LangGraph 集成测试
+├── dominant-resolver/             # 主力合约解析 + DataCore 集成 + 字段标准化 (G86 新增)
+│   ├── conftest.py
+│   ├── test_dominant_resolver.py   # 换月判定/历史归档/合约解析测试 (28 用例)
+│   ├── test_datacore_collector.py  # DataCore 采集器适配器测试 (14 用例)
+│   ├── test_field_normalizer.py   # 字段标准化器测试 (25 用例)
+│   ├── test_datacore_bridge.py    # DataCore F10 桥接器测试 (24 用例, v9.4.0 新增)
+│   └── test_fdc_fallback.py       # FDC 降级兼容性测试 (v9.4.0 新增)
 ```
 
 ### 2.1 报告层测试 (v8.8.0+)
@@ -277,9 +284,10 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | technical-analysis | ✅ | — | — | — | — |
 | contracts | ✅ | — | ✅ | — | — |
 | fdt-gate (L1-L5) | — | — | — | ✅ | — |
-| pipeline (runner) | ✅ | ✅ | — | — | — | 10 用例 ✅ |
-| scheduler (engine) | ✅ | ✅ | — | — | — | 3 用例 |
-| memory (writer/archiver) | ✅ | ✅ | — | — | — | 9 用例 |
+| pipeline (runner) | ✅ | ✅ | — | — | — | — | — | 10 用例 ✅ |
+| scheduler (engine) | ✅ | ✅ | — | — | — | — | — | 3 用例 |
+| memory (writer/archiver) | ✅ | ✅ | — | — | — | — | — | 9 用例 |
+| **dominant-resolver** | ✅ | ✅ | — | — | — | — | — | **75 用例** (28 dominant + 22 datacore + 25 normalizer, v9.3.0 新增) |
 | **validators** | ✅ | — | — | — | — | **4 用例** |
 | **strategies** | ✅ | ✅ | — | — | — | **19 用例** |
 | **fdt_langgraph** | ✅ | ✅ | — | — | — | **99 用例** |
