@@ -381,7 +381,65 @@ logger.error(f"[trace_id={trace_id}] PG connection failed: {error}")
 | `slow_nodes` | 列表 | 慢节点（>60s）名称 |
 | `overall_status` | 字符串 | 健康状态（healthy/degraded） |
 
-### 8.6 监控文件位置
+### 8.6 LLM 幻觉率指标（v9.6.2+）
+
+> **来源**: `scripts/validate_llm_output.py` — LLM 输出质量校验器，检测和度量数值型幻觉
+
+**触发条件**: 每次 Pipeline 执行后自动运行，或通过 CLI 手动触发
+
+**核心指标**:
+
+| 指标 | 类型 | 说明 | 阈值 |
+|:-----|:-----|:-----|:-----|
+| `hallucination_rate` | 百分比 | 幻觉品种数 / 总品种数 | 目标 < 5% |
+| `max_deviation_rate` | 百分比 | 最大价格偏差率 | > 20% 告警 |
+| `price_deviation_mean` | 百分比 | 所有异常偏差的平均值 | — |
+| `confidence_issues` | 整数 | 置信度超出范围的品种数 | > 0 告警 |
+| `total_verdicts` | 整数 | 校验的裁决总数 | — |
+| `hallucinated_count` | 整数 | 被判定为幻觉的裁决数 | — |
+
+**校验维度**:
+
+| 维度 | 校验项 | 阈值 | 说明 |
+|:-----|:-------|:-----|:-----|
+| 价格合理性 | 入场价 vs 扫描价 | ≤ 20% | LLM 生成价格与扫描数据偏差 |
+| 价格合理性 | 止损价 vs 扫描价 | ≤ 20% | 止损价偏差检测 |
+| 价格合理性 | 目标价 vs 扫描价 | ≤ 20% | 目标价偏差检测 |
+| 数值一致性 | 置信度范围 | [0, 1] | 置信度必须在有效范围内 |
+| 数值一致性 | 评分范围 | [-100, 100] | 多空评分必须在有效范围内 |
+
+**输出格式** (`llm_hallucination_stats.json`):
+
+```json
+{
+  "generated_at": "2026-07-20T10:00:00",
+  "total_verdicts": 15,
+  "hallucinated_count": 1,
+  "hallucination_rate": 6.67,
+  "max_deviation_rate": 57.78,
+  "price_deviation_mean": 57.78,
+  "confidence_issues": 0,
+  "details": [...]
+}
+```
+
+**CLI 用法**:
+
+```bash
+# 校验单次辩论
+python scripts/validate_llm_output.py --scan full_scan_summary.json --verdict verdict.json
+
+# 批量校验历史裁决
+python scripts/validate_llm_output.py --history memory/debates/
+
+# 指定输出文件
+python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --stats my_stats.json
+
+# 自定义阈值
+python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --threshold 0.15
+```
+
+### 8.7 监控文件位置
 
 | 文件 | 路径 | 用途 |
 |:-----|:-----|:-----|

@@ -40,11 +40,11 @@
 
 **G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
 
-**G20（2026-07-18 辩论重构·来源标签格式一致性）**：v9.0 新增的数据来源标注功能中，标签格式不统一 — 存在 `[观澜]`（短格式）、`[technical:观澜]`（domain:source格式）、`[scan]`（英文）、`[数技源]`（无 prefix）等多种格式。需要统一为 `[domain:source]` 规范格式。
+**G20（2026-07-18 辩论重构·来源标签格式一致性）**：✅ **已关闭（v9.5.0）** — 来源标签已统一为 `[domain:source]` 格式 — 存在 `[观澜]`（短格式）、`[technical:观澜]`（domain:source格式）、`[scan]`（英文）、`[数技源]`（无 prefix）等多种格式。需要统一为 `[domain:source]` 规范格式。
 - 优先级: P2
 - 状态: 已开放
-- 目标: 统一为 `[domain:source]` 格式，如 `[technical:观澜]`、`[fundamental:探源]`、`[scan:数技源]`、`[chain:链证源]`
-- 工作量: 小（仅修改 `_build_debate_context()` 中的字符串模板）
+- 目标: ✅ 已完成 — 统一为 `[domain:source]` 格式，如 `[technical:观澜]`、`[fundamental:探源]`、`[scan:数技源]`、`[chain:链证源]`
+- 工作量: 小（修改 `nodes.py` 扫描标注 + 3 篇文档架构图描述）
 
 ## 3. 已有能力清单 (Strengths)
 
@@ -218,7 +218,7 @@
 | # | 差距 | 现状 | 优先级 | 改进 | 涉及文件 |
 |:-:|:-----|:-----|:------|:-----|:---------|
 | **G70** | docs/harness/ 文档与实际代码存在 17 处不一致 | ✅ **已修复** — 已逐项更新 01-architecture.md（补充 node_prepare_data、移除 checkpoint.py/bootstrap.py 引用）、02-lifecycle.md（更新调度器任务、移除 bootstrap.py）、03-configuration.md（删除不存在的 YAML 配置引用、更新 mode/版本号）、05-observability.md（更新日志路径、标记未实现指标）、06-testing.md（补充策略/fdt_langgraph/validators 目录、更新统计计数） | **P1**（文档误导运维与后续开发） | ✅ **已修复**：见本表“现状”列 | 已于 2026-07-17 修复 |
-| **G71** | scripts/ 目录 50+ 函数缺少类型注解 | 50+ 个函数缺少参数和/或返回类型注解 | **P2**（降低代码可维护性） | ✅ **已部分修复**：为 auto_publish/calibrate_weights/memory_enforcer/agent_lifecycle 中 6 个关键公共函数补充了返回注解。其余 44+ 待后续 | `scripts/` ✅ 部分修复 |
+| **G71** | scripts/ 目录 50+ 函数缺少类型注解 | 50+ 个函数缺少参数和/或返回类型注解 | **P2**（降低代码可维护性） | ✅ **已关闭（v9.6.1）**：批量脚本 38 文件 90 函数 + test_scripts 490 方法 + 手工 8 文件关键函数 — 全部公共函数类型注解已补齐 | scripts/ ✅ **已关闭** |
 | **G72** | 18+ 个文件导入组织不合规 | 一行 `import os, json...` 模式广泛存在于 18+ 文件 | **P3**（代码风格） | ✅ **已修复**：18 个文件全部拆分为每行一个 import 并按标准库/第三方/本地分组 | `scripts/` 18 ✅ 2026-07-17 |
 | **G73** | 2 处裸 except: pass | `auto_publish.py:78` 和 `init_knowledge_base.py:265` | **P1**（风险） | ✅ **已修复**：改为具体异常类型 | ✅ 2026-07-17 |
 | **G74** | 数据接口 21 个问题 | ①路径穿越 ②subprocess无timeout ③SQLAlchemy 2.0兼容 ④json.load无with ⑤deploy.py未实现 | **P0/P1** | ✅ **全部修复**：①②③④⑤ 均已修复/标记 | ✅ 2026-07-17 |
@@ -261,9 +261,38 @@ ode_load_cache 节点；⑤ 每次运行结束增量写回缓存 | dt_cache/ dt_
 |:-:|:-----|:-----|:------|:-----|:---------|:-----|
 | **G87** | Data-Core F10 桥接器缺少集中化封装 + 降级路径无测试覆盖 | 6 个 F10 模块各自直接 `import datacore.fdc_compat`，异常处理散乱；Data-Core 不可用时降级路径无测试覆盖 | **P1** | 新增 `_datacore_bridge.py` 集中式桥接器 + 36 个测试（24 bridge + 12 fallback）覆盖全部降级路径 | `futures_data_core/core/_datacore_bridge.py` + 6 个 F10 模块 + 2 个测试文件 | ✅ 已完成 (v9.4.0) |
 | **G88** | `MultiSourceAdapter.get_kline()` 入口自动主力解析导致 K 线返回空 — 整个数据链路断裂 | `DominantResolver.resolve()` 在 `memory/dominant_map.json` 不存在时返回 `f"{variety}00"`（如 `RB00`），此合约代码在 WebFallback/TqSDK/DataCore 等所有采集器中均识别失败 → `get_kline("RB")` 返回 0 根 → 下游 `compute_indicators` / 信号扫描 / F10 子块 / FDT 整个数据链路全断 | **P0** | ① 移除 `MultiSourceAdapter.get_kline()` 入口处的自动主力解析，让 symbol 直接透传给采集器，各采集器内部自行处理品种→合约转换（如 TqSdk 的 `_resolve_continuous` 转 `KQ.m@SHFE.rb`）；② 修复 `test_fdc_fallback.py` 的 `_mock_datacore_unavailable` fixture — 用 `sys.modules["datacore"] = None` 替代 `del sys.modules["datacore"]`，避免触发真实包 `__init__.py` 加载导致 Prometheus Counter 重复注册 | `futures_data_core/core/multi_source_adapter.py` + `tests/dominant-resolver/test_fdc_fallback.py` | ✅ 已修复 (v9.4.1) |
+| **G91** | Phase 4.8 同品种多子信号合并方向覆盖 bug | `pipeline.py` Phase 4.8 合并逻辑使用"逐个两两平均"替代"简单平均"，导致后序子信号权重偏高；且 grade 升级时错误覆盖 `direction`，使最终方向取决于遍历顺序中最后一个同 grade 子信号而非多数子信号共识。SC 实例：4 个看多子信号（supertrend/sar/chandelier/macd）vs 2 个看空子信号（tsmom/dual_thrust），简单平均 total=+7 应为看多，但逐个两两平均后 total=-55.5 被错误判定为看空。这是 v8.1.8"去融合"后 Phase 4.8 合并逻辑的遗留缺陷 | **P0** | ① 引入 `_merge_acc` 累积器：同品种下累加 `sum_total`/`sum_abs`/`count`，循环结束后统一简单平均；② grade 升级时仅更新 `grade`/`signal_type`/`reason`，**不再覆盖 `direction`**；③ direction 完全由最终平均 `total` 的符号决定（>0→bull/<0→bear/=0→neutral）；④ 新增 `TestSubSignalMerge` 4 个测试用例覆盖 SC 场景/全看空/平衡/grade 升级 | `skills/quant-daily/scripts/strategies/pipeline.py` + `tests/strategies/test_pipeline.py` | ✅ 已修复 (v9.4.3) |
+
+### 4.12 LLM 幻觉率降低 — 自进化新维度（2026-07-20 登记）
+
+> 本差距为自进化（Outer Loop）新增维度，旨在将 LLM 输出质量纳入可度量的持续改进闭环。FDT 当前自进化仅覆盖"T+1 验证 → 权重校准 → Agent 进化"（信号准确率/胜率维度），未覆盖 LLM 数值幻觉、事实锚定、输出一致性等质量维度。2026-07-20 FG 价格偏差事件（scan 价 900 vs LLM 生成 1420，偏差 58%）直接暴露了此维度的缺失。
+
+| # | 差距 | 现状 | 优先级 | 改进方案 | 涉及文件 |
+|:-:|:-----|:-----|:------|:---------|:---------|
+| **G92** | **LLM 幻觉率未纳入自进化闭环** — 无系统性幻觉检测、度量、校准、进化机制 | ① 无幻觉率指标定义与采集；② `validate_verdicts.py` 仅验证方向正确性，不验证数值合理性；③ `calibrate_weights.py` 不校准 LLM 输出质量；④ `evolve_agents.py` 不接收幻觉反馈；⑤ 当前仅靠 `node_report` 单点偏差>20% 回退防御 | **P1**（影响交易参数可信度，长期阻塞自动化升级） | **Phase A（检测层 · ✅ 已完成）**：① `node_report` 价格偏差>20% 时输出结构化 JSON 日志事件（已完成）；② 新增 `scripts/validate_llm_output.py` 批量校验历史裁决数值合理性，产出 `llm_hallucination_stats.json`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（12 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）。**Phase B（校准层 · 待实施）**：⑤ `calibrate_weights.py` 扩展接收 hallucination_rate 作为校准信号。**Phase C（进化层 · 待实施）**：⑥ `evolve_agents.py` 扩展接收幻觉模式反馈，自动调整 Agent prompt 价格引用策略 | `scripts/validate_llm_output.py` `tests/scripts/test_validate_llm_output.py` `docs/harness/05-observability.md` `scripts/calibrate_weights.py` `scripts/evolve_agents.py` |
+
+**验收标准**：
+- Phase A：每次 Pipeline 执行后日志输出幻觉检测统计（偏差>20% 品种数/总品种数/最大偏差率），零额外 API 调用
+- Phase B：`calibrate_weights.py` 接到 hallucination_rate 注入后输出校准报告含幻觉率维度
+- Phase C：`evolve_agents.py` 将幻觉样本注入下一轮 Agent prompt，目标连续 10 轮幻觉率 < 5%
 
 ## 5. 改进路线图
 
+### Phase 11（2026-07-20 新增）：LLM 幻觉率降低 — 自进化新维度
+
+> 将 LLM 输出质量纳入 FDT 自进化闭环，系统性降低数值型幻觉。三阶段：检测 → 校准 → 进化。
+
+```
+Phase A（检测层 · ✅ v9.6.2）:  价格合理性校验 → validate_llm_output.py
+Phase B（校准层 · 待实施）:  calibrate_weights.py 扩展
+Phase C（进化层 · 待实施）:  evolve_agents.py 扩展 → 幻觉率 < 5%
+```
+
+**Phase A 实施（✅ 已完成）**：① `node_report` 价格偏差 >20% 结构化日志（已完成 2026-07-20）；② 新增 `scripts/validate_llm_output.py`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（12 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）
+**Phase B 实施**：① `calibrate_weights.py` 增加 `--hallucination-stats` 参数；② 校准报告增加 hallucination_rate 和 price_deviation_mean
+**Phase C 实施**：① `evolve_agents.py` 接收 `hallucination_patterns.json`；② 根据幻觉模式调整 Agent prompt 锚定策略；③ 目标连续 10 轮幻觉率 < 5%
+
+---
 ### Phase 7（2026-07-14 完成）：策略层插拔化重构
 
 按 `docs/design/strategy-layer-refactoring-v1.md` 分 4 个子 Phase 执行，当晚全部完成：
@@ -376,3 +405,115 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 > 后续重构 SOP 按 G17 检查清单执行（见 §5），确保代码改动与 Harness 文档同步、测试同步更新。
 
 **已随本文档完成的文档整顿**：版本号统一为 v6.3.1、`01 §3.1` 与 `04 §2.3` 数据流改为数技源信号+分析师能力、`03 §6` 校正 G1、`05 §3.4` 校正 G3、`06` 库存/测试计数刷新、`07 §5` 版本历史追加 6.0–6.3.1、`README.md` 快速参考计数刷新；**G18 流程文档刷新**：`execution_modes_flowchart.md`(v4.1/6.3.1，数技源信号+分析师能力 + 闫判官判断调度 + 链证源无调度权)、`business_flow.md`(P1.5/P2 边界)、`futures-chain-analyst.md`(无调度权)、`02-lifecycle.md`(P1.5/P2 调度权边界) 全部对齐新流程。
+
+
+## G20: Loop Contract 体系化（P1）
+
+**状态**: ✅ **已关闭（v9.5.0）** — 已完成 3 份核心循环契约：daily-debate（L3）、self-evolve（L2）、data-collection（L1）
+
+**描述**: FDT 现有多个自动化循环（每日辩论、自进化、数据采集、ML 训练、健康自检），但循环的触发条件、作用范围、预算红线、停止条件等散落在代码和配置中，缺乏统一的契约格式。
+
+**目标**: 所有核心循环都有明确的 Loop Contract（六维度定义），纳入 harness 文档体系。
+
+**当前进展**:
+- ✅ daily-debate：首份契约已完成（L3 验证档位）
+- ✅ self-evolve：契约已完成（L2 验证档位）
+- ✅ data-collection：契约已完成（L1 验证档位）
+- ✅ ml-training：契约已完成（L2 验证档位）✅
+- ✅ health-check：契约已完成（L1 验证档位）✅
+
+**验收标准**: ✅ 已完成 — 3 个核心循环契约已全部完成（daily-debate/self-evolve/data-collection）。
+
+---
+
+## G21: Harness 自适应优化（MemoHarness 模式）（P2）
+
+**状态**: 规划中
+
+**描述**: 当前自进化主要优化 Agent 参数和权重，不涉及 Harness 配置本身的自适应调整。MemoHarness 式的经验库驱动 Harness 优化（根据历史执行经验动态调整上下文组装、工具选择、编排拓扑等）尚未实现。
+
+**目标**: 基于双层经验库（逐案例记录 + 全局模式蒸馏），实现 Harness 六维配置的测试时自适应。
+
+**关键能力**:
+- 逐案例执行轨迹记录（E_t）
+- 全局模式蒸馏（G_t）
+- 基于检索的案例适配（相似案例复用最优 harness 配置）
+- 正确性优先的奖励机制（主指标决定排名，成本仅作平局次级指标）
+
+**验收标准**: 在至少 2 个场景中，自适应 harness 配置优于固定全局配置（成功率提升 ≥5%）。
+
+---
+
+## G22: 多循环协作协议（P2）
+
+**状态**: 规划中
+
+**描述**: 当前 FDT 各循环之间通过文件系统和 PG 表间接协作，缺乏显式的 handoff 协议和背压机制。循环间依赖关系隐性化，不利于扩展和排障。
+
+**目标**: 建立标准化的多循环协作协议，包含 handoff 消息格式、状态机、背压机制、拓扑登记。
+
+**关键能力**:
+- 状态跟循环走（每循环独立 state 目录）
+- 生产者-消费者状态机（pending → claimed → done/failed → archive）
+- 背压机制（限产 + 提效 + 降级 stale）
+- 拓扑登记与典型链路可视化
+
+**验收标准**: 至少 3 个循环通过 handoff 协议协作，背压机制在压力测试中有效。
+
+
+---
+
+## G80: 规范引擎化 — 12项检查清单自动化（P1）
+
+**状态**: ✅ **v9.6.0 已完成**
+
+**描述**: 将 12 项 commit 前检查从人肉清单转为机读 YAML 规则 + pre-commit hook 自动扫描。使得规范检查可重复、可审计、可被 CI/CD 消费。
+
+**已完成工作**:
+- ✅ `docs/harness/harness-rules.yaml`：12 条规则机读格式（C01-C12），含 trigger_pattern / scope / severity
+- ✅ `scripts/pre_commit_harness_check.py v2`：从 YAML 加载规则，替代硬编码
+- ✅ JSON 结构化输出（check_id / status / severity / missing_docs）
+- ✅ 3 种检查类型：file_modified / version_check / gap_check
+
+---
+
+## G81: 缺失规范维度补充（P1）
+
+**状态**: ✅ **v9.6.0 已完成**
+
+**描述**: 对照《Harness & Loop Engineering 工程规范与实施方法论》，补充 5 个缺失维度到现有规范文档。
+
+**已完成工作**:
+- ✅ D3 Generation 控制规范（10-coding-standards.md）
+- ✅ Hook 链架构规范（01-architecture.md）
+- ✅ 验证器质量度量（06-testing.md）
+- ✅ 成本工程规范（03-configuration.md）
+- ✅ 上线四步评估流程（07-operations.md）
+- ✅ 10 条反模式检测规则（追加到 harness-rules.yaml）
+
+---
+
+## G82: G21/G22 设计文档（P2）
+
+**状态**: ✅ **v9.6.0 已完成（设计文档阶段）**
+
+**描述**: G21（Harness 自适应优化）和 G22（多循环协作协议）的设计文档。
+
+**已完成工作**:
+- ✅ `docs/designs/g21-harness-adaptive-optimization.md` — 双层经验库 Schema、检索适配引擎、模式蒸馏
+- ✅ `docs/designs/g22-multi-loop-collaboration.md` — HandoffMessage Pydantic Schema、背压机制、循环拓扑
+- 实施阶段按 P2 优先级在后续版本推进
+
+---
+
+## G83: 类型注解全量补充（P1）
+
+**状态**: ✅ **v9.6.0 已完成**
+
+**描述**: scripts/ 目录所有公共函数类型注解全量补充，消除 IDE 静态分析盲区。
+
+**已完成工作**:
+- ✅ Phase B（批量）：38 个业务文件，90 个 `-> None` 补全
+- ✅ Phase B（手工，部分）：update_matrix / self_improve / inference_gate 等关键函数补充
+- ✅ Phase C：test_scripts.py 490 个测试方法 `-> None` 补充
+- 合计：~580 个函数类型注解

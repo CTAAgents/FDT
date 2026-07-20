@@ -83,7 +83,7 @@ tests/
 │   ├── test_embodiskill_reflect.py
 │   ├── test_skillevolver_evolution.py
 │   └── test_verify_evolution.py
-├── strategies/                    # 策略层测试 (19个测试)
+├── strategies/                    # 策略层测试 (19个测试, + TestSubSignalMerge 4用例 v9.4.3)
 │   ├── conftest.py
 │   ├── test_adapter.py
 │   ├── test_arbitrage.py
@@ -124,6 +124,9 @@ tests/
 │   ├── test_field_normalizer.py   # 字段标准化器测试 (25 用例)
 │   ├── test_datacore_bridge.py    # DataCore F10 桥接器测试 (24 用例, v9.4.0 新增)
 │   └── test_fdc_fallback.py       # FDC 降级兼容性测试 (v9.4.0 新增)
+├── scripts/                       # 脚本层测试 (G92 新增, v9.6.2)
+│   ├── conftest.py
+│   └── test_validate_llm_output.py # LLM 输出质量校验器测试 (18 用例, 覆盖价格偏差/置信度/评分三维校验)
 ```
 
 ### 2.1 报告层测试 (v8.8.0+)
@@ -289,7 +292,7 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | memory (writer/archiver) | ✅ | ✅ | — | — | — | — | — | 9 用例 |
 | **dominant-resolver** | ✅ | ✅ | — | — | — | — | — | **75 用例** (28 dominant + 22 datacore + 25 normalizer, v9.3.0 新增) |
 | **validators** | ✅ | — | — | — | — | **4 用例** |
-| **strategies** | ✅ | ✅ | — | — | — | **19 用例** |
+| **strategies** | ✅ | ✅ | — | — | — | **19 用例 + 4 新增 (TestSubSignalMerge)** |
 | **fdt_langgraph** | ✅ | ✅ | — | — | — | **99 用例** |
 
 > ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明曾因 v6.3.0 重构后 `tests/pipeline/test_runner.py` mock 重命名函数失配而失真（5/10 失败）。**该问题已于 2026-07-14 19:04 修复**，当前 pipeline 10/10 全绿。
@@ -447,5 +450,28 @@ tests/fdt_langgraph/test_integration_ab.py .................... 18 passed
 > - Agent spawn mock（`debate_orchestrator` 子进程调用）
 > - LangGraph Checkpointer mock（SQLite 内存替代）
 
+## 验证器质量度量
 
+Loop 质量完全取决于所连接的可验证信号质量。验证器本身也需要被度量。
 
+### 核心指标
+
+| 指标 | 定义 | 硬性目标 | 说明 |
+|------|------|:--------:|------|
+| **漏放率 (false pass)** | 验证器通过但实际错误的比例 | ≈0% | 安全性指标，必须接近零 |
+| **误杀率 (false block)** | 验证器拦截但实际正确的比例 | <20% | 效率指标，过高浪费 Token |
+
+### 度量方法
+
+1. 影子模式运行时，人工抽查 N 轮验证结果
+2. 统计：漏放数 / 总数、误杀数 / 总数
+3. 漏放率不达标 → 升级验证档位（如 L2→L3）
+4. 误杀率过高 → 优化验证规则、增加白名单
+
+### 晋级门槛中的验证器质量
+
+| 晋级 | 验证器要求 |
+|------|------------|
+| L1→L2 | 影子模式 ≥5 轮，分诊准确率 ≥90% |
+| L2→L3 | 连续 ≥20 次人工审查零回退，漏放率 ≈0，人工干预率 <10% |
+| 降级 | 出现安全事件，或人工干预率连续两周 >30% |

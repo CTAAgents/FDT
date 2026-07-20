@@ -293,14 +293,15 @@ curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `pyproject.toml` | 9.0.0 | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
+| `pyproject.toml` | **9.6.0** | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
 | `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
-| `README.md` | v9.0.0 | 与 pyproject.toml 同步 |
+| `README.md` | **v9.6.0** | 与 pyproject.toml 同步 |
 
 ### 5.2 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
+| v9.4.3 | 2026-07-20 | **G91 Phase 4.8 同品种多子信号合并方向覆盖 bug 修复（P0）**：① `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器，将"逐个两两平均"改为正确的"简单平均"，消除后序信号权重偏高问题；② grade 升级时不再覆盖 `direction`，direction 完全由最终平均 `total` 符号决定；③ 修复 SC 场景方向错误（4 看多 vs 2 看空，原错误输出 bear，修复后正确输出 bull）；④ 新增 `TestSubSignalMerge` 4 用例（SC 场景/全看空/平衡/grade 升级）。版本号 bump 9.4.2→9.4.3 |
 | v9.4.2 | 2026-07-20 | **G89 debate_only 信号多空论据丢失修复 + G90 信号排序改为交易可靠性优先**：① G89 修复 `phase3_generate_report.py` 补充逻辑遗漏 `bull_args`/`bear_args` 字段（`missing_pids` 品种从 `debate_results` 复制论据）；② G89 修复 `fdt_langgraph/nodes.py` `node_report` 中 LLM 辩论遗漏品种论据时，从 judge reasoning 生成 `[裁决摘要]` 最小 fallback；③ G90 将 T1/T2/T3 信号排序从纯置信度改为 `置信度 × 盈亏比`（隐含胜率 × 潜在盈亏比）；④ 辩论详情模块 `SYMBOL_KEYS` 从字母序改为可靠性排序；⑤ 新增 `tests/quant-daily/test_g35_debate_only_args.py` 3 用例全绿；⑥ 同步更新 `06-testing.md` 测试计数 6→9。版本号 bump 9.4.1→9.4.2 |
 | v9.4.1 | 2026-07-20 | **G88 K 线数据链路根因修复（P0）**：① 修复 `MultiSourceAdapter.get_kline()` 入口处的"自动主力解析" bug — 之前 `DominantResolver` 在 `memory/dominant_map.json` 不存在时返回 `f"{variety}00"`（如 `RB00`），这种合约代码在 WebFallback/TqSDK 等所有采集器中均识别失败，导致 K 线返回空、整个数据链路断裂；改由各采集器内部根据自身能力处理 symbol 转换（如 TqSdk 的 `_resolve_continuous` 将 `RB` 转为 `KQ.m@SHFE.rb`），避免平台无关的后备代码污染降级链；② 修复 `tests/dominant-resolver/test_fdc_fallback.py` 的 `_mock_datacore_unavailable` fixture — 改用 `sys.modules["datacore"] = None`（Python 标准约定的"不可导入"信号）替代 `del sys.modules["datacore"]`，避免 `import datacore.fdc_compat` 触发真实包 `__init__.py` 加载导致 Prometheus Counter 重复注册；③ 移除 `multi_source_adapter.py` 中未使用的 `has_month_suffix` 导入。验证：`get_kline("RB")` 恢复返回 30 根 web_fallback K 线；`compute_indicators` 返回 16 个标准指标键名（MA/EMA/RSI/MACD/BOLL 等），类型正确（MA 为 ndarray，BOLL 为 tuple）；F10 子块结构正常（term_structure/spread/basis/warrant/fundamental 均 success=True）。测试 122 passed, 1 skipped。版本号 bump 9.4.0→9.4.1 |
 | v9.4.0 | 2026-07-20 | **G87 Data-Core F10 全面集成**：① 新增 `futures_data_core/core/_datacore_bridge.py` — 集中式 F10 桥接器，封装 `try_datacore_first()` + `_dc_result_to_a2a()` 模板方法；② 改造 6 个 F10 模块（term_structure/spread/basis/warrant/fundamental/position）入口 — 每模块 +3 行 Data-Core 优先检查，自动降级原有实现；③ `compute_indicators` 优先路由 Data-Core 版；④ 新增 2 个测试文件（test_datacore_bridge.py 24 用例 + test_fdc_fallback.py 12 用例）覆盖全部桥接路径和降级兼容性；⑤ 更新 4 篇 Harness 文档（01-architecture / 04-resilience / 06-testing / 07-operations）；版本号 bump 9.3.0→9.4.0 |
@@ -391,3 +392,40 @@ python scripts/auto_publish.py
 | 关键文件 | `memory/debate_journal.json`, `memory/execution_followup.json`, `memory/agent_profiles.json`, `memory/calibration.json` |
 | 备份方式 | Git 版本控制 (sync_experts_to_github.py) |
 | 恢复方式 | `git checkout {commit} -- memory/` |
+
+
+---
+
+## 上线四步评估流程
+
+所有新循环或循环重大变更上线前，必须通过四步评估：
+
+### 1. 影子模式 (Shadow)
+- 循环只读运行，连续 N 轮（建议 ≥5）人工抽查
+- 评估分诊准确率、漏放率、误杀率
+- 产出：Shadow 模式评估报告
+
+### 2. 金标准任务集 (Golden Tasks)
+- 5-20 个已知答案的任务（含正例与陷阱负例）
+- 所有任务必须通过才能进入下一步
+- 金标准任务集本身也是回归测试用例
+
+### 3. 验证器质量度量
+- 漏放率（false pass）为硬指标，必须 ≈ 0
+- 误杀率（false block）为效率指标，目标 < 20%
+- 不达标则必须升级验证档位
+
+### 4. 金丝雀 (Canary)
+- 真实环境小范围放量（例如单品种、单时间段）
+- 观察 24-48 小时，确认无异常后全量上线
+
+---
+## 版本历史（Harness 文档）
+
+| 版本 | 日期 | 变更 |
+|:-----|:-----|:-----|
+
+| **v9.6.1 → v9.6.2** | 2026-07-20 | **G92 Phase A 完成 — LLM 幻觉检测层落地** — 新增 `scripts/validate_llm_output.py`（价格偏差/置信度/评分三维校验）；新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表；更新 `08-gap-analysis.md` G92 Phase A 状态标记为已完成 |
+| **v9.6.0 → v9.6.1** | 2026-07-20 | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
+| **v9.5.0 → v9.6.0** | 2026-07-20 | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
+| **v9.4.2 → v9.5.0** | 2026-07-20 | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；README 增加 Harness & Loop Engineering 专章；差距分析登记 G20/G21/G22 |
