@@ -287,17 +287,75 @@ curl http://127.0.0.1:8910/health    # 组件状态 + uptime
 curl http://127.0.0.1:8910/metrics   # APM 五轴 + 测试统计
 ```
 
-## 5. 版本管理
+## 5. 上线四步评估流程（v9.6.4+）
 
-### 5.1 版本号规范
+> **设计目标**: 通过标准化的四步评估流程，确保每次上线变更的质量和安全性
+
+### 5.1 评估流程
+
+```
+Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证器验收 ──→ Step 4: 金丝雀发布
+     ↓                      ↓                      ↓                      ↓
+  并行运行               结果比对               质量门禁               渐进放量
+  不影响生产             差异分析               通过/失败               全量上线
+```
+
+### 5.2 Step 1: 影子模式
+
+| 项目 | 说明 |
+|:-----|:-----|
+| **目标** | 新代码与生产代码并行运行，不影响生产输出 |
+| **运行方式** | `FDT_USE_LANGGRAPH=true` + 生产代码同时运行 |
+| **输出** | 两份独立的辩论结果（影子 vs 生产） |
+| **持续时间** | 至少 3 个交易日 |
+| **验收条件** | 影子模式无崩溃，输出格式与生产一致 |
+
+### 5.3 Step 2: 金标准比对
+
+| 项目 | 说明 |
+|:-----|:-----|
+| **目标** | 对比影子模式与生产模式的结果差异 |
+| **比对维度** | 品种选择、方向判定、交易参数、置信度 |
+| **工具** | `scripts/run_benchmark.py --replay` |
+| **验收条件** | 方向一致性 ≥ 95%，价格偏差 ≤ 5% |
+
+### 5.4 Step 3: 验证器验收
+
+| 项目 | 说明 |
+|:-----|:-----|
+| **目标** | 通过质量门禁验证新代码的正确性 |
+| **验证项** | 漏放率 ≤ 1%，误杀率 ≤ 5% |
+| **工具** | `scripts/validate_llm_output.py` + 门禁测试 |
+| **验收条件** | 所有验证器质量指标达标 |
+
+### 5.5 Step 4: 金丝雀发布
+
+| 阶段 | 比例 | 持续时间 | 监控重点 |
+|:-----|:-----|:---------|:---------|
+| **金丝雀** | 10% | 1 交易日 | 错误率、延迟、成本 |
+| **灰度** | 50% | 2 交易日 | 全量指标 |
+| **全量** | 100% | — | 持续监控 |
+
+### 5.6 回滚条件
+
+| 条件 | 回滚动作 |
+|:-----|:---------|
+| 错误率 > 5% | 立即回滚到上一版本 |
+| 延迟增加 > 20% | 立即回滚 |
+| 成本增加 > 30% | 24小时内回滚 |
+| 数据不一致 | 立即回滚 |
+
+## 6. 版本管理
+
+### 6.1 版本号规范
 
 | 位置 | 当前版本 | 格式 |
 |:-----|:---------|:-----|
-| `pyproject.toml` | **9.6.0** | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
+| `pyproject.toml` | **9.6.4** | **唯一版本源**（`bootstrap.py` 经 `scripts/fdt_paths.py:get_fdt_version()` 运行时读取） |
 | `bootstrap.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
-| `README.md` | **v9.6.0** | 与 pyproject.toml 同步 |
+| `README.md` | **v9.6.4** | 与 pyproject.toml 同步 |
 
-### 5.2 版本历史
+### 6.2 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |:-----|:-----|:-------|
@@ -425,6 +483,7 @@ python scripts/auto_publish.py
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
 
+| **v9.6.3 → v9.6.4** | 2026-07-20 | **Harness 工程升级计划完成** — Phase D 全部完成：① `harness-rules.yaml` 添加 10 条反模式检测规则（AP01-AP10）；② `01-architecture.md` 添加 Hook 链架构规范（pre_hook/post_hook/safety_hook 三层扩展）；③ `06-testing.md` 添加验证器质量度量（漏放率/误杀率硬指标 + 质量等级 + 告警规则）；④ `03-configuration.md` 添加成本工程规范（Token 估算公式 + 缓存 TTL 耦合策略 + 降本手段排序 + 成本监控指标）；⑤ `07-operations.md` 添加上线四步评估流程（影子模式→金标准比对→验证器验收→金丝雀发布）；G21/G22 设计文档已存在（`docs/designs/g21-harness-adaptive-optimization.md` / `docs/designs/g22-multi-loop-collaboration.md`） |
 | **v9.6.2 → v9.6.3** | 2026-07-20 | **G92 Phase B/C 完成 — LLM 幻觉校准与进化闭环** — Phase B：`calibrate_weights.py` 扩展 `--hallucination-stats` 参数，新增 `hallucination_adjustment` 全局修正项（幻觉率>10%→-3分，>5%→-1分，<2%→+1分）；Phase C：`evolve_agents.py` 新增 `evolve_llm_hallucination()` 函数，接收 `--hallucination-patterns` 参数，调整价格引用策略（strict_scan/scan_first/hybrid）、置信度缩放因子、偏差阈值；新增 `LLM幻觉进化器` Agent 配置；更新 `08-gap-analysis.md` G92 Phase B/C 状态标记为已完成 |
 | **v9.6.1 → v9.6.2** | 2026-07-20 | **G92 Phase A 完成 — LLM 幻觉检测层落地** — 新增 `scripts/validate_llm_output.py`（价格偏差/置信度/评分三维校验）；新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表；更新 `08-gap-analysis.md` G92 Phase A 状态标记为已完成 |
 | **v9.6.0 → v9.6.1** | 2026-07-20 | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |

@@ -1,0 +1,203 @@
+# =============================================================================
+# FDT Harness 工程规范检查规则
+# 将 12 项 commit 前检查清单转为机读格式
+# 版本: 1.0
+# =============================================================================
+
+version: "1.0"
+description: "FDT Harness 工程规范检查规则 — 将 12 项 commit 前检查清单转为机读格式"
+
+checks:
+  # ── C01: 架构变更 ─────────────────────────────────────────────────
+  - id: C01
+    name: "数据流/架构变更反映检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "docs/harness/01-architecture.md"
+    trigger_pattern: "fdt_langgraph|futures_data_core|pipeline"
+    message: "架构/数据流变更必须同步更新 01-architecture.md"
+
+  # ── C02: 生命周期 ─────────────────────────────────────────────────
+  - id: C02
+    name: "生命周期文档同步检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "docs/harness/02-lifecycle.md"
+    trigger_pattern: "scripts/.*\\.py|fdt_langgraph/.*\\.py"
+    message: "代码变更必须同步更新 02-lifecycle.md"
+
+  # ── C03: 配置项 ───────────────────────────────────────────────────
+  - id: C03
+    name: "配置项更新检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "docs/harness/03-configuration.md"
+    trigger_pattern: "config/|settings\\.json|\\w+\\.yaml"
+    message: "新增/修改配置项必须更新 03-configuration.md"
+
+  # ── C04: 降级/熔断 ────────────────────────────────────────────────
+  - id: C04
+    name: "降级/熔断路径检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "docs/harness/04-resilience.md"
+    trigger_pattern: "degrade|circuit_breaker|fallback|retry"
+    message: "降级/熔断逻辑变更必须更新 04-resilience.md"
+
+  # ── C05: 可观测性 ─────────────────────────────────────────────────
+  - id: C05
+    name: "可观测性文档检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "docs/harness/05-observability.md"
+    trigger_pattern: "trace_id|logger|metric|dashboard|health"
+    message: "指标/日志/追踪变更必须更新 05-observability.md"
+
+  # ── C06: 测试文档 ─────────────────────────────────────────────────
+  - id: C06
+    name: "测试文档更新检查"
+    severity: "P1"
+    type: "file_modified"
+    scope: "docs/harness/06-testing.md"
+    trigger_pattern: "tests/|test_.*\\.py"
+    message: "测试文件变更时建议同步更新 06-testing.md"
+
+  # ── C07: 版本号 ───────────────────────────────────────────────────
+  - id: C07
+    name: "版本号 bump 检查"
+    severity: "P0"
+    type: "version_check"
+    scope: "pyproject.toml"
+    trigger_pattern: null
+    message: "任何代码变更后必须核对版本号是否需要 bump"
+
+  # ── C08: 差距登记 ─────────────────────────────────────────────────
+  - id: C08
+    name: "差距登记检查"
+    severity: "P1"
+    type: "gap_check"
+    scope: "docs/harness/08-gap-analysis.md"
+    trigger_pattern: null
+    message: "重大变更应考虑在 08-gap-analysis.md 登记新差距"
+
+  # ── C09: 晋级计划 ─────────────────────────────────────────────────
+  - id: C09
+    name: "晋级计划检查"
+    severity: "P1"
+    type: "file_modified"
+    scope: "docs/harness/09-advancement-plan.md"
+    trigger_pattern: "v\\d+\\.\\d+|Phase_\\d+|milestone"
+    message: "里程碑变更必须更新 09-advancement-plan.md"
+
+  # ── C10: 流程文档 ─────────────────────────────────────────────────
+  - id: C10
+    name: "流程文档同步检查"
+    severity: "P1"
+    type: "file_modified"
+    scope: "docs/execution_modes_flowchart.md|docs/business_flow.md"
+    trigger_pattern: "pipeline|flow|workflow|process"
+    message: "流程变更必须同步流程图文档"
+
+  # ── C11: 角色职责 ─────────────────────────────────────────────────
+  - id: C11
+    name: "角色职责文档检查"
+    severity: "P1"
+    type: "file_modified"
+    scope: "agents/*.md"
+    trigger_pattern: "agents/.*\\.py|agents/.*\\.md"
+    message: "Agent 角色变更必须同步 agents/*.md"
+
+  # ── C12: README ───────────────────────────────────────────────────
+  - id: C12
+    name: "README 快速参考检查"
+    severity: "P0"
+    type: "file_modified"
+    scope: "README.md"
+    trigger_pattern: null
+    message: "README.md 必须同步更新，作为项目入口文档"
+
+anti_patterns:
+  - id: AP01
+    name: "巨型 Prompt"
+    description: "AGENTS.md 文件超过 300 行，Prompt 过长可能导致 LLM 注意力分散"
+    severity: "P1"
+    check_type: "file_length"
+    target: "AGENTS.md"
+    threshold: 300
+    message: "AGENTS.md 超过 300 行，建议拆分或精简"
+
+  - id: AP02
+    name: "跳过审核直接编码"
+    description: "没有 plan/spec 文档就直接提交代码变更"
+    severity: "P0"
+    check_type: "process_check"
+    target: ".claude/artifacts/designs/"
+    message: "提交前必须有设计文档（.claude/artifacts/designs/ 下），禁止跳过审核直接编码"
+
+  - id: AP03
+    name: "Rules 不维护"
+    description: "harness-rules.yaml 文件超过 30 天未修改，可能过时"
+    severity: "P1"
+    check_type: "last_modified"
+    target: "docs/harness/harness-rules.yaml"
+    threshold_days: 30
+    message: "harness-rules.yaml 超过 30 天未更新，建议检查是否需要同步"
+
+  - id: AP04
+    name: "MCP 过度接入"
+    description: "MCP 服务接入超过 10 个，可能导致依赖过多"
+    severity: "P2"
+    check_type: "count_check"
+    target: "mcps/"
+    threshold: 10
+    message: "MCP 服务超过 10 个，建议评估必要性并清理"
+
+  - id: AP05
+    name: "Skill 不原子化"
+    description: "单个 Skill 文件超过 200 行，职责过重"
+    severity: "P1"
+    check_type: "file_length"
+    target: "skills/"
+    threshold: 200
+    message: "Skill 文件超过 200 行，建议拆分为多个原子化 Skill"
+
+  - id: AP06
+    name: "盲目信任 AI 输出"
+    description: "生产路径无独立验证机制，直接使用 LLM 输出"
+    severity: "P0"
+    check_type: "process_check"
+    target: "scripts/validate_*.py"
+    message: "生产路径必须有独立验证器（validate_*.py），禁止盲目信任 AI 输出"
+
+  - id: AP07
+    name: "循环无停止条件"
+    description: "Loop Contract 中 stop 字段为空，可能导致无限循环"
+    severity: "P0"
+    check_type: "contract_check"
+    target: "docs/harness/loop-contracts/"
+    message: "Loop Contract 必须定义 stop 条件，禁止无限循环"
+
+  - id: AP08
+    name: "多循环共写 STATE"
+    description: "多个循环共用同一个 state 目录，可能导致状态冲突"
+    severity: "P1"
+    check_type: "path_check"
+    target: "memory/debates/"
+    message: "每个循环应有独立的 state 目录，禁止多循环共写"
+
+  - id: AP09
+    name: "Chat 历史当文档"
+    description: "关键知识仅存在于对话历史中，未沉淀到文档"
+    severity: "P2"
+    check_type: "process_check"
+    target: "docs/"
+    message: "关键知识必须沉淀到 docs/ 目录下的文档中，禁止依赖 Chat 历史"
+
+  - id: AP10
+    name: "一个 PR 改所有"
+    description: "单次 PR 修改超过 20 个文件，变更范围过大"
+    severity: "P1"
+    check_type: "file_count"
+    target: null
+    threshold: 20
+    message: "PR 修改文件超过 20 个，建议拆分多个 PR"

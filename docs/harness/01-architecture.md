@@ -20,7 +20,8 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 ├─────────────────────────────────────────────────────────────────────┤
 │                     L1 — 基础设施层 (Infrastructure)                   │
 │   PostgreSQL(OLTP+OLAP) · memory系统 · unified_logger · memory_writer │
-│   · fdt_cache(SQLite增量缓存) · debate_archiver · fdt_pg(连接层)      │
+│   · fdt_cache(SQLite增量缓存) · dominant_resolver(主力合约映射持久化)   │
+│   · _datacore_bridge(Data-Core F10 桥接器) · debate_archiver · fdt_pg(连接层) │
 │   · 独立CLI/FastAPI入口                                              │
 ```
 
@@ -28,7 +29,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 
 | 层 | 职责 | 核心组件 |
 |:--|:-----|:---------|
-| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
+| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
 | **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`（Checkpointer 逻辑在 graph.py 内联） |
@@ -132,7 +133,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │                                     │
                     │  ┌───────────────────────────────┐  │
                     │  │ Nodes:                        │  │
-                    │  │ • [scan] 数技源               │  │
+                    │  │ • [scan:数技源]               │  │
                     │  │       │                       │  │
                     │  │       ▼                       │  │
                     │  │ • [judge_direction] 闫判官     │  │
@@ -143,7 +144,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │       │                       │  │
                     │  │  ┌────┴────┬────────┬──────┐  │  │
                     │  │  ▼         ▼        ▼      │  │  │
-                    │  │ [链证源] [观澜]   [探源]    │  │  │ ← 并行数据源
+                    │  │ [chain:链证源] [technical:观澜]   [fundamental:探源]    │  │  │ ← 并行数据源
                     │  │  产业链  技术面   基本面     │  │  │
                     │  │       └────┬────────┘      │  │  │
                     │  │            ▼               │  │  │
@@ -234,7 +235,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     ▼
 [FdtDebateGraph] ──→ DebateState (内存状态传递)
     │
-    ├─ [scan] 数技源 ──→ state["scan_results"]
+    ├─ [scan:数技源] ──→ state["scan_results"]
     │       │
     │       ▼
     │  [judge_direction] 闫判官
@@ -246,7 +247,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │  │                                      │
     │  │   ┌──────────┬──────────┬────────┐  │
     │  │   ▼          ▼          ▼        │  │
-    │  │ [链证源]   [观澜]     [探源]     │  │ ← 仅调度需要的源
+    │  │ [chain:链证源]   [technical:观澜]     [fundamental:探源]     │  │ ← 仅调度需要的源
     │  │ 产业链     技术面     基本面      │  │
     │  │ (按需)     (按需)     (按需)      │  │
     │  │   │         │          │         │  │
@@ -360,6 +361,76 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 3.4 Hook 链架构规范（v9.6.4+）
+
+> **设计目标**: 通过 Hook 机制实现横切关注点的解耦，支持 pre-action/post-action/safety 三个层次的扩展
+
+#### 3.4.1 Hook 接口定义
+
+| Hook 类型 | 执行时机 | 接口签名 | 返回值 | 典型用途 |
+|:----------|:---------|:---------|:-------|:---------|
+| `pre_hook` | 节点执行前 | `async def pre_hook(state: DebateState) -> DebateState` | 修改后的状态 | 参数校验、权限检查、日志记录 |
+| `post_hook` | 节点执行后 | `async def post_hook(state: DebateState, result: Any) -> DebateState` | 修改后的状态 | 结果校验、数据转换、指标收集 |
+| `safety_hook` | 异常发生时 | `async def safety_hook(state: DebateState, error: Exception) -> DebateState` | 恢复后的状态 | 异常处理、降级策略、告警通知 |
+
+#### 3.4.2 Hook 链执行顺序
+
+```
+用户请求
+    │
+    ▼
+┌─────────────────────────────────────────────────────┐
+│              Hook 链执行流程                          │
+│                                                     │
+│  ┌─────────────┐    ┌─────────────┐                 │
+│  │ pre_hook_1  │───→│ pre_hook_2  │───→ ...        │
+│  │ (权限检查)   │    │ (参数校验)   │                 │
+│  └─────────────┘    └─────────────┘                 │
+│         │                                           │
+│         ▼                                           │
+│  ┌─────────────────────────────┐                    │
+│  │      Node 执行 (业务逻辑)     │                    │
+│  └─────────────────────────────┘                    │
+│         │                                           │
+│         ▼                                           │
+│  ┌─────────────┐    ┌─────────────┐                 │
+│  │ post_hook_1 │───→│ post_hook_2 │───→ ...        │
+│  │ (结果校验)   │    │ (指标收集)   │                 │
+│  └─────────────┘    └─────────────┘                 │
+│                                                     │
+│  异常路径:                                          │
+│  Node 执行 → Exception → safety_hook_1 → ...        │
+│                                    │                 │
+│                                    ▼                 │
+│                             恢复/降级/告警            │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 3.4.3 Hook 注册机制
+
+```python
+# fdt_langgraph/hooks.py 核心接口
+class HookManager:
+    def register_pre_hook(self, node_name: str, hook: Callable) -> None: ...
+    def register_post_hook(self, node_name: str, hook: Callable) -> None: ...
+    def register_safety_hook(self, node_name: str, hook: Callable) -> None: ...
+    def execute_pre_hooks(self, node_name: str, state: DebateState) -> DebateState: ...
+    def execute_post_hooks(self, node_name: str, state: DebateState, result: Any) -> DebateState: ...
+    def execute_safety_hooks(self, node_name: str, state: DebateState, error: Exception) -> DebateState: ...
+```
+
+#### 3.4.4 内置 Hook 清单
+
+| Hook 名称 | 类型 | 目标节点 | 功能描述 |
+|:----------|:-----|:---------|:---------|
+| `validate_input` | pre | 所有节点 | 校验状态输入合法性 |
+| `log_entry` | pre | 所有节点 | 记录节点执行开始日志 |
+| `log_exit` | post | 所有节点 | 记录节点执行完成日志 |
+| `record_duration` | post | 所有节点 | 记录节点执行耗时 |
+| `validate_output` | post | verdict | 校验裁决输出格式 |
+| `rate_limit` | safety | 所有节点 | 触发速率限制时降级 |
+| `alert_on_error` | safety | 所有节点 | 异常时发送告警 |
+
 ## 4. Agent 拓扑
 
 ### 4.1 当前拓扑（文件传递模式）
@@ -424,7 +495,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  ┌─────────────────────────────────────────────┐   │
                     │  │  Nodes (节点函数)                              │   │
                     │  │                                               │   │
-                    │  │  [scan] 数技源 ──→ state["scan_results"]      │   │
+                    │  │  [scan:数技源] ──→ state["scan_results"]      │   │
                     │  │       │                                       │   │
                     │  │       ▼                                       │   │
                     │  │  [judge_direction] 闫判官                      │   │
@@ -436,7 +507,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
                     │  │       ▼ (按需并行调度)                         │   │
                     │  │  ┌─────────┬──────────┬──────────┐           │   │
                     │  │  ▼         ▼          ▼          ▼           │   │
-                    │  │ [链证源]  [观澜]     [探源]                  │   │
+                    │  │ [chain:链证源]  [technical:观澜]     [fundamental:探源]                  │   │
                     │  │ 产业链   技术面     基本面                    │   │
                     │  │ (按需)   (按需)     (按需)                    │   │
                     │  │       │         │              │              │   │
@@ -534,7 +605,7 @@ FDT 支持两种执行模式，通过环境变量控制：
     │              │
     │       ┌──────┴──────┬─────────────┐
     │       ▼             ▼             ▼
-    │   [链证源]      [观澜]       [探源]      ← 按需并行（仅调度需要的源）
+    │   [chain:链证源]      [technical:观澜]       [fundamental:探源]      ← 按需并行（仅调度需要的源）
     │   产业链       技术面        基本面
     │       │         │             │
     │       └─────────┴─────────────┘
@@ -552,7 +623,95 @@ FDT 支持两种执行模式，通过环境变量控制：
   • 便于后续扩展新数据源（如宏观源、舆情源）
 ```
 
-## 5. 与现有文档的关系
+## 5. Loop Engineering 视角
+
+### 5.1 双层循环结构
+
+FDT 的 Harness 架构天然支持 Inner Loop（内循环）和 Outer Loop（外循环）双层结构：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Outer Loop（外循环）                           │
+│  跨会话的经验积累与 Harness 进化                                 │
+│                                                                 │
+│  T+1验证 → 权重校准 → Agent进化 → ML训练 → 注入下一轮             │
+│  (validate_verdicts.py → calibrate_weights.py → evolve_agents.py │
+│   → ml/trainer.py → agent_profiles.json → 下轮辩论加载)          │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Inner Loop（内循环）                           │
+│  单次辩论内的 Run-Until-Done + 六阶段攻防                         │
+│                                                                 │
+│  P1扫描 → P2调度 → P3并行研究 → P4六阶段攻防 → P5裁决链 → P6输出  │
+│  （含 D06 降级、分歧度控制、攻防反驳等内循环优化）                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 FDT 的 Harness 六维控制空间
+
+对应 MemoHarness 六维 Harness 空间，FDT 的实现如下：
+
+| 维度 | FDT 对应实现 | 成熟度 |
+|------|-------------|:------:|
+| **D1 Context（上下文组装）** | `AGENTS.md` + `memory/knowledge/` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
+| **D2 Tool（工具交互）** | `futures_data_core/`（10+ 模块，4级降级链）+ 策略管线 + CTP 接口 | ★★★★☆ |
+| **D3 Generation（解码控制）** | 逐 Agent 模型配置 + 温度/最大 Token 控制 + 结构化输出约束 | ★★★☆☆ |
+| **D4 Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 条件路由 + 多模式（default/fast/deep/tournament） | ★★★★★ |
+| **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + debate_journal + execution_followup | ★★★★☆ |
+| **D6 Output（输出处理）** | JSON Schema 校验 + 4 铁律核验 + 风控门控 + HTML 报告生成 | ★★★★☆ |
+
+### 5.3 循环契约（Loop Contract）
+
+FDT 的每个自动化循环都有明确的六维度契约（TRIGGER / SCOPE / ACTION / BUDGET / STOP / REPORT），详见 [loop-contracts/](loop-contracts/README.md)。
+
+**已定义的循环契约**：
+
+| 循环 ID | 名称 | 验证档位 | 权限 | 契约 |
+|---------|------|----------|------|------|
+| `daily-debate` | 每日自动辩论 | L3 (independent_agent) | Write | [daily-debate.contract.yaml](loop-contracts/daily-debate.contract.yaml) |
+
+### 5.4 验证档位体系
+
+| 档位 | FDT 实现 | 对应循环 |
+|------|----------|----------|
+| **L1 (self)** | Agent 自检 + JSON Schema 校验 + 4 铁律 | 报告型循环、数据采集 |
+| **L2 (test_suite)** | pytest 测试套件 + 契约校验 + 门禁审计 | 自进化循环、ML 训练 |
+| **L3 (independent_agent)** | 闫判官裁决 + 风控明独立审核（Maker-Checker 分离） | 每日辩论循环（生产级） |
+
+> **核心规律**：Loop 的质量完全取决于它所连接的可验证信号的质量。FDT 之所以能达到 L3 验证档位，核心在于闫判官+风控明的 Maker-Checker 分离架构，以及 CTP 信号输出前的多道风控门控。
+
+### 5.5 Hook 链架构规范
+
+Hook 链是 FDT 护栏层的中间件架构，分类与接口：
+
+| Hook 类型 | 阶段 | 作用 | FDT 实现 |
+|-----------|------|------|----------|
+| **pre-action** | Agent 执行前 | 越权检查、denylist、权限验证 | `validate_agent_output.py` + 信号门禁 |
+| **post-action** | Agent 执行后 | 完整性校验、Schema 验证、4 铁律核验 | `validate_final_signals.py` |
+| **safety** | 输出前 | 风险门控、CTP 信号拦截 | 风控明 + 风控颜色信号 |
+
+**Hook 接口定义**：
+```python
+@dataclass
+class HookContext:
+    trace_id: str
+    agent_name: str
+    action: str
+    input_data: dict
+    output_data: dict | None
+    errors: list[str]
+
+class HarnessHook(ABC):
+    @abstractmethod
+    def pre_action(self, ctx: HookContext) -> HookContext: ...
+    @abstractmethod
+    def post_action(self, ctx: HookContext) -> HookContext: ...
+```
+
+
+## 6. 与现有文档的关系
 
 | 现有文档 | 关注点 | 与 Harness 文档的关系 |
 |:---------|:-------|:---------------------|
@@ -560,3 +719,4 @@ FDT 支持两种执行模式，通过环境变量控制：
 | `docs/agent-protocol.md` | Agent 通信契约 | Harness 文档引用其 schema 定义，补充生命周期视角 |
 | `docs/business_flow.md` | 业务流程 SOP | Harness 文档关注技术执行层，不重复业务逻辑 |
 | `rules/futures-debate-team_rules.md` | 全局规则 | Harness 文档将规则映射到具体的工程实现 |
+| `docs/harness/loop-contracts/` | 循环契约规范 | 本文档的延伸，定义每个自动化循环的六维度契约 |

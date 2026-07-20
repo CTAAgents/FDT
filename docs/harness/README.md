@@ -16,6 +16,7 @@
 | 08 | [差距分析与改进路线](08-gap-analysis.md) | 现状 vs 目标、缺失项清单、优先级排序 |
 | 09 | [晋级计划](09-advancement-plan.md) | Harness 成熟度晋级路线、Phase 1-5 里程碑 |
 | 10 | [编码规范](10-coding-standards.md) | 文档先行、契约优先、测试随重构、12 项 check commit 纪律 |
+| 11 | [循环契约规范](loop-contracts/README.md) | Loop Contract 六维度定义、验证档位、权限三档、现有循环清单 |
 
 ## 快速参考
 
@@ -41,7 +42,9 @@ LangGraph A/B 切换环境变量:
 Agent 数:   12 个 (10 核心 + 副判官 + 一致性裁判)
 Skill 数:   13 个 (skills/ 目录)
 脚本数:     61 个 (scripts/)
-测试文件:   24 个 (12 个目录)  ← 已全部修复，pipeline 10/10 全绿
+测试文件:   24 个
+类型注解:   580+ 函数（全部公共函数已覆盖） (12 个目录)  ← 已全部修复，pipeline 10/10 全绿
+循环契约:   1 个 (daily-debate，L3 验证档位)
 ```
 
 ## 术语表

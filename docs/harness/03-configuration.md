@@ -19,7 +19,7 @@
 |:-----|:-----|:-----|
 | `varieties.yaml` | `skills/quant-daily/scripts/references/` | 62 个期货品种定义 |
 | `overseas_varieties.yaml` | `skills/quant-daily/scripts/references/` | 海外品种定义 |
-| `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (TDX→WebFallback→QMT→TqSDK) |
+| `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (DataCore→TDX→WebFallback→QMT→TqSDK) |
 
 ### 1.3 记忆级配置 (JSON, 运行时可变)
 
@@ -31,6 +31,7 @@
 | `execution_followup.json` | `memory/` | 裁决执行回溯 (待验证队列) | `record_verdicts.py` |
 | `instrument_strategy_matrix.json` | `memory/` | 品种×策略族适应性矩阵 (F1-F5) | `update_matrix.py` |
 | `schedule_state.json` | `memory/` | 调度器状态 (PID/心跳/触发时间) | `scheduler/engine.py` |
+| `dominant_map.json` | `memory/` | 主力合约映射持久化（品种→当前主力合约代码） | `dominant_resolver.py` |
 
 ## 2. 配置内容详解
 
@@ -120,6 +121,8 @@ line-length = 120
 | `FDT_CHECKPOINTER` | `sqlite` | Checkpointer 后端选择：`pg`=PostgreSQL，`sqlite`=SQLite；`pg` 连接失败自动降级到 `sqlite` | `fdt_langgraph/graph.py` `_get_checkpointer()` |
 | `FDT_DIRECT_DEBATE` | `false` | 设为 `true` 时跳过 P1 扫描阶段，直接从 `fdt_cache/` 加载缓存数据进入指定品种辩论模式 | `fdt_langgraph/graph.py` |
 | `FDT_DEBATE_SYMBOLS` | (未设置) | 指定辩论品种列表，逗号分隔（如 `SF,SM,SC`）；仅当 `FDT_DIRECT_DEBATE=true` 时生效 | `fdt_langgraph/graph.py` |
+| `FDT_DATA_SOURCE` | `fdc` | 数据源选择：`fdc`=futures_data_core 包（默认），`datacore`=datacore.fdc_compat 包。通过 `data_source_adapter.py` 统一适配层切换所有消费者的数据路由 | `data_source_adapter.py` |
+|
 | `FDT_CACHE_DIR` | `{FDT_ROOT}/memory/` | 本地 SQLite 缓存数据库目录，存放按品种+数据类型持久化的 K 线/基本面/基差数据缓存文件 | `fdt_cache/` 模块 |
 
 ### 环境变量设置示例
@@ -374,3 +377,92 @@ set FDT_LLM_RISK_MANAGER_MODEL=local-model
 ```
 
 > **WorkBuddy 路径迁移**: `~/Documents/WorkBuddy/Logs/` 已废弃，默认改为项目内 `logs/` 目录。通过 `FDT_LOG_DIR` 环境变量可自定义。
+
+## 9. 成本工程规范（v9.6.4+）
+
+> **设计目标**: 通过系统化的成本控制策略，在保证服务质量的前提下最小化 LLM 调用成本
+
+### 9.1 Token 估算公式
+
+**单次 LLM 调用成本估算**:
+
+```python
+# 输入成本 = 输入 tokens × 输入单价
+input_cost = input_tokens * input_price_per_token
+
+# 输出成本 = 输出 tokens × 输出单价  
+output_cost = output_tokens * output_price_per_token
+
+# 总成本 = 输入成本 + 输出成本
+total_cost = input_cost + output_cost
+
+# 每轮辩论成本（估算）
+debate_cost = sum(total_cost for agent in [judge, chain, technical, fundamental, bullish, bearish])
+```
+
+**各 Agent 典型 Token 消耗**:
+
+| Agent | 输入 Token | 输出 Token | 调用次数/轮 | 估算成本/轮 |
+|:------|:----------:|:----------:|:-----------:|:-----------:|
+| 数技源 | 500 | 300 | 1 | 低 |
+| 闫判官 | 5000 | 500 | 2 (方向+裁决) | 中高 |
+| 链证源 | 3000 | 800 | 1 | 中 |
+| 观澜 | 3000 | 800 | 1 | 中 |
+| 探源 | 4000 | 1000 | 1 | 中高 |
+| 证真 | 6000 | 1200 | 2 (立论+反驳) | 高 |
+| 慎思 | 6000 | 1200 | 2 (立论+反驳) | 高 |
+| 风控明 | 2000 | 300 | 1 | 低 |
+
+### 9.2 缓存 TTL 耦合策略
+
+**缓存层级与 TTL**:
+
+| 缓存层级 | 数据类型 | TTL | 存储位置 |
+|:---------|:---------|:----|:---------|
+| L1 内存缓存 | 当日 K线/指标 | 10分钟 | `fdt_cache/` |
+| L2 本地 SQLite | 历史 K线/基本面 | 24小时 | `memory/fdt_cache/` |
+| L3 PostgreSQL | 辩论历史/裁决 | 永久 | `pg.debate_verdicts` |
+
+**TTL 耦合规则**:
+
+```python
+# TTL 与数据新鲜度要求耦合
+if data_type == "kline":
+    ttl = 10 * 60  # 10分钟（盘中实时）
+elif data_type == "fundamental":
+    ttl = 24 * 3600  # 24小时（基本面变化慢）
+elif data_type == "verdict":
+    ttl = 0  # 永久（历史裁决不可变）
+elif data_type == "debate_history":
+    ttl = 7 * 24 * 3600  # 7天（辩论历史参考）
+```
+
+### 9.3 降本手段排序
+
+| 优先级 | 手段 | 预期降本 | 实现难度 | 风险 |
+|:-------|:-----|:--------:|:--------:|:-----|
+| **P0** | 缓存优先 | 30-50% | 低 | 低 |
+| **P0** | 低精度模型降级 | 40-60% | 中 | 中 |
+| **P1** | Token 裁剪 | 10-20% | 中 | 低 |
+| **P1** | 并行调用限制 | 10-15% | 低 | 低 |
+| **P2** | 批量请求合并 | 5-10% | 高 | 低 |
+| **P2** | 本地模型替换 | 80-90% | 高 | 高 |
+
+### 9.4 成本监控指标
+
+| 指标 | 定义 | 阈值 | 告警动作 |
+|:-----|:-----|:-----|:---------|
+| `daily_cost` | 每日 LLM 调用总成本 | > ¥50 | 发送告警 |
+| `avg_cost_per_debate` | 每轮辩论平均成本 | > ¥5 | 审查 Agent 配置 |
+| `cache_hit_rate` | 缓存命中率 | < 70% | 优化缓存策略 |
+| `token_waste_rate` | 无效 Token 比例 | > 20% | 优化 Prompt |
+
+### 9.5 成本控制环境变量
+
+| 变量 | 默认值 | 用途 |
+|:-----|:-------|:-----|
+| `FDT_COST_LIMIT_DAILY` | `50` | 每日成本上限（元） |
+| `FDT_COST_LIMIT_PER_DEBATE` | `5` | 每轮辩论成本上限（元） |
+| `FDT_CACHE_ENABLED` | `true` | 是否启用缓存 |
+| `FDT_MODEL_FALLBACK` | `true` | 是否启用模型降级 |
+| `FDT_TOKEN_TRIM_ENABLED` | `true` | 是否启用 Token 裁剪 |

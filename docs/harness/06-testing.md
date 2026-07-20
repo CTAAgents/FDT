@@ -323,9 +323,81 @@ python scripts/run_benchmark.py --replay
 | 测试目录数 | 8 | 11 | **16** |
 | conftest.py 数 | — | 8 | **16** |
 
-## 10. LangGraph 并行节点测试策略 (v8.3.0+)
+## 10. 验证器质量度量（v9.6.4+）
 
-### 10.1 并行测试架构
+> **设计目标**: 通过量化指标衡量验证器的质量，确保验证器既不"漏放"错误输出，也不"误杀"正确输出
+
+### 10.1 核心指标
+
+| 指标 | 名称 | 定义 | 目标值 |
+|:-----|:-----|:-----|:-------|
+| `false_pass_rate` | 漏放率 | 验证器判定通过但实际错误的比例 | ≤ 1%（硬指标） |
+| `false_block_rate` | 误杀率 | 验证器判定失败但实际正确的比例 | ≤ 5%（效率指标） |
+| `true_positive_rate` | 真阳性率 | 验证器正确判定错误的比例 | ≥ 99% |
+| `true_negative_rate` | 真阴性率 | 验证器正确判定通过的比例 | ≥ 95% |
+| `precision` | 精确率 | 验证器标记为错误中实际错误的比例 | ≥ 95% |
+| `recall` | 召回率 | 所有错误中被验证器捕获的比例 | ≥ 99% |
+
+### 10.2 指标计算公式
+
+```python
+# 漏放率 = 漏放数 / 总验证数
+false_pass_rate = false_pass_count / total_validations
+
+# 误杀率 = 误杀数 / 总验证数  
+false_block_rate = false_block_count / total_validations
+
+# 真阳性率 = 正确拒绝数 / (正确拒绝数 + 漏放数)
+true_positive_rate = true_reject_count / (true_reject_count + false_pass_count)
+
+# 真阴性率 = 正确通过数 / (正确通过数 + 误杀数)
+true_negative_rate = true_accept_count / (true_accept_count + false_block_count)
+```
+
+### 10.3 验证器质量等级
+
+| 等级 | 漏放率 | 误杀率 | 说明 |
+|:-----|:------:|:------:|:-----|
+| **S** | < 0.5% | < 3% | 优秀，可用于生产环境 |
+| **A** | < 1% | < 5% | 良好，可用于生产环境 |
+| **B** | < 2% | < 10% | 合格，需持续改进 |
+| **C** | ≥ 2% 或 ≥ 10% | — | 不合格，禁止用于生产 |
+
+### 10.4 验证器清单与当前质量
+
+| 验证器 | 路径 | 漏放率目标 | 误杀率目标 | 用途 |
+|:-------|:-----|:----------:|:----------:|:-----|
+| `validate_agent_output.py` | `scripts/` | ≤ 1% | ≤ 5% | Agent 输出格式校验 |
+| `validate_verdicts.py` | `scripts/` | ≤ 1% | ≤ 5% | 裁决验证（方向+参数） |
+| `validate_llm_output.py` | `scripts/` | ≤ 1% | ≤ 5% | LLM 输出质量校验（幻觉检测） |
+| `validate_final_signals.py` | `scripts/` | ≤ 1% | ≤ 5% | 最终信号校验 |
+
+### 10.5 质量监控机制
+
+```bash
+# 计算验证器质量指标
+python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --stats llm_hallucination_stats.json
+
+# 质量报告
+cat llm_hallucination_stats.json | jq '{
+  false_pass_rate: (.hallucinated_count / .total_verdicts * 100),
+  false_block_rate: (.confidence_issues / .total_verdicts * 100),
+  total_verdicts: .total_verdicts
+}'
+```
+
+### 10.6 质量告警规则
+
+| 告警级别 | 触发条件 | 响应动作 |
+|:---------|:---------|:---------|
+| **P0** | 漏放率 > 1% | 立即停止生产，修复验证器 |
+| **P1** | 漏放率 > 0.5% | 24小时内修复 |
+| **P1** | 误杀率 > 5% | 72小时内优化 |
+| **P2** | 误杀率 > 3% | 记录差距，定期优化 |
+
+## 11. LangGraph 并行节点测试策略 (v8.3.0+)
+
+### 11.1 并行测试架构
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -343,7 +415,7 @@ python scripts/run_benchmark.py --replay
 └────────────────────┴────────────────────┴───────────────────────┘
 ```
 
-### 10.2 测试目录结构
+### 11.2 测试目录结构
 
 ```
 tests/fdt_langgraph/

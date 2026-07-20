@@ -1,4 +1,4 @@
-# FDT Harness 驾驭工程编码规范
+﻿# FDT Harness 驾驭工程编码规范
 
 > 版本 v1.0 | 2026-07-14 | 硬性约束，所有 FDT 修改必须遵守
 
@@ -114,6 +114,23 @@
 - 本文件受 G17 纪律约束：如需修改本规范，须按「文档先行」原则先更新本文档再执行
 - 检查清单 §2 随 Harness 文档体系的变化同步更新
 
+### D3 Generation 控制规范
+
+解码参数（temperature / max_tokens / top_p）配置原则：
+
+1. **结构化输出优先**：所有 Agent 的 LLM 调用必须使用`response_format={type: "json_object"}` 或 Pydantic Schema 约束，禁止自由文本输出
+2. **Temperature 分层**：
+   - 生成型任务（辩论论点、反驳）：temperature 0.7-1.0
+   - 判断型任务（裁决、评分）：temperature 0.1-0.3
+   - 提取型任务（结构化数据）：temperature 0.0-0.1
+3. **Max Tokens 预算**：每步必须有明确的 max_tokens 上限（在 Loop Contract 的 per_step_budget 中定义）
+4. **采样策略**：高精度场景用 greedy（top_p=1, temperature=0）；创意场景用 nucleus sampling（top_p=0.9, temperature=0.7）
+5. **约束传播**：输出 Schema 必须与 contracts/ 目录下的 JSON Schema 一致
+
 ---
 
 *版本 v1.0 | 2026-07-14 | FDT 驾驭工程编码规范*
+
+---
+
+*版本 v1.0 | 2026-07-14 | FDT 驾驭工程编码规范 — 含 D3 Generation 控制规范*

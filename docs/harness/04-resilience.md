@@ -362,7 +362,7 @@ daemon_watchdog.py 检测 (每30分钟)
                     │
         ┌───────────┼───────────┐
         ▼           ▼           ▼
-    [链证源]     [观澜]       [探源]
+    [chain:链证源]     [technical:观澜]       [fundamental:探源]
         │           │           │
         ├─ 成功 ───┼── 成功 ───┼─ 成功 → merge_research (完整)
         │           │           │
@@ -533,3 +533,50 @@ pipeline/runner.py run_pipeline()
 ```
 
 > **测试验证**：`tests/fdt_langgraph/test_integration_ab.py`（G55，18 个测试）覆盖以上全部降级路径，确保 A/B 切换机制等价性。详见 `06-testing.md §10`。
+
+## 10. Data-Core / FDC 降级 (v9.4.0+)
+
+### 10.1 降级架构
+
+FDT 的 F10 数据模块通过 `_datacore_bridge.py`（`futures_data_core/core/_datacore_bridge.py`）实现 Data-Core 优先的降级链：
+
+```
+F10 模块入口 (term_structure / spread / basis / warrant / fundamental / position)
+    │
+    ├─ _try_datacore_first("func_name", symbol)
+    │   │
+    │   ├─ datacore.fdc_compat 可导入 → 返回 Data-Core 数据 (dict)
+    │   │                                   │
+    │   │                                   └─ 数据有效 → 包装为 A2APayload 返回
+    │   │                                   │
+    │   │                                   └─ 数据为空 → 回退原有实现 (fallthrough)
+    │   │
+    │   └─ datacore 不可导入 (ImportError) ─→ 回退原有实现 (fallthrough)
+    │
+    └─ 原有实现 (TDX/QMT/TqSDK 等直连)
+```
+
+### 10.2 F10 桥接函数映射
+
+| F10 模块 | 桥接函数 | Data-Core 接口 | 降级行为 |
+|:---------|:---------|:---------------|:---------|
+| `term_structure.py` | `get_term_structure` | `dc.get_term_structure(symbol)` | Data-Core 返回空时走 TDX/QMT |
+| `spread.py` | `get_spread` | `dc.get_spread(symbol)` | Data-Core 返回空时走 TDX |
+| `basis.py` | `get_basis` | `dc.get_basis(symbol)` | Data-Core 返回空时走生意社+QMT |
+| `warrant.py` | `get_warrant` | `dc.get_warrant(symbol)` | Data-Core 返回空时走交易所直连 |
+| `fundamentals.py` | `get_fundamental` | `dc.get_fundamental(symbol)` | Data-Core 返回空时走缓存+爬虫 |
+| `position.py` | `get_position_ranking` | `dc.get_position_ranking(symbol)` | Data-Core 返回空时走交易所直连 |
+
+### 10.3 降级判定标准
+
+Data-Core 的结果被视为"有效"的条件（任一满足）：
+- 返回的 dict 非空 (`bool(result) == True`)
+- 包含预期字段（如 `basis` 有 `basis` 或 `basis_pct`，`term_structure` 有 `structure` 或 `contracts`）
+- 未抛出任何异常（ImportError / TimeoutError / Exception 均视为不可用）
+
+### 10.4 数据源标注
+
+当 Data-Core 提供数据时：
+- `A2APayload.meta.sources` 中包含 `"datacore"` 标记
+- `A2APayload.data_grade` 沿用 Data-Core 返回中的 `data_grade`；无标注时设为 `"STALE"`
+- 当回退到原有实现时，`sources` 中不包含 `"datacore"` 标记
