@@ -26,7 +26,7 @@
 | 维度 | 修复前 | 07-10 评估 | 当前(07-14 实测) | 关键依据 |
 |:-----|:------:|:----------:|:----------------:|:---------|
 | 入口与引导 | 4/5 | 5/5 | **5/5** | G4 bootstrap 动态版本（`get_fdt_version()` 读取 pyproject）✅ |
-| 配置管理 | 3/5 | 5/5 | **5/5** | G1 `config/schema.py` 含 TeamConfig/Settings/AgentWaiterConfig Pydantic 校验 ✅ |
+| 配置管理 | 3/5 | 5/5 | **5/5** | G1 `config/schema.py` 含 TeamConfig/Settings/AgentWaiterConfig + DataSourcesConfig + AgentProfilesData Pydantic 校验 ✅ |
 | 生命周期管理 | 5/5 | 5/5 | **5/5** | 6 阶段状态机 + 自进化闭环（代码层完整） |
 | 状态管理 | 4/5 | 5/5 | **5/5** | G2 trace_id 贯穿全流水线 ✅ |
 | 错误恢复 | 5/5 | 5/5 | **5/5** | L1-L5 + D06 + 看门狗（业界领先） |
@@ -169,7 +169,7 @@
 | **G50** | LangGraph 迁移：去 WorkBuddy 依赖 | ✅ 已完成 | — | 移除 WorkBuddy automation 触发，改为独立 CLI/FastAPI + APScheduler | `fdt_cli.py` `fdt_api.py` |
 | **G51** | LangGraph 迁移：去 DuckDB 依赖 | ✅ 已完成 | — | PostgreSQL 替换 DuckDB，OLTP+OLAP 混合存储 | `fdt_pg/` |
 
-> **已关闭（本次复核确认）**：G1（config/schema.py 校验）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
+> **已关闭（本次复核确认）**：G1（config/schema.py 校验 — 已扩展至 data_sources.yaml + agent_profiles.json）、G2（trace_id）、G3（pipeline 已用 unified_logger）、G4（bootstrap 动态版本）。`03-configuration.md §6` 与 `05-observability.md §3.4` 中关于 G1/G3 的「缺失」注记已过时，已在本轮整顿中校正。
 >
 > **LangGraph 迁移差距全部关闭（v8.3.0）**：G42-G51 全部完成，LangGraph 迁移 Phase 1 结束。
 > **端到端验证通过**：21 个测试用例全部通过（节点单元测试 96%、并行调度测试 100%、状态管理 100%），trace_id 全链路贯穿验证成功。

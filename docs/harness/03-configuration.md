@@ -222,15 +222,15 @@ UNAVAILABLE (无数据)
 
 ### 缺失的校验 (Gap)
 
-> **2026-07-14 整顿**：G1 已落地——`config/schema.py` 提供 `Settings` / `TeamConfig` / `AgentWaiterConfig` 等 Pydantic 模型，bootstrap 启动校验。`03-configuration.md` 此前「G1 缺失」注记已过时，特此校正。
+> **2026-07-20 更新**：G1 已扩展——`config/schema.py` 现提供 `Settings` / `TeamConfig` / `AgentWaiterConfig` / `DataSourcesConfig` / `AgentProfilesData` 等 Pydantic 模型，覆盖全部 4 个配置文件。环境变量校验因运行时快速暴露（LLM 调用失败立即报错），保留为已知缺口不补。
 
 | 配置 | 状态 | 残留风险 |
 |:-----|:-----|:-----|
 | `settings.json` | ✅ `Settings` 模型校验 | — |
 | `team_config.json` | ✅ `TeamConfig` 模型校验 | — |
 | 熔断参数 | ✅ `AgentWaiterConfig` 模型校验 | — |
-| `data_sources.yaml` | ⚠️ 未纳入 schema | 优先级配置错误不报错 |
-| `agent_profiles.json` | ⚠️ 未纳入 schema | 进化参数越界不报错 |
+| `data_sources.yaml` | ✅ `DataSourcesConfig` 模型校验 | 优先级(0-99)、名称唯一性、降级/新鲜度阈值 |
+| `agent_profiles.json` | ✅ `AgentProfilesData` 模型校验 | `_meta` 版本格式、风控明参数范围、辩手置信度边界 |
 | 环境变量 | ⚠️ 无类型检查 | FDB_LOG_LEVEL 写错值静默降级为 INFO |
 | 逐Agent LLM 环境变量 (v8.9.1) | ⚠️ 无类型校验 | `FDT_LLM_<NAME>_API_KEY` 空值不报错、`FDT_LLM_<NAME>_API_BASE` 格式错误不报错 |
 

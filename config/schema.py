@@ -16,7 +16,7 @@ FDT 配置 Schema 校验模块 v1.0
 
 from __future__ import annotations
 
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -193,6 +193,174 @@ def safe_validate_team_config(data: dict) -> tuple[Optional[TeamConfig], Optiona
         return None, str(e)
 
 
+# ─────────────────────────────────────────────
+# data_sources.yaml 模型
+# ─────────────────────────────────────────────
+
+class SourceDetectionConfig(BaseModel):
+    """数据源检测配置"""
+    kind: Literal["import", "http_probe", "always_available", "env_and_import"] = Field(...)
+    import_: Optional[str] = Field(default=None, alias="import")
+    url: Optional[str] = Field(default=None)
+    env: Optional[list[str]] = Field(default=None)
+
+
+class SourceConfig(BaseModel):
+    """单个数据源配置"""
+    name: str = Field(..., min_length=1)
+    priority: int = Field(..., ge=0, le=99)
+    type: str = Field(default="independent")
+    enabled: bool = Field(default=True)
+    description: str = Field(default="")
+    detection: SourceDetectionConfig
+    config: dict = Field(default_factory=dict)
+
+
+class DegradeConfig(BaseModel):
+    """降级触发条件"""
+    sub_daily_max_age_days: int = Field(default=7, ge=1, le=90)
+    daily_max_age_sessions: int = Field(default=5, ge=1, le=60)
+    max_consecutive_failures: int = Field(default=3, ge=1, le=20)
+
+
+class FreshnessConfig(BaseModel):
+    """新鲜度断路器阈值"""
+    min_scan_success_rate: float = Field(default=0.90, ge=0.0, le=1.0)
+    min_bars_per_symbol: int = Field(default=30, ge=1)
+    max_daily_age_sessions: int = Field(default=5, ge=1, le=60)
+    max_subdaily_age_days: int = Field(default=7, ge=1, le=90)
+    min_positive_volume_ratio: float = Field(default=0.50, ge=0.0, le=1.0)
+    max_scan_duration_seconds: int = Field(default=120, ge=10, le=600)
+    max_output_json_mb: int = Field(default=5, ge=1, le=100)
+    max_retries: int = Field(default=3, ge=0, le=10)
+    retry_interval_minutes: int = Field(default=5, ge=1, le=60)
+
+
+class DataSourcesConfig(BaseModel):
+    """data_sources.yaml 顶层模型"""
+    sources: list[SourceConfig] = Field(..., min_length=1)
+    degrade: DegradeConfig = Field(default_factory=DegradeConfig)
+    freshness: FreshnessConfig = Field(default_factory=FreshnessConfig)
+
+    @model_validator(mode="after")
+    def _unique_source_names(self):
+        names = [s.name for s in self.sources]
+        if len(names) != len(set(names)):
+            raise ValueError(f"数据源名称重复: {[n for n in names if names.count(n) > 1]}")
+        # 校验调度数据源 priority ≤ 局部数据源
+        return self
+
+
+# ─────────────────────────────────────────────
+# agent_profiles.json 模型
+# ─────────────────────────────────────────────
+
+class EvolutionLogEntry(BaseModel):
+    """进化日志条目"""
+    time: str = Field(default="")
+    action: str = Field(default="")
+    from_: Any = Field(default=None, alias="from")
+    to: Any = Field(default=None)
+    reason: str = Field(default="")
+
+
+class AgentStats(BaseModel):
+    """Agent 统计数据（自由格式）"""
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _collect_fields(cls, data: Any) -> dict:
+        if isinstance(data, dict):
+            return {"extra": data}
+        return data
+
+
+class RiskManagerProfile(BaseModel):
+    """风控明配置"""
+    atr_multiplier: float = Field(default=1.5, ge=0.1, le=10.0)
+    max_position_pct_high: float = Field(default=5.0, ge=0.0, le=100.0)
+    last_updated: Optional[str] = Field(default=None, alias="_last_updated")
+    evolution_log: list[EvolutionLogEntry] = Field(default_factory=list, alias="_evolution_log")
+    stats: AgentStats = Field(default_factory=AgentStats, alias="_stats")
+
+    model_config = {"populate_by_name": True}
+
+
+class DebaterSubProfile(BaseModel):
+    """辩手续约配置"""
+    role: str = Field(default="")
+    strategy: str = Field(default="")
+    confidence_boost: float = Field(default=0.0, ge=-1.0, le=1.0)
+    samples: int = Field(default=0, ge=0, alias="_samples")
+    note: str = Field(default="")
+    win_rate: Optional[float] = Field(default=None, ge=0.0, le=100.0, alias="_win_rate")
+    realized_pnl: Optional[float] = Field(default=None, alias="_realized_pnl")
+
+    model_config = {"populate_by_name": True}
+
+
+class AgentProfilesMeta(BaseModel):
+    """_meta 元信息"""
+    created_at: str = Field(default="")
+    version: str = Field(default="", pattern=r"^\d+\.\d+$")
+    last_evolved_at: str = Field(default="")
+    total_samples: int = Field(default=0, ge=0)
+    note: str = Field(default="")
+
+    model_config = {"populate_by_name": True}
+
+
+class AgentProfilesData(BaseModel):
+    """agent_profiles.json 顶层 — 用 model_validator 处理动态 key"""
+    meta: AgentProfilesMeta = Field(default_factory=AgentProfilesMeta, alias="_meta")
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_meta(cls, data: Any) -> dict:
+        if not isinstance(data, dict):
+            return data
+        meta = data.pop("_meta", {})
+        result = {"meta": meta, "extra": data}
+        # 校验风控明参数
+        if "风控明" in data:
+            RiskManagerProfile.model_validate(data["风控明"])
+        # 校验辩手 confidence_boost
+        if "辩手" in data:
+            debaters = data["辩手"]
+            for name in ("证真", "慎思"):
+                if name in debaters:
+                    DebaterSubProfile.model_validate(debaters[name])
+        return result
+
+
+def validate_data_sources(data: dict) -> DataSourcesConfig:
+    """校验 data_sources.yaml 数据。"""
+    return DataSourcesConfig.model_validate(data)
+
+
+def safe_validate_data_sources(data: dict) -> tuple[Optional[DataSourcesConfig], Optional[str]]:
+    try:
+        return DataSourcesConfig.model_validate(data), None
+    except Exception as e:
+        return None, str(e)
+
+
+def validate_agent_profiles(data: dict) -> AgentProfilesData:
+    """校验 agent_profiles.json 数据。"""
+    return AgentProfilesData.model_validate(data)
+
+
+def safe_validate_agent_profiles(data: dict) -> tuple[Optional[AgentProfilesData], Optional[str]]:
+    try:
+        return AgentProfilesData.model_validate(data), None
+    except Exception as e:
+        return None, str(e)
+
+
 if __name__ == "__main__":
     import json
     from pathlib import Path
@@ -222,3 +390,28 @@ if __name__ == "__main__":
             print(f"❌ team_config.json 校验失败: {err}")
     else:
         print("⚠️ team_config.json 未找到")
+
+    # 测试 data_sources.yaml
+    import yaml
+    ds_path = ROOT / "futures_data_core" / "config" / "data_sources.yaml"
+    if ds_path.exists():
+        data = yaml.safe_load(ds_path.read_text(encoding="utf-8"))
+        ds, err = safe_validate_data_sources(data)
+        if ds:
+            print(f"✅ data_sources.yaml 校验通过 ({len(ds.sources)} 个数据源)")
+        else:
+            print(f"❌ data_sources.yaml 校验失败: {err}")
+    else:
+        print("⚠️ data_sources.yaml 未找到")
+
+    # 测试 agent_profiles.json
+    ap_path = ROOT / "memory" / "agent_profiles.json"
+    if ap_path.exists():
+        data = json.loads(ap_path.read_text(encoding="utf-8"))
+        ap, err = safe_validate_agent_profiles(data)
+        if ap:
+            print(f"✅ agent_profiles.json 校验通过 (version={ap.meta.version})")
+        else:
+            print(f"❌ agent_profiles.json 校验失败: {err}")
+    else:
+        print("⚠️ agent_profiles.json 未找到")
