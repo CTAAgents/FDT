@@ -2,13 +2,12 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.6.1 — 全网排名第 1 的中国期货 CTA 多Agent LLM 系统**
+**v9.6.4**
 
 ---
 
 ## 核心特性
 
-- **🥇 中国期货 CTA 赛道第 1 名** — 全网唯一专注 62 品种的多Agent LLM 期货交易系统（[排名报告 → 归档](docs/archive/FDT_China_Ranking_Report_v1.0.md)）
 - **9-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/多头分析员/空头分析员/风控明/明鉴秋，边界钉死不越界
 - **5 层鲁棒防线 (L1-L5)** — 产出校验→熔断降级→信号门禁→路径发现→健康自检，各 Agent 独立超时降级
 - **自进化闭环** — T+1 验证 → 权重校准 → Agent Prompt 进化 → LightGBM 增量训练，无需人工标注
@@ -27,6 +26,8 @@
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型缓存 K 线/基本面/基差，增量 UPSERT
 - **指定品种辩论模式** — 跳过 P1 扫描，直接从本地缓存加载数据进入辩论流程
 - **Harness 工程规范** — 12 项 commit 前检查清单 + 10 条反模式检测规则 + Loop Contract 循环契约
+- **ReAct 思维链机制** — 所有 Agent 按 Thought→Action→Observation 结构化记录推理过程，每条论据包含完整推理链（`reasoning_chain`/`analysis_chain`/`risk_chain`）
+- **数据溯源铁律** — 每条论据必须包含 `source`、`data_date`、`data_staleness_days`，数据超过5天禁止作为主论据
 
 ---
 
@@ -366,7 +367,7 @@ python scripts/run_benchmark.py --compare
 # fdt_langgraph 测试: 5 文件 / 43 用例（六阶段辩论全绿）
 # strategies 测试: 19 文件
 # scripts 测试: 7 文件 / 474+ 用例（68 模块）
-# 合计: 13 个测试目录 / 1100+ 用例
+# 合计: 13 个测试目录 / 69 文件 / 1400+ 用例
 ```
 
 ---
@@ -386,7 +387,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v9.6.4** | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
+| **v9.6.4** | **G71 完全关闭 + 循环契约补全 + ReAct 思维链集成** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract + 6 Agent 配置文件升级 v2.3（ReAct 思维链 + 数据溯源铁律） |
 | **v9.6.0** | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
 | **v9.5.0** | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；差距分析登记 G20/G21/G22 |
 | **v9.4.3** | **G91 同品种多子信号合并方向覆盖 bug 修复** — `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器；新增 `TestSubSignalMerge` 4 用例 |
