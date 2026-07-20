@@ -51,14 +51,14 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 
 | 原有组件 | LangGraph 对应 | 状态 |
 |:---------|:--------------|:-----|
-| `coordinator.py` | `fdt_langgraph/graph.py` | 待迁移 |
+| `coordinator.py` | `fdt_langgraph/graph.py` | ✅ **G93 — 已迁移**（已删除，由 `build_debate_graph_with_profile()` 替代） |
 | `pipeline/runner.py` | `fdt_langgraph/graph.py` | ✅ 已迁移（A/B 切换完成） |
-| `debate_protocol_v2.py` | `fdt_langgraph/nodes.py` | 待迁移 |
-| `agent_runner.py` | `fdt_langgraph/agents.py` | 待迁移 |
+| `debate_protocol_v2.py` | `fdt_langgraph/nodes.py` | ✅ **G94 — 已迁移**（已删除，常量内联到 `nodes.py`） |
+| `agent_runner.py` | `fdt_langgraph/agents.py` | ✅ **G95 — 已迁移**（已删除，由 `DebateAgentExecutor.run_single()` 替代） |
 | S04 轮询 | Checkpointer + 状态传递 | 已替代 |
 | 文件传递 | DebateState 内存传递 | 已替代 |
 | WorkBuddy automation | `fdt_cli.py` / `fdt_api.py` 独立入口 | 已替代 |
-| DuckDB (`futures.db`) | PostgreSQL (`fdt_pg/` 连接层) | 待迁移 |
+| DuckDB (`futures.db`) | PostgreSQL (`fdt_pg/` 连接层) | ✅ **G96 — 已迁移**（JSON→PostgreSQL 写入逻辑已实现） |
 
 ## 2. 组件关系图
 
@@ -656,11 +656,11 @@ FDT 的 Harness 架构天然支持 Inner Loop（内循环）和 Outer Loop（外
 | 维度 | FDT 对应实现 | 成熟度 |
 |------|-------------|:------:|
 | **D1 Context（上下文组装）** | `AGENTS.md` + `memory/knowledge/` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
-| **D2 Tool（工具交互）** | `futures_data_core/`（10+ 模块，4级降级链）+ 策略管线 + CTP 接口 | ★★★★☆ |
-| **D3 Generation（解码控制）** | 逐 Agent 模型配置 + 温度/最大 Token 控制 + 结构化输出约束 | ★★★☆☆ |
+| **D2 Tool（工具交互）** | `fdt_langgraph/tools/registry.py` 工具注册中心(版本管理+调用统计) + `docs/schemas/tool_capability.json` 能力描述Schema + `scripts/tool_metrics.py` 效能追踪(异常检测) + `scripts/tool_circuit_breaker.py` 熔断降级(状态机+滑动窗口) | ★★★★★ |
+| **D3 Generation（解码控制）** | `config/agents/decode_config.yaml` 逐Agent精细配置 + `scripts/enforce_structured_output.py` Pydantic+JSON Schema双校验 + `scripts/content_filter.py` 内容安全过滤 + `scripts/generation_metrics.py` 质量监控 | ★★★★★ |
 | **D4 Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 条件路由 + 多模式（default/fast/deep/tournament） | ★★★★★ |
-| **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + debate_journal + execution_followup | ★★★★☆ |
-| **D6 Output（输出处理）** | JSON Schema 校验 + 4 铁律核验 + 风控门控 + HTML 报告生成 | ★★★★☆ |
+| **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + `scripts/vector_memory.py` 三层记忆 + `scripts/build_knowledge_graph.py` 知识图谱+ `scripts/memory_retriever.py` 召回策略(含强制负样本) + `scripts/memory_cleaner.py` 过期清理 | ★★★★★ |
+| **D6 Output（输出处理）** | `scripts/output_metrics.py` 质量度量(4维评分) + `scripts/output_versioning.py` 版本化管理(哈希+时间戳) + `scripts/output_feedback.py` 反馈闭环(准确率追踪+改进建议) + `scripts/output_audit.py` 审计日志(溯源+合规差距) | ★★★★★ |
 
 ### 5.3 循环契约（Loop Contract）
 
@@ -711,7 +711,89 @@ class HarnessHook(ABC):
 ```
 
 
-## 6. 与现有文档的关系
+## 6. 解码控制层架构（D3 Generation ★★★★★）
+
+### 6.1 设计目标
+
+解码控制层负责对每个 Agent 的 LLM 生成过程进行精细控制，确保：
+1. **输出一致性** — 所有 Agent 输出严格遵循预定义的 JSON Schema
+2. **质量可度量** — 每个 Agent 的生成质量可量化、可追踪
+3. **安全合规** — 输出内容经过安全过滤，无敏感/违规内容
+4. **差异化策略** — 不同角色（裁决/分析/研究）采用不同的解码策略
+
+### 6.2 四层控制架构
+
+```
+                    ┌─────────────────────────────────────┐
+                    │        Generation Metrics           │ ← L4 质量监控
+                    │  · 格式正确率 · Schema合规率         │
+                    │  · 生成延迟 · 重试次数               │
+                    └──────────────┬──────────────────────┘
+                                   │ 反馈
+                    ┌──────────────▼──────────────────────┐
+                    │        Content Filter               │ ← L3 内容安全
+                    │  · 敏感词过滤 · 合规审查             │
+                    │  · 输出脱敏 · 金融合规               │
+                    └──────────────┬──────────────────────┘
+                                   │ 校验
+                    ┌──────────────▼──────────────────────┐
+                    │    Enforce Structured Output        │ ← L2 结构化约束
+                    │  · Pydantic模型校验                  │
+                    │  · JSON Schema双校验                 │
+                    │  · 自动重试（最多3次）               │
+                    └──────────────┬──────────────────────┘
+                                   │ 配置
+                    ┌──────────────▼──────────────────────┐
+                    │      Decode Config (逐Agent)        │ ← L1 解码配置
+                    │  · model · temperature · top_p       │
+                    │  · max_tokens · stop_sequences      │
+                    │  · frequency_penalty · presence     │
+                    └─────────────────────────────────────┘
+```
+
+### 6.3 逐Agent解码配置策略
+
+| Agent | 角色 | 模型 | Temp | Top P | Max Tokens | 策略说明 |
+|:------|:-----|:-----|:----:|:-----:|:----------:|:---------|
+| 闫判官 | 裁决 | deepseek-v4-flash | 0.2 | 0.9 | 4000 | 低温度确保裁决一致性 |
+| 闫判官副手 | 辅助裁决 | deepseek-v4-flash | 0.3 | 0.9 | 3000 | 低温度确保准确提取 |
+| 一致性裁判 | 审计 | deepseek-v4-flash | 0.2 | 0.9 | 2000 | 最低温度确保审计一致性 |
+| 多头分析员 | 立论 | deepseek-v4-flash | 0.4 | 0.95 | 3000 | 中等温度允许创造性发现 |
+| 空头分析员 | 反驳 | deepseek-v4-flash | 0.4 | 0.95 | 3000 | 中等温度允许创造性发现 |
+| 链证源 | 产业链 | deepseek-v4-flash | 0.3 | 0.9 | 2500 | 较低温度确保事实准确 |
+| 观澜 | 技术面 | deepseek-v4-flash | 0.3 | 0.9 | 2500 | 较低温度确保指标准确 |
+| 探源 | 基本面 | deepseek-v4-flash | 0.3 | 0.9 | 2500 | 较低温度确保数据准确 |
+| 风控明 | 风控 | deepseek-v4-flash | 0.2 | 0.9 | 2000 | 低温度确保风控一致性 |
+| 明鉴秋 | 主管 | deepseek-v4-flash | 0.35 | 0.95 | 4000 | 中等偏低温度确保汇总质量 |
+
+### 6.4 结构化输出强制约束流程
+
+```
+Agent LLM 输出
+    │
+    ▼
+┌──────────────────────┐
+│ 1. JSON解析          │ ← 失败 → 重试（最多3次，温度×1.5）
+└──────┬───────────────┘
+       ▼
+┌──────────────────────┐
+│ 2. Pydantic模型校验   │ ← 失败 → 自动修复+重校验
+└──────┬───────────────┘
+       ▼
+┌──────────────────────┐
+│ 3. JSON Schema校验    │ ← 失败 → 记录异常+继续（非阻断）
+└──────┬───────────────┘
+       ▼
+┌──────────────────────┐
+│ 4. 内容安全过滤       │ ← 命中 → 脱敏/替换
+└──────┬───────────────┘
+       ▼
+┌──────────────────────┐
+│ 5. 质量指标记录       │ → generation_metrics
+└──────────────────────┘
+```
+
+### 6.5 与现有文档的关系
 
 | 现有文档 | 关注点 | 与 Harness 文档的关系 |
 |:---------|:-------|:---------------------|

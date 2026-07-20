@@ -190,6 +190,18 @@ def build_debate_graph(mode: str = "default") -> StateGraph:
     return graph
 
 
+def build_debate_graph_with_profile(profile: str = "default") -> StateGraph:
+    """从 Profile 名称构建辩论图 (G93: 替代 coordinator.py)"""
+    PROFILE_MODES = {
+        "default": "default",
+        "fast": "fast",
+        "deep_research": "deep_research",
+        "tournament": "default",
+    }
+    mode = PROFILE_MODES.get(profile, "default")
+    return build_debate_graph(mode=mode)
+
+
 def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
     graph = StateGraph(DebateState)
 

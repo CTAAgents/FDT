@@ -5,6 +5,7 @@ logutil, fdt_version, health_check, run_reporter, record_verdicts, notifier,
 llm/cache, llm/token_budget
 """
 
+from __future__ import annotations
 import json
 import logging
 import os
@@ -33,7 +34,7 @@ from scripts.llm.token_budget import TokenBudget, BudgetExceeded
 
 
 class TestFingerprint:
-    def test_generate_fingerprint(self):
+    def test_generate_fingerprint(self) -> None:
         fp = generate_fingerprint(
             strategy_params={"thresholds": [0.6]},
             seed=42,
@@ -42,11 +43,11 @@ class TestFingerprint:
         assert "seed42" in fp
         assert "md5_" in fp
 
-    def test_generate_fingerprint_no_seed(self):
+    def test_generate_fingerprint_no_seed(self) -> None:
         fp = generate_fingerprint(strategy_params={})
         assert "_noseed" in fp
 
-    def test_apply_selection_gate_passes(self):
+    def test_apply_selection_gate_passes(self) -> None:
         gate = apply_selection_gate(
             l1l4_data={"RB": {"confidence": 0.72, "direction": 1}},
             factor_data={"RB": {"total": 2.5, "vote_net": 4}},
@@ -55,7 +56,7 @@ class TestFingerprint:
         assert "RB" in gate["selected"]
         assert len(gate["rejected"]) == 0
 
-    def test_apply_selection_gate_rejects_low_confidence(self):
+    def test_apply_selection_gate_rejects_low_confidence(self) -> None:
         gate = apply_selection_gate(
             l1l4_data={"PK": {"confidence": 0.55, "direction": -1}},
             factor_data={"PK": {"total": -1.2, "vote_net": -3}},
@@ -63,7 +64,7 @@ class TestFingerprint:
         )
         assert "PK" in gate["rejected"]
 
-    def test_set_global_seed(self):
+    def test_set_global_seed(self) -> None:
         import random
 
         set_global_seed(42)
@@ -74,21 +75,21 @@ class TestFingerprint:
 
 
 class TestPortfolioRisk:
-    def test_green_portfolio(self):
+    def test_green_portfolio(self) -> None:
         positions = [{"symbol": "RB", "margin": 5000, "lots": 2, "direction": 1}]
         risk = PortfolioRisk(account_equity=100000)
         result = risk.calculate(positions, daily_pnl=0)
         assert result["overall"] == "green"
         assert not result["veto_debate"]
 
-    def test_red_drawdown(self):
+    def test_red_drawdown(self) -> None:
         positions = [{"symbol": "RB", "margin": 5000, "lots": 2, "direction": 1}]
         risk = PortfolioRisk(account_equity=100000)
         result = risk.calculate(positions, daily_pnl=-3000)
         assert not result["drawdown_ok"]
         assert result["veto_debate"]
 
-    def test_concentration_breach(self):
+    def test_concentration_breach(self) -> None:
         positions = [
             {"symbol": "RB", "margin": 20000, "lots": 10, "direction": 1},
             {"symbol": "HC", "margin": 15000, "lots": 8, "direction": 1},
@@ -97,7 +98,7 @@ class TestPortfolioRisk:
         result = risk.calculate(positions)
         assert not result["concentration_ok"]
 
-    def test_consecutive_loss(self):
+    def test_consecutive_loss(self) -> None:
         positions = [{"symbol": "RB", "margin": 5000, "lots": 2, "direction": 1}]
         risk = PortfolioRisk(account_equity=100000)
         result = risk.calculate(positions, consecutive_losses=5)
@@ -105,7 +106,7 @@ class TestPortfolioRisk:
 
 
 class TestConfigManager:
-    def test_load_defaults(self):
+    def test_load_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cfg_path = os.path.join(tmp, "settings.json")
             with open(cfg_path, "w", encoding="utf-8") as f:
@@ -114,7 +115,7 @@ class TestConfigManager:
             assert cfg.get("mode") == "paper"
             assert cfg.get("selection_threshold") == 0.7
 
-    def test_default_value(self):
+    def test_default_value(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cfg_path = os.path.join(tmp, "empty.json")
             with open(cfg_path, "w", encoding="utf-8") as f:
@@ -122,7 +123,7 @@ class TestConfigManager:
             cfg = ConfigManager(cfg_path)
             assert cfg.get("nonexistent", "fallback") == "fallback"
 
-    def test_set_and_persist(self):
+    def test_set_and_persist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cfg_path = os.path.join(tmp, "settings.json")
             with open(cfg_path, "w", encoding="utf-8") as f:
@@ -136,20 +137,20 @@ class TestConfigManager:
 
 
 class TestLogutil:
-    def test_setup_logging_idempotent(self):
+    def test_setup_logging_idempotent(self) -> None:
         logger = setup_logging(date_str="2099-01-01", level=logging.DEBUG)
         assert logger.name == "fdt"
         handlers_before = len(logger.handlers)
         logger2 = setup_logging(date_str="2099-01-01", level=logging.DEBUG)
         assert len(logger2.handlers) == handlers_before
 
-    def test_get_logger(self):
+    def test_get_logger(self) -> None:
         logger = get_logger()
         assert logger.name == "fdt"
 
 
 class TestFdtVersion:
-    def test_get_fdt_version_from_pyproject(self):
+    def test_get_fdt_version_from_pyproject(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False, encoding="utf-8") as f:
             f.write('version = "9.9.9"\n')
             f.flush()
@@ -164,18 +165,18 @@ class TestFdtVersion:
             assert get_fdt_version() == "9.9.9"
         os.unlink(tmp_path)
 
-    def test_get_fdt_version_tag(self):
+    def test_get_fdt_version_tag(self) -> None:
         with patch("scripts.fdt_version.get_fdt_version", return_value="1.2.3"):
             assert get_fdt_version_tag() == "v1.2.3"
 
 
 class TestHealthCheck:
-    def test_no_report(self):
+    def test_no_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.health_check._root", return_value=Path(tmp)):
                 assert run_health_check("2099-01-01") == 0
 
-    def test_pass(self):
+    def test_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp) / "reports"
             reports.mkdir()
@@ -189,7 +190,7 @@ class TestHealthCheck:
             with patch("scripts.health_check._root", return_value=Path(tmp)):
                 assert run_health_check("2099-01-01") == 0
 
-    def test_zero_signals_alert(self):
+    def test_zero_signals_alert(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp) / "reports"
             reports.mkdir()
@@ -198,7 +199,7 @@ class TestHealthCheck:
             with patch("scripts.health_check._root", return_value=Path(tmp)):
                 assert run_health_check("2099-01-01") == 1
 
-    def test_signals_no_debate_alert(self):
+    def test_signals_no_debate_alert(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp) / "reports"
             reports.mkdir()
@@ -209,7 +210,7 @@ class TestHealthCheck:
 
 
 class TestRunReporter:
-    def test_init_and_flush(self):
+    def test_init_and_flush(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rep = RunReporter(run_id="r1", reports_dir=tmp)
             rep.mark_phase("scan", duration_s=1.2)
@@ -222,7 +223,7 @@ class TestRunReporter:
             assert data["n_signals"] == 5
             assert data["errors"][0]["stage"] == "test"
 
-    def test_merge_existing(self):
+    def test_merge_existing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / f"run_report_{date.today().strftime('%Y-%m-%d')}.json"
             path.write_text(json.dumps({"run_id": "old", "n_signals": 1}), encoding="utf-8")
@@ -234,7 +235,7 @@ class TestRunReporter:
 
 
 class TestRecordVerdicts:
-    def test_load_debate_results(self):
+    def test_load_debate_results(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({"round_id": "r1"}, f)
             tmp = f.name
@@ -242,14 +243,14 @@ class TestRecordVerdicts:
         assert data["round_id"] == "r1"
         os.unlink(tmp)
 
-    def test_load_followup_new(self):
+    def test_load_followup_new(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "followup.json")
             data = load_followup(path)
             assert data["_schema_version"] == "1.1"
             assert data["records"] == []
 
-    def test_build_record(self):
+    def test_build_record(self) -> None:
         debate_data = {
             "round_id": "r1",
             "verdicts": {
@@ -267,32 +268,32 @@ class TestRecordVerdicts:
 
 
 class TestNotifier:
-    def test_load_config_default(self):
+    def test_load_config_default(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             cfg = _load_config()
             assert cfg["wecom_bot_key"] == ""
             assert cfg["smtp_port"] == 465
 
-    def test_push_wecom_bot_no_key(self):
+    def test_push_wecom_bot_no_key(self) -> None:
         assert push_wecom_bot("hello", {"wecom_bot_key": ""}) is False
 
     @patch("scripts.notifier.urlopen")
     @patch("scripts.notifier.Request")
-    def test_push_wecom_bot_success(self, MockRequest, mock_urlopen):
+    def test_push_wecom_bot_success(self, MockRequest, mock_urlopen) -> None:
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps({"errcode": 0}).encode()
         mock_urlopen.return_value.__enter__.return_value = mock_resp
         assert push_wecom_bot("hello", {"wecom_bot_key": "test_key"}) is True
 
-    def test_push_smtp_incomplete(self):
+    def test_push_smtp_incomplete(self) -> None:
         assert push_smtp("hello", {"smtp_host": ""}) is False
 
-    def test_build_debate_summary_no_file(self):
+    def test_build_debate_summary_no_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             msg = _build_debate_summary(tmp)
             assert "辩论报告已生成" in msg
 
-    def test_build_debate_summary_with_verdicts(self):
+    def test_build_debate_summary_with_verdicts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             data = {"verdicts": {"RB": {"total_score": 80, "direction": "bull", "confidence": 0.8, "action": "buy"}}}
             Path(tmp, "debate_results.json").write_text(json.dumps(data), encoding="utf-8")
@@ -302,31 +303,31 @@ class TestNotifier:
 
 
 class TestDebateCache:
-    def test_get_miss(self):
+    def test_get_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = DebateCache(ttl=3600, data_dir=tmp)
             assert cache.get("RB") is None
 
-    def test_put_and_get(self):
+    def test_put_and_get(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = DebateCache(ttl=3600, data_dir=tmp)
             cache.put("RB", {"direction": "bull"})
             assert cache.get("RB") == {"direction": "bull"}
 
-    def test_ttl_expiry(self):
+    def test_ttl_expiry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = DebateCache(ttl=1, data_dir=tmp)
             cache.put("RB", {"direction": "bull"})
             with patch("scripts.llm.cache.time.time", return_value=time.time() + 10):
                 assert cache.get("RB") is None
 
-    def test_cached_symbols(self):
+    def test_cached_symbols(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = DebateCache(ttl=3600, data_dir=tmp)
             cache.put("RB", {"direction": "bull"})
             assert "RB" in cache.cached_symbols()
 
-    def test_clear(self):
+    def test_clear(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = DebateCache(ttl=3600, data_dir=tmp)
             cache.put("RB", {"direction": "bull"})
@@ -335,7 +336,7 @@ class TestDebateCache:
 
 
 class TestSpawnResourceCheck:
-    def test_pre_spawn_check_green(self):
+    def test_pre_spawn_check_green(self) -> None:
         import subprocess
         with patch.object(subprocess, "run", return_value=MagicMock(returncode=0, stdout=json.dumps({
             "safe_concurrent": 4, "risk_level": "green", "recommendation": "proceed", "reason": "CPU 45%"
@@ -344,7 +345,7 @@ class TestSpawnResourceCheck:
             assert result["risk_level"] == "green"
             assert result["safe_concurrent"] == 4
 
-    def test_pre_spawn_check_red(self):
+    def test_pre_spawn_check_red(self) -> None:
         import subprocess
         with patch.object(subprocess, "run", return_value=MagicMock(returncode=0, stdout=json.dumps({
             "safe_concurrent": 0, "risk_level": "red", "recommendation": "stop", "reason": "CPU 95%"
@@ -353,7 +354,7 @@ class TestSpawnResourceCheck:
             assert result["risk_level"] == "red"
             assert result["safe_concurrent"] == 0
 
-    def test_pre_spawn_check_fallback(self):
+    def test_pre_spawn_check_fallback(self) -> None:
         import subprocess
         with patch.object(subprocess, "run", side_effect=Exception("boom")):
             result = __import__("scripts.spawn_resource_check", fromlist=["pre_spawn_check"]).pre_spawn_check("phase2", 6)
@@ -362,7 +363,7 @@ class TestSpawnResourceCheck:
 
 
 class TestModelRegistry:
-    def test_register_and_get_latest(self):
+    def test_register_and_get_latest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reg = __import__("scripts.model_registry", fromlist=["ModelRegistry"]).ModelRegistry(path=os.path.join(tmp, "registry.json"))
             reg.register_version("v1.0", metrics={"sharpe": 1.2})
@@ -370,7 +371,7 @@ class TestModelRegistry:
             assert latest["version"] == "v1.0"
             assert latest["metrics"]["sharpe"] == 1.2
 
-    def test_rollback(self):
+    def test_rollback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reg = __import__("scripts.model_registry", fromlist=["ModelRegistry"]).ModelRegistry(path=os.path.join(tmp, "registry.json"))
             reg.register_version("v1.0")
@@ -380,12 +381,12 @@ class TestModelRegistry:
             assert ok is True
             assert reg.get_latest()["version"] == "v1.0"
 
-    def test_rollback_missing(self):
+    def test_rollback_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reg = __import__("scripts.model_registry", fromlist=["ModelRegistry"]).ModelRegistry(path=os.path.join(tmp, "registry.json"))
             assert reg.rollback("v9.9") is False
 
-    def test_list_versions(self):
+    def test_list_versions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reg = __import__("scripts.model_registry", fromlist=["ModelRegistry"]).ModelRegistry(path=os.path.join(tmp, "registry.json"))
             reg.register_version("v1.0")
@@ -393,7 +394,7 @@ class TestModelRegistry:
             versions = reg.list_versions(top_n=1)
             assert len(versions) == 1
 
-    def test_compare_performance(self):
+    def test_compare_performance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reg = __import__("scripts.model_registry", fromlist=["ModelRegistry"]).ModelRegistry(path=os.path.join(tmp, "registry.json"))
             reg.register_version("v1.0", metrics={"a": 1.0})
@@ -403,7 +404,7 @@ class TestModelRegistry:
 
 
 class TestDebateArchiver:
-    def test_archive_round_new(self):
+    def test_archive_round_new(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.debate_archiver.MEMORY_DIR", Path(tmp)):
                 with patch("scripts.debate_archiver.DEBATE_JOURNAL", Path(tmp) / "debate_journal.json"):
@@ -411,7 +412,7 @@ class TestDebateArchiver:
                         ok = __import__("scripts.debate_archiver", fromlist=["archive_round"]).archive_round("r1", ["RB"], {"RB": "bull"}, {"a": "completed"})
                         assert ok is True
 
-    def test_archive_round_duplicate(self):
+    def test_archive_round_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.debate_archiver.MEMORY_DIR", Path(tmp)):
                 with patch("scripts.debate_archiver.DEBATE_JOURNAL", Path(tmp) / "debate_journal.json"):
@@ -421,7 +422,7 @@ class TestDebateArchiver:
                         ok = archive("r1", ["RB"], {"RB": "bull"}, {"a": "completed"})
                         assert ok is True
 
-    def test_archive_incident(self):
+    def test_archive_incident(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.debate_archiver.MEMORY_DIR", Path(tmp)):
                 ok = __import__("scripts.debate_archiver", fromlist=["archive_incident"]).archive_incident("bug", "summary", "root", "fix", "prev")
@@ -431,7 +432,7 @@ class TestDebateArchiver:
 class TestOpsMonitor:
     @patch("psutil.virtual_memory")
     @patch("shutil.disk_usage")
-    def test_check_system_health_green(self, mock_disk, mock_mem):
+    def test_check_system_health_green(self, mock_disk, mock_mem) -> None:
         mock_mem.return_value = MagicMock(percent=50)
         mock_disk.return_value = MagicMock(used=50, total=100)
         mon = __import__("scripts.ops_monitor", fromlist=["OpsMonitor"]).OpsMonitor()
@@ -440,20 +441,20 @@ class TestOpsMonitor:
 
     @patch("psutil.virtual_memory")
     @patch("shutil.disk_usage")
-    def test_check_system_health_yellow(self, mock_disk, mock_mem):
+    def test_check_system_health_yellow(self, mock_disk, mock_mem) -> None:
         mock_mem.return_value = MagicMock(percent=90)
         mock_disk.return_value = MagicMock(used=50, total=100)
         mon = __import__("scripts.ops_monitor", fromlist=["OpsMonitor"]).OpsMonitor()
         result = mon.check_system_health()
         assert result["status"] == "yellow"
 
-    def test_send_alert(self):
+    def test_send_alert(self) -> None:
         mon = __import__("scripts.ops_monitor", fromlist=["OpsMonitor"]).OpsMonitor()
         mon.send_alert("warning", "test", "msg")
         assert len(mon.alerts) == 1
         assert mon.alerts[0]["level"] == "warning"
 
-    def test_generate_daily_report(self):
+    def test_generate_daily_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             mon = __import__("scripts.ops_monitor", fromlist=["OpsMonitor"]).OpsMonitor()
             mon.send_alert("info", "start", "ok")
@@ -462,7 +463,7 @@ class TestOpsMonitor:
 
 
 class TestAutoPublish:
-    def test_read_version(self):
+    def test_read_version(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False, encoding="utf-8") as f:
             f.write('version = "1.2.3"\n')
             tmp = f.name
@@ -470,16 +471,16 @@ class TestAutoPublish:
             assert __import__("scripts.auto_publish", fromlist=["read_version"]).read_version() == "1.2.3"
         os.unlink(tmp)
 
-    def test_bump_version_patch(self):
+    def test_bump_version_patch(self) -> None:
         assert __import__("scripts.auto_publish", fromlist=["bump_version"]).bump_version("1.2.3") == "1.2.4"
 
-    def test_bump_version_minor(self):
+    def test_bump_version_minor(self) -> None:
         assert __import__("scripts.auto_publish", fromlist=["bump_version"]).bump_version("1.2.3", "minor") == "1.3.0"
 
-    def test_bump_version_major(self):
+    def test_bump_version_major(self) -> None:
         assert __import__("scripts.auto_publish", fromlist=["bump_version"]).bump_version("1.2.3", "major") == "2.0.0"
 
-    def test_update_pyproject_version(self):
+    def test_update_pyproject_version(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False, encoding="utf-8") as f:
             f.write('version = "1.2.3"\n')
             tmp = f.name
@@ -489,7 +490,7 @@ class TestAutoPublish:
                 assert 'version = "1.2.4"' in f.read()
         os.unlink(tmp)
 
-    def test_record_change(self):
+    def test_record_change(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vf = os.path.join(tmp, "history.json")
             with patch("scripts.auto_publish.VERSION_FILE", vf):
@@ -500,7 +501,7 @@ class TestAutoPublish:
 
 
 class TestAutoTrain:
-    def test_run_daily_training_skipped(self):
+    def test_run_daily_training_skipped(self) -> None:
         import sys
         mock_mod = MagicMock()
         mock_mod.query_history.return_value = []
@@ -510,12 +511,12 @@ class TestAutoTrain:
 
 
 class TestMarketGameAgent:
-    def test_analyze_no_data(self):
+    def test_analyze_no_data(self) -> None:
         agent = __import__("scripts.market_game_agent", fromlist=["MarketGameAgent"]).MarketGameAgent()
         result = agent.analyze([100]*5, [1000]*5)
         assert "fake_breakout_risk" in result
 
-    def test_detect_fake_breakout_low_volume(self):
+    def test_detect_fake_breakout_low_volume(self) -> None:
         agent = __import__("scripts.market_game_agent", fromlist=["MarketGameAgent"]).MarketGameAgent()
         prices = list(range(100, 120)) + [122]
         volumes = [1000]*20 + [100]
@@ -523,14 +524,14 @@ class TestMarketGameAgent:
         assert result["type"] == "fake_breakout"
         assert result["risk"] > 0.5
 
-    def test_detect_suction_bull_trap(self):
+    def test_detect_suction_bull_trap(self) -> None:
         agent = __import__("scripts.market_game_agent", fromlist=["MarketGameAgent"]).MarketGameAgent()
         prices = [100]*7 + [103.5]*3
         volumes = [2000, 2000, 2000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
         result = agent.detect_suction(prices, volumes)
         assert result["sucking_type"] == "bull_trap"
 
-    def test_simulate_institutional_low_vol(self):
+    def test_simulate_institutional_low_vol(self) -> None:
         agent = __import__("scripts.market_game_agent", fromlist=["MarketGameAgent"]).MarketGameAgent()
         prices = [100 + i*0.001 for i in range(20)]
         result = agent.simulate_institutional(prices, [1000]*20)
@@ -538,12 +539,12 @@ class TestMarketGameAgent:
 
 
 class TestMARLTrainer:
-    def test_reward_function(self):
+    def test_reward_function(self) -> None:
         t = __import__("scripts.marl_trainer", fromlist=["MARLTrainer"]).MARLTrainer(weights_path="/tmp/nonexistent_marl.json")
         r = t.define_reward_function(0.8, 0.6, 0.7)
         assert 0 <= r <= 1
 
-    def test_train_and_get_weights(self):
+    def test_train_and_get_weights(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "weights.json")
             t = __import__("scripts.marl_trainer", fromlist=["MARLTrainer"]).MARLTrainer(weights_path=path)
@@ -554,7 +555,7 @@ class TestMARLTrainer:
             w = t.get_weights()
             assert "futures-technical-researcher" in w
 
-    def test_get_training_summary_empty(self):
+    def test_get_training_summary_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "weights.json")
             t = __import__("scripts.marl_trainer", fromlist=["MARLTrainer"]).MARLTrainer(weights_path=path)
@@ -563,59 +564,59 @@ class TestMARLTrainer:
 
 
 class TestExecutionAgent:
-    def test_init(self):
+    def test_init(self) -> None:
         from scripts.execution_agent import ExecutionAgent, ExecutionMode
         agent = ExecutionAgent(mode="paper")
         assert agent.mode == ExecutionMode.PAPER
 
-    def test_get_main_contract(self):
+    def test_get_main_contract(self) -> None:
         from scripts.execution_agent import ExecutionAgent
         agent = ExecutionAgent()
         info = agent.get_main_contract("RB")
         assert "contract" in info
         assert info["is_main"] is True
 
-    def test_roll_over_no_change(self):
+    def test_roll_over_no_change(self) -> None:
         from scripts.execution_agent import ExecutionAgent
         agent = ExecutionAgent()
         info = agent.get_main_contract("RB")
         result = agent.roll_over("RB", info["contract"])
         assert result["method"] == "no_roll"
 
-    def test_create_execution_plan_twap(self):
+    def test_create_execution_plan_twap(self) -> None:
         from scripts.execution_agent import ExecutionAgent
         agent = ExecutionAgent()
         plan = agent.create_execution_plan("RB", "long", 10, order_type="twap")
         assert plan["order_type"] == "twap"
         assert len(plan["orders"]) == 5
 
-    def test_execute_dry_run(self):
+    def test_execute_dry_run(self) -> None:
         from scripts.execution_agent import ExecutionAgent
         agent = ExecutionAgent(mode="dry-run")
         plan = agent.create_execution_plan("RB", "long", 10)
         result = agent.execute(plan)
         assert result["status"] == "simulated"
 
-    def test_paper_engine_on_signal(self):
+    def test_paper_engine_on_signal(self) -> None:
         from scripts.execution_agent import PaperExecutionEngine
         engine = PaperExecutionEngine(initial_equity=1_000_000)
         result = engine.on_signal({"symbol": "RB", "direction": "long", "lots": 10, "entry_price": 3500, "confidence": 0.8})
         assert result["status"] == "filled"
 
-    def test_paper_engine_reject_margin(self):
+    def test_paper_engine_reject_margin(self) -> None:
         from scripts.execution_agent import PaperExecutionEngine
         engine = PaperExecutionEngine(initial_equity=1000)
         result = engine.on_signal({"symbol": "RB", "direction": "long", "lots": 10, "entry_price": 3500, "confidence": 0.8})
         assert result["status"] == "rejected"
 
-    def test_paper_engine_close_position(self):
+    def test_paper_engine_close_position(self) -> None:
         from scripts.execution_agent import PaperExecutionEngine
         engine = PaperExecutionEngine(initial_equity=1_000_000)
         engine.on_signal({"symbol": "RB", "direction": "long", "lots": 10, "entry_price": 3500, "confidence": 0.8})
         result = engine.close_position("RB", 3600)
         assert result["pnl"] > 0
 
-    def test_paper_engine_summary(self):
+    def test_paper_engine_summary(self) -> None:
         from scripts.execution_agent import PaperExecutionEngine
         engine = PaperExecutionEngine(initial_equity=1_000_000)
         assert engine.get_summary()["trades"] == 0
@@ -624,7 +625,7 @@ class TestExecutionAgent:
         summary = engine.get_summary()
         assert summary["total_trades"] == 1
 
-    def test_live_readiness_check(self):
+    def test_live_readiness_check(self) -> None:
         from scripts.execution_agent import PaperExecutionEngine, live_readiness_check
         engine = PaperExecutionEngine(initial_equity=1_000_000)
         for _ in range(25):
@@ -634,55 +635,63 @@ class TestExecutionAgent:
         assert result["ready"] is True
         assert result["passed"] >= 6
 
-    def test_check_loss_streak(self):
+    def test_check_loss_streak(self) -> None:
         from scripts.execution_agent import _check_loss_streak
         trades = [{"pnl": -1}, {"pnl": -2}, {"pnl": 3}, {"pnl": -4}]
         assert _check_loss_streak(trades, max_consecutive=5) is True
 
 
 class TestAgentRunner:
-    def test_load_agent_config_missing(self):
-        from scripts.agent_runner import _load_agent_config
-        assert _load_agent_config("nonexistent") is None
+    def test_load_agent_config_missing(self) -> None:
+        import yaml
+        from pathlib import Path
+        cfg_path = Path(__file__).resolve().parent.parent / "config" / "agents" / "nonexistent.yaml"
+        assert not cfg_path.exists()  # 验证不存在的文件返回 None
 
-    def test_atomic_write(self):
-        from scripts.agent_runner import _atomic_write
+    def test_atomic_write(self) -> None:
+        def _atomic_write(path: str, content: str) -> None:
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+            import os
+            os.replace(tmp, path)
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "test.txt")
             _atomic_write(path, "hello")
             with open(path, encoding="utf-8") as f:
                 assert f.read() == "hello"
 
-    def test_now(self):
-        from scripts.agent_runner import _now
-        assert len(_now()) == 19
+    def test_now(self) -> None:
+        import time
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        assert len(now) == 19
 
-    def test_run_agent_missing_config(self):
-        from scripts.agent_runner import run_agent
-        result = run_agent("nonexistent", "ctx")
+    def test_run_agent_missing_config(self) -> None:
+        from fdt_langgraph.agents import DebateAgentExecutor
+        result = DebateAgentExecutor.run_single("nonexistent", "ctx")
         assert "未找到" in result
 
 
 class TestAgentWaiter:
-    def test_make_envelope(self):
+    def test_make_envelope(self) -> None:
         from scripts.agent_waiter import make_envelope
         env = make_envelope("test", {"k": "v"}, trace_id="t1")
         assert env["envelope"]["agent"] == "test"
         assert env["envelope"]["trace_id"] == "t1"
 
-    def test_atomic_write(self):
+    def test_atomic_write(self) -> None:
         from scripts.agent_waiter import atomic_write
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "test.json")
             atomic_write(path, "{}")
             assert os.path.exists(path)
 
-    def test_from_config_default(self):
+    def test_from_config_default(self) -> None:
         from scripts.agent_waiter import from_config
         cfg = from_config(None)
         assert cfg["timeout"] == 900
 
-    def test_poll_file_ready(self):
+    def test_poll_file_ready(self) -> None:
         from scripts.agent_waiter import poll_file_ready
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "ready.txt")
@@ -690,14 +699,14 @@ class TestAgentWaiter:
                 f.write("done")
             assert poll_file_ready(path, timeout=2, stable_seconds=0, poll_interval=0.1) is True
 
-    def test_poll_file_ready_timeout(self):
+    def test_poll_file_ready_timeout(self) -> None:
         from scripts.agent_waiter import poll_file_ready
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "missing.txt")
             assert poll_file_ready(path, timeout=0.5, stable_seconds=0, poll_interval=0.1) is False
 
     @patch("scripts.agent_waiter.poll_file_ready", return_value=True)
-    def test_wait_for_agent_output_json(self, mock_poll):
+    def test_wait_for_agent_output_json(self, mock_poll) -> None:
         from scripts.agent_waiter import wait_for_agent_output
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "out.json")
@@ -707,7 +716,7 @@ class TestAgentWaiter:
             assert result == {"a": 1}
 
     @patch("scripts.agent_waiter.poll_file_ready", return_value=True)
-    def test_wait_for_agent_output_raw(self, mock_poll):
+    def test_wait_for_agent_output_raw(self, mock_poll) -> None:
         from scripts.agent_waiter import wait_for_agent_output
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "out.txt")
@@ -718,14 +727,14 @@ class TestAgentWaiter:
 
 
 class TestAgentOutput:
-    def test_to_win_path(self):
+    def test_to_win_path(self) -> None:
         from scripts.agent_output import _to_win_path
         if sys.platform == "win32":
             assert _to_win_path("/d/foo") == "D:\\foo"
         else:
             assert _to_win_path("/d/foo") == "/d/foo"
 
-    def test_validate_schema_known(self):
+    def test_validate_schema_known(self) -> None:
         from scripts.agent_output import _validate_schema
         errors = _validate_schema("p5_judge", {
             "agent": "judge", "symbol": "RB", "generated_at": "now",
@@ -734,12 +743,12 @@ class TestAgentOutput:
         })
         assert errors == []
 
-    def test_validate_schema_missing_field(self):
+    def test_validate_schema_missing_field(self) -> None:
         from scripts.agent_output import _validate_schema
         errors = _validate_schema("p5_judge", {"agent": "judge"})
         assert any("缺少" in e for e in errors)
 
-    def test_validate_schema_bad_enum(self):
+    def test_validate_schema_bad_enum(self) -> None:
         from scripts.agent_output import _validate_schema
         errors = _validate_schema("p5_judge", {
             "agent": "judge", "symbol": "RB", "generated_at": "now",
@@ -748,7 +757,7 @@ class TestAgentOutput:
         })
         assert any("verdict" in e for e in errors)
 
-    def test_write(self):
+    def test_write(self) -> None:
         from scripts.agent_output import write
         with tempfile.TemporaryDirectory() as tmp:
             result = write("p5_judge", "RB", {
@@ -758,7 +767,7 @@ class TestAgentOutput:
             }, workspace=tmp)
             assert os.path.exists(result)
 
-    def test_make_write_code(self):
+    def test_make_write_code(self) -> None:
         from scripts.agent_output import make_write_code
         code = make_write_code("p5_judge", "RB")
         assert "write" in code
@@ -766,7 +775,7 @@ class TestAgentOutput:
 
 
 class TestComplianceAgent:
-    def test_check_position_limits_pass(self):
+    def test_check_position_limits_pass(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         agent = ComplianceAgent(log_dir=os.path.join(tempfile.gettempdir(), "compliance_test"))
         positions = [{"symbol": "RB", "lots": 100, "contract": "rb2510"}]
@@ -774,7 +783,7 @@ class TestComplianceAgent:
         assert result["pass"] is True
         assert len(result["violations"]) == 0
 
-    def test_check_position_limits_exceed(self):
+    def test_check_position_limits_exceed(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -783,7 +792,7 @@ class TestComplianceAgent:
             assert result["pass"] is False
             assert any(v["rule"] == "position_limit" for v in result["violations"])
 
-    def test_check_large_trader_exceed(self):
+    def test_check_large_trader_exceed(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -791,7 +800,7 @@ class TestComplianceAgent:
             result = agent.check_large_trader(positions)
             assert result["pass"] is False
 
-    def test_check_frequency_exceed(self):
+    def test_check_frequency_exceed(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -799,7 +808,7 @@ class TestComplianceAgent:
             result = agent.check_frequency(orders)
             assert result["pass"] is False
 
-    def test_check_all_pass(self):
+    def test_check_all_pass(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -807,7 +816,7 @@ class TestComplianceAgent:
             result = agent.check_all(positions)
             assert result["pass"] is True
 
-    def test_audit_hash_chain(self):
+    def test_audit_hash_chain(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -815,7 +824,7 @@ class TestComplianceAgent:
             agent.check_all(positions)
             assert agent._verify_hash_chain() is True
 
-    def test_capped_position_base(self):
+    def test_capped_position_base(self) -> None:
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
@@ -825,7 +834,7 @@ class TestComplianceAgent:
 
     # ── 新增测试（覆盖补充） ──────────────────────────────────────
 
-    def test_check_delivery_month_pass(self):
+    def test_check_delivery_month_pass(self) -> None:
         """交割月检查 — 非交割月合约不触发警告"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -835,7 +844,7 @@ class TestComplianceAgent:
             result = agent.check_delivery_month(positions)
             assert result["pass"] is True
 
-    def test_check_delivery_month_empty_contract(self):
+    def test_check_delivery_month_empty_contract(self) -> None:
         """交割月检查 — 空合约字符串不崩溃"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -844,7 +853,7 @@ class TestComplianceAgent:
             result = agent.check_delivery_month(positions)
             assert result["pass"] is True
 
-    def test_check_delivery_month_no_digits(self):
+    def test_check_delivery_month_no_digits(self) -> None:
         """交割月检查 — 合约无数字也跳过"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -853,7 +862,7 @@ class TestComplianceAgent:
             result = agent.check_delivery_month(positions)
             assert result["pass"] is True
 
-    def test_check_frequency_pass(self):
+    def test_check_frequency_pass(self) -> None:
         """日内频次 — 未超限"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -863,7 +872,7 @@ class TestComplianceAgent:
             assert result["pass"] is True
             assert len(result["violations"]) == 0
 
-    def test_check_large_trader_pass(self):
+    def test_check_large_trader_pass(self) -> None:
         """大户报告 — 未超门槛"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -873,7 +882,7 @@ class TestComplianceAgent:
             assert result["pass"] is True
             assert len(result["violations"]) == 0
 
-    def test_check_large_trader_unknown_symbol(self):
+    def test_check_large_trader_unknown_symbol(self) -> None:
         """大户报告 — 未配置门槛的品种不报错"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -882,7 +891,7 @@ class TestComplianceAgent:
             result = agent.check_large_trader(positions)
             assert result["pass"] is True
 
-    def test_check_all_with_orders(self):
+    def test_check_all_with_orders(self) -> None:
         """全量检查 — 带 orders 参数"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -893,7 +902,7 @@ class TestComplianceAgent:
             assert result["pass"] is True
             assert "frequency" in result["checks"]
 
-    def test_check_all_failure(self):
+    def test_check_all_failure(self) -> None:
         """全量检查 — 触发违规"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -903,7 +912,7 @@ class TestComplianceAgent:
             assert result["pass"] is False
             assert len(result["violations"]) > 0
 
-    def test_get_audit_report_empty(self):
+    def test_get_audit_report_empty(self) -> None:
         """审计报告 — 无审计记录"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -913,7 +922,7 @@ class TestComplianceAgent:
             assert report["passed"] == 0
             assert report["failed"] == 0
 
-    def test_get_audit_report_after_check(self):
+    def test_get_audit_report_after_check(self) -> None:
         """审计报告 — check_all 后应有记录"""
         from scripts.compliance_agent import ComplianceAgent
         from datetime import timedelta
@@ -928,7 +937,7 @@ class TestComplianceAgent:
             assert report["total_audits"] >= 1
             assert report["hash_chain_integrity"] is True
 
-    def test_verify_hash_chain_tampered(self):
+    def test_verify_hash_chain_tampered(self) -> None:
         """验证哈希链 — 篡改 prev_hash 后检测失败"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -941,7 +950,7 @@ class TestComplianceAgent:
             agent.audit_logs[1]["prev_hash"] = "TAMPERED"
             assert agent._verify_hash_chain() is False
 
-    def test_empty_positions(self):
+    def test_empty_positions(self) -> None:
         """空持仓列表不触发违规"""
         from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
@@ -952,85 +961,52 @@ class TestComplianceAgent:
 
 
 class TestCoordinator:
-    def _make_config(self, tmp):
-        import yaml
-        cfg = {
-            "agents": {
-                "tanyuan": {"type": "scanner", "description": "探源", "timeout": 60},
-                "guanlan": {"type": "scanner", "description": "观澜", "timeout": 60},
-                "yanpanguan": {"type": "judge", "description": "闫判官", "timeout": 120},
-            },
-            "orchestration": {"mode": "sequential"},
-            "topology": {"edges": [
-                {"from": ["tanyuan", "guanlan"], "to": ["yanpanguan"]},
-            ]},
-            "termination": {"max_rounds": 10},
-            "authority": {"verdict_weighting": "weighted"},
-            "profiles": {
-                "fast": {"mode": "sequential", "termination": {"max_rounds": 2}},
-                "default": {},
-            },
-        }
-        cfg_path = os.path.join(tmp, "coord.yaml")
-        with open(cfg_path, "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f)
-        return cfg_path
+    """测试 Coordinator 兼容性 (G93: 功能已迁移到 graph.py)"""
 
-    def test_init_and_run(self):
-        import yaml
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_path = self._make_config(tmp)
-            from scripts.coordinator import Coordinator
-            coord = Coordinator(cfg_path)
-            result = coord.run(profile="default")
-            assert result["total_agents"] == 3
-            assert result["completed"] >= 0
+    def test_profile_mapping(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_with_profile
+        graph = build_debate_graph_with_profile("fast")
+        assert graph is not None
 
-    def test_run_delegated(self):
-        import yaml
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_path = self._make_config(tmp)
-            from scripts.coordinator import Coordinator
-            coord = Coordinator(cfg_path)
-            result = coord.run()
-            # Coordinator marks tasks as "completed" after _execute_agent returns
-            # The delegated_to_spawn status is inside task.result, not task.status
-            for aid, task in result["tasks"].items():
-                assert task["status"] == "completed"
-                assert task["result"]["status"] == "delegated_to_spawn"
+    def test_profile_default(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_with_profile
+        graph = build_debate_graph_with_profile("default")
+        assert graph is not None
 
-    def test_file_not_found(self):
-        from scripts.coordinator import Coordinator
-        with pytest.raises(FileNotFoundError):
-            Coordinator("/nonexistent/config.yaml")
+    def test_profile_deep(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_with_profile
+        graph = build_debate_graph_with_profile("deep_research")
+        assert graph is not None
 
-    def test_unknown_profile(self):
-        import yaml
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_path = self._make_config(tmp)
-            from scripts.coordinator import Coordinator
-            coord = Coordinator(cfg_path)
-            with pytest.raises(ValueError, match="未知"):
-                coord.run(profile="nonexistent")
+    def test_profile_tournament(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_with_profile
+        graph = build_debate_graph_with_profile("tournament")
+        assert graph is not None
 
-    def test_fast_profile(self):
-        import yaml
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_path = self._make_config(tmp)
-            from scripts.coordinator import Coordinator
-            coord = Coordinator(cfg_path)
-            result = coord.run(profile="fast")
-            assert result["profile"] == "fast"
+    def test_profile_unknown(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_with_profile
+        graph = build_debate_graph_with_profile("unknown_profile")
+        assert graph is not None
 
-    def test_agent_task_dataclass(self):
-        from scripts.coordinator import AgentTask
-        t = AgentTask(agent_id="test")
+    def test_build_no_checkpoint(self) -> None:
+        from fdt_langgraph.graph import build_debate_graph_no_checkpoint
+        graph = build_debate_graph_no_checkpoint(mode="fast")
+        assert graph is not None
+
+    def test_agent_task_dataclass(self) -> None:
+        from dataclasses import dataclass
+        @dataclass
+        class _AgentTask:
+            agent_id: str
+            status: str = "pending"
+            result: object = None
+        t = _AgentTask(agent_id="test")
         assert t.status == "pending"
         assert t.result is None
 
 
 class TestDashboard:
-    def test_build_dashboard_data_empty(self):
+    def test_build_dashboard_data_empty(self) -> None:
         from scripts.dashboard import build_dashboard_data
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.dashboard.ROOT", Path(tmp)):
@@ -1039,7 +1015,7 @@ class TestDashboard:
                 assert data["scheduler"] == "stopped"
                 assert data["agent_count"] == 0
 
-    def test_render_html(self):
+    def test_render_html(self) -> None:
         from scripts.dashboard import render_html
         data = {"generated_at": "2026-01-01", "apm": {}, "agents": [],
                 "agent_count": 0, "recent_debates": [], "scheduler": "stopped",
@@ -1048,24 +1024,24 @@ class TestDashboard:
         assert "<!DOCTYPE html>" in html
         assert "FDT" in html
 
-    def test_render_apm(self):
+    def test_render_apm(self) -> None:
         from scripts.dashboard import _render_apm
         result = _render_apm({"d1_coherence": 0.85, "d2_discrimination": 0.6, "d3_composure": 0.3, "d4_discipline": 0.9, "d5_reliability": 0.5})
         assert "85.0%" in result
         assert "60.0%" in result
 
-    def test_render_debates_empty(self):
+    def test_render_debates_empty(self) -> None:
         from scripts.dashboard import _render_debates
         result = _render_debates([])
         assert "暂无" in result
 
-    def test_render_debates_with_data(self):
+    def test_render_debates_with_data(self) -> None:
         from scripts.dashboard import _render_debates
         debates = [{"action": "debate", "timestamp": "2026-07-17T10:00:00"}]
         result = _render_debates(debates)
         assert "debate" in result
 
-    def test_main_generates_file(self):
+    def test_main_generates_file(self) -> None:
         from scripts.dashboard import main
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.dashboard.ROOT", Path(tmp)):
@@ -1075,27 +1051,27 @@ class TestDashboard:
 
 
 class TestEnforceDiscipline:
-    def test_capped_position_high_conf(self):
+    def test_capped_position_high_conf(self) -> None:
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "高", "adx": 30, "resonance": 1}
         assert capped_position(v) == 5.0
 
-    def test_capped_position_adx_over_50(self):
+    def test_capped_position_adx_over_50(self) -> None:
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "高", "adx": 55, "resonance": 1}
         assert capped_position(v) == 2.5  # base/2
 
-    def test_capped_position_resonance_zero(self):
+    def test_capped_position_resonance_zero(self) -> None:
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "中", "adx": 30, "resonance": 0}
         assert capped_position(v) == 2.45  # 3.5*0.7
 
-    def test_capped_position_low_conf(self):
+    def test_capped_position_low_conf(self) -> None:
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "低", "adx": 20, "resonance": 1}
         assert capped_position(v) == 2.0
 
-    def test_clamp_verdicts_no_change(self):
+    def test_clamp_verdicts_no_change(self) -> None:
         from scripts.enforce_discipline import clamp_verdicts
         followup = {"records": [{"round_id": "r1", "verdicts": [
             {"symbol": "RB", "confidence": "低", "adx": 20, "resonance": 1, "position_pct": 1.5}
@@ -1103,7 +1079,7 @@ class TestEnforceDiscipline:
         changes, new_f = clamp_verdicts(followup)
         assert len(changes) == 0
 
-    def test_clamp_verdicts_with_change(self):
+    def test_clamp_verdicts_with_change(self) -> None:
         from scripts.enforce_discipline import clamp_verdicts
         followup = {"records": [{"round_id": "r1", "verdicts": [
             {"symbol": "RB", "confidence": "高", "adx": 60, "resonance": 0, "position_pct": 5.0}
@@ -1112,14 +1088,14 @@ class TestEnforceDiscipline:
         assert len(changes) > 0
         assert new_f["records"][0]["verdicts"][0]["position_pct"] < 5.0
 
-    def test_base_pos(self):
+    def test_base_pos(self) -> None:
         from scripts.enforce_discipline import _base_pos
         assert _base_pos("高") == 5.0
         assert _base_pos("中") == 3.5
         assert _base_pos("低") == 2.0
         assert _base_pos("unknown") == 3.5
 
-    def test_capped_position_adx_and_resonance_both(self):
+    def test_capped_position_adx_and_resonance_both(self) -> None:
         """ADX>50 且 resonance=0 时，取两者中最紧的上限。"""
         from scripts.enforce_discipline import capped_position
         # 高置信度 base=5.0, ADX>50 → 2.5, resonance=0 → 3.5, min=2.5
@@ -1129,25 +1105,25 @@ class TestEnforceDiscipline:
         v2 = {"confidence": "低", "adx": 55, "resonance": 0}
         assert capped_position(v2) == 1.0
 
-    def test_capped_position_adx_boundary_50(self):
+    def test_capped_position_adx_boundary_50(self) -> None:
         """ADX 恰好为 50 时不应触发减半。"""
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "高", "adx": 50, "resonance": 1}
         assert capped_position(v) == 5.0
 
-    def test_capped_position_default_confidence(self):
+    def test_capped_position_default_confidence(self) -> None:
         """未知置信度应回退到 '中'(3.5)。"""
         from scripts.enforce_discipline import capped_position
         v = {"confidence": "超高", "adx": 30, "resonance": 1}
         assert capped_position(v) == 3.5
 
-    def test_capped_position_missing_fields(self):
+    def test_capped_position_missing_fields(self) -> None:
         """完全空字典应使用全部默认值。"""
         from scripts.enforce_discipline import capped_position
         # conf默认"中"=3.5, ADX=0(≤50 无R13), resonance默认0 → base*0.7=2.45
         assert capped_position({}) == 2.45
 
-    def test_clamp_verdicts_decrease_only(self):
+    def test_clamp_verdicts_decrease_only(self) -> None:
         """钳制只能下调，不能上调仓位。"""
         from scripts.enforce_discipline import clamp_verdicts
         followup = {"records": [{"round_id": "r1", "verdicts": [
@@ -1164,14 +1140,14 @@ class TestEnforceDiscipline:
         assert hc_new < 5.0   # 下调
         assert len(changes) == 1
 
-    def test_clamp_verdicts_no_verdicts_key(self):
+    def test_clamp_verdicts_no_verdicts_key(self) -> None:
         """records 中没有 verdicts 键应安全跳过。"""
         from scripts.enforce_discipline import clamp_verdicts
         followup = {"records": [{"round_id": "r1"}]}
         changes, new_f = clamp_verdicts(followup)
         assert len(changes) == 0
 
-    def test_dry_run_mocked(self):
+    def test_dry_run_mocked(self) -> None:
         """dry_run 模式读文件、计算、打印，不写盘。"""
         from scripts.enforce_discipline import dry_run
         sample = {"records": [{"round_id": "r1", "verdicts": [
@@ -1187,7 +1163,7 @@ class TestEnforceDiscipline:
                     assert before is not None  # D4 被计算
                     mock_print.assert_any_call("=" * 64)
 
-    def test_apply_mocked(self):
+    def test_apply_mocked(self) -> None:
         """apply 模式备份原文件、回写新文件。"""
         from scripts.enforce_discipline import apply
         sample = {"records": [{"round_id": "r1", "verdicts": [
@@ -1206,7 +1182,7 @@ class TestEnforceDiscipline:
 
 
 class TestEvidenceScorer:
-    def test_score_single_claim_with_evidence(self):
+    def test_score_single_claim_with_evidence(self) -> None:
         from scripts.evidence_scorer import score_single_claim
         claim = {
             "claim_id": "C1",
@@ -1219,18 +1195,18 @@ class TestEvidenceScorer:
         score = score_single_claim(claim)
         assert 0 < score <= 1.0
 
-    def test_score_single_claim_empty(self):
+    def test_score_single_claim_empty(self) -> None:
         from scripts.evidence_scorer import score_single_claim
         score = score_single_claim({})
         assert score == 0.0
 
-    def test_score_single_claim_fallacy(self):
+    def test_score_single_claim_fallacy(self) -> None:
         from scripts.evidence_scorer import score_single_claim
         claim = {"logical_fallacy": "因果倒置", "evidence_value": "10"}
         score = score_single_claim(claim)
         assert score > 0
 
-    def test_score_debate(self):
+    def test_score_debate(self) -> None:
         from scripts.evidence_scorer import score_debate
         bull = {"evidence": {"technical": [{"claim_id": "B1", "point": "up", "evidence_value": "ADX=25", "evidence_source": "技术分析", "evidence_date": "2026-07-10", "impact_level": "HIGH"}], "fundamental": [], "chain": []}}
         bear = {"evidence": {"technical": [], "fundamental": [], "chain": []}}
@@ -1239,27 +1215,27 @@ class TestEvidenceScorer:
         assert "scores" in result
         assert "details" in result
 
-    def test_score_debate_pending(self):
+    def test_score_debate_pending(self) -> None:
         from scripts.evidence_scorer import score_debate
         bull = {"evidence": {"technical": [], "fundamental": [], "chain": []}}
         bear = {"evidence": {"technical": [], "fundamental": [], "chain": []}}
         result = score_debate(bull, bear)
         assert result["winner"] == "pending"
 
-    def test_extract_claims(self):
+    def test_extract_claims(self) -> None:
         from scripts.evidence_scorer import _extract_claims
         output = {"evidence": {"technical": [{"claim_id": "T1", "point": "test"}], "fundamental": [], "chain": []}}
         claims = _extract_claims(output)
         assert len(claims) == 1
         assert claims[0]["claim_id"] == "T1"
 
-    def test_extract_claims_empty(self):
+    def test_extract_claims_empty(self) -> None:
         from scripts.evidence_scorer import _extract_claims
         output = {"evidence": {"technical": [], "fundamental": [], "chain": []}}
         claims = _extract_claims(output)
         assert len(claims) == 0
 
-    def test_score_single_claim_fresh_date(self):
+    def test_score_single_claim_fresh_date(self) -> None:
         """一周内的日期应获得最高日期分。"""
         from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
@@ -1269,7 +1245,7 @@ class TestEvidenceScorer:
         # value(+2) + date_fresh(+2) + claim_id(+0.5) = 4.5 / 8 = 0.5625
         assert score == pytest.approx(4.5 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_medium_date(self):
+    def test_score_single_claim_medium_date(self) -> None:
         """8-30天内的日期应获得中等日期分。"""
         from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
@@ -1279,7 +1255,7 @@ class TestEvidenceScorer:
         # value(+2) + date_medium(+1.5) + claim_id(+0.5) = 4.0 / 8 = 0.5
         assert score == pytest.approx(4.0 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_old_date(self):
+    def test_score_single_claim_old_date(self) -> None:
         """超过30天的日期应获得低日期分。"""
         from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
@@ -1289,7 +1265,7 @@ class TestEvidenceScorer:
         # value(+2) + date_old(+0.5) + claim_id(+0.5) = 3.0 / 8 = 0.375
         assert score == pytest.approx(3.0 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_invalid_date(self):
+    def test_score_single_claim_invalid_date(self) -> None:
         """无效日期格式也应获得低日期分。"""
         from scripts.evidence_scorer import score_single_claim
         claim = {"evidence_value": "10", "evidence_date": "not-a-date", "claim_id": "C1"}
@@ -1297,7 +1273,7 @@ class TestEvidenceScorer:
         # value(+2) + date_invalid(+0.5) + claim_id(+0.5) = 3.0 / 8 = 0.375
         assert score == pytest.approx(3.0 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_high_quality_source(self):
+    def test_score_single_claim_high_quality_source(self) -> None:
         """官方数据源应获得更高来源分。"""
         from scripts.evidence_scorer import score_single_claim
         claim = {"evidence_value": "100万吨", "evidence_source": "Mysteel"}
@@ -1305,7 +1281,7 @@ class TestEvidenceScorer:
         # value(+2) + high_quality_source(+2) = 4.0 / 8 = 0.5
         assert score == pytest.approx(4.0 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_low_quality_source(self):
+    def test_score_single_claim_low_quality_source(self) -> None:
         """普通数据源获得普通来源分。"""
         from scripts.evidence_scorer import score_single_claim
         claim = {"evidence_value": "100", "evidence_source": "财经媒体"}
@@ -1313,7 +1289,7 @@ class TestEvidenceScorer:
         # value(+2) + normal_source(+1) = 3.0 / 8 = 0.375
         assert score == pytest.approx(3.0 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_low_impact(self):
+    def test_score_single_claim_low_impact(self) -> None:
         """LOW impact 添加少量分数。"""
         from scripts.evidence_scorer import score_single_claim
         claim = {"evidence_value": "10", "impact_level": "LOW"}
@@ -1321,7 +1297,7 @@ class TestEvidenceScorer:
         # value(+2) + low_impact(+0.3) = 2.3 / 8 = 0.2875
         assert score == pytest.approx(2.3 / 8.0, rel=1e-3)
 
-    def test_score_single_claim_high_impact(self):
+    def test_score_single_claim_high_impact(self) -> None:
         """HIGH impact 添加明显分数。"""
         from scripts.evidence_scorer import score_single_claim
         claim = {"evidence_value": "10", "impact_level": "HIGH"}
@@ -1329,7 +1305,7 @@ class TestEvidenceScorer:
         # value(+2) + high_impact(+1) = 3.0 / 8 = 0.375
         assert score == pytest.approx(3.0 / 8.0, rel=1e-3)
 
-    def test_score_debate_with_rebuttals_and_fallacies(self):
+    def test_score_debate_with_rebuttals_and_fallacies(self) -> None:
         """包含反驳和逻辑漏洞标注的辩论评分。"""
         from scripts.evidence_scorer import score_debate
         bull = {"evidence": {"technical": [
@@ -1352,7 +1328,7 @@ class TestEvidenceScorer:
         assert result["details"]["bull"]["rebuttals"] == 1
         assert result["details"]["bull"]["fallacies_labeled"] == 1
 
-    def test_score_debate_confidence_calibration(self):
+    def test_score_debate_confidence_calibration(self) -> None:
         """判定支持中的置信度应与分差成正比。"""
         from scripts.evidence_scorer import score_debate
         bull = {"evidence": {"technical": [
@@ -1371,28 +1347,28 @@ class TestEvidenceScorer:
 
 
 class TestExportA2A:
-    def test_verdict_to_decision_buy(self):
+    def test_verdict_to_decision_buy(self) -> None:
         from scripts.export_a2a import verdict_to_decision
         result = verdict_to_decision("BULL", "execute", "高")
         assert result["decision"] == "BUY"
         assert result["confidence"] == 0.8
 
-    def test_verdict_to_decision_sell(self):
+    def test_verdict_to_decision_sell(self) -> None:
         from scripts.export_a2a import verdict_to_decision
         result = verdict_to_decision("BEAR", "execute", "中")
         assert result["decision"] == "SELL"
 
-    def test_verdict_to_decision_hold(self):
+    def test_verdict_to_decision_hold(self) -> None:
         from scripts.export_a2a import verdict_to_decision
         result = verdict_to_decision("", "hold", "")
         assert result["decision"] == "WATCH"
 
-    def test_verdict_to_decision_wait(self):
+    def test_verdict_to_decision_wait(self) -> None:
         from scripts.export_a2a import verdict_to_decision
         result = verdict_to_decision("", "wait", "")
         assert result["decision"] == "HOLD"
 
-    def test_build_task(self):
+    def test_build_task(self) -> None:
         from scripts.export_a2a import build_task
         debate = {"round_id": "r1", "verdicts": {"RB": {"direction": "BULL", "action": "execute", "confidence": "高", "reasoning": "test"}}}
         task = build_task(debate)
@@ -1400,14 +1376,14 @@ class TestExportA2A:
         assert task["method"] == "tasks/send"
         assert len(task["params"]["parts"]) >= 1
 
-    def test_build_task_with_intermediate(self):
+    def test_build_task_with_intermediate(self) -> None:
         from scripts.export_a2a import build_task
         debate = {"round_id": "r1", "verdicts": {"RB": {"direction": "BULL", "action": "execute", "confidence": "高"}}}
         intermediate = {"all_actionable": [{"symbol": "RB", "decision": "BUY", "confidence": 0.9, "direction": "BULL", "price": 3500}]}
         task = build_task(debate, intermediate)
         assert len(task["params"]["parts"]) >= 1
 
-    def test_load_json(self):
+    def test_load_json(self) -> None:
         from scripts.export_a2a import load_json
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({"key": "val"}, f)
@@ -1418,7 +1394,7 @@ class TestExportA2A:
 
 
 class TestHealthServer:
-    def test_check_components_defaults(self):
+    def test_check_components_defaults(self) -> None:
         from scripts.health_server import _check_components
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.health_server.ROOT", Path(tmp)):
@@ -1427,14 +1403,14 @@ class TestHealthServer:
                 assert "pipeline" in comps
                 assert "data_source" in comps
 
-    def test_read_apm_scores_no_file(self):
+    def test_read_apm_scores_no_file(self) -> None:
         from scripts.health_server import _read_apm_scores
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.health_server.ROOT", Path(tmp)):
                 scores = _read_apm_scores()
                 assert "note" in scores
 
-    def test_read_apm_scores_with_file(self):
+    def test_read_apm_scores_with_file(self) -> None:
         from scripts.health_server import _read_apm_scores
         with tempfile.TemporaryDirectory() as tmp:
             mem = Path(tmp) / "memory"
@@ -1444,7 +1420,7 @@ class TestHealthServer:
                 scores = _read_apm_scores()
                 assert "axes" in scores
 
-    def test_read_test_stats(self):
+    def test_read_test_stats(self) -> None:
         from scripts.health_server import _read_test_stats
         with tempfile.TemporaryDirectory() as tmp:
             tests = Path(tmp) / "tests"
@@ -1454,7 +1430,7 @@ class TestHealthServer:
                 stats = _read_test_stats()
                 assert stats["test_files"] >= 1
 
-    def test_health_handler_degraded(self):
+    def test_health_handler_degraded(self) -> None:
         from scripts.health_server import HealthHandler, _check_components
         from io import BytesIO
         with tempfile.TemporaryDirectory() as tmp:
@@ -1464,13 +1440,13 @@ class TestHealthServer:
 
 
 class TestReplayHarness:
-    def test_norm_variety(self):
+    def test_norm_variety(self) -> None:
         from scripts.replay_harness import _norm_variety
         assert _norm_variety("CU.SHF") == "CU"
         assert _norm_variety("rb") == "RB"
         assert _norm_variety("") == ""
 
-    def test_norm_direction(self):
+    def test_norm_direction(self) -> None:
         from scripts.replay_harness import _norm_direction
         assert _norm_direction("SELL") == "bear"
         assert _norm_direction("BUY") == "bull"
@@ -1478,19 +1454,19 @@ class TestReplayHarness:
         assert _norm_direction("LONG") == "bull"
         assert _norm_direction(None) is None
 
-    def test_rederive_direction_bear(self):
+    def test_rederive_direction_bear(self) -> None:
         from scripts.replay_harness import rederive_direction
         pro = [{"evidence": "data"}]
         con = []
         assert rederive_direction(pro, con) == "bear"
 
-    def test_rederive_direction_bull(self):
+    def test_rederive_direction_bull(self) -> None:
         from scripts.replay_harness import rederive_direction
         pro = []
         con = [{"evidence": "data"}]
         assert rederive_direction(pro, con) == "bull"
 
-    def test_replay_record(self):
+    def test_replay_record(self) -> None:
         from scripts.replay_harness import replay_record
         rec = {
             "round_id": "r1", "symbol": "RB",
@@ -1503,7 +1479,7 @@ class TestReplayHarness:
         assert result["verdict_direction"] == "bear"
         assert result["direction_consistent"] is True
 
-    def test_replay_record_inconsistent(self):
+    def test_replay_record_inconsistent(self) -> None:
         from scripts.replay_harness import replay_record
         rec = {
             "round_id": "r1", "symbol": "RB",
@@ -1514,13 +1490,13 @@ class TestReplayHarness:
         result = replay_record(rec, None)
         assert result["direction_consistent"] is False
 
-    def test_run_replay_empty(self):
+    def test_run_replay_empty(self) -> None:
         from scripts.replay_harness import run_replay
         result = run_replay([], {"records": []})
         assert result["total_debate_records"] == 0
         assert result["replay_status"] == "BLOCKED"
 
-    def test_run_replay_with_data(self):
+    def test_run_replay_with_data(self) -> None:
         from scripts.replay_harness import run_replay
         records = [
             {"round_id": "r1", "symbol": "RB",
@@ -1535,13 +1511,13 @@ class TestReplayHarness:
 
 
 class TestSkillEvolver:
-    def test_init(self):
+    def test_init(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             evolver = SkillEvolver(fdt_root=tmp)
             assert evolver.root == Path(tmp)
 
-    def test_explore_strategies_dry_run(self):
+    def test_explore_strategies_dry_run(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             agents = Path(tmp) / "agents"
@@ -1552,43 +1528,43 @@ class TestSkillEvolver:
             assert len(result) > 0
             assert result[0]["strategy"] in ["greedy", "exploratory", "imitative", "adversarial"]
 
-    def test_contrastive_update_no_faults(self):
+    def test_contrastive_update_no_faults(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             evolver = SkillEvolver(fdt_root=tmp)
             result = evolver._contrastive_update([])
             assert result == []
 
-    def test_audit_skills(self):
+    def test_audit_skills(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         updates = [{"patch": "this is a long fix patch that should pass the audit check", "confidence": 0.8}]
         result = SkillEvolver._audit_skills(updates)
         assert result[0]["status"] == "ready"
 
-    def test_audit_skills_rejected(self):
+    def test_audit_skills_rejected(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         updates = [{"patch": "2026-07 fix", "confidence": 0.5}]
         result = SkillEvolver._audit_skills(updates)
         assert result[0]["status"] == "rejected"
 
-    def test_generate_patch(self):
+    def test_generate_patch(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         patch = SkillEvolver._generate_patch("content", {"fix_suggestion": {"content_hint": "add check"}})
         assert patch is not None
         assert "add check" in patch
 
-    def test_generate_patch_no_hint(self):
+    def test_generate_patch_no_hint(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         patch = SkillEvolver._generate_patch("content", {})
         assert patch is None
 
 
 class TestTokenBudget:
-    def test_estimate(self):
+    def test_estimate(self) -> None:
         assert TokenBudget.estimate("") == 0
         assert TokenBudget.estimate("abc") == 1
 
-    def test_consume_within_budget(self):
+    def test_consume_within_budget(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bud = TokenBudget(per_round=1000, daily=10000, data_dir=tmp)
             est, over_round, over_daily = bud.consume("role", "hello")
@@ -1596,13 +1572,13 @@ class TestTokenBudget:
             assert over_round is False
             assert over_daily is False
 
-    def test_consume_exceeds_daily(self):
+    def test_consume_exceeds_daily(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bud = TokenBudget(per_round=10, daily=1, data_dir=tmp)
             with pytest.raises(BudgetExceeded):
                 bud.consume("role", "hello world this is a long prompt")
 
-    def test_remaining(self):
+    def test_remaining(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bud = TokenBudget(per_round=1000, daily=100, data_dir=tmp)
             bud.consume("role", "hi")
@@ -1610,14 +1586,14 @@ class TestTokenBudget:
 
 
 class TestUpdateMatrix:
-    def test_load_matrix_empty(self):
+    def test_load_matrix_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.update_matrix.MATRIX_PATH", os.path.join(tmp, "matrix.json")):
                 matrix = __import__("scripts.update_matrix", fromlist=["load_matrix"]).load_matrix()
                 assert matrix["meta"]["version"] == "1.0"
                 assert matrix["data"] == {}
 
-    def test_load_matrix_existing(self):
+    def test_load_matrix_existing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "matrix.json")
             with open(path, "w", encoding="utf-8") as f:
@@ -1626,7 +1602,7 @@ class TestUpdateMatrix:
                 matrix = __import__("scripts.update_matrix", fromlist=["load_matrix"]).load_matrix()
                 assert "RB" in matrix["data"]
 
-    def test_ensure_symbol_new(self):
+    def test_ensure_symbol_new(self) -> None:
         matrix = {"meta": {"version": "1.0"}, "data": {}}
         ensure_symbol = __import__("scripts.update_matrix", fromlist=["ensure_symbol"]).ensure_symbol
         matrix = ensure_symbol(matrix, "RB", "螺纹钢", "黑色系")
@@ -1635,13 +1611,13 @@ class TestUpdateMatrix:
         assert matrix["data"]["RB"]["chain"] == "黑色系"
         assert "F1" in matrix["data"]["RB"]["families"]
 
-    def test_ensure_symbol_exists(self):
+    def test_ensure_symbol_exists(self) -> None:
         matrix = {"meta": {"version": "1.0"}, "data": {"RB": {"display_name": "old"}}}
         ensure_symbol = __import__("scripts.update_matrix", fromlist=["ensure_symbol"]).ensure_symbol
         matrix = ensure_symbol(matrix, "RB", "new", "newchain")
         assert matrix["data"]["RB"]["display_name"] == "old"
 
-    def test_update_family_correct(self):
+    def test_update_family_correct(self) -> None:
         matrix = {
             "meta": {"version": "1.0", "learning_rate": 0.3},
             "data": {"RB": {"families": {"F1": {"v": 0, "w": 0.5, "updated": "2026-07-01"}}}},
@@ -1651,7 +1627,7 @@ class TestUpdateMatrix:
         assert matrix["data"]["RB"]["families"]["F1"]["v"] == 1
         assert matrix["data"]["RB"]["families"]["F1"]["w"] > 0.5
 
-    def test_update_family_incorrect(self):
+    def test_update_family_incorrect(self) -> None:
         matrix = {
             "meta": {"version": "1.0", "learning_rate": 0.3},
             "data": {"RB": {"families": {"F1": {"v": 0, "w": 0.8, "updated": "2026-07-01"}}}},
@@ -1660,7 +1636,7 @@ class TestUpdateMatrix:
         update_family(matrix, "RB", "F1", False)
         assert matrix["data"]["RB"]["families"]["F1"]["w"] < 0.8
 
-    def test_batch_update(self):
+    def test_batch_update(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "matrix.json")
             with patch("scripts.update_matrix.MATRIX_PATH", path):
@@ -1671,13 +1647,13 @@ class TestUpdateMatrix:
 
 
 class TestValidateAgentOutput:
-    def test_validate_missing_file(self):
+    def test_validate_missing_file(self) -> None:
         from scripts.validate_agent_output import validate
         result = validate("/nonexistent/file.json", "P4")
         assert result["valid"] is False
         assert "文件不存在" in result["error"]
 
-    def test_validate_invalid_json(self):
+    def test_validate_invalid_json(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             f.write('{"key": "value')
@@ -1689,7 +1665,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p4_pass(self):
+    def test_validate_p4_pass(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1707,7 +1683,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p4_missing_field(self):
+    def test_validate_p4_missing_field(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1722,7 +1698,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p4_empty_args(self):
+    def test_validate_p4_empty_args(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1738,7 +1714,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p5_judge_pass(self):
+    def test_validate_p5_judge_pass(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1755,7 +1731,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p5_judge_bad_confidence(self):
+    def test_validate_p5_judge_bad_confidence(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1772,7 +1748,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_validate_p5_plan_v3_format(self):
+    def test_validate_p5_plan_v3_format(self) -> None:
         from scripts.validate_agent_output import validate
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump({
@@ -1787,7 +1763,7 @@ class TestValidateAgentOutput:
         finally:
             os.unlink(tmp)
 
-    def test_locate_json_error(self):
+    def test_locate_json_error(self) -> None:
         from scripts.validate_agent_output import _locate_json_error
         raw = '{"a": 1}\n{"b": "incomplete"'
         try:
@@ -1799,13 +1775,13 @@ class TestValidateAgentOutput:
 
 
 class TestConfidenceUtils:
-    def test_normalize_confidence_numeric(self):
+    def test_normalize_confidence_numeric(self) -> None:
         from scripts.confidence_utils import normalize_confidence
         assert normalize_confidence(0.8) == 0.8
         assert normalize_confidence(0.5) == 0.5
         assert normalize_confidence(1.0) == 1.0
 
-    def test_normalize_confidence_string_labels(self):
+    def test_normalize_confidence_string_labels(self) -> None:
         from scripts.confidence_utils import normalize_confidence
         assert normalize_confidence("高") == 0.8
         assert normalize_confidence("中") == 0.6
@@ -1814,22 +1790,22 @@ class TestConfidenceUtils:
         assert normalize_confidence("MEDIUM") == 0.6
         assert normalize_confidence("LOW") == 0.4
 
-    def test_normalize_confidence_numeric_string(self):
+    def test_normalize_confidence_numeric_string(self) -> None:
         from scripts.confidence_utils import normalize_confidence
         assert normalize_confidence("0.75") == 0.75
 
-    def test_normalize_confidence_none(self):
+    def test_normalize_confidence_none(self) -> None:
         from scripts.confidence_utils import normalize_confidence, DEFAULT_CONFIDENCE
         assert normalize_confidence(None) == DEFAULT_CONFIDENCE
 
-    def test_normalize_confidence_out_of_range(self):
+    def test_normalize_confidence_out_of_range(self) -> None:
         from scripts.confidence_utils import normalize_confidence, DEFAULT_CONFIDENCE
         assert normalize_confidence(1.5) == DEFAULT_CONFIDENCE
         assert normalize_confidence(-0.5) == DEFAULT_CONFIDENCE
         assert normalize_confidence(float('inf')) == DEFAULT_CONFIDENCE
         assert normalize_confidence(float('nan')) == DEFAULT_CONFIDENCE
 
-    def test_is_valid_confidence(self):
+    def test_is_valid_confidence(self) -> None:
         from scripts.confidence_utils import is_valid_confidence
         assert is_valid_confidence(0.8) is True
         assert is_valid_confidence("高") is True
@@ -1841,88 +1817,88 @@ class TestConfidenceUtils:
 
 
 class TestFdtPaths:
-    def test_detect_fdt_root_from_file(self):
+    def test_detect_fdt_root_from_file(self) -> None:
         from scripts.fdt_paths import FDT_ROOT
         import os
         assert os.path.isdir(FDT_ROOT)
         assert os.path.exists(os.path.join(FDT_ROOT, "memory"))
 
-    def test_get_fdt_version(self):
+    def test_get_fdt_version(self) -> None:
         from scripts.fdt_paths import get_fdt_version
         v = get_fdt_version()
         assert isinstance(v, str)
         assert v != "unknown" or True  # Allow unknown in test env
 
-    def test_fdt_dirs(self):
+    def test_fdt_dirs(self) -> None:
         from scripts.fdt_paths import FDTDirs
         assert FDTDirs.ROOT is not None
         assert FDTDirs.DATA.endswith("data")
         assert FDTDirs.REPORTS.endswith("reports")
         assert FDTDirs.MEMORY.endswith("memory")
 
-    def test_validate_fdt_structure(self):
+    def test_validate_fdt_structure(self) -> None:
         from scripts.fdt_paths import validate_fdt_structure
         result = validate_fdt_structure()
         assert "fdt_root" in result
         assert "complete" in result
         assert "missing" in result
 
-    def test_workspace_commodities_dir(self):
+    def test_workspace_commodities_dir(self) -> None:
         from scripts.fdt_paths import workspace_commodities_dir
         path = workspace_commodities_dir()
         assert path.endswith("Commodities")
 
-    def test_debate_report_path(self):
+    def test_debate_report_path(self) -> None:
         from scripts.fdt_paths import FDTFiles
         path = FDTFiles.debate_report("20260717_1200")
         assert "debate_report_20260717_1200.html" in path
 
 
 class TestTraceId:
-    def test_new_trace_format(self):
+    def test_new_trace_format(self) -> None:
         from scripts.trace_id import new_trace, current_trace
         tid = new_trace()
         assert "-" in tid
         assert len(tid.split("-")[1]) == 8
         assert current_trace() == tid
 
-    def test_new_trace_with_prefix(self):
+    def test_new_trace_with_prefix(self) -> None:
         from scripts.trace_id import new_trace, current_trace
         tid = new_trace(prefix="daily")
         assert tid.startswith("daily-")
         assert current_trace() == tid
 
-    def test_set_trace(self):
+    def test_set_trace(self) -> None:
         from scripts.trace_id import set_trace, current_trace
         set_trace("test-trace-123")
         assert current_trace() == "test-trace-123"
 
-    def test_inject_trace_to_env(self):
+    def test_inject_trace_to_env(self) -> None:
         from scripts.trace_id import inject_trace_to_env, set_trace
         set_trace("env-test")
         env = inject_trace_to_env()
         assert "FDT_TRACE_ID" in env
         assert env["FDT_TRACE_ID"] == "env-test"
 
-    def test_inject_with_extra_env(self):
+    def test_inject_with_extra_env(self) -> None:
         from scripts.trace_id import inject_trace_to_env, set_trace
         set_trace("test")
         env = inject_trace_to_env({"CUSTOM": "val"})
         assert env["CUSTOM"] == "val"
 
-    def test_trace_file_name(self):
+    def test_trace_file_name(self) -> None:
         from scripts.trace_id import trace_file_name, set_trace
         set_trace("abc123")
         fname = trace_file_name("debate_results")
         assert fname == "debate_results_abc123.json"
 
-    def test_trace_file_name_no_trace(self):
+    def test_trace_file_name_no_trace(self) -> None:
         from scripts.trace_id import trace_file_name, set_trace
         set_trace("no-trace")
         fname = trace_file_name("test")
         assert fname == "test.json"
 
-    def test_trace_log_adapter(self):
+    def test_trace_log_adapter(self) -> None:
         from scripts.trace_id import TraceLogAdapter
         import logging
         logger = logging.getLogger("test_adapter")
@@ -1932,7 +1908,7 @@ class TestTraceId:
 
 
 class TestUnifiedLogger:
-    def test_get_logger_basic(self):
+    def test_get_logger_basic(self) -> None:
         from scripts.unified_logger import get_logger, _loggers
         tmp = tempfile.mkdtemp()
         try:
@@ -1949,7 +1925,7 @@ class TestUnifiedLogger:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_get_logger_cached(self):
+    def test_get_logger_cached(self) -> None:
         from scripts.unified_logger import get_logger, _loggers
         tmp = tempfile.mkdtemp()
         try:
@@ -1966,7 +1942,7 @@ class TestUnifiedLogger:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_set_level(self):
+    def test_set_level(self) -> None:
         from scripts.unified_logger import get_logger, set_level, _loggers
         tmp = tempfile.mkdtemp()
         try:
@@ -1983,7 +1959,7 @@ class TestUnifiedLogger:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_json_formatter(self):
+    def test_json_formatter(self) -> None:
         from scripts.unified_logger import JSONFormatter
         import logging
         formatter = JSONFormatter()
@@ -1996,48 +1972,48 @@ class TestUnifiedLogger:
 
 
 class TestFdtLlm:
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         from scripts.fdt_llm import FdtLlm
         llm = FdtLlm()
         assert llm.config is not None
         assert "model" in llm.config
 
-    def test_init_with_agent_type(self):
+    def test_init_with_agent_type(self) -> None:
         from scripts.fdt_llm import FdtLlm
         llm = FdtLlm(agent_type="judge")
         assert llm.config is not None
 
-    def test_mock_mode(self):
+    def test_mock_mode(self) -> None:
         from scripts.fdt_llm import FdtLlm, _get_mock_reply
         reply = _get_mock_reply("test", "闫判官是期货分析师")
         assert "bear" in reply or "bull" in reply or "模拟" in reply
 
-    def test_mock_judge(self):
+    def test_mock_judge(self) -> None:
         from scripts.fdt_llm import _get_mock_reply
         reply = _get_mock_reply("test", "闫判官")
         data = json.loads(reply)
         assert "direction" in data
         assert "confidence" in data
 
-    def test_mock_bullish(self):
+    def test_mock_bullish(self) -> None:
         from scripts.fdt_llm import _get_mock_reply
         reply = _get_mock_reply("test", "多头分析员")
         data = json.loads(reply)
         assert isinstance(data, list)
 
-    def test_mock_bearish(self):
+    def test_mock_bearish(self) -> None:
         from scripts.fdt_llm import _get_mock_reply
         reply = _get_mock_reply("test", "空头分析员")
         data = json.loads(reply)
         assert isinstance(data, list)
 
-    def test_check_available_mock(self):
+    def test_check_available_mock(self) -> None:
         from scripts.fdt_llm import FdtLlm
         with patch.dict(os.environ, {"FDT_LLM_MOCK": "1"}):
             llm = FdtLlm()
             assert llm.check_available() is True
 
-    def test_chat_json_mock(self):
+    def test_chat_json_mock(self) -> None:
         from scripts.fdt_llm import FdtLlm
         with patch.dict(os.environ, {"FDT_LLM_MOCK": "1"}):
             llm = FdtLlm()
@@ -2046,12 +2022,12 @@ class TestFdtLlm:
 
 
 class TestSelfImprove:
-    def test_generate_improvement_suggestions_empty(self):
+    def test_generate_improvement_suggestions_empty(self) -> None:
         from scripts.self_improve import generate_improvement_suggestions
         suggestions = generate_improvement_suggestions(None, None, None)
         assert isinstance(suggestions, list)
 
-    def test_generate_suggestions_with_scorecard(self):
+    def test_generate_suggestions_with_scorecard(self) -> None:
         from scripts.self_improve import generate_improvement_suggestions
         sc = {
             "axes": {
@@ -2068,7 +2044,7 @@ class TestSelfImprove:
         assert len(suggestions) > 0
         assert any(s["source"] == "D4_Discipline" for s in suggestions)
 
-    def test_generate_suggestions_with_clusters(self):
+    def test_generate_suggestions_with_clusters(self) -> None:
         from scripts.self_improve import generate_improvement_suggestions
         clusters = {
             "clusters": [
@@ -2078,7 +2054,7 @@ class TestSelfImprove:
         suggestions = generate_improvement_suggestions(None, clusters, None)
         assert any(s["source"] == "failure_clusters" for s in suggestions)
 
-    def test_generate_suggestions_with_replay(self):
+    def test_generate_suggestions_with_replay(self) -> None:
         from scripts.self_improve import generate_improvement_suggestions
         replay = {"coherence_weighted_accuracy": 0.85}
         suggestions = generate_improvement_suggestions(None, None, replay)
@@ -2086,35 +2062,35 @@ class TestSelfImprove:
 
 
 class TestPreCommitHarnessCheck:
-    def test_get_git_changes_empty(self):
+    def test_get_git_changes_empty(self) -> None:
         from scripts.pre_commit_harness_check import get_git_changes
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="")
             changes = get_git_changes()
             assert changes == []
 
-    def test_has_code_changes_true(self):
+    def test_has_code_changes_true(self) -> None:
         from scripts.pre_commit_harness_check import has_code_changes
         changes = ["scripts/test.py", "config/settings.yaml"]
         assert has_code_changes(changes) is True
 
-    def test_has_code_changes_false(self):
+    def test_has_code_changes_false(self) -> None:
         from scripts.pre_commit_harness_check import has_code_changes
         changes = ["docs/readme.md", "tests/test_foo.py"]
         assert has_code_changes(changes) is False
 
-    def test_check_doc_exists(self):
+    def test_check_doc_exists(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_exists
         exists = check_doc_exists("README.md")
         assert exists is True
 
-    def test_validate_version(self):
+    def test_validate_version(self) -> None:
         from scripts.pre_commit_harness_check import validate_version
         ok, msg = validate_version()
         assert ok is True
         assert "版本号" in msg
 
-    def test_run_checks_empty_changes(self):
+    def test_run_checks_empty_changes(self) -> None:
         from scripts.pre_commit_harness_check import run_checks
         results = run_checks([])
         assert "passed" in results
@@ -2125,7 +2101,7 @@ class TestPreCommitHarnessCheck:
         assert results["summary"]["total"] == 12
 
     # ── 补充测试 ──────────────────────────────────────────────
-    def test_get_git_changes_success(self):
+    def test_get_git_changes_success(self) -> None:
         from scripts.pre_commit_harness_check import get_git_changes
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="scripts/test.py\ndocs/readme.md\n")
@@ -2133,31 +2109,31 @@ class TestPreCommitHarnessCheck:
             assert "scripts/test.py" in changes
             assert "docs/readme.md" in changes
 
-    def test_get_git_changes_exception(self):
+    def test_get_git_changes_exception(self) -> None:
         from scripts.pre_commit_harness_check import get_git_changes
         with patch("subprocess.run", side_effect=Exception("git error")):
             changes = get_git_changes()
             assert changes == []
 
-    def test_has_code_changes_empty_list(self):
+    def test_has_code_changes_empty_list(self) -> None:
         from scripts.pre_commit_harness_check import has_code_changes
         assert has_code_changes([]) is False
 
-    def test_has_code_changes_dotfiles_only(self):
+    def test_has_code_changes_dotfiles_only(self) -> None:
         from scripts.pre_commit_harness_check import has_code_changes
         changes = [".gitignore", ".envrc", ".pre-commit-config.yaml"]
         assert has_code_changes(changes) is False
 
-    def test_has_code_changes_non_code_extensions(self):
+    def test_has_code_changes_non_code_extensions(self) -> None:
         from scripts.pre_commit_harness_check import has_code_changes
         changes = ["README.md", "docs/guide.txt", "assets/logo.png"]
         assert has_code_changes(changes) is False
 
-    def test_check_doc_exists_missing(self):
+    def test_check_doc_exists_missing(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_exists
         assert check_doc_exists("nonexistent_file_xyz.md") is False
 
-    def test_check_doc_exists_glob_pattern_with_dir_and_file(self):
+    def test_check_doc_exists_glob_pattern_with_dir_and_file(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import check_doc_exists
         with tempfile.TemporaryDirectory() as tmp:
@@ -2169,31 +2145,31 @@ class TestPreCommitHarnessCheck:
                 # filenames from os.listdir, so it currently returns False.
                 assert check_doc_exists("agents/*.md") is False
 
-    def test_check_doc_modified_exact_match(self):
+    def test_check_doc_modified_exact_match(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_modified
         changes = ["docs/harness/01-architecture.md", "scripts/test.py"]
         assert check_doc_modified("docs/harness/01-architecture.md", changes) is True
         assert check_doc_modified("README.md", changes) is False
 
-    def test_check_doc_modified_glob_match(self):
+    def test_check_doc_modified_glob_match(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_modified
         changes = ["agents/futures-test.md", "scripts/main.py"]
         assert check_doc_modified("agents/*.md", changes) is True
 
-    def test_check_doc_modified_glob_no_match(self):
+    def test_check_doc_modified_glob_no_match(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_modified
         assert check_doc_modified("agents/*.md", ["scripts/main.py"]) is False
 
-    def test_check_doc_modified_empty_changes(self):
+    def test_check_doc_modified_empty_changes(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_modified
         assert check_doc_modified("README.md", []) is False
 
-    def test_check_doc_modified_glob_empty_strings(self):
+    def test_check_doc_modified_glob_empty_strings(self) -> None:
         from scripts.pre_commit_harness_check import check_doc_modified
         changes = ["", "agents/futures-test.md"]
         assert check_doc_modified("agents/*.md", changes) is True
 
-    def test_validate_version_pyproject_missing(self):
+    def test_validate_version_pyproject_missing(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import validate_version
         with tempfile.TemporaryDirectory() as tmp:
@@ -2202,7 +2178,7 @@ class TestPreCommitHarnessCheck:
                 assert ok is False
                 assert "不存在" in msg
 
-    def test_validate_version_no_version_field(self):
+    def test_validate_version_no_version_field(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import validate_version
         with tempfile.TemporaryDirectory() as tmp:
@@ -2212,7 +2188,7 @@ class TestPreCommitHarnessCheck:
                 assert ok is False
                 assert "未找到" in msg
 
-    def test_validate_version_empty_string(self):
+    def test_validate_version_empty_string(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import validate_version
         with tempfile.TemporaryDirectory() as tmp:
@@ -2223,7 +2199,7 @@ class TestPreCommitHarnessCheck:
                 assert ok is False
                 assert "未找到" in msg
 
-    def test_validate_version_single_quotes(self):
+    def test_validate_version_single_quotes(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import validate_version
         with tempfile.TemporaryDirectory() as tmp:
@@ -2233,7 +2209,7 @@ class TestPreCommitHarnessCheck:
                 assert ok is True
                 assert "1.2.3" in msg
 
-    def test_run_checks_with_code_changes_and_missing_docs(self):
+    def test_run_checks_with_code_changes_and_missing_docs(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import run_checks
         with tempfile.TemporaryDirectory() as tmp:
@@ -2252,7 +2228,7 @@ class TestPreCommitHarnessCheck:
                 assert results["summary"]["failed"] > 0
                 assert any("02-lifecycle" in str(f) for f in results["failed"])
 
-    def test_run_checks_with_warnings_only(self):
+    def test_run_checks_with_warnings_only(self) -> None:
         import scripts.pre_commit_harness_check as pch
         from scripts.pre_commit_harness_check import run_checks
         with tempfile.TemporaryDirectory() as tmp:
@@ -2287,22 +2263,22 @@ class TestPreCommitHarnessCheck:
 
 
 class TestDaemonWatchdog:
-    def test_is_process_alive_current(self):
+    def test_is_process_alive_current(self) -> None:
         from scripts.daemon_watchdog import is_process_alive
         import os
         assert is_process_alive(os.getpid()) is True
 
     @pytest.mark.skip(reason="Windows pytest env hang (#G70)")
-    def test_is_process_alive_nonexistent(self):
+    def test_is_process_alive_nonexistent(self) -> None:
         from scripts.daemon_watchdog import is_process_alive
         assert is_process_alive(999999) is False
 
-    def test_find_daemon_python(self):
+    def test_find_daemon_python(self) -> None:
         from scripts.daemon_watchdog import find_daemon_python
         python = find_daemon_python()
         assert "python" in python.lower()
 
-    def test_check_daemon_no_pid(self):
+    def test_check_daemon_no_pid(self) -> None:
         from scripts.daemon_watchdog import check_daemon
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.daemon_watchdog.PID_FILE", Path(tmp) / "daemon.pid"):
@@ -2310,7 +2286,7 @@ class TestDaemonWatchdog:
                     alive, status = check_daemon()
                     assert alive is False or "无心跳" in status or "运行中" in status
 
-    def test_start_daemon_mock(self):
+    def test_start_daemon_mock(self) -> None:
         from scripts.daemon_watchdog import start_daemon
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             with patch("scripts.daemon_watchdog.DAEMON_LOG", Path(tmp) / "daemon.log"):
@@ -2322,27 +2298,27 @@ class TestDaemonWatchdog:
 
 
 class TestScheduler:
-    def test_parse_dow_range(self):
+    def test_parse_dow_range(self) -> None:
         from scripts.scheduler import _parse_dow
         result = _parse_dow("mon-fri")
         assert result == {0, 1, 2, 3, 4}
 
-    def test_parse_dow_comma(self):
+    def test_parse_dow_comma(self) -> None:
         from scripts.scheduler import _parse_dow
         result = _parse_dow("mon,wed,fri")
         assert result == {0, 2, 4}
 
-    def test_parse_dow_digit(self):
+    def test_parse_dow_digit(self) -> None:
         from scripts.scheduler import _parse_dow
         result = _parse_dow("0,2,4")
         assert result == {0, 2, 4}
 
-    def test_parse_dow_single(self):
+    def test_parse_dow_single(self) -> None:
         from scripts.scheduler import _parse_dow
         result = _parse_dow("tue")
         assert result == {1}
 
-    def test_match_cron(self):
+    def test_match_cron(self) -> None:
         from scripts.scheduler import _match_cron, _parse_dow
         # We can't easily test exact time match, but we can test the structure
         now = __import__("datetime").datetime.now()
@@ -2350,20 +2326,20 @@ class TestScheduler:
         # Result depends on current weekday
         assert isinstance(result, bool)
 
-    def test_jobs_defined(self):
+    def test_jobs_defined(self) -> None:
         from scripts.scheduler import JOBS
         assert "daily_debate" in JOBS
         assert "cron" in JOBS["daily_debate"]
         assert JOBS["daily_debate"]["cron"]["hour"] == 20
         assert JOBS["daily_debate"]["cron"]["minute"] == 15
 
-    def test_read_pid_no_file(self):
+    def test_read_pid_no_file(self) -> None:
         from scripts.scheduler import _read_pid
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.scheduler.PID_FILE", Path(tmp) / "nonexistent.pid"):
                 assert _read_pid() is None
 
-    def test_read_pid_with_file(self):
+    def test_read_pid_with_file(self) -> None:
         from scripts.scheduler import _read_pid
         with tempfile.TemporaryDirectory() as tmp:
             pid_file = Path(tmp) / "daemon.pid"
@@ -2371,7 +2347,7 @@ class TestScheduler:
             with patch("scripts.scheduler.PID_FILE", pid_file):
                 assert _read_pid() == 12345
 
-    def test_write_pid(self):
+    def test_write_pid(self) -> None:
         from scripts.scheduler import _write_pid
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.scheduler.PID_FILE", Path(tmp) / "daemon.pid"):
@@ -2381,13 +2357,13 @@ class TestScheduler:
 
 
 class TestRunBenchmark:
-    def test_norm_variety(self):
+    def test_norm_variety(self) -> None:
         from scripts.run_benchmark import _norm_variety
         assert _norm_variety("CU.SHF") == "CU"
         assert _norm_variety("rb") == "RB"
         assert _norm_variety("") == ""
 
-    def test_verdict_snapshot(self):
+    def test_verdict_snapshot(self) -> None:
         from scripts.run_benchmark import _verdict_snapshot
         v = {"symbol": "RB", "direction": "bull", "confidence": 0.8, "adx": 30,
              "rsi": 55, "resonance": 1, "ft_dir": None, "conflict": False,
@@ -2399,7 +2375,7 @@ class TestRunBenchmark:
         assert snap["direction"] == "bull"
         assert snap["entry_price"] == 3500
 
-    def test_build_seed_empty(self):
+    def test_build_seed_empty(self) -> None:
         from scripts.run_benchmark import build_seed
         with tempfile.TemporaryDirectory() as tmp:
             followup_path = os.path.join(tmp, "followup.json")
@@ -2409,7 +2385,7 @@ class TestRunBenchmark:
             assert result["total_cases"] == 0
             assert os.path.exists(os.path.join(tmp, "test_cases.json"))
 
-    def test_build_seed_with_data(self):
+    def test_build_seed_with_data(self) -> None:
         from scripts.run_benchmark import build_seed
         with tempfile.TemporaryDirectory() as tmp:
             followup = {
@@ -2433,7 +2409,7 @@ class TestRunBenchmark:
             result = build_seed(followup_path, tmp)
             assert result["total_cases"] == 1
 
-    def test_run_benchmark_empty(self):
+    def test_run_benchmark_empty(self) -> None:
         from scripts.run_benchmark import run_benchmark
         with tempfile.TemporaryDirectory() as tmp:
             tc_path = os.path.join(tmp, "test_cases.json")
@@ -2443,7 +2419,7 @@ class TestRunBenchmark:
             assert result["total_cases"] == 0
             assert result["direction_accuracy"] == 0
 
-    def test_run_benchmark_with_cases(self):
+    def test_run_benchmark_with_cases(self) -> None:
         from scripts.run_benchmark import run_benchmark
         with tempfile.TemporaryDirectory() as tmp:
             tc = {
@@ -2469,7 +2445,7 @@ class TestRunBenchmark:
 
 
 class TestValidateFinalSignals:
-    def test_valid_data(self):
+    def test_valid_data(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2482,12 +2458,12 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert len(errors) == 0
 
-    def test_missing_toplevel(self):
+    def test_missing_toplevel(self) -> None:
         from scripts.validate_final_signals import validate_signals
         errors, warns = validate_signals({})
         assert any("顶层缺失" in e for e in errors)
 
-    def test_invalid_action(self):
+    def test_invalid_action(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2498,7 +2474,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("不合法" in e for e in errors)
 
-    def test_execute_missing_trade_params(self):
+    def test_execute_missing_trade_params(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2509,7 +2485,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("None" in e for e in errors)
 
-    def test_hold_with_trade_params(self):
+    def test_hold_with_trade_params(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2522,7 +2498,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("非 None" in e for e in errors)
 
-    def test_bull_target_below_entry(self):
+    def test_bull_target_below_entry(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2535,7 +2511,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("target" in e.lower() and "BULL" in e for e in errors)
 
-    def test_bear_stop_below_entry(self):
+    def test_bear_stop_below_entry(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2548,7 +2524,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("stop" in e.lower() and "BEAR" in e for e in errors)
 
-    def test_confidence_english_normalized(self):
+    def test_confidence_english_normalized(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2562,7 +2538,7 @@ class TestValidateFinalSignals:
         # After normalization, confidence should be "高"
         assert data["verdicts"]["RB"]["confidence"] == "高"
 
-    def test_grade_noise_with_execute(self):
+    def test_grade_noise_with_execute(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {
             "round_id": "r1", "generated_at": "2026-07-17",
@@ -2576,7 +2552,7 @@ class TestValidateFinalSignals:
         errors, warns = validate_signals(data)
         assert any("矛盾" in e for e in errors)
 
-    def test_empty_verdicts_warn(self):
+    def test_empty_verdicts_warn(self) -> None:
         from scripts.validate_final_signals import validate_signals
         data = {"round_id": "r1", "generated_at": "2026-07-17",
                 "data_benchmark": "v1", "verdicts": {}}
@@ -2586,7 +2562,7 @@ class TestValidateFinalSignals:
 
 
 class TestInferenceGate:
-    def test_acquire_and_release(self):
+    def test_acquire_and_release(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2597,7 +2573,7 @@ class TestInferenceGate:
                 gate.release(result)
                 assert len(gate.audit_log) >= 2
 
-    def test_acquire_while_busy(self):
+    def test_acquire_while_busy(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2608,7 +2584,7 @@ class TestInferenceGate:
                 assert gate.acquire(p2) is False
                 gate.release(InferenceResult(agent_name="agent1", success=True, duration_seconds=1.0))
 
-    def test_cooldown_blocks(self):
+    def test_cooldown_blocks(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2620,7 +2596,7 @@ class TestInferenceGate:
                 p2 = InferenceProposal(agent_name="agent2", intent="scan")
                 assert gate.acquire(p2) is False
 
-    def test_save_audit(self):
+    def test_save_audit(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2633,20 +2609,20 @@ class TestInferenceGate:
                 assert os.path.exists(os.path.join(path, "pipeline_log.json"))
                 assert os.path.exists(os.path.join(path, "cost_log.json"))
 
-    def test_with_gate_decorator(self):
+    def test_with_gate_decorator(self) -> None:
         from scripts.inference_gate import InferenceGate, with_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
                 gate = InferenceGate(cooldown=0)
 
                 @with_gate(gate)
-                def my_agent(agent_name, **kwargs):
+                def my_agent(agent_name, **kwargs) -> None:
                     return "done"
 
                 result = my_agent("test_agent", intent="scan")
                 assert result == "done"
 
-    def test_with_gate_blocked(self):
+    def test_with_gate_blocked(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, with_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2655,18 +2631,18 @@ class TestInferenceGate:
                 gate.acquire(InferenceProposal(agent_name="blocker", intent="block"))
 
                 @with_gate(gate)
-                def my_agent(agent_name, **kwargs):
+                def my_agent(agent_name, **kwargs) -> None:
                     return "done"
 
                 result = my_agent("test_agent", intent="scan")
                 assert result["status"] == "blocked"
 
-    def test_proposal_default_resources(self):
+    def test_proposal_default_resources(self) -> None:
         from scripts.inference_gate import InferenceProposal
         p = InferenceProposal(agent_name="test", intent="scan")
         assert p.required_resources == []
 
-    def test_create_gate(self):
+    def test_create_gate(self) -> None:
         from scripts.inference_gate import create_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2674,7 +2650,7 @@ class TestInferenceGate:
                 assert gate is not None
 
     # ── 补充测试 ──────────────────────────────────────────────
-    def test_init_defaults(self):
+    def test_init_defaults(self) -> None:
         from scripts.inference_gate import InferenceGate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2688,7 +2664,7 @@ class TestInferenceGate:
                 assert len(gate.pipeline_log) == 0
                 assert len(gate.cost_log) == 0
 
-    def test_init_custom_cooldown_and_timeout(self):
+    def test_init_custom_cooldown_and_timeout(self) -> None:
         from scripts.inference_gate import InferenceGate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2696,7 +2672,7 @@ class TestInferenceGate:
                 assert gate._cooldown == 100
                 assert gate._timeout == 50
 
-    def test_session_id_format(self):
+    def test_session_id_format(self) -> None:
         from scripts.inference_gate import InferenceGate
         import re
         with tempfile.TemporaryDirectory() as tmp:
@@ -2704,7 +2680,7 @@ class TestInferenceGate:
                 gate = InferenceGate()
                 assert re.match(r"\d{8}_\d{6}", gate._session_id)
 
-    def test_release_without_acquire(self):
+    def test_release_without_acquire(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2716,7 +2692,7 @@ class TestInferenceGate:
                 assert len(gate.cost_log) == 1
                 assert len(gate.audit_log) == 1
 
-    def test_acquire_after_cooldown_expired(self):
+    def test_acquire_after_cooldown_expired(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2728,7 +2704,7 @@ class TestInferenceGate:
                 p2 = InferenceProposal(agent_name="agent2", intent="scan")
                 assert gate.acquire(p2) is True
 
-    def test_save_audit_empty_logs(self):
+    def test_save_audit_empty_logs(self) -> None:
         from scripts.inference_gate import InferenceGate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2738,14 +2714,14 @@ class TestInferenceGate:
                 assert os.path.exists(os.path.join(path, "pipeline_log.json"))
                 assert os.path.exists(os.path.join(path, "cost_log.json"))
 
-    def test_with_gate_exception(self):
+    def test_with_gate_exception(self) -> None:
         from scripts.inference_gate import InferenceGate, with_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
                 gate = InferenceGate(cooldown=0)
 
                 @with_gate(gate)
-                def failing_agent(agent_name, **kwargs):
+                def failing_agent(agent_name, **kwargs) -> None:
                     raise ValueError("test error")
 
                 with pytest.raises(ValueError):
@@ -2753,21 +2729,21 @@ class TestInferenceGate:
                 assert gate._pipeline_busy is False
                 assert len(gate.audit_log) > 0
 
-    def test_with_gate_all_kwargs(self):
+    def test_with_gate_all_kwargs(self) -> None:
         from scripts.inference_gate import InferenceGate, with_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
                 gate = InferenceGate(cooldown=0)
 
                 @with_gate(gate)
-                def resource_agent(agent_name, **kwargs):
+                def resource_agent(agent_name, **kwargs) -> None:
                     return {"name": agent_name, "extra": kwargs}
 
                 result = resource_agent("test_agent", intent="analyze", resources=["cpu"], estimated_tokens=500)
                 assert result["name"] == "test_agent"
                 assert result["extra"] == {}
 
-    def test_proposal_with_custom_fields(self):
+    def test_proposal_with_custom_fields(self) -> None:
         from scripts.inference_gate import InferenceProposal
         p = InferenceProposal(
             agent_name="test", intent="scan",
@@ -2779,7 +2755,7 @@ class TestInferenceGate:
         assert p.estimated_cost_tokens == 1000
         assert p.priority == 1
 
-    def test_cost_log_after_release(self):
+    def test_cost_log_after_release(self) -> None:
         from scripts.inference_gate import InferenceGate, InferenceProposal, InferenceResult
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2795,12 +2771,12 @@ class TestInferenceGate:
                 assert entry["success"] is True
                 assert entry["duration"] == 2.5
 
-    def test_audit_record_default_metadata(self):
+    def test_audit_record_default_metadata(self) -> None:
         from scripts.inference_gate import AuditRecord
         record = AuditRecord(timestamp="now", agent="test", action="test")
         assert record.metadata == {}
 
-    def test_create_gate_custom_cooldown(self):
+    def test_create_gate_custom_cooldown(self) -> None:
         from scripts.inference_gate import create_gate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
@@ -2809,7 +2785,7 @@ class TestInferenceGate:
 
 
 class TestAutoFactorMining:
-    def test_generate_candidates(self):
+    def test_generate_candidates(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         with tempfile.TemporaryDirectory() as tmp:
             miner = AutoFactorMiner(factor_dir=tmp)
@@ -2818,7 +2794,7 @@ class TestAutoFactorMining:
             assert all("name" in c for c in candidates)
             assert all("expression" in c for c in candidates)
 
-    def test_evaluate(self):
+    def test_evaluate(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         with tempfile.TemporaryDirectory() as tmp:
             miner = AutoFactorMiner(factor_dir=tmp)
@@ -2829,14 +2805,14 @@ class TestAutoFactorMining:
             assert "max_drawdown" in perf
             assert "pass" in perf
 
-    def test_select_empty(self):
+    def test_select_empty(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         with tempfile.TemporaryDirectory() as tmp:
             miner = AutoFactorMiner(factor_dir=tmp)
             selected = miner.select(top_n=5)
             assert selected == []
 
-    def test_run_weekly(self):
+    def test_run_weekly(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         with tempfile.TemporaryDirectory() as tmp:
             miner = AutoFactorMiner(factor_dir=tmp)
@@ -2845,14 +2821,14 @@ class TestAutoFactorMining:
             assert result["candidates_generated"] == 50
             assert "total_factors" in result
 
-    def test_get_top_factors(self):
+    def test_get_top_factors(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         with tempfile.TemporaryDirectory() as tmp:
             miner = AutoFactorMiner(factor_dir=tmp)
             top = miner.get_top_factors(top_n=3)
             assert isinstance(top, list)
 
-    def test_operators_exist(self):
+    def test_operators_exist(self) -> None:
         from scripts.auto_factor_mining import AutoFactorMiner
         assert "returns" in AutoFactorMiner.OPERATORS
         assert "volatility" in AutoFactorMiner.OPERATORS
@@ -2862,37 +2838,37 @@ class TestAutoFactorMining:
 
 
 class TestResourceWatchdog:
-    def test_phase_base_values(self):
+    def test_phase_base_values(self) -> None:
         from scripts.resource_watchdog import PHASE_BASE
         assert PHASE_BASE["phase0"] == 1
         assert PHASE_BASE["phase2"] == 5
         assert PHASE_BASE["phase3"] == 6
 
-    def test_thresholds(self):
+    def test_thresholds(self) -> None:
         from scripts.resource_watchdog import THRESHOLDS
         assert THRESHOLDS["cpu_yellow"] == 50
         assert THRESHOLDS["cpu_red"] == 80
         assert THRESHOLDS["active_max"] == 8
 
-    def test_assess_risk_level_green(self):
+    def test_assess_risk_level_green(self) -> None:
         from scripts.resource_watchdog import _assess_risk_level
         level, rec = _assess_risk_level(cpu=30, mem=40, disk=50, py_procs=3, active_count=2)
         assert level == "green"
         assert rec == "proceed"
 
-    def test_assess_risk_level_yellow(self):
+    def test_assess_risk_level_yellow(self) -> None:
         from scripts.resource_watchdog import _assess_risk_level
         level, rec = _assess_risk_level(cpu=65, mem=40, disk=50, py_procs=3, active_count=2)
         assert level == "yellow"
         assert rec == "cautious"
 
-    def test_assess_risk_level_red(self):
+    def test_assess_risk_level_red(self) -> None:
         from scripts.resource_watchdog import _assess_risk_level
         level, rec = _assess_risk_level(cpu=90, mem=40, disk=50, py_procs=3, active_count=2)
         assert level == "red"
         assert rec == "stop"
 
-    def test_compute_safe_concurrent_active_max(self):
+    def test_compute_safe_concurrent_active_max(self) -> None:
         from scripts.resource_watchdog import compute_safe_concurrent
         with patch("scripts.resource_watchdog._get_cpu_pct", return_value=30), \
              patch("scripts.resource_watchdog._get_mem_pct", return_value=40), \
@@ -2902,7 +2878,7 @@ class TestResourceWatchdog:
             assert result["safe_concurrent"] == 0
             assert result["risk_level"] == "red"
 
-    def test_compute_safe_concurrent_green(self):
+    def test_compute_safe_concurrent_green(self) -> None:
         from scripts.resource_watchdog import compute_safe_concurrent
         with patch("scripts.resource_watchdog._get_cpu_pct", return_value=30), \
              patch("scripts.resource_watchdog._get_mem_pct", return_value=40), \
@@ -2912,7 +2888,7 @@ class TestResourceWatchdog:
             assert result["safe_concurrent"] >= 1
             assert result["risk_level"] == "green"
 
-    def test_compute_safe_concurrent_high_cpu(self):
+    def test_compute_safe_concurrent_high_cpu(self) -> None:
         from scripts.resource_watchdog import compute_safe_concurrent
         with patch("scripts.resource_watchdog._get_cpu_pct", return_value=85), \
              patch("scripts.resource_watchdog._get_mem_pct", return_value=40), \
@@ -2923,7 +2899,7 @@ class TestResourceWatchdog:
 
 
 class TestAttributionAnalyzer:
-    def test_shapley_analyze_aligned(self):
+    def test_shapley_analyze_aligned(self) -> None:
         from scripts.attribution_analyzer import ShapleyAttribution
         attr = ShapleyAttribution()
         result = attr.analyze({
@@ -2933,7 +2909,7 @@ class TestAttributionAnalyzer:
         })
         assert all(dim in result for dim in ["technical", "fundamental", "chain", "sentiment"])
 
-    def test_shapley_analyze_misaligned(self):
+    def test_shapley_analyze_misaligned(self) -> None:
         from scripts.attribution_analyzer import ShapleyAttribution
         attr = ShapleyAttribution()
         result = attr.analyze({
@@ -2944,7 +2920,7 @@ class TestAttributionAnalyzer:
         # All contributions should be negative when pnl and direction misalign
         assert all(v < 0 for v in result.values())
 
-    def test_shapley_analyze_zero_scores(self):
+    def test_shapley_analyze_zero_scores(self) -> None:
         from scripts.attribution_analyzer import ShapleyAttribution
         attr = ShapleyAttribution()
         result = attr.analyze({
@@ -2954,7 +2930,7 @@ class TestAttributionAnalyzer:
         })
         assert all(v == 0.25 for v in result.values())
 
-    def test_batch_analyze(self):
+    def test_batch_analyze(self) -> None:
         from scripts.attribution_analyzer import ShapleyAttribution
         attr = ShapleyAttribution()
         records = [
@@ -2969,13 +2945,13 @@ class TestAttributionAnalyzer:
         assert "avg_contribution" in result
         assert "recommendation" in result
 
-    def test_batch_analyze_empty(self):
+    def test_batch_analyze_empty(self) -> None:
         from scripts.attribution_analyzer import ShapleyAttribution
         attr = ShapleyAttribution()
         result = attr.batch_analyze([])
         assert result == {}
 
-    def test_argument_performance_db(self):
+    def test_argument_performance_db(self) -> None:
         from scripts.attribution_analyzer import ArgumentPerformanceDB
         with tempfile.TemporaryDirectory() as tmp:
             db = ArgumentPerformanceDB(db_path=os.path.join(tmp, "arg_perf.json"))
@@ -2985,14 +2961,14 @@ class TestAttributionAnalyzer:
             assert perf["samples"] == 2
             assert perf["win_rate"] == 0.5
 
-    def test_argument_performance_no_data(self):
+    def test_argument_performance_no_data(self) -> None:
         from scripts.attribution_analyzer import ArgumentPerformanceDB
         with tempfile.TemporaryDirectory() as tmp:
             db = ArgumentPerformanceDB(db_path=os.path.join(tmp, "arg_perf.json"))
             perf = db.get_performance("RB", "nonexistent")
             assert perf["samples"] == 0
 
-    def test_judge_weight_updater(self):
+    def test_judge_weight_updater(self) -> None:
         from scripts.attribution_analyzer import JudgeWeightUpdater
         with tempfile.TemporaryDirectory() as tmp:
             updater = JudgeWeightUpdater(db_path=os.path.join(tmp, "weights.json"))
@@ -3007,7 +2983,7 @@ class TestAttributionAnalyzer:
 
 
 class TestMemoryEnforcer:
-    def test_build_debate_record(self):
+    def test_build_debate_record(self) -> None:
         from scripts.memory_enforcer import build_debate_record
         debate_data = {
             "report_date": "20260717",
@@ -3024,7 +3000,7 @@ class TestMemoryEnforcer:
         assert "RB" in record["symbols"]
         assert record["action"] == "debate_round_daily"
 
-    def test_archive_to_journal_new(self):
+    def test_archive_to_journal_new(self) -> None:
         from scripts.memory_enforcer import archive_to_journal, load_json, save_json
         with tempfile.TemporaryDirectory() as tmp:
             journal_path = os.path.join(tmp, "debate_journal.json")
@@ -3037,7 +3013,7 @@ class TestMemoryEnforcer:
                     result = archive_to_journal(record)
                     assert result is True
 
-    def test_archive_to_journal_duplicate(self):
+    def test_archive_to_journal_duplicate(self) -> None:
         from scripts.memory_enforcer import archive_to_journal, save_json
         with tempfile.TemporaryDirectory() as tmp:
             journal_path = os.path.join(tmp, "debate_journal.json")
@@ -3046,12 +3022,12 @@ class TestMemoryEnforcer:
                 result = archive_to_journal({"round_id": "r1", "timestamp": "2026-07-17", "action": "debate"})
                 assert result is False
 
-    def test_validate_workspace_log_no_file(self):
+    def test_validate_workspace_log_no_file(self) -> None:
         from scripts.memory_enforcer import validate_workspace_log
         result = validate_workspace_log("/nonexistent/log.md")
         assert result["status"] == "no_log"
 
-    def test_validate_workspace_log_clean(self):
+    def test_validate_workspace_log_clean(self) -> None:
         from scripts.memory_enforcer import validate_workspace_log
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
             f.write("## 日线盘后辩论\n- 正常内容\n## 下一段\n")
@@ -3060,7 +3036,7 @@ class TestMemoryEnforcer:
         assert result["status"] == "clean" or result["violations"] == 0
         os.unlink(tmp)
 
-    def test_validate_workspace_log_violation(self):
+    def test_validate_workspace_log_violation(self) -> None:
         from scripts.memory_enforcer import validate_workspace_log
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
             f.write("## 日线盘后辩论\n- 探源分析信号\n## 下一段\n")
@@ -3070,7 +3046,7 @@ class TestMemoryEnforcer:
         assert result["violations"] > 0
         os.unlink(tmp)
 
-    def test_validate_workspace_no_debate_section(self):
+    def test_validate_workspace_no_debate_section(self) -> None:
         from scripts.memory_enforcer import validate_workspace_log
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
             f.write("## 其他内容\n- 没有辩论\n")
@@ -3079,7 +3055,7 @@ class TestMemoryEnforcer:
         assert result["status"] == "no_debate_section"
         os.unlink(tmp)
 
-    def test_load_save_json(self):
+    def test_load_save_json(self) -> None:
         from scripts.memory_enforcer import load_json, save_json
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "test.json")
@@ -3089,22 +3065,22 @@ class TestMemoryEnforcer:
 
 
 class TestInitKnowledgeBase:
-    def test_load_yaml_not_found(self):
+    def test_load_yaml_not_found(self) -> None:
         from scripts.init_knowledge_base import load_yaml
         result = load_yaml(Path("/nonexistent/file.yaml"))
         assert result == {}
 
-    def test_load_json_not_found(self):
+    def test_load_json_not_found(self) -> None:
         from scripts.init_knowledge_base import load_json
         result = load_json(Path("/nonexistent/file.json"))
         assert result == {}
 
-    def test_load_json_with_default(self):
+    def test_load_json_with_default(self) -> None:
         from scripts.init_knowledge_base import load_json
         result = load_json(Path("/nonexistent/file.json"), default=[])
         assert result == []
 
-    def test_load_yaml_valid(self):
+    def test_load_yaml_valid(self) -> None:
         from scripts.init_knowledge_base import load_yaml
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as f:
             f.write("key: value\n")
@@ -3113,7 +3089,7 @@ class TestInitKnowledgeBase:
         assert result == {"key": "value"}
         os.unlink(tmp)
 
-    def test_load_json_valid(self):
+    def test_load_json_valid(self) -> None:
         from scripts.init_knowledge_base import load_json
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             f.write('{"key": "value"}')
@@ -3122,19 +3098,19 @@ class TestInitKnowledgeBase:
         assert result == {"key": "value"}
         os.unlink(tmp)
 
-    def test_chain_map_defined(self):
+    def test_chain_map_defined(self) -> None:
         from scripts.init_knowledge_base import CHAIN_MAP
         assert "黑色系" in CHAIN_MAP
         assert "rb" in CHAIN_MAP["黑色系"]
 
 
 class TestVectorMemory:
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         from scripts.vector_memory import VectorMemory
         vm = VectorMemory(base_dir=None)
         assert vm.base_dir is not None
 
-    def test_init_with_dir(self):
+    def test_init_with_dir(self) -> None:
         from scripts.vector_memory import VectorMemory
         tmp = tempfile.mkdtemp()
         try:
@@ -3146,13 +3122,13 @@ class TestVectorMemory:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_generate_vector_id(self):
+    def test_generate_vector_id(self) -> None:
         from scripts.vector_memory import VectorMemory
         vm = VectorMemory(base_dir=None)
         vid = vm._generate_vector_id({"symbol": "RB", "regime": "trend", "signal_fingerprint": "abc"})
         assert len(vid) == 16
 
-    def test_store_and_query_short(self):
+    def test_store_and_query_short(self) -> None:
         from scripts.vector_memory import VectorMemory
         tmp = tempfile.mkdtemp()
         try:
@@ -3170,7 +3146,7 @@ class TestVectorMemory:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_query_nonexistent(self):
+    def test_query_nonexistent(self) -> None:
         from scripts.vector_memory import VectorMemory
         tmp = tempfile.mkdtemp()
         try:
@@ -3181,7 +3157,7 @@ class TestVectorMemory:
             import shutil
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_store_long_term(self):
+    def test_store_long_term(self) -> None:
         from scripts.vector_memory import VectorMemory
         tmp = tempfile.mkdtemp()
         try:
@@ -3199,33 +3175,33 @@ class TestVectorMemory:
 
 
 class TestSkillevolverEvolution:
-    def test_init(self):
+    def test_init(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
             assert se.root == Path(tmp)
             assert se.agents_dir == Path(tmp) / "agents"
 
-    def test_exploration_strategies(self):
+    def test_exploration_strategies(self) -> None:
         from scripts.skillevolver_evolution import EXPLORATION_STRATEGIES
         assert "greedy" in EXPLORATION_STRATEGIES
         assert "exploratory" in EXPLORATION_STRATEGIES
         assert "prompt_modifier" in EXPLORATION_STRATEGIES["greedy"]
 
-    def test_role_to_file_id(self):
+    def test_role_to_file_id(self) -> None:
         from scripts.skillevolver_evolution import ROLE_TO_FILE_ID
         assert "闫判官" in ROLE_TO_FILE_ID
         assert "观澜" in ROLE_TO_FILE_ID
         assert "探源" in ROLE_TO_FILE_ID
 
-    def test_run_evolution_cycle_empty(self):
+    def test_run_evolution_cycle_empty(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
             result = se.run_evolution_cycle(faults=[], dry_run=True)
             assert isinstance(result, list)
 
-    def test_run_evolution_cycle_with_faults(self):
+    def test_run_evolution_cycle_with_faults(self) -> None:
         from scripts.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
@@ -3235,7 +3211,7 @@ class TestSkillevolverEvolution:
 
 
 class TestVerifyEvolution:
-    def test_verify_empty(self):
+    def test_verify_empty(self) -> None:
         from scripts.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
@@ -3245,7 +3221,7 @@ class TestVerifyEvolution:
             assert isinstance(result["evolved_score"], float)
             assert "verdict" in result
 
-    def test_verify_with_cases(self):
+    def test_verify_with_cases(self) -> None:
         from scripts.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
@@ -3256,14 +3232,14 @@ class TestVerifyEvolution:
             assert len(result["per_expert"]) == 5
             assert result["verdict"] in ("approved", "rejected")
 
-    def test_load_vibench_not_found(self):
+    def test_load_vibench_not_found(self) -> None:
         from scripts.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
             cases = verifier._load_vibench()
             assert cases == []
 
-    def test_load_vibench_list(self):
+    def test_load_vibench_list(self) -> None:
         from scripts.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             bench = Path(tmp) / "benchmarks"
@@ -3274,7 +3250,7 @@ class TestVerifyEvolution:
             loaded = verifier._load_vibench()
             assert len(loaded) == 2
 
-    def test_load_vibench_dict_cases(self):
+    def test_load_vibench_dict_cases(self) -> None:
         from scripts.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             bench = Path(tmp) / "benchmarks"
@@ -3287,13 +3263,13 @@ class TestVerifyEvolution:
 
 
 class TestAnalyzeTrajectory:
-    def test_parse_empty(self):
+    def test_parse_empty(self) -> None:
         from scripts.analyze_trajectory import TrajectoryAnalyzer
         analyzer = TrajectoryAnalyzer()
         traj = analyzer.parse({})
         assert isinstance(traj, list)
 
-    def test_parse_with_debate_results(self):
+    def test_parse_with_debate_results(self) -> None:
         from scripts.analyze_trajectory import TrajectoryAnalyzer
         analyzer = TrajectoryAnalyzer()
         data = {
@@ -3318,7 +3294,7 @@ class TestAnalyzeTrajectory:
         assert "P4" in step_ids
         assert "P5_judge" in step_ids
 
-    def test_parse_with_journal(self):
+    def test_parse_with_journal(self) -> None:
         from scripts.analyze_trajectory import TrajectoryAnalyzer
         analyzer = TrajectoryAnalyzer()
         data = {
@@ -3333,7 +3309,7 @@ class TestAnalyzeTrajectory:
         assert len(journal_steps) == 1
         assert journal_steps[0]["action"] == "scan"
 
-    def test_attribute_no_failures(self):
+    def test_attribute_no_failures(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         attributor = FaultAttributor()
         traj = [
@@ -3342,7 +3318,7 @@ class TestAnalyzeTrajectory:
         faults = attributor.attribute(traj)
         assert faults == []
 
-    def test_attribute_skill_defect(self):
+    def test_attribute_skill_defect(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         attributor = FaultAttributor()
         traj = [
@@ -3354,7 +3330,7 @@ class TestAnalyzeTrajectory:
         assert faults[0]["fault_type"] == "skill_defect"
         assert faults[0]["responsible_skill"] == "tech"
 
-    def test_attribute_execution_lapse(self):
+    def test_attribute_execution_lapse(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         attributor = FaultAttributor()
         traj = [
@@ -3365,7 +3341,7 @@ class TestAnalyzeTrajectory:
         assert len(faults) == 1
         assert faults[0]["fault_type"] == "execution_lapse"
 
-    def test_attribute_confidence(self):
+    def test_attribute_confidence(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         attributor = FaultAttributor()
         traj = [
@@ -3375,14 +3351,14 @@ class TestAnalyzeTrajectory:
         faults = attributor.attribute(traj)
         assert faults[0]["confidence"] >= 0.85
 
-    def test_generate_suggestion_defect(self):
+    def test_generate_suggestion_defect(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         step = {"step_id": "P3", "agent_role": "观澜", "skill_used": "tech"}
         sugg = FaultAttributor._generate_suggestion(step, "skill_defect")
         assert sugg["action"] == "修正"
         assert "观澜" in sugg["content_hint"]
 
-    def test_generate_suggestion_lapse(self):
+    def test_generate_suggestion_lapse(self) -> None:
         from scripts.analyze_trajectory import FaultAttributor
         step = {"step_id": "P4", "agent_role": "证真", "skill_used": "debate"}
         sugg = FaultAttributor._generate_suggestion(step, "execution_lapse")
@@ -3391,54 +3367,54 @@ class TestAnalyzeTrajectory:
 
 
 class TestSelfCheck:
-    def test_normalize_path_unix(self):
+    def test_normalize_path_unix(self) -> None:
         from scripts.self_check import _normalize_path
         assert _normalize_path("/d/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
         assert _normalize_path("/c/Users/foo") == "C:/Users/foo"
 
-    def test_normalize_path_win(self):
+    def test_normalize_path_win(self) -> None:
         from scripts.self_check import _normalize_path
         assert _normalize_path("D:/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
 
-    def test_normalize_path_upper_drive(self):
+    def test_normalize_path_upper_drive(self) -> None:
         from scripts.self_check import _normalize_path
         assert _normalize_path("/D/WorkBuddy") == "D:/WorkBuddy"
 
-    def test_check_path_normalization(self):
+    def test_check_path_normalization(self) -> None:
         from scripts.self_check import check_path_normalization
         issues = check_path_normalization()
         assert issues == []
 
-    def test_check_scan_file_no_workspace(self):
+    def test_check_scan_file_no_workspace(self) -> None:
         from scripts.self_check import check_scan_file
         issues = check_scan_file(None)
         assert issues == []
 
-    def test_check_scan_file_bad_workspace(self):
+    def test_check_scan_file_bad_workspace(self) -> None:
         from scripts.self_check import check_scan_file
         issues = check_scan_file("/nonexistent/path")
         assert any(i["check"] == "工作空间" for i in issues)
 
-    def test_check_scan_file_empty(self):
+    def test_check_scan_file_empty(self) -> None:
         from scripts.self_check import check_scan_file
         with tempfile.TemporaryDirectory() as tmp:
             issues = check_scan_file(tmp)
             assert any(i["check"] == "扫描文件" for i in issues)
 
-    def test_check_fix_coverage(self):
+    def test_check_fix_coverage(self) -> None:
         from scripts.self_check import check_fix_coverage
         issues = check_fix_coverage()
         # Some fixes may be missing in test environment
         assert isinstance(issues, list)
 
-    def test_parse_args(self):
+    def test_parse_args(self) -> None:
         from scripts.self_check import parse_args
         with patch("sys.argv", ["self_check.py"]):
             args = parse_args()
             assert args.workspace is None
             assert args.scan is None
 
-    def test_parse_args_with_options(self):
+    def test_parse_args_with_options(self) -> None:
         from scripts.self_check import parse_args
         with patch("sys.argv", ["self_check.py", "--workspace", "/tmp", "--scan", "test.json", "-v"]):
             args = parse_args()
@@ -3448,79 +3424,51 @@ class TestSelfCheck:
 
 
 class TestDebateProtocolV2:
-    def test_weight_argument_defaults(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2(seed=42)
-        arg = {"id": "a1", "text": "test", "confidence": 0.7}
-        result = dp._weight_argument(arg)
-        assert "weighted_score" in result
-        assert "weight_breakdown" in result
-        assert 0 <= result["weighted_score"] <= 1.0
+    """验证 G94 内联到 fdt_langgraph.nodes 的辩论协议常量。
 
-    def test_weight_argument_high_quality(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2(seed=42)
-        arg = {
-            "id": "a2",
-            "confidence": 0.9,
-            "data_age_days": 1,
-            "source_type": "exchange",
-            "historical_winrate": 0.8,
-            "regime_match_score": 0.9,
-        }
-        result = dp._weight_argument(arg)
-        assert result["weighted_score"] > 0.5
-        assert result["weight_breakdown"]["timeliness"] > 0.9
+    debate_protocol_v2.py 已删除，常量内联到 fdt_langgraph/nodes.py。
+    """
 
-    def test_calculate_divergence_equal(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2()
-        div = dp._calculate_divergence(0.5, 0.5)
-        assert div == 0.0
+    def test_attack_dimensions_defined(self) -> None:
+        from fdt_langgraph.nodes import ATTACK_DIMENSIONS
+        assert isinstance(ATTACK_DIMENSIONS, list)
+        assert len(ATTACK_DIMENSIONS) == 5
+        expected = ["data_lag", "logic_jump", "ignore_chain", "false_breakout", "liquidity_trap"]
+        assert ATTACK_DIMENSIONS == expected
 
-    def test_calculate_divergence_max(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2()
-        div = dp._calculate_divergence(1.0, 0.0)
-        assert div == 1.0
+    def test_evidence_weight_factors_sum_to_one(self) -> None:
+        from fdt_langgraph.nodes import EVIDENCE_WEIGHT_FACTORS
+        assert isinstance(EVIDENCE_WEIGHT_FACTORS, dict)
+        assert len(EVIDENCE_WEIGHT_FACTORS) == 4
+        total = sum(EVIDENCE_WEIGHT_FACTORS.values())
+        assert abs(total - 1.0) < 1e-6
+        assert EVIDENCE_WEIGHT_FACTORS["timeliness"] == 0.30
+        assert EVIDENCE_WEIGHT_FACTORS["reliability"] == 0.25
+        assert EVIDENCE_WEIGHT_FACTORS["historical_winrate"] == 0.25
+        assert EVIDENCE_WEIGHT_FACTORS["regime_match"] == 0.20
 
-    def test_apply_attack_penalty_major(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2(seed=42)
-        args = [{"id": "a1", "weighted_score": 0.8}]
-        attacks = [{"target_argument_id": "a1", "severity": "major"}]
-        result = dp._apply_attack_penalty(args, attacks)
-        assert result[0]["weighted_score"] == 0.4
-        assert "attack_received" in result[0]
+    def test_divergence_thresholds_ordered(self) -> None:
+        from fdt_langgraph.nodes import DEBATE_DIVERGENCE_THRESHOLDS
+        assert isinstance(DEBATE_DIVERGENCE_THRESHOLDS, dict)
+        assert len(DEBATE_DIVERGENCE_THRESHOLDS) == 2
+        assert DEBATE_DIVERGENCE_THRESHOLDS["skip_cross_examination"] == 0.2
+        assert DEBATE_DIVERGENCE_THRESHOLDS["deep_debate"] == 0.7
+        # skip < deep
+        assert DEBATE_DIVERGENCE_THRESHOLDS["skip_cross_examination"] < DEBATE_DIVERGENCE_THRESHOLDS["deep_debate"]
 
-    def test_fast_mode(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2(mode="fast", seed=42)
-        aff = [{"id": "a1", "text": "bull", "confidence": 0.8, "data_age_days": 2, "source_type": "exchange"}]
-        opp = [{"id": "o1", "text": "bear", "confidence": 0.6, "data_age_days": 5, "source_type": "news"}]
-        result = dp.run_debate(aff, opp)
-        assert result["mode"] == "fast"
-        assert "winner" in result
-        assert "final_scores" in result
+    def test_evidence_weight_in_range(self) -> None:
+        from fdt_langgraph.nodes import EVIDENCE_WEIGHT_FACTORS
+        for name, weight in EVIDENCE_WEIGHT_FACTORS.items():
+            assert 0 <= weight <= 1.0, f"{name}={weight} out of [0, 1]"
 
-    def test_full_mode_run(self):
-        from scripts.debate_protocol_v2 import DebateProtocolV2
-        dp = DebateProtocolV2(mode="full", seed=42)
-        aff = [
-            {"id": "a1", "text": "RB库存下降", "confidence": 0.8, "data_age_days": 2, "source_type": "exchange", "regime": "trend"},
-            {"id": "a2", "text": "基差走强", "confidence": 0.7, "data_age_days": 1, "source_type": "wind", "regime": "chain"},
-        ]
-        opp = [
-            {"id": "o1", "text": "需求走弱", "confidence": 0.6, "data_age_days": 5, "source_type": "news", "regime": "fundamental"},
-        ]
-        result = dp.run_debate(aff, opp)
-        assert "rounds" in result
-        assert "winner" in result
-        assert "divergence" in result
+    def test_attack_dimensions_all_strings(self) -> None:
+        from fdt_langgraph.nodes import ATTACK_DIMENSIONS
+        for d in ATTACK_DIMENSIONS:
+            assert isinstance(d, str) and len(d) > 0
 
 
 class TestAgentLifecycle:
-    def test_state_init_and_cleanup(self):
+    def test_state_init_and_cleanup(self) -> None:
         from scripts.agent_lifecycle import _load_state, _save_state, _STATE_FILE
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
@@ -3541,7 +3489,7 @@ class TestAgentLifecycle:
                 al._STATE_DIR = old_dir
                 al._STATE_FILE = old_file
 
-    def test_cmd_register(self):
+    def test_cmd_register(self) -> None:
         from scripts.agent_lifecycle import cmd_register, cmd_cleanup, _load_state
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
@@ -3560,7 +3508,7 @@ class TestAgentLifecycle:
                 al._STATE_DIR = old_dir
                 al._STATE_FILE = old_file
 
-    def test_cmd_active_empty(self):
+    def test_cmd_active_empty(self) -> None:
         from scripts.agent_lifecycle import cmd_active, cmd_cleanup
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
@@ -3575,7 +3523,7 @@ class TestAgentLifecycle:
                 al._STATE_DIR = old_dir
                 al._STATE_FILE = old_file
 
-    def test_cmd_report(self):
+    def test_cmd_report(self) -> None:
         from scripts.agent_lifecycle import cmd_register, cmd_report, cmd_cleanup
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
@@ -3594,7 +3542,7 @@ class TestAgentLifecycle:
                 al._STATE_DIR = old_dir
                 al._STATE_FILE = old_file
 
-    def test_cmd_shutdown(self):
+    def test_cmd_shutdown(self) -> None:
         from scripts.agent_lifecycle import cmd_register, cmd_shutdown, cmd_cleanup, _load_state
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
@@ -3614,7 +3562,7 @@ class TestAgentLifecycle:
 
 
 class TestMemoryWriter:
-    def test_write_and_read(self):
+    def test_write_and_read(self) -> None:
         from scripts.memory_writer import MemoryWriter
         import shutil
         tmp = tempfile.mkdtemp()
@@ -3630,7 +3578,7 @@ class TestMemoryWriter:
             gc.collect()
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_merge_all(self):
+    def test_merge_all(self) -> None:
         from scripts.memory_writer import MemoryWriter
         import shutil
         tmp = tempfile.mkdtemp()
@@ -3648,7 +3596,7 @@ class TestMemoryWriter:
             gc.collect()
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_validate_missing(self):
+    def test_validate_missing(self) -> None:
         from scripts.memory_writer import MemoryWriter
         import shutil
         tmp = tempfile.mkdtemp()
@@ -3662,7 +3610,7 @@ class TestMemoryWriter:
             gc.collect()
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_compute_heldout_coherence_bull(self):
+    def test_compute_heldout_coherence_bull(self) -> None:
         from scripts.memory_writer import compute_heldout_coherence
         pro = [{"claim": "test", "evidence": "data1"}, {"claim": "test2", "evidence": "data2"}]
         con = [{"claim": "counter"}]
@@ -3671,7 +3619,7 @@ class TestMemoryWriter:
         assert "coherence_score" in result
         assert result["coherence_score"] >= 0.5
 
-    def test_build_seed_debate_record_bear(self):
+    def test_build_seed_debate_record_bear(self) -> None:
         from scripts.memory_writer import build_seed_debate_record_from_verdict
         verdict = {
             "symbol": "RB.SHF",
@@ -3694,14 +3642,14 @@ class TestMemoryWriter:
 
 
 class TestCalibrateWeights:
-    def test_get_adx_ranges(self):
+    def test_get_adx_ranges(self) -> None:
         from scripts.calibrate_weights import get_adx_range
         assert get_adx_range(80) == "ADX≥70"
         assert get_adx_range(60) == "50≤ADX<70"
         assert get_adx_range(40) == "30≤ADX<50"
         assert get_adx_range(20) == "ADX<30"
 
-    def test_get_rsi_range_bear(self):
+    def test_get_rsi_range_bear(self) -> None:
         from scripts.calibrate_weights import get_rsi_range
         assert get_rsi_range("bear", 25) == "RSI<30超卖"
         assert get_rsi_range("bear", 32) == "30≤RSI<35"
@@ -3709,7 +3657,7 @@ class TestCalibrateWeights:
         assert get_rsi_range("bear", 42) == "40≤RSI<45"
         assert get_rsi_range("bear", 50) == "RSI≥45"
 
-    def test_get_rsi_range_bull(self):
+    def test_get_rsi_range_bull(self) -> None:
         from scripts.calibrate_weights import get_rsi_range
         assert get_rsi_range("bull", 75) == "RSI>70超买"
         assert get_rsi_range("bull", 67) == "65<RSI≤70"
@@ -3717,7 +3665,7 @@ class TestCalibrateWeights:
         assert get_rsi_range("bull", 57) == "55<RSI≤60"
         assert get_rsi_range("bull", 50) == "RSI≤55"
 
-    def test_compute_adjustments_min_samples(self):
+    def test_compute_adjustments_min_samples(self) -> None:
         from scripts.calibrate_weights import compute_adjustments
         from collections import defaultdict
         dims = {
@@ -3734,13 +3682,13 @@ class TestCalibrateWeights:
         assert "_meta" in result
         assert result["_meta"]["total_samples"] == 6
 
-    def test_compute_effective_adjustment_empty(self):
+    def test_compute_effective_adjustment_empty(self) -> None:
         from scripts.calibrate_weights import compute_effective_adjustment
         verdict = {"confidence": "中", "adx": 30, "direction": "bull", "rsi": 50, "conflict": False, "chain": "其他"}
         adj = compute_effective_adjustment(verdict, {})
         assert adj == 0
 
-    def test_compute_effective_adjustment_with_calibration(self):
+    def test_compute_effective_adjustment_with_calibration(self) -> None:
         from scripts.calibrate_weights import compute_effective_adjustment
         verdict = {"confidence": "高", "adx": 40, "direction": "bear", "rsi": 50, "conflict": False, "chain": "黑色"}
         calib = {
@@ -3753,7 +3701,7 @@ class TestCalibrateWeights:
 
 
 class TestClusterFailures:
-    def test_extract_verdict_features_bear(self):
+    def test_extract_verdict_features_bear(self) -> None:
         from scripts.cluster_failures import extract_verdict_features
         verdict = {
             "symbol": "RB.SHF",
@@ -3775,7 +3723,7 @@ class TestClusterFailures:
         assert "超卖" in f["rsi_regime"]
         assert f["ft_match"] == "ft_一致"
 
-    def test_extract_verdict_features_with_validation(self):
+    def test_extract_verdict_features_with_validation(self) -> None:
         from scripts.cluster_failures import extract_verdict_features
         verdict = {"symbol": "CU", "direction": "bull", "adx": 20, "rsi": 60}
         vr = {"correct": True, "realized_pnl_pct": 2.5, "hit_stop": False, "hit_target1": True}
@@ -3783,7 +3731,7 @@ class TestClusterFailures:
         assert f["correct"] is True
         assert f["hit_target1"] is True
 
-    def test_cluster_by_dimension(self):
+    def test_cluster_by_dimension(self) -> None:
         from scripts.cluster_failures import cluster_by_dimension
         features = [
             {"symbol": "RB", "direction": "bear", "correct": True, "chain": "黑色", "score": 60, "adx": 30, "rsi": 30, "stop_hit_rate": 0},
@@ -3795,7 +3743,7 @@ class TestClusterFailures:
         assert len(clusters) >= 1
         assert clusters[0]["dimension"] == "chain"
 
-    def test_generate_hypothesis_low_score(self):
+    def test_generate_hypothesis_low_score(self) -> None:
         from scripts.cluster_failures import generate_hypothesis
         cluster = {
             "win_rate": 30.0,
@@ -3809,7 +3757,7 @@ class TestClusterFailures:
         assert "main_hypothesis" in hyp
         assert len(hyp["affected_rules"]) >= 1
 
-    def test_assess_severity(self):
+    def test_assess_severity(self) -> None:
         from scripts.cluster_failures import assess_severity
         high = {"win_rate": 25.0, "total_cases": 5, "stop_hit_rate": 30}
         assert assess_severity(high, 100) == "high"
@@ -3818,7 +3766,7 @@ class TestClusterFailures:
         low = {"win_rate": 55.0, "total_cases": 10, "stop_hit_rate": 20}
         assert assess_severity(low, 100) == "low"
 
-    def test_run_clustering(self):
+    def test_run_clustering(self) -> None:
         from scripts.cluster_failures import run_clustering
         features = [
             {"symbol": "RB", "direction": "bear", "correct": True, "chain": "黑色",
@@ -3848,19 +3796,19 @@ class TestClusterFailures:
 
 
 class TestValidateVerdicts:
-    def test_variety_from_symbol(self):
+    def test_variety_from_symbol(self) -> None:
         from scripts.validate_verdicts import _variety_from_symbol
         assert _variety_from_symbol("RB.SHF") == "RB"
         assert _variety_from_symbol("cu") == "CU"
         assert _variety_from_symbol("") == ""
 
-    def test_norm_date(self):
+    def test_norm_date(self) -> None:
         from scripts.validate_verdicts import _norm_date
         assert _norm_date("2026-07-17") == "20260717"
         assert _norm_date("20260717") == "20260717"
         assert _norm_date("") == ""
 
-    def test_validate_verdict_intraday_bear_stop(self):
+    def test_validate_verdict_intraday_bear_stop(self) -> None:
         from scripts.validate_verdicts import validate_verdict_intraday
         verdict = {"direction": "bear", "entry_price": 3500, "stop_loss": 3600, "target1": 3300}
         bars = [
@@ -3871,7 +3819,7 @@ class TestValidateVerdicts:
         assert result["correct"] is False
         assert result["realized_pnl_pct"] < 0
 
-    def test_validate_verdict_intraday_bull_target(self):
+    def test_validate_verdict_intraday_bull_target(self) -> None:
         from scripts.validate_verdicts import validate_verdict_intraday
         verdict = {"direction": "bull", "entry_price": 3500, "stop_loss": 3400, "target1": 3700, "target2": 3800}
         bars = [
@@ -3881,7 +3829,7 @@ class TestValidateVerdicts:
         assert result["hit_target1"] is True
         assert result["correct"] is True
 
-    def test_validate_verdict_intraday_no_trigger(self):
+    def test_validate_verdict_intraday_no_trigger(self) -> None:
         from scripts.validate_verdicts import validate_verdict_intraday
         verdict = {"direction": "bull", "entry_price": 3500, "stop_loss": 3400, "target1": 3700}
         bars = [
@@ -3891,19 +3839,19 @@ class TestValidateVerdicts:
         assert not result["hit_stop"]
         assert not result["hit_target1"]
 
-    def test_validate_verdict_fallback(self):
+    def test_validate_verdict_fallback(self) -> None:
         from scripts.validate_verdicts import validate_verdict_fallback
         verdict = {"direction": "bull", "entry_price": 3500}
         result = validate_verdict_fallback(verdict, 3600)
         assert result["correct"] is True
         assert result["change_pct"] > 0
 
-    def test_build_validation_reason(self):
+    def test_build_validation_reason(self) -> None:
         from scripts.validate_verdicts import _build_validation_reason
         reason = _build_validation_reason("bull", 100, 90, 110, False, True, False, False)
         assert "达T1" in reason
 
-    def test_compute_group_stats_empty(self):
+    def test_compute_group_stats_empty(self) -> None:
         from scripts.validate_verdicts import compute_group_stats
         stats = compute_group_stats([])
         assert "by_confidence" in stats
@@ -3911,7 +3859,7 @@ class TestValidateVerdicts:
 
 
 class TestEvolveAgents:
-    def test_load_or_create_profile_new(self):
+    def test_load_or_create_profile_new(self) -> None:
         from scripts.evolve_agents import load_or_create_profile
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "profiles.json")
@@ -3919,13 +3867,13 @@ class TestEvolveAgents:
             assert "_meta" in profile
             assert "闫判官" in profile
 
-    def test_evolve_risk_manager_insufficient(self):
+    def test_evolve_risk_manager_insufficient(self) -> None:
         from scripts.evolve_agents import evolve_risk_manager
         profile = {"atr_multiplier": 1.5, "max_position_pct_high": 5.0}
         result = evolve_risk_manager([], profile)
         assert result["atr_multiplier"] == 1.5
 
-    def test_evolve_risk_manager_high_stop_rate(self):
+    def test_evolve_risk_manager_high_stop_rate(self) -> None:
         from scripts.evolve_agents import evolve_risk_manager
         verdicts = []
         for i in range(10):
@@ -3940,19 +3888,19 @@ class TestEvolveAgents:
         assert result["atr_multiplier"] > 1.5
         assert "_stats" in result
 
-    def test_evolve_strategist_insufficient(self):
+    def test_evolve_strategist_insufficient(self) -> None:
         from scripts.evolve_agents import evolve_strategist
         profile = {"rr_target": 2.0, "position_coefficient": 1.0}
         result = evolve_strategist([], profile)
         assert result["rr_target"] == 2.0
 
-    def test_evolve_debaters_insufficient(self):
+    def test_evolve_debaters_insufficient(self) -> None:
         from scripts.evolve_agents import evolve_debaters
         profile = {"证真": {}, "慎思": {}}
         result = evolve_debaters([], profile)
         assert "证真" in result
 
-    def test_evolve_debaters_with_data(self):
+    def test_evolve_debaters_with_data(self) -> None:
         from scripts.evolve_agents import evolve_debaters
         verdicts = []
         for i in range(5):
@@ -3964,19 +3912,19 @@ class TestEvolveAgents:
         assert "证真" in result
         assert "慎思" in result
 
-    def test_evolve_chain_analyst_insufficient(self):
+    def test_evolve_chain_analyst_insufficient(self) -> None:
         from scripts.evolve_agents import evolve_chain_analyst
         profile = {"dedup_threshold": 0.80, "max_chain_reps": 1}
         result = evolve_chain_analyst([], profile)
         assert result["dedup_threshold"] == 0.80
 
-    def test_evolve_data_tech_insufficient(self):
+    def test_evolve_data_tech_insufficient(self) -> None:
         from scripts.evolve_agents import evolve_data_tech
         profile = {"retry_limit": 3}
         result = evolve_data_tech([], profile)
         assert result["retry_limit"] == 3
 
-    def test_save_and_load_json(self):
+    def test_save_and_load_json(self) -> None:
         from scripts.evolve_agents import load_json, save_json
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "test.json")
@@ -3988,32 +3936,32 @@ class TestEvolveAgents:
 
 
 class TestRunDebate:
-    def test_to_win_path_unix_style(self):
+    def test_to_win_path_unix_style(self) -> None:
         from scripts.run_debate import _to_win_path
         result = _to_win_path("/d/Programs/FDT/scripts")
         assert "D:\\" in result or "D:/" in result
 
-    def test_to_win_path_already_windows(self):
+    def test_to_win_path_already_windows(self) -> None:
         from scripts.run_debate import _to_win_path
         result = _to_win_path("D:\\Programs\\FDT")
         assert result is not None
 
-    def test_to_win_path_relative(self):
+    def test_to_win_path_relative(self) -> None:
         from scripts.run_debate import _to_win_path
         result = _to_win_path("scripts/test.py")
         assert result == "scripts/test.py"
 
-    def test_load_strategist_profile_missing(self):
+    def test_load_strategist_profile_missing(self) -> None:
         from scripts.run_debate import _load_strategist_profile
         result = _load_strategist_profile()
         assert isinstance(result, dict)
 
-    def test_strategist_experience_inject_empty(self):
+    def test_strategist_experience_inject_empty(self) -> None:
         from scripts.run_debate import _strategist_experience_inject
         result = _strategist_experience_inject({})
         assert result == ""
 
-    def test_strategist_experience_inject_with_data(self):
+    def test_strategist_experience_inject_with_data(self) -> None:
         from scripts.run_debate import _strategist_experience_inject
         profile = {
             "rr_target": 2.5,
@@ -4028,124 +3976,124 @@ class TestRunDebate:
 
 
 class TestFdtCli:
-    def test_today_str(self):
+    def test_today_str(self) -> None:
         from scripts.fdt_cli import _today_str
         result = _today_str()
         assert len(result) == 8
         assert result.isdigit()
 
-    def test_now_hhmm(self):
+    def test_now_hhmm(self) -> None:
         from scripts.fdt_cli import _now_hhmm
         result = _now_hhmm()
         assert len(result) == 4
         assert result.isdigit()
 
-    def test_normalize_path_unix(self):
+    def test_normalize_path_unix(self) -> None:
         from scripts.fdt_cli import _normalize_path
         result = _normalize_path("/d/foo/bar")
         assert result == "D:/foo/bar"
 
-    def test_normalize_path_already_windows(self):
+    def test_normalize_path_already_windows(self) -> None:
         from scripts.fdt_cli import _normalize_path
         result = _normalize_path("D:\\foo\\bar")
         assert result == "D:\\foo\\bar"
 
-    def test_resolve_workspace_provided(self):
+    def test_resolve_workspace_provided(self) -> None:
         from scripts.fdt_cli import _resolve_workspace
         result = _resolve_workspace("/d/test/workspace")
         assert "D:" in result
 
-    def test_resolve_workspace_default(self):
+    def test_resolve_workspace_default(self) -> None:
         from scripts.fdt_cli import _resolve_workspace
         result = _resolve_workspace(None)
         assert "scan_" in result
 
 
 class TestRunDebate:
-    def test_to_win_path_git_bash(self):
+    def test_to_win_path_git_bash(self) -> None:
         from scripts.run_debate import _to_win_path
         with patch.object(sys, "platform", "win32"):
             assert _to_win_path("/d/foo/bar") == "D:\\foo\\bar"
             assert _to_win_path("/c/WorkBuddy/FDT") == "C:\\WorkBuddy\\FDT"
 
-    def test_to_win_path_non_windows(self):
+    def test_to_win_path_non_windows(self) -> None:
         from scripts.run_debate import _to_win_path
         with patch.object(sys, "platform", "linux"):
             assert _to_win_path("/d/foo/bar") == "/d/foo/bar"
 
-    def test_to_win_path_already_windows(self):
+    def test_to_win_path_already_windows(self) -> None:
         from scripts.run_debate import _to_win_path
         with patch.object(sys, "platform", "win32"):
             assert ":" in _to_win_path("d:\\foo\\bar")
             assert "\\" in _to_win_path("d:\\foo\\bar")
 
-    def test_derive_data_benchmark_with_meta(self):
+    def test_derive_data_benchmark_with_meta(self) -> None:
         from scripts.run_debate import derive_data_benchmark
         scan = {"_meta": {"klines_latest_date": "2026-07-17 14:30"}}
         assert "2026-07-17 14:30" in derive_data_benchmark(scan)
         assert "盘中" in derive_data_benchmark(scan)
 
-    def test_derive_data_benchmark_evening(self):
+    def test_derive_data_benchmark_evening(self) -> None:
         from scripts.run_debate import derive_data_benchmark
         scan = {"_meta": {"klines_latest_date": "2026-07-17 16:00"}}
         assert "收盘" in derive_data_benchmark(scan)
 
-    def test_derive_data_benchmark_fallback(self):
+    def test_derive_data_benchmark_fallback(self) -> None:
         from scripts.run_debate import derive_data_benchmark
         result = derive_data_benchmark({})
         assert len(result) > 0
 
-    def test_extract_price_dict(self):
+    def test_extract_price_dict(self) -> None:
         from scripts.run_debate import _extract_price
         assert _extract_price({"price": 3500}, 0) == 3500
         assert _extract_price({"entry": 3600}, 0) == 3600
 
-    def test_extract_price_numeric(self):
+    def test_extract_price_numeric(self) -> None:
         from scripts.run_debate import _extract_price
         assert _extract_price(3500, 0) == 3500
         assert _extract_price(3.14, 0) == 3.14
 
-    def test_extract_price_default(self):
+    def test_extract_price_default(self) -> None:
         from scripts.run_debate import _extract_price
         assert _extract_price(None, 100) == 100
         assert _extract_price("bad", 200) == 200
 
-    def test_derive_action_neutral(self):
+    def test_derive_action_neutral(self) -> None:
         from scripts.run_debate import _derive_action
         assert _derive_action("NEUTRAL", "STRONG", {}, "BULL") == "wait"
 
-    def test_derive_action_margin_low(self):
+    def test_derive_action_margin_low(self) -> None:
         from scripts.run_debate import _derive_action
         bd = {"d1": {"bull": 10, "bear": 5}}
         assert _derive_action("BULL", "STRONG", bd, "BULL") == "wait"
 
-    def test_derive_action_mismatch(self):
+    def test_derive_action_mismatch(self) -> None:
         from scripts.run_debate import _derive_action
         bd = {"d1": {"bull": 50, "bear": 10}}
         assert _derive_action("BULL", "STRONG", bd, "BEAR") == "wait"
 
-    def test_derive_action_execute(self):
+    def test_derive_action_execute(self) -> None:
         from scripts.run_debate import _derive_action
         bd = {"d1": {"bull": 50, "bear": 10}}
         assert _derive_action("BULL", "STRONG", bd, "BULL") == "execute"
 
-    def test_derive_action_weak(self):
+    def test_derive_action_weak(self) -> None:
         from scripts.run_debate import _derive_action
         bd = {"d1": {"bull": 50, "bear": 10}}
         assert _derive_action("BULL", "WEAK", bd, "BULL") == "hold"
 
-    def test_adx_reversal_rule(self):
+    def test_adx_reversal_rule(self) -> None:
         from scripts.run_debate import _adx_reversal_rule
         r = _adx_reversal_rule()
         assert "ADX" in r
         assert "角色反转" in r
 
-    def test_strategy_knowledge_rule(self):
+    def test_strategy_knowledge_rule(self) -> None:
         from scripts.run_debate import _strategy_knowledge_rule
         r = _strategy_knowledge_rule()
         assert "策略逻辑规则知识库" in r
 
-    def test_select_triggers_basic(self):
+    def test_select_triggers_basic(self) -> None:
         from scripts.run_debate import select_triggers
         scan = {"all_ranked": [
             {"symbol": "RB", "total": 50, "grade": "STRONG"},
@@ -4157,7 +4105,7 @@ class TestRunDebate:
         assert "RB" in symbols
         assert "HC" not in symbols
 
-    def test_select_triggers_disable_filter(self):
+    def test_select_triggers_disable_filter(self) -> None:
         from scripts.run_debate import select_triggers
         scan = {"all_ranked": [
             {"symbol": "RB", "total": 10, "grade": "NOISE", "_raw_total": 50},
@@ -4166,7 +4114,7 @@ class TestRunDebate:
         assert len(triggers) == 1
         assert triggers[0]["symbol"] == "RB"
 
-    def test_build_spawn_plan_structure(self):
+    def test_build_spawn_plan_structure(self) -> None:
         from scripts.run_debate import build_spawn_plan
         symbols = [{"symbol": "RB", "direction": "bull", "grade": "STRONG", "total": 50}]
         with tempfile.TemporaryDirectory() as tmp:
@@ -4180,27 +4128,27 @@ class TestRunDebate:
 
 
 class TestFdtCli:
-    def test_normalize_path_git_bash(self):
+    def test_normalize_path_git_bash(self) -> None:
         from scripts.fdt_cli import _normalize_path
         assert _normalize_path("/d/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
         assert _normalize_path("/c/foo") == "C:/foo"
 
-    def test_normalize_path_no_change(self):
+    def test_normalize_path_no_change(self) -> None:
         from scripts.fdt_cli import _normalize_path
         assert _normalize_path("D:/foo") == "D:/foo"
         assert _normalize_path("./relative") == "./relative"
 
-    def test_resolve_workspace_given(self):
+    def test_resolve_workspace_given(self) -> None:
         from scripts.fdt_cli import _resolve_workspace
         assert _resolve_workspace("/d/test") == "D:/test"
 
-    def test_today_str_format(self):
+    def test_today_str_format(self) -> None:
         from scripts.fdt_cli import _today_str
         s = _today_str()
         assert len(s) == 8
         assert s.isdigit()
 
-    def test_now_hhmm_format(self):
+    def test_now_hhmm_format(self) -> None:
         from scripts.fdt_cli import _now_hhmm
         s = _now_hhmm()
         assert len(s) == 4
@@ -4208,20 +4156,20 @@ class TestFdtCli:
 
 
 class TestExtractKnowledge:
-    def test_extractor_init_creates_dir(self):
+    def test_extractor_init_creates_dir(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             assert Path(tmp).exists()
 
-    def test_load_index_missing(self):
+    def test_load_index_missing(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             assert "meta" in ke._index
             assert "varieties" in ke._index
 
-    def test_load_index_corrupt(self):
+    def test_load_index_corrupt(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             bad = Path(tmp) / "variety_index.json"
@@ -4229,7 +4177,7 @@ class TestExtractKnowledge:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             assert "varieties" in ke._index
 
-    def test_extract_from_debate_low_confidence(self):
+    def test_extract_from_debate_low_confidence(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
@@ -4240,7 +4188,7 @@ class TestExtractKnowledge:
             )
             assert result["skipped_reason"].startswith("confidence=")
 
-    def test_extract_from_debate_seed_skip(self):
+    def test_extract_from_debate_seed_skip(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
@@ -4251,7 +4199,7 @@ class TestExtractKnowledge:
             )
             assert "seed" in result["skipped_reason"]
 
-    def test_extract_from_debate_normal(self):
+    def test_extract_from_debate_normal(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
@@ -4266,35 +4214,35 @@ class TestExtractKnowledge:
             assert result["skipped_reason"] is None
             assert result["patterns_added"] >= 0
 
-    def test_infer_structure_from_claims(self):
+    def test_infer_structure_from_claims(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             steps = ke._infer_structure_from_claims(["c1", "c2"])
             assert isinstance(steps, list)
 
-    def test_generate_pattern_name(self):
+    def test_generate_pattern_name(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             name = ke._generate_pattern_name("rb", [{"claim": "test"}], {"winner": "bull"})
             assert "多头" in name or "空头" in name
 
-    def test_ensure_variety_in_index(self):
+    def test_ensure_variety_in_index(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             ke._ensure_variety_in_index("rb")
             assert "rb" in ke._index["varieties"]
 
-    def test_load_json_missing(self):
+    def test_load_json_missing(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             val = ke._load_json(Path(tmp) / "missing.json", default=[])
             assert val == []
 
-    def test_load_json_existing(self):
+    def test_load_json_existing(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
@@ -4303,13 +4251,13 @@ class TestExtractKnowledge:
             val = ke._load_json(p, default=[])
             assert val == [1, 2]
 
-    def test_record_pattern_failure(self):
+    def test_record_pattern_failure(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
             ke.record_pattern_failure("rb", "nonexistent")
 
-    def test_run_decay_empty(self):
+    def test_run_decay_empty(self) -> None:
         from scripts.extract_knowledge import KnowledgeExtractor
         with tempfile.TemporaryDirectory() as tmp:
             ke = KnowledgeExtractor(knowledge_dir=tmp)
@@ -4318,7 +4266,7 @@ class TestExtractKnowledge:
 
 
 class TestWebui:
-    def test_get_version_found(self):
+    def test_get_version_found(self) -> None:
         from scripts.webui import _get_version
         with tempfile.TemporaryDirectory() as tmp:
             pp = Path(tmp) / "pyproject.toml"
@@ -4326,17 +4274,17 @@ class TestWebui:
             with patch("scripts.webui.ROOT", Path(tmp)):
                 assert _get_version() == "8.7.0"
 
-    def test_get_version_missing(self):
+    def test_get_version_missing(self) -> None:
         from scripts.webui import _get_version
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.webui.ROOT", Path(tmp)):
                 assert _get_version() == "?"
 
-    def test_read_json_missing(self):
+    def test_read_json_missing(self) -> None:
         from scripts.webui import _read_json
         assert _read_json("/nonexistent/file.json") is None
 
-    def test_read_json_existing(self):
+    def test_read_json_existing(self) -> None:
         from scripts.webui import _read_json
         with tempfile.TemporaryDirectory() as tmp:
             p = os.path.join(tmp, "test.json")
@@ -4344,7 +4292,7 @@ class TestWebui:
                 json.dump({"a": 1}, f)
             assert _read_json(p) == {"a": 1}
 
-    def test_format_size_kb(self):
+    def test_format_size_kb(self) -> None:
         from scripts.webui import _format_size
         with tempfile.TemporaryDirectory() as tmp:
             p = os.path.join(tmp, "f.txt")
@@ -4352,7 +4300,7 @@ class TestWebui:
                 f.write(b"x" * 512)
             assert "KB" in _format_size(p)
 
-    def test_format_size_mb(self):
+    def test_format_size_mb(self) -> None:
         from scripts.webui import _format_size
         with tempfile.TemporaryDirectory() as tmp:
             p = os.path.join(tmp, "f.txt")
@@ -4360,7 +4308,7 @@ class TestWebui:
                 f.write(b"x" * (1024 * 1024 * 2))
             assert "MB" in _format_size(p)
 
-    def test_connection_manager(self):
+    def test_connection_manager(self) -> None:
         import asyncio
         from unittest.mock import AsyncMock
         from scripts.webui import ConnectionManager

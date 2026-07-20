@@ -167,6 +167,12 @@ fdt_cli.py main()
 | P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |
 | P6a | CTP信号输出 | 明鉴秋 | P6 汇总 + 风控明审核 | CTP交易指令 (`pg.ctp_signals`) + **P6a 阶段报告 `signal_report_path`** | 60s | 跳过信号输出 |
 
+> **v9.6.5 变更 — LangGraph 迁移全部完成 (G93-G96)**:
+> - **G93**: `coordinator.py` 已删除，Profile 切换逻辑由 `graph.py` 的 `build_debate_graph_with_profile()` 替代
+> - **G94**: `debate_protocol_v2.py` 已删除，辩论协议常量（ATTACK_DIMENSIONS/EVIDENCE_WEIGHT_FACTORS/DEBATE_DIVERGENCE_THRESHOLDS）内联到 `nodes.py`
+> - **G95**: `agent_runner.py` 已删除，`run_agent()` 由 `agents.py` 的 `DebateAgentExecutor.run_single()` 替代
+> - **G96**: `deploy.py` 的 `migrate_json_to_pg()` 已实现 INSERT 写入逻辑（DebateVerdicts/ExecutionFollowup/AgentProfiles）
+>
 > **阶段变更说明 (v8.3.0)**:
 > - **P1-P2-P3 重构**: 从「数技源串行 → P1.5 链证源 → P2 闫判官 → P3 研究」改为「P1 数技源 → P2 闫判官**调度决策** → P3 **按需并行**触发被调度的源」
 > - **调度权**: 闫判官在 P2 阶段不仅选品种定方向，还决定需要哪些数据源（如趋势信号侧重观澜、周期品种侧重链证源）

@@ -94,6 +94,79 @@ def migrate_json_to_pg():
     # 然后执行 INSERT INTO ... 语句
     logger.warning("migrate_json_to_pg() 当前仅打印不写入 — 待实现 INSERT 逻辑 (G74-⑤)")
 
+    # G96: 实现 INSERT 写入逻辑
+    from fdt_pg.connection import session_scope
+    from fdt_pg.schema import (
+        ScanSignals, DebateVerdicts, ExecutionFollowup,
+        AgentProfiles, CalibrationStats, ValidationStats,
+        LogEntries, SchedulerLogs,
+    )
+    from sqlalchemy import text
+
+    # 迁移 debate_journal.json -> DebateVerdicts
+    if journal_path.exists():
+        try:
+            with open(journal_path, 'r', encoding='utf-8') as f:
+                journal = json.load(f)
+            entries = journal.get("entries", [])
+            with session_scope() as session:
+                count = 0
+                for entry in entries:
+                    verdict = DebateVerdicts(
+                        trace_id=entry.get("trace_id", ""),
+                        symbol=entry.get("symbol", ""),
+                        direction=entry.get("direction", ""),
+                        confidence=entry.get("confidence", 0.0),
+                        created_at=datetime.fromisoformat(entry.get("timestamp", datetime.now().isoformat())),
+                    )
+                    session.add(verdict)
+                    count += 1
+                    if count % 100 == 0:
+                        session.flush()
+                print(f"   ✅ 已写入 {count} 条辩论裁决到 PostgreSQL")
+        except Exception as e:
+            print(f"   ⚠️ debate_journal 迁移失败: {e}")
+
+    # 迁移 execution_followup.json -> ExecutionFollowup
+    if followup_path.exists():
+        try:
+            with open(followup_path, 'r', encoding='utf-8') as f:
+                followup = json.load(f)
+            records = followup.get("records", [])
+            with session_scope() as session:
+                count = 0
+                for rec in records:
+                    followup_rec = ExecutionFollowup(
+                        trace_id=rec.get("trace_id", ""),
+                        symbol=rec.get("symbol", ""),
+                        status=rec.get("status", ""),
+                        created_at=datetime.fromisoformat(rec.get("timestamp", datetime.now().isoformat())),
+                    )
+                    session.add(followup_rec)
+                    count += 1
+                print(f"   ✅ 已写入 {count} 条执行记录到 PostgreSQL")
+        except Exception as e:
+            print(f"   ⚠️ execution_followup 迁移失败: {e}")
+
+    # 迁移 agent_profiles.json -> AgentProfiles
+    if agent_profiles_path.exists():
+        try:
+            with open(agent_profiles_path, 'r', encoding='utf-8') as f:
+                profiles = json.load(f)
+            with session_scope() as session:
+                count = 0
+                for agent_name, profile in profiles.items():
+                    ap = AgentProfiles(
+                        agent_name=agent_name,
+                        profile_json=profile,
+                        created_at=datetime.now(),
+                    )
+                    session.add(ap)
+                    count += 1
+                print(f"   ✅ 已写入 {count} 个 Agent 配置到 PostgreSQL")
+        except Exception as e:
+            print(f"   ⚠️ agent_profiles 迁移失败: {e}")
+
     return migrated
 
 

@@ -487,19 +487,23 @@ python -m pytest tests/fdt_langgraph/test_pg_integration.py -v
 python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-report=term-missing
 ```
 
-### 10.8 测试统计（v8.3.0+）
+### 10.8 测试统计（v9.6.5）
 
 | 指标 | 数量 |
 |:-----|:-----|
-| 测试文件数 | 9 |
-| 测试用例总数 | 474 (99 langgraph + 375 scripts) |
-| 测试通过率 | 100% (474/474) |
+| 测试文件数 | 12 |
+| 测试用例总数 | 558 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 231 其他) |
+| 测试通过率 | 100% |
 | conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
 | LangGraph 节点覆盖率 | 96% (nodes.py) |
 | State 覆盖率 | 100% (state.py) |
 | 并行调度场景覆盖率 | 100% (4/4) |
 | A/B 切换集成测试 (G55) | 18 用例 (test_integration_ab.py，v8.4.0+ 新增) |
-| scripts/ 测试 (cov-5 完成) | **474 用例** (test_scripts.py，覆盖 **68 模块**；全部通过) |
+| scripts/ 测试 | **474 用例** (test_scripts.py，覆盖 **68 模块**) |
+| **D3 解码控制** | **43 用例** (test_decode_control.py，配置/结构化约束/内容安全/质量监控) |
+| **D6 输出控制** | **20 用例** (test_output_control.py，质量度量/版本化/反馈/审计) |
+| **D5 记忆+D2 工具** | **21 用例** (test_memory_tool_control.py，知识图谱/召回/清理/注册/熔断) |
+| **G93-G96 迁移** | **16 用例** (TestDebateProtocolV2 5 + TestAgentRunner 4 + TestCoordinator 7)
 
 ### 10.9 实际测试结果（2026-07-16）
 

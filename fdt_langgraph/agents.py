@@ -226,5 +226,48 @@ class DebateAgentExecutor:
                 })
         return results
 
+    @staticmethod
+    def run_single(agent_name: str, context: str,
+                   output: str = "",
+                   system_override: str = "",
+                   temperature: float = 0.0,
+                   max_tokens: int = 0,
+                   json_mode: bool = False) -> str:
+        """运行单个 Agent (G95: 替代 agent_runner.run_agent)"""
+        from scripts.fdt_llm import FdtLlm
+        import yaml
+        import os
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        cfg_path = root / "config" / "agents" / f"{agent_name}.yaml"
+        if not cfg_path.exists():
+            return f"⚠️ Agent 配置未找到: {agent_name}"
+
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+
+        system_prompt = system_override or cfg.get("system_prompt", "")
+        if not system_prompt:
+            return f"⚠️ {agent_name} 无 system_prompt"
+
+        llm = FdtLlm(agent_type=agent_name)
+        if json_mode:
+            import json as _json
+            reply = llm.chat_json(context, system=system_prompt)
+            output_text = _json.dumps(reply, ensure_ascii=False, indent=2)
+        else:
+            output_text = llm.chat(context, system=system_prompt,
+                                   temperature=temperature or None,
+                                   max_tokens=max_tokens or None)
+
+        if output:
+            tmp = output + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(output_text)
+            os.replace(tmp, output)
+
+        return output_text
+
 
 AgentRegistry.load_from_directory()

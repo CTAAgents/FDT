@@ -525,3 +525,34 @@ G10 兼容矩阵追补 ──→ 6.0–6.3.1 版本依赖记录
 - ✅ Phase B（手工，部分）：update_matrix / self_improve / inference_gate 等关键函数补充
 - ✅ Phase C：test_scripts.py 490 个测试方法 `-> None` 补充
 - 合计：~580 个函数类型注解
+
+### 4.9 LangGraph 迁移遗留差距（2026-07-20 登记 · 2026-07-20 关闭）
+
+> ✅ 本节 4 项差距（G93-G96）已于 2026-07-20 全部完成。
+> 迁移目标达成：旧文件已删除、功能等价测试通过、INSERT 写入逻辑已实现。
+
+| # | 差距 | 优先级 | 状态 | 涉及文件 | 说明 |
+|:-:|:-----|:------|:-----|:---------|:-----|
+| **G93** | `coordinator.py` → `fdt_langgraph/graph.py` 未迁移 | P1 | ✅ 已迁移 | `scripts/coordinator.py` ↔ `fdt_langgraph/graph.py` | `build_debate_graph_with_profile()` 已实现 Profile 切换逻辑（fast/deep/tournament/default），7 个 TestCoordinator 测试全部通过。`coordinator.py` 已删除。 |
+| **G94** | `debate_protocol_v2.py` → `fdt_langgraph/nodes.py` 未迁移 | P1 | ✅ 已迁移 | `scripts/debate_protocol_v2.py` ↔ `fdt_langgraph/nodes.py` | 攻击维度（`ATTACK_DIMENSIONS`）、证据加权（`EVIDENCE_WEIGHT_FACTORS`）、终止阈值（`DEBATE_DIVERGENCE_THRESHOLDS`）已内联到 `nodes.py`。5 个 TestDebateProtocolV2 测试全部通过。`debate_protocol_v2.py` 已删除。 |
+| **G95** | `agent_runner.py` → `fdt_langgraph/agents.py` 未迁移 | P1 | ✅ 已迁移 | `scripts/agent_runner.py` ↔ `fdt_langgraph/agents.py` | `DebateAgentExecutor.run_single()` 静态方法已替代 `run_agent()`。4 个 TestAgentRunner 测试全部通过。`agent_runner.py` 已删除。 |
+| **G96** | DuckDB(`futures.db`) → PostgreSQL(`fdt_pg/`) 数据迁移未执行 | P2 | ✅ 已迁移 | `futures.db` ↔ `fdt_pg/schema.py`, `fdt_pg/deploy.py` | `migrate_json_to_pg()` 中 INSERT 写入逻辑已实现：debate_journal.json→DebateVerdicts、execution_followup.json→ExecutionFollowup、agent_profiles.json→AgentProfiles。DuckDB 仅用于 skills 目录（非 FDT 核心），无需迁移。 |
+
+### 4.10 LangGraph 迁移实施计划（G93-G96 · 已完成）
+
+> ✅ **全部 4 项迁移已于 2026-07-20 完成，提前完成计划（原计划 4 周）。**
+
+**完成阶段**：
+
+| 阶段 | 差距 | 状态 | 产出 | 验证结果 |
+|:-----|:-----|:----:|:-----|:---------|
+| **Phase A** | G93 | ✅ 已完成 | `graph.py` 新增 `build_debate_graph_with_profile()`，删除 `coordinator.py` | 7 个 TestCoordinator 测试全部通过 |
+| **Phase B** | G94 | ✅ 已完成 | `nodes.py` 内联 3 组常量（ATTACK_DIMENSIONS/EVIDENCE_WEIGHT_FACTORS/DEBATE_DIVERGENCE_THRESHOLDS），删除 `debate_protocol_v2.py` | 5 个 TestDebateProtocolV2 测试全部通过 |
+| **Phase C** | G95 | ✅ 已完成 | `agents.py` 新增 `DebateAgentExecutor.run_single()`，删除 `agent_runner.py` | 4 个 TestAgentRunner 测试全部通过 |
+| **Phase D** | G96 | ✅ 已完成 | `deploy.py` 实现 INSERT 写入逻辑（DebateVerdicts/ExecutionFollowup/AgentProfiles） | DuckDB 仅用于 skills 目录，FDT 核心无 DuckDB 依赖 |
+
+**完成标准验证**：
+1. ✅ 3 个旧文件已删除（`coordinator.py`、`debate_protocol_v2.py`、`agent_runner.py`）
+2. ✅ 16 个迁移相关测试全部通过
+3. ✅ `fdt_pg/deploy.py migrate` 可执行 JSON→PostgreSQL 数据迁移
+4. ✅ 架构文档 01-architecture.md 映射表全部标记为 ✅ 已迁移

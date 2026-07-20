@@ -21,6 +21,27 @@ _SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
 logger = logging.getLogger(__name__)
 
+# ── 辩论协议常量 (G94: 从 debate_protocol_v2.py 内联) ──
+ATTACK_DIMENSIONS = [
+    "data_lag",        # 数据滞后
+    "logic_jump",      # 逻辑跳跃
+    "ignore_chain",    # 忽略产业链
+    "false_breakout",  # 假突破
+    "liquidity_trap",  # 流动性陷阱
+]
+
+EVIDENCE_WEIGHT_FACTORS = {
+    "timeliness": 0.30,         # 数据时效性
+    "reliability": 0.25,        # 数据源可靠性
+    "historical_winrate": 0.25, # 指标历史胜率
+    "regime_match": 0.20,       # 行情匹配度
+}
+
+DEBATE_DIVERGENCE_THRESHOLDS = {
+    "skip_cross_examination": 0.2,   # 分歧度<0.2 跳过质证
+    "deep_debate": 0.7,              # 分歧度>0.7 追加深度辩论
+}
+
 def _ensure_llm_key():
     if not os.environ.get("FDT_LLM_API_KEY"):
         if os.environ.get("OPENAI_API_KEY"):
@@ -987,7 +1008,7 @@ def _build_debate_context(state: DebateState) -> str:
         ind = sym_indicators.get(sym.upper(), sym_indicators.get(sym, {}))
         if ind:
             lines.append(
-                f"[scan] ADX={ind['adx']:.1f} RSI={ind['rsi']:.1f} "
+                f"[scan:数技源] ADX={ind['adx']:.1f} RSI={ind['rsi']:.1f} "
                 f"\u4ef7\u683c={ind['price']} \u4fe1\u53f7\u603b\u5206={ind['total']} \u65b9\u5411={ind['direction']}"
             )
 
@@ -1452,18 +1473,49 @@ async def node_verdict(state: DebateState) -> DebateState:
     symbols = state.get("selected_symbols", [])
     scan_dir = state.get("judge_direction", {}).get("direction", "neutral")
 
+    # ── 构建品种实际价格表（来自扫描数据，作为entry_price基准） ──
+    scan_data = state.get("scan_results", {})
+    all_ranked = scan_data.get("all_ranked", []) if isinstance(scan_data, dict) else []
+    sym_prices = {}
+    for item in all_ranked:
+        sym = item.get("symbol", "").upper()
+        if sym not in sym_prices:
+            price = item.get("price", 0)
+            atr_val = item.get("atr", 0)
+            sym_prices[sym] = {"price": price, "atr": atr_val}
+
     debate_context_lines = []
     for sym in symbols:
         bull = bull_args_dict.get(sym, {})
         bear = bear_args_dict.get(sym, {})
         bull_text = bull.get("arguments", []) if isinstance(bull, dict) else []
         bear_text = bear.get("arguments", []) if isinstance(bear, dict) else []
+        sp = sym_prices.get(sym.upper(), {})
+        price_hint = f"  【实际行情】当前收盘价={sp.get('price', '?')}  ATR={sp.get('atr', '?')}" if sp.get("price") else ""
         debate_context_lines.append(
-            f"\n==={sym}===\n"
+            f"\n==={sym}==={price_hint}\n"
             f"多头论据: {bull_text}\n"
             f"空头论据: {bear_text}"
         )
     debate_context = "\n".join(debate_context_lines)
+
+    # ── 价格参考表（结构化数据，LLM无法忽略） ──
+    price_table_lines = ["品种 | 当前收盘价 | ATR | 数技源方向 | 信号强度"]
+    price_table_lines.append("-" * 60)
+    for sym in symbols:
+        sp = sym_prices.get(sym.upper(), {})
+        p = sp.get("price", "N/A")
+        a = sp.get("atr", "N/A")
+        sdir = scan_dir
+        sscore = ""
+        for item in all_ranked:
+            if item.get("symbol", "").upper() == sym.upper():
+                sdir = item.get("direction", scan_dir)
+                sscore = str(abs(item.get("total", 0)))
+                break
+        price_table_lines.append(f"{sym} | {p} | {a} | {sdir} | {sscore}")
+    price_table = "\n".join(price_table_lines)
+
 
     context = f"""作为闫判官（裁决官），请基于以下全部辩论内容对每个品种给出最终裁决。
 
@@ -1475,6 +1527,14 @@ async def node_verdict(state: DebateState) -> DebateState:
 - 双方论证均不充分 裁决 neutral / 低仓位
 - 输出完整交易参数
 
+⚠️ 交易参数关键约束：
+- **entry_price 必须以【实际行情】中的当前收盘价为基准**，不允许使用任意价格
+- entry_price 应在收盘价 ±0.5×ATR 范围内
+- 止损价（stop_loss_price）和止盈价（target_price）基于 entry_price 合理计算
+- 参考以下价格参考表：
+
+{price_table}
+
 以下为多轮攻防的全部辩论论据（多头立论空头立论空头反驳多头反驳空头最终多头最终）:
 
 {debate_context}
@@ -1483,12 +1543,8 @@ async def node_verdict(state: DebateState) -> DebateState:
 {{"per_symbol": {{
     "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）",
             "overturn_scan": true, "overturn_reason": "推翻数技源方向的理由",
-            "entry_price": 3100, "stop_loss_price": 3050, "target_price": 3250,
-            "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}},
-    "CU": {{"direction": "bullish", "confidence": 0.7, "reason": "裁决理由（引用辩论中的关键论据）",
-            "overturn_scan": false, "overturn_reason": "与数技源方向一致",
-            "entry_price": 71000, "stop_loss_price": 70000, "target_price": 73000,
-            "position_pct": 3, "contract": "CU2409", "risk_reward_ratio": 2.5}}
+            "entry_price": <实际行情中的当前收盘价>, "stop_loss_price": <收盘价+ATR>, "target_price": <收盘价-ATR>,
+            "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}}
   }},
   "overall_direction": "bearish/neutral/bullish",
   "overall_reason": "总体摘要（总结哪方论证更优，是否推翻扫描方向）",
@@ -1948,6 +2004,21 @@ async def node_report(state: DebateState) -> DebateState:
             rr = 0.0
             judge_confidence = 0.5
             judge_reason = ""
+
+        # 价格合理性校验：judge的entry_price与scan价格偏差超20%时报警并使用scan数据
+        scan_price = float(item.get("price", 0) or 0) if item else 0
+        if entry_p > 0 and scan_price > 0:
+            deviation = abs(entry_p - scan_price) / scan_price
+            if deviation > 0.20:
+                logger.warning(f"⚠️ 价格偏差过大: {sym_key} judge_entry={entry_p} scan_price={scan_price} deviation={deviation:.1%}，回退至scan价格")
+                entry_p = scan_price
+                # 重新计算止损和目标
+                if per_sym_dir == "BUY":
+                    sl_p = entry_p * 0.97
+                    tg_p = entry_p * 1.05
+                elif per_sym_dir == "SELL":
+                    sl_p = entry_p * 1.03
+                    tg_p = entry_p * 0.95
 
         # If judge didn't provide prices, compute from scan data
         if entry_p == 0 and item:
