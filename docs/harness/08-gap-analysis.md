@@ -269,7 +269,7 @@ ode_load_cache 节点；⑤ 每次运行结束增量写回缓存 | dt_cache/ dt_
 
 | # | 差距 | 现状 | 优先级 | 改进方案 | 涉及文件 |
 |:-:|:-----|:-----|:------|:---------|:---------|
-| **G92** | **LLM 幻觉率未纳入自进化闭环** — 无系统性幻觉检测、度量、校准、进化机制 | ① 无幻觉率指标定义与采集；② `validate_verdicts.py` 仅验证方向正确性，不验证数值合理性；③ `calibrate_weights.py` 不校准 LLM 输出质量；④ `evolve_agents.py` 不接收幻觉反馈；⑤ 当前仅靠 `node_report` 单点偏差>20% 回退防御 | **P1**（影响交易参数可信度，长期阻塞自动化升级） | **Phase A（检测层 · ✅ 已完成）**：① `node_report` 价格偏差>20% 时输出结构化 JSON 日志事件（已完成）；② 新增 `scripts/validate_llm_output.py` 批量校验历史裁决数值合理性，产出 `llm_hallucination_stats.json`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（12 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）。**Phase B（校准层 · 待实施）**：⑤ `calibrate_weights.py` 扩展接收 hallucination_rate 作为校准信号。**Phase C（进化层 · 待实施）**：⑥ `evolve_agents.py` 扩展接收幻觉模式反馈，自动调整 Agent prompt 价格引用策略 | `scripts/validate_llm_output.py` `tests/scripts/test_validate_llm_output.py` `docs/harness/05-observability.md` `scripts/calibrate_weights.py` `scripts/evolve_agents.py` |
+| **G92** | **LLM 幻觉率未纳入自进化闭环** — 无系统性幻觉检测、度量、校准、进化机制 | ① 无幻觉率指标定义与采集；② `validate_verdicts.py` 仅验证方向正确性，不验证数值合理性；③ `calibrate_weights.py` 不校准 LLM 输出质量；④ `evolve_agents.py` 不接收幻觉反馈；⑤ 当前仅靠 `node_report` 单点偏差>20% 回退防御 | **P1**（影响交易参数可信度，长期阻塞自动化升级） | **Phase A（检测层 · ✅ 已完成）**：① `node_report` 价格偏差>20% 时输出结构化 JSON 日志事件（已完成）；② 新增 `scripts/validate_llm_output.py` 批量校验历史裁决数值合理性，产出 `llm_hallucination_stats.json`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）。**Phase B（校准层 · ✅ 已完成）**：⑤ `calibrate_weights.py` 扩展 `--hallucination-stats` 参数，新增 `hallucination_adjustment` 全局修正项（幻觉率>10%→-3分，>5%→-1分，<2%→+1分）。**Phase C（进化层 · ✅ 已完成）**：⑥ `evolve_agents.py` 新增 `evolve_llm_hallucination()` 函数，接收 `--hallucination-patterns` 参数，调整价格引用策略（strict_scan/scan_first/hybrid）、置信度缩放因子、偏差阈值 | `scripts/validate_llm_output.py` `tests/scripts/test_validate_llm_output.py` `docs/harness/05-observability.md` `scripts/calibrate_weights.py` `scripts/evolve_agents.py` |
 
 **验收标准**：
 - Phase A：每次 Pipeline 执行后日志输出幻觉检测统计（偏差>20% 品种数/总品种数/最大偏差率），零额外 API 调用
@@ -284,11 +284,15 @@ ode_load_cache 节点；⑤ 每次运行结束增量写回缓存 | dt_cache/ dt_
 
 ```
 Phase A（检测层 · ✅ v9.6.2）:  价格合理性校验 → validate_llm_output.py
-Phase B（校准层 · 待实施）:  calibrate_weights.py 扩展
-Phase C（进化层 · 待实施）:  evolve_agents.py 扩展 → 幻觉率 < 5%
+Phase B（校准层 · ✅ v9.6.3）:  calibrate_weights.py 扩展 --hallucination-stats
+Phase C（进化层 · ✅ v9.6.3）:  evolve_agents.py 扩展 --hallucination-patterns → 幻觉率 < 5%
 ```
 
-**Phase A 实施（✅ 已完成）**：① `node_report` 价格偏差 >20% 结构化日志（已完成 2026-07-20）；② 新增 `scripts/validate_llm_output.py`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（12 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）
+**Phase A 实施（✅ 已完成）**：① `node_report` 价格偏差 >20% 结构化日志（已完成 2026-07-20）；② 新增 `scripts/validate_llm_output.py`（已完成，含价格偏差/置信度/评分三维校验）；③ 新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；④ 更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表（已完成）
+
+**Phase B 实施（✅ 已完成）**：⑤ `calibrate_weights.py` 扩展 `--hallucination-stats` 参数；新增 `hallucination_adjustment` 全局修正项（幻觉率>10%→-3分，>5%→-1分，<2%→+1分）；校准报告新增幻觉率维度展示
+
+**Phase C 实施（✅ 已完成）**：⑥ `evolve_agents.py` 新增 `evolve_llm_hallucination()` 函数；接收 `--hallucination-patterns` 参数；调整价格引用策略（strict_scan/scan_first/hybrid）、置信度缩放因子、偏差阈值；新增 `LLM幻觉进化器` Agent 配置
 **Phase B 实施**：① `calibrate_weights.py` 增加 `--hallucination-stats` 参数；② 校准报告增加 hallucination_rate 和 price_deviation_mean
 **Phase C 实施**：① `evolve_agents.py` 接收 `hallucination_patterns.json`；② 根据幻觉模式调整 Agent prompt 锚定策略；③ 目标连续 10 轮幻觉率 < 5%
 

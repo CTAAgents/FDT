@@ -312,8 +312,8 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 |:-----|:---------|:-----|:-----|:----|
 | `validate_verdicts.py` | 有未验证裁决 + K线已更新 | execution_followup.json | validation_stats.json | `--t1` `--t3` `--cost-bps` |
 | `validate_llm_output.py` | 每轮辩论结束后自动运行 | scan_results.json + verdict.json | llm_hallucination_stats.json | `--scan` `--verdict` `--history` `--threshold` |
-| `calibrate_weights.py` | 已验证 ≥5 条 | validation_stats.json | calibration.json | `--min-samples` `--lr` |
-| `evolve_agents.py` | total_samples ≥5 | calibration.json + agent_profiles.json | agent_profiles.json (更新) | 无参数 |
+| `calibrate_weights.py` | 已验证 ≥5 条 | validation_stats.json + llm_hallucination_stats.json | calibration.json | `--min-samples` `--lr` `--hallucination-stats` |
+| `evolve_agents.py` | total_samples ≥5 | calibration.json + agent_profiles.json + llm_hallucination_stats.json | agent_profiles.json (更新) | `--hallucination-patterns` |
 | `record_verdicts.py` | 每轮辩论结束 | debate_results.json | execution_followup.json | `--input` |
 | `ml/trainer.py` | 新样本 ≥50 | debate_journal.json | models/*.txt (LightGBM) | `run_daily_check()` |
 | `update_matrix.py` | 每次裁决后 | execution_followup.json | instrument_strategy_matrix.json | `--symbol` `--family` `--correct` |

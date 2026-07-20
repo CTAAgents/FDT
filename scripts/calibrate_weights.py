@@ -13,6 +13,7 @@
 输出:
   memory/calibration.json — 当前生效的权重修正表
 """
+from __future__ import annotations
 
 import json
 import sys
@@ -60,7 +61,6 @@ def collect_dimensions(followup_path: str) -> dict:
     with open(followup_path, 'r', encoding='utf-8') as f:
         followup = json.load(f)
 
-    # 每个维度: {bucket: [correct_or_not, ...]}
     dims = {
         "confidence": defaultdict(list),
         "direction": defaultdict(list),
@@ -100,7 +100,19 @@ def collect_dimensions(followup_path: str) -> dict:
     return dims, total_validated
 
 
-def compute_adjustments(dims: dict, total: int, min_samples: int, learning_rate: float) -> dict:
+def load_hallucination_stats(hallucination_stats_path: str) -> Optional[dict]:
+    """加载 LLM 幻觉统计数据"""
+    if not hallucination_stats_path or not os.path.exists(hallucination_stats_path):
+        return None
+    try:
+        with open(hallucination_stats_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def compute_adjustments(dims: dict, total: int, min_samples: int, learning_rate: float,
+                        hallucination_stats: Optional[dict] = None) -> dict:
     """将准确率偏差转化为权重修正量"""
 
     adjustments = {
@@ -110,12 +122,14 @@ def compute_adjustments(dims: dict, total: int, min_samples: int, learning_rate:
         "conflict": {},
         "direction_bias": 0,
         "chains": {},
+        "hallucination_adjustment": 0,
         "_meta": {
             "calibrated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "total_samples": total,
             "baseline": BASELINE_ACCURACY,
             "learning_rate": learning_rate,
             "min_samples": min_samples,
+            "hallucination_rate": None,
         }
     }
 
@@ -136,7 +150,6 @@ def compute_adjustments(dims: dict, total: int, min_samples: int, learning_rate:
                 "accuracy": round(accuracy * 100, 1),
             }
 
-    # 产业链
     for chain, samples in dims["chain"].items():
         if len(samples) < min_samples:
             adjustments["chains"][chain] = 0
@@ -150,17 +163,31 @@ def compute_adjustments(dims: dict, total: int, min_samples: int, learning_rate:
             "accuracy": round(accuracy * 100, 1),
         }
 
-    # 方向偏差
     bear_samples = dims["direction"].get("bear", [])
     bull_samples = dims["direction"].get("bull", [])
     if bear_samples and bull_samples and len(bear_samples) >= min_samples and len(bull_samples) >= min_samples:
         bear_acc = sum(bear_samples) / len(bear_samples)
         bull_acc = sum(bull_samples) / len(bull_samples)
-        # 如果空头系统性更高/低于多头，加一个方向偏置
         bias = round((bear_acc - bull_acc) * 100 * learning_rate)
         adjustments["direction_bias"] = max(-5, min(5, bias))
     else:
         adjustments["direction_bias"] = 0
+
+    # 幻觉率校准（G92 Phase B）
+    if hallucination_stats:
+        hallucination_rate = hallucination_stats.get("hallucination_rate", 0)
+        adjustments["_meta"]["hallucination_rate"] = hallucination_rate
+        adjustments["_meta"]["max_deviation_rate"] = hallucination_stats.get("max_deviation_rate", 0)
+        adjustments["_meta"]["confidence_issues"] = hallucination_stats.get("confidence_issues", 0)
+
+        if hallucination_rate > 10:
+            adjustments["hallucination_adjustment"] = -3
+        elif hallucination_rate > 5:
+            adjustments["hallucination_adjustment"] = -1
+        elif hallucination_rate < 2:
+            adjustments["hallucination_adjustment"] = +1
+        else:
+            adjustments["hallucination_adjustment"] = 0
 
     return adjustments
 
@@ -173,34 +200,30 @@ def compute_effective_adjustment(verdict: dict, calibrations: dict) -> int:
     """
     total_adj = 0
 
-    # 置信度
     conf = verdict.get("confidence", "中")
     ca = calibrations.get("confidence", {}).get(conf, 0)
     total_adj += ca if isinstance(ca, int) else ca.get("adj", 0)
 
-    # ADX区间
     adx_range = get_adx_range(verdict.get("adx", 0))
     aa = calibrations.get("adx_range", {}).get(adx_range, 0)
     total_adj += aa if isinstance(aa, int) else aa.get("adj", 0)
 
-    # RSI区间
     rsi_range = get_rsi_range(verdict.get("direction", ""), verdict.get("rsi", 50))
     ra = calibrations.get("rsi_range", {}).get(rsi_range, 0)
     total_adj += ra if isinstance(ra, int) else ra.get("adj", 0)
 
-    # 冲突状态
     conflict_key = "conflict" if verdict.get("conflict") else "no_conflict"
     co = calibrations.get("conflict", {}).get(conflict_key, 0)
     total_adj += co if isinstance(co, int) else co.get("adj", 0)
 
-    # 产业链
     chain = verdict.get("chain", "其他")
     ch = calibrations.get("chains", {}).get(chain, 0)
     total_adj += ch if isinstance(ch, int) else ch.get("adj", 0)
 
-    # 方向偏置
     if verdict.get("direction") == "bear":
         total_adj += calibrations.get("direction_bias", 0)
+
+    total_adj += calibrations.get("hallucination_adjustment", 0)
 
     return max(-15, min(15, total_adj))
 
@@ -243,15 +266,22 @@ def print_calibration(calibrations: dict) -> None:
     if bias != 0:
         print(f"\n  方向偏置: bear {'+' if bias>0 else ''}{bias}分")
 
+    hallucination_adj = calibrations.get("hallucination_adjustment", 0)
+    if hallucination_adj != 0 or calibrations["_meta"].get("hallucination_rate") is not None:
+        hr = calibrations["_meta"].get("hallucination_rate")
+        print(f"\n  幻觉率校准: 率={hr}%, 修正={hallucination_adj:+d}分")
+
 
 # ─── 主程序 ───────────────────────────────────────────
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="评分权重自校准器")
     parser.add_argument("--min-samples", type=int, default=5, help="最少样本数")
     parser.add_argument("--lr", type=float, default=0.3, help="学习率")
     parser.add_argument("--followup", default=None)
+    parser.add_argument("--hallucination-stats", default=None,
+                        help="LLM幻觉统计文件路径（llm_hallucination_stats.json）")
     args = parser.parse_args()
 
     min_samples = args.min_samples
@@ -267,7 +297,8 @@ def main():
         print(f"⚠️ 已验证样本量不足 ({total} < {min_samples})，跳过校准")
         return
 
-    calibrations = compute_adjustments(dims, total, min_samples, learning_rate)
+    hallucination_stats = load_hallucination_stats(args.hallucination_stats)
+    calibrations = compute_adjustments(dims, total, min_samples, learning_rate, hallucination_stats)
     print_calibration(calibrations)
 
     # 保存

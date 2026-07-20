@@ -386,7 +386,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v9.6.2** | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
+| **v9.6.3** | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
 | **v9.6.0** | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
 | **v9.5.0** | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；差距分析登记 G20/G21/G22 |
 | **v9.4.3** | **G91 同品种多子信号合并方向覆盖 bug 修复** — `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器；新增 `TestSubSignalMerge` 4 用例 |

@@ -425,6 +425,7 @@ python scripts/auto_publish.py
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
 
+| **v9.6.2 → v9.6.3** | 2026-07-20 | **G92 Phase B/C 完成 — LLM 幻觉校准与进化闭环** — Phase B：`calibrate_weights.py` 扩展 `--hallucination-stats` 参数，新增 `hallucination_adjustment` 全局修正项（幻觉率>10%→-3分，>5%→-1分，<2%→+1分）；Phase C：`evolve_agents.py` 新增 `evolve_llm_hallucination()` 函数，接收 `--hallucination-patterns` 参数，调整价格引用策略（strict_scan/scan_first/hybrid）、置信度缩放因子、偏差阈值；新增 `LLM幻觉进化器` Agent 配置；更新 `08-gap-analysis.md` G92 Phase B/C 状态标记为已完成 |
 | **v9.6.1 → v9.6.2** | 2026-07-20 | **G92 Phase A 完成 — LLM 幻觉检测层落地** — 新增 `scripts/validate_llm_output.py`（价格偏差/置信度/评分三维校验）；新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表；更新 `08-gap-analysis.md` G92 Phase A 状态标记为已完成 |
 | **v9.6.0 → v9.6.1** | 2026-07-20 | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
 | **v9.5.0 → v9.6.0** | 2026-07-20 | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |

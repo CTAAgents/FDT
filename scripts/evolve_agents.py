@@ -21,6 +21,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
+from typing import Optional
 
 
 # ─── 工具函数 ───────────────────────────────────────────
@@ -598,7 +599,125 @@ def evolve_fundamental_researcher(verdicts: list, profile: dict) -> dict:
     }
 
 
+# ─── Agent8: LLM 幻觉进化器 (G92 Phase C) ───────────────
+
+
+def load_hallucination_patterns(patterns_path: str) -> Optional[dict]:
+    """加载幻觉模式数据"""
+    if not patterns_path or not os.path.exists(patterns_path):
+        return None
+    try:
+        with open(patterns_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def evolve_llm_hallucination(verdicts: list, profile: dict,
+                              hallucination_patterns: Optional[dict] = None) -> dict:
+    """
+    LLM 幻觉进化器 — 根据幻觉模式反馈调整 Agent Prompt 策略。
+
+    进化维度:
+    - price_reference_strategy: 价格引用策略 (scan_first / hybrid / strict_scan)
+    - confidence_scaling_factor: 置信度缩放因子
+    - max_deviation_threshold: 最大偏差阈值
+    - hallucination_warning_enabled: 是否启用幻觉警告
+
+    触发条件:
+    - 幻觉率 > 5% → 收紧价格引用策略
+    - 价格偏差 > 30% → 强制使用扫描数据
+    - 置信度异常 > 0 → 调整置信度缩放
+    """
+    total = len(verdicts)
+
+    if hallucination_patterns:
+        hallucination_rate = hallucination_patterns.get("hallucination_rate", 0)
+        max_deviation = hallucination_patterns.get("max_deviation_rate", 0)
+        confidence_issues = hallucination_patterns.get("confidence_issues", 0)
+        total_verdicts = hallucination_patterns.get("total_verdicts", 0)
+    else:
+        hallucination_rate = 0
+        max_deviation = 0
+        confidence_issues = 0
+        total_verdicts = total
+
+    if total_verdicts < 3:
+        return profile
+
+    current_strategy = profile.get("price_reference_strategy", "hybrid")
+    current_factor = profile.get("confidence_scaling_factor", 1.0)
+    current_threshold = profile.get("max_deviation_threshold", 0.20)
+
+    reasons = []
+
+    if hallucination_rate > 10 or max_deviation > 50:
+        new_strategy = "strict_scan"
+        strategy_reason = f"幻觉率{hallucination_rate}%或最大偏差{max_deviation}%过高, 强制使用扫描数据"
+    elif hallucination_rate > 5 or max_deviation > 30:
+        new_strategy = "scan_first"
+        strategy_reason = f"幻觉率{hallucination_rate}%或最大偏差{max_deviation}%偏高, 优先使用扫描数据"
+    elif hallucination_rate < 2:
+        new_strategy = "hybrid"
+        strategy_reason = f"幻觉率{hallucination_rate}%正常, 使用混合策略"
+    else:
+        new_strategy = current_strategy
+        strategy_reason = f"幻觉率{hallucination_rate}%合理, 维持策略"
+
+    if confidence_issues > 0:
+        new_factor = max(0.7, current_factor - 0.1)
+        factor_reason = f"置信度异常{confidence_issues}次, 缩放因子下调"
+    elif hallucination_rate < 2 and total_verdicts >= 10:
+        new_factor = min(1.3, current_factor + 0.1)
+        factor_reason = f"幻觉率{hallucination_rate}%正常+样本充足, 缩放因子上调"
+    else:
+        new_factor = current_factor
+        factor_reason = f"置信度正常, 维持缩放因子"
+
+    if max_deviation > 50:
+        new_threshold = min(0.15, current_threshold - 0.05)
+        threshold_reason = f"最大偏差{max_deviation}%过高, 收紧偏差阈值"
+    elif hallucination_rate < 2 and current_threshold < 0.30:
+        new_threshold = min(0.30, current_threshold + 0.05)
+        threshold_reason = f"幻觉率{hallucination_rate}%正常, 放宽偏差阈值"
+    else:
+        new_threshold = current_threshold
+        threshold_reason = f"偏差阈值合理, 维持不变"
+
+    reasons.extend([strategy_reason, factor_reason, threshold_reason])
+
+    return {
+        **profile,
+        "price_reference_strategy": new_strategy,
+        "confidence_scaling_factor": round(new_factor, 2),
+        "max_deviation_threshold": round(new_threshold, 2),
+        "hallucination_warning_enabled": hallucination_rate > 5,
+        "_last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "_evolution_log": [
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+             "action": "price_reference_strategy",
+             "from": current_strategy, "to": new_strategy,
+             "reason": strategy_reason},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+             "action": "confidence_scaling_factor",
+             "from": current_factor, "to": round(new_factor, 2),
+             "reason": factor_reason},
+            {"time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+             "action": "max_deviation_threshold",
+             "from": current_threshold, "to": round(new_threshold, 2),
+             "reason": threshold_reason},
+        ],
+        "_stats": {
+            "hallucination_rate": hallucination_rate,
+            "max_deviation_rate": max_deviation,
+            "confidence_issues": confidence_issues,
+            "total_verdicts": total_verdicts,
+        }
+    }
+
+
 # ─── Agent7: 观澜(技术面研究员) ─────────────────────────
+
 
 def evolve_technical_researcher(verdicts: list, profile: dict) -> dict:
     """
@@ -760,6 +879,12 @@ def extract_knowledge_from_validated_verdicts(followup_path: str) -> int:
 # ─── 主程序 ───────────────────────────────────────────
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="子Agent自进化引擎")
+    parser.add_argument("--hallucination-patterns", default=None,
+                        help="LLM幻觉模式文件路径（llm_hallucination_stats.json）")
+    args = parser.parse_args()
+
     script_dir = Path(__file__).parent.parent
     followup_path = str(script_dir / "memory" / "execution_followup.json")
     profiles_path = str(script_dir / "memory" / "agent_profiles.json")
@@ -773,7 +898,8 @@ def main() -> None:
 
     profiles = load_or_create_profile(profiles_path)
 
-    # 按顺序进化
+    hallucination_patterns = load_hallucination_patterns(args.hallucination_patterns)
+
     for agent_name, evolve_fn, default_profile in [
         ("风控明", evolve_risk_manager, {"atr_multiplier": 1.5, "max_position_pct_high": 5.0}),
         ("闫判官", evolve_strategist, {"rr_target": 2.0, "position_coefficient": 1.0}),
@@ -792,7 +918,6 @@ def main() -> None:
             sign = "+" if log["to"] > log["from"] else ""
             print(f"  {log['action']}: {log['from']} → {sign}{log['to']}  ({log['reason']})")
 
-    # 辩手进化
     debater_default = {"证真": {}, "慎思": {}}
     current = profiles.get("辩手", debater_default)
     new_profiles = evolve_debaters(verdicts, current)
@@ -811,6 +936,25 @@ def main() -> None:
                   f"胜率={p.get('_win_rate','?')}%, "
                   f"实现盈亏={_fmt_num(p.get('_realized_pnl','?'), '%')}, "
                   f"置信度偏移={_fmt_num(p.get('confidence_boost',0))}")
+
+    # LLM 幻觉进化器（G92 Phase C）
+    llm_default = {"price_reference_strategy": "hybrid", "confidence_scaling_factor": 1.0,
+                   "max_deviation_threshold": 0.20, "hallucination_warning_enabled": False}
+    llm_current = profiles.get("LLM幻觉进化器", llm_default)
+    llm_new = evolve_llm_hallucination(verdicts, llm_current, hallucination_patterns)
+    profiles["LLM幻觉进化器"] = llm_new
+
+    print(f"\n{'='*50}")
+    print(f"🤖 LLM幻觉进化器 进化:")
+    for log in llm_new.get("_evolution_log", []):
+        sign = "+" if (isinstance(log["to"], (int, float)) and log["to"] > log["from"]) else ""
+        print(f"  {log['action']}: {log['from']} → {sign}{log['to']}  ({log['reason']})")
+
+    stats = llm_new.get("_stats", {})
+    if stats:
+        print(f"  幻觉率: {stats.get('hallucination_rate', '?')}%, "
+              f"最大偏差: {stats.get('max_deviation_rate', '?')}%, "
+              f"置信度异常: {stats.get('confidence_issues', '?')}次")
 
     profiles["_meta"]["last_evolved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     profiles["_meta"]["total_samples"] = len(verdicts)

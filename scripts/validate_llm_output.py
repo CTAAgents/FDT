@@ -295,7 +295,7 @@ def main() -> None:
     parser.add_argument("--history", type=str, help="历史裁决目录")
     parser.add_argument("--stats", type=str, help="输出统计文件路径")
     parser.add_argument("--threshold", type=float, default=PRICE_DEVIATION_THRESHOLD,
-                        help=f"价格偏差阈值（默认 {PRICE_DEVIATION_THRESHOLD*100}%）")
+                        help=f"价格偏差阈值（默认 {PRICE_DEVIATION_THRESHOLD*100}%%）")
 
     args = parser.parse_args()
 
