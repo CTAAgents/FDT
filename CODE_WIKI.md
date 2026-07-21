@@ -2,7 +2,7 @@
 
 ## 1. 项目概览
 
-FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
+FDT（Futures Debate Team）是一套 **10-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
 **核心特性**:
 - **NO_FUSION 策略管线**: 8 策略各自独立打分，方向冲突不融合
@@ -18,9 +18,11 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 - **逐 Agent LLM 配置**: 每个子 Agent 可通过 `FDT_LLM_<NAME>_*` 环境变量独立指定不同 LLM
 - **自进化闭环**: T+1 回测验证 → 累计样本 → 校准权重 → 进化 Agent Prompt → ML 增量训练
 - **LangGraph 架构**: 可配置并行数据源、条件路由、状态持久化、断点恢复
+- **金十 MCP 数据源**: 标准 MCP 协议接入金十财经数据（8 工具：行情/K线/快讯/资讯/财经日历），作为实时分析素材
+- **新闻情绪分析因子**: 情绪化 Agent（第四分析因子），P3 阶段与链证源/观澜/探源并行，输出结构化 SentimentStateVector
 - **Harness 工程规范**: 12 项 commit 前检查清单 + 10 条反模式检测规则
 
-**版本**: v9.6.1
+**版本**: v9.11.0
 
 ---
 
@@ -46,6 +48,8 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 │   PostgreSQL · memory系统 · unified_logger · 独立CLI/FastAPI入口     │
 │   · fdt_cache(SQLite增量缓存) · dominant_resolver · _datacore_bridge  │
 │   · data_source_adapter(统一数据入口)                                 │
+│   · mcp_client(MCP协议通用客户端)                                       │
+│   · jin10_mcp(金十数据采集器)                                           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,8 +74,8 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
     │  │       ▼ (按需并行调度)                            │       │
     │  │  ┌────────────────────────────────────┐          │  [update_cache] 回写缓存
     │  │  │  按需并行数据源 (Parallel)         │          │
-    │  │  │  [chain:链证源] [technical:观澜] [fundamental:探源]           │          │
-    │  │  │  产业链   技术面  基本面           │          │
+│  │  │  [chain:链证源] [technical:观澜] [fundamental:探源] [sentiment:情绪化] │          │
+│  │  │  产业链   技术面  基本面  新闻情绪  │          │
     │  │  └────────────────────────────────────┘          │
     │  │       │                                           │
     │  │       ▼                                           │
@@ -110,7 +114,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 |:-----|:-----|:-----------|
 | `state.py` | 统一辩论状态定义 | `DebateState`, `create_initial_state()`, `FdcSymbolData`, `FdcDataStatus` |
 | `graph.py` | 图结构定义与编译 | `build_debate_graph()`, `build_debate_graph_no_checkpoint()`, `_register_direct_debate_nodes()`, `_register_debate_nodes()` |
-| `nodes.py` | 全部节点函数实现 | `node_scan`, `node_judge_direction`, `node_prepare_data`(P2.5), `node_chain`, `node_technical`, `node_fundamental`, `node_merge_research`, `node_bullish_v1`, `node_bearish_v1`, `node_bearish_rebuttal`, `node_bullish_rebuttal`, `node_bear_final`, `node_bull_final`, `node_verdict`, `node_risk_check`, `node_report`, `node_signal_output`, `node_load_cache`, `node_update_cache` |
+| `nodes.py` | 全部节点函数实现 | `node_scan`, `node_judge_direction`, `node_prepare_data`(P2.5), `node_chain`, `node_technical`, `node_fundamental`, `node_sentiment`(情绪化，P3新增), `node_merge_research`, `node_bullish_v1`, `node_bearish_v1`, `node_bearish_rebuttal`, `node_bullish_rebuttal`, `node_bear_final`, `node_bull_final`, `node_verdict`, `node_risk_check`, `node_report`, `node_signal_output`, `node_load_cache`, `node_update_cache` |
 | `agents.py` | Agent 执行器 | `FdtAgentExecutor`（逐Agent LLM 配置 `_normalize_env_name`/`_resolve_llm_config`）, `AgentRegistry` |
 | `health.py` | 健康检查与监控 | `HealthChecker`, `run_health_check()` |
 
@@ -131,7 +135,8 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `chain_analysis` | dict | 链证源分析结果 |
 | `technical_data` | dict | 观澜技术面数据 |
 | `fundamental_data` | dict | 探源基本面数据 |
-| `research_data` | Optional[dict] | 三源合并研究数据 |
+| `sentiment_data` | Optional[dict] | 情绪化新闻情绪数据（P3 新增） |
+| `research_data` | Optional[dict] | 四源合并研究数据（链证源/观澜/探源/情绪化） |
 | `bullish_arguments` | list (Annotated) | 多头立论 (P4_1) |
 | `bearish_arguments` | list (Annotated) | 空头立论 (P4_2) |
 | `bearish_rebuttal_arguments` | list (Annotated) | 空头驳论 (P4_3) |
@@ -204,7 +209,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 
 | 文件 | 职责 | 核心函数 |
 |:-----|:-----|:---------|
-| `data_source_adapter.py` | 统一数据入口封装 | `get_kline()`, `compute_indicators()`, `get_term_structure()`, `get_spread()`, `get_basis()`, `get_warrant()`, `get_fundamental()`, `get_position_ranking()` |
+| `data_source_adapter.py` | 统一数据入口封装 | `get_kline()`, `compute_indicators()`, `get_term_structure()`, `get_spread()`, `get_basis()`, `get_warrant()`, `get_fundamental()`, `get_position_ranking()`, `jin10_available()`, `jin10_list_flash()`, `jin10_search_flash()`, `jin10_list_news()`, `jin10_search_news()`, `jin10_get_news()`, `jin10_get_quote()`, `jin10_get_kline()`, `jin10_list_calendar()` |
 
 **功能**: 将 futures_data_core 的底层采集器封装为统一的异步 API，供 `node_prepare_data` 调用。
 
@@ -219,7 +224,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 1. 多策略并行扫描（数技源）或从 fdt_cache/ 加载（指定品种辩论模式）
 2. 闫判官方向决策 + P2.5 FDC 数据准备
 3. 产业链分析
-4. 数据适配（链证源/观澜/探源三源并行）
+4. 数据适配（链证源/观澜/探源/情绪化四源并行）
 5. 六阶段攻防辩论 → 裁决 → 风控
 6. 报告生成 + CTP 信号输出
 
@@ -252,7 +257,7 @@ FDT（Futures Debate Team）是一套 **9-Agent 多角色交叉质询的 CTA 决
 | `debate-trading-planner` | 交易规划 | SKILL.md |
 | `fdt-spawn-debate` | 辩论 spawn 调度 | SKILL.md |
 | `futures-data-technician` | 数据技术员 | SKILL.md |
-| `futures-trading-analysis` | 交易分析报告 | `contracts/base.py`, `contracts/risk.py` |
+| `futures-trading-analysis` | 交易分析报告 | `contracts/base.py`, `contracts/risk.py`, `contracts/sentiment_state.py` |
 
 ### 3.8 主要版本特性
 
@@ -398,7 +403,7 @@ class PGConnection:
 
 | 模式 | 说明 | 特点 |
 |:-----|:-----|:-----|
-| `default` | 默认模式 | 完整流程：扫描→闫判官→P2.5 FDC准备→三源并行→六阶段辩论→裁决→风控→报告→CTP信号 |
+| `default` | 默认模式 | 完整流程：扫描→闫判官→P2.5 FDC准备→四源并行→六阶段辩论→裁决→风控→报告→CTP信号 |
 | `fast` | 快速模式 | 跳过辩论，直接裁决（适用于高频扫描） |
 | `deep_research` | 深度研究 | 分歧>0.7时循环辩论（适用于复杂市场） |
 | `tournament` | 锦标赛模式 | 多轮辩论+投票（适用于重大决策） |
@@ -513,6 +518,9 @@ ruff>=0.1            # 代码检查
 | `FDT_FDC_F10_ENABLED` | 是否启用 F10 数据采集 | `true` |
 | `FDT_FDC_POSITION_RANKING_ENABLED` | 是否启用持仓排名采集 | `true` |
 | `FDT_RISK_THRESHOLD` | CTP 信号风控阈值 | `yellow` |
+| `JIN10_MCP_URL` | 金十 MCP 服务地址 | `https://mcp.jin10.com/mcp` |
+| `JIN10_MCP_TOKEN` | 金十 MCP 认证 Token（Bearer） | - |
+| `FDT_MCP_TIMEOUT` | MCP 客户端超时（秒） | `30` |
 
 ---
 
@@ -522,7 +530,7 @@ ruff>=0.1            # 代码检查
 FDT/
 ├── agents/                    # Agent 配置文件（11个）
 ├── config/                    # 配置文件
-├── contracts/                 # 契约定义（Schema）
+├── contracts/                 # 契约定义（Schema，含 sentiment_state.py）
 ├── debate/                    # 辩论历史管理
 ├── docs/                      # 文档
 │   ├── archive/               # 已归档的历史文档
@@ -549,8 +557,9 @@ FDT/
 │   │   ├── field_normalizer.py    # 字段标准化
 │   │   ├── _datacore_bridge.py    # Data-Core F10 桥接器
 │   │   └── ...
+│   ├── mcp_client.py          # MCP 协议通用 HTTP 客户端
 │   ├── collectors/            # 采集器（TDX/QMT/TqSDK/Web/DataCore）
-│   ├── f10/                   # F10 衍生品数据
+│   ├── f10/                   # F10 衍生品数据（含 jin10_mcp.py 金十采集器）
 │   ├── indicators/            # 技术指标
 │   └── cache/                 # 缓存
 ├── memory/                    # 知识库和记忆系统
@@ -626,6 +635,9 @@ Harness 文档 = design spec，测试 = validation spec，代码 = implementatio
 
 | 版本 | 变更 |
 |:-----|:-----|
+| v9.11.0 | **新闻情绪分析因子（情绪化）落地** — 第四分析因子 P3 四源并行。新增 sentiment_state.py 契约、情绪化 Agent、node_sentiment() 节点。金十 MCP 快讯同时供给探源素材 + 情绪化独立因子。来源标记 [sentiment:jin10]/[sentiment:web]。25 个金十相关测试全绿。 |
+| v9.10.1 | **金十快讯精选注入探源** — _SYMBOL_TO_KEYWORDS 品种映射（41 品种）、_build_jin10_context() 按品种搜索金十快讯注入探源 context。 |
+| v9.10.0 | **金十数据 MCP 接入** — 标准 MCP 协议财经数据源。mcp_client.py 通用客户端、jin10_mcp.py 金十采集器（8 工具）、data_source_adapter 适配层、web_crawl_tool LangChain 封装。 |
 | v9.6.1 | G71 完全关闭 + 循环契约补全（ml-training/health-check） |
 | v9.6.0 | Harness 工程全面升级：规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
 | v9.5.0 | Loop Engineering 体系化：新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角 |

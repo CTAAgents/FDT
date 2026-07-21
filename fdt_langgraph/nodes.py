@@ -2404,4 +2404,352 @@ async def node_report(state: DebateState) -> DebateState:
             if entry_p and sl_p and tg_p and abs(entry_p - sl_p) > 0:
                 risk = abs(entry_p - sl_p)
                 reward = abs(tg_p - entry_p)
-             
+                if risk > 0:
+                    rr = round(reward / risk, 2)
+
+        adx = float(judge_sym.get("adx", 0)) or (float(item.get("adx", 0)) if item else 0)
+        rsi = float(judge_sym.get("rsi", 50)) or (float(item.get("rsi", 50)) if item else 50)
+        score = float(judge_sym.get("score", 0)) or (abs(item.get("total", 0)) if item else 0)
+
+        # G35: 论据为空时从 judge reasoning 生成最小论据
+        _ba = "<br>".join(str(a) for a in bull_args_list) if bull_args_list else ""
+        _bea = "<br>".join(str(a) for a in bear_args_list) if bear_args_list else ""
+        _reason = judge_reason or verdict_reason
+        if not _ba and _reason:
+            _ba = f"[裁决摘要] {_reason}"
+        if not _bea and _reason:
+            _bea = f"[裁决摘要] {_reason}"
+        verdicts[sym_key] = {
+            "direction": per_sym_dir,
+            "confidence": judge_confidence if judge_sym else min(1.0, score / 100 + 0.1),
+            "judge_verdict": {
+                "final_direction": per_sym_dir,
+                "confidence": judge_confidence if judge_sym else min(1.0, score / 100 + 0.1),
+                "reasoning": judge_reason or verdict_reason,
+            },
+            "bull_args": _ba,
+            "bear_args": _bea,
+            "entry_price": round(entry_p, 2),
+            "target_price": round(tg_p, 2),
+            "stop_loss_price": round(sl_p, 2),
+            "position_size": pos_pct,
+            "risk_reward_ratio": rr,
+            "adx": adx,
+            "rsi": rsi,
+            "score": score,
+            "chain": item.get("chain", "") if item else "",
+        }
+
+
+    debate_results = {
+        "trace_id": state.get("trace_id", ""),
+        "verdicts": verdicts,
+        "overall": debate_overall,
+        "bullish_arguments": state.get("bullish_arguments", []),
+        "bearish_arguments": state.get("bearish_arguments", []),
+        "risk_check": risk_check,
+    }
+
+    for sym_key, sym_verdict in verdicts.items():
+        debate_results[sym_key] = sym_verdict
+
+    intermediate_path = temp_dir / "intermediate_data.json"
+    debate_path = temp_dir / "debate_results.json"
+
+    with open(intermediate_path, "w", encoding="utf-8") as f:
+        json.dump(intermediate_data, f, ensure_ascii=False, indent=2)
+    with open(debate_path, "w", encoding="utf-8") as f:
+        json.dump(debate_results, f, ensure_ascii=False, indent=2)
+
+    report_script = _SKILLS_DIR / "futures-trading-analysis" / "scripts" / "phase3_generate_report.py"
+
+    # v8.8.0: 输出到用户指定工作空间（按日期），而非临时目录
+    user_workspace_dir = _resolve_report_dir()
+    output_dir = user_workspace_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [sys.executable, str(report_script),
+           "--intermediate", str(intermediate_path),
+           "--debate", str(debate_path),
+           "--output", str(output_dir)]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            print(f"⚠️ 报告生成警告: {result.stderr[:200]}")
+        # v8.8.0+: 取最新生成的报告（按mtime倒序），避免复用旧缓存
+        report_files = sorted(output_dir.glob("debate_report_*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if not report_files:
+            report_files = sorted(temp_dir.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if report_files:
+            report_path = str(report_files[0])
+        else:
+            # fallback: 写入工作空间下，确保报告路径有效
+            fallback_html = _render_html(
+                "📋 辩论报告（fallback）",
+                f'<div class="section"><h2>⚠️ 报告生成降级</h2>'
+                f'<p>trace_id={state["trace_id"]} · 主报告脚本未产出HTML，以下为辩论结果概要。</p>'
+                f'<pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{json.dumps(debate_results, ensure_ascii=False, default=str)[:3000]}</pre>'
+                f'</div>',
+                [("trace_id", state["trace_id"]), ("status", "fallback")],
+            )
+            fallback_path = output_dir / f"debate_report_{state['trace_id']}.html"
+            fallback_path.write_text(fallback_html, encoding="utf-8")
+            report_path = str(fallback_path)
+    except Exception as e:
+        # v8.8.0: fallback 改为用户工作空间，而非 /tmp
+        try:
+            fallback_html = _render_html(
+                "📋 辩论报告（异常）",
+                f'<div class="section"><h2>❌ 报告生成异常</h2>'
+                f'<p>trace_id={state["trace_id"]} · 错误: {e}</p></div>',
+                [("trace_id", state["trace_id"]), ("status", "error")],
+            )
+            fallback_path = output_dir / f"debate_report_{state['trace_id']}.html"
+            fallback_path.write_text(fallback_html, encoding="utf-8")
+            report_path = str(fallback_path)
+        except Exception:
+            report_path = None
+        logger.warning(f"[REPORT] 主报告脚本异常: {e}")
+
+    new_phases = state["completed_phases"] + ["P6"]
+    return {**state, "report_path": report_path, "current_phase": "P6", "completed_phases": new_phases}
+
+
+async def node_signal_output(state: DebateState) -> DebateState:
+    """P6a: CTP 信号输出 — 从 state 中读取已由 node_risk_check 构建的信号，输出并记录。
+
+    依赖上游 node_risk_check 已写入 state["signal_output"]。
+    """
+    signal_output = state.get("signal_output", {})
+    signal_report_path = state.get("signal_report_path")
+    trace_id = state.get("trace_id", "")
+
+    status = signal_output.get("status", "unknown")
+    risk_color = signal_output.get("risk_color", "unknown")
+    signals_count = len(signal_output.get("signals", []))
+    message = signal_output.get("message", "")
+
+    logger.info(f"[SIGNAL_OUTPUT] trace={trace_id} status={status} risk={risk_color} signals={signals_count}")
+    if message:
+        logger.info(f"[SIGNAL_OUTPUT] {message}")
+    if signal_report_path:
+        logger.info(f"[SIGNAL_OUTPUT] 报告: {signal_report_path}")
+
+    # 将 CTP 信号写入 memory/ctp_signals/ 目录归档
+    try:
+        import datetime as _dt
+        import json
+        signal_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "memory", "ctp_signals")
+        os.makedirs(signal_dir, exist_ok=True)
+        date_compact = _dt.datetime.now().strftime("%Y%m%d")
+        archive_path = os.path.join(signal_dir, f"ctp_signals_{trace_id.split('-')[-1]}_{date_compact}.json")
+        with open(archive_path, "w", encoding="utf-8") as f:
+            json.dump(signal_output, f, ensure_ascii=False, indent=2)
+        logger.info(f"[SIGNAL_OUTPUT] 已归档: {archive_path}")
+    except Exception as e:
+        logger.warning(f"[SIGNAL_OUTPUT] 归档失败: {e}")
+
+    new_phases = state.get("completed_phases", [])
+    if "P6a" not in new_phases:
+        new_phases = new_phases + ["P6a"]
+
+    return {
+        **state,
+        "signal_output": signal_output,
+        "signal_report_path": signal_report_path,
+        "current_phase": "P6a",
+        "completed_phases": new_phases,
+    }
+
+
+def _build_data_sources(state: DebateState) -> list:
+    """从 state 中提取并返回数据溯源列表"""
+    sources = []
+    research = state.get("research_data", {})
+    if research.get("technical_data"):
+        sources.append({"source": "technical", "agent": "观澜", "phase": "P3"})
+    if research.get("fundamental_data"):
+        sources.append({"source": "fundamental", "agent": "探源", "phase": "P3"})
+    if research.get("chain_analysis"):
+        sources.append({"source": "chain", "agent": "链证源", "phase": "P3"})
+    if research.get("sentiment_data"):
+        sources.append({"source": "sentiment", "agent": "情绪化", "phase": "P3"})
+    if state.get("fdc_data_status", {}).get("collected"):
+        sources.append({"source": "fdc", "agent": "FDC", "phase": "P2.5"})
+    scan = state.get("scan_results", {})
+    if scan.get("all_ranked"):
+        sources.append({"source": "scan", "agent": "数技源", "phase": "P1"})
+    return sources
+
+
+
+# ==================== 直接辩论模式节点 (cache-based P1) ====================
+
+async def node_load_cache(state: DebateState) -> DebateState:
+    """从实时数据源拉取指定品种数据，经缓存后进入辩论。
+
+    读取 FDT_DEBATE_SYMBOLS 环境变量获取指定品种列表，
+    对每个品种从 FDC 实时数据源拉取 K 线/基本面数据，
+    写入本地缓存后构造 scan_results 传给下游辩论环节。
+    两种模式共用此逻辑：全量模式不触发此节点，指定品种模式触发。
+    """
+    symbol_str = os.environ.get("FDT_DEBATE_SYMBOLS", "")
+    direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"
+
+    if not symbol_str or not direct_debate:
+        logger.warning("[LOAD_CACHE] FDT_DEBATE_SYMBOLS 未设置，回退到正常扫描")
+        return await node_scan(state)
+
+    symbols = [s.strip().upper() for s in symbol_str.split(",") if s.strip()]
+    if not symbols:
+        logger.warning("[LOAD_CACHE] FDT_DEBATE_SYMBOLS 为空，回退到正常扫描")
+        return await node_scan(state)
+
+    logger.info(f"[LOAD_CACHE] 指定品种辩论模式: {symbols}")
+
+    # 实时拉取每个品种的 K 线数据（复用 FDC 数据引擎）
+    import subprocess, sys as _sys
+    import json as _json
+    from datetime import datetime as _dt
+    _date_compact = _dt.now().strftime("%Y%m%d")
+    _report_dir = _resolve_report_dir()
+
+    # 直接调用 scan_all 的采集逻辑，但只采集指定品种
+    # 方式：构造简易扫描结果，不调 scan_all 全流程
+    all_ranked = []
+    fdc_data = {}
+
+    # 使用同步方式逐个拉取
+    _skills_dir = str(_SKILLS_DIR)
+    _qdaily_dir = str(_SKILLS_DIR / "quant-daily" / "scripts")
+
+    try:
+        # 导入 FDC 数据引擎
+        if _qdaily_dir not in sys.path:
+            sys.path.insert(0, _qdaily_dir)
+
+        from data_source_adapter import get_kline as _fdc_get_kline
+        import asyncio as _asyncio
+
+        for sym in symbols:
+            try:
+                # 拉取实时 K 线数据
+                payload = _asyncio.run(_fdc_get_kline(sym.lower(), period="daily", days=120))
+
+                meta = payload.meta
+                grade = meta.get("data_grade_label", "")
+                bars_raw = payload.data.get("bars", []) if hasattr(payload, "data") else []
+
+                if grade in ("UNAVAILABLE", "STALE") or not bars_raw:
+                    logger.warning(f"[LOAD_CACHE] {sym} 数据不可用: grade={grade}")
+                    all_ranked.append({
+                        "symbol": sym, "direction": "neutral",
+                        "total": 0, "grade": "NOISE", "price": 0,
+                        "data_source": "unavailable",
+                    })
+                    continue
+
+                # 格式化 K 线记录
+                records = []
+                for b in bars_raw:
+                    records.append({
+                        "date": b.get("date", ""),
+                        "open": float(b.get("open", 0)),
+                        "high": float(b.get("high", 0)),
+                        "low": float(b.get("low", 0)),
+                        "close": float(b.get("close", 0)),
+                        "volume": int(b.get("volume", 0)),
+                        "oi": int(b.get("oi") or b.get("open_interest", 0)),
+                    })
+
+                latest_close = records[-1]["close"] if records else 0
+                source_label = meta.get("source", "fdc")
+
+                # 存到 fdc_data 供下游使用
+                fdc_data[sym] = {"kline": records, "data_source": source_label}
+
+                # 构造条目（中性信号，下游 judge_direction 会重新判断）
+                all_ranked.append({
+                    "symbol": sym,
+                    "direction": "neutral",
+                    "signal_type": "direct_debate",
+                    "strategy": "direct_debate",
+                    "total": 0,
+                    "abs": 0,
+                    "grade": "WATCH",
+                    "weight": 0,
+                    "price": latest_close,
+                    "change_pct": 0,
+                    "volume": records[-1]["volume"] if records else 0,
+                    "oi": records[-1]["oi"] if records else 0,
+                    "data_source": source_label,
+                })
+
+                # 写入本地缓存
+                try:
+                    from fdt_cache import CacheManager
+                    cache = CacheManager.get_instance()
+                    cache.ensure_schema()
+                    cache.update_kline_cache(sym, "daily", records)
+                except ImportError:
+                    pass
+                except Exception as e:
+                    logger.warning(f"[LOAD_CACHE] 缓存写入失败 {sym}: {e}")
+
+                logger.info(f"[LOAD_CACHE] {sym}: 拉取 {len(records)} 根 K 线 (最新价={latest_close}, 源={source_label})")
+
+            except Exception as e:
+                logger.warning(f"[LOAD_CACHE] {sym} 数据拉取失败: {e}")
+                all_ranked.append({
+                    "symbol": sym, "direction": "neutral",
+                    "total": 0, "grade": "NOISE", "price": 0,
+                    "data_source": "fetch_error",
+                })
+
+    except ImportError as e:
+        logger.error(f"[LOAD_CACHE] 数据引擎不可用: {e}，回退到正常扫描")
+        return await node_scan(state)
+
+    # 按总信号强度排序
+    all_ranked.sort(key=lambda x: abs(x.get("total", 0)), reverse=True)
+
+    logger.info(f"[LOAD_CACHE] 完成 {len(symbols)} 个品种实时数据采集，进入辩论流程")
+    return {
+        **state,
+        "scan_results": {"all_ranked": all_ranked, "bull_signals": [], "bear_signals": [], "per_strategy": {"direct_debate": all_ranked}},
+        "fdc_data": fdc_data,
+        "selected_symbols": symbols,
+        "current_phase": "P1",
+        "completed_phases": ["P1"],
+    }
+
+
+async def node_update_cache(state: DebateState) -> DebateState:
+    """将本轮辩论结果写入本地缓存（P6 之后调用，不阻塞主流程）。
+
+    将 scan_results / research_data / verdict 等写入本地缓存，
+    供后续直接辩论模式复用。
+    """
+    try:
+        from fdt_cache import CacheManager
+        cache = CacheManager()
+
+        scan_results = state.get("scan_results", {})
+        research_data = state.get("research_data", {})
+        verdict = state.get("verdict", {})
+
+        cache.save_debate_results(
+            trace_id=state.get("trace_id", ""),
+            scan_results=scan_results,
+            research_data=research_data,
+            verdict=verdict,
+        )
+        logger.info(f"[UPDATE_CACHE] 辩论结果已写入缓存, trace_id={state.get('trace_id', '')}")
+    except ImportError:
+        logger.debug("[UPDATE_CACHE] fdt_cache 模块未安装，跳过缓存写入")
+    except Exception as e:
+        logger.warning(f"[UPDATE_CACHE] 缓存写入异常: {e}")
+
+    # 不阻塞主流程，直接返回原 state
+    return state
