@@ -94,7 +94,7 @@ checks:
     name: "流程文档同步检查"
     severity: "P1"
     type: "file_modified"
-    scope: "docs/execution_modes_flowchart.md|docs/business_flow.md"
+    scope: "docs/harness/execution_modes_flowchart.md|docs/harness/business_flow.md"
     trigger_pattern: "pipeline|flow|workflow|process"
     message: "流程变更必须同步流程图文档"
 
@@ -107,14 +107,15 @@ checks:
     trigger_pattern: "agents/.*\\.py|agents/.*\\.md"
     message: "Agent 角色变更必须同步 agents/*.md"
 
-  # ── C12: README ───────────────────────────────────────────────────
+  # ── C12: 入口文档同步检查（通用规范）─────────────────────────────────
+  # 适用于所有项目：CLAUDE.md（行为准则）+ CODE_WIKI.md（技术百科）+ README.md（项目说明）
   - id: C12
-    name: "README 快速参考检查"
+    name: "入口文档同步检查"
     severity: "P0"
     type: "file_modified"
-    scope: "README.md"
+    scope: "CLAUDE.md|CODE_WIKI.md|README.md"
     trigger_pattern: null
-    message: "README.md 必须同步更新，作为项目入口文档"
+    message: "三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）必须同步更新，作为项目全生命周期核心文档"
 
   # ── C13: 交易建议可操作性 ─────────────────────────────────────────
   - id: C13

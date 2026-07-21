@@ -5,7 +5,6 @@
 在每日辩论流水线完成后自动执行，无需人工介入。
 """
 from __future__ import annotations
-import json
 import os
 import re
 import subprocess
@@ -14,7 +13,7 @@ from datetime import datetime
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PYPROJECT = os.path.join(PROJECT, "pyproject.toml")
-VERSION_FILE = os.path.join(PROJECT, ".version_history.json")
+
 SYNC_SCRIPT = r"C:\Users\yangd\quant-bare\sync_experts_to_github.py"
 TODAY = datetime.now().strftime("%Y-%m-%d")
 
@@ -74,19 +73,6 @@ def append_changelog(current_version: str, new_version: str) -> None:
     return False
 
 
-def record_change(change_desc: str) -> None:
-    """记录本次变更到 .version_history.json"""
-    history = {}
-    if os.path.exists(VERSION_FILE):
-        with open(VERSION_FILE, encoding="utf-8") as f:
-            try: history = json.load(f)
-            except json.JSONDecodeError: pass
-    today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    history[today] = change_desc
-    with open(VERSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-
-
 def run_sync() -> bool:
     """执行 GitHub 同步"""
     if not os.path.exists(SYNC_SCRIPT):
@@ -135,11 +121,7 @@ def main() -> int:
     append_changelog(current, new_version)
     logger(f"  ✅ README changelog 已更新")
 
-    # 3. 记录变更
-    record_change(f"{change_desc} (v{current}→v{new_version})")
-    logger(f"  ✅ 变更记录已保存")
-
-    # 4. GitHub 推送
+    # 3. GitHub 推送
     logger(f"  开始 GitHub 同步...")
     ok = run_sync()
     logger(f"  {'✅ 推送成功' if ok else '⚠️ 推送失败'}")

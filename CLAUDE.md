@@ -90,7 +90,7 @@ CLAUDE.md — FDT编码行为准则
 9. 晋级里程碑 → docs/harness/09-advancement-plan.md
 10. 流程文档同步 → execution_modes_flowchart.md / business_flow.md
 11. 角色MD职责 → agents/*.md
-12. README快速参考 → README.md
+12. 入口文档同步 → CLAUDE.md / CODE_WIKI.md / README.md
 
 5.3 契约优先原则
 先定义 Schema/TypedDict/接口契约，再实现代码。

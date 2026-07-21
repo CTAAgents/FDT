@@ -2,7 +2,7 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.6.6**
+**v9.6.7**
 
 ---
 
@@ -280,14 +280,15 @@ FDT/
 ├── debate/                    # 辩论历史管理
 ├── docs/                      # 文档
 │   ├── archive/               # 已归档的历史文档
-│   ├── harness/               # Harness 工程规范（9篇 + README）
-│   ├── design/                # 设计文档
+│   ├── harness/               # Harness 工程规范（10篇 + README）
+│   │   ├── designs/           # G21/G22 设计文档
+│   │   ├── loop-contracts/    # 循环契约（5份）
+│   │   ├── agent-protocol.md  # Agent 通信协议
+│   │   ├── business_flow.md   # 业务流程
+│   │   └── execution_modes_flowchart.md  # 执行模式流程图
+│   ├── harness-templates/     # Harness 工程规范模板（harness-starter-kit）
 │   ├── schemas/               # JSON Schema
-│   ├── skills/                # 技能文档
-│   ├── CODE_WIKI.md           # Code Wiki 技术文档
-│   ├── agent-protocol.md      # Agent 通信协议
-│   ├── business_flow.md       # 业务流程
-│   └── execution_modes_flowchart.md  # 执行模式流程图
+│   └── skills/                # 技能文档
 ├── fdt_cache/                 # 本地 SQLite 增量缓存
 ├── fdt_langgraph/             # LangGraph 核心模块
 │   ├── state.py               # DebateState 定义（含 FdcDataStatus）
@@ -318,6 +319,8 @@ FDT/
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
 ├── pyproject.toml             # 项目配置
+├── CLAUDE.md                  # FDT 编码行为准则（项目标准文件）
+├── CODE_WIKI.md               # 项目技术百科全书（理解项目基础）
 └── README.md                  # 项目说明
 ```
 
@@ -374,12 +377,20 @@ python scripts/run_benchmark.py --compare
 
 ## 技术文档
 
-详细技术文档请参考：
-- [Code Wiki](docs/CODE_WIKI.md) — 完整项目技术文档
-- [架构总览](docs/harness/01-architecture.md) — Harness 工程规范
+### 三大入口文档（通用规范，适用于所有项目）
+
+| 文档 | 定位 | 生命周期 |
+|:-----|:-----|:---------|
+| [CLAUDE.md](CLAUDE.md) | 编码行为准则 | 项目标准文件，不因开发环境变化而变化 |
+| [CODE_WIKI.md](CODE_WIKI.md) | 技术百科全书 | 随项目全生命周期更新，理解项目基础 |
+| [README.md](README.md) | 项目说明 | 随项目全生命周期更新，快速参考入口 |
+
+### Harness 工程规范
+
+- [架构总览](docs/harness/01-architecture.md) — Harness 分层架构、组件关系图、数据流
 - [生命周期](docs/harness/02-lifecycle.md) — 阶段定义和状态机
 - [配置说明](docs/harness/03-configuration.md) — 配置项和优先级
-- [Harness 文档索引](docs/harness/README.md) — 全 9 篇工程规范清单
+- [Harness 文档索引](docs/harness/README.md) — 全 10 篇工程规范清单
 
 ---
 
@@ -387,6 +398,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
+| **v9.6.7** | **Harness 文档整理 + 入口文档同步检查扩展** — ① harness-starter-kit 迁移到 `docs/harness-templates/`；② 设计文档、流程文档归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新。 |
 | **v9.6.5** | **G93-G96 LangGraph 迁移全部完成 + 配置 Schema 扩展** — coordinator.py→graph.py(G93)、debate_protocol_v2.py→nodes.py(G94)、agent_runner.py→agents.py(G95)、DuckDB→PostgreSQL JSON 迁移(G96)。3 个旧文件删除，16 个迁移测试全部通过。D2/D3/D5/D6 四维提升至 ★★★★★。新增 `DataSourcesConfig` + `AgentProfilesData` Pydantic 校验，覆盖全部 4 个配置文件。 |
 | **v9.6.4** | **G71 完全关闭 + 循环契约补全 + ReAct 思维链集成** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract + 6 Agent 配置文件升级 v2.3（ReAct 思维链 + 数据溯源铁律） |
 | **v9.6.0** | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |

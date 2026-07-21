@@ -90,13 +90,15 @@ checks:
     trigger_pattern: null
     message: "角色变更必须同步 agents/*.md"
 
+  # ── C12: 入口文档同步检查（通用规范）─────────────────────────────────
+  # 适用于所有项目：CLAUDE.md（行为准则）+ CODE_WIKI.md（技术百科）+ README.md（项目说明）
   - id: C12
-    name: README 快速参考检查
+    name: 入口文档同步检查
     severity: P0
     type: file_modified
-    scope: "README.md"
+    scope: "CLAUDE.md|CODE_WIKI.md|README.md"
     trigger_pattern: null
-    message: "README.md 必须同步更新"
+    message: "三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）必须同步更新"
 
 anti_patterns:
   - id: AP01

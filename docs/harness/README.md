@@ -4,6 +4,8 @@
 
 ## 文档索引
 
+### Harness 核心文档（01-10）
+
 | # | 文档 | 内容 |
 |:-:|:-----|:-----|
 | 01 | [架构总览](01-architecture.md) | Harness 分层架构、组件关系图、数据流总览 |
@@ -16,7 +18,33 @@
 | 08 | [差距分析与改进路线](08-gap-analysis.md) | 现状 vs 目标、缺失项清单、优先级排序 |
 | 09 | [晋级计划](09-advancement-plan.md) | Harness 成熟度晋级路线、Phase 1-5 里程碑 |
 | 10 | [编码规范](10-coding-standards.md) | 文档先行、契约优先、测试随重构、12 项 check commit 纪律 |
-| 11 | [循环契约规范](loop-contracts/README.md) | Loop Contract 六维度定义、验证档位、权限三档、现有循环清单 |
+
+### 循环契约
+
+| 文档 | 内容 |
+|:-----|:-----|
+| [循环契约规范](loop-contracts/README.md) | Loop Contract 六维度定义、验证档位、权限三档、现有循环清单 |
+
+### 设计文档
+
+| 文档 | 内容 |
+|:-----|:-----|
+| [G21 Harness 自适应优化](designs/g21-harness-adaptive-optimization.md) | Harness 自适应优化设计方案 |
+| [G22 多循环协作](designs/g22-multi-loop-collaboration.md) | 多循环协作模式设计方案 |
+
+### 流程与协议
+
+| 文档 | 内容 |
+|:-----|:-----|
+| [Agent 通信协议](agent-protocol.md) | Agent 间通信格式与协议定义 |
+| [业务流程图](business_flow.md) | 完整业务流程描述 |
+| [执行模式流程图](execution_modes_flowchart.md) | 各执行模式的流程对比 |
+
+### 工具与规则
+
+| 文档 | 内容 |
+|:-----|:-----|
+| [Harness 检查规则](harness-rules.yaml) | 13 项 commit 前检查规则 + 11 条反模式检测 |
 
 ## 快速参考
 

@@ -28,7 +28,7 @@
 9. 晋级里程碑 → 09-advancement-plan.md
 10. 流程文档同步 → execution_modes_flowchart.md / business_flow.md
 11. 角色MD职责 → agents/*.md
-12. README快速参考 → README.md
+12. 入口文档同步 → CLAUDE.md / CODE_WIKI.md / README.md
 
 ### 10 条反模式自查
 
