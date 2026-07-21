@@ -2383,4 +2383,117 @@ async def node_load_cache(state: DebateState) -> DebateState:
 
                 meta = payload.meta
                 grade = meta.get("data_grade_label", "")
-                bars_raw = payload.data.get("bars", []) if hasa
+                bars_raw = payload.data.get("bars", []) if hasattr(payload, "data") else []
+
+                if grade in ("UNAVAILABLE", "STALE") or not bars_raw:
+                    logger.warning(f"[LOAD_CACHE] {sym} 数据不可用: grade={grade}")
+                    all_ranked.append({
+                        "symbol": sym, "direction": "neutral",
+                        "total": 0, "grade": "NOISE", "price": 0,
+                        "data_source": "unavailable",
+                    })
+                    continue
+
+                # 格式化 K 线记录
+                records = []
+                for b in bars_raw:
+                    records.append({
+                        "date": b.get("date", ""),
+                        "open": float(b.get("open", 0)),
+                        "high": float(b.get("high", 0)),
+                        "low": float(b.get("low", 0)),
+                        "close": float(b.get("close", 0)),
+                        "volume": int(b.get("volume", 0)),
+                        "oi": int(b.get("oi") or b.get("open_interest", 0)),
+                    })
+
+                latest_close = records[-1]["close"] if records else 0
+                source_label = meta.get("source", "fdc")
+
+                # 存到 fdc_data 供下游使用
+                fdc_data[sym] = {"kline": records, "data_source": source_label}
+
+                # 构造条目（中性信号，下游 judge_direction 会重新判断）
+                all_ranked.append({
+                    "symbol": sym,
+                    "direction": "neutral",
+                    "signal_type": "direct_debate",
+                    "strategy": "direct_debate",
+                    "total": 0,
+                    "abs": 0,
+                    "grade": "WATCH",
+                    "weight": 0,
+                    "price": latest_close,
+                    "change_pct": 0,
+                    "volume": records[-1]["volume"] if records else 0,
+                    "oi": records[-1]["oi"] if records else 0,
+                    "data_source": source_label,
+                })
+
+                # 写入本地缓存
+                try:
+                    from fdt_cache import CacheManager
+                    cache = CacheManager.get_instance()
+                    cache.ensure_schema()
+                    cache.update_kline_cache(sym, "daily", records)
+                except ImportError:
+                    pass
+                except Exception as e:
+                    logger.warning(f"[LOAD_CACHE] 缓存写入失败 {sym}: {e}")
+
+                logger.info(f"[LOAD_CACHE] {sym}: 拉取 {len(records)} 根 K 线 (最新价={latest_close}, 源={source_label})")
+
+            except Exception as e:
+                logger.warning(f"[LOAD_CACHE] {sym} 数据拉取失败: {e}")
+                all_ranked.append({
+                    "symbol": sym, "direction": "neutral",
+                    "total": 0, "grade": "NOISE", "price": 0,
+                    "data_source": "fetch_error",
+                })
+
+    except ImportError as e:
+        logger.error(f"[LOAD_CACHE] 数据引擎不可用: {e}，回退到正常扫描")
+        return await node_scan(state)
+
+    # 按总信号强度排序
+    all_ranked.sort(key=lambda x: abs(x.get("total", 0)), reverse=True)
+
+    logger.info(f"[LOAD_CACHE] 完成 {len(symbols)} 个品种实时数据采集，进入辩论流程")
+    return {
+        **state,
+        "scan_results": {"all_ranked": all_ranked, "bull_signals": [], "bear_signals": [], "per_strategy": {"direct_debate": all_ranked}},
+        "fdc_data": fdc_data,
+        "selected_symbols": symbols,
+        "current_phase": "P1",
+        "completed_phases": ["P1"],
+    }
+
+
+async def node_update_cache(state: DebateState) -> DebateState:
+    """将本轮辩论结果写入本地缓存（P6 之后调用，不阻塞主流程）。
+
+    将 scan_results / research_data / verdict 等写入本地缓存，
+    供后续直接辩论模式复用。
+    """
+    try:
+        from fdt_cache import CacheManager
+        cache = CacheManager()
+
+        scan_results = state.get("scan_results", {})
+        research_data = state.get("research_data", {})
+        verdict = state.get("verdict", {})
+
+        cache.save_debate_results(
+            trace_id=state.get("trace_id", ""),
+            scan_results=scan_results,
+            research_data=research_data,
+            verdict=verdict,
+        )
+        logger.info(f"[UPDATE_CACHE] 辩论结果已写入缓存, trace_id={state.get('trace_id', '')}")
+    except ImportError:
+        logger.debug("[UPDATE_CACHE] fdt_cache 模块未安装，跳过缓存写入")
+    except Exception as e:
+        logger.warning(f"[UPDATE_CACHE] 缓存写入异常: {e}")
+
+    # 不阻塞主流程，直接返回原 state
+    return state

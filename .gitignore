@@ -50,3 +50,6 @@ settings.json
 .workbuddy/
 .idea/
 .vscode/
+
+# CTP signals
+memory/ctp_signals/

@@ -539,6 +539,20 @@ class StrategyPipeline:
                 merged.direction = "bear"
             else:
                 merged.direction = "neutral"
+            # 修复：重新推导 grade（2026-07-21）
+            # 原逻辑将 grade 继承为所有子信号的 grade 最大值，但 total 是平均值——
+            # 当多空子信号互相抵消时平均 total 很低，grade 仍保留 STRONG，
+            # 导致 grade 与 total 语义不匹配（如 total=20, grade=STRONG）。
+            # 用 SIGNAL_GRADE_THRESHOLDS 统一阈值从平均 abs 重新映射。
+            _abs = abs(merged.total)
+            if _abs >= 50:
+                merged.grade = "STRONG"
+            elif _abs >= 40:
+                merged.grade = "WATCH"
+            elif _abs >= 20:
+                merged.grade = "WEAK"
+            else:
+                merged.grade = "NOISE"
             # 注入子信号明细
             merged._sub_signals = _sub_signal_map.get(sym, [])
 

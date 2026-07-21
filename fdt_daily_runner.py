@@ -80,40 +80,40 @@ def run_pipeline():
 
 
 def copy_report():
-    source_dir = os.path.join(
-        os.path.expanduser("~"),
-        "Documents",
-        "WorkBuddy",
-        "Commodities",
-        "Reports",
-        "商品期货深度分析",
-        DATE_STR,
-    )
-    target_dir = os.path.join(REPORT_ROOT, DATE_STR)
-    os.makedirs(target_dir, exist_ok=True)
+    """将 LangGraph 产出整理到 html/ 和 json/ 子目录。
 
-    # 按文件类型分类存放：html 放 html/ 子目录，json 放 json/ 子目录
+    LangGraph 已直接写入 REPORT_ROOT/{date}/，本函数仅按类型分类。
+    始终用最新产出覆盖子目录。
+    """
+    target_dir = os.path.join(REPORT_ROOT, DATE_STR)
     html_dir = os.path.join(target_dir, "html")
     json_dir = os.path.join(target_dir, "json")
     os.makedirs(html_dir, exist_ok=True)
     os.makedirs(json_dir, exist_ok=True)
 
-    if os.path.exists(source_dir):
-        for item in os.listdir(source_dir):
-            src = os.path.join(source_dir, item)
-            if os.path.isfile(src):
-                if item.endswith(".html"):
-                    dst = os.path.join(html_dir, item)
-                elif item.endswith(".json"):
-                    dst = os.path.join(json_dir, item)
-                else:
-                    dst = os.path.join(target_dir, item)
-                shutil.copy2(src, dst)
-        print(f"Report copied to: {target_dir}")
-        return target_dir
+    if not os.path.exists(target_dir):
+        print(f"LangGraph output dir not found: {target_dir}")
+        return None
 
-    print(f"Source report dir not found: {source_dir}")
-    return None
+    moved = 0
+    for item in os.listdir(target_dir):
+        src = os.path.join(target_dir, item)
+        if not os.path.isfile(src):
+            continue
+        if item in ("html", "json"):
+            continue
+        if item.endswith(".html"):
+            dst = os.path.join(html_dir, item)
+        elif item.endswith(".json"):
+            dst = os.path.join(json_dir, item)
+        else:
+            continue
+        shutil.copy2(src, dst)
+        moved += 1
+
+        label = "html" if moved > 0 else "no new"
+    print(f"Report organized at: {target_dir} ({label} files organized)")
+    return target_dir
 
 
 def main():

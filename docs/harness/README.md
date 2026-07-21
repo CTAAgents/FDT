@@ -22,14 +22,13 @@
 
 ```
 FDT 项目根路径:
-  ~/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/
+  `<FDT_ROOT>` (克隆后的项目目录)
 
 入口点:
-  bootstrap.py          — 一键启动 (once/daemon/interactive)
-  pipeline/runner.py    — 全自动零干预流水线（支持 FDT_USE_LANGGRAPH A/B 切换）
-  scheduler/engine.py   — 心跳调度发动机
   fdt_cli.py            — 独立 CLI 入口 (run/daemon/db，v8.3.0+ LangGraph 模式)
   fdt_api.py            — 独立 FastAPI HTTP 服务入口 (/api/v1/debate，v8.3.0+)
+  pipeline/runner.py    — 全自动零干预流水线（支持 FDT_USE_LANGGRAPH A/B 切换）
+  scheduler/engine.py   — 心跳调度发动机
 
 LangGraph A/B 切换环境变量:
   FDT_USE_LANGGRAPH     — true/false，控制 pipeline 走 LangGraph 或 subprocess（默认 false）
@@ -39,7 +38,7 @@ LangGraph A/B 切换环境变量:
 核心铁律数: 8 条 (时序/串线/文件就绪/辩手禁搜/胶水代码/记忆独立/鲁棒性/P5降级)
 鲁棒性层数: 5 层 (L1-L5)
 可观测轴数: 5 轴 (D1-D5 APM-CS)
-Agent 数:   12 个 (10 核心 + 副判官 + 一致性裁判)
+Agent 数:   9 个 (数技源/观澜/探源/链证源/多头分析员/空头分析员/闫判官/风控明/明鉴秋)
 Skill 数:   13 个 (skills/ 目录)
 脚本数:     61 个 (scripts/)
 测试文件:   24 个
