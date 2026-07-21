@@ -9,10 +9,6 @@
     "win_rate": 0.863,
     "structure": "趋势确认 → hc-con2: WATCH级别信号置信... → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.804,
     "structure": "技术形态确认 → hc-con2: 成交量正常(vol_r... → hc-con3: DC55大框架评分极低... → 趋势确认 → hc-con5: 总评分-31为WEAK...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "near_breakout"
       ]

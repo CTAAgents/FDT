@@ -9,10 +9,6 @@
     "win_rate": 0.989,
     "structure": "SA-con1: WATCH等级置信度不... → 趋势确认 → 趋势确认 → SA-con4: 夜盘收涨+0.56%出... → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.72,
     "structure": "技术形态确认 → SA-con2: RSI=29.6进入超... → 技术形态确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

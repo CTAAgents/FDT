@@ -343,36 +343,39 @@ def _build_chain_prompt_snippet(chain_info: dict | None) -> str:
 # 触发品种识别（信号检查闸门）
 # ─────────────────────────────────────────────
 def select_triggers(scan: dict, threshold: int, disable_filter: bool = False) -> list:
-    """辩论入口高置信门禁（v8.1.8 去融合后）：grade∈{STRONG,WATCH} 即进候选。
+    """辩论入口数据质量闸门（v9.5.0 P1角色矫正）。
 
-    当 disable_filter=True 时，从 _raw_total 读取原始总分构造候选（绕过 P0-4 伪突破过滤）。
-    门禁单一真相源 = config.settings.signal_passes_entry_gate。
+    改造前：基于 grade + total 做方向性过滤（品种价值由P1策略评分决定）。
+    改造后：检查数据质量（stats完整性、K线数量、流动性），品种价值判断交给闫判官（P2）和观澜（P3）。
+
+    P1角色矫正原则：数技源只出统计事实，不做方向性过滤。
+    品种是否值得辩论 = 闫判官基于 stats 判断，而非 P1 的 grade/total。
+
+    原始 grade/total 仍保留在记录中（向后兼容旧模块），但不作为过滤标准。
     """
-    import importlib.util
-    _cand = QUANT_DAILY / "config" / "settings.py"
-    if _cand.exists():
-        try:
-            _spec = importlib.util.spec_from_file_location("qd_settings_gate", str(_cand))
-            _mod = importlib.util.module_from_spec(_spec)
-            _spec.loader.exec_module(_mod)
-            signal_passes_entry_gate = getattr(_mod, "signal_passes_entry_gate",
-                                                lambda s, t=threshold: abs(s.get("total", 0)) >= t)
-        except Exception:
-            signal_passes_entry_gate = lambda s, t=threshold: abs(s.get("total", 0)) >= t
-    else:
-        signal_passes_entry_gate = lambda s, t=threshold: abs(s.get("total", 0)) >= t
     ranked = scan.get("all_ranked", [])
-    if disable_filter:
-        cands = [s for s in ranked if signal_passes_entry_gate(
-            {"grade": s.get("grade", "NOISE"),
-             "total": s.get("_raw_total", s.get("total", 0))}, threshold)]
-    else:
-        cands = [s for s in ranked if signal_passes_entry_gate(s, threshold)]
-    # 优先级：STRONG > WATCH > 其余
-    order = {"STRONG": 0, "WATCH": 1, "WEAK": 2, "NOISE": 3}
-    score_key = "_raw_total" if disable_filter else "total"
-    cands.sort(key=lambda s: (order.get(s.get("grade", "NOISE"), 9), -abs(s.get(score_key, 0))))
-    return cands
+    passed = []
+
+    for r in ranked:
+        stats = r.get("stats")
+        # ── 数据完整性检查：必须有 stats 对象 ──
+        if not stats or not isinstance(stats, dict):
+            continue
+        # ── K线完整度检查：至少20根 ──
+        n_bars = stats.get("n_bars", 0)
+        if n_bars < 20:
+            continue
+        # ── 流动性检查：排除零成交+零持仓品种 ──
+        volume = stats.get("volume", 0)
+        oi = stats.get("oi", 0)
+        if volume <= 0 and oi <= 0:
+            continue
+        passed.append(r)
+
+    # ── 排序：按成交量降序（流动性优先） ──
+    # 原始 grade/total/direction 仍保留在记录中不删除，下游模块无感知
+    passed.sort(key=lambda x: abs(x.get("stats", {}).get("volume", 0) if isinstance(x.get("stats"), dict) else 0), reverse=True)
+    return passed
 
 
 # ─────────────────────────────────────────────

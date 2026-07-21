@@ -9,10 +9,6 @@
     "win_rate": 0.998,
     "structure": "j-con1: 总分-41仅比WEAK上... → 趋势确认 → 技术形态确认 → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -36,12 +32,6 @@
     "win_count": 2,
     "win_rate": 0.58,
     "structure": "技术形态确认 → 技术形态确认 → j-con3: 上游原料焦煤(jm)和铁...",
-    "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ]
-    },
     "key_evidence_sources": [],
     "derived_from_debates": [
       "unknown"

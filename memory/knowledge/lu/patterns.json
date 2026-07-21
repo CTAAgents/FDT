@@ -9,10 +9,6 @@
     "win_rate": 0.6,
     "structure": "技术形态确认 → 趋势确认 → lu-con3: 同板块油品品种均未确认...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "minor_signal"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.933,
     "structure": "技术形态确认 → 趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -65,10 +57,6 @@
     "win_rate": 0.72,
     "structure": "技术形态确认 → LU-pro2: 所属产业链同步支持... → LU-pro3: lu 具有持续上行动能...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.bb"
       ]

@@ -564,4 +564,9 @@ flowchart LR
 
 ---
 
+---
+
+> **v9.6.8 变更**：P1 产出新增 `all_ranked[].stats` 纯统计特征对象（MA/ATR/RSI/ADX/量能比/通道位置）。P1.5 闸门从"方向性信号过滤"改为"数据质量闸门"（检查stats完整性、K线数量、流动性）。P2 闫判官优先消费 stats 做独立判断，P1 的 direction/total/grade 降级为参考。详见 `01-architecture.md` P1角色矫正章节。
+
+
 *文档版本 v4.5 | 2026-07-17 | FDT v8.7.0 | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源) | 闫判官(含交易参数) | 新增 signal_output(CTP)*

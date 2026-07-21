@@ -160,7 +160,7 @@ fdt_cli.py main()
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
 | P0 | 自进化前置 | 系统 | `pg.execution_followup` | `pg.calibration` + `pg.agent_profiles` 更新 | 60s/步 | 跳过该步 |
 | **P0b** | **数据新鲜度闸门** | **系统** | **PG中行情/资金数据** | **`debate_state.freshness_report`（各品种新鲜度评级）** | **120s** | **D06 降级（新鲜度不足→降级裁决）** |
-| P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` + **P1 阶段报告 `scan_report_path`** | 600s | 提前终止 |
+| P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` + **`all_ranked[].stats` 纯统计特征（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）** + **P1 阶段报告 `scan_report_path`** | 600s | 提前终止 |
 | P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+定方向+**调度哪些源**） | 420s | D06 降级 |
 | P3 | **按需并行数据源** | 链证源+观澜+探源（闫判官按需调度） | P2 调度指令 | `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` + **P3 阶段报告 `research_report_path`** | **max(被调度的源)** | 单源失败不影响其他源 |
 | P3a | 链证源产业链（按需） | 链证源 | 品种+产业链 | `pg.chain_analysis` | 300s | 跳过链分析 |
@@ -197,6 +197,8 @@ fdt_cli.py main()
 > - **P4 重构**: 从「证真+慎思并行一次调用」改为「串行三步骤交叉质询」：bullish_v1（多头立论）→ bearish_v1（空头质疑）→ rebuttal_v2（多头反驳，max=1）
 > - **Redux**: 引入 `Annotated[list, operator.add]` reducer 自动追加多轮辩论产物，不覆盖
 > - **路由**: 新增 `debate_round` 计数器 + `MAX_DEBATE_ROUNDS` 常量精确控制轮次
+
+> **v9.6.8 变更 — P1 角色矫正**: P1 数技源从"策略评分器"回归"数据统计器"角色，新增 `all_ranked[].stats` 纯统计特征产出（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置），`total`/`direction`/`grade` 降级为内部参考。`select_triggers()` 从基于 grade+total 的方向性过滤改为数据质量闸门（stats完整性+K线数量+流动性）。
 
 ### 2.2a 运行模式
 

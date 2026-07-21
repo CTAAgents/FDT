@@ -38,7 +38,6 @@ version: "1.0.0"
 {
   "held_out_judge": {
     "coherence_score": 0.82,
-    "rationale": "裁决方向(bear)与正方核心论据(ADX极强+产业链偏空)一致；反方ADX末端风险已被裁决reasoning正面回应",
     "judge": "futures-judge-heldout",
     "rubric_version": "CLQT-6.4.1",
     "flags": []
@@ -63,9 +62,6 @@ append_debate_journal("futures-judge-heldout", "coherence", held_out_judge)
 ## 审计检查清单（逐项核验）
 
 1. **方向可还原**：仅看 pro_args + con_args，能否推出 verdict.direction？若不能 → 扣分。
-2. **论据覆盖**：verdict 引用的每个关键点（ADX / 共振 / 产业链）是否都能在 pro_args 找到来源？
-3. **反方回应**：con_args 中的重大质疑（如 ADX 末端风险、因子中性）是否被 verdict.reasoning 正面回应？未回应 → 扣分。
-4. **信号 vs 论据**：裁决是否仅由外部信号（如单纯 ADX 极值）推出而忽略辩论论据？若是 → 视为"论据被覆盖"，显著扣分。
 
 ## 升级路径
 

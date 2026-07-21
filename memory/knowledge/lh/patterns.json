@@ -9,10 +9,6 @@
     "win_rate": 0.6,
     "structure": "LH-con1: 产能过剩基本面未根本改... → 技术形态确认 → LH-con3: 二育获利了结+台风冲击... → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_confirmation"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.933,
     "structure": "政策催化 → 趋势确认 → 基本面验证 → 资金验证 → lh-con5: 近端供给冲击(1-2周...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_confirmation"
       ]

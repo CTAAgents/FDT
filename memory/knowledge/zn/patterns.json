@@ -8,12 +8,6 @@
     "win_count": 6,
     "win_rate": 0.95,
     "structure": "CCI已进入超买区追高风险显著... → 趋势确认 → 成交量比0.89萎缩显示上行动能不足... → 布林带宽度仅4.63%波动率压缩酝酿方向... → 矿端TC回升指向供给偏紧格局边际缓和...",
-    "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ]
-    },
     "key_evidence_sources": [],
     "derived_from_debates": [
       "unknown"

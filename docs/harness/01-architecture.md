@@ -485,6 +485,17 @@ class HookManager:
 > - P5: 裁决链串行执行（闫判官含交易参数→风控明）
 > - 通信方式: 文件传递 + S04 轮询
 
+
+### P1角色矫正（v9.6.8）
+
+P1 数技源从"策略评分器"回归"数据统计器"角色：
+- **新增产出物**：`all_ranked[].stats` 对象（纯定量统计特征：MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）
+- **保留字段**：`total`/`direction`/`grade` 保留但降级为内部参考，不再作为P1的"判断产出"
+- **P1.5 闸门变更**：`select_triggers()` 从基于 grade+total 的方向性过滤改为数据质量闸门（stats完整性+K线数量+流动性）
+- **P2 闫判官变更**：消费 stats 而非 total/direction，新增 audit 字段记录与P1信号的偏离度
+- **P3 观澜变更**：从 state 读取 stats 注入技术分析上下文
+- **不变**：指定品种辩论模式、策略引擎 pipeline.py、验证器、P4辩论prompt、P5裁决prompt
+
 ### 4.2 LangGraph 拓扑（迁移后 — 并行数据源）
 
 ```

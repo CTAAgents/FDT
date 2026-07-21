@@ -38,7 +38,7 @@
       "entry": {
         "type": "limit",
         "price": 12250.0,
-        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认"
       },
       "stop_loss": {
         "price": 12700.0,
@@ -55,7 +55,7 @@
       "entry": {
         "type": "limit",
         "price": 12250.0,
-        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认"
       },
       "stop_loss": {
         "price": 12700.0,
@@ -72,7 +72,7 @@
       "entry": {
         "type": "limit",
         "price": 12250.0,
-        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认"
       },
       "stop_loss": {
         "price": 12700.0,
@@ -89,7 +89,7 @@
       "entry": {
         "type": "limit",
         "price": 12250.0,
-        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认"
       },
       "stop_loss": {
         "price": 12700.0,
@@ -106,7 +106,7 @@
       "entry": {
         "type": "limit",
         "price": 12250.0,
-        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认。不可用ADX作为首要触发条件，ADX仅用于确认趋势状态不作为入场依据"
+        "condition": "价格跌破12250(约1ATR下方短期支撑位)且vol_ratio>1.0放量确认"
       },
       "stop_loss": {
         "price": 12700.0,

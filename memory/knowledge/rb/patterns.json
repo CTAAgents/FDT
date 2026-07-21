@@ -9,10 +9,6 @@
     "win_rate": 0.991,
     "structure": "趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        52.2,
-        82.2
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,12 +33,6 @@
     "win_count": 1,
     "win_rate": 0.72,
     "structure": "趋势确认 → 基本面验证",
-    "applicable_conditions": {
-      "adx_range": [
-        30,
-        60
-      ]
-    },
     "key_evidence_sources": [
       "技术分析/信号",
       "Mysteel"
@@ -66,10 +56,6 @@
     "win_rate": 0.72,
     "structure": "技术形态确认 → rb-con2: 价格严重偏离MA60均... → rb-con3: 钢铁产业链上下游信号不... → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

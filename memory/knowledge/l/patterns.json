@@ -9,10 +9,6 @@
     "win_rate": 0.984,
     "structure": "趋势确认 → 趋势确认 → 趋势确认 → l-pro4: 价格从0910到1159...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "minor_signal"
       ]

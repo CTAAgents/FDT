@@ -281,6 +281,76 @@ def _collect_basis_via_nearmonth(all_ranked: list) -> dict:
     return result
 
 
+def _build_pure_stats(r: dict, kline: list | None) -> dict:
+    """从原始记录和K线构建纯定量stats对象。
+    
+    P1角色矫正（2026-07-21）：数技源只出统计事实，不包含方向性预判。
+    技术方向判断权归还给观澜（P3）。
+    不读取 direction/total/grade 等方向性字段。
+    """
+    stats = {}
+    
+    # ── 价格统计 ──
+    stats["latest_close"] = r.get("price", 0)
+    stats["change_pct"] = r.get("change_pct", 0)
+    
+    # ── 均线系统（从 r 中已有的技术指标提取） ──
+    stats["ma_5"] = r.get("ma_5", r.get("price", 0))
+    stats["ma_10"] = r.get("ma_10", r.get("price", 0))
+    stats["ma_20"] = r.get("ma_20", r.get("price", 0))
+    stats["ma_60"] = r.get("ma_60", r.get("price", 0))
+    stats["ma_align"] = r.get("ma_align", "mixed")
+    
+    # ── 波动与强度 ──
+    stats["atr_14"] = r.get("atr", 0)
+    stats["rsi_14"] = r.get("rsi", 50)
+    stats["adx_14"] = r.get("adx", 25)
+    stats["di_plus"] = r.get("di_plus", 0)
+    stats["di_minus"] = r.get("di_minus", 0)
+    
+    # ── 量能 ──
+    stats["volume"] = r.get("volume", 0)
+    stats["oi"] = r.get("oi", 0)
+    stats["oi_change"] = r.get("oi_change", 0)
+    stats["volume_ma20"] = _calc_volume_ma20(kline) if kline else 0
+    stats["volume_ma20_ratio"] = (
+        round(stats["volume"] / stats["volume_ma20"], 2)
+        if stats["volume_ma20"] > 0 else 0
+    )
+    
+    # ── 通道与形态 ──
+    stats["dc20_upper"] = r.get("dc20_upper", 0)
+    stats["dc20_lower"] = r.get("dc20_lower", 0)
+    bp = stats["dc20_upper"] - stats["dc20_lower"]
+    stats["dc20_width_pct"] = round(bp / (stats["dc20_upper"] or 1) * 100, 2)
+    stats["z_score"] = r.get("z_score", 0)
+    
+    # ── 20日区间位置 ──
+    high_20d = r.get("high_20d", stats["latest_close"])
+    low_20d = r.get("low_20d", stats["latest_close"])
+    rng = high_20d - low_20d
+    stats["high_20d"] = high_20d
+    stats["low_20d"] = low_20d
+    stats["price_position_pct"] = round(
+        (stats["latest_close"] - low_20d) / (rng or 1) * 100, 1
+    )
+    
+    # ── 数据源标记 ──
+    stats["data_source"] = r.get("data_source", "unknown")
+    stats["n_bars"] = len(kline) if kline else 0
+    
+    return stats
+
+
+def _calc_volume_ma20(kline: list) -> float:
+    """从原始K线计算20日均量。"""
+    if not kline or len(kline) < 2:
+        return 0
+    recent = kline[-21:-1] if len(kline) > 20 else kline
+    volumes = [b.get("volume", 0) for b in recent if b.get("volume", 0) > 0]
+    return sum(volumes[-20:]) / min(len(volumes[-20:]), 20) if volumes else 0
+
+
 def _collect_oi_data_sync(all_ranked: list, kline_data: dict) -> dict:
     """从 kline_data 同步提取 OI 变化数据。
 
@@ -1037,6 +1107,12 @@ def run_scan(
     for _r in all_ranked:
         if _r.get("level") is None and _r.get("grade"):
             _r["level"] = _r["grade"]
+
+    # ── P1角色矫正：为每个品种附加 stats 对象（纯定量事实，无方向预判） ──
+    # stats 由观澜（P3）消费，数技源（P1）只负责产出统计特征量
+    for _r in all_ranked:
+        _r["stats"] = _build_pure_stats(_r, kline_data.get(_r.get("symbol", "")))
+
     bear = summary.get("bear_signals", [])
     bull = summary.get("bull_signals", [])
     meta = summary.get("_meta", {})

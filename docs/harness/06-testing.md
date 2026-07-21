@@ -551,3 +551,18 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 | L1→L2 | 影子模式 ≥5 轮，分诊准确率 ≥90% |
 | L2→L3 | 连续 ≥20 次人工审查零回退，漏放率 ≈0，人工干预率 <10% |
 | 降级 | 出现安全事件，或人工干预率连续两周 >30% |
+
+### P1角色矫正测试用例（v9.6.8）
+
+| 用例ID | 测试对象 | 描述 | 验证方法 |
+|:-------|:---------|:-----|:---------|
+| TC-STATS-001 | `_build_pure_stats()` | 验证stats对象不含direction/total/grade字段 | 构造含direction/total/grade的mock record，断言stats中无这三个key |
+| TC-STATS-002 | `_build_pure_stats()` | 验证缺失字段时的默认值合理性 | 传入空dict+None kline，断言rsi_14默认50、adx_14默认25、volume_ma20_ratio默认0 |
+| TC-STATS-003 | `_calc_volume_ma20()` | 验证20日均量计算正确性 | 传入21根K线，断言结果为前20根volume的均值 |
+| TC-GATE-001 | `select_triggers()` | 验证无stats记录被过滤 | 传入含无stats记录的all_ranked，断言passed为空 |
+| TC-GATE-002 | `select_triggers()` | 验证K线不足20根被过滤 | 传入n_bars=15的记录，断言passed为空 |
+| TC-GATE-003 | `select_triggers()` | 验证零成交零持仓被过滤 | 传入volume=0,oi=0的记录，断言passed为空 |
+| TC-GATE-004 | `select_triggers()` | 验证有效记录保留且按成交量排序 | 传入多条有效记录，断证passed长度正确且按volume降序 |
+| TC-AUDIT-001 | `node_judge_direction` audit | 验证aligned判定：闫判官bear + P1 bear = aligned | 构造对应state，断言audit.deviation=="aligned" |
+| TC-AUDIT-002 | `node_judge_direction` audit | 验证diverged判定：闫判官bull + P1 bear = diverged | 构造对应state，断言audit.deviation=="diverged" |
+| TC-AUDIT-003 | `node_judge_direction` audit | 验证无selected_symbols时audit为空dict | 传入空symbols列表，断言audit=={} |

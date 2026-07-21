@@ -336,4 +336,7 @@ python skills/quant-daily/scripts/assemble_intermediate_data.py   --summary repo
 python skills/futures-trading-analysis/scripts/phase3_generate_report.py
 ```
 
+
+> **v9.6.8 变更**：P1 产出新增 `all_ranked[].stats` 纯统计特征对象（MA/ATR/RSI/ADX/量能比/通道位置）。P1.5 闸门从"方向性信号过滤"改为"数据质量闸门"（检查stats完整性、K线数量、流动性）。P2 闫判官优先消费 stats 做独立判断，P1 的 direction/total/grade 降级为参考。详见 `01-architecture.md` P1角色矫正章节。
+
 P2 / 通道B辩论期 / 阶段四（裁决+风控+报告+CTP信号）由 LLM Agent 层在 spawn 后自动执行。

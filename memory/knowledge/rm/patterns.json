@@ -8,12 +8,6 @@
     "win_count": 12,
     "win_rate": 0.993,
     "structure": "趋势确认 → CCI=107.1已越过100超买门槛，... → 菜粕多头驱动非独占，受豆粕供给（大豆到港... → 趋势确认 → 需求旺季与天气扰动利好已被部分定价，后续...",
-    "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ]
-    },
     "key_evidence_sources": [],
     "derived_from_debates": [
       "unknown"
@@ -32,10 +26,6 @@
     "win_rate": 0.863,
     "structure": "趋势确认 → 技术形态确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

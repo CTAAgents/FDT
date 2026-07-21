@@ -93,3 +93,15 @@ workbuddy_fields:
   - SendMessage
   spawn_mode: general-purpose
   spawn_note: ''
+
+## P1角色矫正（2026-07-21）— 输出语义澄清
+### verdict=null 与 score 的关系
+- `verdict` 必须为 null（强制校验，不下多空结论）
+- 当前 prompt 中的 `score` 语义澄清：score 是**技术面"温度计"**，不是方向指南针
+  - score 0-100 反映技术面活跃度/极端程度，纯数值无方向暗示
+  - score 60+ = 技术面热度高；40- = 技术面冷清
+  - 等价于 RSI/ADX 等技术指标的归一化读数
+- 方向性判断由多头/空头分析员在 P4 辩论中基于观澜的技术数据自行决定
+### stats 数据
+- 观澜可从 state["scan_results"] 读取数技源的 stats 对象作为分析参考
+- stats 是纯统计事实，观澜基于 stats 做独立技术判断

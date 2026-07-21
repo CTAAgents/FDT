@@ -4,7 +4,7 @@
       "entry": {
         "type": "limit",
         "price": 3825.0,
-        "condition": "价格突破+量确认排第一。等待日线收盘有效站上DC20上轨(3821)上方确认突破，同时vol_ratio≥1.2放量配合后触发入场。ADX不作为入场首要触发条件，仅作辅助参考。当前价格3782距上轨-1.02%，尚未满足条件，需持续观察。"
+        "condition": "价格突破+量确认排第一；等待日线收盘有效站上DC20上轨(3821)上方确认突破，同时vol_ratio≥1.2放量配合后触发入场；当前价格3782距上轨-1.02%，尚未满足条件，需持续观察。"
       },
       "stop_loss": {
         "price": 3745.0,
@@ -95,7 +95,7 @@
       "entry": {
         "type": "limit",
         "price": null,
-        "condition": "裁决bull_signal_unconfirmed：谨慎胜出(8.58:6.58)，DC20突破强度weak+距离-1.02%已回落通道内+vol_ratio=1.0无量+cons=0零共识+当日收跌-0.08%。等待条件：vol_ratio>1.3放量突破且价格站稳DC20上轨后再评估"
+        "condition": "裁决bull_signal_unconfirmed：谨慎胜出(8.58:6.58)，DC20突破强度weak+距离-1.02%已回落通道内+vol_ratio=1.0无量+cons=0零共识+当日收跌-0.08%；等待条件：vol_ratio>1.3放量突破且价格站稳DC20上轨后再评估"
       },
       "stop_loss": {
         "price": null,

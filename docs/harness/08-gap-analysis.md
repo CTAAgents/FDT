@@ -120,9 +120,17 @@
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，但全部手动化 | 效率低 | 增加准入自动化脚本 |（计划中）|
+| GAP-P1-001 | P1 数技源角色越界：产出 total/direction/grade 方向性预判，与观澜（P3）技术分析职责重叠 | P1 | v9.6.8 | 已关闭 | P1角色矫正：stats 纯统计特征产出，total/direction/grade 降级为内部参考，select_triggers 改为数据质量闸门 |
 
 ### 4.3 P2 — 低优先级
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | G18 | 辩论调度权边界未在代码层强制 | `docs/02-lifecycle.md` 已澄清，但代码层无强制 | 潜在风险 | 考虑增加调度权断言 |（计划中）|
+
+### 4.4 AP 反模式差距
+
+| GAP ID | 描述 | 优先级 | 状态 | 说明 |
+|:-------|:-----|:------|:-----|:-----|
+| GAP-AP01-001 | AP01反模式：futures-debate-team-team-lead.md (619行) 和 futures-judge.md (482行) 超过300行阈值 | P1 | 开放 | 需拆分为多个子文档或精简至300行以内 |
+| GAP-HOOK-001 | pre_commit_harness_check.py 脚本存在但未接入 Git pre-commit hook | P2 | 开放 | 需配置 .pre-commit-config.yaml 或 pyproject.toml 的 [tool.hatch.hooks] |

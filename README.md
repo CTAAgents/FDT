@@ -2,7 +2,7 @@
 
 一套 **9-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.6.7**
+**v9.6.8**
 
 ---
 
@@ -398,7 +398,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v9.6.7** | **Harness 文档整理 + 入口文档同步检查扩展** — ① harness-starter-kit 迁移到 `docs/harness-templates/`；② 设计文档、流程文档归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新。 |
+| **v9.6.8** | **Harness 文档整理 + 入口文档同步检查扩展** — ① harness-starter-kit 迁移到 `docs/harness-templates/`；② 设计文档、流程文档归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新。 |
 | **v9.6.5** | **G93-G96 LangGraph 迁移全部完成 + 配置 Schema 扩展** — coordinator.py→graph.py(G93)、debate_protocol_v2.py→nodes.py(G94)、agent_runner.py→agents.py(G95)、DuckDB→PostgreSQL JSON 迁移(G96)。3 个旧文件删除，16 个迁移测试全部通过。D2/D3/D5/D6 四维提升至 ★★★★★。新增 `DataSourcesConfig` + `AgentProfilesData` Pydantic 校验，覆盖全部 4 个配置文件。 |
 | **v9.6.4** | **G71 完全关闭 + 循环契约补全 + ReAct 思维链集成** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract + 6 Agent 配置文件升级 v2.3（ReAct 思维链 + 数据溯源铁律） |
 | **v9.6.0** | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |

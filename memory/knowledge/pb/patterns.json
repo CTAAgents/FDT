@@ -9,10 +9,6 @@
     "win_rate": 0.984,
     "structure": "趋势确认 → 技术形态确认 → 趋势确认 → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "near_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.86,
     "structure": "基本面验证 → pb-con2: 传统淡季+锂电替代双击... → 基本面验证 → pb-con4: 宏观面强美元+有色板块... → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.dc20+dc55+bb"
       ]

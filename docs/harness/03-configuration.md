@@ -20,6 +20,9 @@
 | `varieties.yaml` | `skills/quant-daily/scripts/references/` | 62 个期货品种定义 |
 | `overseas_varieties.yaml` | `skills/quant-daily/scripts/references/` | 海外品种定义 |
 | `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (DataCore→TDX→WebFallback→QMT→TqSDK) |
+| `datatech.yaml` | `config/agents/datatech.yaml` | 数技源角色定义 + P1角色矫正(v9.6.8) stats产出规范 |
+| `judge.yaml` | `config/agents/judge.yaml` | 闫判官角色定义 + P1角色矫正(v9.6.8) 数据消费优先级 |
+| `technical_researcher.yaml` | `config/agents/technical_researcher.yaml` | 观澜角色定义 + P1角色矫正(v9.6.8) 输出语义澄清 |
 
 ### 1.3 记忆级配置 (JSON, 运行时可变)
 

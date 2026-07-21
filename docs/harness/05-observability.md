@@ -446,3 +446,16 @@ python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --
 | PostgreSQL 连接日志 | `logs/pg_connection.log` | 连接池状态变化 |
 | 查询性能日志 | `logs/pg_query.log` | 慢查询 (>100ms) 记录 |
 | API 访问日志 | `logs/api_access.log` | FastAPI 请求日志 |
+
+### audit 指标（v9.6.8 新增）
+
+P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判官方向预判与 P1 信号的偏离度：
+
+| 字段 | 类型 | 说明 | 采集方式 |
+|:-----|:-----|:-----|:---------|
+| `p1_signal_direction` | str | P1原始方向（bull/bear/neutral） | 从 scan_results.all_ranked 读取 |
+| `p1_signal_total` | float | P1原始总分 | 从 scan_results.all_ranked 读取 |
+| `p1_signal_grade` | str | P1原始等级（STRONG/WATCH/WEAK/NOISE） | 从 scan_results.all_ranked 读取 |
+| `deviation` | str | "aligned"（一致）或 "diverged"（偏离） | 比较 judge_direction.direction 与 p1_signal_direction |
+
+用途：T+1 回测验证"去锚定"后闫判官判断质量是否优于 P1 锚定模式。

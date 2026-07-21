@@ -9,10 +9,6 @@
     "win_rate": 0.82,
     "structure": "人民币贬值抬升内盘矿价...",
     "applicable_conditions": {
-      "adx_range": [
-        30,
-        60
-      ],
       "signal_type": [
         "channel_breakout"
       ]

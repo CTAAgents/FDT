@@ -9,10 +9,6 @@
     "win_rate": 0.904,
     "structure": "b-pro1: MA均线斜率极为陡峭(+... → 趋势确认 → 技术形态确认 → 技术形态确认 → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.72,
     "structure": "技术形态确认 → 技术形态确认 → 趋势确认 → 资金验证",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

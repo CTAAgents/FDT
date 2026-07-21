@@ -9,10 +9,6 @@
     "win_rate": 0.6,
     "structure": "趋势确认 → 趋势确认 → 技术形态确认 → 期限结构确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.bb"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.86,
     "structure": "eg-pro1: 国内EG装置集中检修，... → 基本面验证 → eg-pro3: 美伊冲突升级，霍尔木兹... → 技术形态确认 → 期限结构确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.dc20+bb"
       ]

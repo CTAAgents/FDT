@@ -9,10 +9,6 @@
     "win_rate": 0.72,
     "structure": "基本面验证 → 技术形态确认 → 基本面验证 → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.dc20+bb"
       ]

@@ -9,10 +9,6 @@
     "win_rate": 0.72,
     "structure": "趋势确认 → 技术形态确认 → y-con3: 豆油基本面与技术面存在多... → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

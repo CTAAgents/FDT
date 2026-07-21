@@ -9,10 +9,6 @@
     "win_rate": 0.72,
     "structure": "趋势确认 → p-con2: 总分-63在WATCH等... → 政策催化 → 趋势确认 → p-con5: 同期相关品种出现bull...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

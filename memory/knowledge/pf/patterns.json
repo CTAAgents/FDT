@@ -9,10 +9,6 @@
     "win_rate": 0.804,
     "structure": "PF-con1: 当日价格实际收涨+1.... → 趋势确认 → 趋势确认 → PF-con4: 价格对MA60偏离-6... → PF-con5: 爆炸性放量(1.47倍...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "minor_signal"
       ]

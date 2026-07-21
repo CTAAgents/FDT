@@ -9,10 +9,6 @@
     "win_rate": 0.71,
     "structure": "趋势确认 → 美联储降息预期升温，实际利率下行... → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        17,
-        47
-      ],
       "signal_type": [
         "trend_confirmation"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.72,
     "structure": "au-con1: CCI极度接近零轴（-... → au-con2: Z-Score仅-0.... → 趋势确认 → au-con4: 夜盘涨跌幅仅-0.1%...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

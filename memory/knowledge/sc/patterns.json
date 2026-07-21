@@ -9,10 +9,6 @@
     "win_rate": 0.62,
     "structure": "布林带带宽处于历史低位，挤压后大概率爆发... → 政策催化",
     "applicable_conditions": {
-      "adx_range": [
-        10,
-        37
-      ],
       "signal_type": [
         "bb_squeeze_prebreakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.989,
     "structure": "趋势确认 → 趋势确认 → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

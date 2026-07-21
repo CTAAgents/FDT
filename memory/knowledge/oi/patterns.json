@@ -9,10 +9,6 @@
     "win_rate": 0.977,
     "structure": "趋势确认 → 趋势确认 → 资金验证 → 资金验证",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.976,
     "structure": "资金验证 → 资金验证 → 资金验证",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

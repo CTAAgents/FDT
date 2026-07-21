@@ -9,10 +9,6 @@
     "win_rate": 0.6,
     "structure": "技术形态确认 → FU-pro2: 所属产业链同步支持... → FU-pro3: fu 具有持续上行动能...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.bb"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.6,
     "structure": "fu-pro1: BB通道4重共振 + ... → 趋势确认 → 技术形态确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.dc20+bb"
       ]
@@ -65,10 +57,6 @@
     "win_rate": 0.72,
     "structure": "fu-con1: 地缘脉冲不可持续, 风... → fu-con2: 燃料油需求端依然疲软,... → 趋势确认 → fu-con4: 技术指标确认严重超买,...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_following.dc20+bb"
       ]

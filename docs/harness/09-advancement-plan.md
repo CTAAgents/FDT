@@ -219,3 +219,12 @@ Phase 12 ─── ✅ v9.6.5 ── G93-G96 LangGraph 迁移全部完成 + D2/D
 | scheduler 触发逻辑依赖 datetime.now() 难以 mock | ✅ TimeTrigger.check(now) 接受注入 |
 | memory_writer 并发测试需要多线程 | ✅ threading.Barrier + Queue，5 线程无 crash |
 | G14 迁移逻辑复杂度超预估 | ✅ 工厂函数 _migrate_v20_to_v30 批量覆盖 |
+
+### v9.6.8 — P1角色边界矫正（2026-07-21）
+
+| 维度 | 变更 | 晋级效果 |
+|:-----|:-----|:---------|
+| 角色边界 | P1数技源从"策略评分器"回归"数据统计器"，新增stats纯统计特征产出 | 消除P1与P3（观澜）的技术分析职责重叠 |
+| 去锚定 | P2闫判官优先消费stats而非direction/total，新增audit偏离度记录 | 提升闫判官判断独立性，可量化验证去锚定效果 |
+| 闸门语义 | P1.5 select_triggers从方向性过滤改为数据质量闸门 | 过滤标准与品种价值判断解耦 |
+| 向后兼容 | total/direction/grade保留不删，旧模块无感知 | 零破坏性变更 |

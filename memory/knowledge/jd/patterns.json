@@ -9,10 +9,6 @@
     "win_rate": 0.6,
     "structure": "资金验证 → 3月补栏鸡苗7月正集中进入产蛋高峰，叠加... → 淘汰鸡价格7.15元/斤高位坚挺是一把双... → 基本面验证 → 资金验证",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -34,10 +30,6 @@
     "win_rate": 0.953,
     "structure": "趋势确认 → 趋势确认 → 技术形态确认 → 趋势确认 → jd-con5: 正方'饲料成本改善+板...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -62,10 +54,6 @@
     "win_rate": 0.804,
     "structure": "趋势确认 → 基本面验证 → 基本面验证",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

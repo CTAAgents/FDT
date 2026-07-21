@@ -9,10 +9,6 @@
     "win_rate": 0.804,
     "structure": "ec-con1: DC20未破位——空头... → ec-con2: CCI深度超卖(-12... → 资金验证 → ec-con4: 价格偏离MA60达-1...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_confirmation"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.863,
     "structure": "趋势确认 → ec-con2: -31点跌幅后价格可能... → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "trend_confirmation"
       ]

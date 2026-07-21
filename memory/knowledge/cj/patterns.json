@@ -9,10 +9,6 @@
     "win_rate": 0.953,
     "structure": "趋势确认 → CJ-con2: WATCH状态表明信号... → CJ-con3: 红枣期货存在强季节性规... → CJ-con4: 总分-68属于中等偏强... → CJ-con5: 当前价位做空的盈亏比严...",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -37,10 +33,6 @@
     "win_rate": 0.904,
     "structure": "CJ-con1: RSI=28.4+CC... → 技术形态确认 → CJ-con3: 红枣为非主流品种，流动... → 趋势确认 → 趋势确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]
@@ -65,10 +57,6 @@
     "win_rate": 0.6,
     "structure": "CJ-con1: RSI=28.4极深超... → 政策催化 → 政策催化 → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

@@ -9,10 +9,6 @@
     "win_rate": 0.967,
     "structure": "SS-con1: WATCH等级置信度不... → 趋势确认 → SS-con3: TT时序分量缺失，空头... → 技术形态确认",
     "applicable_conditions": {
-      "adx_range": [
-        35,
-        65
-      ],
       "signal_type": [
         "channel_breakout"
       ]

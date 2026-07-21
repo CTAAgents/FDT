@@ -9,10 +9,6 @@
     "win_rate": 0.65,
     "structure": "PTA加工差已压缩至低位，检修预期增加... → 聚酯开工率维持高位，需求韧性好...",
     "applicable_conditions": {
-      "adx_range": [
-        13,
-        43
-      ],
       "signal_type": [
         "channel_breakout"
       ]
