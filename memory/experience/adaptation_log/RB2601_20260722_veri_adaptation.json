@@ -1,0 +1,37 @@
+{
+  "trace_id": "verify_RB",
+  "symbol": "RB2601",
+  "timestamp": "2026-07-22T03:38:30.789534",
+  "matched_patterns": [
+    "P003"
+  ],
+  "matched_cases": 10,
+  "adaptations": [
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.4974,
+      "reason": "模式 P003 推荐"
+    },
+    {
+      "dimension": "d1_context",
+      "field": "max_evidence_items",
+      "value": 8.0,
+      "reason": "模式 P003 推荐"
+    },
+    {
+      "dimension": "d1_context",
+      "field": "max_evidence_items",
+      "value": 6.7143,
+      "reason": "相似案例一致推荐 (7/10 案例一致)"
+    },
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.4383,
+      "reason": "相似案例一致推荐 (9/10 案例一致)"
+    }
+  ],
+  "clamped": [],
+  "applied": true
+}

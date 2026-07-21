@@ -1,0 +1,39 @@
+{
+  "pattern_id": "P001",
+  "pattern_type": "success",
+  "created_at": "2026-07-22T03:38:30.742831",
+  "last_updated": "2026-07-22T03:38:30.748412",
+  "conditions": {
+    "adx_range": [
+      "high"
+    ],
+    "volatility_regime": [
+      "high"
+    ],
+    "data_freshness_level": [
+      "fresh"
+    ]
+  },
+  "config_delta": {
+    "d3_generation": {
+      "judge_temp": 0.1478,
+      "debater_temp": 0.2961
+    },
+    "d4_orchestration": {
+      "debate_rounds": 4.0
+    }
+  },
+  "confidence": 0.54,
+  "sample_count": 7,
+  "success_rate": 0.7143,
+  "source_trace_ids": [
+    "syn_",
+    "syn_",
+    "syn_",
+    "syn_",
+    "syn_",
+    "syn_",
+    "syn_"
+  ],
+  "status": "confirmed"
+}

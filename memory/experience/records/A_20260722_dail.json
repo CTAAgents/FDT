@@ -1,0 +1,117 @@
+{
+  "trace_id": "daily-20260722-6c6aade6",
+  "loop_id": "daily-debate",
+  "timestamp": "2026-07-22T03:28:07.971386",
+  "task_conditions": {
+    "symbol": "A",
+    "adx_range": "low",
+    "volatility_regime": "normal",
+    "data_sources_available": [
+      "numpy"
+    ],
+    "data_freshness_level": "stale",
+    "debate_divergence": 0.0
+  },
+  "harness_config": {
+    "d1_context": {
+      "data_source": "unknown",
+      "indicator_source": "numpy",
+      "kline_bars": 120
+    },
+    "d3_generation": {
+      "debate_agents": 9,
+      "debate_format": "per_symbol_json"
+    },
+    "d4_orchestration": {
+      "total_symbols": 63,
+      "verdict_template": "shared_RB_template"
+    },
+    "d5_memory": {
+      "experience_schema_version": "1.0",
+      "harness_rules_version": "1.1"
+    }
+  },
+  "result": {
+    "success": true,
+    "verdict_direction": "neutral",
+    "verdict_confidence": 0.6,
+    "signal_quality": "skip",
+    "cost_tokens": 0,
+    "duration_seconds": 0.0,
+    "ctp_signals_count": 0,
+    "risk_color": "green",
+    "notes": "本轮辩论63个品种全部裁决为neutral，技术指标(ADX/RSI/CCI)全部为N/A或降级默认值，裁决JSON模板化(均引用RB数据)，CTP信号为空，无可执行策略。数据源标记为unknown，属于数据降级场景。"
+  },
+  "diagnosis": {
+    "failure_step": "data_collection",
+    "failure_agent": "pipeline_runner",
+    "root_cause": "技术指标数据(ADX/RSI/CCI)全部为N/A，数据源标记为unknown。辩论裁决模板化，所有品种使用同一RB裁决模板。无中间JSON辩论数据输出(memory/debates/为空)。",
+    "resolution": "skip"
+  },
+  "all_symbols": [
+    "A",
+    "AG",
+    "AL",
+    "AO",
+    "AP",
+    "AU",
+    "B",
+    "BC",
+    "BR",
+    "BU",
+    "C",
+    "CF",
+    "CJ",
+    "CS",
+    "CU",
+    "EB",
+    "EC",
+    "EG",
+    "FG",
+    "FU",
+    "HC",
+    "I",
+    "J",
+    "JD",
+    "JM",
+    "L",
+    "LC",
+    "LH",
+    "LU",
+    "M",
+    "MA",
+    "NI",
+    "NR",
+    "OI",
+    "OP",
+    "P",
+    "PB",
+    "PF",
+    "PG",
+    "PK",
+    "PP",
+    "PR",
+    "PS",
+    "PX",
+    "RB",
+    "RM",
+    "RR",
+    "RU",
+    "SA",
+    "SC",
+    "SF",
+    "SH",
+    "SI",
+    "SM",
+    "SN",
+    "SP",
+    "SR",
+    "SS",
+    "TA",
+    "UR",
+    "V",
+    "Y",
+    "ZN"
+  ],
+  "total_symbols_count": 63
+}

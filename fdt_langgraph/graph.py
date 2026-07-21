@@ -6,7 +6,7 @@ from pathlib import Path
 from .state import DebateState
 from .nodes import (
     node_scan, node_judge_direction, node_prepare_data,
-    node_chain, node_technical, node_fundamental, node_merge_research,
+    node_chain, node_technical, node_fundamental, node_sentiment, node_merge_research,
     node_bullish_v1, node_bearish_v1,
     node_bearish_rebuttal, node_bullish_rebuttal,
     node_bear_final, node_bull_final,
@@ -99,6 +99,8 @@ def _register_p3_nodes(graph: StateGraph, mode: str) -> list[str]:
         p3_nodes.append("technical")
     if mode in _full_p3_modes or "fundamental" in mode:
         p3_nodes.append("fundamental")
+    if mode in _full_p3_modes or "sentiment" in mode:
+        p3_nodes.append("sentiment")
     for node_name in p3_nodes:
         graph.add_edge("prepare_data", node_name)
         graph.add_edge(node_name, "merge_research")
@@ -136,6 +138,7 @@ def _register_common_nodes(graph: StateGraph) -> None:
     graph.add_node("chain", node_chain)
     graph.add_node("technical", node_technical)
     graph.add_node("fundamental", node_fundamental)
+    graph.add_node("sentiment", node_sentiment)
     graph.add_node("merge_research", node_merge_research)
     graph.add_node("verdict", node_verdict)
     graph.add_node("risk_check", node_risk_check)
@@ -163,6 +166,7 @@ def _register_direct_debate_nodes(graph: StateGraph) -> None:
     graph.add_node("chain", node_chain)
     graph.add_node("technical", node_technical)
     graph.add_node("fundamental", node_fundamental)
+    graph.add_node("sentiment", node_sentiment)
     graph.add_node("merge_research", node_merge_research)
     graph.add_node("verdict", node_verdict)
     graph.add_node("risk_check", node_risk_check)

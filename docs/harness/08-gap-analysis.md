@@ -134,3 +134,14 @@
 |:-------|:-----|:------|:-----|:-----|
 | GAP-AP01-001 | AP01反模式：futures-debate-team-team-lead.md (619行) 和 futures-judge.md (482行) 超过300行阈值 | P1 | 开放 | 需拆分为多个子文档或精简至300行以内 |
 | GAP-HOOK-001 | pre_commit_harness_check.py 脚本存在但未接入 Git pre-commit hook | P2 | 开放 | 需配置 .pre-commit-config.yaml 或 pyproject.toml 的 [tool.hatch.hooks] |
+
+---
+
+## MemoHarness 集成差距（2026-07-22 登记）
+
+| GAP ID | 描述 | 优先级 | 关联阶段 | 状态 |
+|:--|:--|:--:|:--:|:--:|
+| G100 | Et 经验记录基础设施缺失 — 缺少 contracts/experience_schema.py 和 scripts/experience_recorder.py | P1 | Phase A | **已关闭** |
+| G101 | Gt 模式蒸馏引擎缺失 — 缺少 scripts/pattern_distiller.py 和 staging 确认流程 | P2 | Phase B | **已关闭** |
+| G102 | W(x_j) 案例适配引擎缺失 — 缺少 scripts/harness_adapter.py 和四步上线评估 | P2 | Phase C | **已关闭** |
+| G103 | 正确性优先原则未写入机读规则 — harness-rules.yaml 缺少 C14 规则 | P1 | Phase A | **已关闭** |

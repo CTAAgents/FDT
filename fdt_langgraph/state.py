@@ -46,6 +46,7 @@ class DebateState(TypedDict, total=False):
     chain_analysis: Optional[dict]
     technical_data: dict
     fundamental_data: dict
+    sentiment_data: Optional[dict]          # P3 新闻情绪分析（情绪化）
     research_data: Optional[dict]
 
     # v9.0 多空头攻防模式 — 六阶段辩论
@@ -90,6 +91,7 @@ def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
         chain_analysis=None,
         technical_data={},
         fundamental_data={},
+        sentiment_data={},
         research_data=None,
         bullish_arguments=[],
         bearish_arguments=[],

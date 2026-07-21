@@ -1,0 +1,25 @@
+{
+  "trace_id": "GT-004",
+  "symbol": "SC2609",
+  "timestamp": "2026-07-22T03:57:12.344056",
+  "matched_patterns": [
+    "P004"
+  ],
+  "matched_cases": 8,
+  "adaptations": [
+    {
+      "dimension": "d1_context",
+      "field": "max_evidence_items",
+      "value": 3.0,
+      "reason": "模式 P004 推荐"
+    },
+    {
+      "dimension": "d5_memory",
+      "field": "history_turns",
+      "value": 1.0,
+      "reason": "模式 P004 推荐"
+    }
+  ],
+  "clamped": [],
+  "applied": true
+}

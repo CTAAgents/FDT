@@ -27,6 +27,7 @@ from futures_data_core.f10.web_collector import fetch_quote, fetch_kline, search
 from futures_data_core.f10.web_collector_llm import search_fundamental_llm
 from futures_data_core.f10.sentiment import get_sentiment
 from futures_data_core.f10.macro import get_macro_pmi, get_macro_rate
+from futures_data_core.f10.jin10_mcp import Jin10McpFetcher
 
 __all__ = [
     # term structure
@@ -67,4 +68,6 @@ __all__ = [
     # macro
     "get_macro_pmi",
     "get_macro_rate",
+    # jin10 mcp
+    "Jin10McpFetcher",
 ]

@@ -1,0 +1,32 @@
+{
+  "trace_id": "syn_AU_006",
+  "loop_id": "daily-debate",
+  "timestamp": "2026-07-21T02:00:00",
+  "task_conditions": {
+    "symbol": "AU2607",
+    "adx_range": "high",
+    "volatility_regime": "high",
+    "data_freshness_level": "fresh",
+    "data_sources_available": [
+      "web_fallback"
+    ],
+    "debate_divergence": 0.29
+  },
+  "harness_config": {
+    "d3_generation": {
+      "debater_temp": 0.3014,
+      "judge_temp": 0.1445
+    },
+    "d4_orchestration": {
+      "debate_rounds": 4
+    }
+  },
+  "result": {
+    "success": true,
+    "verdict_direction": "bullish",
+    "verdict_confidence": 0.53,
+    "signal_quality": "actionable",
+    "cost_tokens": 17138,
+    "duration_seconds": 226.1
+  }
+}

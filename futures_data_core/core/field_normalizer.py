@@ -149,8 +149,8 @@ def normalize_signal_row(row: dict) -> dict:
         row.get("grade") or row.get("level") or ""
     )
     out["price"] = _float(row, "price")
-    out["adx"] = _float(row, "adx")
-    out["rsi"] = _float(row, "rsi")
+    out["adx"] = _float(row, "adx", "ADX", "ADX14")
+    out["rsi"] = _float(row, "rsi", "RSI14", "RSI")
     out["atr"] = _float(row, "atr")
     out["stage"] = str(row.get("stage", ""))
     out["name"] = str(row.get("name", ""))

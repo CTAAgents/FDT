@@ -230,6 +230,81 @@ def get_macro_rate(**kwargs) -> Any:
 
 
 # ════════════════════════════════════════════════════════════
+# 金十 MCP 快讯/资讯/日历（FDC 专有，Data-Core 无对应）
+# ════════════════════════════════════════════════════════════
+
+
+_jin10_fetcher: Any = None
+
+
+def _get_jin10() -> Any:
+    """获取金十 MCP 采集器单例。"""
+    global _jin10_fetcher
+    if _jin10_fetcher is None:
+        cls = _import_fdc_sub("f10.jin10_mcp", "Jin10McpFetcher")
+        _jin10_fetcher = cls()
+    return _jin10_fetcher
+
+
+def jin10_available() -> bool:
+    """金十 MCP 是否可用（已设置 token）。"""
+    try:
+        fetcher = _get_jin10()
+        return fetcher.available
+    except Exception as e:
+        logger.debug("[DataAdapter] 金十 MCP 不可用: %s", e)
+        return False
+
+
+async def jin10_list_flash(cursor: str | None = None) -> dict:
+    """获取金十最新快讯列表。"""
+    fetcher = _get_jin10()
+    return await fetcher.list_flash(cursor=cursor)
+
+
+async def jin10_search_flash(keyword: str, cursor: str | None = None) -> dict:
+    """按关键词搜索金十快讯。"""
+    fetcher = _get_jin10()
+    return await fetcher.search_flash(keyword, cursor=cursor)
+
+
+async def jin10_list_news(cursor: str | None = None) -> dict:
+    """获取金十最新资讯列表。"""
+    fetcher = _get_jin10()
+    return await fetcher.list_news(cursor=cursor)
+
+
+async def jin10_search_news(keyword: str, cursor: str | None = None) -> dict:
+    """按关键词搜索金十资讯。"""
+    fetcher = _get_jin10()
+    return await fetcher.search_news(keyword, cursor=cursor)
+
+
+async def jin10_get_news(news_id: str) -> dict:
+    """获取金十单篇资讯详情。"""
+    fetcher = _get_jin10()
+    return await fetcher.get_news(news_id)
+
+
+async def jin10_list_calendar() -> dict:
+    """获取金十财经日历数据。"""
+    fetcher = _get_jin10()
+    return await fetcher.list_calendar()
+
+
+async def jin10_get_quote(code: str) -> dict:
+    """获取金十外盘品种实时报价。"""
+    fetcher = _get_jin10()
+    return await fetcher.get_quote(code)
+
+
+async def jin10_get_kline(code: str, time: str = "1day", count: int = 100) -> dict:
+    """获取金十外盘品种K线数据。"""
+    fetcher = _get_jin10()
+    return await fetcher.get_kline(code, time=time, count=count)
+
+
+# ════════════════════════════════════════════════════════════
 # 品种 / 新鲜度工具
 # ════════════════════════════════════════════════════════════
 
@@ -277,6 +352,16 @@ __all__ = [
     "load_fundamental",
     "get_macro_pmi",
     "get_macro_rate",
+    # 金十 MCP
+    "jin10_available",
+    "jin10_list_flash",
+    "jin10_search_flash",
+    "jin10_list_news",
+    "jin10_search_news",
+    "jin10_get_news",
+    "jin10_list_calendar",
+    "jin10_get_quote",
+    "jin10_get_kline",
     # 工具
     "list_symbols",
     "is_known",

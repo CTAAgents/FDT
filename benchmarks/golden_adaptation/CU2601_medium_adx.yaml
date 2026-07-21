@@ -1,0 +1,16 @@
+# Golden Task: CU2601 — 中等 ADX 趋势环境
+task_id: "GT-002"
+symbol: "CU2601"
+name: "沪铜2601合约"
+expected_market_context:
+  adx_range: "medium"
+  volatility_regime: "normal"
+  data_freshness_level: "fresh"
+expected_adaptations:
+  d3_generation:
+    debater_temp: 0.4      # 中等环境使用默认
+  d4_orchestration:
+    debate_rounds: 6        # 保持标准轮次
+verification_criteria:
+  - "适配后配置与默认配置偏差不超过 30%"
+  - "信号质量不低于默认配置"

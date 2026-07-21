@@ -127,6 +127,9 @@ line-length = 120
 | `FDT_DATA_SOURCE` | `fdc` | 数据源选择：`fdc`=futures_data_core 包（默认），`datacore`=datacore.fdc_compat 包。通过 `data_source_adapter.py` 统一适配层切换所有消费者的数据路由 | `data_source_adapter.py` |
 |
 | `FDT_CACHE_DIR` | `{FDT_ROOT}/memory/` | 本地 SQLite 缓存数据库目录，存放按品种+数据类型持久化的 K 线/基本面/基差数据缓存文件 | `fdt_cache/` 模块 |
+| `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
+| `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
+| `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |
 
 ### 环境变量设置示例
 

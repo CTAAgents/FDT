@@ -566,3 +566,12 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 | TC-AUDIT-001 | `node_judge_direction` audit | 验证aligned判定：闫判官bear + P1 bear = aligned | 构造对应state，断言audit.deviation=="aligned" |
 | TC-AUDIT-002 | `node_judge_direction` audit | 验证diverged判定：闫判官bull + P1 bear = diverged | 构造对应state，断言audit.deviation=="diverged" |
 | TC-AUDIT-003 | `node_judge_direction` audit | 验证无selected_symbols时audit为空dict | 传入空symbols列表，断言audit=={} |
+
+
+### 经验库测试（Phase A/B）
+
+| 测试文件 | 用例数 | 覆盖范围 |
+|:--|:--:|:--|
+| tests/experience/test_recorder.py | 17 | Schema 验证 + 记录写入 + 索引更新 + 幂等保护 |
+| tests/experience/test_distiller.py | 13 | 聚类 + 差异提取 + 置信度 + 安全阀 + 端到端 |
+| tests/experience/test_adapter.py | 10+ | 检索 + 合并 + 边界检查（Phase C） |

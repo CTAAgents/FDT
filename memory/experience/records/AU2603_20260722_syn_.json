@@ -1,0 +1,38 @@
+{
+  "trace_id": "syn_AU_002",
+  "loop_id": "daily-debate",
+  "timestamp": "2026-07-20T17:00:00",
+  "task_conditions": {
+    "symbol": "AU2603",
+    "adx_range": "high",
+    "volatility_regime": "high",
+    "data_freshness_level": "fresh",
+    "data_sources_available": [
+      "web_fallback"
+    ],
+    "debate_divergence": 0.29
+  },
+  "harness_config": {
+    "d1_context": {
+      "max_evidence_items": 5
+    },
+    "d3_generation": {
+      "debater_temp": 0.4017,
+      "judge_temp": 0.2072
+    },
+    "d4_orchestration": {
+      "debate_rounds": 6
+    },
+    "d5_memory": {
+      "history_turns": 3
+    }
+  },
+  "result": {
+    "success": false,
+    "verdict_direction": "neutral",
+    "verdict_confidence": 0.49,
+    "signal_quality": "skip",
+    "cost_tokens": 15459,
+    "duration_seconds": 128.9
+  }
+}

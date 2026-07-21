@@ -5,7 +5,7 @@
 # =============================================================================
 
 version: "1.1"
-description: "FDT Harness 工程规范检查规则 — 13 项 commit 前检查 + 11 条反模式"
+description: "FDT Harness 工程规范检查规则 — 14 项 commit 前检查 + 11 条反模式"
 
 checks:
   # ── C01: 架构变更 ─────────────────────────────────────────────────
@@ -130,6 +130,19 @@ checks:
       (2) 现价开仓必须验证止损距离≤4%；
       (3) 盈亏比必须≥1:2（高波动品种可放宽至1:1.5）；
       (4) 反对仅给偏离现价的挂单价作为核心建议
+
+  # ── C14: 正确性优先选择 ───────────────────────────────────────────
+  - id: C14
+    name: "正确性优先选择"
+    severity: "P1"
+    type: "process_check"
+    scope: "memory/experience/patterns/"
+    trigger_pattern: "config_delta|adaptation"
+    message: >
+      Harness 适配必须遵循正确性优先原则：
+      (1) 任务奖励（辩论准确率/信号质量）决定排名；
+      (2) token 成本仅作为平局打破条件；
+      (3) 禁止为降低成本而牺牲正确性
 
 anti_patterns:
   - id: AP01

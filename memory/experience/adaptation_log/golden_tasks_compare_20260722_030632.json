@@ -1,0 +1,132 @@
+[
+  {
+    "task_id": "GT-001",
+    "symbol": "RB2501",
+    "name": "螺纹钢2501合约",
+    "mode": "compare",
+    "deviations": [],
+    "matched_patterns": [],
+    "matched_cases": 0,
+    "applied": true,
+    "criteria_results": [
+      {
+        "criterion": "适配后 max_evidence_items >= 5",
+        "passed": false
+      },
+      {
+        "criterion": "适配后 debater_temp <= 0.8",
+        "passed": false
+      },
+      {
+        "criterion": "适配后 debate_rounds >= 2",
+        "passed": false
+      },
+      {
+        "criterion": "信号质量不低于默认配置",
+        "passed": true
+      }
+    ],
+    "all_criteria_passed": false,
+    "log_path": "D:\\Programs\\FDT\\memory\\experience\\adaptation_log\\RB2501_20260722_GT-0_adaptation.json"
+  },
+  {
+    "task_id": "GT-002",
+    "symbol": "CU2501",
+    "name": "沪铜2501合约",
+    "mode": "compare",
+    "deviations": [],
+    "matched_patterns": [],
+    "matched_cases": 0,
+    "applied": true,
+    "criteria_results": [
+      {
+        "criterion": "适配后配置与默认配置偏差不超过 30%",
+        "passed": false
+      },
+      {
+        "criterion": "信号质量不低于默认配置",
+        "passed": true
+      }
+    ],
+    "all_criteria_passed": false,
+    "log_path": "D:\\Programs\\FDT\\memory\\experience\\adaptation_log\\CU2501_20260722_GT-0_adaptation.json"
+  },
+  {
+    "task_id": "GT-003",
+    "symbol": "AU2506",
+    "name": "沪金2506合约",
+    "mode": "compare",
+    "deviations": [],
+    "matched_patterns": [],
+    "matched_cases": 0,
+    "applied": true,
+    "criteria_results": [
+      {
+        "criterion": "适配后 judge_temp <= 0.2",
+        "passed": false
+      },
+      {
+        "criterion": "适配后 debate_rounds <= 8",
+        "passed": false
+      },
+      {
+        "criterion": "信号质量不低于默认配置",
+        "passed": true
+      }
+    ],
+    "all_criteria_passed": false,
+    "log_path": "D:\\Programs\\FDT\\memory\\experience\\adaptation_log\\AU2506_20260722_GT-0_adaptation.json"
+  },
+  {
+    "task_id": "GT-004",
+    "symbol": "SC2507",
+    "name": "烧碱2507合约",
+    "mode": "compare",
+    "deviations": [],
+    "matched_patterns": [],
+    "matched_cases": 0,
+    "applied": true,
+    "criteria_results": [
+      {
+        "criterion": "适配后 max_evidence_items <= 10",
+        "passed": false
+      },
+      {
+        "criterion": "适配后 history_turns <= 5",
+        "passed": false
+      },
+      {
+        "criterion": "适配引擎应产生 warning 或标记数据新鲜度",
+        "passed": true
+      }
+    ],
+    "all_criteria_passed": false,
+    "log_path": "D:\\Programs\\FDT\\memory\\experience\\adaptation_log\\SC2507_20260722_GT-0_adaptation.json"
+  },
+  {
+    "task_id": "GT-005",
+    "symbol": "IF2509",
+    "name": "沪深300股指期货2509合约",
+    "mode": "compare",
+    "deviations": [],
+    "matched_patterns": [],
+    "matched_cases": 0,
+    "applied": true,
+    "criteria_results": [
+      {
+        "criterion": "适配后 debater_temp <= 0.8",
+        "passed": false
+      },
+      {
+        "criterion": "适配后 debate_rounds >= 2",
+        "passed": false
+      },
+      {
+        "criterion": "信号质量不低于默认配置",
+        "passed": true
+      }
+    ],
+    "all_criteria_passed": false,
+    "log_path": "D:\\Programs\\FDT\\memory\\experience\\adaptation_log\\IF2509_20260722_GT-0_adaptation.json"
+  }
+]

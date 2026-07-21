@@ -483,3 +483,11 @@ FDT 多个循环之间通过 handoff 消息协作，不共享状态：
 ```
 
 **铁律**：状态跟循环走。每循环自有独立 state 目录，仅本循环读写；协作不靠共享状态，靠 handoff 消息。
+
+
+### 经验库循环（Experience Loop）
+
+- **记录循环**：daily-debate post_loop → experience_recorder → memory/experience/records/
+- **蒸馏循环**：self-evolve pipeline → pattern_distiller → memory/experience/patterns/ (staging)
+- **审查步骤**：人工确认 staging → confirmed（通过 pattern_reviewer CLI）
+- **适配循环**：daily-debate pre_loop → harness_adapter → W(x_j)（Phase C）

@@ -29,7 +29,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 
 | 层 | 职责 | 核心组件 |
 |:--|:-----|:---------|
-| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
+| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器)、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
 | **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`（Checkpointer 逻辑在 graph.py 内联） |
@@ -194,6 +194,14 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │                    filter=OFF → 读 _raw_total（无过滤，配合 --mode no-filter）
     ▼
 [P2] 闫判官 ──→ p2_judge_direction.json (选品种+定方向)
+    │
+    ▼
+[P2.5] FDC 数据预采集 + 金十快讯精选
+    │  · 输入: selected_symbols
+    │  · 处理: _build_jin10_context() 按品种中文关键词搜索金十快讯，去重后格式化
+    │  · 输出: 格式化文本注入 node_fundamental 的 context 的 【金十精选快讯】 区块
+    │  · 数据流: 金十MCP服务 → data_source_adapter.jin10_search_flash → _build_jin10_context → node_fundamental context
+    │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
     │
     ▼
 [P3] 链证源+观澜+探源 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json
@@ -813,3 +821,91 @@ Agent LLM 输出
 | `docs/business_flow.md` | 业务流程 SOP | Harness 文档关注技术执行层，不重复业务逻辑 |
 | `rules/futures-debate-team_rules.md` | 全局规则 | Harness 文档将规则映射到具体的工程实现 |
 | `docs/harness/loop-contracts/` | 循环契约规范 | 本文档的延伸，定义每个自动化循环的六维度契约 |
+
+
+### 经验库架构（v9.8.0）
+
+经验库采用双层结构：
+- **Et 层（案例级记录）**：memory/experience/records/ — 每轮辩论自动写入 ExecutionRecord
+- **Gt 层（全局模式）**：memory/experience/patterns/ — 从 Et 中蒸馏的 DistilledPattern
+- **适配日志**：memory/experience/adaptation_log/ — 案例适配决策记录
+
+数据流：daily-debate (post_loop) → Et → self-evolve (pipeline) → Gt → daily-debate (pre_loop) → W(x_j)
+
+
+## 7. 未来扩展：新闻情绪分析因子
+
+### 7.1 定位
+
+新闻情绪分析师作为与**链证源（产业链）**、**观澜（技术面）**、**探源（基本面）** 平级的**第四分析因子**，在 P3 阶段并行运行，输出结构化新闻情绪状态向量。
+
+### 7.2 架构示意
+
+```
+                        ┌──── 金十 MCP（原始快讯）────┐
+                        │                            │
+                        ▼                            ▼
+               【精选注入探源】              【情绪分析通道】
+               (Phase 1 已落地)              (Phase 2 规划中)
+                        │                            │
+                        ▼                            ▼
+     P3: ┌──────┬──────┬──────┬──────┐
+          │链证源 │ 观澜 │ 探源 │ 情绪 │  ← 四源并行
+          └──┬───┴──┬───┴──┬───┴──┬───┘
+             │      │      │      │
+             ▼      ▼      ▼      ▼
+          [chain] [technical] [fundamental] [sentiment]
+             │      │      │      │
+             └──────┴──┬───┴──────┘
+                       ▼
+                 P4-P6 辩手引用
+                       ▼
+                 P7 闫判官裁决
+                 （四维加权评分）
+```
+
+### 7.3 输入源
+
+- **金十 MCP 快讯**（`search_flash` / `list_flash`）— 事件驱动型实时快讯，主源
+- **金十 MCP 资讯**（`search_news` / `get_news`）— 深度分析文章
+- **WebSearch / WebFetch** — 情绪 Agent 自主采集补充（行业网站、新闻门户、政策原文等），用于交叉验证和深度事件分析
+- **数据加工流程**：
+
+```
+金十 MCP（快讯+资讯）
+        │
+        ├──→ 按品种去重/分类/时效加权
+        │
+WebSearch（自主补充）
+        │
+        └──→ 来源标记 [sentiment:jin10] / [sentiment:web]
+                │
+                ▼
+        情绪 Agent 加工标注
+                │
+                ▼
+        SentimentStateVector（结构化输出）
+```
+
+### 7.4 预期输出契约（NewsSentimentVector）
+
+```python
+@dataclass
+class NewsSentimentVector:
+    symbol: str                    # 品种代码
+    overall_sentiment: float       # -1.0 ~ 1.0（负→正）
+    sentiment_breakdown: dict      # 按事件类型分类情绪（政策/供需/宏观/地缘）
+    hot_volume: int                # 相关快讯数量（热度）
+    trending_topics: list[str]     # 高频关键词
+    key_events: list[dict]         # 关键事件列表
+    source: str = "sentiment"      # 固定标签 [sentiment]
+    confidence: float = 0.0        # 置信度
+```
+
+### 7.5 数据流说明
+
+- **金十原始快讯**同时流入两条通道，互不干扰：
+  - **精选通道**（Phase 1）：精选 → 探源 context → 分析师定性参考
+  - **情绪通道**（Phase 2）：全量 → 情绪 Agent 加工 → 结构化情绪向量 → 独立因子
+- 探源和情绪 Agent 可引用**同一批金十数据**的不同侧面
+- 闫判官裁决时，`[sentiment]` 作为独立维度参与综合评分

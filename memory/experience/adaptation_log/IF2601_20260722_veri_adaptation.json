@@ -1,0 +1,31 @@
+{
+  "trace_id": "verify_IF",
+  "symbol": "IF2601",
+  "timestamp": "2026-07-22T03:38:30.905452",
+  "matched_patterns": [
+    "P002"
+  ],
+  "matched_cases": 9,
+  "adaptations": [
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.4969,
+      "reason": "模式 P002 推荐"
+    },
+    {
+      "dimension": "d5_memory",
+      "field": "history_turns",
+      "value": 5.0,
+      "reason": "模式 P002 推荐"
+    },
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.404,
+      "reason": "相似案例一致推荐 (9/9 案例一致)"
+    }
+  ],
+  "clamped": [],
+  "applied": true
+}

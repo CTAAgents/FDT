@@ -171,7 +171,7 @@ def build_intermediate(summary: dict, chain_analysis: dict = None, chain_strateg
                 "grade": grade,
                 "z_score": s.get("z_score", 0),
                 "adx": s.get("adx", 0),
-                "rsi": s.get("rsi", 0),
+                "rsi": s.get("rsi", s.get("RSI14", 50)),
                 "stage": s.get("stage", ""),
                 "macd_cross": s.get("macd_cross", ""),
                 "dc20_break": s.get("dc20_break", ""),

@@ -1,0 +1,10 @@
+{
+  "trace_id": "verify_CU",
+  "symbol": "CU2601",
+  "timestamp": "2026-07-22T03:38:30.816188",
+  "matched_patterns": [],
+  "matched_cases": 16,
+  "adaptations": [],
+  "clamped": [],
+  "applied": true
+}

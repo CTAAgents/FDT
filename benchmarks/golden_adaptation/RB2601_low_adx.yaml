@@ -1,0 +1,21 @@
+# Golden Task: RB2601 — 低 ADX 趋势环境
+# 用途: 验证适配引擎在低趋势强度品种上的表现
+task_id: "GT-001"
+symbol: "RB2601"
+name: "螺纹钢2601合约"
+expected_market_context:
+  adx_range: "low"
+  volatility_regime: "normal"
+  data_freshness_level: "fresh"
+expected_adaptations:
+  d1_context:
+    max_evidence_items: 8  # 低 ADX 品种需要更多证据支撑
+  d3_generation:
+    debater_temp: 0.5      # 增加发现空间
+  d4_orchestration:
+    debate_rounds: 4        # 减少冗余轮次
+verification_criteria:
+  - "适配后 max_evidence_items >= 5"
+  - "适配后 debater_temp <= 0.8"
+  - "适配后 debate_rounds >= 2"
+  - "信号质量不低于默认配置"

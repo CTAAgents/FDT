@@ -1,0 +1,214 @@
+{
+  "version": "1.0",
+  "created_at": "2026-07-22",
+  "last_updated": "2026-07-22",
+  "records_count": 34,
+  "patterns_count": 0,
+  "records": {
+    "daily-20260722-6c6aade6": {
+      "filename": "A_20260722_dail.json",
+      "symbol": "A",
+      "timestamp": "2026-07-22T03:28:07.971386",
+      "signal_quality": "skip"
+    },
+    "syn_RB_000": {
+      "filename": "RB2601_20260722_syn_.json",
+      "symbol": "RB2601",
+      "timestamp": "2026-07-21T10:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_RB_001": {
+      "filename": "RB2602_20260722_syn_.json",
+      "symbol": "RB2602",
+      "timestamp": "2026-07-19T17:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_002": {
+      "filename": "RB2603_20260722_syn_.json",
+      "symbol": "RB2603",
+      "timestamp": "2026-07-20T11:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_003": {
+      "filename": "RB2604_20260722_syn_.json",
+      "symbol": "RB2604",
+      "timestamp": "2026-07-21T07:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_004": {
+      "filename": "RB2605_20260722_syn_.json",
+      "symbol": "RB2605",
+      "timestamp": "2026-07-21T12:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_005": {
+      "filename": "RB2606_20260722_syn_.json",
+      "symbol": "RB2606",
+      "timestamp": "2026-07-21T10:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_006": {
+      "filename": "RB2607_20260722_syn_.json",
+      "symbol": "RB2607",
+      "timestamp": "2026-07-19T22:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_RB_007": {
+      "filename": "RB2608_20260722_syn_.json",
+      "symbol": "RB2608",
+      "timestamp": "2026-07-21T04:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_CU_000": {
+      "filename": "CU2601_20260722_syn_.json",
+      "symbol": "CU2601",
+      "timestamp": "2026-07-19T12:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_CU_001": {
+      "filename": "CU2602_20260722_syn_.json",
+      "symbol": "CU2602",
+      "timestamp": "2026-07-21T02:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_CU_002": {
+      "filename": "CU2603_20260722_syn_.json",
+      "symbol": "CU2603",
+      "timestamp": "2026-07-20T19:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_CU_003": {
+      "filename": "CU2604_20260722_syn_.json",
+      "symbol": "CU2604",
+      "timestamp": "2026-07-19T09:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_CU_004": {
+      "filename": "CU2605_20260722_syn_.json",
+      "symbol": "CU2605",
+      "timestamp": "2026-07-20T13:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_CU_005": {
+      "filename": "CU2606_20260722_syn_.json",
+      "symbol": "CU2606",
+      "timestamp": "2026-07-20T10:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_AU_000": {
+      "filename": "AU2601_20260722_syn_.json",
+      "symbol": "AU2601",
+      "timestamp": "2026-07-19T22:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_AU_001": {
+      "filename": "AU2602_20260722_syn_.json",
+      "symbol": "AU2602",
+      "timestamp": "2026-07-20T14:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_AU_002": {
+      "filename": "AU2603_20260722_syn_.json",
+      "symbol": "AU2603",
+      "timestamp": "2026-07-20T17:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_AU_003": {
+      "filename": "AU2604_20260722_syn_.json",
+      "symbol": "AU2604",
+      "timestamp": "2026-07-19T15:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_AU_004": {
+      "filename": "AU2605_20260722_syn_.json",
+      "symbol": "AU2605",
+      "timestamp": "2026-07-19T07:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_AU_005": {
+      "filename": "AU2606_20260722_syn_.json",
+      "symbol": "AU2606",
+      "timestamp": "2026-07-19T18:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_AU_006": {
+      "filename": "AU2607_20260722_syn_.json",
+      "symbol": "AU2607",
+      "timestamp": "2026-07-21T02:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_SC_000": {
+      "filename": "SC2601_20260722_syn_.json",
+      "symbol": "SC2601",
+      "timestamp": "2026-07-20T12:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_SC_001": {
+      "filename": "SC2602_20260722_syn_.json",
+      "symbol": "SC2602",
+      "timestamp": "2026-07-21T14:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_SC_002": {
+      "filename": "SC2603_20260722_syn_.json",
+      "symbol": "SC2603",
+      "timestamp": "2026-07-21T19:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_SC_003": {
+      "filename": "SC2604_20260722_syn_.json",
+      "symbol": "SC2604",
+      "timestamp": "2026-07-19T08:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_SC_004": {
+      "filename": "SC2605_20260722_syn_.json",
+      "symbol": "SC2605",
+      "timestamp": "2026-07-20T04:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_SC_005": {
+      "filename": "SC2606_20260722_syn_.json",
+      "symbol": "SC2606",
+      "timestamp": "2026-07-20T20:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_IF_000": {
+      "filename": "IF2601_20260722_syn_.json",
+      "symbol": "IF2601",
+      "timestamp": "2026-07-21T13:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_IF_001": {
+      "filename": "IF2602_20260722_syn_.json",
+      "symbol": "IF2602",
+      "timestamp": "2026-07-21T07:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_IF_002": {
+      "filename": "IF2603_20260722_syn_.json",
+      "symbol": "IF2603",
+      "timestamp": "2026-07-20T08:00:00",
+      "signal_quality": "skip"
+    },
+    "syn_IF_003": {
+      "filename": "IF2604_20260722_syn_.json",
+      "symbol": "IF2604",
+      "timestamp": "2026-07-20T15:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_IF_004": {
+      "filename": "IF2605_20260722_syn_.json",
+      "symbol": "IF2605",
+      "timestamp": "2026-07-19T09:00:00",
+      "signal_quality": "actionable"
+    },
+    "syn_IF_005": {
+      "filename": "IF2606_20260722_syn_.json",
+      "symbol": "IF2606",
+      "timestamp": "2026-07-19T09:00:00",
+      "signal_quality": "actionable"
+    }
+  },
+  "patterns": {}
+}

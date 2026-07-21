@@ -1,0 +1,19 @@
+# Golden Task: IF2609 — 高波动环境
+task_id: "GT-005"
+symbol: "IF2609"
+name: "沪深300股指期货2609合约"
+expected_market_context:
+  adx_range: "medium"
+  volatility_regime: "high"
+  data_freshness_level: "fresh"
+expected_adaptations:
+  d3_generation:
+    debater_temp: 0.5       # 高波动需要更宽视角
+  d4_orchestration:
+    debate_rounds: 6         # 高波动分歧大，保持标准轮次
+  d5_memory:
+    history_turns: 5         # 高波动依赖更多历史参考
+verification_criteria:
+  - "适配后 debater_temp <= 0.8"
+  - "适配后 debate_rounds >= 2"
+  - "信号质量不低于默认配置"

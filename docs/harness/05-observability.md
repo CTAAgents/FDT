@@ -459,3 +459,14 @@ P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判
 | `deviation` | str | "aligned"（一致）或 "diverged"（偏离） | 比较 judge_direction.direction 与 p1_signal_direction |
 
 用途：T+1 回测验证"去锚定"后闫判官判断质量是否优于 P1 锚定模式。
+
+
+### 经验库指标
+
+| 指标 | 类型 | 来源 |
+|:--|:--|:--|
+| et_records_count | gauge | INDEX.json |
+| gt_patterns_count | gauge | patterns/ 目录 |
+| gt_staging_count | gauge | status=staging 的模式数 |
+| gt_confirmed_count | gauge | status=confirmed 的模式数 |
+| distillation_last_run | timestamp | 蒸馏引擎最后运行时间 |

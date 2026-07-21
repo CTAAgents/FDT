@@ -1,0 +1,18 @@
+# Golden Task: AU2612 — 高 ADX 强趋势环境
+task_id: "GT-003"
+symbol: "AU2612"
+name: "沪金2612合约"
+expected_market_context:
+  adx_range: "high"
+  volatility_regime: "high"
+  data_freshness_level: "fresh"
+expected_adaptations:
+  d3_generation:
+    debater_temp: 0.3      # 强趋势降低发散度
+    judge_temp: 0.15        # 裁判更保守
+  d4_orchestration:
+    debate_rounds: 4        # 强趋势分歧小，减少轮次
+verification_criteria:
+  - "适配后 judge_temp <= 0.2"
+  - "适配后 debate_rounds <= 8"
+  - "信号质量不低于默认配置"

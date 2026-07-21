@@ -1,0 +1,37 @@
+{
+  "trace_id": "GT-003",
+  "symbol": "AU2612",
+  "timestamp": "2026-07-22T03:57:12.318576",
+  "matched_patterns": [
+    "P001"
+  ],
+  "matched_cases": 6,
+  "adaptations": [
+    {
+      "dimension": "d3_generation",
+      "field": "judge_temp",
+      "value": 0.1478,
+      "reason": "模式 P001 推荐"
+    },
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.2961,
+      "reason": "模式 P001 推荐"
+    },
+    {
+      "dimension": "d4_orchestration",
+      "field": "debate_rounds",
+      "value": 4.0,
+      "reason": "模式 P001 推荐"
+    },
+    {
+      "dimension": "d3_generation",
+      "field": "debater_temp",
+      "value": 0.4103,
+      "reason": "相似案例一致推荐 (6/6 案例一致)"
+    }
+  ],
+  "clamped": [],
+  "applied": true
+}
