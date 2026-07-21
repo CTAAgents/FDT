@@ -136,7 +136,7 @@ tests/
 | 测试用例 | 覆盖阶段 | 验证内容 |
 |:---------|:---------|:---------|
 | `test_scan_report_written` | P1 | `node_scan` 产出 `scan_report_path`、HTML 文件存在、含 trace_id |
-| `test_research_report_written` | P3 | `node_merge_research` 产出 `research_report_path`、含三源数据 |
+| `test_research_report_written` | P3 | `node_merge_research` 产出 `research_report_path`、含四源数据 |
 | `test_verdict_report_written` | P5 | `node_risk_check` 产出 `verdict_report_path`、含裁决+风控 |
 | `test_signal_report_written` | P6a | `node_signal_output` 产出 `signal_report_path`、含信号状态 |
 | `test_debate_report_fallback` | P6 | `node_report` 在主脚本失败时 fallback 到工作空间 |
@@ -405,7 +405,7 @@ cat llm_hallucination_stats.json | jq '{
 ├────────────────────┬────────────────────┬───────────────────────┤
 │   节点单元测试      │   图集成测试        │   并行调度测试         │
 ├────────────────────┼────────────────────┼───────────────────────┤
-│ node_scan          │ 全链路串行执行      │ 三源并行调度           │
+│ node_scan          │ 全链路串行执行      │ 四源并行调度           │
 │ node_chain         │ 条件分支路径        │ 双源并行调度           │
 │ node_technical     │ 阶段状态流转        │ 单源调度               │
 │ node_fundamental   │ trace_id 传递       │ 空调度（无信号）       │
@@ -440,7 +440,7 @@ tests/fdt_langgraph/
 | `test_node_chain` | node_chain | 产业链分析输出 | chain_analysis 不为空 |
 | `test_node_technical` | node_technical | 技术面分析输出 | technical_data 不为空 |
 | `test_node_fundamental` | node_fundamental | 基本面分析输出 | fundamental_data 不为空 |
-| `test_node_merge` | node_merge_research | 三源数据合并 | research_data 包含三类数据 |
+| `test_node_merge` | node_merge_research | 四源数据合并 | research_data 包含四类数据 |
 | `test_node_debate` | node_debate | 辩论论据生成 | bullish/bearish_arguments 不为空 |
 | `test_node_verdict` | node_verdict | 裁决输出 | verdict 不为空 |
 
@@ -457,7 +457,7 @@ tests/fdt_langgraph/
 
 | 测试项 | 调度源 | 内容 | 断言 |
 |:-------|:-------|:-----|:-----|
-| `test_all_sources_parallel` | chain+technical+fundamental | 三源并行执行 | 三个数据源节点都被调用 |
+| `test_all_sources_parallel` | chain+technical+fundamental+sentiment | 四源并行执行 | 四个数据源节点都被调用 |
 | `test_two_sources_parallel` | chain+technical | 双源并行执行 | 仅两个数据源节点被调用 |
 | `test_single_source` | chain | 单源执行 | 仅 chain 节点被调用 |
 | `test_no_signal_early_exit` | 无信号 | 提前终止 | 在 P1 信号检查阶段终止 |

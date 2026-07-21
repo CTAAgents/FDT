@@ -263,7 +263,7 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 |:-----|:-----|:-----------|:-----|
 | `freshness_report` | P0b 新鲜度闸门 | `freshness_report_{trace_id}.json` | JSON |
 | `scan_report_path` | P1 信号扫描 | `scan_report_{trace_id}.html` | HTML |
-| `research_report_path` | P3 三源研究 | `research_report_{trace_id}.html` | HTML |
+| `research_report_path` | P3 四源研究 | `research_report_{trace_id}.html` | HTML |
 | `verdict_report_path` | P5 裁决链 | `verdict_report_{trace_id}.html` | HTML |
 | `report_path` | P6 辩论汇总 | `debate_report_{date}.html` | HTML |
 | `signal_report_path` | P6a CTP信号 | `signal_report_{date}.html` | HTML |

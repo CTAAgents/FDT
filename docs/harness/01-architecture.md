@@ -204,8 +204,8 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
     │
     ▼
-[P3] 链证源+观澜+探源 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json
-    │                    ← 三源平行关系，无先后次序
+[P3] 链证源+观澜+探源+情绪化 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json + p3_sentiment_{sym}.json
+    │                    ← 四源平行关系，无先后次序
     ▼
 [P4] 六阶段攻防 (串行) ──→ state.bullish_arguments + bearish_arguments + bearish_rebuttal + bullish_rebuttal + bear_final + bull_final
     │
@@ -222,7 +222,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 > **与 LangGraph 模式的关键差异**:
 > - **状态传递**: 文件传递 vs DebateState 内存传递
 > - **调度方式**: 串行文件轮询 vs LangGraph 条件边动态路由
-> - **并行粒度**: P3 三源并行 + P4 两源并行 vs 全图并行调度
+> - **并行粒度**: P3 四源并行（链证源/观澜/探源/情绪化）+ P4 两源并行 vs 全图并行调度
 > - **持久化**: JSON 文件 vs PostgreSQL (OLTP+OLAP)
 > - **入口**: WorkBuddy 平台 vs 独立 CLI/FastAPI
 
@@ -488,7 +488,7 @@ class HookManager:
 > **当前模式关键特征**:
 > - P1: 可插拔多策略并行扫描（trend_following + mean_reversion + 自定义插件）
 > - P2: 闫判官兼具方向决策和数据源调度权
-> - P3: 链证源/观澜/探源三源并行，平行关系无先后次序
+> - P3: 链证源/观澜/探源/情绪化四源并行，平行关系无先后次序
 > - P4: 证真+慎思并行辩论
 > - P5: 裁决链串行执行（闫判官含交易参数→风控明）
 > - 通信方式: 文件传递 + S04 轮询
@@ -555,8 +555,8 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
                     │  │              ▼                                │   │
                     │  │  prepare_data (数据准备)                      │   │
                     │  │              │                                │   │
-                    │  │              ▼ (按需并行调度三源)              │   │
-                    │  │  ParallelMap(链证源,观澜,探源)                │   │
+                    │  │              ▼ (按需并行调度四源)              │   │
+                    │  │  ParallelMap(链证源,观澜,探源,情绪化)          │   │
                     │  │              │                                │   │
                     │  │              ▼                                │   │
                     │  │  merge_research ──→ debate                    │   │
@@ -593,7 +593,7 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
 | 证真/多头分析员(v2) | `node_bullish_rebuttal` | 多头反驳（正方 v2 rebuttal） | 否（串行交叉质询） | P4 步3 | 无 |
 | 闫判官 | `node_verdict` | 裁决(含交易参数) | 否 | P5 | 有 |
 | 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
-| 明鉴秋(报告) | `node_report` | 报告生成 | 否 | P6 | 有 |
+| 明鉴秋(报告) | `node_report` | 报告生成 + verdict 字典构建（含 G35 最小论据降级：论据为空时从 reasoning 自动生成） | 否 | P6 | 有 |
 | 明鉴秋(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6a | 有 |
 
 #### 运行模式说明
@@ -602,12 +602,12 @@ FDT 支持两种执行模式，通过环境变量控制：
 
 | 模式 | 环境变量 | 流程 | 适用场景 |
 |:-----|:---------|:-----|:---------|
-| **全量分析模式** (默认) | 无需设置 | scan → judge_direction → prepare_data → 三源并行 → merge → debate → verdict → report | 常规每日全品种扫描分析 |
-| **指定品种辩论模式** | `FDT_DIRECT_DEBATE=true` + `FDT_DEBATE_SYMBOLS=SF,SM,SC` | 跳过 P1 scan 节点；从 `fdt_cache/` 直接加载指定品种的缓存K线/基本面/基差数据；进入闫判官方向判定 → P3 三源并行 → P4 辩论 → P5 裁决 → P6 报告 | 快速对已知品种启动辩论，不依赖实时扫描信号 |
+| **全量分析模式** (默认) | 无需设置 | scan → judge_direction → prepare_data → 四源并行 → merge → debate → verdict → report | 常规每日全品种扫描分析 |
+| **指定品种辩论模式** | `FDT_DIRECT_DEBATE=true` + `FDT_DEBATE_SYMBOLS=SF,SM,SC` | 跳过 P1 scan 节点；从 `fdt_cache/` 直接加载指定品种的缓存K线/基本面/基差数据；进入闫判官方向判定 → P3 四源并行 → P4 辩论 → P5 裁决 → P6 报告 | 快速对已知品种启动辩论，不依赖实时扫描信号 |
 
 #### 按需并行数据源设计说明
 
-**核心流程**：数技源输出信号 → 闫判官调度决策 → 按需并行触发三源 → 合并分析 → 辩论 → 裁决 → 策略 → 风控
+**核心流程**：数技源输出信号 → 闫判官调度决策 → 按需并行触发四源 → 合并分析 → 辩论 → 裁决 → 策略 → 风控
 
 ```
 变更前（串行）:
@@ -622,12 +622,12 @@ FDT 支持两种执行模式，通过环境变量控制：
     │              ▼ 调度决策：需要哪些源？
     │       [prepare_data] 数据准备
     │              │
-    │       ┌──────┴──────┬─────────────┐
-    │       ▼             ▼             ▼
-    │   [chain:链证源]      [technical:观澜]       [fundamental:探源]      ← 按需并行（仅调度需要的源）
-    │   产业链       技术面        基本面
-    │       │         │             │
-    │       └─────────┴─────────────┘
+    │       ┌──────┴──────┬─────────────┬──────────────────┐
+    │       ▼             ▼             ▼                  ▼
+    │   [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:情绪化]  ← 按需并行（仅调度需要的源）
+    │   产业链       技术面        基本面        新闻情绪
+    │       │         │             │                  │
+    │       └─────────┴─────────────┴──────────────────┘
     │                     │
     │                     ▼
     │              merge_research

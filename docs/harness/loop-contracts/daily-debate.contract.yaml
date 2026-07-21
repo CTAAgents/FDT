@@ -145,7 +145,7 @@ action:
 
     - step: P3d_merge_research
       name: 合并分析结果
-      description: 整合三源分析输出
+      description: 整合四源分析输出
       timeout: 60s
       failure_strategy: use_available
       output: merged_research
@@ -247,7 +247,7 @@ budget:
   per_step_budget:
     P1_scan: 600s / 50000 tokens
     P2_judge_dispatch: 420s / 30000 tokens
-    P3_parallel_sources: 480s / 80000 tokens  # 三源并行
+    P3_parallel_sources: 480s / 80000 tokens  # 四源并行
     P4_debate: 2520s / 200000 tokens  # 六阶段串行
     P5_verdict_chain: 840s / 60000 tokens
     P6_report: 120s / 10000 tokens
