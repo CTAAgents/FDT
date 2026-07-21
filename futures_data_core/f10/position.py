@@ -19,6 +19,10 @@ from datetime import datetime
 from typing import Optional
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES, _default_meta
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
 from futures_data_core.core import get_symbol
 from futures_data_core.f10 import dce_api
 from futures_data_core.f10.exchange_scraper import (
@@ -66,6 +70,14 @@ async def get_position_ranking(
             "data_source": "SHFE官网直连",
         }
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_position_ranking", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["POSITION_RANKING"],
+            f"{symbol} 持仓排名（Data-Core）",
+        )
+
     meta = _default_meta()
     trade_date = trade_date or today_yyyymmdd()
     sym_meta = get_symbol(symbol)

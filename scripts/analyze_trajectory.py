@@ -12,6 +12,7 @@ Usage:
     trajectory = analyzer.parse(debate_data)
     faults = attributor.attribute(trajectory)
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -40,7 +41,7 @@ class TrajectoryAnalyzer:
     suitable for fault attribution.
     """
 
-    def __init__(self, fdt_root: Optional[Path] = None):
+    def __init__(self, fdt_root: Optional[Path] = None) -> None:
         self.root = Path(fdt_root) if fdt_root else FDT_ROOT
 
     # ── public API ────────────────────────────────────────────────
@@ -320,7 +321,7 @@ class FaultAttributor:
 
 # ── CLI entry point ──────────────────────────────────────────────
 
-def _cli():
+def _cli() -> None:
     import sys
     import pprint
 

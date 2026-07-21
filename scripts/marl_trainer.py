@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("marl")
@@ -50,7 +51,7 @@ class MARLTrainer:
         },
     }
 
-    def __init__(self, weights_path: str = None):
+    def __init__(self, weights_path: str = None) -> None:
         self.weights = self.DEFAULT_WEIGHTS.copy()
         self.training_history = []
         self.rewards = []
@@ -62,13 +63,13 @@ class MARLTrainer:
 
         self._load()
 
-    def _load(self):
+    def _load(self) -> None:
         """加载持久化权重。"""
         if self.weights_path.exists():
             with open(self.weights_path, "r", encoding="utf-8") as f:
                 self.weights = json.load(f)
 
-    def _save(self):
+    def _save(self) -> None:
         """保存权重。"""
         with open(self.weights_path, "w", encoding="utf-8") as f:
             json.dump(self.weights, f, ensure_ascii=False, indent=2)
@@ -87,7 +88,7 @@ class MARLTrainer:
         reward = 0.3 * debate_quality + 0.5 * trade_pnl + 0.2 * risk_control
         return min(max(reward, 0), 1)
 
-    def train(self, historical_debates: List[Dict], trade_results: List[Dict], learning_rate: float = 0.1):
+    def train(self, historical_debates: List[Dict], trade_results: List[Dict], learning_rate: float = 0.1) -> None:
         """训练角色权重。
 
         Args:

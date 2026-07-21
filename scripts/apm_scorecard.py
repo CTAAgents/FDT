@@ -19,6 +19,7 @@ APM-CS 五轴能力诊断评分卡引擎 v1.0
 用法：
   python scripts/apm_scorecard.py
 """
+from __future__ import annotations
 
 import json
 import os
@@ -62,7 +63,7 @@ def conf_max_pos(conf: str, base_pct: float = 5.0) -> float:
 class RuleChecker:
     """基于 judgment_revisions.md 的结构化规则检查器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.violations: List[Dict] = []
 
     def check_verdict(self, v: Dict) -> List[Dict]:
@@ -516,7 +517,7 @@ def compute_composure(debate_records: List[Dict], followup: Dict) -> Tuple[Optio
 
 # ── 主入口 ──
 
-def main():
+def main() -> None:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 加载数据

@@ -101,7 +101,7 @@ def _load_yaml(path: str) -> dict:
 class FdtLlm:
     """FDT LLM 客户端"""
 
-    def __init__(self, agent_type: str | None = None):
+    def __init__(self, agent_type: str | None = None) -> None:
         self.api_key = _get_api_key()
         self.config = self._load_config(agent_type)
 

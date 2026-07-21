@@ -281,19 +281,55 @@ def auto_publish() -> TaskResult:
 
 @register_task("update_dominant_mapping")
 def update_dominant_mapping() -> TaskResult:
-    """更新主力合约映射"""
+    """更新主力合约映射 — 使用 DominantResolver 刷新所有品种主力映射表。"""
     start = datetime.now()
     _log("🔄 更新主力合约映射")
 
-    # 主力映射在 scan_all.py 中自动完成，此处作为显式触发入口
-    # 执行主力映射更新脚本（略：目前集成在scan_all中，独立为占位）
-    return TaskResult(
-        task_name="update_dominant_mapping",
-        success=True,
-        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
-        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        summary="主力映射集成在scan_all中，自动完成",
-    )
+    try:
+        from futures_data_core.core.dominant_resolver import DominantResolver
+        from futures_data_core.collectors.tdx import TDXCollector
+
+        resolver = DominantResolver()
+        collector = TDXCollector()
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        available = loop.run_until_complete(collector.check_available())
+        if not available:
+            loop.close()
+            return TaskResult(
+                task_name="update_dominant_mapping",
+                success=False,
+                started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+                finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                summary="TDX 数据源不可用，跳过",
+                error="TDXCollector.check_available() 返回 False",
+            )
+        mapping = resolver.refresh_all(collector)
+        loop.close()
+        count = len(mapping)
+        switch_count = len(
+            [v for v in mapping.values() if v.get("switched")]
+        )
+        _log(f"  ✅ 主力映射更新完成: {count} 品种, {switch_count} 换月事件")
+        return TaskResult(
+            task_name="update_dominant_mapping",
+            success=True,
+            started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+            finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary=f"已更新 {count} 品种主力映射, 检测到 {switch_count} 个换月事件",
+        )
+    except Exception as exc:
+        _log(f"  ❌ 主力映射更新失败: {exc}")
+        return TaskResult(
+            task_name="update_dominant_mapping",
+            success=False,
+            started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+            finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary=f"更新失败: {exc}",
+            error=str(exc),
+        )
 
 
 @register_task("validate_and_evolve")

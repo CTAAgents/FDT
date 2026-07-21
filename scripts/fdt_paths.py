@@ -105,7 +105,7 @@ class FDTFiles:
     INCIDENTS = os.path.join(FDTDirs.MEMORY, "incidents.md")
     
     # 报告
-    def debate_report(ts: str = None) -> str:
+    def debate_report(ts: str | None = None) -> str:
         """生成辩论报告路径"""
         ts = ts or datetime.now().strftime("%Y%m%d_%H%M")
         return os.path.join(FDTDirs.REPORTS, f"debate_report_{ts}.html")

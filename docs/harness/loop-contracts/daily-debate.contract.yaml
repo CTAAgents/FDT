@@ -1,0 +1,452 @@
+# ============================================================
+# FDT Loop Contract: daily-debate
+# ============================================================
+# 每日自动辩论循环 — FDT 最核心的生产级循环
+# 版本: v9.4.3
+# 验证档位: L3 (independent_agent)
+# 权限档位: Write (含 CTP 信号输出)
+# ============================================================
+
+loop:
+  id: daily-debate
+  name: 每日自动辩论
+  version: v9.4.3
+  type: Proactive  # Turn-Based / Goal-Based / Time-Based / Proactive
+  description: >
+    每个交易日自动执行的完整辩论流水线：
+    数据采集 → 策略扫描 → 多源研究 → 六阶段攻防辩论 → 裁决 → 风控 → 报告 → CTP信号输出
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: cron
+    schedule: "0 9 * * 1-5"  # 工作日早9点
+    timezone: Asia/Shanghai
+  secondary:
+    - type: manual
+      command: "python fdt_cli.py run --mode default"
+    - type: api
+      endpoint: "POST /api/v1/debate"
+    - type: event
+      file: "memory/daemon.pid"  # daemon 模式心跳触发
+  fallback: manual_trigger
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    # 数据读取
+    - "futures_data_core/"      # 只读：数据采集与计算
+    - "memory/knowledge/"       # 只读：品种知识库
+    - "memory/"                 # 读写：辩论记忆、日志、状态
+    - "fdt_cache/"              # 读写：本地 SQLite 增量缓存
+    - "fdt_langgraph/"          # 只读：LangGraph 图定义
+    - "contracts/"              # 只读：契约定义（Schema）
+    - "skills/"                 # 只读：技能定义
+    - "config/"                 # 只读：配置文件
+    - "rules/"                  # 只读：规则文件
+    - "tests/"                  # 只读：测试用例（验证用）
+    # 写入输出
+    - "memory/debates/"         # 写入：辩论结果
+    - "memory/logs/"            # 写入：运行日志
+    - "memory/fdt_cache/"       # 写入：缓存更新
+    - "pg:"                     # 写入：PostgreSQL 表（scan_signals/debate_verdicts等）
+
+  deny:
+    # 禁止修改规则和配置
+    - "rules/"                  # 禁止修改规则文件
+    - "config/*.yaml"           # 禁止修改核心配置（仅允许读取）
+    - "skills/*.md"             # 禁止修改 Skill 定义
+    - "agents/"                 # 禁止修改 Agent 配置
+    # 禁止修改测试
+    - "tests/"                  # 禁止修改测试用例
+    # 禁止修改文档和版本
+    - "docs/harness/"           # 禁止修改工程规范文档
+    - "README.md"               # 禁止修改项目说明
+    - "pyproject.toml"          # 禁止修改项目配置
+    # 安全红线
+    - ".secrets"                # 禁止读取密钥
+    - "FDT_LLM_API_KEY"         # 禁止在输出中泄露 API Key
+    - "FDT_PG_DSN"              # 禁止在输出中泄露数据库连接串
+    # 生产环境关键路径
+    - "ctp_trade/"              # CTP 交易模块仅允许风控审核后调用
+    - "prod_deploy/"            # 禁止直接操作生产部署
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  pre_loop:
+    - step: self_evolution_check
+      description: 自进化前置检查（验证+校准+进化+ML检查）
+      timeout: 300s
+      failure_strategy: skip  # 自进化失败不影响主循环
+
+    - step: data_freshness_gate
+      name: 数据新鲜度闸门
+      description: >
+        检查所有辩论品种的行情数据新鲜度。对标数据新鲜度分级标准：
+        行情数据须在上一交易日内，否则触发补采或降级裁决。
+        新鲜度检查结果写入 debate_state.freshness_report，
+        标记每个品种各维度的 freshness_level (0=最新 / 1=可接受 / 2=过时)。
+        如过时品种数超过30%，中止本次辩论并告警。
+      timeout: 120s
+      failure_strategy: degrade_to_D06  # 新鲜度不足时走 D06 降级裁决
+      output: debate_state.freshness_report (含各品种新鲜度评级)
+
+  pipeline:
+    - step: P1_scan
+      name: 数技源信号扫描
+      description: 8 策略全品种并行扫描，NO_FUSION
+      timeout: 600s
+      failure_strategy: early_terminate  # 扫描失败则本轮终止
+      output: pg.scan_signals + scan_report_path
+      parallel: true  # 8 策略并行
+
+    - step: P1.5_signal_gate
+      name: 信号检查闸门
+      description: 三层门禁过滤（震荡市+去趋势+伪突破）
+      timeout: 60s
+      failure_strategy: pass_through  # 闸门失效时放过（宁错杀不放过的反面）
+      output: filtered_signals
+
+    - step: P2_judge_dispatch
+      name: 闫判官调度决策
+      description: 选品种 + 定方向 + 调度哪些数据源
+      timeout: 420s
+      failure_strategy: D06_degrade  # 闫判官失败走 D06 降级裁决
+      output: pg.judge_direction
+
+    - step: P3_parallel_sources
+      name: 按需并行数据源
+      description: 链证源/观澜/探源按需并行执行
+      timeout: 480s  # max(被调度的源)
+      failure_strategy: partial_failure  # 单源失败不影响其他源
+      parallel: true
+      sub_steps:
+        - step: P3a_chain_source
+          name: 链证源产业链分析
+          condition: 闫判官调度
+          timeout: 300s
+          output: pg.chain_analysis
+        - step: P3b_guanlan
+          name: 观澜技术面分析
+          condition: 闫判官调度
+          timeout: 420s
+          output: pg.technical_scores
+        - step: P3c_tanyuan
+          name: 探源基本面分析
+          condition: 闫判官调度
+          timeout: 420s
+          output: pg.fundamental_scores
+
+    - step: P3d_merge_research
+      name: 合并分析结果
+      description: 整合三源分析输出
+      timeout: 60s
+      failure_strategy: use_available
+      output: merged_research
+
+    - step: P4_debate
+      name: 六阶段攻防辩论
+      description: 多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩
+      timeout: 2520s  # 420s × 6 步
+      failure_strategy: D06_degrade  # 辩论失败走降级
+      max_rounds: 6  # 六阶段固定轮次
+      sub_steps:
+        - step: P4_1_bull_thesis
+          name: 多头立论 v1
+          agent: 多头分析员
+          timeout: 420s
+        - step: P4_2_bear_thesis
+          name: 空头立论 v1
+          agent: 空头分析员
+          timeout: 420s
+        - step: P4_3_bear_rebuttal
+          name: 空头反驳多头
+          agent: 空头分析员
+          timeout: 420s
+        - step: P4_4_bull_rebuttal
+          name: 多头反驳空头
+          agent: 多头分析员
+          timeout: 420s
+        - step: P4_5_bear_final
+          name: 空头最终陈述
+          agent: 空头分析员
+          timeout: 420s
+        - step: P4_6_bull_final
+          name: 多头最终陈述
+          agent: 多头分析员
+          timeout: 420s
+
+    - step: P5_verdict_chain
+      name: 裁决链
+      description: 闫判官裁决（含交易参数）→ 风控明审核
+      timeout: 840s  # 420s × 2
+      failure_strategy: D06_degrade
+      sub_steps:
+        - step: P5a_judge_verdict
+          name: 闫判官裁决
+          description: 含完整交易参数（方向/仓位/止损/止盈）
+          agent: 闫判官
+          timeout: 420s
+          output: pg.debate_verdicts
+        - step: P5b_risk_review
+          name: 风控明独立审核
+          description: 独立第三方风控审核
+          agent: 风控明
+          timeout: 420s
+          output: pg.risk_checks
+          # Maker-Checker 分离：风控明不参与方向判断，只审核风险
+
+    - step: P6_report
+      name: 汇总输出
+      description: 4 铁律核验 → JSON → HTML 报告
+      timeout: 120s
+      failure_strategy: fallback_html  # 报告失败走 fallback
+      output: report_path (HTML辩论报告)
+
+    - step: P6a_ctp_signal
+      name: CTP 信号输出
+      description: 交易参数 → CTP 交易指令（风控审核通过后）
+      timeout: 60s
+      failure_strategy: skip  # 信号输出失败不影响报告
+      condition: 风控明审核通过 (risk_color = green/yellow)
+      output: pg.ctp_signals
+      # 安全门控：red 级别直接拦截
+
+  post_loop:
+    - step: archive
+      description: 归档到 PostgreSQL execution_followup
+      timeout: 60s
+    - step: trigger_self_evolve
+      description: 触发自进化闭环（异步）
+      timeout: 30s
+      async: true
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  hard_limits:
+    max_total_time: 5400s     # 总时长硬上限：90分钟（含所有重试）
+    max_tokens_per_run: 500000  # 单次辩论 Token 硬上限
+    max_cost_per_day: 100     # 单日成本硬上限（元）
+    max_debates_per_day: 15   # 单日最多辩论品种数
+    max_retries_per_step: 2   # 单步最大重试次数
+    max_consecutive_failures: 3  # 连续失败熔断阈值
+
+  soft_limits:
+    warn_tokens: 300000       # Token 达到此值告警
+    warn_cost: 60             # 成本达到此值告警
+    warn_time: 3600s          # 时长达到此值告警
+
+  per_step_budget:
+    P1_scan: 600s / 50000 tokens
+    P2_judge_dispatch: 420s / 30000 tokens
+    P3_parallel_sources: 480s / 80000 tokens  # 三源并行
+    P4_debate: 2520s / 200000 tokens  # 六阶段串行
+    P5_verdict_chain: 840s / 60000 tokens
+    P6_report: 120s / 10000 tokens
+    P6a_ctp_signal: 60s / 5000 tokens
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_steps_done          # 所有 pipeline 步骤完成
+    - report_generated        # HTML 报告已生成
+    - results_archived        # 结果已归档到 PG
+
+  safety:
+    - max_total_time_exceeded   # 总时长超限
+    - max_tokens_exceeded       # Token 预算耗尽
+    - max_cost_exceeded         # 成本预算耗尽
+    - consecutive_failures_3    # 连续失败 3 次（熔断器）
+    - risk_color_red            # 风控红牌（直接拦截信号输出）
+    - all_sources_failed        # 所有数据源都失败了
+    - no_valid_signals          # P1 扫描无有效信号
+
+  graceful_shutdown:
+    - sigint_sigterm          # 收到中断信号
+    - manual_stop             # 人工停止指令
+    - shutdown_hook           # 优雅停机钩子
+
+# ============================================================
+# 6. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    output_html: "{workspace}/{date}/debate_report_{date}.html"
+    output_json: "memory/debates/{date}/debate_results.json"
+    output_pg:
+      - pg.scan_signals
+      - pg.judge_direction
+      - pg.chain_analysis
+      - pg.technical_scores
+      - pg.fundamental_scores
+      - pg.debate_verdicts
+      - pg.risk_checks
+      - pg.debate_index
+      - pg.ctp_signals
+      - pg.execution_followup
+    notification:
+      - type: log
+        level: INFO
+        message: "辩论完成: {trace_id}, {symbol}, {direction}"
+
+  failure:
+    log_file: "memory/logs/{date}.md"
+    error_dump: "memory/logs/errors/{trace_id}.json"
+    notification:
+      - type: log
+        level: ERROR
+        message: "辩论失败: {trace_id}, {error_type}, {error_message}"
+
+  escalation:
+    - condition: consecutive_failures >= 3
+      action: circuit_breaker + notify_human
+      level: CRITICAL
+    - condition: risk_intervention_needed
+      action: escalate_to_oncall
+      level: HIGH
+    - condition: budget_exceeded_hard
+      action: immediate_shutdown + notify_human
+      level: CRITICAL
+
+  # 未来可接入：企微/邮件/钉钉通知
+  # notification_channels:
+  #   - wecom: "#alerts"
+  #   - email: oncall@example.com
+
+# ============================================================
+# 7. VERIFICATION — 验证体系
+# ============================================================
+verification:
+  mode: L3  # independent_agent (最高档)
+  layers:
+    L1_self:
+      - JSON Schema 校验（所有产出必须符合 contract 定义）
+      - Agent 自检清单（输出完整性检查）
+      - 4 铁律核验（时序/串线/文件就绪/辩手禁搜）
+    L2_test_suite:
+      - pytest 测试套件（数据完整性、格式正确性）
+      - 契约校验（contracts/ 下所有 Schema）
+      - 门禁审计（三层信号门禁有效性）
+    L3_independent_agent:
+      - 闫判官裁决（独立于分析师的第三方判断）
+      - 风控明审核（独立于裁决的第三方风控）
+      # Maker-Checker 分离：生成者 ≠ 验证者
+
+  promotion_criteria:
+    L1_to_L2: "连续5轮L1通过率≥95%"
+    L2_to_L3: "连续20次人工审查零回退，漏放率≈0，人工干预率<10%"
+    L3_downgrade: "出现一次安全事件，或人工干预率连续两周>30%"
+
+# ============================================================
+# 8. SECURITY — 安全与护栏
+# ============================================================
+security:
+  # L1-L5 五层鲁棒性防线（引用 04-resilience.md）
+  resilience_layers:
+    L1: 产出校验（JSON Schema + 4铁律）
+    L2: 熔断降级（D06 降级裁决）
+    L3: 信号门禁（三层门禁 + 风控明审核）
+    L4: 路径发现（数据源降级链 TQ→Web→QMT→TqSDK）
+    L5: 健康自检（APM-CS 五轴 + dashboard）
+
+  # 三道安全独立检查
+  safety_checks:
+    - path_denylist: true      # 禁止操作的关键路径
+    - file_count_threshold: 20  # 一次修改变更的文件数量上限
+    - confidence_floor: 0.6     # 置信度下限
+
+  # Prompt Injection 防御
+  prompt_injection_defense:
+    - quarantine: true  # 读不可信内容的 Agent 降为只读档
+    - content_tagging: true  # 不可信内容进入上下文前打标
+    - secrets_never_in_context: true  # secrets 永不进上下文
+
+  # CTP 信号输出专属门控
+  ctp_signal_gating:
+    required_approval: risk_ming  # 必须经过风控明审核
+    risk_levels:
+      green: auto_execute  # 低风险自动执行
+      yellow: human_review  # 中风险人工确认
+      red: block_immediately  # 高风险直接拦截
+    default_risk_threshold: yellow  # FDT_RISK_THRESHOLD
+
+# ============================================================
+# 9. OBSERVABILITY — 可观测性
+# ============================================================
+observability:
+  metrics:
+    - success_rate           # 成功率
+    - human_intervention_rate  # 人工干预率
+    - cost_per_run           # 单轮成本
+    - mttr                   # 熔断后恢复时间
+    - empty_run_rate         # 空转率
+    - avg_debate_duration    # 平均辩论时长
+    - token_per_debate       # 每辩论 Token 数
+    - signal_quality_score   # 信号质量分
+
+  traces:
+    trace_id: full_pipeline  # trace_id 全链路贯穿
+    per_step_timing: true    # 每步耗时
+    per_step_token_usage: true  # 每步 Token 用量
+
+  dashboards:
+    - health_endpoint: /health
+    - status_endpoint: /api/v1/status
+    - pg_materialized_view: v_debate_summary  # PG 物化视图
+
+# ============================================================
+# 10. EVOLUTION — 自进化（Outer Loop）
+# ============================================================
+evolution:
+  # 内循环 (Inner Loop)：单次辩论内的 Run-Until-Done + 六阶段攻防
+  inner_loop:
+    type: debate_within_run
+    feedback_source: 阶段间的攻防反驳
+    max_iterations: 6  # 六阶段固定
+
+  # 外循环 (Outer Loop)：跨会话的经验积累与 Harness 进化
+  outer_loop:
+    # T+1 验证 → 权重校准 → Agent 进化 → ML 训练
+    triggers:
+      - new_verified_samples_5    # 累计 5 条验证样本 → 校准权重
+      - total_samples_5           # 累计 5 条 → Agent Prompt 进化
+      - new_samples_50            # 累计 50 条新样本 → ML 训练
+    components:
+      - validate_verdicts.py      # T+1 回测验证
+      - calibrate_weights.py      # 评分权重校准
+      - evolve_agents.py          # Agent Prompt 进化
+      - ml/trainer.py             # LightGBM 增量训练
+    memory:
+      - execution_followup.json   # 裁决跟踪记录
+      - debate_journal.json       # 辩论日志
+      - calibration.json          # 校准参数
+      - agent_profiles.json       # Agent 配置档案
+
+  # 配方优于产物（Recipe-over-Artifact）：
+  # 记忆存的是"配方+评分"，不是产物本体
+  recipe_over_artifact: true
+
+# ============================================================
+# 变更历史
+# ============================================================
+changelog:
+  - version: v9.4.3
+    date: 2026-07-21
+    change: >
+      新增数据新鲜度闸门（data_freshness_gate）作为 pre_loop 必查步骤：
+      辩论启动前检查行情数据新鲜度，对标数据新鲜度分级标准，
+      过时品种占比>30%时中止辩论并告警。
+      新鲜度检查结果写入 debate_state.freshness_report 贯穿全流程。
+  - version: v9.4.2
+    date: 2026-07-20
+    change: 初始版本：建立 Loop Contract 规范，从代码/配置/记忆中提取隐性契约

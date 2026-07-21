@@ -19,6 +19,10 @@ from datetime import date, datetime
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
 
 
 def compute_basis(
@@ -212,6 +216,14 @@ async def get_basis(
         :class:`A2APayload`，``data`` 含 ``spot_price`` / ``futures_price`` /
         ``futures_contract`` / ``basis`` / ``basis_pct`` 等。
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_basis", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["BASIS"],
+            f"{symbol} 基差（Data-Core）",
+        )
+
     spot = await _maybe(fetch_spot, _ppi_spot_page, symbol)
 
     raw_fut = await _maybe(fetch_futures, _qmt_futures_pair, symbol)

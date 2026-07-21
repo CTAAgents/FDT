@@ -19,6 +19,7 @@ Usage:
     verifier = EvolutionVerifier()
     result = verifier.verify("baseline.md", "evolved.md", test_cases)
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -66,7 +67,7 @@ ROLLBACK_THRESHOLD = 0.0  # delta at which auto-rollback is triggered
 class EvolutionVerifier:
     """A/B verification with FDT-domain expert panel scoring."""
 
-    def __init__(self, fdt_root: Optional[Path] = None):
+    def __init__(self, fdt_root: Optional[Path] = None) -> None:
         self.root = Path(fdt_root) if fdt_root else FDT_ROOT
         self.vibench_path = self.root / "benchmarks" / "test_cases.json"
 
@@ -169,7 +170,7 @@ class EvolutionVerifier:
 
 # ── CLI entry ────────────────────────────────────────────────────
 
-def _cli():
+def _cli() -> None:
     import sys
     import pprint
 

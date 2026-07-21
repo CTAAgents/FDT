@@ -2,11 +2,24 @@
 # 优先级从高到低；适配器按此顺序降级。
 
 sources:
-  - name: tdx
+  - name: datacore
     priority: 0
     type: independent
     enabled: true
-    description: 通达信 TQ-Local 本地服务
+    description: Data-Core 统一数据接口（Python 包，内部管理 TDX/EastMoney/TqSDK/QMT 多源降级）
+    detection:
+      kind: import
+      import: datacore
+    config:
+      version: ">=2.0.0"
+      dominant_resolver_enabled: true
+      gap_adjustment: false
+
+  - name: tdx
+    priority: 1
+    type: independent
+    enabled: true
+    description: 通达信 TQ-Local 本地服务（Data-Core 不可用时备用）
     detection:
       kind: http_probe
       url: "http://127.0.0.1:17709/"
@@ -15,7 +28,7 @@ sources:
       timeout: 3.0
 
   - name: web_fallback
-    priority: 1
+    priority: 2
     type: independent
     enabled: true
     description: Web 兜底采集器（新浪 + 东方财富免费公开 API）
@@ -27,7 +40,7 @@ sources:
       confidence: 0.85
 
   - name: qmt_xtquant
-    priority: 2
+    priority: 3
     type: independent
     enabled: true
     description: QMT/xtquant 本地 TCP 直取

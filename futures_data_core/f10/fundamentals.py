@@ -16,6 +16,10 @@ import os
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
 from futures_data_core._llm_bridge import llm_websearch
 
 CACHE_DIR = os.path.join(
@@ -93,6 +97,14 @@ async def get_fundamental(
     Returns:
         :class:`A2APayload`，``meta`` 含 ``mode`` / ``llm_used`` / ``sources``。
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_fundamental", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["FUNDAMENTAL"],
+            f"{symbol} 基本面（Data-Core）",
+        )
+
     cache_dir = cache_dir or CACHE_DIR
     result = _load_cache(symbol, data_type, cache_dir) or {}
     sources: list[dict] = []

@@ -1,0 +1,45 @@
+{
+  "trace_id": "daily-20260721-3536b6ce",
+  "risk_color": "yellow",
+  "risk_check": {
+    "approved": true,
+    "risk_level": "medium",
+    "risk_color": "yellow",
+    "max_position": 2,
+    "warnings": [
+      "CJ、AP、HC三个品种均缺失FDC实际ADX/RSI/CCI数据（均为N/A），无法验证裁决中引用的技术指标（如ADX=65.8、RSI=57.70等）的真实性，数据基础不牢，存在主观判断风险。",
+      "HC方向为bullish，但数技源扫描方向为全部bear（包括HC），裁决推翻了扫描方向，且FDC均线排列显示多头，但缺乏RSI/ADX数值支撑，多头逻辑依赖的‘观澜’数据来源不可核实，存在方向逆转风险。",
+      "CJ和AP均线空头排列，且RSI=30.33/CCI=-110.51等技术指标处于超卖区域，虽然裁决认为超卖反弹成功率低，但一旦市场情绪反转，超卖反弹可能导致空头止损被触发，需警惕短期逆向波动。"
+    ],
+    "entry_price_check": false,
+    "stop_loss_check": false,
+    "position_pct_check": true
+  },
+  "status": "sent",
+  "message": "风控yellow通过阈值yellow，共2个可执行信号，最强做多:BC，最强做空:CJ",
+  "signals": [
+    {
+      "symbol": "CJ",
+      "direction": "SELL",
+      "entry_price": 7930.0,
+      "score": 67.0
+    },
+    {
+      "symbol": "BC",
+      "direction": "BUY",
+      "entry_price": 93840.0,
+      "score": 60.0
+    }
+  ],
+  "signal": {
+    "direction": "BUY",
+    "symbol": "BC",
+    "entry_price": 93840.0,
+    "stop_loss_price": 91024.8,
+    "target_price": 98532.0,
+    "position_pct": 3,
+    "contract": "",
+    "risk_reward_ratio": 2.0,
+    "confidence": 0.6
+  }
+}

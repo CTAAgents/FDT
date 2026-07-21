@@ -19,6 +19,7 @@
     merged = writer.merge_all()
     writer.validate()
 """
+from __future__ import annotations
 
 import json
 import os
@@ -56,7 +57,7 @@ class MemoryWriter:
         self.db_path = self.round_dir / "debate_journal.db"
         self._init_sqlite()
 
-    def _init_sqlite(self):
+    def _init_sqlite(self) -> None:
         """初始化SQLite表结构。"""
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute("""
@@ -257,7 +258,7 @@ _SKILLS_JOURNAL = Path(__file__).parent.parent / "skills" / "memory" / "debate_j
 _journal_lock = None  # 延迟初始化的线程锁
 
 
-def _append_journal_entry(path: Path, record: Dict[str, Any]):
+def _append_journal_entry(path: Path, record: Dict[str, Any]) -> None:
     """向指定 journal 的 entries 追加一条记录（带锁，先读后写）。"""
     global _journal_lock
     if _journal_lock is None:

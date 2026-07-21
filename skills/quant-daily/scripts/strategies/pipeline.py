@@ -425,10 +425,12 @@ class StrategyPipeline:
                 if vfn:
                     vfn(fused_dicts, vctx)
             # 同步回 ScoredSignal
-            fd_map = {d["symbol"]: d for d in fused_dicts}
+            # 修复（2026-07-20）：使用 (symbol, signal_type) 作为键，避免同品种多子信号覆盖
+            fd_map = {(d["symbol"], d.get("signal_type")): d for d in fused_dicts}
             for s in fused:
-                if s.symbol in fd_map:
-                    fd = fd_map[s.symbol]
+                key = (s.symbol, s.signal_type)
+                if key in fd_map:
+                    fd = fd_map[key]
                     if not _filter_disabled:
                         s.grade = fd.get("grade", s.grade)
                         s.total = fd.get("total", s.total)
@@ -473,8 +475,14 @@ class StrategyPipeline:
         # Phase 4.8: 按品种合并子信号（同品种只输出一条综合信号）
         # 将多个子信号（supertrend/sar/macd/tsmom/dual_thrust 等）合并为一条品种信号，
         # 保留子信号明细在 sub_signals 字段供下游辩论层参考。
+        #
+        # 修复（2026-07-20）：原逐个两两平均导致后序信号权重偏高，且 grade 覆盖时
+        # 错误覆盖了 direction。改为累积求和后统一简单平均，direction 完全由最终
+        # 平均 total 的符号决定。
         _merged_by_symbol: dict[str, ScoredSignal] = {}
         _sub_signal_map: dict[str, list[dict]] = defaultdict(list)
+        # 累积器：正确计算同品种多子信号的平均值
+        _merge_acc: dict[str, dict] = defaultdict(lambda: {"sum_total": 0.0, "sum_abs": 0.0, "count": 0})
         _grade_rank = {"NOISE": 0, "WEAK": 1, "WATCH": 2, "STRONG": 3}
 
         for s in fused:
@@ -492,17 +500,20 @@ class StrategyPipeline:
 
             if sym not in _merged_by_symbol:
                 _merged_by_symbol[sym] = s
+                _merge_acc[sym]["sum_total"] = s.total
+                _merge_acc[sym]["sum_abs"] = s.abs_score
+                _merge_acc[sym]["count"] = 1
                 continue
 
             existing = _merged_by_symbol[sym]
-            # 合并 total: 平均
-            existing.total = (existing.total + s.total) / 2.0
-            # 合并 abs_score: 平均
-            existing.abs_score = (existing.abs_score + s.abs_score) / 2.0
-            # 保留最佳 grade
+            # 累积 total/abs_score（循环结束后统一简单平均）
+            _merge_acc[sym]["sum_total"] += s.total
+            _merge_acc[sym]["sum_abs"] += s.abs_score
+            _merge_acc[sym]["count"] += 1
+
+            # 保留最佳 grade（不再覆盖 direction，方向由最终平均 total 决定）
             if _grade_rank.get(s.grade, 0) > _grade_rank.get(existing.grade, 0):
                 existing.grade = s.grade
-                existing.direction = s.direction
                 existing.signal_type = s.signal_type
                 existing.reason = s.reason
             # 保留价格/ADX/RSI 等指标（取非零值优先）
@@ -516,8 +527,12 @@ class StrategyPipeline:
             if s.volume > existing.volume:
                 existing.volume = s.volume
 
-        # 重新赋值 direction 为合并后的平均方向
+        # 统一计算平均值并重新赋值 direction
         for sym, merged in _merged_by_symbol.items():
+            acc = _merge_acc[sym]
+            if acc["count"] > 0:
+                merged.total = acc["sum_total"] / acc["count"]
+                merged.abs_score = acc["sum_abs"] / acc["count"]
             if merged.total > 0:
                 merged.direction = "bull"
             elif merged.total < 0:

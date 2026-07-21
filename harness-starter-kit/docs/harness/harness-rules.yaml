@@ -1,0 +1,151 @@
+version: "1.0"
+description: "Harness 工程规范检查规则 — 将 12 项 commit 前检查清单转为机读格式"
+
+checks:
+  - id: C01
+    name: 架构变更反映检查
+    severity: P0
+    type: file_modified
+    scope: "docs/harness/01-architecture.md"
+    trigger_pattern: null
+    message: "架构/数据流变更必须同步更新 01-architecture.md"
+
+  - id: C02
+    name: 生命周期文档同步检查
+    severity: P0
+    type: file_modified
+    scope: "docs/harness/02-lifecycle.md"
+    trigger_pattern: null
+    message: "代码变更必须同步更新 02-lifecycle.md"
+
+  - id: C03
+    name: 配置项更新检查
+    severity: P0
+    type: file_modified
+    scope: "docs/harness/03-configuration.md"
+    trigger_pattern: null
+    message: "新增/修改配置项必须更新 03-configuration.md"
+
+  - id: C04
+    name: 降级/熔断路径检查
+    severity: P0
+    type: file_modified
+    scope: "docs/harness/04-resilience.md"
+    trigger_pattern: null
+    message: "降级/熔断逻辑变更必须更新 04-resilience.md"
+
+  - id: C05
+    name: 可观测性文档检查
+    severity: P0
+    type: file_modified
+    scope: "docs/harness/05-observability.md"
+    trigger_pattern: null
+    message: "指标/日志/追踪变更必须更新 05-observability.md"
+
+  - id: C06
+    name: 测试文档更新检查
+    severity: P1
+    type: file_modified
+    scope: "docs/harness/06-testing.md"
+    trigger_pattern: null
+    message: "测试文件变更时建议同步更新 06-testing.md"
+
+  - id: C07
+    name: 版本号 bump 检查
+    severity: P0
+    type: version_check
+    scope: "pyproject.toml"
+    trigger_pattern: null
+    message: "任何代码变更后必须核对版本号是否需要 bump"
+
+  - id: C08
+    name: 差距登记检查
+    severity: P1
+    type: gap_check
+    scope: "docs/harness/08-gap-analysis.md"
+    trigger_pattern: null
+    message: "重大变更应考虑登记新差距"
+
+  - id: C09
+    name: 晋级计划检查
+    severity: P1
+    type: file_modified
+    scope: "docs/harness/09-advancement-plan.md"
+    trigger_pattern: null
+    message: "里程碑变更必须更新晋级计划"
+
+  - id: C10
+    name: 流程文档同步检查
+    severity: P1
+    type: file_modified
+    scope: "docs/execution_modes_flowchart.md|docs/business_flow.md"
+    trigger_pattern: null
+    message: "流程变更必须同步流程图文档"
+
+  - id: C11
+    name: 角色职责文档检查
+    severity: P1
+    type: file_modified
+    scope: "agents/*.md"
+    trigger_pattern: null
+    message: "角色变更必须同步 agents/*.md"
+
+  - id: C12
+    name: README 快速参考检查
+    severity: P0
+    type: file_modified
+    scope: "README.md"
+    trigger_pattern: null
+    message: "README.md 必须同步更新"
+
+anti_patterns:
+  - id: AP01
+    name: 巨型 Prompt
+    severity: P1
+    detect: "AGENTS.md > 300 行"
+    suggestion: "拆分 Skill，采用渐进式披露"
+  - id: AP02
+    name: 跳过审核直接编码
+    severity: P0
+    detect: "无 plan/spec 直接提交代码"
+    suggestion: "必须先写 plan/spec 再编码"
+  - id: AP03
+    name: Rules 不维护
+    severity: P1
+    detect: "规则文件 > 30 天未修改"
+    suggestion: "定期审计规则有效性"
+  - id: AP04
+    name: MCP 过度接入
+    severity: P2
+    detect: "MCP 服务 > 10 个"
+    suggestion: "按使用频率合并/淘汰"
+  - id: AP05
+    name: Skill 不原子化
+    severity: P1
+    detect: "单 Skill > 200 行"
+    suggestion: "按单一职责原则拆分"
+  - id: AP06
+    name: 盲目信任 AI 输出
+    severity: P0
+    detect: "生产路径无独立验证"
+    suggestion: "至少配备 L2 test_suite 验证"
+  - id: AP07
+    name: 循环无停止条件
+    severity: P0
+    detect: "Loop Contract stop 为空"
+    suggestion: "必须配置 completion + safety 双条件"
+  - id: AP08
+    name: 多循环共写 STATE
+    severity: P1
+    detect: "多 Loop 同一 state 目录"
+    suggestion: "每循环独立 state，通过 handoff 协作"
+  - id: AP09
+    name: Chat 历史当文档
+    severity: P2
+    detect: "知识仅存在于对话历史"
+    suggestion: "沉淀到 knowledge base"
+  - id: AP10
+    name: 一个 PR 改所有
+    severity: P1
+    detect: "PR > 20 文件"
+    suggestion: "按职责拆分 PR"

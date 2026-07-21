@@ -18,6 +18,7 @@ FDT 前向基准（ViBench 层）— 历史场景回放测试集。
 
 数据铁律: 所有期货数据/裁决来自 quant-daily + execution_followup, 不在本脚本内重复拉取。
 """
+from __future__ import annotations
 
 import json
 import os
@@ -224,7 +225,7 @@ def run_replay_benchmark(journal_path: str, followup_path: str, out_dir: str) ->
     return report
 
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="FDT 前向基准 (ViBench 层)")
     parser.add_argument("--build", action="store_true", help="从 execution_followup.json 构建金标准测试集")

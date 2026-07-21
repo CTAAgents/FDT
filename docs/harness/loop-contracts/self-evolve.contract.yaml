@@ -1,0 +1,246 @@
+# ============================================================
+# FDT Loop Contract: self-evolve
+# ============================================================
+# 自进化闭环 — FDT 的 Outer Loop 核心循环
+# 版本: v9.5.0
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft
+# ============================================================
+
+loop:
+  id: self-evolve
+  name: 自进化闭环
+  version: v9.5.0
+  type: Proactive  # 数据驱动触发
+  description: >
+    T+1 验证 → 权重校准 → Agent 进化 → ML 训练 → 注入下轮的完整 Outer Loop。
+    是 FDT 实现"经验复利"的核心机制。配方优于产物：只存配方+评分，不存产物本体。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: data_threshold
+    conditions:
+      - "未验证裁决数 ≥ 1"       # 每次新辩论启动前，验证历史裁决
+      - "累计 5 条验证样本"       # 校准权重阈值
+      - "累计 5 条总样本"         # Agent Prompt 进化阈值
+      - "累计 50 条新样本"        # ML 训练阈值
+  secondary:
+    - type: manual
+      command: "python scripts/validate_verdicts.py && python scripts/calibrate_weights.py && python scripts/evolve_agents.py"
+    - type: pre_loop_hook
+      parent: daily-debate        # 作为每日辩论的前置步骤运行
+      order: pre_debate           # 在 P1_scan 之前执行
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    # 读取验证数据
+    - "memory/debates/"           # 读取辩论历史
+    - "memory/logs/"              # 读取运行日志
+    - "memory/fdt_cache/"         # 读取本地缓存
+    - "execution_followup.json"   # 读取裁决跟踪记录
+    - "debate_journal.json"       # 读取辩论日志
+    # 读取配置
+    - "config/"                   # 读取配置（用于阈值判断）
+    - "skills/"                   # 读取 Skill（用于进化）
+    - "agents/"                   # 读取 Agent 配置（用于进化）
+    # 写入进化结果
+    - "memory/calibration.json"   # 写入权重校准结果
+    - "memory/agent_profiles.json"# 写入 Agent 进化配置
+    - "ml/models/"                # 写入 ML 训练模型
+    - "memory/logs/"              # 写入进化日志
+
+  deny:
+    # 禁止修改规则和运行时代码
+    - "rules/"                    # 禁止修改规则
+    - "fdt_langgraph/"            # 禁止修改图编排
+    - "futures_data_core/"        # 禁止修改数据核心
+    # 禁止直接输出交易信号
+    - "ctp_trade/"                # 禁止直接操作交易接口
+    # 禁止修改测试
+    - "tests/"                    # 禁止修改测试用例
+    # 禁止修改 Loop Contract 本身
+    - "docs/harness/loop-contracts/"  # 禁止修改契约
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  pipeline:
+    - step: validate_verdicts
+      name: T+1 回测验证
+      description: 用后续行情检验历史裁决方向正确性
+      command: "python scripts/validate_verdicts.py [--t1] [--t3] [--report]"
+      timeout: 300s
+      failure_strategy: skip  # 验证失败不影响后续校准
+      output:
+        - execution_followup.json (validated=True)
+        - validation_report.html
+
+    - step: calibrate_weights
+      name: 权重校准
+      description: 从历史验证结果学习，调整裁决评分权重
+      command: "python scripts/calibrate_weights.py [--min-samples 5] [--lr 0.3]"
+      timeout: 120s
+      failure_strategy: skip
+      dependencies: [validate_verdicts]
+      output:
+        - memory/calibration.json
+
+    - step: evolve_agents
+      name: Agent Prompt 进化
+      description: 从验证数据中提取各 Agent 表现信号，驱动参数自调整
+      command: "python scripts/evolve_agents.py"
+      timeout: 180s
+      failure_strategy: skip
+      dependencies: [validate_verdicts, calibrate_weights]
+      output:
+        - memory/agent_profiles.json
+
+    - step: ml_train
+      name: ML 增量训练
+      description: LightGBM 增量训练（滚动 90 日窗口）
+      command: "python ml/trainer.py [--retrain]"
+      timeout: 600s
+      failure_strategy: skip
+      condition: "累计新样本 ≥ 50"  # 条件触发
+      output:
+        - ml/models/latest.pkl
+        - ml/metrics.json
+
+  post_loop:
+    - step: archive_evolution
+      description: 归档本轮进化日志
+      timeout: 30s
+    - step: inject_next_round
+      description: 将进化结果注入下一轮辩论配置
+      timeout: 30s
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  hard_limits:
+    max_total_time: 1200s       # 总时长硬上限：20分钟
+    max_tokens_per_run: 100000  # Token 硬上限（进化循环本身不用大模型，主要为ML训练）
+    max_cost_per_day: 20        # 单日成本硬上限
+    max_ml_train_per_day: 3     # 每日最多 ML 训练次数
+    max_retries_per_step: 1     # 单步最多重试 1 次（进化失败不重试，避免负向循环）
+
+  soft_limits:
+    warn_time: 600s             # 时长告警
+    warn_cost: 10               # 成本告警
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_steps_done            # 所有步骤完成（包括跳过的）
+    - evolution_archived        # 进化结果已归档
+
+  safety:
+    - max_total_time_exceeded   # 总时长超限
+    - max_cost_exceeded         # 成本超限
+    - consecutive_failures_2    # 连续失败 2 次熔断
+    - no_validated_samples      # 无验证样本可处理
+    - ml_train_crash_3          # ML 训练连续崩溃 3 次
+
+# ============================================================
+# 6. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    output_json:
+      - memory/calibration.json
+      - memory/agent_profiles.json
+      - ml/metrics.json
+    notification:
+      - type: log
+        level: INFO
+        message: "自进化完成: {trace_id}, 校准权重项={n_weights}, 进化 Agent 数={n_agents}, ML 训练={ml_trained}"
+
+  failure:
+    log_file: "memory/logs/self_evolve_{date}.log"
+    notification:
+      - type: log
+        level: WARN
+        message: "自进化步骤失败: {step}, {error}"
+
+  escalation:
+    - condition: ml_train_crash_3
+      action: notify_human + disable_ml_train
+      level: HIGH
+    - condition: calibration_divergence  # 校准发散（权重越调越差）
+      action: notify_human + rollback_last_calibration
+      level: HIGH
+
+# ============================================================
+# 7. VERIFICATION — 验证体系
+# ============================================================
+verification:
+  mode: L2  # test_suite
+  layers:
+    L1_self:
+      - 输入数据完整性检查（execution_followup.json 格式校验）
+      - 校准参数边界检查（权重修正量是否在合理范围）
+    L2_test_suite:
+      - pytest: 验证 validate_verdicts 计算逻辑
+      - pytest: 验证 calibrate_weights 收敛性
+      - pytest: 验证 evolve_agents 配置有效性
+      - JSON Schema: agent_profiles.json 结构校验
+      - 回归测试: 进化后的配置不破坏现有辩论流程
+
+  promotion_criteria:
+    L2_to_L3: "连续 20 次进化后辩论准确率提升 ≥5%，无回退事件"
+
+# ============================================================
+# 8. SECURITY — 安全
+# ============================================================
+security:
+  # 进化循环不直接输出交易信号，风险较低
+  # 主要安全考量：防止校准发散和过度拟合
+  safety_checks:
+    - calibration_bounds: true    # 校准修正量有边界限制
+    - ml_overfit_check: true      # ML 训练有过拟合检测
+    - rollback_on_divergence: true  # 发散时自动回滚
+
+# ============================================================
+# 9. OBSERVABILITY — 可观测性
+# ============================================================
+observability:
+  metrics:
+    - calibration_items           # 本次校准的权重项数
+    - calibration_divergence      # 校准发散检测
+    - evolved_agents              # 进化的 Agent 数量
+    - ml_train_accuracy           # ML 训练准确率
+    - ml_train_overfit_score      # 过拟合评分
+    - evolution_duration          # 进化总时长
+    - evolution_cost              # 进化成本
+
+# ============================================================
+# 10. RECIPE-OVER-ARTIFACT — 配方优于产物
+# ============================================================
+# 核心原则：记忆只存"配方+评分"，不存产物本体
+# 存储成本从 O(产物×轮数) 降到 O(配方×轮数)
+memory_strategy:
+  store_recipe: true             # 存校准公式和参数
+  store_score: true              # 存验证评分
+  discard_artifact: true         # 不存原始产物（中间计算结果）
+  key_files:
+    - memory/calibration.json     # 配方：权重修正表
+    - memory/agent_profiles.json  # 配方：Agent 配置参数
+    - ml/metrics.json             # 评分：ML 训练指标
+
+# ============================================================
+# 变更历史
+# ============================================================
+changelog:
+  - version: v9.5.0
+    date: 2026-07-20
+    change: 初始版本：建立自进化闭环的 Loop Contract

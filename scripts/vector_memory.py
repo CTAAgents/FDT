@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("vector_memory")
@@ -33,7 +34,7 @@ from collections import defaultdict
 class VectorMemory:
     """三层记忆管理器：短时/中期/长期。"""
 
-    def __init__(self, base_dir: str = None):
+    def __init__(self, base_dir: str = None) -> None:
         if base_dir is None:
             self.base_dir = Path(__file__).parent.parent / "memory"
         else:
@@ -54,7 +55,7 @@ class VectorMemory:
         # 初始化SQLite中期库
         self._init_mid_db()
 
-    def _init_mid_db(self):
+    def _init_mid_db(self) -> None:
         """初始化中期时序数据库。"""
         with sqlite3.connect(str(self.mid_db)) as conn:
             conn.execute("""

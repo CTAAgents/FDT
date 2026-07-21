@@ -90,7 +90,7 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path in ("/", "/health"):
             comps = _check_components()
             # P3修复（2026-07-11）：仅 "running"/"active"/"available" 视为健康；
@@ -118,7 +118,7 @@ class HealthHandler(BaseHTTPRequestHandler):
         else:
             self._json(404, {"error": "not found", "path": self.path})
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args) -> None:
         pass  # 静默，避免污染输出
 
 

@@ -24,7 +24,7 @@ LEARNING_RATE = 0.3
 MIN_SAMPLES = 3
 
 
-def load_matrix():
+def load_matrix() -> dict:
     """加载品种适应性矩阵"""
     if not os.path.exists(MATRIX_PATH):
         return {
@@ -41,14 +41,14 @@ def load_matrix():
         return json.load(f)
 
 
-def save_matrix(matrix):
+def save_matrix(matrix: dict) -> None:
     """保存品种适应性矩阵"""
     with open(MATRIX_PATH, "w", encoding="utf-8") as f:
         json.dump(matrix, f, indent=2, ensure_ascii=False)
     print(f"[update_matrix] ✅ 矩阵已保存: {MATRIX_PATH}")
 
 
-def ensure_symbol(matrix, symbol, display_name="", chain=""):
+def ensure_symbol(matrix: dict, symbol: str, display_name: str = "", chain: str = "") -> None:
     """确保品种在矩阵中存在，不存在则按默认值创建"""
     if symbol not in matrix["data"]:
         # 按产业链推断默认值
@@ -73,7 +73,7 @@ def ensure_symbol(matrix, symbol, display_name="", chain=""):
     return matrix
 
 
-def update_family(matrix, symbol, family_code, was_correct):
+def update_family(matrix: dict, symbol: str, family_code: str, was_correct: bool) -> None:
     """
     EMA 在线更新某一策略族在特定品种上的权重。
 
@@ -108,7 +108,7 @@ def update_family(matrix, symbol, family_code, was_correct):
           f"(correct={int(was_correct)}, v={fam['v']})")
 
 
-def batch_update(symbol, family_results, display_name="", chain=""):
+def batch_update(symbol: str, family_results: list, display_name: str = "", chain: str = "") -> None:
     """
     批量更新一个品种的多个策略族权重。
 
@@ -125,7 +125,7 @@ def batch_update(symbol, family_results, display_name="", chain=""):
     save_matrix(matrix)
 
 
-def parse_verdicts(debate_results_path):
+def parse_verdicts(debate_results_path: str) -> list:
     """
     从 debate_results.json 中解析裁决结果并更新矩阵。
     注意：此函数为存根设计，实际使用时需对接行情验证流程。
@@ -150,7 +150,7 @@ def parse_verdicts(debate_results_path):
         batch_update(symbol, family_results, display_name, chain)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="品种×策略族适应性矩阵更新")
     parser.add_argument("--symbol", "-s", type=str, help="品种代码")
     parser.add_argument("--family", "-f", type=str, choices=["F1", "F2", "F3", "F4", "F5"],

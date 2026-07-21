@@ -76,7 +76,7 @@ def _match_cron(dow_spec: str, hour: int, minute: int) -> bool:
 FDT_CLI = sys.executable + " " + str(ROOT / "scripts" / "fdt_cli.py")
 
 
-def _job_daily_debate():
+def _job_daily_debate() -> None:
     """每日全量扫描+辩论"""
     today = date.today().strftime("%Y%m%d")
     ws = str(ROOT / "data" / f"scan_{today}")
@@ -103,7 +103,7 @@ JOBS = {
 }
 
 
-def _log(msg: str):
+def _log(msg: str) -> None:
     """写日志"""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
@@ -119,7 +119,7 @@ def _log(msg: str):
 # ── 守护进程管理 ──
 
 
-def _write_pid(pid: int):
+def _write_pid(pid: int) -> None:
     SCHEDULER_DIR.mkdir(parents=True, exist_ok=True)
     PID_FILE.write_text(str(pid), encoding="utf-8")
 
@@ -153,7 +153,7 @@ def _is_running(pid: int) -> bool:
         return False
 
 
-def cmd_daemon_start(job_name: str):
+def cmd_daemon_start(job_name: str) -> None:
     """后台启动调度器"""
     pid = _read_pid()
     if pid and _is_running(pid):
@@ -179,7 +179,7 @@ def cmd_daemon_start(job_name: str):
     return 0
 
 
-def cmd_daemon_stop():
+def cmd_daemon_stop() -> None:
     """停止调度器"""
     pid = _read_pid()
     if not pid:
@@ -205,7 +205,7 @@ def cmd_daemon_stop():
     return 0
 
 
-def cmd_daemon_status():
+def cmd_daemon_status() -> None:
     """查看状态"""
     pid = _read_pid()
     if not pid:
@@ -231,7 +231,7 @@ def cmd_daemon_status():
 # ── 调度循环 ──
 
 
-def _run_scheduler(job_name: str):
+def _run_scheduler(job_name: str) -> None:
     """调度主循环"""
     job = JOBS.get(job_name)
     if not job:

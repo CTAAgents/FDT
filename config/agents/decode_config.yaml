@@ -1,0 +1,207 @@
+# FDT 逐Agent解码配置
+# 版本: 1.0 | 2026-07-20
+# 定义每个 Agent 的 LLM 生成参数，实现精细化解码控制
+# Schema: docs/schemas/decode_config.json
+
+schema_version: "1.0"
+
+agents:
+  # ── 裁决组 ──
+  judge:
+    display_name: 闫判官
+    model: deepseek-v4-flash
+    temperature: 0.2
+    top_p: 0.9
+    max_tokens: 4000
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/VerdictItem.json"
+    strategy: "低温度确保裁决一致性"
+    retry_config:
+      max_retries: 3
+      temperature_multiplier: 1.5
+    validation_config:
+      pydantic_model: "contracts.VerdictItem"
+      json_schema: "docs/schemas/VerdictItem.json"
+      required_fields: ["symbol", "direction", "confidence", "entry_price", "stop_loss"]
+
+  judge_deputy:
+    display_name: 闫判官副手
+    model: deepseek-v4-flash
+    temperature: 0.3
+    top_p: 0.9
+    max_tokens: 3000
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/StructuredDebate.json"
+    strategy: "低温度确保准确提取论点树"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      required_fields: ["arguments", "confidence"]
+
+  judge_heldout:
+    display_name: 一致性裁判
+    model: deepseek-v4-flash
+    temperature: 0.2
+    top_p: 0.9
+    max_tokens: 2000
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+    strategy: "最低温度确保审计一致性"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      required_fields: ["consistency_score", "issues"]
+
+  # ── 辩论组 ──
+  bullish_analyst:
+    display_name: 证真（多头分析员）
+    model: deepseek-v4-flash
+    temperature: 0.4
+    top_p: 0.95
+    max_tokens: 3000
+    presence_penalty: 0.1
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/ArgumentOutput.json"
+    strategy: "中等温度允许创造性发现多头逻辑"
+    retry_config:
+      max_retries: 3
+      temperature_multiplier: 1.5
+    validation_config:
+      pydantic_model: "contracts.ArgumentOutput"
+      json_schema: "docs/schemas/ArgumentOutput.json"
+      required_fields: ["role", "variant", "dimensions", "summary_4_risk"]
+
+  bearish_analyst:
+    display_name: 慎思（空头分析员）
+    model: deepseek-v4-flash
+    temperature: 0.4
+    top_p: 0.95
+    max_tokens: 3000
+    presence_penalty: 0.1
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/ArgumentOutput.json"
+    strategy: "中等温度允许创造性发现空头逻辑"
+    retry_config:
+      max_retries: 3
+      temperature_multiplier: 1.5
+    validation_config:
+      pydantic_model: "contracts.ArgumentOutput"
+      json_schema: "docs/schemas/ArgumentOutput.json"
+      required_fields: ["role", "variant", "dimensions", "summary_4_risk"]
+
+  # ── 研究组 ──
+  chain_analyst:
+    display_name: 链证源（产业链分析师）
+    model: deepseek-v4-flash
+    temperature: 0.3
+    top_p: 0.9
+    max_tokens: 2500
+    presence_penalty: 0.0
+    frequency_penalty: 0.1
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/ChainAnalysisOutput.json"
+    strategy: "较低温度确保产业链事实准确"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      json_schema: "docs/schemas/ChainAnalysisOutput.json"
+      required_fields: ["commodity", "chain_position", "bargaining_power"]
+
+  technical_researcher:
+    display_name: 观澜（技术面研究员）
+    model: deepseek-v4-flash
+    temperature: 0.3
+    top_p: 0.9
+    max_tokens: 2500
+    presence_penalty: 0.0
+    frequency_penalty: 0.1
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+    strategy: "较低温度确保技术指标准确"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      required_fields: ["symbol", "signals", "conclusion"]
+
+  fundamental_researcher:
+    display_name: 探源（基本面研究员）
+    model: deepseek-v4-flash
+    temperature: 0.3
+    top_p: 0.9
+    max_tokens: 2500
+    presence_penalty: 0.0
+    frequency_penalty: 0.1
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+    strategy: "较低温度确保供需/库存数据准确"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      required_fields: ["symbol", "supply_demand", "inventory", "conclusion"]
+
+  # ── 风控组 ──
+  risk_manager:
+    display_name: 风控明
+    model: deepseek-v4-flash
+    temperature: 0.2
+    top_p: 0.9
+    max_tokens: 2000
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+      schema_ref: "docs/schemas/RiskOutput.json"
+    strategy: "低温度确保风控一致性"
+    retry_config:
+      max_retries: 2
+      temperature_multiplier: 1.5
+    validation_config:
+      pydantic_model: "contracts.RiskOutput"
+      json_schema: "docs/schemas/RiskOutput.json"
+      required_fields: ["risk_color", "max_leverage", "reasons"]
+
+  # ── 主管组 ──
+  debate_team_team_lead:
+    display_name: 明鉴秋（团队主管）
+    model: deepseek-v4-flash
+    temperature: 0.35
+    top_p: 0.95
+    max_tokens: 4000
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    stop_sequences: []
+    response_format:
+      type: "structured_output"
+    strategy: "中等偏低温度确保汇总质量"
+    retry_config:
+      max_retries: 3
+      temperature_multiplier: 1.5
+    validation_config:
+      required_fields: ["summary", "trading_plan"]

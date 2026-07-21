@@ -407,16 +407,25 @@ def build_signal_summary(scan_path: str, period_fitness_path: str = None) -> dic
     symbols = []
     for sym in all_symbols:
         entry = next((e for e in all_ranked if e["symbol"] == sym), {})
+        signal_data = _extract_signal(entry)
+        # factor: 在组合模式下信号源唯一，复制signal作为factor以兼容下游辩论逻辑
+        # 下游select_debate_symbols需要同时读取signal(l1l4)和factor两条路径
+        # 当两路一致时 → 共识推荐；当分歧时 → 触发辩论
         symbols.append(
             {
                 "symbol": sym,
                 "name": entry.get("name", sym),
-                "signal": _extract_signal(entry),
+                "signal": signal_data,
+                "factor": signal_data,
                 "period_context": pf_map.get(sym),
             }
         )
 
     meta = scan_data.get("_meta", {})
+
+    # Compute direction counts from symbols
+    l1l4_bull_count = sum(1 for s in symbols if s.get("signal", {}).get("direction") == "bull")
+    l1l4_bear_count = sum(1 for s in symbols if s.get("signal", {}).get("direction") == "bear")
 
     output = {
         "_meta": {
@@ -426,8 +435,12 @@ def build_signal_summary(scan_path: str, period_fitness_path: str = None) -> dic
             "period_fitness": "injected" if pf_map else "none",
             "total_symbols": len(symbols),
             "strategy": meta.get("strategy", "channel_breakout"),
-            "bull": meta.get("bull", 0),
-            "bear": meta.get("bear", 0),
+            "bull": meta.get("bull", l1l4_bull_count),
+            "bear": meta.get("bear", l1l4_bear_count),
+            "l1l4_bull": l1l4_bull_count,
+            "l1l4_bear": l1l4_bear_count,
+            "factor_bull": l1l4_bull_count,
+            "factor_bear": l1l4_bear_count,
         },
         "symbols": symbols,
     }
@@ -662,7 +675,7 @@ def select_debate_symbols(
     # 共识 + launch + 非极端 → 直接推荐，跳过辩论
     # 其余品种 → 进入辩论流程
     # ════════════════════════════════════════════════════
-    _raw_l_data = {s["symbol"]: s["l1l4"] for s in symbols}
+    _raw_l_data = {s["symbol"]: s.get("signal", s.get("l1l4", {})) for s in symbols}
 
     def _is_direct_recommend(item) -> str:
         """检查是否为直接推荐品种。返回 ""(不推荐) / "STRONG_RECOMMEND" / "WATCH" """
@@ -810,9 +823,9 @@ def select_debate_symbols(
 
     # Z分数极端
     z_extremes = [
-        {"symbol": s["symbol"], "z_score": s["l1l4"].get("z_score", 0)}
+        {"symbol": s["symbol"], "z_score": s.get("signal", s.get("l1l4", {})).get("z_score", 0)}
         for s in symbols
-        if abs(s["l1l4"].get("z_score", 0)) > 2
+        if abs(s.get("signal", s.get("l1l4", {})).get("z_score", 0)) > 2
     ]
     z_extremes.sort(key=lambda x: abs(x["z_score"]), reverse=True)
 
@@ -860,7 +873,7 @@ if __name__ == "__main__":
     parser.add_argument("--history-path", help="历史反馈JSON路径（可选）", default=None)
     args = parser.parse_args()
 
-    summary = build_signal_summary(args.l1l4_path, args.factor_path, period_fitness_path=args.period_fitness)
+    summary = build_signal_summary(args.l1l4_path, period_fitness_path=args.period_fitness)
     os.makedirs(args.output_dir, exist_ok=True)
 
     json_path = os.path.join(args.output_dir, f"{args.prefix}.json")

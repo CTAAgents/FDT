@@ -55,7 +55,8 @@ from futures_data_core.f10 import (
     get_warrant,
     search_fundamental_llm,
 )
-from futures_data_core.indicators.core import INDICATOR_NAMES, compute_indicators
+from futures_data_core.indicators.core import INDICATOR_NAMES
+from futures_data_core.indicators.core import compute_indicators as _local_compute_indicators
 
 # 惰性适配器单例：导入本包时不构造，首次调用数据 API 时才创建，
 # 避免导入期副作用（如探测采集器可用性）。
@@ -180,6 +181,33 @@ async def get_f10(
     payload.meta["sources"] = sorted(sources)
     payload.summary = f"{symbol} F10 综合报告（期限结构/价差/基差/仓单/基本面）"
     return payload
+
+
+def compute_indicators(
+    data: dict | list[dict] | Any,
+    names: str | list[str] = "all",
+    **params,
+) -> dict:
+    """计算技术指标。始终使用本地纯 numpy 实现。
+
+    Data-Core 版 ``compute_indicators`` 的指标名（DMA/BIAS 等）和返回值类型
+    （BOLL 为 dict）与 FDT 策略代码期望的格式（MA/ndarray）不兼容，因此始终
+    走本地实现。
+
+    Args:
+        data: K 线数据（dict | list[dict] | DataFrame）。
+        names: 指标名称或列表，"all" 表示计算所有。
+        **params: 额外参数透传。
+
+    Returns:
+        指标结果 dict。
+    """
+    # ── 统一参数名 ──────────────────────────────────────
+    # data_source_adapter 以 indicators=xxx 调用，通过 **params 传入；
+    # 本地实现用 indicators 参数名。
+    _indicators = params.pop("indicators", names)
+
+    return _local_compute_indicators(data, indicators=_indicators, **params)
 
 
 __all__ = [

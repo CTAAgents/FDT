@@ -1,0 +1,90 @@
+# ============================================================
+# FDT Loop Contract: ml-training
+# ============================================================
+# ML 模型训练循环
+# 版本: v9.6.1
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft
+# ============================================================
+
+loop:
+  id: ml-training
+  name: ML 模型训练循环
+  version: v9.6.1
+  type: Data-Triggered
+  description: >
+    LightGBM 增量训练，滚动 90 日窗口。
+    由 self-evolve 循环在累计新样本 >= 50 时通过 handoff 触发。
+
+trigger:
+  primary:
+    type: data_threshold
+    condition: "新验证样本 >= 50"
+    source: self-evolve
+  secondary:
+    - type: manual
+      command: "python ml/trainer.py [--retrain]"
+    - type: cron
+      schedule: "0 3 * * 1"  # 每周一早3点全量重训练
+      timezone: Asia/Shanghai
+
+scope:
+  allow:
+    - "ml/models/"             # 写入模型文件
+    - "ml/metrics.json"        # 写入训练指标
+    - "memory/logs/"           # 写入训练日志
+    - "execution_followup.json" # 读取验证数据
+  deny:
+    - "rules/"
+    - "config/"
+    - "scripts/"
+    - "fdt_langgraph/"
+    - "docs/"
+
+action:
+  pipeline:
+    - step: data_prep
+      name: 训练数据准备
+      description: 从执行跟踪记录提取特征矩阵
+      timeout: 120s
+      failure_strategy: abort
+    - step: incremental_train
+      name: LightGBM 增量训练
+      description: 滚动 90 日窗口增量训练
+      timeout: 600s
+      failure_strategy: abort
+    - step: evaluate
+      name: 模型评估
+      description: 计算准确率、过拟合评分
+      timeout: 120s
+      failure_strategy: skip
+    - step: deploy
+      name: 模型部署
+      description: 更新 latest.pkl 软链
+      timeout: 30s
+      failure_strategy: skip
+
+budget:
+  max_total_time: 1800s
+  max_cost_per_day: 30
+  max_retries_per_step: 1
+
+stop:
+  completion: "all_steps_done && model_deployed"
+  safety:
+    - max_total_time_exceeded
+    - overfit_score_high
+    - consecutive_crash_2
+
+verification:
+  mode: L2
+  layers:
+    L1_self: "训练日志完整性检查"
+    L2_test_suite: "pytest ml/tests/"
+
+report:
+  success:
+    output: "ml/metrics.json"
+    notification: "log INFO"
+  failure:
+    notification: "log ERROR"

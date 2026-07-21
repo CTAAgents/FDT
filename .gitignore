@@ -9,6 +9,12 @@ skills/*/Reports/
 skills/fundamental-data-collector/scripts/huishang_cache/
 skills/quant-daily/reports/
 skills/quant-daily/scripts/nul
+skills/quant-daily/backtest/results/
+skills/quant-daily/scripts/backtest/results/
+skills/quant-daily/scripts/reports/
+skills/quant-daily/scripts/optimizer/*.json
+skills/quant-daily/scripts/phase1_output.json
+skills/quant-daily/signal_summary.html
 
 # Temp / cache
 *.tmp
@@ -16,12 +22,23 @@ skills/quant-daily/scripts/nul
 *.pyc
 __pycache__/
 .DS_Store
+Thumbs.db
 phase2_chain_output.json
 memory/logs/
 _tmp_*
 fdt_cache/
 tests/fdt_cache/
 memory/*.db
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+htmlcov/
+.coverage
+coverage/
 
 # Settings
 settings.json

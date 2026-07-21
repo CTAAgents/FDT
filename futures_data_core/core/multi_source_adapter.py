@@ -23,25 +23,29 @@ from futures_data_core.collectors.base import (
     CollectorUnavailableError,
     select_by_priority,
 )
+from futures_data_core.collectors.datacore import DataCoreCollector
 from futures_data_core.collectors.qmt import QMTCollector
 from futures_data_core.collectors.tdx import TDXCollector
 from futures_data_core.collectors.tqsdk import TqSdkCollector
 from futures_data_core.collectors.web_fallback import WebFallbackCollector
 from futures_data_core.core.cache_store import CacheStore
 from futures_data_core.core.circuit_breaker import CircuitBreaker
+from futures_data_core.core.dominant_resolver import DominantResolver
 
 
 def _default_collectors() -> list[BaseCollector]:
     """构建默认采集器列表（按优先级升序）。
 
     🔴 数据源优先级（2026-07-15 调整：Web 前置于 TqSDK 以规避关闭挂死）：
-        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源，priority=0）
-        2. WebFallbackCollector — 东方财富+新浪（TQ-Local 失败首选降级，priority=1）
-        3. QMTCollector — QMT/xtquant（priority=2）
+        0. DataCoreCollector — Data-Core 统一数据接口（v9.3.0 新增，优先级 0，最高）
+        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源，priority=1）
+        2. WebFallbackCollector — 东方财富+新浪（TQ-Local 失败首选降级，priority=2）
+        3. QMTCollector — QMT/xtquant（priority=3）
         4. TqSdkCollector — 天勤量化（末位兜底，关闭偶发挂死已由超时保护，priority=98）
     """
     return select_by_priority(
         [
+            DataCoreCollector(),    # 最高优先级：Data-Core 统一接口
             TDXCollector(),         # 第一数据源：通达信TQ-Local
             TqSdkCollector(),       # 降级：TqSDK免费版（24h可用）
             QMTCollector(),         # 降级：QMT/xtquant
@@ -57,15 +61,18 @@ class MultiSourceAdapter:
         self,
         collectors: Optional[list[BaseCollector]] = None,
         cache: Optional[CacheStore] = None,
+        resolver: Optional[DominantResolver] = None,
     ) -> None:
         """初始化。
 
         Args:
             collectors: 采集器列表；``None`` 时使用默认四源。
             cache: 可选的 :class:`CacheStore` 用于最终回退与写入。
+            resolver: 可选的 :class:`DominantResolver`；``None`` 时自动创建。
         """
         self._collectors = list(collectors) if collectors is not None else _default_collectors()
         self._cache = cache
+        self._resolver = resolver or DominantResolver()
         # ── A1 数据源熔断：每个采集器名一个熔断器，连续失败自动屏蔽 ──
         self._breakers: dict[str, CircuitBreaker] = {}
         self._breaker_cfg = {"failure_threshold": 5, "cooldown": 60.0}
@@ -97,8 +104,18 @@ class MultiSourceAdapter:
     ) -> A2APayload:
         """获取 K 线（自动降级）。
 
+        ``symbol`` 可以是品种代码（如 ``"RB"``）或合约代码（如 ``"RB2505"``）。
+        各采集器内部自行处理品种→合约的转换（如 TqSdk 的 ``_resolve_continuous``
+        将 ``"RB"`` 转为 ``"KQ.m@SHFE.rb"`` 主力连续合约）。
+
+        🛡️ v9.4.1 修复：移除入口处的"自动主力解析"。之前 ``DominantResolver``
+        在 ``memory/dominant_map.json`` 不存在时返回 ``f"{variety}00"`` 这种
+        不存在的合约代码（如 ``"RB00"``），导致 WebFallback / TqSDK 等采集器
+        都识别失败。改由各采集器内部根据自身能力处理 symbol 转换，避免
+        平台无关的后备代码污染整个降级链。
+
         Args:
-            symbol: 品种代码。
+            symbol: 品种代码或合约代码。
             period: 周期。
             days: 回溯交易日数。
             source: ``"auto"`` 走降级链；否则指定采集器名（如 ``"tdx_tq_local"``）。
@@ -106,6 +123,12 @@ class MultiSourceAdapter:
         Returns:
             :class:`A2APayload`，``data`` 为 KlineData 的 dict 表示。
         """
+        return await self._collect_kline_impl(symbol, period, days, source)
+
+    async def _collect_kline_impl(
+        self, symbol: str, period: str = "daily", days: int = 120, source: str = "auto"
+    ) -> A2APayload:
+        """K 线采集实现（含降级链，不做主力解析）。"""
         if source != "auto":
             return await self._get_kline_explicit(symbol, period, days, source)
 
@@ -133,6 +156,43 @@ class MultiSourceAdapter:
             return await self._wrap_kline(collector, data, tried)
 
         return await self._fallback_kline(symbol, period, tried)
+
+    async def get_contract_kline(
+        self, contract: str, period: str = "daily", days: int = 120, source: str = "auto"
+    ) -> A2APayload:
+        """F10 用：按指定合约代码精确查询，不经过主力解析。
+
+        Args:
+            contract: 合约代码（如 ``"CU2409"``）。
+            period: 周期。
+            days: 回溯交易日数。
+            source: 数据源。
+
+        Returns:
+            :class:`A2APayload`。
+        """
+        return await self._collect_kline_impl(contract, period, days, source)
+
+    async def get_all_active_contracts(self, variety: str) -> list[str]:
+        """期限结构用：获取品种所有活跃合约月份。
+
+        委托给首个支持 get_all_contracts 的采集器；不支持则返回空列表。
+
+        Args:
+            variety: 品种代码。
+
+        Returns:
+            活跃合约代码列表。
+        """
+        for collector in select_by_priority(self._collectors):
+            if hasattr(collector, "get_all_contracts") and await collector.check_available():
+                import asyncio
+                try:
+                    contracts = await collector.get_all_contracts(variety)
+                    return [c.code for c in contracts]
+                except Exception:
+                    continue
+        return []
 
     async def _get_kline_explicit(
         self, symbol: str, period: str, days: int, source: str

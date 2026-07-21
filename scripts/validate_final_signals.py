@@ -19,6 +19,7 @@ FDT 最终信号复查器 v1.0 — 确定性校验，不依赖 LLM
   errors = validate_signals(debate_data)
 """
 from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -210,7 +211,7 @@ def validate_signals(data: dict, scan: dict | None = None) -> tuple[list[str], l
         pass  # 已在 2d 逐品种检查
 
     return errors, warns
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="FDT 最终信号复查器")
     ap.add_argument("--input", "-i", required=True, help="debate_results.json 路径")
     ap.add_argument("--scan", "-s", help="scan_daily_*.json 路径（可选，用于品种数交叉校验）")

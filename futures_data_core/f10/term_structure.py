@@ -17,6 +17,12 @@ from __future__ import annotations
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
+
+
 
 # 合约链 provider：``fetch_contracts(symbol) -> list[dict] | None``
 # 每个 dict: {"contract": "CU2408", "month": "2408", "price": 72300,
@@ -180,6 +186,14 @@ async def get_term_structure(
         :class:`A2APayload`，``data`` 含 ``structure`` / ``slope_pct`` /
         ``near_contract`` / ``far_contract`` / ``spread`` / ``contracts``。
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_term_structure", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["TERM_STRUCTURE"],
+            f"{symbol} 期限结构（Data-Core）",
+        )
+
     contracts = await _resolve_contracts(symbol, fetch_contracts)
     result = analyze_term_structure(contracts) if contracts else None
 

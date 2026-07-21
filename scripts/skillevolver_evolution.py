@@ -11,6 +11,7 @@ Usage:
     evolver = SkillEvolver()
     validated = evolver.run_evolution_cycle(faults=[...])
 """
+from __future__ import annotations
 
 import json
 import copy
@@ -66,7 +67,7 @@ ROLE_TO_FILE_ID: Dict[str, str] = {
 class SkillEvolver:
     """SkillEvolver main engine — evolves FDT Agent prompts on the skill level."""
 
-    def __init__(self, fdt_root: Optional[Path] = None):
+    def __init__(self, fdt_root: Optional[Path] = None) -> None:
         self.root = Path(fdt_root) if fdt_root else FDT_ROOT
         self.agents_dir = self.root / "agents"
         self.memory_dir = self.root / "memory"
@@ -257,7 +258,7 @@ class SkillEvolver:
 
 # ── CLI entry ────────────────────────────────────────────────────
 
-def _cli():
+def _cli() -> None:
     import sys
     import pprint
 

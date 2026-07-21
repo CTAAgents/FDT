@@ -1,0 +1,73 @@
+# ============================================================
+# FDT Loop Contract: health-check
+# ============================================================
+# 健康自检循环
+# 版本: v9.6.1
+# 验证档位: L1 (self)
+# 权限档位: 只读
+# ============================================================
+
+loop:
+  id: health-check
+  name: 健康自检循环
+  version: v9.6.1
+  type: Time-Based
+  description: >
+    定时检测系统健康状态：APM-CS 五轴、磁盘/内存/CPU、
+    PG 连接、LLM API 可用性、看门狗心跳。
+
+trigger:
+  primary:
+    type: cron
+    schedule: "*/15 * * * *"  # 每15分钟
+    timezone: Asia/Shanghai
+  secondary:
+    - type: manual
+      command: "python scripts/health_check.py"
+
+scope:
+  allow:
+    - "memory/"  # 只读
+    - "scripts/" # 只读
+    - "pg:"      # 只读健康查询
+  deny:
+    - "config/"
+    - "rules/"
+    - "docs/"
+
+action:
+  pipeline:
+    - step: system_health
+      name: 系统资源检查
+      description: 磁盘/内存/CPU 使用率
+      timeout: 30s
+    - step: pg_health
+      name: PG 连接检查
+      timeout: 30s
+    - step: llm_health
+      name: LLM API 可用性检查
+      timeout: 60s
+    - step: apm_score
+      name: APM-CS 五轴评分
+      timeout: 60s
+    - step: report
+      name: 写入健康状态
+      timeout: 30s
+
+budget:
+  max_total_time: 300s
+  max_cost_per_day: 5
+
+stop:
+  completion: "all_steps_done"
+  safety:
+    - max_total_time_exceeded
+
+verification:
+  mode: L1
+
+report:
+  success:
+    output: "memory/health_status.json"
+  failure:
+    notification: "log ERROR + 警报 if 连续 3 次失败"

@@ -17,6 +17,8 @@ v1.1: 新增 JSON 结构化日志（FDT_LOG_FORMAT=json）
     FDT_LOG_DIR    = 日志目录 (默认 ~/Documents/WorkBuddy/Logs/)
 """
 
+from __future__ import annotations
+
 import json as _json
 import logging
 import sys
@@ -74,7 +76,7 @@ def _make_formatter() -> logging.Formatter:
     )
 
 
-def get_logger(name: str, log_dir: str = None, level: str = None) -> logging.Logger:
+def get_logger(name: str, log_dir: str | None = None, level: str | None = None) -> logging.Logger:
     """获取或创建 logger。"""
     global _LOG_DIR
 
@@ -113,7 +115,7 @@ def get_logger(name: str, log_dir: str = None, level: str = None) -> logging.Log
     return logger
 
 
-def set_level(level: str):
+def set_level(level: str) -> None:
     resolved = _LOG_LEVEL_MAP.get(level.upper(), logging.INFO)
     for _n, logger in _loggers.items():
         logger.setLevel(resolved)

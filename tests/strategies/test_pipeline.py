@@ -26,7 +26,6 @@ class TestTopoSort:
         from strategies.pipeline import _topo_sort
         a, b = self._make("a", 1.0), self._make("b", 0.5)
         result = _topo_sort([b, a])
-        # no deps: input order preserved
         assert [s.name for s in result] == ["b", "a"]
 
     def test_with_deps(self):
@@ -97,11 +96,10 @@ class TestStrategyFusion:
     def test_direction_conflict(self):
         from strategies.pipeline import StrategyFusion
         fusion = StrategyFusion(StrategyFusion.WEIGHTED_MAX)
-        # 两个方向的有效信号（grade 非 NOISE）→ 冲突拆分
         per = {"a": [self._sig("a", weight=1.0, grade="STRONG")],
                "b": [self._sig("b", direction="bull", total=20, abs_score=20, weight=0.5, grade="WEAK")]}
         result = fusion.fuse(per)
-        assert len(result) == 2  # 冲突 → 多头空头都保留
+        assert len(result) == 2
         assert any(r.direction == "bear" and r.extra.get("direction_conflict") for r in result)
         assert any(r.direction == "bull" and r.extra.get("direction_conflict") for r in result)
 
@@ -142,7 +140,7 @@ class TestStrategyPipeline:
     def test_multi_strategy_run(self):
         pipe = self._pipeline([self._make_strategy("a"), self._make_strategy("b")])
         result = pipe.run([], {})
-        assert len(result["all_ranked"]) == 2  # NO_FUSION: 两策略各出一信号
+        assert len(result["all_ranked"]) == 2
         assert "per_strategy" in result
         assert "a" in result["per_strategy"]
         assert "b" in result["per_strategy"]
@@ -167,3 +165,100 @@ class TestStrategyPipeline:
         result = pipe.run([], {})
         assert len(result["bull_signals"]) == 1
         assert len(result["bear_signals"]) == 1
+
+
+class TestSubSignalMerge:
+    """Phase 4.8 同品种多子信号合并方向判定测试（修复方向覆盖 bug）。"""
+
+    def _make_multi_sub_strategy(self, symbol, subs):
+        from strategies.base_v2 import BaseStrategyV2, ScoredSignal
+
+        class MultiSubStrategy(BaseStrategyV2):
+            @property
+            def name(self):
+                return "trend_following"
+
+            def score(self, *a, **kw):
+                return [
+                    ScoredSignal(
+                        symbol=symbol,
+                        direction=d,
+                        signal_type=st,
+                        strategy_name="trend_following",
+                        total=t,
+                        abs_score=abs_s,
+                        grade=g,
+                    )
+                    for d, t, abs_s, g, st in subs
+                ]
+
+        return MultiSubStrategy()
+
+    def test_sc_direction_majority_bull(self):
+        """SC 场景：4 个看多子信号 vs 2 个看空子信号 → 合并后应为看多。"""
+        subs = [
+            ("bull", 50, 50.0, "STRONG", "trend_following.supertrend"),
+            ("bull", 40, 40.0, "STRONG", "trend_following.sar"),
+            ("bull", 47, 47.1, "STRONG", "trend_following.chandelier"),
+            ("bull", 100, 100.0, "STRONG", "trend_following.macd"),
+            ("bear", -95, 94.5, "STRONG", "trend_following.tsmom"),
+            ("bear", -100, 100.0, "STRONG", "trend_following.dual_thrust"),
+        ]
+        import importlib
+        import strategies.pipeline as _pipeline_mod
+        importlib.reload(_pipeline_mod)
+        from strategies.pipeline import StrategyPipeline
+
+        pipe = StrategyPipeline([self._make_multi_sub_strategy("SC", subs)])
+        result = pipe.run([], {})
+        ranked = result["all_ranked"]
+        assert len(ranked) == 1
+        merged = ranked[0]
+        assert merged["direction"] == "bull", (
+            f"Expected bull but got {merged['direction']}. "
+            f"total={merged['total']}, sub_signals count={len(merged.get('sub_signals', []))}"
+        )
+        expected_total = (50 + 40 + 47 + 100 - 95 - 100) / 6
+        assert abs(merged["total"] - expected_total) < 1.0
+
+    def test_all_bear_consensus(self):
+        """全部看空子信号 → 合并后应为看空。"""
+        subs = [
+            ("bear", -80, 80.0, "STRONG", "trend_following.tsmom"),
+            ("bear", -60, 60.0, "WATCH", "trend_following.dual_thrust"),
+        ]
+        from strategies.pipeline import StrategyPipeline
+
+        pipe = StrategyPipeline([self._make_multi_sub_strategy("RB", subs)])
+        result = pipe.run([], {})
+        merged = result["all_ranked"][0]
+        assert merged["direction"] == "bear"
+        expected_total = (-80 - 60) / 2
+        assert abs(merged["total"] - expected_total) < 1.0
+
+    def test_neutral_balance(self):
+        """多空完全平衡 → 合并后应为中性。"""
+        subs = [
+            ("bull", 50, 50.0, "STRONG", "trend_following.macd"),
+            ("bear", -50, 50.0, "STRONG", "trend_following.tsmom"),
+        ]
+        from strategies.pipeline import StrategyPipeline
+
+        pipe = StrategyPipeline([self._make_multi_sub_strategy("CU", subs)])
+        result = pipe.run([], {})
+        merged = result["all_ranked"][0]
+        assert merged["direction"] == "neutral"
+        assert abs(merged["total"]) < 1.0
+
+    def test_grade_upgrade(self):
+        """grade 应保留最高等级。"""
+        subs = [
+            ("bull", 30, 30.0, "WEAK", "trend_following.supertrend"),
+            ("bull", 80, 80.0, "STRONG", "trend_following.macd"),
+        ]
+        from strategies.pipeline import StrategyPipeline
+
+        pipe = StrategyPipeline([self._make_multi_sub_strategy("AL", subs)])
+        result = pipe.run([], {})
+        merged = result["all_ranked"][0]
+        assert merged["grade"] == "STRONG"

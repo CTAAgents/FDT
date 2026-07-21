@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DecodeConfig",
+  "description": "逐Agent解码配置 Schema — 定义每个 Agent 的 LLM 生成参数",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema 版本号",
+      "enum": ["1.0"]
+    },
+    "agents": {
+      "type": "object",
+      "description": "Agent 解码配置映射",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/definitions/AgentDecodeConfig"
+      }
+    }
+  },
+  "required": ["schema_version", "agents"],
+  "definitions": {
+    "AgentDecodeConfig": {
+      "type": "object",
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "description": "Agent 显示名称"
+        },
+        "model": {
+          "type": "string",
+          "description": "LLM 模型名称",
+          "examples": ["deepseek-v4-flash", "gpt-4o", "claude-3-opus"]
+        },
+        "temperature": {
+          "type": "number",
+          "description": "生成温度 (0.0~1.0)，越低越确定",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "top_p": {
+          "type": "number",
+          "description": "核采样概率阈值 (0.0~1.0)",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "最大生成长度",
+          "minimum": 256,
+          "maximum": 16384
+        },
+        "presence_penalty": {
+          "type": "number",
+          "description": "话题重复惩罚 (-2.0~2.0)",
+          "minimum": -2.0,
+          "maximum": 2.0,
+          "default": 0.0
+        },
+        "frequency_penalty": {
+          "type": "number",
+          "description": "频率重复惩罚 (-2.0~2.0)",
+          "minimum": -2.0,
+          "maximum": 2.0,
+          "default": 0.0
+        },
+        "stop_sequences": {
+          "type": "array",
+          "description": "停止序列列表",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "response_format": {
+          "type": "object",
+          "description": "响应格式约束",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["text", "json_object", "structured_output"]
+            },
+            "schema_ref": {
+              "type": "string",
+              "description": "JSON Schema 引用路径"
+            }
+          },
+          "required": ["type"]
+        },
+        "strategy": {
+          "type": "string",
+          "description": "解码策略说明",
+          "examples": ["低温度确保裁决一致性", "中等温度允许创造性发现"]
+        },
+        "retry_config": {
+          "type": "object",
+          "description": "重试配置",
+          "properties": {
+            "max_retries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5,
+              "default": 3
+            },
+            "temperature_multiplier": {
+              "type": "number",
+              "description": "重试时温度放大倍数",
+              "minimum": 1.0,
+              "maximum": 3.0,
+              "default": 1.5
+            }
+          }
+        },
+        "validation_config": {
+          "type": "object",
+          "description": "校验配置",
+          "properties": {
+            "pydantic_model": {
+              "type": "string",
+              "description": "Pydantic 模型类路径"
+            },
+            "json_schema": {
+              "type": "string",
+              "description": "JSON Schema 文件路径"
+            },
+            "required_fields": {
+              "type": "array",
+              "description": "必填字段列表",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": ["display_name", "model", "temperature", "top_p", "max_tokens"]
+    }
+  }
+}

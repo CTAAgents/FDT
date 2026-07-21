@@ -16,6 +16,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
 from futures_data_core.f10.term_structure import ContractsProvider, _month_from, _resolve_contracts
 
 
@@ -64,6 +68,14 @@ async def get_spread(
     Returns:
         :class:`A2APayload`，``data`` 含近/远合约与价差。
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_spread", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["SPREAD"],
+            f"{symbol} 跨期价差（Data-Core）",
+        )
+
     contracts = await _resolve_contracts(symbol, fetch_contracts)
     if not contracts or len(contracts) < 2:
         payload = A2APayload(

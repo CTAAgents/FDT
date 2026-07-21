@@ -15,6 +15,19 @@ from futures_data_core.core.types import (
     KlineBar,
     KlineData,
     QuoteData,
+    RolloverEvent,
+    DominantMap,
+)
+from futures_data_core.core.field_normalizer import (
+    CanonicalField,
+    normalize_kline_row,
+    normalize_kline_list,
+    normalize_signal_row,
+    normalize_signal_list,
+    normalize_verdict as normalize_verdict_n,
+    normalize_risk_check as normalize_risk_check_n,
+    normalize_direction_raw,
+    normalize_direction_to_signal,
 )
 
 __all__ = [
@@ -28,4 +41,13 @@ __all__ = [
     "KlineBar",
     "KlineData",
     "QuoteData",
+    "RolloverEvent",
+    "DominantMap",
+    "CanonicalField",
+    "normalize_kline_row",
+    "normalize_kline_list",
+    "normalize_signal_row",
+    "normalize_signal_list",
+    "normalize_direction_raw",
+    "normalize_direction_to_signal",
 ]

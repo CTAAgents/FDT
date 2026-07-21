@@ -9,6 +9,7 @@ File Transport Layer v1 实现:
 
 独立模式：不依赖 SendMessage，基于文件轮询。
 """
+from __future__ import annotations
 
 import os
 import json
@@ -72,7 +73,7 @@ def make_envelope(agent: str, data: dict, phase: str = "p3",
     return env
 
 
-def atomic_write(path: str, content: str):
+def atomic_write(path: str, content: str) -> None:
     """原子写入文件"""
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

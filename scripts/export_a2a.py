@@ -159,7 +159,7 @@ def build_task(debate: dict, intermediate: dict | None = None) -> dict:
     }
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="FDT A2A 文件桥")
     group = ap.add_mutually_exclusive_group(required=True)
     group.add_argument("--workspace", "-w", help="工作空间目录（含 debate_results.json）")

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("attribution")
@@ -40,7 +41,7 @@ class ShapleyAttribution:
     # 归因维度定义
     DIMENSIONS = ["technical", "fundamental", "chain", "sentiment"]
 
-    def __init__(self, history_window: int = 30):
+    def __init__(self, history_window: int = 30) -> None:
         """
         Args:
             history_window: 历史样本窗口（用于估计各维度贡献）
@@ -156,7 +157,7 @@ class ArgumentPerformanceDB:
         "sentiment_extreme",  # 情感极端
     ]
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str = None) -> None:
         if db_path is None:
             base = Path(__file__).parent.parent / "memory"
             base.mkdir(exist_ok=True)
@@ -172,12 +173,12 @@ class ArgumentPerformanceDB:
                 return json.load(f)
         return {"records": {}, "stats": {}, "last_updated": ""}
 
-    def _save(self):
+    def _save(self) -> None:
         self._data["last_updated"] = datetime.now().isoformat()
         with open(self.db_path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
 
-    def record_argument(self, symbol: str, argument_type: str, profit: float = 0, loss: float = 0, pnl: float = None):
+    def record_argument(self, symbol: str, argument_type: str, profit: float = 0, loss: float = 0, pnl: float = None) -> None:
         """
         记录一次论据的表现。
 
@@ -282,7 +283,7 @@ class ArgumentPerformanceDB:
 class JudgeWeightUpdater:
     """判官评分权重动态更新器。"""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str = None) -> None:
         if db_path is None:
             base = Path(__file__).parent.parent / "memory"
             base.mkdir(exist_ok=True)
@@ -305,12 +306,12 @@ class JudgeWeightUpdater:
             "last_updated": datetime.now().isoformat(),
         }
 
-    def _save(self):
+    def _save(self) -> None:
         self._weights["last_updated"] = datetime.now().isoformat()
         with open(self.db_path, "w", encoding="utf-8") as f:
             json.dump(self._weights, f, ensure_ascii=False, indent=2)
 
-    def update_from_attribution(self, attribution_result: Dict[str, float], learning_rate: float = 0.1):
+    def update_from_attribution(self, attribution_result: Dict[str, float], learning_rate: float = 0.1) -> None:
         """
         根据归因结果动态更新权重。
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, TypedDict
 
 
 @dataclass
@@ -71,6 +71,7 @@ class KlineData:
                     "volume": b.volume,
                     "amount": b.amount,
                     "open_interest": b.open_interest,
+                    "oi": b.open_interest,     # v9.3.0 规范字段别名
                     "settlement": b.settlement,
                 }
                 for b in self.bars
@@ -214,3 +215,30 @@ class SymbolInfo:
             "delivery_months": self.delivery_months,
             "listed_date": self.listed_date,
         }
+
+
+class RolloverEvent(TypedDict, total=False):
+    """换月事件。"""
+    variety: str           # 品种代码
+    prev_main: str         # 旧主力合约
+    new_main: str          # 新主力合约
+    switch_date: str       # 换月日期 YYYY-MM-DD
+    gap: Optional[float]   # 换月跳空幅度
+    prev_close: Optional[float]
+    new_open: Optional[float]  # T+1 开盘价
+
+
+class DominantMap(TypedDict, total=False):
+    """主力合约映射。"""
+    variety: str
+    main: Optional[str]           # 当前主力合约代码
+    next_main: Optional[str]      # 次主力合约代码
+    index: Optional[str]          # 指数连续代码
+    index_price: Optional[float]
+    prev_main: Optional[str]
+    switched: bool
+    switch_date: Optional[str]
+    gap: Optional[float]
+    prev_close: Optional[float]
+    updated_at: str
+    error: Optional[str]

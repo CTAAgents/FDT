@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 明鉴秋 Agent 生命周期管理器 — 用完即走，及时释放硬件资源。
 
@@ -25,7 +26,6 @@
   # 生成生命周期报告（供明鉴秋规划下一批）
   python scripts/agent_lifecycle.py report --workspace <dir>
 """
-from __future__ import annotations
 
 import json
 import os
@@ -39,7 +39,7 @@ _STATE_DIR = Path.home() / ".workbuddy" / "tmp" / "fdt_agent_lifecycle"
 _STATE_FILE = _STATE_DIR / "active_agents.json"
 
 
-def _ensure_state():
+def _ensure_state() -> None:
     _STATE_DIR.mkdir(parents=True, exist_ok=True)
     if not _STATE_FILE.exists():
         _save_state({"phases": {}, "completed": [], "active_count": 0})
@@ -56,7 +56,7 @@ def _load_state() -> dict:
         return state
 
 
-def _save_state(state: dict):
+def _save_state(state: dict) -> None:
     _STATE_DIR.mkdir(parents=True, exist_ok=True)
     with open(_STATE_FILE, "w") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
@@ -87,7 +87,7 @@ def _poll_file_ready(file_path: str, timeout: int = 900, stable_seconds: int = 5
 # 子命令
 # ═══════════════════════════════════════════════
 
-def cmd_register(phase: str, agents: list[str], files: list[str]):
+def cmd_register(phase: str, agents: list[str], files: list[str]) -> None:
     """注册一批 Agent：记录其名称和期望产出的文件路径。
 
     明鉴秋 spawn 完 Agent 后调用，后续 wait-and-shutdown 会监控这些文件。
@@ -181,7 +181,7 @@ def cmd_wait_and_shutdown(phase: str, timeout: int = 900) -> int:
     return 0
 
 
-def cmd_shutdown(agents: list[str]):
+def cmd_shutdown(agents: list[str]) -> None:
     """生成指定 Agent 的 shutdown 指令清单。"""
     shutdown_plan = [
         {
@@ -208,7 +208,7 @@ def cmd_shutdown(agents: list[str]):
     print(f"   活跃 Agent 剩余: {state['active_count']}", file=sys.stderr)
 
 
-def cmd_active():
+def cmd_active() -> None:
     """查看当前活跃 Agent 列表。"""
     state = _load_state()
     active = []
@@ -233,7 +233,7 @@ def cmd_active():
         print("✅ 无活跃 Agent", file=sys.stderr)
 
 
-def cmd_report(workspace: str):
+def cmd_report(workspace: str) -> None:
     """生成生命周期报告（供明鉴秋规划资源使用）。"""
     state = _load_state()
     ws = Path(workspace)
@@ -274,7 +274,7 @@ def cmd_report(workspace: str):
     return 0
 
 
-def cmd_cleanup():
+def cmd_cleanup() -> None:
     """清理所有状态（谨慎使用）。"""
     if _STATE_FILE.exists():
         _STATE_FILE.unlink()

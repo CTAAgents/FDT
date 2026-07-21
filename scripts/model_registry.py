@@ -17,6 +17,7 @@
     reg.register_version("v4.4.0-20260705", metrics={"sharpe": 1.2, "win_rate": 0.55})
     reg.rollback("v4.4.0-20260704")  # 如果新版本表现不如旧版本
 """
+from __future__ import annotations
 
 import json
 import os
@@ -32,7 +33,7 @@ logger = get_logger("model_registry")
 class ModelRegistry:
     """模型版本注册表。"""
 
-    def __init__(self, path: str = None):
+    def __init__(self, path: str = None) -> None:
         if path is None:
             path = Path(__file__).parent.parent / "skills/quant-daily/models/registry.json"
         self.path = Path(path)
@@ -45,11 +46,11 @@ class ModelRegistry:
                 return json.load(f)
         return {"versions": [], "active_version": None}
 
-    def _save(self):
+    def _save(self) -> None:
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
 
-    def register_version(self, version_id: str, parent_version: str = None, metrics: dict = None, notes: str = ""):
+    def register_version(self, version_id: str, parent_version: str = None, metrics: dict = None, notes: str = "") -> None:
         """注册新版本。
 
         Args:

@@ -13,6 +13,7 @@ daemon_watchdog.py — 调度器守护进程看门狗
 
 不依赖平台API，可独立运行。
 """
+from __future__ import annotations
 
 import os
 import sys
@@ -54,7 +55,7 @@ def _get_watchdog_logger() -> logging.Logger:
 _watchdog_logger = _get_watchdog_logger()
 
 
-def _log(msg: str):
+def _log(msg: str) -> None:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] [watchdog] {msg}"
     print(line)
@@ -163,7 +164,7 @@ def check_daemon() -> tuple[bool, str]:
     return False, "无心跳日志"
 
 
-def main():
+def main() -> None:
     _log("看门狗检查...")
 
     alive, status = check_daemon()

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("factor_mining")
@@ -51,7 +52,7 @@ class AutoFactorMiner:
         ),
     }
 
-    def __init__(self, factor_dir: str = None):
+    def __init__(self, factor_dir: str = None) -> None:
         self.factors = {}
         self.factor_performance = {}
 
@@ -215,7 +216,7 @@ class AutoFactorMiner:
         self._save()
         return result
 
-    def _save(self):
+    def _save(self) -> None:
         """持久化因子库。"""
         with open(self.factor_dir / "factor_library.json", "w", encoding="utf-8") as f:
             json.dump(

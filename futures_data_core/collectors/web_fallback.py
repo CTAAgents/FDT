@@ -24,8 +24,12 @@ _EXCHANGE_CODE_MAP: dict[str, int] = {
 }
 
 
+from futures_data_core.core.symbol_registry import strip_contract_suffix as _strip_suffix
+
 def _get_exchange_code(variety: str, known: dict) -> Optional[int]:
-    """品种代码 → 东方财富交易所数字代码。"""
+    """品种代码 → 东方财富交易所数字代码。
+    自动剥离合约月份后缀（``SM2609`` -> ``SM``）。
+    """
     # 品种->交易所映射
     ex_map: dict[str, str] = {
         "CU": "SHFE", "AL": "SHFE", "ZN": "SHFE", "PB": "SHFE", "NI": "SHFE",
@@ -39,12 +43,13 @@ def _get_exchange_code(variety: str, known: dict) -> Optional[int]:
         "SR": "CZCE", "CF": "CZCE", "TA": "CZCE", "OI": "CZCE", "RM": "CZCE",
         "MA": "CZCE", "FG": "CZCE", "ZC": "CZCE", "SF": "CZCE", "SM": "CZCE",
         "CY": "CZCE", "AP": "CZCE", "CJ": "CZCE", "UR": "CZCE", "SA": "CZCE",
-        "PF": "CZCE", "PK": "CZCE", "PX": "CZCE", "SH": "CZCE", "SF": "CZCE",
-        "SM": "CZCE", "PR": "CZCE", "PS": "CZCE",
+        "PF": "CZCE", "PK": "CZCE", "PX": "CZCE", "SH": "CZCE", "PR": "CZCE",
+        "PS": "CZCE",
         "SC": "INE", "LU": "INE", "NR": "INE", "BC": "INE",
         "SI": "GFEX", "LC": "GFEX",
     }
-    ex = ex_map.get(variety.upper())
+    bare, _ = _strip_suffix(variety)
+    ex = ex_map.get(bare.upper())
     return known.get(ex) if ex else None
 
 
@@ -82,7 +87,8 @@ class WebFallbackCollector(BaseCollector):
 
     def _try_eastmoney(self, symbol: str) -> Optional[list]:
         """东方财富 push2his K 线 API。"""
-        variety = symbol.upper()
+        bare, _ = _strip_suffix(symbol)
+        variety = bare.upper()
         ex_code = _get_exchange_code(variety, _EXCHANGE_CODE_MAP)
         if not ex_code:
             return None
@@ -123,7 +129,8 @@ class WebFallbackCollector(BaseCollector):
         注意：新浪返回短键 d/o/h/l/c/v（非 date/open/...），且日期为
         YYYY-MM-DD；早期版本误用长键名 + 未归一，导致解析出空日期与 0 价格。
         """
-        variety = symbol.upper()
+        bare, _ = _strip_suffix(symbol)
+        variety = bare.upper()
         sina_sym = f"{variety}0"
         url = (
             "https://stock2.finance.sina.com.cn/futures/api/jsonp.php"

@@ -6,10 +6,12 @@ from futures_data_core.collectors.base import (
     CollectorUnavailableError,
     select_by_priority,
 )
+from futures_data_core.collectors.datacore import DataCoreCollector
 
 __all__ = [
     "BaseCollector",
     "CollectorType",
     "CollectorUnavailableError",
+    "DataCoreCollector",
     "select_by_priority",
 ]

@@ -43,14 +43,14 @@ app = FastAPI(title="FDT Web Dashboard", version="0.1")
 
 class ConnectionManager:
     """管理 WebSocket 连接"""
-    def __init__(self):
+    def __init__(self) -> None:
         self.connections: list[WebSocket] = []
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
         self.connections.append(ws)
 
-    def disconnect(self, ws: WebSocket):
+    def disconnect(self, ws: WebSocket) -> None:
         if ws in self.connections:
             self.connections.remove(ws)
 
@@ -483,7 +483,7 @@ def _render_verdicts(data: dict) -> str:
 
 # ── 入口 ──
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="FDT Web Dashboard")
     ap.add_argument("--host", default="127.0.0.1", help="监听地址")
     ap.add_argument("--port", type=int, default=8765, help="监听端口")

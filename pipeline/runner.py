@@ -207,8 +207,8 @@ def step_debate_brief() -> bool:
     history_dir = os.path.join(os.path.dirname(os.path.dirname(QDAILY_DIR)), "data", "debate_history")
     history_file = os.path.join(history_dir, "debate_feedback.json")
 
-    l1l4_path = os.path.join(REPORT_DIR, f"full_scan_l1l4_{DATE_COMPACT}.json")
-    factor_path = os.path.join(REPORT_DIR, f"full_scan_factor_timing_{DATE_COMPACT}.json")
+    l1l4_path = os.path.join(REPORT_DIR, f"full_scan_summary_{DATE_COMPACT}.json")
+    factor_path = os.path.join(REPORT_DIR, f"full_scan_summary_{DATE_COMPACT}.json")
 
     cmd = [
         python_exe(),

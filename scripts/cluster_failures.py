@@ -21,6 +21,7 @@
   2. 每个 cluster 包含 hypothesis → rule 关联 → severity
   3. 支持增量运行，累积历史数据做趋势分析
 """
+from __future__ import annotations
 
 import json
 import sys
@@ -47,7 +48,7 @@ def _load_json(rel_path: str) -> dict | list:
         return json.load(f)
 
 
-def _save_json(rel_path: str, data: Any):
+def _save_json(rel_path: str, data: Any) -> None:
     fp = _project_root() / rel_path
     fp.parent.mkdir(parents=True, exist_ok=True)
     with open(fp, "w", encoding="utf-8") as f:
@@ -579,7 +580,7 @@ def compute_trends(current: dict, previous: dict | None) -> list[dict]:
 
 # ─── 主程序 ────────────────────────────────────────────
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="失败模式聚类引擎（Telescope层）")
     parser.add_argument("--min-cases", type=int, default=3,

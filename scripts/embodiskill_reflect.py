@@ -16,6 +16,7 @@ Usage:
     reflections = reflector.reflect_on_trajectory(trajectory, skill_content)
     reflector.restructure_agent_md(md_content)  # Phase 1 migration
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -36,7 +37,7 @@ REFLECTION_TYPES = ("DISCOVERY", "OPTIMIZATION", "SKILL_DEFECT", "EXECUTION_LAPS
 class EmbodiSkillReflector:
     """EmbodiSkill reflection engine for FDT Agent prompts."""
 
-    def __init__(self, fdt_root: Optional[Path] = None):
+    def __init__(self, fdt_root: Optional[Path] = None) -> None:
         self.root = Path(fdt_root) if fdt_root else FDT_ROOT
         self.reflection_buffer: List[Dict[str, Any]] = []
         self._buffer_path = self.root / "memory" / "evolution_buffer.json"
@@ -228,7 +229,7 @@ class EmbodiSkillReflector:
 
 # ── CLI entry ────────────────────────────────────────────────────
 
-def _cli():
+def _cli() -> None:
     import sys
     import pprint
 

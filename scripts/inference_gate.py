@@ -19,7 +19,7 @@ inference_gate.py — IGP 推理门控模块 v1.0.0
 
   # 装饰 Agent 函数
   @with_gate(gate)
-  def run_datatech(agent_name, intent, resources, estimated_tokens):
+  def run_datatech(agent_name: str, intent: str, resources: dict, estimated_tokens: int) -> dict:
       ...
 
   # 或手动使用

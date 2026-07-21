@@ -14,6 +14,7 @@
   - execution_followup.json (更新 validated=True + validation_results)
   - validation_report.html (可视化报告)
 """
+from __future__ import annotations
 
 import json
 import sys
@@ -52,7 +53,7 @@ def _qdaily_scripts_dir() -> str:
     return str(Path.home() / ".workbuddy" / "skills" / "quant-daily" / "scripts")
 
 
-def _get_qdaily_adapter():
+def _get_qdaily_adapter() -> None:
     """懒加载 quant-daily MultiSourceAdapter（单例）"""
     global _ADAPTER, _ADAPTER_AVAILABLE
     if _ADAPTER is not None:

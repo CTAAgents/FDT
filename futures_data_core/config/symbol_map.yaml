@@ -260,6 +260,59 @@ symbols:
     multiplier: 5
     tick_size: 2
     category: 能化
+  # ── 铁合金（CZCE 补充）──
+  - symbol: SF
+    name: 硅铁
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 黑色
+  - symbol: SM
+    name: 锰硅
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 黑色
+
+  # ── 软商品（CZCE 补充）──
+  - symbol: CY
+    name: 棉纱
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 5
+    category: 农产品
+  - symbol: PK
+    name: 花生
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 农产品
+
+  # ── 化工（CZCE 补充）──
+  - symbol: PX
+    name: 对二甲苯
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 能化
+  - symbol: SH
+    name: 烧碱
+    exchange: CZCE
+    multiplier: 30
+    tick_size: 1
+    category: 能化
+  - symbol: PR
+    name: 瓶片
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 能化
+  - symbol: PS
+    name: 对二乙苯
+    exchange: CZCE
+    multiplier: 5
+    tick_size: 2
+    category: 能化
 
   # ── 上海国际能源交易中心 INE ──
   - symbol: SC

@@ -19,6 +19,10 @@ import re
 from typing import Any, Optional
 
 from futures_data_core._a2a import A2APayload, DATA_TYPES
+from futures_data_core.core._datacore_bridge import (
+    dc_result_to_a2apayload,
+    try_datacore_first,
+)
 from futures_data_core.f10.exchange_scraper import (
     fetch_exchange_page,
     get_warrant_url,
@@ -170,6 +174,14 @@ async def get_warrant(
     Returns:
         :class:`A2APayload`，``data`` 含 ``total`` / ``daily_change`` / ``data_source``。
     """
+    # v9.4.0: Data-Core 优先检查
+    dc_result, dc_used = await try_datacore_first("get_warrant", symbol)
+    if dc_used:
+        return dc_result_to_a2apayload(
+            dc_result, symbol, DATA_TYPES["WARRANT"],
+            f"{symbol} 仓单日报（Data-Core）",
+        )
+
     if trade_date is None:
         trade_date = today_yyyymmdd()
 

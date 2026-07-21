@@ -14,6 +14,7 @@
 用法:
     python scripts/init_knowledge_base.py [--force]
 """
+from __future__ import annotations
 
 import json
 import os
@@ -232,7 +233,7 @@ def seed_from_argument_patterns(force: bool = False) -> int:
     return seeded
 
 
-def update_variety_index():
+def update_variety_index() -> None:
     """更新 variety_index.json 索引，同步到文件系统实际状态。"""
     index_path = _KNOWLEDGE_DIR / "variety_index.json"
     if not index_path.exists():
@@ -293,7 +294,7 @@ def update_variety_index():
     print(f"  ✅ variety_index.json 已更新")
 
 
-def main():
+def main() -> None:
     force = "--force" in sys.argv
 
     print(f"\n{'='*50}")

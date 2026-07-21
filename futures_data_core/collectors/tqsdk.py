@@ -68,6 +68,9 @@ _PERIOD_SECONDS = {
 }
 
 # ── 品种 → 交易所 ──
+# 单真相已迁移至 futures_data_core.core.symbol_registry._TQ_EXCHANGE_MAP
+# 此处保留仅用于 _resolve_continuous() 向后兼容
+from futures_data_core.core.symbol_registry import to_tqsdk_continuous, to_tqsdk_contract
 _EXCHANGE_MAP: dict[str, str] = {
     "CU": "SHFE", "AL": "SHFE", "ZN": "SHFE", "PB": "SHFE",
     "NI": "SHFE", "SN": "SHFE", "AU": "SHFE", "AG": "SHFE",
@@ -127,13 +130,13 @@ class TqSdkCollector(BaseCollector):
 
     # ── 主力连续合约自动解析 ──
     def _resolve_continuous(self, symbol: str) -> str:
-        sym_upper = symbol.upper()
-        ex = _EXCHANGE_MAP.get(sym_upper)
-        if not ex:
-            return symbol
-        # CZCE 合约代码是大写（CZCE.TA），其他交易所小写（SHFE.cu）
-        sym_part = sym_upper if ex == "CZCE" else sym_upper.lower()
-        return f"KQ.m@{ex}.{sym_part}"
+        """将 FDT 品种代码转为 TqSDK 主力连续合约符号。
+
+        ``"SM2609"`` -> ``"KQ.m@CZCE.SM"``（自动剥离合约月份后缀）
+
+        委托给 ``symbol_registry.to_tqsdk_continuous()``。
+        """
+        return to_tqsdk_continuous(symbol)
 
     def _resolve_tqsdk_symbol(self, symbol: str, contract: str | None = None) -> str:
         return contract or self._resolve_continuous(symbol)

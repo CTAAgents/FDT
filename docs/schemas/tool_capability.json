@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolCapability",
+  "description": "工具能力描述 Schema — 定义每个工具的输入/输出/可靠性/成本",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ToolDefinition"
+      }
+    }
+  },
+  "required": ["schema_version", "tools"],
+  "definitions": {
+    "ToolDefinition": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "工具名称"
+        },
+        "version": {
+          "type": "string",
+          "description": "工具版本"
+        },
+        "description": {
+          "type": "string",
+          "description": "工具功能描述"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["data", "analysis", "trading", "risk", "utility"]
+        },
+        "inputs": {
+          "type": "array",
+          "description": "输入参数定义",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "type": {"type": "string"},
+              "required": {"type": "boolean"},
+              "description": {"type": "string"}
+            }
+          }
+        },
+        "outputs": {
+          "type": "object",
+          "description": "输出定义",
+          "properties": {
+            "type": {"type": "string"},
+            "schema_ref": {"type": "string"},
+            "description": {"type": "string"}
+          }
+        },
+        "reliability": {
+          "type": "object",
+          "description": "可靠性指标",
+          "properties": {
+            "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+            "avg_latency_ms": {"type": "number", "minimum": 0},
+            "error_rate": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "cost": {
+          "type": "object",
+          "description": "成本指标",
+          "properties": {
+            "tokens_per_call": {"type": "integer", "minimum": 0},
+            "api_cost_usd": {"type": "number", "minimum": 0}
+          }
+        },
+        "fallback": {
+          "type": "array",
+          "description": "降级备选工具列表",
+          "items": {"type": "string"}
+        },
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "required": ["name", "version", "description", "category"]
+    }
+  }
+}

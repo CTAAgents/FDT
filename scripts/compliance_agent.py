@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("compliance")
@@ -90,7 +91,7 @@ class ComplianceAgent:
         "IM": 200,  # 股指：日内开仓限制
     }
 
-    def __init__(self, log_dir: str = None):
+    def __init__(self, log_dir: str = None) -> None:
         self.audit_logs = []
         self.violations = []
         if log_dir is None:
@@ -246,7 +247,7 @@ class ComplianceAgent:
 
         return {"pass": len(violations) == 0, "violations": violations}
 
-    def _log_audit(self, timestamp: str, passed: bool, violations: List[Dict]):
+    def _log_audit(self, timestamp: str, passed: bool, violations: List[Dict]) -> None:
         """记录审计日志（不可篡改，带哈希链）。"""
         prev_hash = self.audit_logs[-1]["hash"] if self.audit_logs else "GENESIS"
 

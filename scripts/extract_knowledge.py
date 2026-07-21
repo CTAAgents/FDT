@@ -15,6 +15,7 @@
     extractor = KnowledgeExtractor()
     extractor.extract_from_debate(variety="rb", debate_record={...}, verdict={...})
 """
+from __future__ import annotations
 
 import json
 import os
@@ -91,14 +92,14 @@ class KnowledgeExtractor:
 
     # ── 文件原子写入 ──
 
-    def _atomic_json_write(self, path: Path, data: Any):
+    def _atomic_json_write(self, path: Path, data: Any) -> None:
         """原子写入 JSON：先写 .tmp → 等待 → rename。"""
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         time.sleep(ATOMIC_WRITE_STABLE_S)
         tmp.replace(path)
 
-    def _atomic_md_write(self, path: Path, content: str):
+    def _atomic_md_write(self, path: Path, content: str) -> None:
         """原子写入 Markdown。"""
         tmp = path.with_suffix(".tmp")
         tmp.write_text(content, encoding="utf-8")

@@ -18,6 +18,7 @@ position_pct，消除辩论团自身规则违规（CLQT D4 本职：系统自纠
   python scripts/enforce_discipline.py            # dry-run：打印每条钳制 + 预测 D4
   python scripts/enforce_discipline.py --apply    # 回写 execution_followup.json（先备份）
 """
+from __future__ import annotations
 
 import json
 import os
@@ -95,7 +96,7 @@ def _estimate_d4(violations_before: int, fixable: int) -> float:
     return None  # 占位，真实 D4 由 apm_scorecard.py 复算
 
 
-def dry_run():
+def dry_run() -> None:
     import copy
     with open(FOLLOWUP_PATH, "r", encoding="utf-8") as f:
         followup = json.load(f)
@@ -136,7 +137,7 @@ def dry_run():
     return before[0], after[0]
 
 
-def apply():
+def apply() -> None:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     bak = FOLLOWUP_PATH.with_suffix(f".json.bak_{ts}")
     shutil.copy2(FOLLOWUP_PATH, bak)

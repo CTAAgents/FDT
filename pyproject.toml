@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "futures-debate-team"
-version = "9.6.5"
+version = "9.6.6"
 description = "Multi-role futures trading debate system — 10 Agent CTA decision framework. v9.0.0: 辩论流程重大重构—正反方→多空头六阶段攻防模式（多头立论→空头立论→空头反驳→多头反驳→空头最终陈述→多头最终陈述），来源标记可追溯，分析师中立，闫判官可推翻数技源方向。v8.9.0: 交叉质询串行三步。v8.1.8: 去融合工程（G41 掌柜铁律）。..."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -21,6 +21,7 @@ FDT 统一链路追踪 — Trace ID 模块 v1.0
     subprocess.run(cmd, env=env)
 """
 
+import logging
 import os
 import threading
 import uuid
@@ -103,29 +104,29 @@ def inject_trace_to_env(extra_env: Optional[dict] = None) -> dict:
 class TraceLogAdapter:
     """在日志消息前自动附加 [trace_id] 前缀。"""
 
-    def __init__(self, logger, trace_getter=None):
+    def __init__(self, logger: logging.Logger, trace_getter: callable = None) -> None:
         self._logger = logger
         self._getter = trace_getter or current_trace
 
     def _prepend(self, msg):
         return f"[{self._getter()}] {msg}"
 
-    def debug(self, msg, *args, **kwargs):
+    def debug(self, msg: str, *args, **kwargs) -> None:
         self._logger.debug(self._prepend(msg), *args, **kwargs)
 
-    def info(self, msg, *args, **kwargs):
+    def info(self, msg: str, *args, **kwargs) -> None:
         self._logger.info(self._prepend(msg), *args, **kwargs)
 
-    def warning(self, msg, *args, **kwargs):
+    def warning(self, msg: str, *args, **kwargs) -> None:
         self._logger.warning(self._prepend(msg), *args, **kwargs)
 
-    def error(self, msg, *args, **kwargs):
+    def error(self, msg: str, *args, **kwargs) -> None:
         self._logger.error(self._prepend(msg), *args, **kwargs)
 
-    def critical(self, msg, *args, **kwargs):
+    def critical(self, msg: str, *args, **kwargs) -> None:
         self._logger.critical(self._prepend(msg), *args, **kwargs)
 
-    def exception(self, msg, *args, **kwargs):
+    def exception(self, msg: str, *args, **kwargs) -> None:
         self._logger.exception(self._prepend(msg), *args, **kwargs)
 
 

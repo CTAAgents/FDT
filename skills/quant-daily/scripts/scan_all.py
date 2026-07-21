@@ -54,8 +54,8 @@ except ImportError:
     from config.symbols import ALL_SYMBOLS
 
 # ── FDC 统一数据引擎（取代 data.multi_source_adapter.MultiSourceAdapter） ──
-from futures_data_core import get_kline as _fdc_get_kline
-from futures_data_core import batch_get_quotes as _fdc_batch_quotes
+from data_source_adapter import get_kline as _ds_get_kline
+from data_source_adapter import batch_get_quotes as _ds_batch_quotes
 
 def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
     """同步包装 FDC get_kline，供 scan_all.py 的遍历循环使用。
@@ -65,7 +65,7 @@ def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") ->
     不会跨 asyncio.run() 边界损坏，可安全逐品种调用。
     """
     try:
-        payload = asyncio.run(_fdc_get_kline(variety, period=period, days=days))
+        payload = asyncio.run(_ds_get_kline(variety, period=period, days=days))
         meta = payload.meta
         grade = meta.get("data_grade_label", "")
         if grade in ("UNAVAILABLE", "STALE"):
@@ -317,8 +317,8 @@ def _get_warrant_sync(symbol: str, exchange: str, trade_date: str = None) -> dic
     因子惰性 0（不造假信号）。
     """
     try:
-        from futures_data_core.f10.warrant import get_warrant
-        payload = asyncio.run(get_warrant(symbol, exchange=exchange, trade_date=trade_date))
+        from data_source_adapter import get_warrant_fdc
+        payload = asyncio.run(get_warrant_fdc(symbol, exchange=exchange, trade_date=trade_date))
         grade = payload.meta.get("data_grade", "")
         if grade in ("UNAVAILABLE", "STALE"):
             return None
@@ -351,7 +351,7 @@ def _collect_fundamental_sync(tech_list: list) -> dict:
     # 本地基本面缓存（同步读取，无网络依赖）
     _load_fundamental = None
     try:
-        from futures_data_core.cache.f10_cache import load_fundamental as _lf
+        from data_source_adapter import load_fundamental as _lf
         _load_fundamental = _lf
     except Exception:
         pass
@@ -394,7 +394,7 @@ def _get_macro_sync() -> dict:
         "rate": None, "rate_date": None, "rate_mom": None,
     }
     try:
-        from futures_data_core.f10.macro import get_macro_pmi, get_macro_rate
+        from data_source_adapter import get_macro_pmi, get_macro_rate
         pmi_p = asyncio.run(get_macro_pmi())
         rate_p = asyncio.run(get_macro_rate())
         if pmi_p.meta.get("data_grade") not in ("UNAVAILABLE", "STALE"):
@@ -734,7 +734,7 @@ def run_scan(
         try:
             import asyncio
             _sym_list = [s[0] for s in target_symbols if s[0] in kline_data]
-            _raw = asyncio.run(_fdc_batch_quotes(_sym_list))
+            _raw = asyncio.run(_ds_batch_quotes(_sym_list))
             if _raw:
                 quotes_map = {k.upper(): v for k, v in _raw.items()}
                 print(f"  成功: {len(quotes_map)}/{len(_sym_list)}")

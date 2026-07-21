@@ -4,6 +4,7 @@
 
 在每日辩论流水线完成后自动执行，无需人工介入。
 """
+from __future__ import annotations
 import json
 import os
 import re
@@ -52,7 +53,7 @@ def update_pyproject_version(new_version: str) -> bool:
     return True
 
 
-def append_changelog(current_version: str, new_version: str):
+def append_changelog(current_version: str, new_version: str) -> None:
     """在 README.md 版本历史中追加新条目"""
     readme = os.path.join(PROJECT, "README.md")
     with open(readme, encoding="utf-8") as f:

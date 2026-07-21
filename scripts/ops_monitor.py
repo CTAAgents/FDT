@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("ops_monitor")
@@ -32,7 +33,7 @@ from pathlib import Path
 class OpsMonitor:
     """运维监控器 — 系统健康检查+告警+每日复盘。"""
 
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: str = None) -> None:
         self.alerts = []
         self.health_history = []
         self.config = self._load_config(config_path)
@@ -132,7 +133,7 @@ class OpsMonitor:
         self.health_history.append(result)
         return result
 
-    def send_alert(self, level: str, title: str, message: str):
+    def send_alert(self, level: str, title: str, message: str) -> None:
         """发送多渠道告警（企微/邮件/钉钉）。
 
         Args:
@@ -157,12 +158,12 @@ class OpsMonitor:
         if self.config["webhook_urls"]["dingtalk"]:
             self._send_dingtalk(level, title, message)
 
-    def _send_wecom(self, level: str, title: str, message: str):
+    def _send_wecom(self, level: str, title: str, message: str) -> None:
         """发送企微告警。"""
         # 实际部署时填入 webhook URL
         pass
 
-    def _send_dingtalk(self, level: str, title: str, message: str):
+    def _send_dingtalk(self, level: str, title: str, message: str) -> None:
         """发送钉钉告警。"""
         pass
 
@@ -252,7 +253,7 @@ Futures-Debate-Team v4.4 — 自动生成</p>
             rows += f"<tr><td>{agent}</td><td>{status}</td></tr>\n"
         return rows
 
-    def start(self, interval_minutes: int = 5):
+    def start(self, interval_minutes: int = 5) -> None:
         """启动监控循环（后台线程）。"""
         import threading
 

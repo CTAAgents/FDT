@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("portfolio_risk")
@@ -89,7 +90,7 @@ class PortfolioRisk:
         "consecutive_loss_sleep": 3,  # 连续亏损3笔休眠
     }
 
-    def __init__(self, account_equity: float, thresholds: Dict[str, float] = None):
+    def __init__(self, account_equity: float, thresholds: Dict[str, float] = None) -> None:
         self.account_equity = account_equity
         self.thresholds = thresholds or self.THRESHOLDS
 

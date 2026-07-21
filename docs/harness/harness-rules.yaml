@@ -1,11 +1,11 @@
 # =============================================================================
 # FDT Harness 工程规范检查规则
 # 将 12 项 commit 前检查清单转为机读格式
-# 版本: 1.0
+# 版本: 1.1
 # =============================================================================
 
-version: "1.0"
-description: "FDT Harness 工程规范检查规则 — 将 12 项 commit 前检查清单转为机读格式"
+version: "1.1"
+description: "FDT Harness 工程规范检查规则 — 13 项 commit 前检查 + 11 条反模式"
 
 checks:
   # ── C01: 架构变更 ─────────────────────────────────────────────────
@@ -116,6 +116,20 @@ checks:
     trigger_pattern: null
     message: "README.md 必须同步更新，作为项目入口文档"
 
+  # ── C13: 交易建议可操作性 ─────────────────────────────────────────
+  - id: C13
+    name: "交易建议可操作性检查"
+    severity: "P0"
+    type: "process_check"
+    scope: "debate_verdicts"
+    trigger_pattern: "verdict|judge|risk_ming"
+    message: >
+      交易建议必须满足可操作性原则：
+      (1) 明确'现价能否执行'（立即执行/等待触发/不交易）；
+      (2) 现价开仓必须验证止损距离≤4%；
+      (3) 盈亏比必须≥1:2（高波动品种可放宽至1:1.5）；
+      (4) 反对仅给偏离现价的挂单价作为核心建议
+
 anti_patterns:
   - id: AP01
     name: "巨型 Prompt"
@@ -201,3 +215,16 @@ anti_patterns:
     target: null
     threshold: 20
     message: "PR 修改文件超过 20 个，建议拆分多个 PR"
+
+  - id: AP11
+    name: "不可操作的交易建议"
+    description: "交易建议仅给出偏离现价的挂单价，未明确'现价能否执行'"
+    severity: "P0"
+    check_type: "process_check"
+    target: "debate_verdicts"
+    message: >
+      交易建议必须回答'以当前价格能不能做'。
+      发现以下模式即判定为 AP11 违规：
+      (1) 仅给出偏离现价的入场区间，无'立即/等待/不交易'判定；
+      (2) 盈亏比不达标（<1:2）仍建议现价开仓且风控未否决；
+      (3) 风控明审核未以现价验证止损距离

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 商品期货每日深度分析 — Phase 3: 报告输出
-v3.2 (2026-07-09):
+v3.3 (2026-07-20):
   - 路径参数化: 支持CLI参数或环境变量指定文件路径，解除硬编码
   - 默认fallback保持向后兼容
 v3.1 (2026-07-09):
@@ -1297,23 +1297,60 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
 # v8.7.0: 原交易策略职责合并至闫判官，从裁决数据中提取最可执行的5个交易策略
 # 输出标准化格式：合约/方向/入场/止损/目标/仓位/盈亏比/建仓节奏/触发条件
 
-# 主力合约映射表（仅参考，实际需对接CTP）
-DOMINANT_MONTH_MAP = {
-    "rb": "2510", "hc": "2510", "i": "2509", "j": "2509", "jm": "2509", "SF": "2509", "SM": "2509",
-    "sc": "2509", "lu": "2509", "fu": "2509", "bu": "2509", "pg": "2509", "PX": "2509",
-    "TA": "2509", "PF": "2509", "PR": "2509", "eg": "2509", "eb": "2509",
-    "v": "2509", "pp": "2509", "l": "2509", "MA": "2509",
-    "SH": "2509", "SA": "2509", "UR": "2509",
-    "cu": "2509", "al": "2509", "zn": "2509", "pb": "2509", "ni": "2509", "sn": "2509", "ao": "2509", "SS": "2509",
-    "au": "2512", "ag": "2512",
-    "a": "2509", "b": "2509", "m": "2509", "y": "2509", "p": "2509", "OI": "2509", "RM": "2509", "PK": "2509",
-    "c": "2509", "cs": "2509", "SR": "2509", "CF": "2509", "jd": "2509", "lh": "2509",
-    "AP": "2510", "CJ": "2509",
-    "FG": "2509", "SA": "2509", "UR": "2509",
-    "ru": "2509", "nr": "2509", "br": "2509", "sp": "2509", "op": "2509",
-    "lc": "2511", "si": "2509", "ps": "2509",
-    "ec": "2508", "rr": "2509",
-}
+def _resolve_dominant_months() -> dict:
+    """动态解析各品种主力合约月份（优先级：TQ-Local → 日期推算fallback）。"""
+    # ── 尝试 TQ-Local 动态解析 ──
+    try:
+        import urllib.request as _req
+
+        _r = _req.Request(
+            "http://127.0.0.1:17709/",
+            data=json.dumps(
+                {"id": 1, "method": "get_stock_list", "params": {"market": "92", "list_type": 1}}
+            ).encode(),
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        with _req.urlopen(_r, timeout=10) as _resp:
+            _result = json.loads(_resp.read())
+
+        futures = _result.get("result", {}).get("Value", [])
+        if futures:
+            dynamic_map = {}
+            for f in futures:
+                code = f["Code"]  # e.g. "I2609.DCE"
+                contract = code.split(".")[0]  # "I2609"
+                alpha = "".join(c for c in contract if c.isalpha()).lower()  # "i"
+                digit = "".join(c for c in contract if c.isdigit())  # "2609"
+                if alpha not in dynamic_map and len(digit) == 4:
+                    dynamic_map[alpha] = digit
+            if dynamic_map:
+                return dynamic_map
+    except Exception:
+        pass
+
+    # ── fallback：日期推算（TQ-Local不可用时）──
+    year_suffix = str(datetime.now().year % 100)
+
+    MONTH_MAP_TEMPLATE = {
+        "rb": "10", "hc": "10", "i": "09", "j": "09", "jm": "09", "sf": "09", "sm": "09",
+        "sc": "09", "lu": "09", "fu": "09", "bu": "09", "pg": "09", "px": "09",
+        "ta": "09", "pf": "09", "pr": "09", "eg": "09", "eb": "09",
+        "v": "09", "pp": "09", "l": "09", "ma": "09",
+        "sh": "09", "sa": "09", "ur": "09",
+        "cu": "09", "al": "09", "zn": "09", "pb": "09", "ni": "09", "sn": "09", "ao": "09", "ss": "09",
+        "au": "12", "ag": "12",
+        "a": "09", "b": "09", "m": "09", "y": "09", "p": "09", "oi": "09", "rm": "09", "pk": "09",
+        "c": "09", "cs": "09", "sr": "09", "cf": "09", "jd": "09", "lh": "09",
+        "ap": "10", "cj": "09",
+        "fg": "09", "ru": "09", "nr": "09", "br": "09", "sp": "09", "op": "09",
+        "lc": "11", "si": "09", "ps": "09",
+        "ec": "08", "rr": "09",
+    }
+    return {k: f"{year_suffix}{v}" for k, v in MONTH_MAP_TEMPLATE.items()}
+
+
+# 主力合约映射表（模块加载时动态解析，TQ-Local可用时优先）
+DOMINANT_MONTH_MAP = _resolve_dominant_months()
 
 EXCHANGE_MAP = {
     "rb": "SHFE", "hc": "SHFE", "i": "DCE", "j": "DCE", "jm": "DCE", "SF": "CZCE", "SM": "CZCE",
@@ -1415,7 +1452,7 @@ def _build_strategy_cards(strategies: list) -> str:
         verdict = s.get("verdict", "—")
 
         # 合约代码（CTP标准格式）
-        contract_month = DOMINANT_MONTH_MAP.get(pid.lower(), "2509")
+        contract_month = DOMINANT_MONTH_MAP.get(pid.lower(), f"{datetime.now().year % 100}09")
         exchange = EXCHANGE_MAP.get(pid.lower(), "DCE")
         ctp_contract = f"{pid.upper()}{contract_month}"
         ctp_contract_full = f"{ctp_contract}.{exchange}"

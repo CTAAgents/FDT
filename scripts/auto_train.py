@@ -17,6 +17,7 @@
     # cron 自动（每日 15:00 收盘后）
     0 15 * * 1-5 cd /path && python scripts/auto_train.py --auto
 """
+from __future__ import annotations
 
 import argparse
 import json
@@ -31,7 +32,7 @@ from scripts.unified_logger import get_logger
 logger = get_logger("auto_train")
 
 
-def run_daily_training(symbols: list[str] = None, auto: bool = False):
+def run_daily_training(symbols: list[str] = None, auto: bool = False) -> None:
     """每日训练管道入口。"""
     logger.info(f"自动训练启动: symbols={symbols}, auto={auto}")
 
@@ -99,7 +100,7 @@ def _build_training_samples(trades: list) -> tuple:
     return X, y
 
 
-def _update_adaptive_weights(trades: list):
+def _update_adaptive_weights(trades: list) -> None:
     """更新自适应权重。"""
     from skills.quant_daily.scripts.ml_models.direction_classifier import AdaptiveEnsemble
 
@@ -139,7 +140,7 @@ def _record_model_version(model, samples: int) -> dict:
     return version_info
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="自动增量训练管道")
     parser.add_argument("--symbols", help="品种列表（逗号分隔）")
     parser.add_argument("--auto", action="store_true", help="cron自动模式")

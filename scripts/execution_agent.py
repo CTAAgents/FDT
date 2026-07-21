@@ -1,3 +1,4 @@
+from __future__ import annotations
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("execution")
@@ -40,7 +41,7 @@ class ExecutionMode(Enum):
 class ExecutionAgent:
     """实盘执行引擎 — 对接CTP/易盛柜台。"""
 
-    def __init__(self, mode: str = "dry-run", account_id: str = "default"):
+    def __init__(self, mode: str = "dry-run", account_id: str = "default") -> None:
         self.mode = ExecutionMode(mode)
         self.account_id = account_id
         self.orders = []
@@ -254,7 +255,7 @@ class PaperExecutionEngine:
         })
     """
 
-    def __init__(self, initial_equity: float = 1_000_000):
+    def __init__(self, initial_equity: float = 1_000_000) -> None:
         self.initial_equity = initial_equity
         self.equity = initial_equity
         self.positions: Dict[str, dict] = {}  # {symbol: {lots, entry_price, stop_loss}}

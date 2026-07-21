@@ -11,6 +11,7 @@
     cfg.get("fee_rate")       # 交易费率
     cfg.get("webhook.wecom")  # 企微webhook地址
 """
+from __future__ import annotations
 
 import json
 import os
@@ -21,7 +22,7 @@ from typing import Any, Dict, Optional
 class ConfigManager:
     """统一配置管理器 — 从 settings.json 读取配置。"""
 
-    def __init__(self, path: str = None):
+    def __init__(self, path: str = None) -> None:
         if path is None:
             # 自动定位到项目根目录
             path = Path(__file__).parent.parent / "settings.json"
@@ -49,7 +50,7 @@ class ConfigManager:
                 return default
         return value if value is not None else default
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         """设置配置值并持久化。"""
         keys = key.split(".")
         target = self._data
@@ -60,7 +61,7 @@ class ConfigManager:
         target[keys[-1]] = value
         self._save()
 
-    def _save(self):
+    def _save(self) -> None:
         """持久化到文件。"""
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
@@ -69,7 +70,7 @@ class ConfigManager:
         """获取全部配置。"""
         return self._data.copy()
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return f"ConfigManager({self.path})"
 
 
@@ -77,7 +78,7 @@ class ConfigManager:
 _config = None
 
 
-def config(key: str = None, default: Any = None) -> Any:
+def config(key: str | None = None, default: Any = None) -> Any:
     """全局配置访问快捷函数。"""
     global _config
     if _config is None:

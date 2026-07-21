@@ -1,0 +1,224 @@
+# ============================================================
+# FDT Loop Contract: data-collection
+# ============================================================
+# 数据采集循环 — 多源数据采集与质量保障
+# 版本: v9.6.0
+# 验证档位: L1 (self)
+# 权限档位: 只读 (RO)
+# ============================================================
+
+loop:
+  id: data-collection
+  name: 数据采集循环
+  version: v9.6.0
+  type: Time-Based  # 定时触发
+  description: >
+    通过 MultiSourceAdapter 从通达信/TqSDK/东方财富三层降级链采集期货行情数据，
+    写入 PostgreSQL 和本地缓存。同时负责数据新鲜度检查和标记，
+    为所有下游循环（辩论/自进化/ML训练）提供新鲜度保障。
+    只读权限，不修改任何配置或规则。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: cron
+    schedule: "0 15 * * 1-5"  # 工作日 15:00（收盘后）
+    timezone: Asia/Shanghai
+  secondary:
+    - type: manual
+      command: "python futures_data_core/collect_daily.py"
+    - type: event
+      description: "debate 启动时自动检测数据 freshness，不足则触发补采"
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    # 数据读取（只读）
+    - "futures_data_core/"        # 读取数据核心模块
+    - "config/data_sources.yaml"  # 读取数据源配置
+    - "pg:"                       # 读取 PG 已有数据（用于增量判断）
+  deny:
+    # 禁止一切写入操作（除数据写入外）
+    - "rules/"                    # 禁止修改规则
+    - "config/*.yaml"             # 禁止修改核心配置
+    - "skills/"                   # 禁止修改 Skill
+    - "agents/"                   # 禁止修改 Agent 配置
+    - "fdt_langgraph/"            # 禁止修改图编排
+    - "docs/harness/"             # 禁止修改工程规范
+    - "memory/debates/"           # 禁止修改辩论记录
+    - "memory/agent_profiles.json"# 禁止修改 Agent 配置
+    - "memory/calibration.json"   # 禁止修改校准参数
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  pipeline:
+    - step: check_freshness
+      name: 数据新鲜度检查
+      description: >
+        检查 PG 中各品种数据完整性，并按数据新鲜度分级标准标注：
+        行情数据须在上一交易日内；新闻情绪须在当日内；基本面数据须在周度内。
+        对每种数据标记 freshness_level (0=最新 / 1=可接受 / 2=过时)，
+        过时数据标记 stale=True 并记录滞后小时数。
+      timeout: 60s
+      failure_strategy: continue  # 检查失败则全量采集
+      output: freshness_report (含各品种各维度新鲜度评级)
+
+    - step: collect_kline
+      name: K 线数据采集
+      description: 通达信 → TqSDK → 东方财富 三层降级采集
+      timeout: 600s
+      failure_strategy: D04_degrade  # 数据源降级链
+      sub_steps:
+        - step: tdx_local
+          name: 通达信本地
+          timeout: 300s
+          condition: "tdx_local 可用"
+        - step: tqsdk
+          name: TqSDK 实时
+          timeout: 300s
+          condition: "tdx_local 失败"
+        - step: eastmoney
+          name: 东方财富
+          timeout: 300s
+          condition: "tqsdk 失败"
+
+    - step: quality_check
+      name: 数据质量检查
+      description: >
+        检查数据完整性、异常值、缺失值。
+        并验证数据新鲜度：当日收盘行情应在15:00后1小时内完成采集。
+        如超过2小时未采集到当日数据，触发告警。
+      timeout: 120s
+      failure_strategy: notify  # 质量问题通知但不阻止入库
+
+    - step: write_pg
+      name: 写入 PostgreSQL
+      description: >
+        写入 PG 时序表。写入时将 freshness_timestamp 字段标记为当前时间，
+        供下游循环查询新鲜度。
+      timeout: 120s
+      failure_strategy: retry_3  # 重试 3 次
+
+    - step: update_cache
+      name: 更新本地缓存
+      description: 更新本地 SQLite 增量缓存
+      timeout: 60s
+      failure_strategy: skip  # 缓存失败不影响主流程
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  hard_limits:
+    max_total_time: 1200s       # 总时长硬上限：20分钟
+    max_cost_per_day: 5         # 单日成本硬上限（数据源 API 费用）
+    max_retries_per_step: 3     # 单步最多重试 3 次
+
+  soft_limits:
+    warn_time: 600s             # 时长告警
+    warn_cost: 3                # 成本告警
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_steps_done            # 所有步骤完成
+    - data_written_to_pg        # 数据已写入 PG
+
+  safety:
+    - max_total_time_exceeded   # 总时长超限
+    - max_cost_exceeded         # 成本超限
+    - all_sources_failed        # 所有数据源都失败
+    - data_corruption_detected  # 检测到数据损坏
+
+# ============================================================
+# 6. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    output_pg:
+      - pg.kline_{variety}      # 时序 K 线数据
+    notification:
+      - type: log
+        level: INFO
+        message: "数据采集完成: {n_varieties} 品种, {n_records} 条记录"
+    freshness_summary:
+      - fresh_count: 最新数据品种数
+      - stale_count: 过时数据品种数
+      - max_stale_hours: 最大滞后时数
+
+  failure:
+    log_file: "memory/logs/data_collection_{date}.log"
+    notification:
+      - type: log
+        level: ERROR
+        message: "数据采集失败: {source}, {error}"
+
+  escalation:
+    - condition: all_sources_failed
+      action: notify_human + mark_data_stale
+      level: CRITICAL
+    - condition: data_corruption_detected
+      action: halt_collection + notify_human
+      level: CRITICAL
+    - condition: stale_data_ratio > 0.3  # 过时数据占比超过30%
+      action: notify_human + delay_downstream_loops
+      level: HIGH
+
+# ============================================================
+# 7. VERIFICATION — 验证体系
+# ============================================================
+verification:
+  mode: L1  # self
+  layers:
+    L1_self:
+      - 数据完整性检查（品种数、时间范围）
+      - 异常值检测（价格跳空、成交量异常）
+      - 与上一交易日对比（波动率合理性）
+      - 新鲜度检查（数据时间戳与当前时间差值）
+
+# ============================================================
+# 8. SECURITY — 安全
+# ============================================================
+security:
+  # 只读权限，不直接操作交易
+  # 主要安全考量：数据质量和来源可靠性
+  safety_checks:
+    - source_authentication: true  # 数据源身份验证
+    - data_integrity_hash: true    # 数据完整性校验
+    - rate_limiting: true          # API 调用频率限制
+
+# ============================================================
+# 9. OBSERVABILITY — 可观测性
+# ============================================================
+observability:
+  metrics:
+    - varieties_collected         # 采集品种数
+    - records_inserted            # 插入记录数
+    - source_success_rate         # 数据源成功率
+    - data_freshness_hours        # 数据新鲜度（小时）
+    - collection_duration         # 采集时长
+    - collection_cost             # 采集成本
+    - stale_data_ratio            # 过时数据占比
+    - freshness_check_passed      # 新鲜度检查是否通过
+
+# ============================================================
+# 变更历史
+# ============================================================
+changelog:
+  - version: v9.6.0
+    date: 2026-07-21
+    change: >
+      新增数据新鲜度分级标准与检查机制：check_freshness 步骤产出 freshness_report，
+      按行情/资金/新闻/基本面四类数据分别标记新鲜度等级，
+      过时数据占比>30%触发升级告警。新增 freshness_timestamp 字段标记写入时间。
+  - version: v9.5.0
+    date: 2026-07-20
+    change: 初始版本：建立数据采集循环的 Loop Contract

@@ -38,7 +38,7 @@ def _load(rel: str):
         return None
 
 
-def generate_improvement_suggestions(sc, clusters, replay):
+def generate_improvement_suggestions(sc: str, clusters: list, replay: dict) -> str:
     suggestions = []
 
     # 1) 来自 D4 违规（纪律缺口）
@@ -110,7 +110,7 @@ def generate_improvement_suggestions(sc, clusters, replay):
     return suggestions
 
 
-def enhanced_generate_with_evolution(sc, clusters, replay):
+def enhanced_generate_with_evolution(sc: str, clusters: list, replay: dict) -> str:
     """增强版建议生成：集成四技能流水线。
 
     与 ``generate_improvement_suggestions`` 并存的增强入口。
