@@ -384,14 +384,22 @@ def step_record_history() -> bool:
     # ML训练检查
     try:
         logger.info("检查 ML 训练条件...")
-        from ml.trainer import TrainingOrchestrator
+        from ml.trainer import TrainingOrchestrator, build_training_data
 
         orch = TrainingOrchestrator()
         status = orch.get_status()
         logger.info(f"  ML状态: 已训练{status['total_trained']}次, 已部署{status['total_deployed']}次")
 
-        result = orch.run_daily_check(new_samples_count=len(candidates))
-        logger.info(f"  ML检查结果: {result.get('final_decision', '无')}")
+        X_train, y_train, X_val, y_val = build_training_data()
+        n_new = len(candidates) + (len(X_train) + len(X_val)) // max(len(X_train) + len(X_val), 1) if X_train else len(candidates)
+        result = orch.run_daily_check(
+            X_train=X_train or None,
+            y_train=y_train or None,
+            X_val=X_val or None,
+            y_val=y_val or None,
+            new_samples_count=n_new,
+        )
+        logger.info(f"  ML检查结果: {result.get('final_decision', '无')} (新样本{n_new}条)")
         if result.get("final_decision") == "deployed":
             logger.info("  ✅ 新模型已自动部署")
         elif result.get("final_decision") == "flagged_need_review":

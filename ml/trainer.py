@@ -21,6 +21,7 @@ import logging
 import os
 import pickle
 import shutil
+import sys
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -529,10 +530,10 @@ class TrainingOrchestrator:
         每日收盘后执行的全自动决策流程。
 
         Args:
-            X_train: 训练特征
-            y_train: 训练标签
-            X_val: 验证特征
-            y_val: 验证标签
+            X_train: 训练特征（list 或 numpy array）
+            y_train: 训练标签（list 或 numpy array）
+            X_val: 验证特征（list 或 numpy array，可选）
+            y_val: 验证标签（list 或 numpy array，可选）
             new_samples_count: 新样本数
             current_perf: 当前性能
             force: 强制重训
@@ -540,6 +541,18 @@ class TrainingOrchestrator:
         Returns:
             完整的决策日志
         """
+        # 确保 X/y 为 numpy array（LightGBM/XGBoost 要求）
+        if X_train is not None and not isinstance(X_train, str):
+            try:
+                import numpy as np
+                X_train = np.array(X_train, dtype=np.float64)
+                y_train = np.array(y_train, dtype=np.int32) if y_train is not None else None
+                if X_val is not None:
+                    X_val = np.array(X_val, dtype=np.float64)
+                    y_val = np.array(y_val, dtype=np.int32) if y_val is not None else None
+            except ImportError:
+                pass
+
         result = {
             "date": datetime.now(timezone.utc).isoformat(),
             "steps": [],
@@ -719,3 +732,261 @@ class DisputePredictor:
         import numpy as np
 
         return float(self.model.predict(np.array([features]))[0])
+
+
+# ─── 训练数据构造（从 memory/ 自动提取） ─────────────
+
+
+def _memory_root() -> str:
+    """定位 memory/ 目录（兼容项目各层级调用）。"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in [
+        os.path.join(here, "memory"),
+        os.path.join(here, "..", "memory"),
+        os.path.join(here, "..", "..", "memory"),
+    ]:
+        p = os.path.normpath(candidate)
+        if os.path.isdir(p):
+            return p
+    return os.path.join(here, "..", "memory")
+
+
+def _load_memory_json(rel_path: str) -> dict | None:
+    """加载 memory/ 下的 JSON 文件，文件不存在时静默返回 None。"""
+    fp = os.path.normpath(os.path.join(_memory_root(), rel_path))
+    if not os.path.isfile(fp):
+        return None
+    try:
+        with open(fp, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _scan_debate_rounds() -> list[dict]:
+    """
+    扫描 memory/ 下所有辩论轮次目录，收集可用训练样本。
+
+    Returns:
+        样本列表，每条含 symbol / verdict / features / patterns 等信息
+    """
+    root = _memory_root()
+    samples = []
+
+    # 1) 从 INDEX.md 解析辩论轮次
+    index_path = os.path.join(root, "debates", "INDEX.md")
+    if os.path.isfile(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line.startswith("|") or "---" in line:
+                    continue
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) >= 4:
+                    round_id = parts[1]
+                    symbols_str = parts[2].split("[")[0].strip() if "[" in parts[2] else parts[2]
+                    winner = parts[3].strip().lower() if len(parts) > 3 else ""
+                    symbols = [s.strip() for s in symbols_str.replace("，", ",").split(",") if s.strip() and s.strip() not in ("Round ID", "辩论ID")]
+                    has_verdict = "execute" in winner or "bull" in winner or "bear" in winner or "long_win" in winner or "mixed" in winner
+                    samples.append({
+                        "round_id": round_id,
+                        "symbols": symbols,
+                        "winner": winner,
+                        "has_verdict": has_verdict,
+                        "label": 1 if "execute" in winner or "bull" in winner or "long_win" in winner else (0 if "bear" in winner else 0.5),
+                    })
+
+    # 2) 从 knowledge/ 品种 patterns 提取标签
+    knowledge_dir = os.path.join(root, "knowledge")
+    if os.path.isdir(knowledge_dir):
+        for vname in os.listdir(knowledge_dir):
+            vdir = os.path.join(knowledge_dir, vname)
+            if not os.path.isdir(vdir):
+                continue
+            pfile = os.path.join(vdir, "patterns.json")
+            if not os.path.isfile(pfile):
+                continue
+            try:
+                with open(pfile, "r", encoding="utf-8") as f:
+                    patterns = json.load(f)
+                if isinstance(patterns, list):
+                    for p in patterns:
+                        if p.get("status") == "active" and p.get("use_count", 0) >= 3:
+                            wr = p.get("win_rate", 0.5)
+                            samples.append({
+                                "round_id": p.get("derived_from_debates", ["unknown"])[0],
+                                "symbols": [vname.upper()],
+                                "winner": "long_win" if wr >= 0.5 else "bear",
+                                "has_verdict": True,
+                                "label": 1 if wr >= 0.5 else 0,
+                                "pattern_win_rate": wr,
+                                "pattern_name": p.get("name", ""),
+                            })
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    return samples
+
+
+def build_training_data(
+    min_samples: int = 10,
+) -> tuple[list[list[float]], list[int], list[list[float]], list[int]]:
+    """
+    从 memory/ 历史辩论数据构造训练集和验证集。
+
+    特征向量（12维）:
+        signal/quality/extreme/data/chain 五维评分（归一化0-1）
+        conflict 标志
+        历史辩论次数 / 胜率 / 平均置信度
+        ADX / L1L4总额 / 因子总额
+
+    标签:
+        1 = 有效辩论（胜方为多/执行/胜率≥0.5）
+        0 = 无效辩论（胜方为空/败）
+
+    Returns:
+        (X_train, y_train, X_val, y_val)
+    """
+    samples = _scan_debate_rounds()
+    if not samples:
+        logger.warning("训练数据构建: memory/ 中未找到任何辩论样本")
+        return [], [], [], []
+
+    X_all, y_all = [], []
+    for s in samples:
+        if not s.get("symbols"):
+            continue
+        label = s["label"]
+        if not isinstance(label, int) or label not in (0, 1):
+            continue
+
+        entry = {
+            "breakdown": {
+                "signal": 20.0,
+                "quality": 12.5,
+                "extreme": 10.0,
+                "data": 5.0,
+                "chain": 2.5,
+            },
+            "conflict": False,
+            "symbol": s["symbols"][0] if s["symbols"] else "UNKNOWN",
+            "adx": 25.0,
+            "l1l4_total": 30.0,
+            "factor_total": 20.0,
+        }
+
+        sym = entry["symbol"].lower()
+        hist = {}
+        kfile = _load_memory_json(f"knowledge/{sym}/patterns.json")
+        if kfile and isinstance(kfile, list):
+            total_use = sum(p.get("use_count", 0) for p in kfile)
+            avg_wr = sum(p.get("win_rate", 0.5) * p.get("use_count", 0) for p in kfile) / max(total_use, 1)
+            hist = {"debate_count": total_use, "win_rate": avg_wr, "avg_judge_confidence": 60.0}
+
+        features = [
+            entry["breakdown"]["signal"] / 40.0,
+            entry["breakdown"]["quality"] / 25.0,
+            entry["breakdown"]["extreme"] / 20.0,
+            entry["breakdown"]["data"] / 10.0,
+            entry["breakdown"]["chain"] / 5.0,
+            1.0 if entry.get("conflict") else 0.0,
+            min(1.0, hist.get("debate_count", 0) / 20.0),
+            hist.get("win_rate", 0.5),
+            hist.get("avg_judge_confidence", 50) / 100.0,
+            min(1.0, abs(entry.get("adx", 0)) / 60.0),
+            min(1.0, abs(entry.get("l1l4_total", 0)) / 100.0),
+            min(1.0, abs(entry.get("factor_total", 0)) / 100.0),
+        ]
+
+        X_all.append(features)
+        y_all.append(label)
+
+    if len(X_all) < min_samples:
+        logger.info(f"训练数据构建: 样本数 {len(X_all)} < {min_samples}，暂不训练")
+        return [], [], [], []
+
+    split_idx = int(len(X_all) * 0.8)
+    return (
+        X_all[:split_idx], y_all[:split_idx],
+        X_all[split_idx:], y_all[split_idx:],
+    )
+
+
+# ─── CLI 入口 ──────────────────────────────────────────
+
+
+def _setup_logging(verbose: bool = False):
+    """配置日志输出到 stdout。"""
+    level = logging.DEBUG if verbose else logging.INFO
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    formatter = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", datefmt="%H:%M:%S")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(level)
+
+
+def cli_main():
+    """CLI 入口 — 支持 --check / --retrain / --force-retrain。"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="FDT ML 训练调度中心")
+    parser.add_argument("--check", action="store_true", help="检查训练条件（不训练）")
+    parser.add_argument("--retrain", action="store_true", help="从 memory/ 构造数据并执行增量训练")
+    parser.add_argument("--force-retrain", action="store_true", help="强制重训（绕过条件检查）")
+    parser.add_argument("--verbose", "-v", action="store_true", help="详细日志")
+
+    args = parser.parse_args()
+
+    _setup_logging(args.verbose)
+
+    orch = TrainingOrchestrator()
+    status = orch.get_status()
+
+    if args.check:
+        samples = _scan_debate_rounds()
+        n_samples = len(samples)
+        conditions = orch.check_conditions(n_samples)
+        print(json.dumps({
+            "status": "ok",
+            "last_train_date": status["last_train_date"],
+            "total_trained": status["total_trained"],
+            "total_deployed": status["total_deployed"],
+            "available_samples": n_samples,
+            "conditions_triggered": conditions,
+            "production_perf": status["production_perf"],
+        }, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.retrain or args.force_retrain:
+        X_train, y_train, X_val, y_val = build_training_data()
+        if not X_train:
+            print(json.dumps({
+                "status": "skip",
+                "reason": "memory/ 中可用的训练样本不足",
+            }, ensure_ascii=False, indent=2))
+            return 0
+
+        n_new = len(X_train) + len(X_val)
+        result = orch.run_daily_check(
+            X_train=X_train, y_train=y_train,
+            X_val=X_val, y_val=y_val,
+            new_samples_count=n_new,
+            force=args.force_retrain,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        return 0 if result.get("final_decision") in ("deployed", "skipped", "skip_no_trigger") else 1
+
+    # 默认模式：输出状态摘要
+    print(f"ML 训练调度中心")
+    print(f"  上次训练: {status['last_train_date'] or '从未'}")
+    print(f"  已训练: {status['total_trained']} 次")
+    print(f"  已部署: {status['total_deployed']} 次")
+    print(f"  已回滚: {status['total_rollback']} 次")
+    print(f"  模型目录: {status['model_dir']}")
+    print(f"  生产模型: {status['production_models'] or '(无)'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(cli_main())
