@@ -43,7 +43,7 @@ def _check_components() -> dict:
             status["scheduler"] = "stopped"
 
     # Pipeline 最近日志
-    log_dir = Path(os.path.expanduser("~/Documents/WorkBuddy/Logs"))
+    log_dir = Path(os.path.expanduser("~/Documents/FDT/Logs"))
     today_logs = list(log_dir.glob("fdb_*.log"))
     if today_logs:
         status["pipeline"] = "active"

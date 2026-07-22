@@ -45,10 +45,10 @@ def check_path_normalization() -> list[dict]:
     """P1: 路径归一化功能验证"""
     issues = []
     tests = [
-        ("/d/WorkBuddy/FDT", "D:/WorkBuddy/FDT"),
+        ("/d/FDT/FDT", "D:/FDT/FDT"),
         ("/c/Users/foo", "C:/Users/foo"),
-        ("D:/WorkBuddy/FDT", "D:/WorkBuddy/FDT"),
-        ("/D/WorkBuddy", "D:/WorkBuddy"),
+        ("D:/FDT/FDT", "D:/FDT/FDT"),
+        ("/D/FDT", "D:/FDT"),
     ]
     for raw, expected in tests:
         result = _normalize_path(raw)

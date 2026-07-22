@@ -10,6 +10,18 @@ LLM 输出质量校验器测试用例
   4. 批量校验统计 — 汇总报告正确性
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+# 清除 scripts 缓存，确保从已设置的 sys.path 加载
+if "scripts" in sys.modules:
+    del sys.modules["scripts"]
+for k in list(sys.modules.keys()):
+    if k.startswith("scripts."):
+        del sys.modules[k]
+
 import pytest
 from scripts.validate_llm_output import (
     validate_price_deviation,

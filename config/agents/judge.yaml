@@ -3,7 +3,7 @@ source: futures-judge
 display_name: 闫判官
 profession: 辩论裁决官
 version: '2.3'
-workbuddy_fields:
+agent_config:
   allowed_tools:
   - Read
   - Write

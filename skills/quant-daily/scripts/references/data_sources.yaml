@@ -74,7 +74,7 @@ sources:
     enabled: true
     priority_intraday: 98    # 不参与价格数据路由
     priority_afternoon: 98
-    description: 金十财经数据MCP（资讯/快讯/日历），通过 WorkBuddy MCP 接口调用
+    description: 金十财经数据MCP（资讯/快讯/日历），通过 MCP 接口调用
     params:
       server_url: https://mcp.jin10.com/mcp
       tools:
@@ -93,7 +93,7 @@ sources:
     enabled: true
     priority_intraday: 97    # 不参与价格数据路由
     priority_afternoon: 97
-    description: 通达信MCP（行情/资讯/研报/宏观），通过 WorkBuddy MCP 接口调用
+    description: 通达信MCP（行情/资讯/研报/宏观），通过 MCP 接口调用
     params:
       connector_name: tdx-connector
       price_tools:

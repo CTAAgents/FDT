@@ -22,9 +22,9 @@ from collections import defaultdict
 
 # ── 路径自举 ──
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # scripts/
-PARENT_SKILLS = os.path.dirname(SKILL_DIR)  # ~/.workbuddy/skills/ (fallback)
+PARENT_SKILLS = os.path.dirname(SKILL_DIR)  # ~/.skills/skills/ (fallback)
 if not os.path.isdir(PARENT_SKILLS):
-    PARENT_SKILLS = os.path.join(os.path.expanduser("~"), ".workbuddy", "skills")
+    PARENT_SKILLS = os.path.join(os.path.expanduser("~"), ".skills", "skills")
     SKILL_DIR = os.path.join(PARENT_SKILLS, "quant-daily", "scripts")
 for p in [SKILL_DIR]:
     if p not in sys.path:

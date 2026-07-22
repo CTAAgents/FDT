@@ -428,6 +428,13 @@ def run_checks(changed_files: List[str]) -> Dict[str, Any]:
             check_results.append(entry)
             continue
 
+        # ── 类型: process_check (运行时检查, commit 阶段跳过) ─────────
+        if rule_type == "process_check":
+            entry["status"] = "skip"
+            entry["message"] = "process_check 类型为运行时检查，commit 阶段跳过"
+            check_results.append(entry)
+            continue
+
         # ── 类型: file_modified ──────────────────────────────────────
         triggered = _is_triggered(rule, changed_files)
         if not triggered:

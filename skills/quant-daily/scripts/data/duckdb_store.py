@@ -36,7 +36,7 @@ except ImportError:
 class DuckDBStore:
     """基于 DuckDB 的期货数据存储引擎"""
 
-    DB_DIR = Path.home() / ".workbuddy" / "skills" / "quant-daily" / "data"
+    DB_DIR = Path.home() / ".skills" / "skills" / "quant-daily" / "data"
     DB_PATH = DB_DIR / "futures.db"
 
     SCHEMAS = {

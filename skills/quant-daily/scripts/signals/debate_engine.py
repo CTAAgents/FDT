@@ -228,7 +228,7 @@ class DebateEngine:
         ]
 
         for pattern in patterns:
-            matches = _glob.glob(os.path.expanduser(f"~/Documents/WorkBuddy/**/{pattern}"), recursive=True)
+            matches = _glob.glob(os.path.expanduser(f"~/logs/**/{pattern}"), recursive=True)
             if matches:
                 try:
                     with open(matches[0], "r", encoding="utf-8") as f:

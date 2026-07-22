@@ -3,7 +3,7 @@ source: futures-judge-heldout
 display_name: 一致性裁判
 profession: 一致性裁判
 version: 1.0.0
-workbuddy_fields:
+agent_config:
   allowed_tools: []
   spawn_mode: general-purpose
   spawn_note: ''

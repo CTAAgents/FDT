@@ -57,7 +57,7 @@ class MARLTrainer:
         self.rewards = []
 
         if weights_path is None:
-            weights_path = Path(os.path.expanduser("~/Documents/WorkBuddy/RL/weights.json"))
+            weights_path = Path(os.path.expanduser("~/Documents/FDT/RL/weights.json"))
         self.weights_path = Path(weights_path)
         self.weights_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -292,14 +292,14 @@ append_debate_journal(agent_name, action, {
 
 | 日期 | 版本 | 变更 |
 |:-----|:-----|:-----|
-| 2026-07-16 | 3.1 | 新增 File Transport Layer v1（独立传输层，替代 WorkBuddy SendMessage） |
+| 2026-07-16 | 3.1 | 新增 File Transport Layer v1（独立传输层，替代原 SendMessage 机制） |
 | 2026-07-05 | 3.0 | 创建。新增 `FundamentalStateVector`、`PrepBrief`、`FinalJudgment`、`TeamDecisionOutput` schema。
 
 ---
 
 ## 附录: File Transport Layer v1（独立传输层）
 
-> FDT 独立运行时的 Agent 间通信机制。替代 WorkBuddy SendMessage。
+> FDT 独立运行时的 Agent 间通信机制。替代原 SendMessage 机制。
 > 适用于 `agent_runner.py flow` 模式和独立调度器。
 
 ### A1. 文件命名规范

@@ -10,7 +10,7 @@
 
 本测试只读/只跑，不修改任何生产数据；发现的 bug 由外部流程修复。
 
-原 standalone harness (WorkBuddy/tests/fdt_gate_test.py) 已迁回此处，
+原 standalone harness 已迁回此处，
 PROJECT_ROOT 改为相对路径推导，可随专家团整体迁移/同步。
 """
 

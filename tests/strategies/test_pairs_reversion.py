@@ -4,8 +4,19 @@
 （贵腿 bear + 便宜腿 bull）、评分方向与强度映射。全部用合成数据，不依赖网络/FDC。
 """
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
+
+# 确保 scripts/ 在 sys.path
+_SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
+if _SCRIPTS not in sys.path:
+    sys.path.insert(0, _SCRIPTS)
+# 确保 skills config 优先于根目录 config（根目录不是包，无 __init__.py）
+if "config" in sys.modules:
+    del sys.modules["config"]
 
 from strategies.pairs_reversion_strategy import (
     PairsReversionStrategy,

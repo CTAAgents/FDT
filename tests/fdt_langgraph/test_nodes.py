@@ -262,8 +262,26 @@ async def test_node_signal_output():
         "position_pct": 5,
         "contract": "RB2410",
     }
-    state["risk_check"] = {"risk_color": "green", "approved": True}
-    # node_signal_output 需要 scan_results 中的 all_ranked 数据来生成信号
+    # node_signal_output 从 state["signal_output"] 读取（由 node_risk_check 预置）
+    state["signal_output"] = {
+        "status": "sent",
+        "risk_color": "green",
+        "risk_check": {"risk_color": "green", "approved": True},
+        "signals": [
+            {"symbol": "RB", "direction": "BUY", "entry_price": 3100, "score": 80},
+        ],
+        "signal": {
+            "direction": "BUY",
+            "symbol": "RB",
+            "entry_price": 3100,
+            "stop_loss_price": 3007,
+            "target_price": 3255,
+            "position_pct": 3,
+            "contract": "",
+            "risk_reward_ratio": 2.0,
+            "confidence": 0.8,
+        },
+    }
     state["scan_results"] = {
         "all_ranked": [
             {"pid": "RB", "symbol": "RB", "direction": "bull", "total": 80, "price": 3100},
@@ -291,7 +309,8 @@ async def test_node_risk_check():
     }
     state["completed_phases"] = ["P1", "P2", "P3", "P4", "P5_verdict"]
     result = await node_risk_check(state)
-    assert result["risk_check"] is not None
+    assert result.get("signal_output") is not None
+    assert result["signal_output"].get("risk_check") is not None
 
 
 @pytest.mark.asyncio

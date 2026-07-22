@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import Dict, List
 
 FEEDBACK_DIR = os.path.join(
-    os.path.expanduser("~"), "Documents", "WorkBuddy", ".workbuddy", "feedback"
+    os.path.expanduser("~"), "logs", "feedback"
 )
 FEEDBACK_FILE = os.path.join(FEEDBACK_DIR, 'indicator_feedback.jsonl')
 

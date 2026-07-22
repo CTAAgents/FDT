@@ -29,7 +29,7 @@ def _get_expert_root() -> str:
     candidate = os.path.normpath(os.path.join(script_dir, os.pardir, os.pardir, os.pardir))
     if os.path.isdir(os.path.join(candidate, "agents")):
         return candidate
-    # 兜底：向上级目录搜索含 agents/ 的 FDT 根（不再硬编码 WorkBuddy 路径）
+    # 兜底：向上级目录搜索含 agents/ 的 FDT 根（不再硬编码旧版路径）
     cur = script_dir
     for _ in range(6):
         if os.path.isdir(os.path.join(cur, "agents")):

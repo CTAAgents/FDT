@@ -5,9 +5,23 @@ from fdt_langgraph.state import DebateState, create_initial_state
 from fdt_langgraph.nodes import (
     node_scan, node_judge_direction,
     node_chain, node_technical, node_fundamental,
-    node_merge_research, node_debate, node_verdict,
-    node_signal_output, node_risk_check, node_report
+    node_merge_research, node_verdict,
+    node_signal_output, node_risk_check, node_report,
+    node_bullish_v1, node_bearish_v1,
+    node_bearish_rebuttal, node_bullish_rebuttal,
+    node_bear_final, node_bull_final,
 )
+
+
+async def _run_debate_sequence(state):
+    """运行完整辩论序列（P4一辩→二辩→结辩）并返回最终状态"""
+    s = await node_bullish_v1(state)
+    s = await node_bearish_v1(s)
+    s = await node_bearish_rebuttal(s)
+    s = await node_bullish_rebuttal(s)
+    s = await node_bear_final(s)
+    s = await node_bull_final(s)
+    return s
 
 
 class TestEndToEndIntegration:
@@ -56,7 +70,7 @@ class TestEndToEndIntegration:
         assert s3["current_phase"] == "P3"
         assert "P3" in s3["completed_phases"]
 
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         assert s4["trace_id"] == trace_id
         assert "bullish_arguments" in s4
         assert "bearish_arguments" in s4
@@ -174,7 +188,7 @@ class TestEndToEndIntegration:
         merged["chain_analysis"] = s_chain.get("chain_analysis")
         merged["technical_data"] = s_tech.get("technical_data")
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
 
         # 确保 verdict 包含必要的交易参数
@@ -216,7 +230,7 @@ class TestEndToEndIntegration:
         merged["technical_data"] = s_tech.get("technical_data")
         merged["fundamental_data"] = s_fund.get("fundamental_data")
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
         s6 = await node_risk_check(s5)
         s7 = await node_report(s6)
@@ -270,7 +284,7 @@ class TestPipelineComparison:
         merged["chain_analysis"] = s_chain.get("chain_analysis")
         merged["technical_data"] = s_tech.get("technical_data")
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
 
         verdict = s5.get("verdict", {})

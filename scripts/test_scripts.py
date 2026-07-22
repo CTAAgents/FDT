@@ -3369,16 +3369,16 @@ class TestAnalyzeTrajectory:
 class TestSelfCheck:
     def test_normalize_path_unix(self) -> None:
         from scripts.self_check import _normalize_path
-        assert _normalize_path("/d/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
+        assert _normalize_path("/d/FDT/FDT") == "D:/FDT/FDT"
         assert _normalize_path("/c/Users/foo") == "C:/Users/foo"
 
     def test_normalize_path_win(self) -> None:
         from scripts.self_check import _normalize_path
-        assert _normalize_path("D:/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
+        assert _normalize_path("D:/FDT/FDT") == "D:/FDT/FDT"
 
     def test_normalize_path_upper_drive(self) -> None:
         from scripts.self_check import _normalize_path
-        assert _normalize_path("/D/WorkBuddy") == "D:/WorkBuddy"
+        assert _normalize_path("/D/FDT") == "D:/FDT"
 
     def test_check_path_normalization(self) -> None:
         from scripts.self_check import check_path_normalization
@@ -4014,7 +4014,7 @@ class TestRunDebate:
         from scripts.run_debate import _to_win_path
         with patch.object(sys, "platform", "win32"):
             assert _to_win_path("/d/foo/bar") == "D:\\foo\\bar"
-            assert _to_win_path("/c/WorkBuddy/FDT") == "C:\\WorkBuddy\\FDT"
+            assert _to_win_path("/c/FDT/FDT") == "C:\\FDT\\FDT"
 
     def test_to_win_path_non_windows(self) -> None:
         from scripts.run_debate import _to_win_path
@@ -4130,7 +4130,7 @@ class TestRunDebate:
 class TestFdtCli:
     def test_normalize_path_git_bash(self) -> None:
         from scripts.fdt_cli import _normalize_path
-        assert _normalize_path("/d/WorkBuddy/FDT") == "D:/WorkBuddy/FDT"
+        assert _normalize_path("/d/FDT/FDT") == "D:/FDT/FDT"
         assert _normalize_path("/c/foo") == "C:/foo"
 
     def test_normalize_path_no_change(self) -> None:

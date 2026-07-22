@@ -26,7 +26,7 @@ def _detect_fdt_root() -> str:
     优先级:
       1. 从本文件位置向上找（最可靠）
       2. 从当前工作目录找 plugins/.../futures-debate-team
-      3. 从 HOME 找 .workbuddy/plugins/.../futures-debate-team
+      3. 从 HOME 找 .fdt/plugins/.../futures-debate-team
     """
     # 方法1: 本文件在 FDT_ROOT/scripts/fdt_paths.py
     this_file = Path(__file__).resolve()
@@ -46,14 +46,14 @@ def _detect_fdt_root() -> str:
     
     # 方法3: 从HOME查找
     home = Path.home()
-    candidate = home / ".workbuddy" / "plugins" / "marketplaces" / "my-experts" / "plugins" / "futures-debate-team"
+    candidate = home / ".fdt" / "plugins" / "marketplaces" / "my-experts" / "plugins" / "futures-debate-team"
     if candidate.exists():
         return str(candidate)
     
     raise RuntimeError(
         "无法定位FDT根目录。请确认FDT安装在以下路径之一:\n"
         f"  - {(Path(__file__).resolve().parent.parent)}\n"
-        f"  - {home / '.workbuddy' / 'plugins' / 'marketplaces' / 'my-experts' / 'plugins' / 'futures-debate-team'}"
+        f"  - {home / '.fdt' / 'plugins' / 'marketplaces' / 'my-experts' / 'plugins' / 'futures-debate-team'}"
     )
 
 

@@ -50,7 +50,7 @@ def run_scan(output_dir: str = None, output_prefix: str = "custom_scan",
 ### CLI 方式（推荐）
 
 ```bash
-python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py \
+python skills/quant-daily/scripts/scan_all.py \
   --symbols PK,RB,B,UR \
   --output /path/to/output \
   --prefix custom_scan
@@ -60,7 +60,7 @@ python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py \
 
 ```python
 import sys
-sys.path.insert(0, os.path.expanduser("~/.workbuddy/skills/quant-daily/scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "skills", "quant-daily", "scripts"))
 from scan_all import run_scan
 from config.symbols import ALL_SYMBOLS
 

@@ -35,10 +35,10 @@ VARIETY_CN_MAP = {
 
 def _get_db_path() -> str:
     """获取DuckDB路径: 全局优先,工作空间备选"""
-    home = os.path.expanduser("~/.workbuddy/futures_data.duckdb")
+    home = os.path.expanduser("~/.skills/futures_data.duckdb")
     if os.path.exists(home):
         return home
-    ws = r"C:\Users\yangd\Documents\WorkBuddy\futures_data.duckdb"
+    ws = r"C:\Users\yangd\logs\futures_data.duckdb"
     return ws if os.path.exists(ws) else home
 
 

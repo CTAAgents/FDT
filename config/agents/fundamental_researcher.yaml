@@ -3,7 +3,7 @@ source: futures-fundamental-researcher
 display_name: 探源
 profession: 基本面分析师（供弹者）
 version: '2.3'
-workbuddy_fields:
+agent_config:
   allowed_tools:
   - Read
   - Write

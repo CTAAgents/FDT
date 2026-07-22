@@ -18,7 +18,7 @@ def _try_load_ranked_data() -> list:
     HOME = os.path.expanduser("~")
     candidates = [
         os.path.join(HOME, "Documents", "Signal", "reports"),
-        os.path.join(HOME, ".workbuddy", "skills", "quant-daily", "reports"),
+        os.path.join(HOME, ".skills", "skills", "quant-daily", "reports"),
     ]
     for base in candidates:
         if os.path.isdir(base):

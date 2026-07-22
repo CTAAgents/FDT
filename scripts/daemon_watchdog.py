@@ -85,7 +85,7 @@ def find_daemon_python() -> str:
         return None
 
     candidates = [
-        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),
+        str(Path("C:/Users/yangd/.fdt/binaries/python/envs/default/Scripts/python.exe")),
         str(ROOT / "venv" / "Scripts" / "python.exe"),
         sys.executable,
     ]

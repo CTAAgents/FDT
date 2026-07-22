@@ -5,6 +5,18 @@ select_triggers disable_filter 测试
 1. filter=ON → 读 total（旧行为，过滤后）
 2. filter=OFF → 读 _raw_total（无过滤，原始分）
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+# 清除 scripts 缓存，确保从已设置的 sys.path 加载
+if "scripts" in sys.modules:
+    del sys.modules["scripts"]
+for k in list(sys.modules.keys()):
+    if k.startswith("scripts."):
+        del sys.modules[k]
+
 from scripts.run_debate import select_triggers
 
 

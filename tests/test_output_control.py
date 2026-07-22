@@ -18,6 +18,13 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 清除 scripts 缓存，确保从已设置的 sys.path 加载
+if "scripts" in sys.modules:
+    del sys.modules["scripts"]
+for k in list(sys.modules.keys()):
+    if k.startswith("scripts."):
+        del sys.modules[k]
+
 from scripts.output_metrics import OutputMetrics
 from scripts.output_versioning import OutputVersioning
 from scripts.output_feedback import OutputFeedback

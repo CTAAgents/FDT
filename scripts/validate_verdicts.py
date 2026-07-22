@@ -50,7 +50,7 @@ def _qdaily_scripts_dir() -> str:
     candidate = here.parent / "skills" / "quant-daily" / "scripts"
     if candidate.exists():
         return str(candidate)
-    return str(Path.home() / ".workbuddy" / "skills" / "quant-daily" / "scripts")
+    return str(Path.home() / ".fdt" / "skills" / "quant-daily" / "scripts")
 
 
 def _get_qdaily_adapter() -> None:

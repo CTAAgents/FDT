@@ -82,7 +82,7 @@ def _run_script(script_rel: str, *args: str, timeout: int = 300) -> tuple[bool, 
 
     # Python路径探测：优先使用有依赖的Python
     candidates = [
-        str(Path("C:/Users/yangd/.workbuddy/binaries/python/envs/default/Scripts/python.exe")),  # 平台管理venv（有依赖）
+        str(root / ".venv" / "Scripts" / "python.exe"),  # 项目venv
         str(root / "venv" / "Scripts" / "python.exe"),           # 项目venv
     ]
     venv_python = sys.executable
@@ -134,8 +134,7 @@ def daily_debate() -> TaskResult:
     root = _project_root()
     date_str = datetime.now().strftime("%Y%m%d")
     date_str_hy = datetime.now().strftime("%Y-%m-%d")
-    workbuddy_dir = Path(os.path.expanduser("~")) / "Documents" / "WorkBuddy"
-    scan_report_dir = workbuddy_dir / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
+    scan_report_dir = Path(os.path.expanduser("~")) / "Documents" / "Commodities" / "Reports" / "商品期货深度分析" / date_str_hy
     os.makedirs(scan_report_dir, exist_ok=True)
 
     # ── Step 1: 通道突破扫描 ──

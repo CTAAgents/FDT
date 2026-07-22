@@ -5,7 +5,7 @@ Agent Tool Executor v1.0 — 辩论团队工具代理执行引擎
 
 核心作用：
   明鉴秋协调员读取 Agent 输出中的 ```python 代码块，代为执行并返回结果。
-  解决 WorkBuddy Agent 不支持真实 tool calling binding 的问题。
+  解决旧版 Agent 不支持真实 tool calling binding 的问题。
 
 调用方式：
   from agent_tool_executor import execute_agent_tool

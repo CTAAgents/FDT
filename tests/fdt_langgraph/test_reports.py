@@ -124,6 +124,7 @@ def test_write_signal_report(workspace_tmp):
 # ==================== 节点级测试 ====================
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not os.environ.get("FDT_GENERATE_SCAN_REPORT"), reason="需设置 FDT_GENERATE_SCAN_REPORT=true")
 async def test_scan_report_written(workspace_tmp):
     """node_scan 写入 scan_report_path"""
     state = create_test_state()

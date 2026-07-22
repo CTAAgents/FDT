@@ -42,7 +42,7 @@ def _get_tdx_collector():
     global _TDX_COLLECTOR
     if _TDX_COLLECTOR is None:
         try:
-            fds_dir = os.path.expanduser("~/.workbuddy/skills/futures-data-search")
+            fds_dir = os.path.expanduser("~/.skills/skills/futures-data-search")
             if fds_dir not in sys.path:
                 sys.path.insert(0, fds_dir)
             from data.collectors.tdx_collector import TdxCollector
@@ -311,7 +311,7 @@ def _get_term_structure_from_tdx(symbols: List[dict], trade_date: str) -> Dict[s
     if _tdx_failed:
         print(f"[term_basis] {len(_tdx_failed)}个品种TDX失败，尝试东方财富降级: {_tdx_failed}")
         try:
-            fds_dir = os.path.expanduser("~/.workbuddy/skills/futures-data-search")
+            fds_dir = os.path.expanduser("~/.skills/skills/futures-data-search")
             if fds_dir not in sys.path:
                 sys.path.insert(0, fds_dir)
             from data.collectors.eastmoney_collector import EastMoneyCollector
@@ -442,7 +442,7 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
     # 通过已知路径查找 futures-data-search 的 exchange-collector DuckDB。
     # 不实例化 MultiSourceAdapter，避免触发 TqSDK WebSocket 连接导致卡死。
     db_path = None
-    fds_dir = os.path.expanduser("~/.workbuddy/skills/futures-data-search")
+    fds_dir = os.path.expanduser("~/.skills/skills/futures-data-search")
     candidate_paths = [
         os.path.join(fds_dir, "data", "exchange_futures.duckdb"),
         os.path.join(fds_dir, "data", "futures_data.duckdb"),

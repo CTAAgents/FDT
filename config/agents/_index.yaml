@@ -1,6 +1,6 @@
 # FDT Agent 注册中心
-# 独立于 WorkBuddy Expert 系统的 FDT 原生 Agent 配置。
-# 当 FDT 脱离 WorkBuddy 运行时，由此文件发现和加载 Agent。
+# FDT 原生 Agent 配置（独立运行模式）。
+# 由此文件发现和加载 Agent。
 
 agents:
   judge:

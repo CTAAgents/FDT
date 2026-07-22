@@ -234,7 +234,7 @@ class DebateAgentExecutor:
                    max_tokens: int = 0,
                    json_mode: bool = False) -> str:
         """运行单个 Agent (G95: 替代 agent_runner.run_agent)"""
-        from scripts.fdt_llm import FdtLlm
+        from fdt_langgraph.llm_provider import FdtLlm
         import yaml
         import os
         from pathlib import Path

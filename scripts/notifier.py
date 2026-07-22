@@ -1,6 +1,6 @@
 """FDT 告警推送 [INDEPENDENT]。
 
-支持多种推送渠道，不依赖 WorkBuddy push_to_wechat。
+支持多种推送渠道，不依赖第三方推送。
 
 用法:
     python scripts/notifier.py --channel wecom_bot --msg "辩论完成"

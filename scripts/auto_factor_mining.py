@@ -57,7 +57,7 @@ class AutoFactorMiner:
         self.factor_performance = {}
 
         if factor_dir is None:
-            factor_dir = Path(os.path.expanduser("~/Documents/WorkBuddy/Factors"))
+            factor_dir = Path(os.path.expanduser("~/Documents/FDT/Factors"))
         self.factor_dir = Path(factor_dir)
         self.factor_dir.mkdir(parents=True, exist_ok=True)
 

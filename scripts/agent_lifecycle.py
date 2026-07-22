@@ -35,7 +35,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-_STATE_DIR = Path.home() / ".workbuddy" / "tmp" / "fdt_agent_lifecycle"
+_STATE_DIR = Path.home() / ".fdt" / "tmp" / "agent_lifecycle"
 _STATE_FILE = _STATE_DIR / "active_agents.json"
 
 
@@ -150,8 +150,8 @@ def cmd_wait_and_shutdown(phase: str, timeout: int = 900) -> int:
     print(f"  文件就绪: {ready_count}/{len(all_files)} ({elapsed:.0f}s)")
 
     # ── 发送 shutdown_request ──
-    # 注意：本脚本不直接发送 shutdown（那是 WorkBuddy 聊天层的功能）。
-    # 本脚本输出 shutdown 指令清单，由明鉴秋（WorkBuddy Agent）执行。
+    # 注意：本脚本不直接发送 shutdown（那是主管 Agent 聊天层的功能）。
+    # 本脚本输出 shutdown 指令清单，由明鉴秋（主管 Agent）执行。
     shutdown_plan = [
         {
             "agent": agent,

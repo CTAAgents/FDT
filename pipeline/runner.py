@@ -8,7 +8,7 @@
       → assemble_intermediate → phase3_generate_report
       → debate_history自动记录 → TrainingOrchestrator检查
 
-输出目录: ~/Documents/WorkBuddy/Commodities/Reports/商品期货深度分析/{YYYY-MM-DD}/
+输出目录: ~/Documents/Commodities/Reports/商品期货深度分析/{YYYY-MM-DD}/
 """
 
 import json
@@ -23,8 +23,8 @@ _PIPELINE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_DIR = os.path.dirname(_PIPELINE_DIR)
 sys.path.insert(0, _PROJECT_DIR)
 
-from scripts.unified_logger import get_logger
-from scripts.trace_id import new_trace, current_trace, inject_trace_to_env
+from scripts.core.unified_logger import get_logger
+from scripts.core.trace_id import new_trace, current_trace, inject_trace_to_env
 
 # ── 路径常量 ────────────────────────────────────────────
 HOME = os.path.expanduser("~")
@@ -50,7 +50,6 @@ DATE_COMPACT = TODAY.strftime("%Y%m%d")
 REPORT_DIR = os.path.join(
     HOME,
     "Documents",
-    "WorkBuddy",
     "Commodities",
     "Reports",
     "商品期货深度分析",

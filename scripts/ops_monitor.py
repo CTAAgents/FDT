@@ -174,7 +174,7 @@ class OpsMonitor:
             HTML报告路径
         """
         if not output_dir:
-            output_dir = Path(os.path.expanduser("~/Documents/WorkBuddy/Reports/每日复盘"))
+            output_dir = Path(os.path.expanduser("~/Documents/FDT/Reports/每日复盘"))
             output_dir.mkdir(parents=True, exist_ok=True)
 
         today_str = datetime.now().strftime("%Y-%m-%d")

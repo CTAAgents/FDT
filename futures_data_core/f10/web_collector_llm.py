@@ -1,6 +1,6 @@
 """LLM WebSearch 行业基本面采集 [LLM-DRIVEN]。
 
-必须在支持 WebSearch 的 LLM 上下文（如 WorkBuddy）中执行；独立 Python 环境调用
+必须在支持 WebSearch 的 LLM 上下文（如 LLM 平台）中执行；独立 Python 环境调用
 将抛出 :class:`LlmContextNotAvailableError`。
 
 所有 LLM 调用经由 :mod:`futures_data_core._llm_bridge` 集中管理，业务代码不散落

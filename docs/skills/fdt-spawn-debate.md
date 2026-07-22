@@ -108,7 +108,7 @@ else:
     import subprocess, json as _json
     _vresp = subprocess.run(
         ["C:/Program Files/Python312/python.exe",
-         "C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/scripts/validate_agent_output.py",
+         os.path.join(fdt_root, "scripts", "validate_agent_output.py"),
          "--file", output_path, "--phase", phase],
         capture_output=True, text=True,
     )
@@ -129,7 +129,7 @@ else:
             if poll_file_ready(output_path, timeout=900, stable_seconds=5):
                 _r2 = subprocess.run(
                     ["C:/Program Files/Python312/python.exe",
-                     "C:/Users/yangd/.workbuddy/plugins/marketplaces/my-experts/plugins/futures-debate-team/scripts/validate_agent_output.py",
+                     os.path.join(fdt_root, "scripts", "validate_agent_output.py"),
                      "--file", output_path, "--phase", phase],
                     capture_output=True, text=True,
                 )
@@ -574,7 +574,7 @@ python extract_knowledge.py ingest   --symbol {sym}   --pro p4_bullish_{sym}.jso
 ## 路径常量
 
 ```
-FDT_ROOT = C:\Users\yangd\.workbuddy\plugins\marketplaces\my-experts\plugins\futures-debate-team
+FDT_ROOT = <项目根目录>
 SIGNAL_DIR = C:\Users\yangd\Documents\Signal
 REPORT_SCRIPT = {FDT_ROOT}/skills/futures-trading-analysis/scripts/phase3_generate_report.py
 AGENTS_DIR = {FDT_ROOT}/agents/

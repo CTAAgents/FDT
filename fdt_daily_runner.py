@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 FDT daily automation runner
-"""
 
+Pipeline 模块通过 subprocess 调用（fdt_daily_runner.py → pipeline/runner.py），
+不在 Python 导入图中可见。以下顶级导入建立显式依赖边以供工具分析和审计。
+"""
 import os
 import sys
 import subprocess
@@ -12,6 +14,9 @@ FDT_ROOT = r"D:\Programs\FDT"
 REPORT_ROOT = r"D:\FDTWorkspace"
 
 sys.path.insert(0, FDT_ROOT)
+
+# 显式依赖边：pipeline.runner 在运行时通过 subprocess 调用
+import pipeline.runner  # noqa: E402, F401 — 建立 import 图可见性
 
 from datetime import datetime
 

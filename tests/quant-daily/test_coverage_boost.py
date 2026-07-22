@@ -3,7 +3,16 @@
 import json, os, sys
 from unittest.mock import patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "skills", "quant-daily", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
+# 清除 scripts 缓存，确保从已设置的 sys.path 加载
+if "scripts" in sys.modules:
+    del sys.modules["scripts"]
+for k in list(sys.modules.keys()):
+    if k.startswith("scripts."):
+        del sys.modules[k]
+
 import pytest
 import numpy as np
 from signals import debate_brief as db

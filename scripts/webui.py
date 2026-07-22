@@ -1,6 +1,6 @@
 """FDT Web Dashboard [INDEPENDENT]。
 
-独立 Web 界面，不依赖 WorkBuddy 即可查看扫描结果和辩论报告。
+独立 Web 界面，不依赖外部工具即可查看扫描结果和辩论报告。
 
 启动:
     python scripts/webui.py                          # 开发模式 localhost:8765
@@ -102,9 +102,9 @@ def _list_workspaces(base: str | None = None) -> list[dict]:
         candidates.insert(0, env_ws)
     # Windows 下常见路径
     for common_path in [
-        "D:/WorkBuddy/FDT",
-        "C:/WorkBuddy/FDT",
-        str(Path.home() / "WorkBuddy" / "FDT"),
+        "D:/FDT/FDT",
+        "C:/FDT/FDT",
+        str(Path.home() / "FDT" / "FDT"),
     ]:
         if Path(common_path).exists() and common_path not in candidates:
             candidates.append(common_path)
@@ -194,7 +194,7 @@ pre { background:#252836; padding:12px; border-radius:6px; overflow:auto; font-s
 <body><div class="container">
 <div class="header">
 <h1>FDT Web Dashboard</h1>
-<div class="sub">独立运行，不依赖 WorkBuddy</div>
+<div class="sub">独立运行，不依赖外部工具</div>
 </div>
 <div class="nav">
 <a href="/">工作空间</a>

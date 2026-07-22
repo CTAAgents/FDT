@@ -15,6 +15,9 @@ if SCRIPTS_DIR not in sys.path:
 FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if FDT_ROOT not in sys.path:
     sys.path.insert(0, FDT_ROOT)
+# 确保 skills config 优先于根目录 config（根目录不是包，无 __init__.py）
+if "config" in sys.modules:
+    del sys.modules["config"]
 
 # ── 导入被测函数 ──
 from scan_all import _build_pure_stats, _calc_volume_ma20

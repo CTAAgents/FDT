@@ -57,7 +57,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 | `agent_runner.py` | `fdt_langgraph/agents.py` | ✅ **G95 — 已迁移**（已删除，由 `DebateAgentExecutor.run_single()` 替代） |
 | S04 轮询 | Checkpointer + 状态传递 | 已替代 |
 | 文件传递 | DebateState 内存传递 | 已替代 |
-| WorkBuddy automation | `fdt_cli.py` / `fdt_api.py` 独立入口 | 已替代 |
+| 自动化调度 | `fdt_cli.py` / `fdt_api.py` 独立入口 | 已替代 |
 | DuckDB (`futures.db`) | PostgreSQL (`fdt_pg/` 连接层) | ✅ **G96 — 已迁移**（JSON→PostgreSQL 写入逻辑已实现） |
 
 ## 2. 组件关系图
@@ -243,7 +243,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 > - **调度方式**: 串行文件轮询 vs LangGraph 条件边动态路由
 > - **并行粒度**: P3 四源并行（链证源/观澜/探源/读心）+ P4 两源并行 vs 全图并行调度
 > - **持久化**: JSON 文件 vs PostgreSQL (OLTP+OLAP)
-> - **入口**: WorkBuddy 平台 vs 独立 CLI/FastAPI
+> - **入口**: 第三方平台 vs 独立 CLI/FastAPI
 
 ### 3.2 主数据流（LangGraph 模式 — 并行数据源 + PostgreSQL）
 
@@ -353,7 +353,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 验证统计 | `memory/validation_stats.json` | `pg.validation_stats` | PostgreSQL | `validate_verdicts.py` | OLTP |
 | 辩论索引 | `memory/debates/INDEX.md` | `pg.debate_index` | PostgreSQL | `debate_archiver.py` | OLTP |
 | DuckDB 数据 | `futures.db` | `pg.*` 表 + `pg.v_*` 视图 | PostgreSQL | `fdt_pg/` | OLTP+OLAP |
-| 统一日志 | `~/Documents/WorkBuddy/Logs/fdb_{date}.log` | `pg.log_entries` | PostgreSQL | `unified_logger.py` | OLTP |
+| 统一日志 | `logs/fdb_{date}.log` | `pg.log_entries` | PostgreSQL | `unified_logger.py` | OLTP |
 | 调度器日志 | `scheduler/scheduler.log` | `pg.scheduler_logs` | PostgreSQL | `scheduler/engine.py` | OLTP |
 | 状态历史 | - | `pg.langgraph_checkpoints` | PostgreSQL | Checkpointer | OLTP |
 | 信号绩效分析 | - | `pg.v_signal_performance` | PostgreSQL 视图 | - | OLAP |

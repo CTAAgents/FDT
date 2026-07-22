@@ -1,6 +1,6 @@
 """FDT 独立定时调度器 [INDEPENDENT]。
 
-不依赖 WorkBuddy automation，FDT 自己管理定时任务。
+不依赖外部调度器，FDT 自己管理定时任务。
 支持 cron 风格的调度规则。
 
 用法:
@@ -26,6 +26,10 @@ PID_FILE = ROOT / "scheduler" / "scheduler.pid"
 LOG_DIR = ROOT / "memory" / "logs"
 LOG_FILE = LOG_DIR / "scheduler.log"
 SCHEDULER_DIR = ROOT / "scheduler"
+
+# 显式依赖边：scheduler.tasks/engine/triggers 在运行时使用
+import scheduler.tasks  # noqa: E402, F401 — 建立 import 图可见性
+import scheduler.engine  # noqa: E402, F401
 
 # ── 简单的 cron 匹配（dow, hour, min） ──
 

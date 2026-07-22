@@ -185,7 +185,7 @@ Phase 4 ──── ✅ 4.7 ──── G11 看板 · G12 健康端点 · G15 
 Phase 5 ──── ✅ 5.0 ──── G16 pipeline 测试修复 · G14 迁移落地 · G17 文档同步纪律
 Phase 6 ──── ✅ 5.0(新增G19/G20/G21/G22/G23) ── G19测试✅ · G20✅ · G21✅ · G22/G23✅
 Phase 7 ──── ✅ v8.1.7 ── 策略层插拔化 · CTA 7/7 · 多因子 · 趋势扩展 · 均值回归 · 信号去融合
-Phase 8 ──── ✅ v8.3.0 ── LangGraph 迁移 · 按需并行拓扑 · PostgreSQL OLTP+OLAP · 独立 CLI/FastAPI · 去 WorkBuddy/DuckDB
+Phase 8 ──── ✅ v8.3.0 ── LangGraph 迁移 · 按需并行拓扑 · PostgreSQL OLTP+OLAP · 独立 CLI/FastAPI · 去外部平台/DuckDB
 Phase 9 ──── ✅ v8.4.0 ── LangGraph 生产集成 · A/B 切换机制 · PG+SQLite Checkpointer 降级 · 99 测试全绿 · G52-G58 全部关闭
 Phase 10 ─── ✅ v9.0.0 ── 六阶段攻防辩论 · 多头初论→空头初论→空头驳论→多头驳论→空头结辩→多头结辩 · 6个P4 state字段 · 43个全绿测试 · G82/G83/G84
 Phase 11 ─── ✅ v9.6.3 ── G92 LLM 幻觉率降低：Phase A(检测层 validate_llm_output.py) + Phase B(校准层 calibrate_weights 扩展) + Phase C(进化层 evolve_agents 扩展) 全部完成

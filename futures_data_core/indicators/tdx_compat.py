@@ -1621,7 +1621,7 @@ def main():
     print("基于numpy向量化的45项技术指标引擎（覆盖commodity-trend-signal全部指标）")
     print("=" * 60)
 
-    data_dir = "C:/Users/yangd/Documents/WorkBuddy/Temp"
+    data_dir = "C:/Users/yangd/Documents/logs/Temp"
 
     # ── 黄金数据 ──
     gold_data = pd.DataFrame(

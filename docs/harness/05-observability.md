@@ -136,6 +136,8 @@ logger.warning("数据延迟")
 logger.error("连接失败", exc_info=True)
 ```
 
+> **v9.12.0 模块重构**: `unified_logger.py`、`trace_id.py`、`fingerprint.py` 已从 `scripts/` 根目录迁移至 `scripts/core/` 子包。原路径保留向后兼容重导出存根，现有 `from scripts.unified_logger import get_logger` 用法不变。
+
 ### 3.3 日志文件清单
 
 | 日志文件 | 路径 | 写入者 | 用途 |

@@ -85,7 +85,7 @@ except ImportError:
 
 # Prepare DuckDB
 if duckdb_available:
-    DB_PATH = os.path.expanduser("~/.workbuddy/futures_data.duckdb")
+    DB_PATH = os.path.expanduser("~/.skills/futures_data.duckdb")
     con = duckdb.connect(DB_PATH)
     con.execute("""
         CREATE TABLE IF NOT EXISTS huishang_topics (

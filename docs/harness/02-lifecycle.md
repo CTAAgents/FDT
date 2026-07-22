@@ -2,7 +2,7 @@
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 
-### 1.1 三种启动模式（去 WorkBuddy）
+### 1.1 三种启动模式（独立运行）
 
 | 模式 | 命令 | 用途 | 退出条件 |
 |:-----|:-----|:-----|:---------|
@@ -15,11 +15,11 @@
 
 | 模式 | 状态 | 替代方案 |
 |:-----|:-----|:---------|
-| WorkBuddy automation (30min) | **已废弃** | `fdt_cli.py --daemon` |
+| 自动化调度 (30min) | **已废弃** | `fdt_cli.py --daemon` |
 | `bootstrap.py` | **已废弃** | `fdt_cli.py` |
 | `scheduler/engine.py` (60s心跳) | **可选保留** | APScheduler / Celery Beat |
 
-> **迁移说明**: WorkBuddy 平台依赖已完全移除。FDT 现在作为独立 Python 应用运行，通过 CLI 或 HTTP API 触发。原有 `bootstrap.py` 和 `scheduler/engine.py` 保留为兼容层，但新入口推荐使用 `fdt_cli.py` 和 `fdt_api.py`。
+> **迁移说明**: 第三方平台依赖已完全移除。FDT 现在作为独立 Python 应用运行，通过 CLI 或 HTTP API 触发。原有 `bootstrap.py` 和 `scheduler/engine.py` 保留为兼容层，但新入口推荐使用 `fdt_cli.py` 和 `fdt_api.py`。
 
 ### 1.2 启动序列
 

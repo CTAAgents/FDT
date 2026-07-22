@@ -10,9 +10,23 @@ from fdt_langgraph.state import DebateState, create_initial_state
 from fdt_langgraph.nodes import (
     node_scan, node_judge_direction,
     node_chain, node_technical, node_fundamental,
-    node_merge_research, node_debate, node_verdict,
-    node_signal_output, node_risk_check, node_report
+    node_merge_research, node_verdict,
+    node_signal_output, node_risk_check, node_report,
+    node_bullish_v1, node_bearish_v1,
+    node_bearish_rebuttal, node_bullish_rebuttal,
+    node_bear_final, node_bull_final,
 )
+
+
+async def _run_debate_sequence(state):
+    """运行完整辩论序列（P4一辩→二辩→结辩）并返回最终状态"""
+    s = await node_bullish_v1(state)
+    s = await node_bearish_v1(s)
+    s = await node_bearish_rebuttal(s)
+    s = await node_bullish_rebuttal(s)
+    s = await node_bear_final(s)
+    s = await node_bull_final(s)
+    return s
 
 
 class TestBenchmarkComparison:
@@ -38,7 +52,7 @@ class TestBenchmarkComparison:
         s3 = await node_merge_research(merged)
         assert s3["current_phase"] == "P3"
 
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         assert s4["current_phase"] == "P4"
 
         s5 = await node_verdict(s4)
@@ -86,7 +100,7 @@ class TestBenchmarkComparison:
         current = await node_merge_research(merged)
         phases_seen.append(current["current_phase"])
 
-        current = await node_debate(current)
+        current = await _run_debate_sequence(current)
         phases_seen.append(current["current_phase"])
 
         current = await node_verdict(current)
@@ -143,7 +157,7 @@ class TestBenchmarkComparison:
         merged["technical_data"] = {}
         merged["fundamental_data"] = {}
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
 
         verdict = s5.get("verdict", {})
@@ -266,7 +280,7 @@ class TestRegressionGuard:
         merged["technical_data"] = {}
         merged["fundamental_data"] = {}
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
 
         assert s5["trace_id"] == trace_id
@@ -286,7 +300,7 @@ class TestRegressionGuard:
         merged["technical_data"] = {}
         merged["fundamental_data"] = {}
         s3 = await node_merge_research(merged)
-        s4 = await node_debate(s3)
+        s4 = await _run_debate_sequence(s3)
         s5 = await node_verdict(s4)
         s5["verdict"] = {
             **s5.get("verdict", {}),

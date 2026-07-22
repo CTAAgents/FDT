@@ -342,7 +342,6 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     # 提示用户 spawn Agent
     print(f"\n{'='*60}")
     print(f"⚡ 请根据 spawn_plan_*.json 手动 spawn 辩论 Agent")
-    print(f"   (在 WorkBuddy 中依 spawn_prompts 逐个 spawn 证真/慎思/闫判官等)")
     print(f"   跑完所有 Agent 后，再执行:")
     print(f"   python scripts/fdt_cli.py pipeline --mode finalize-only "
           f"--workspace {workspace}")
@@ -517,7 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── 守护进程 —— 内置调度器 ──
     p_daemon = sub.add_parser("daemon",
-                              help="FDT 守护进程：内置定时调度器（替代 WorkBuddy automation）")
+                              help="FDT 守护进程：内置定时调度器（无需外部调度）")
     p_daemon.add_argument("action", choices=["start", "stop", "status"],
                           help="start=启动调度器, stop=停止, status=查看状态")
     p_daemon.add_argument("--job", choices=["daily_debate"],
@@ -528,7 +527,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── Web 服务 ──
     p_serve = sub.add_parser("serve",
-                             help="启动 Web Dashboard（独立界面，替代 WorkBuddy 界面）")
+                             help="启动 Web Dashboard（独立界面）")
     p_serve.add_argument("--host", default="127.0.0.1",
                          help="监听地址（默认 127.0.0.1）")
     p_serve.add_argument("--port", type=int, default=8765,

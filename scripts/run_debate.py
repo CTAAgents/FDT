@@ -7,7 +7,7 @@ FDT 辩论主动驱动层 (B 项优化 · 2026-07-11)
 - 把每轮手工的多步易碎操作（识别触发品种 / 手写 spawn 提示 / 手写内联 Python 组装
   debate_results.json / 逐品种 extract_knowledge / 误用手写 HTML）收敛进**一个脚本**，
   消除"零胶水代码"红线被踩的问题。
-- **不 spawn Agent**（spawn 是团队主管 WorkBuddy Agent 的固有职责，Python 也 spawn 不了
+- **不 spawn Agent**（spawn 是团队主管 Agent 的固有职责，Python 也 spawn 不了
   子 Agent）。本脚本产出**标准化 spawn 计划 JSON**，主管按此计划 spawn。
 - 提供 assemble / extract / report 子命令，复用既有 CLI（extract_knowledge.py、
   phase3_generate_report.py），不重复造轮子。

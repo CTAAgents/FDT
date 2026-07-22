@@ -6,7 +6,7 @@
 
 | 文件 | 路径 | 格式 | 用途 | 修改频率 |
 |:-----|:-----|:-----|:-----|:---------|
-| `plugin.json` | `.codebuddy-plugin/plugin.json` | JSON | 插件清单: 10 agents + 2 skills 声明 | 低 (版本升级时) |
+| `plugin.json` | 根目录 | JSON | 插件清单: 10 agents + 2 skills 声明 | 低 (版本升级时) |
 | `settings.json` | 根目录 | JSON | 全局设置: 模式/阈值/webhooks/backtest | 中 |
 | `team_config.json` | `config/team_config.json` | JSON | 团队环境: 自进化开关/快通道/venv | 低 |
 | `pyproject.toml` | 根目录 | TOML | Python 包: 依赖/pytest/black/ruff | 低 |
@@ -114,7 +114,7 @@ line-length = 120
 | 变量 | 默认值 | 用途 | 来源 |
 |:-----|:-------|:-----|:-----|
 | `FDB_LOG_LEVEL` | `INFO` | 统一日志级别 (DEBUG/INFO/WARNING/ERROR/CRITICAL) | `unified_logger.py` |
-| `FDB_LOG_DIR` | `~/Documents/WorkBuddy/Logs/` | 日志文件目录 | `unified_logger.py` |
+| `FDB_LOG_DIR` | `logs/` | 日志文件目录 | `unified_logger.py` |
 | `DEBATE_HISTORY_DIR` | 项目内默认路径 | 辩论历史目录 (可覆盖) | `debate/history.py` |
 | `TRAINING_ORCHESTRATOR_DIR` | 项目内默认路径 | ML 模型存储目录 | `ml/trainer.py` |
 | `PYTHONIOENCODING` | (未设置) | Python IO 编码 (pipeline 强制设为 `utf-8`) | `pipeline/runner.py` |
@@ -170,7 +170,7 @@ export DCE_API_SECRET=your_api_secret
 _LOG_LEVEL = os.environ.get("FDB_LOG_LEVEL", "INFO").upper()  # 环境变量 > 默认值
 _LOG_DIR = os.environ.get("FDB_LOG_DIR", None)                 # 环境变量 > 代码默认
 if _LOG_DIR is None:
-    _LOG_DIR = "~/Documents/WorkBuddy/Logs/"                   # 代码默认值
+    _LOG_DIR = "logs/"                                     # 代码默认值
 ```
 
 ## 5. 数据源配置
@@ -301,7 +301,7 @@ UNAVAILABLE (无数据)
 | `FDT_API_HOST` | `0.0.0.0` | API 监听地址 | `fdt_api.py` |
 | `FDT_API_PORT` | `8000` | API 监听端口 | `fdt_api.py` |
 | `FDT_API_KEY` | (未设置) | API 认证密钥 | `fdt_api.py` |
-| `FDT_LOG_DIR` | `logs/` | 日志目录 (去 WorkBuddy) | `unified_logger.py` |
+| `FDT_LOG_DIR` | `logs/` | 日志目录 | `unified_logger.py` |
 
 ### 3.3 逐Agent LLM 配置 (v8.9.1)
 
@@ -383,7 +383,7 @@ set FDT_LLM_RISK_MANAGER_MODEL=local-model
 代码默认值（FDT_LLM_API_BASE 默认 https://api.deepseek.com/v1）
 ```
 
-> **WorkBuddy 路径迁移**: `~/Documents/WorkBuddy/Logs/` 已废弃，默认改为项目内 `logs/` 目录。通过 `FDT_LOG_DIR` 环境变量可自定义。
+> **日志目录**: 默认使用项目内 `logs/` 目录，通过 `FDT_LOG_DIR` 环境变量可自定义。
 
 ## 9. 成本工程规范（v9.6.4+）
 

@@ -138,7 +138,7 @@ ACTIVE_VARIETIES = [
     "TF",
 ]
 
-_FRESHNESS_DIR = os.path.join(os.path.expanduser("~"), "Documents", "WorkBuddy", ".workbuddy", "feedback")
+_FRESHNESS_DIR = os.path.join(os.path.expanduser("~"), "logs", "feedback")
 
 
 class FreshnessRecord:

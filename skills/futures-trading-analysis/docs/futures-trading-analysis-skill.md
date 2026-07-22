@@ -9,7 +9,7 @@
 | 项目 | 内容 |
 |------|------|
 | **技能名称** | `futures-trading-analysis` |
-| **技能路径** | `~/.workbuddy/skills/futures-trading-analysis/` |
+| **技能路径** | `~/.skills/skills/futures-trading-analysis/` |
 | **版本** | v1.0.0 |
 | **Agent数量** | 12个 |
 | **分析模式** | 单品模式、产业链模式 |

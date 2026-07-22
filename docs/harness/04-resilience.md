@@ -127,7 +127,7 @@ spawn 闫判官 (第1次)
 ```
 1. CLI 参数: --workspace /path/to/output
 2. 环境变量: FDT_REPORT_DIR
-3. 自动发现: 扫描 ~/Documents/WorkBuddy/Commodities/Reports/商品期货深度分析/{date}/
+3. 自动发现: 扫描 Commodities/Reports/商品期货深度分析/{date}/
 ```
 
 ### 2.5 L5 — 健康自检
@@ -283,7 +283,7 @@ daemon_watchdog.py 检测 (每30分钟)
 | 项 | 内容 |
 |:---|:-----|
 | **脚本** | `scripts/daemon_watchdog.py` |
-| **触发** | WorkBuddy automation 每 30 分钟 |
+| **触发** | 定时任务每 30 分钟 |
 | **检查** | PID 存活 + 心跳日志 3 分钟内更新 |
 | **恢复** | 自动重启守护进程 |
 
@@ -475,7 +475,7 @@ Checkpointer (PostgreSQL)
 | D06 降级 | `node_verdict` 失败 → 明鉴秋兜底 | 已迁移 |
 | Agent 超时 | 节点超时配置 + 自动跳过 | 已迁移 |
 | 守护进程看门狗 | `fdt_cli.py daemon` + APScheduler | 已替代 |
-| WorkBuddy 心跳 | `fdt_api.py /health` + 进程监控 | 已替代 |
+| 外部心跳 | `fdt_api.py /health` + 进程监控 | 已替代 |
 
 ### 9.9 生产化 A/B 切换与降级路径 (v8.4.0+ — G52-G55)
 

@@ -29,7 +29,7 @@ class RuntimeMode(str, Enum):
 def _has_websearch() -> bool:
     """检测当前环境是否具备 LLM WebSearch 能力。
 
-    WorkBuddy 等 LLM 环境会注入 ``WORKBUDDY_LLM_CONTEXT`` 环境变量；
+    LLM 环境会注入 ``WORKBUDDY_LLM_CONTEXT`` 环境变量；
     独立 Python 环境返回 ``False``。
     """
     return bool(os.environ.get("WORKBUDDY_LLM_CONTEXT"))

@@ -41,7 +41,7 @@ class MemoryWriter:
         """
         Args:
             round_id: 本轮辩论唯一ID（如 "RB_20260705"）
-            base_dir: 记忆根目录（默认 ~/.workbuddy/plugins/.../memory/）
+            base_dir: 记忆根目录（默认 ~/.fdt/plugins/.../memory/）
         """
         self.round_id = round_id
         if base_dir:

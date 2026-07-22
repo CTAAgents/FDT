@@ -3,7 +3,7 @@ source: futures-datatech
 display_name: 数技源
 profession: 数据技师（纯数据输出）
 version: '?'
-workbuddy_fields:
+agent_config:
   allowed_tools: []
   spawn_mode: general-purpose
   spawn_note: ''

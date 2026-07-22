@@ -126,7 +126,7 @@ system_prompt: "# 风控明 — 风险控制官（含链证源前置证据 + \U0
   \ |\n| 多空两边｜ρ｜>0.7却称\"对冲\" | \U0001F7E1 yellow | 实际净敞口远大于预期 |\n| 数据口径混用未声明 | \U0001F7E1\
   \ yellow | 主力连续 vs 当月 vs 指数混用 |"
 version: '2.3'
-workbuddy_fields:
+agent_config:
   allowed_tools: []
   spawn_mode: general-purpose
   spawn_note: ''

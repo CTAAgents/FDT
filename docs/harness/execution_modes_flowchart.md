@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.5 | 2026-07-17 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式 | 闫判官(含交易参数)，新增 signal_output(CTP)
+> v4.6 | 2026-07-22 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源/读心) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式 | 闫判官(含交易参数)，新增 signal_output(CTP)
 
 ---
 
@@ -44,15 +44,16 @@
                       └────────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
-**三分析师（由闫判官判断调度）**
+**四分析师（由闫判官判断调度）**
 
 | 分析师 | 身份 | 职责 | 调度权 |
 |:------|:-----|:-----|:------|
 | 链证源 | 产业链分析师 | 做产业链事实描述 + 景气度分析（不下多空结论） | ❌ 无 |
 | 观澜 | 技术面研究员 | 技术面分析供弹 | ❌ 无 |
 | 探源 | 基本面研究员 | 基本面分析供弹 | ❌ 无 |
+| 读心 | 新闻情绪分析师 | 新闻情绪分析供弹（金十MCP + 网页爬虫） | ❌ 无 |
 
-> **三者为平级分析师**，仅分析方向不同（产业链 / 技术面 / 基本面），**彼此之间不存在调度与被调度关系**；调度权统一在闫判官，由明鉴秋执行 spawn。
+> **四者为平级分析师**，仅分析方向不同（产业链 / 技术面 / 基本面 / 新闻情绪），**彼此之间不存在调度与被调度关系**；调度权统一在闫判官，由明鉴秋执行 spawn。
 
 ---
 
@@ -112,7 +113,7 @@ python scripts/fdt_cli.py agent-lifecycle register \
 # 2) 等待产出就绪，生成 shutdown 计划
 python scripts/fdt_cli.py agent-lifecycle wait-and-shutdown --phase phase2
 
-# 3) 明鉴秋逐个发送 shutdown_request（WorkBuddy 聊天层）
+# 3) 明鉴秋逐个发送 shutdown_request（原聊天层）
 #    SendMessage(type='shutdown_request', recipient='tech_pb')
 #    SendMessage(type='shutdown_request', recipient='tech_sc')
 
@@ -244,7 +245,7 @@ python scripts/fdt_cli.py pipeline --mode finalize-only --workspace <dir>
 ┌───────────────────────────────────────┐
 │ build_debate_graph(mode)             │ ← 声明式图定义
 │  scan → judge_direction              │
-│        → Parallel(chain/tech/fund)   │ ← 按需并行
+│        → Parallel(chain/tech/fund/sentiment)   ← 四源按需并行
 │        → merge_research              │
 │        → debate? → verdict           │ ← 条件边路由
 │        → verdict(含交易参数) → risk_check   │
@@ -460,10 +461,11 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
                  └───────┬────────┘
                          │
               ┌──────────┴──────────────────┐
-              │  三分析师供弹（并行）         │
+              │  四分析师供弹（并行）         │
               │  链证源(产业链)             │
               │  观澜(技术面)              │
               │  探源(基本面)              │
+              │  读心(新闻情绪)             │
               └──────────┬──────────────────┘
                          │
                  ┌───────┴────────┐
@@ -488,7 +490,7 @@ python scripts/fdt_cli.py agent-lifecycle cleanup
 ### 直接辩论模式（跳过扫描）
 
 ```
-指定品种/产业链/全品种 → 闫判官判断调度 → 三分析师供弹 → 多头/空头辩论 → 终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
+指定品种/产业链/全品种 → 闫判官判断调度 → 四分析师供弹 → 多头/空头辩论 → 终裁(含交易参数) → 一致性 → 风控明审核 → 报告 → signal_output(CTP)
 ```
 
 ---
@@ -507,16 +509,19 @@ flowchart LR
 
     subgraph 闫判官驱动层
         OUT --> J0[闫判官判断调度<br/>judge_dispatch]
-        J0 --> |dispatch 产业链分析| CHAIN{链分析?}
+        J0 --> |dispatch 四源| CHAIN{链分析?}
         CHAIN -->|需要| CA[analyze_chain.py<br/>只分析指定链]
         CHAIN -->|不需要| SKIP_CHAIN[跳过链分析]
         CA --> CHAIN_OUT[p1_chain_analysis.json]
         CHAIN_OUT --> TI[观澜 Technical]
         CHAIN_OUT --> FU[探源 Fundamental]
+        CHAIN_OUT --> SE[读心 Sentiment]
         SKIP_CHAIN --> TI
         SKIP_CHAIN --> FU
+        SKIP_CHAIN --> SE
         TI --> P3[多头+空头 Debate]
         FU --> P3
+        SE --> P3
         P3 --> J4[闫判官终裁<br/>Judge Final]
         J0 -.->|读取指令| J4
         J4 --> CO[一致性裁判]

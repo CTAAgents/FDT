@@ -595,7 +595,7 @@ def run_scan(
         _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         if _root not in _sys.path:
             _sys.path.insert(0, _root)
-        from scripts.fingerprint import generate_fingerprint
+        from scripts.core.fingerprint import generate_fingerprint
 
         _fp = generate_fingerprint(
             strategy_params={
@@ -1670,7 +1670,7 @@ if __name__ == "__main__":
 
     OUT = _normalize_path(args.output) if args.output else None
     if not OUT:
-        workspace = os.path.expanduser("~/Documents/WorkBuddy")
+        workspace = os.path.expanduser("~/logs")
         OUT = os.path.join(workspace, "Commodities", "Reports", "商品期货深度分析", date.today().strftime("%Y-%m-%d"))
 
     run_scan(

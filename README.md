@@ -18,7 +18,7 @@
 - **CTP 信号输出** — 闫判官裁决→风控明审核→明鉴秋统一调度 CTP 交易指令
 - **PostgreSQL OLTP+OLAP** — 分区表 + BRIN/GIN 索引 + 物化视图分析
 - **LangGraph 架构** — 可配置并行数据源、条件路由、状态持久化、断点恢复
-- **独立运行** — 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
+- **独立运行** — 去平台依赖，支持 CLI/FastAPI 独立入口
 - **FDC 数据注入 (P2.5)** — 预采集所有选中品种的结构化数据（K线/指标/期限结构/基差/仓单/基本面/持仓排名）供子 Agent 使用
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据（8 工具：行情/K线/快讯/资讯/财经日历），作为实时分析素材
 - **新闻情绪分析因子** — 读心 Agent（第四分析因子），P3 阶段与链证源/观澜/探源并行，输出结构化 SentimentStateVector
@@ -427,4 +427,4 @@ python scripts/run_benchmark.py --compare
 | v8.3.0 | LangGraph 架构支持、独立 CLI/FastAPI 入口 |
 | v8.2.0 | PostgreSQL OLTP+OLAP 混合存储 |
 | v8.1.8 | NO_FUSION 策略管线 |
-| v8.0.0 | 去 WorkBuddy 依赖 |
+| v8.0.0 | 去平台依赖，独立运行 |

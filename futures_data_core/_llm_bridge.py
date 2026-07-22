@@ -6,7 +6,7 @@
     - LLM 调用失败时静默降级（返回 ``None`` + 警告），不抛异常。
 
 运行模式：``search_fundamental_llm`` 等属于 ``[LLM-DRIVEN]``，
-必须在支持 WebSearch 的 LLM 上下文（如 WorkBuddy）中执行；
+必须在支持 WebSearch 的 LLM 上下文（如 LLM 平台）中执行；
 独立 Python 环境调用将返回 ``None`` 或抛出 :class:`LlmContextNotAvailableError`。
 """
 
@@ -39,7 +39,7 @@ def assert_llm_context(func_name: str) -> None:
     """
     if not _has_websearch():
         raise LlmContextNotAvailableError(
-            f"{func_name} 需要在支持 WebSearch 的 LLM 上下文（如 WorkBuddy）中执行。"
+            f"{func_name} 需要在支持 WebSearch 的 LLM 上下文（如 LLM 平台）中执行。"
         )
 
 
@@ -62,7 +62,7 @@ async def llm_websearch(query: str) -> "str | None":
         )
         return None
     # 实际的 WebSearch 调用由 LLM 桥接层注入；此处为占位实现。
-    # 在 WorkBuddy 环境中会被替换为真实实现。
+    # 在 LLM 环境中会被替换为真实实现。
     return None
 
 

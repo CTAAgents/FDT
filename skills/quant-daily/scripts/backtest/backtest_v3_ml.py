@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore")
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PARENT_DIR = os.path.dirname(SKILL_DIR)
 if not os.path.isdir(PARENT_DIR):
-    PARENT_DIR = os.path.join(os.path.expanduser("~"), ".workbuddy", "skills")
+    PARENT_DIR = os.path.join(os.path.expanduser("~"), ".skills", "skills")
     SKILL_DIR = os.path.join(PARENT_DIR, "quant-daily", "scripts")
 for p in [SKILL_DIR]:
     if p not in sys.path:

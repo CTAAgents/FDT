@@ -1,7 +1,7 @@
 """检查 DuckDB 中 huishang 相关表的数据"""
 import duckdb, os, sys
 
-db = os.path.expanduser("~/.workbuddy/futures_data.duckdb")
+db = os.path.expanduser("~/.skills/futures_data.duckdb")
 if not os.path.exists(db):
     print(f"DB not found at {db}")
     sys.exit(1)

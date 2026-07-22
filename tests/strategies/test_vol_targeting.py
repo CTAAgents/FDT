@@ -11,6 +11,9 @@ import pytest
 _SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
 if _SCRIPTS not in sys.path:
     sys.path.insert(0, _SCRIPTS)
+# 确保 skills config 优先于根目录 config（根目录不是包，无 __init__.py）
+if "config" in sys.modules:
+    del sys.modules["config"]
 
 
 from strategies.base_v2 import BaseStrategyV2, RawSignal, ScoredSignal

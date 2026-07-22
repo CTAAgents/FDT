@@ -245,7 +245,7 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
     # 通过 futures-data-search 的 MultiSourceAdapter 获取 DuckDB 路径
     db_path = None
     try:
-        fds_dir = os.path.expanduser("~/.workbuddy/skills/futures-data-search")
+        fds_dir = os.path.expanduser("~/.skills/skills/futures-data-search")
         if fds_dir not in sys.path:
             sys.path.insert(0, fds_dir)
         from scripts.multi_source_adapter import MultiSourceAdapter

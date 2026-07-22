@@ -9,7 +9,7 @@
 ## 完成内容
 
 ### 1. 创建独立技能目录
-- **技能路径**: `~/.workbuddy/skills/futures-trading-analysis/`
+- **技能路径**: `~/.skills/skills/futures-trading-analysis/`
 - **目录结构**:
   ```
   futures-trading-analysis/
@@ -118,7 +118,7 @@
 
 ## 文件交付
 
-1. **技能目录**: `~/.workbuddy/skills/futures-trading-analysis/`
+1. **技能目录**: `~/.skills/skills/futures-trading-analysis/`
 2. **技能介绍文档**: `deliverables/futures-trading-analysis-skill.md`
 3. **总结文档**: `deliverables/futures-trading-analysis-skill-summary.md`
 

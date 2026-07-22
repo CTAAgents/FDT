@@ -95,7 +95,7 @@ class ComplianceAgent:
         self.audit_logs = []
         self.violations = []
         if log_dir is None:
-            log_dir = Path(os.path.expanduser("~/Documents/WorkBuddy/Compliance"))
+            log_dir = Path(os.path.expanduser("~/Documents/FDT/Compliance"))
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 

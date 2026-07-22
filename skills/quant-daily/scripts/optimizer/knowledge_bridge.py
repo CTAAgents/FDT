@@ -12,7 +12,7 @@
 
 import os, re, json
 
-KNOWLEDGE_DIR = os.path.expanduser("~/.workbuddy/Knowledge")
+KNOWLEDGE_DIR = os.path.expanduser("~/.skills/Knowledge")
 METHOD_DIR = os.path.join(KNOWLEDGE_DIR, "method")
 
 

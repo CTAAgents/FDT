@@ -4,6 +4,9 @@ import pytest
 
 FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(FDT_ROOT, "skills", "quant-daily", "scripts"))
+# 确保 skills config 优先于根目录 config（根目录不是包，无 __init__.py）
+if "config" in sys.modules:
+    del sys.modules["config"]
 
 from strategies.registry_v2 import get_pipeline, register_v2
 from strategies.trend_following_strategy import TrendFollowingStrategy

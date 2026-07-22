@@ -1491,13 +1491,13 @@ def _build_debate_context(state: DebateState) -> str:
         if chain and isinstance(chain, dict) and len(str(chain)) > 50:
             lines.append(f"[chain:\u94fe\u8bc1\u6e90] {str(chain)[:200]}")
 
-        # \u65b0\u95fb\u60c5\u7eea\uff08\u60c5\u7eea\u5316\uff09
+        # \u65b0\u95fb\u60c5\u7eea\uff08\u8bfb\u5fc3\uff09
         sent = research.get("sentiment_data", {}) or {}
         if sent and isinstance(sent, dict):
             sent_raw = sent.get("raw", {})
             sent_output = sent_raw.get("output", "") if isinstance(sent_raw, dict) else ""
             if sent_output:
-                lines.append(f"[sentiment:\u60c5\u7eea\u5316] {sent_output[:200]}")
+                lines.append(f"[sentiment:\u8bfb\u5fc3] {sent_output[:200]}")
 
     return "\n".join(lines)
 

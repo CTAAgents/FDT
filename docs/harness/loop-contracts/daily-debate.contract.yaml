@@ -122,7 +122,7 @@ action:
 
     - step: P3_parallel_sources
       name: 按需并行数据源
-      description: 链证源/观澜/探源按需并行执行
+      description: 链证源/观澜/探源/读心按需并行执行
       timeout: 480s  # max(被调度的源)
       failure_strategy: partial_failure  # 单源失败不影响其他源
       parallel: true
@@ -142,6 +142,11 @@ action:
           condition: 闫判官调度
           timeout: 420s
           output: pg.fundamental_scores
+        - step: P3d_duxin
+          name: 读心新闻情绪分析
+          condition: 闫判官调度
+          timeout: 300s
+          output: pg.sentiment_data
 
     - step: P3d_merge_research
       name: 合并分析结果
@@ -247,7 +252,7 @@ budget:
   per_step_budget:
     P1_scan: 600s / 50000 tokens
     P2_judge_dispatch: 420s / 30000 tokens
-    P3_parallel_sources: 480s / 80000 tokens  # 四源并行
+    P3_parallel_sources: 480s / 80000 tokens  # 四源并行（链/技/基/情）
     P4_debate: 2520s / 200000 tokens  # 六阶段串行
     P5_verdict_chain: 840s / 60000 tokens
     P6_report: 120s / 10000 tokens

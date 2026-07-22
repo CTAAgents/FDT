@@ -250,7 +250,7 @@ class DebateRecordTrigger(DataTrigger):
 def get_default_triggers() -> list:
     """返回默认触发器列表"""
     return [
-        # 1. 日常辩论：工作日19:15 → 已迁移到 WorkBuddy Automation
+        # 1. 日常辩论：工作日19:15 → 已迁移到外部调度（WB cron）
         # （由 WB cron 触发，不再依赖守护进程调度器）
         # TimeTrigger(
         #     task_name="daily_debate",

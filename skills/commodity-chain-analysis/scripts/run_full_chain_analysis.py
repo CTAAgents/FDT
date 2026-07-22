@@ -26,7 +26,7 @@ from chains import (
 HOME = os.path.expanduser("~")
 DATE_STR = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
 DATE_COMPACT = DATE_STR.replace("-", "")
-DATADIR = os.path.join(HOME, "Documents", "WorkBuddy", "Commodities", "Reports", "商品期货深度分析", DATE_STR)
+DATADIR = os.path.join(HOME, "logs", "Commodities", "Reports", "商品期货深度分析", DATE_STR)
 
 
 def _find_file(pattern):

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 辩论反馈中央路由器 v1.0 — 多Agent辩论系统的自我进化引擎
@@ -35,8 +35,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORKSPACE_DIR = os.path.join(os.path.expanduser("~"), "Documents", "WorkBuddy")
-FEEDBACK_DIR = os.path.join(WORKSPACE_DIR, ".workbuddy", "feedback")
+WORKSPACE_DIR = os.path.join(os.path.expanduser("~"), "logs")
+FEEDBACK_DIR = os.path.join(WORKSPACE_DIR, "feedback")
 FEEDBACK_LOG = os.path.join(FEEDBACK_DIR, "debate_feedback.jsonl")
 LESSONS_FILE = os.path.join(FEEDBACK_DIR, "lessons_learned.json")
 PROMPT_INJECTION_FILE = os.path.join(FEEDBACK_DIR, "agent_prompt_injection.md")
@@ -90,19 +90,19 @@ ROUTING_TABLE = {
     "data": {
         "skill": "futures-data-search",
         "module": "scripts/data_feedback.py",
-        "skill_dir": "~/.workbuddy/skills/futures-data-search",
+        "skill_dir": "~/.skills/skills/futures-data-search",
         "auto_fix": True,
     },
     "indicator": {
         "skill": "technical-indicator-calc",
         "module": "scripts/indicator_feedback.py",
-        "skill_dir": "~/.workbuddy/skills/technical-indicator-calc",
+        "skill_dir": "~/.skills/skills/technical-indicator-calc",
         "auto_fix": True,
     },
     "chain": {
         "skill": "commodity-chain-analysis",
         "module": "scripts/chain_feedback.py",
-        "skill_dir": "~/.workbuddy/skills/commodity-chain-analysis",
+        "skill_dir": "~/.skills/skills/commodity-chain-analysis",
         "auto_fix": True,
     },
     "debate": {
@@ -480,7 +480,7 @@ def inject_lessons_to_prompt(base_prompt: str) -> str:
 def write_prompt_injection_file():
     """
     将经验注入段写入文件，供自动化协调器读取。
-    输出: .workbuddy/feedback/agent_prompt_injection.md
+    输出: feedback/agent_prompt_injection.md
     """
     injection = get_known_issues_for_prompt()
     os.makedirs(FEEDBACK_DIR, exist_ok=True)

@@ -405,10 +405,10 @@ subagent_type: "general-purpose"
 
 ```bash
 # full_scan 模式
-python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录>
+python skills/quant-daily/scripts/scan_all.py -o <输出目录>
 
 # custom 模式（指定品种）
-python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> --symbols PK,RB,B,UR
+python skills/quant-daily/scripts/scan_all.py -o <输出目录> --symbols PK,RB,B,UR
 ```
 
 `scan_all.py` 完成：数据采集 + 三类信号计算（breakout/pullback/gap）。
@@ -416,7 +416,7 @@ python ~/.workbuddy/skills/quant-daily/scripts/scan_all.py -o <输出目录> --s
 **回退**：如果 `scan_all.py` 因模块导入问题失败，直接通过 Python 调用 `run_scan()` 函数：
 
 ```python
-sys.path.insert(0, "~/.workbuddy/skills/quant-daily/scripts")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "skills", "quant-daily", "scripts"))
 from scan_all import run_scan
 from config.symbols import ALL_SYMBOLS
 
@@ -641,8 +641,8 @@ state["chain"] = parse_and_migrate(results.get("链证源"), "chain")
    }
    ```
 
-2. 运行 `python ~/.workbuddy/skills/futures-trading-analysis/scripts/phase3_generate_report.py --debate {YYYY-MM-DD}/debate_results.json --workspace {YYYY-MM-DD}`
-3. 运行 `python ~/.workbuddy/skills/futures-trading-analysis/scripts/debate_feedback.py inject`
+2. 运行 `python skills/futures-trading-analysis/scripts/phase3_generate_report.py --debate {YYYY-MM-DD}/debate_results.json --workspace {YYYY-MM-DD}`
+3. 运行 `python skills/futures-trading-analysis/scripts/debate_feedback.py inject`
 4. SendMessage(recipient="main", content="报告路径 + ≤200字摘要")
 
 ---

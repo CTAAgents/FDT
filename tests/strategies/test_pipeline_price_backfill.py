@@ -5,7 +5,19 @@ G44 根因：各策略 score() 未必透传 price，导致 ranking 中 price 恒
 技术位距离测算缺基准。修复：pipeline Phase 4.7 从 tech_list 按 symbol 取
 price/last_price 统一注入 ScoredSignal.price。
 """
+import sys
+from pathlib import Path
+
 import pytest
+
+# 确保 scripts/ 在 sys.path
+_SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
+if _SCRIPTS not in sys.path:
+    sys.path.insert(0, _SCRIPTS)
+# 确保 skills config 优先于根目录 config（根目录不是包，无 __init__.py）
+if "config" in sys.modules:
+    del sys.modules["config"]
+
 from strategies.base_v2 import BaseStrategyV2, ScoredSignal
 from strategies.pipeline import StrategyPipeline
 
