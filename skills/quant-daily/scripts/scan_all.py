@@ -347,7 +347,7 @@ def _calc_volume_ma20(kline: list) -> float:
     if not kline or len(kline) < 2:
         return 0
     recent = kline[-21:-1] if len(kline) > 20 else kline
-    volumes = [b.get("volume", 0) for b in recent if b.get("volume", 0) > 0]
+    volumes = [b.get("volume", 0) for b in recent if isinstance(b, dict) and b.get("volume", 0) > 0]
     return sum(volumes[-20:]) / min(len(volumes[-20:]), 20) if volumes else 0
 
 

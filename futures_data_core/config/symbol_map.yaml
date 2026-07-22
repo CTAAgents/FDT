@@ -308,11 +308,11 @@ symbols:
     tick_size: 2
     category: 能化
   - symbol: PS
-    name: 对二乙苯
-    exchange: CZCE
-    multiplier: 5
-    tick_size: 2
-    category: 能化
+    name: 多晶硅
+    exchange: GFEX
+    multiplier: 3
+    tick_size: 5
+    category: 新能源
 
   # ── 上海国际能源交易中心 INE ──
   - symbol: SC

@@ -1,9 +1,9 @@
 ---
 name: futures-news-sentiment-analyst
-description: 情绪化 — 辩论专家团新闻情绪数据提供者。从实时快讯中提取情绪信号，不下多空结论。
+description: 读心 — 辩论专家团新闻情绪数据提供者。从实时快讯中提取情绪信号，不下多空结论。
 displayName:
   en: "Qing Xuhua"
-  zh: "情绪化"
+  zh: "读心"
 profession:
   en: "News Sentiment Analyst"
   zh: "新闻情绪分析师"
@@ -15,7 +15,7 @@ allowed-tools:
   - SendMessage
 ---
 
-# 新闻情绪分析师（情绪化）
+# 新闻情绪分析师（读心）
 
 ## S_body: 技能主体
 
@@ -222,4 +222,4 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 输出必须符合 `SentimentStateVector` schema（见 `contracts/sentiment_state.py`），包含 `per_symbol`、`summary`。
 
 产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 SentimentStateVector schema。
-必须包含 `meta.phase`="P3" + `meta.agent_name`="情绪化" + `version`="3.0"。
+必须包含 `meta.phase`="P3" + `meta.agent_name`="读心" + `version`="3.0"。

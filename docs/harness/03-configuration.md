@@ -18,6 +18,7 @@
 | 文件 | 路径 | 用途 |
 |:-----|:-----|:-----|
 | `varieties.yaml` | `skills/quant-daily/scripts/references/` | 62 个期货品种定义 |
+| `symbol_map.yaml` | `futures_data_core/config/` | 品种映射定义（含交易所/合约乘数/最小变动价位/分类） |
 | `overseas_varieties.yaml` | `skills/quant-daily/scripts/references/` | 海外品种定义 |
 | `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (DataCore→TDX→WebFallback→QMT→TqSDK) |
 | `datatech.yaml` | `config/agents/datatech.yaml` | 数技源角色定义 + P1角色矫正(v9.6.8) stats产出规范 |

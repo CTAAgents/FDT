@@ -575,3 +575,19 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 | tests/experience/test_recorder.py | 17 | Schema 验证 + 记录写入 + 索引更新 + 幂等保护 |
 | tests/experience/test_distiller.py | 13 | 聚类 + 差异提取 + 置信度 + 安全阀 + 端到端 |
 | tests/experience/test_adapter.py | 10+ | 检索 + 合并 + 边界检查（Phase C） |
+
+
+### `single_symbol_report.py` 测试需求（v9.6.9+ 新增）
+
+| 测试项 | 优先级 | 说明 |
+|:-------|:-------|:-----|
+| `_fmt()` 浮点数截断 | P1 | 验证各种数量级浮点数的格式化（>10000, >100, <100, None, 异常输入） |
+| `_extract_agent_output()` 辩论论据提取 | P1 | 验证从 reducer list 中正确提取指定 Agent 标签内容 |
+| `_extract_args_from_list()` 六阶段论据提取 | P1 | 验证 bull_v1/bear_v1/rebut/final 各阶段正确提取 |
+| `generate()` 完整报告生成 | P1 | Mock state 数据，验证 HTML 输出包含所有预期章节 |
+| P1/P2 跳过逻辑 | P2 | 验证 stats 为空时 P1 隐藏，judge_direction 为 neutral 时 P2 隐藏 |
+| 风控阻断原因展示 | P2 | 验证 risk_check 从 state 根和 signal_output 子字段双重提取 |
+| 报告头重复检测 | P2 | 验证 `_render_html` header 与自定义 header 不重复 |
+
+**目标**：新增 `tests/langgraph/test_single_symbol_report.py`，覆盖上述 7 项，目标覆盖率 ≥80%。
+

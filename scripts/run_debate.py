@@ -47,11 +47,12 @@ try:
     from scripts.llm.cache import DebateCache
 except Exception:
     TokenBudget = DebateCache = BudgetExceeded = None
-    try:
-        from scripts.run_reporter import RunReporter
-        from scripts.logutil import setup_logging, get_logger
-    except Exception:
-        RunReporter = setup_logging = get_logger = None
+
+try:
+    from scripts.run_reporter import RunReporter
+    from scripts.logutil import setup_logging, get_logger
+except Exception:
+    RunReporter = setup_logging = get_logger = None
 
 try:
     from scripts.agent_output import make_write_code
@@ -1305,10 +1306,10 @@ def main() -> None:
         args.workspace = _to_win_path(args.workspace)
     if getattr(args, 'scan', None):
         args.scan = _to_win_path(args.scan)
-    ws = Path(args.workspace)
 
     # extract/report/validate/a2a 不需要 scan 文件
     if args.cmd in ("extract", "report", "validate", "a2a"):
+        ws = Path(args.workspace)
         if args.cmd == "extract":
             run_extract(str(ws))
         elif args.cmd == "report":
@@ -1360,6 +1361,7 @@ def main() -> None:
         return
 
     # plan/assemble/finalize 需要 scan 文件
+    ws = Path(args.workspace)
     with open(args.scan, encoding="utf-8") as f:
         scan = json.load(f)
     threshold = load_debate_threshold()

@@ -3,7 +3,7 @@
 测试级别：
   - 单元测试：MCP 客户端初始化 / 采集器可用检测
   - 集成测试：使用真实 token 调用 list_flash / search_flash 等（需设置 JIN10_MCP_TOKEN
-  - 情绪分析测试：情绪化 Agent 相关功能
+  - 情绪分析测试：读心 Agent 相关功能
 """
 
 from __future__ import annotations
@@ -248,7 +248,7 @@ class TestBuildJin10Context:
 
 
 # ════════════════════════════════════════════════════════════
-# 新闻情绪分析（情绪化）测试
+# 新闻情绪分析（读心）测试
 # ════════════════════════════════════════════════════════════
 
 class TestSentimentAnalyst:
@@ -314,7 +314,7 @@ class TestSentimentAnalyst:
         sources = _build_data_sources(state)
         sent_sources = [s for s in sources if s["source"] == "sentiment"]
         assert len(sent_sources) == 1
-        assert sent_sources[0]["agent"] == "情绪化"
+        assert sent_sources[0]["agent"] == "读心"
 
     def test_debate_context_includes_sentiment(self):
         """验证 _build_debate_context 包含情绪区块。"""
@@ -331,7 +331,7 @@ class TestSentimentAnalyst:
         state["scan_results"] = {"all_ranked": []}
 
         context = _build_debate_context(state)
-        assert "[sentiment:情绪化]" in context
+        assert "[sentiment:读心]" in context
         assert "RB情绪偏空" in context
 
     @pytest.mark.asyncio
@@ -365,13 +365,13 @@ class TestSentimentAnalyst:
         assert result["sentiment_data"]["raw"]["output"] == "mock情绪分析结果"
 
     def test_agent_md_exists(self):
-        """验证情绪化 Agent MD 文件存在。"""
+        """验证读心 Agent MD 文件存在。"""
         from pathlib import Path
 
         md_path = Path(__file__).parent.parent.parent / "agents" / "futures-news-sentiment-analyst.md"
-        assert md_path.exists(), "情绪化 Agent MD 文件不存在"
+        assert md_path.exists(), "读心 Agent MD 文件不存在"
         content = md_path.read_text(encoding="utf-8")
-        assert "情绪化" in content
+        assert "读心" in content
         assert "SentimentStateVector" in content
 
     def test_sentiment_node_registered_in_graph(self):

@@ -32,7 +32,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 | **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器)、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
-| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源 | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`（Checkpointer 逻辑在 graph.py 内联） |
+| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层分流（单品种/全量扫描） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（单品种精简报告生成器，v9.6.9+） |
 | **L5 可观测性** | 质量度量、诊断、改进 | `apm_scorecard.py`, `cluster_failures.py`, `run_benchmark.py`, `self_improve.py`, LangGraph `get_state_history()` |
 
 ### L4 LangGraph 层详细说明
@@ -123,9 +123,10 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │ DebateState                   │  │ ← 统一状态管理
                     │  │ • trace_id                    │  │
                     │  │ • scan_results                │  │
-                    │  │ • chain_analysis              │  │
+                    │  │ • chain_analysis (链证源)     │  │
                     │  │ • technical_data (观澜)       │  │
                     │  │ • fundamental_data (探源)     │  │
+                    │  │ • sentiment_data (读心)     │  │
                     │  │ • bullish_arguments           │  │
                     │  │ • bearish_arguments           │  │
                     │  │ • verdict / trading_plan      │  │
@@ -144,8 +145,8 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │       │                       │  │
                     │  │  ┌────┴────┬────────┬──────┐  │  │
                     │  │  ▼         ▼        ▼      │  │  │
-                    │  │ [chain:链证源] [technical:观澜]   [fundamental:探源]    │  │  │ ← 并行数据源
-                    │  │  产业链  技术面   基本面     │  │  │
+                    │  │ [chain:链证源] [technical:观澜] [fundamental:探源] [sentiment:读心] │  │  │ ← 并行数据源
+                    │  │  产业链   技术面   基本面   新闻情绪    │  │  │
                     │  │       └────┬────────┘      │  │  │
                     │  │            ▼               │  │  │
                     │  │  [merge_research] 合并节点  │  │  │
@@ -173,6 +174,24 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │   • 返回结构化输出                   │
                     └─────────────────────────────────────┘
 ```
+
+
+### 报告层分流架构（v9.6.9+）
+
+`node_report` 根据 `selected_symbols` 数量自动选择报告生成路径：
+
+| 模式 | 条件 | 生成器 | 说明 |
+|:-----|:-----|:-------|:-----|
+| **单品种报告** | `len(selected_symbols) == 1` | `single_symbol_report.generate()` | 按 FDT 实际流程（P1→P3→P4→P5）组织，跳过无效 P1/P2，从辩论论据回退提取 Agent 输出 |
+| **全量扫描报告** | `len(selected_symbols) != 1` | `phase3_generate_report.py` | 多品种对比矩阵，产业链组分析，Top-N 排序 |
+
+单品种报告特点：
+- 浮点数截断到合理精度（价格2位，百分比1位，指标1-2位）
+- P1 仅在 `stats` 或 `indicators` 非空时显示
+- P2 仅在 `judge_direction` 有实质内容时显示
+- P3 从 `research_data` 提取，失败时从辩论论据回退
+- P5 风控阻断原因从 `signal_output.risk_check` 提取，fallback 到 `signal_output.message`
+- 交易参数卡片式展示，盈亏比颜色编码（≥2绿/≥1黄/<1红）
 
 ## 3. 数据流总览
 
@@ -204,7 +223,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
     │
     ▼
-[P3] 链证源+观澜+探源+情绪化 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json + p3_sentiment_{sym}.json
+[P3] 链证源+观澜+探源+读心 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json + p3_sentiment_{sym}.json
     │                    ← 四源平行关系，无先后次序
     ▼
 [P4] 六阶段攻防 (串行) ──→ state.bullish_arguments + bearish_arguments + bearish_rebuttal + bullish_rebuttal + bear_final + bull_final
@@ -222,7 +241,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 > **与 LangGraph 模式的关键差异**:
 > - **状态传递**: 文件传递 vs DebateState 内存传递
 > - **调度方式**: 串行文件轮询 vs LangGraph 条件边动态路由
-> - **并行粒度**: P3 四源并行（链证源/观澜/探源/情绪化）+ P4 两源并行 vs 全图并行调度
+> - **并行粒度**: P3 四源并行（链证源/观澜/探源/读心）+ P4 两源并行 vs 全图并行调度
 > - **持久化**: JSON 文件 vs PostgreSQL (OLTP+OLAP)
 > - **入口**: WorkBuddy 平台 vs 独立 CLI/FastAPI
 
@@ -253,13 +272,13 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │  ┌──────────────────────────────────────┐
     │  │      按需并行数据源 (Parallel)        │
     │  │                                      │
-    │  │   ┌──────────┬──────────┬────────┐  │
-    │  │   ▼          ▼          ▼        │  │
-    │  │ [chain:链证源]   [technical:观澜]     [fundamental:探源]     │  │ ← 仅调度需要的源
-    │  │ 产业链     技术面     基本面      │  │
-    │  │ (按需)     (按需)     (按需)      │  │
-    │  │   │         │          │         │  │
-    │  │   └─────────┴──────────┘         │  │
+    │  │   ┌──────────┬──────────┬────────┬──────────┐  │
+    │  │   ▼          ▼          ▼        ▼          │  │
+    │  │ [chain:链证源]   [technical:观澜]     [fundamental:探源]     [sentiment:读心]  │  │ ← 仅调度需要的源
+    │  │ 产业链     技术面     基本面      新闻情绪     │  │
+    │  │ (按需)     (按需)     (按需)      (按需)      │  │
+    │  │   │         │          │         │           │  │
+    │  │   └─────────┴──────────┴─────────┘           │  │
     │  │              │                     │  │
     │  │              ▼                     │  │
     │  │  [merge_research] 合并分析结果     │  │
@@ -273,6 +292,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
     │  │ • chain_analysis (产业链·按需)       │
     │  │ • technical_scores (技术面·按需)     │
     │  │ • fundamental_scores (基本面·按需)   │
+    │  │ • sentiment_scores (新闻情绪·按需)   │
     │  └──────────────────────────────────────┘
     │       │
     │       ▼
@@ -318,6 +338,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 链证源分析 | `Commodities/Reports/.../{date}/` | `pg.chain_analysis` | PostgreSQL | `node_chain` | OLTP |
 | 观澜技术面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.technical_scores` | PostgreSQL | `node_technical` | OLTP |
 | 探源基本面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.fundamental_scores` | PostgreSQL | `node_fundamental` | OLTP |
+| 读心新闻情绪 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.sentiment_scores` | PostgreSQL | `node_sentiment` | OLTP |
 | 扫描阶段报告 | `{workspace}/{date}/scan_report_{trace_id}.html` | `pg.scan_signals` | HTML+JSON | `node_scan` (嵌入) | 文件+OLTP |
 | 研究阶段报告 | `{workspace}/{date}/research_report_{trace_id}.html` | - | HTML | `node_merge_research` | 文件 |
 | 裁决阶段报告 | `{workspace}/{date}/verdict_report_{trace_id}.html` | `pg.debate_verdicts` | HTML+JSON | `node_verdict` (嵌入) | 文件+OLTP |
@@ -462,11 +483,11 @@ class HookManager:
    [信号检查闸门]         │       ┌──────────────────────────┐
           │               │       │     P3 并行数据源         │
           └───────┬───────┘       │                           │
-                  │               │  ┌─────────┬──────────┐   │
-                  │               │  ▼         ▼          ▼   │
-                  │               │ │链证源   │ 观澜     │探源│
-                  │               │ │产业链   │ 技术面   │基本面│
-                  │               │ └─────────┴──────────┘   │
+                  │               │  ┌─────────┬──────────┬──────────┐   │
+                  │               │  ▼         ▼          ▼          ▼   │
+                  │               │ │链证源   │ 观澜     │探源      │读心│
+                  │               │ │产业链   │ 技术面   │基本面    │新闻情绪│
+                  │               │ └─────────┴──────────┴──────────┘   │
                   │               │       ← 平行关系，无先后  │
                   │               │            │              │
                   │               └────────────┼──────────────┘
@@ -488,7 +509,7 @@ class HookManager:
 > **当前模式关键特征**:
 > - P1: 可插拔多策略并行扫描（trend_following + mean_reversion + 自定义插件）
 > - P2: 闫判官兼具方向决策和数据源调度权
-> - P3: 链证源/观澜/探源/情绪化四源并行，平行关系无先后次序
+> - P3: 链证源/观澜/探源/读心四源并行，平行关系无先后次序
 > - P4: 证真+慎思并行辩论
 > - P5: 裁决链串行执行（闫判官含交易参数→风控明）
 > - 通信方式: 文件传递 + S04 轮询
@@ -524,13 +545,13 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
                     │  │  [prepare_data] 数据准备                       │   │
                     │  │       │                                       │   │
                     │  │       ▼ (按需并行调度)                         │   │
-                    │  │  ┌─────────┬──────────┬──────────┐           │   │
+                    │  │  ┌─────────┬──────────┬──────────┬──────────┐           │   │
                     │  │  ▼         ▼          ▼          ▼           │   │
-                    │  │ [chain:链证源]  [technical:观澜]     [fundamental:探源]                  │   │
-                    │  │ 产业链   技术面     基本面                    │   │
-                    │  │ (按需)   (按需)     (按需)                    │   │
-                    │  │       │         │              │              │   │
-                    │  │       └─────────┴──────────────┘              │   │
+                    │  │ [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:读心]  │   │
+                    │  │ 产业链   技术面     基本面      新闻情绪       │   │
+                    │  │ (按需)   (按需)     (按需)      (按需)       │   │
+                    │  │       │         │              │         │   │   │
+                    │  │       └─────────┴──────────────┴─────────┘   │   │
                     │  │                 │                              │   │
                     │  │                 ▼                              │   │
                     │  │  [merge_research] ──→ 合并各源分析结果        │   │
@@ -556,7 +577,7 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
                     │  │  prepare_data (数据准备)                      │   │
                     │  │              │                                │   │
                     │  │              ▼ (按需并行调度四源)              │   │
-                    │  │  ParallelMap(链证源,观澜,探源,情绪化)          │   │
+                    │  │  ParallelMap(链证源,观澜,探源,读心)          │   │
                     │  │              │                                │   │
                     │  │              ▼                                │   │
                     │  │  merge_research ──→ debate                    │   │
@@ -624,7 +645,7 @@ FDT 支持两种执行模式，通过环境变量控制：
     │              │
     │       ┌──────┴──────┬─────────────┬──────────────────┐
     │       ▼             ▼             ▼                  ▼
-    │   [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:情绪化]  ← 按需并行（仅调度需要的源）
+    │   [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:读心]  ← 按需并行（仅调度需要的源）
     │   产业链       技术面        基本面        新闻情绪
     │       │         │             │                  │
     │       └─────────┴─────────────┴──────────────────┘
@@ -833,11 +854,11 @@ Agent LLM 输出
 数据流：daily-debate (post_loop) → Et → self-evolve (pipeline) → Gt → daily-debate (pre_loop) → W(x_j)
 
 
-## 7. 未来扩展：新闻情绪分析因子
+## 7. 已实现：读心（新闻情绪分析因子）
 
 ### 7.1 定位
 
-新闻情绪分析师作为与**链证源（产业链）**、**观澜（技术面）**、**探源（基本面）** 平级的**第四分析因子**，在 P3 阶段并行运行，输出结构化新闻情绪状态向量。
+读心（新闻情绪分析师）作为与**链证源（产业链）**、**观澜（技术面）**、**探源（基本面）** 平级的**第四分析因子**，在 P3 阶段并行运行，输出结构化新闻情绪状态向量。
 
 ### 7.2 架构示意
 
@@ -850,7 +871,7 @@ Agent LLM 输出
                         │                            │
                         ▼                            ▼
      P3: ┌──────┬──────┬──────┬──────┐
-          │链证源 │ 观澜 │ 探源 │ 情绪 │  ← 四源并行
+          │链证源 │ 观澜 │ 探源 │ 读心 │  ← 四源并行
           └──┬───┴──┬───┴──┬───┴──┬───┘
              │      │      │      │
              ▼      ▼      ▼      ▼
@@ -860,7 +881,7 @@ Agent LLM 输出
                        ▼
                  P4-P6 辩手引用
                        ▼
-                 P7 闫判官裁决
+                 P5 闫判官裁决
                  （四维加权评分）
 ```
 
@@ -868,7 +889,7 @@ Agent LLM 输出
 
 - **金十 MCP 快讯**（`search_flash` / `list_flash`）— 事件驱动型实时快讯，主源
 - **金十 MCP 资讯**（`search_news` / `get_news`）— 深度分析文章
-- **WebSearch / WebFetch** — 情绪 Agent 自主采集补充（行业网站、新闻门户、政策原文等），用于交叉验证和深度事件分析
+- **WebSearch / WebFetch** — 读心 Agent 自主采集补充（行业网站、新闻门户、政策原文等），用于交叉验证和深度事件分析
 - **数据加工流程**：
 
 ```
@@ -881,13 +902,13 @@ WebSearch（自主补充）
         └──→ 来源标记 [sentiment:jin10] / [sentiment:web]
                 │
                 ▼
-        情绪 Agent 加工标注
+        读心 Agent 加工标注
                 │
                 ▼
         SentimentStateVector（结构化输出）
 ```
 
-### 7.4 预期输出契约（NewsSentimentVector）
+### 7.4 输出契约（NewsSentimentVector）
 
 ```python
 @dataclass
@@ -905,7 +926,13 @@ class NewsSentimentVector:
 ### 7.5 数据流说明
 
 - **金十原始快讯**同时流入两条通道，互不干扰：
-  - **精选通道**（Phase 1）：精选 → 探源 context → 分析师定性参考
-  - **情绪通道**（Phase 2）：全量 → 情绪 Agent 加工 → 结构化情绪向量 → 独立因子
-- 探源和情绪 Agent 可引用**同一批金十数据**的不同侧面
+  - **精选通道**（Phase 1 已落地）：精选 → 探源 context → 分析师定性参考
+  - **情绪通道**（Phase 2 规划中）：全量 → 读心 Agent 加工 → 结构化情绪向量 → 独立因子
+- 探源和读心 Agent 可引用**同一批金十数据**的不同侧面
 - 闫判官裁决时，`[sentiment]` 作为独立维度参与综合评分
+
+> **注**：读心 Agent 已实现基础情绪分析功能，完整的情绪通道（全量数据处理、多维情绪向量、实时热点追踪）仍在规划中。
+
+### 7.6 节点实现
+
+读心 Agent 由 `node_sentiment()` 节点实现，位于 `fdt_langgraph/nodes.py`，输出写入 `state["sentiment_data"]`，并持久化到 `pg.sentiment_scores` 表。

@@ -46,7 +46,7 @@ class DebateState(TypedDict, total=False):
     chain_analysis: Optional[dict]
     technical_data: dict
     fundamental_data: dict
-    sentiment_data: Optional[dict]          # P3 新闻情绪分析（情绪化）
+    sentiment_data: Optional[dict]          # P3 新闻情绪分析（读心）
     research_data: Optional[dict]
 
     # v9.0 多空头攻防模式 — 六阶段辩论

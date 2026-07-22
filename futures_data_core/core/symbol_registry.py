@@ -99,7 +99,7 @@ _TQ_EXCHANGE_MAP: dict[str, str] = {
     "SF": "CZCE", "SM": "CZCE", "CY": "CZCE", "AP": "CZCE",
     "CJ": "CZCE", "UR": "CZCE", "SA": "CZCE", "PF": "CZCE",
     "PK": "CZCE", "PX": "CZCE", "SH": "CZCE", "PR": "CZCE",
-    "PS": "CZCE",
+    "PS": "GFEX",  # 多晶硅 (Polysilicon) - 2024-12-26 listed on GFEX
     "SC": "INE", "LU": "INE", "NR": "INE", "BC": "INE",
     "SI": "GFEX", "LC": "GFEX",
 }

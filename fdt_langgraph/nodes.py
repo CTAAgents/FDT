@@ -1,6 +1,7 @@
 import sys
 import importlib.util
 import os
+import re
 import logging
 import json
 import asyncio
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from .state import DebateState
 from .agents import FdtAgentExecutor
+from .single_symbol_report import generate as _generate_single_symbol_report
 from futures_data_core.core.field_normalizer import (
     normalize_signal_list,
     normalize_verdict,
@@ -292,7 +294,7 @@ def _write_research_report(trace_id: str, research_data: dict, output_dir: Path)
 </div>
 
 <div class="section">
-<h2>📰 P3 · 情绪化 — 新闻情绪分析</h2>
+<h2>📰 P3 · 读心 — 新闻情绪分析</h2>
 <pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{sentiment_output if sentiment_output else '（未触发）'}</pre>
 </div>"""
 
@@ -1000,18 +1002,116 @@ async def node_technical(state: DebateState) -> dict:
             if sym in per_symbol_tech:
                 continue
             sym_data = fdc_data.get(sym) or fdc_data.get(sym.upper()) or fdc_data.get(sym.lower())
-            if sym_data and sym_data.get("kline", {}).get("bars"):
-                bars = sym_data["kline"]["bars"]
-                latest = bars[-1] if bars else {}
-                close_val = float(latest.get("close", 0)) if latest else 0
-                per_symbol_tech[sym] = {
-                    "trend": f"K线数据可用({len(bars)}根), 最新价={close_val}, 需人工复核趋势方向",
-                    "key_levels": "支撑/阻力位待计算",
-                    "volume_price": "量价数据来自实时K线",
-                    "divergence": "无明确背离信号",
-                    "pattern": "形态待识别",
-                    "score": 50,
-                }
+            if not sym_data or not sym_data.get("kline", {}).get("bars"):
+                continue
+            bars = sym_data["kline"]["bars"]
+            latest = bars[-1] if bars else {}
+            close_val = float(latest.get("close", 0)) if latest else 0
+
+            # Extract FDC computed indicators
+            ind = (sym_data.get("indicators") or {}).get("values", {})
+            def _iv(k):
+                v = ind.get(k)
+                if isinstance(v, (int, float)): return v
+                if isinstance(v, list) and v: return v[-1]
+                return None
+
+            rsi = _iv("RSI14")
+            adx = _iv("ADX")
+            atr = _iv("ATR14")
+            ma5 = _iv("MA5")
+            ma20 = _iv("MA20")
+            ma60 = _iv("MA60")
+            cci = _iv("CCI20")
+            macd_dif = _iv("MACD_DIF")
+            macd_dea = _iv("MACD_DEA")
+            supertrend_dir = _iv("SUPERTREND_DIR")
+            bb_pctb = _iv("BB_PCTB")
+            dc_pos = _iv("DC_POS")
+            vol_ratio = _iv("VOL_RATIO")
+            kama_cross = _iv("KAMA_CROSS")
+            hma_cross = _iv("HMA_CROSS")
+            atr_pct = _iv("volatility_pct")
+
+            # Trend direction from MA alignment
+            if ma5 and ma20 and ma60:
+                if ma5 > ma20 > ma60:
+                    ma_align = "多头排列"
+                elif ma5 < ma20 < ma60:
+                    ma_align = "空头排列"
+                else:
+                    ma_align = "震荡/粘合"
+            elif ma5 and ma20:
+                ma_align = "多头" if ma5 > ma20 else "空头" if ma5 < ma20 else "粘合"
+            else:
+                ma_align = "数据不足"
+
+            # Trend strength from ADX
+            if adx is not None:
+                if adx >= 40:
+                    adx_desc = f"极强趋势(ADX={adx:.1f})"
+                elif adx >= 25:
+                    adx_desc = f"趋势明确(ADX={adx:.1f})"
+                else:
+                    adx_desc = f"趋势不明(ADX={adx:.1f})"
+            else:
+                adx_desc = "ADX缺失"
+
+            # RSI zone
+            if rsi is not None:
+                if rsi >= 70:
+                    rsi_desc = f"超买区(RSI={rsi:.1f})"
+                elif rsi <= 30:
+                    rsi_desc = f"超卖区(RSI={rsi:.1f})"
+                else:
+                    rsi_desc = f"中性区(RSI={rsi:.1f})"
+            else:
+                rsi_desc = "RSI缺失"
+
+            # DC channel position
+            dc_desc = f"DC20位置={dc_pos:.2f}" if dc_pos is not None else "DC位置缺失"
+
+            # MACD
+            if macd_dif is not None and macd_dea is not None:
+                macd_desc = f"MACD DIF={macd_dif:.2f} DEA={macd_dea:.2f} ({'多' if macd_dif > macd_dea else '空'})"
+            else:
+                macd_desc = "MACD缺失"
+
+            # Supertrend
+            st_desc = "多头" if supertrend_dir == 1 else "空头" if supertrend_dir == -1 else "无信号"
+            if supertrend_dir is not None:
+                st_desc = f"Supertrend {st_desc}"
+
+            # Volume
+            vol_desc = f"量比={vol_ratio:.2f}" if vol_ratio is not None else "量比缺失"
+
+            # Score: simple heuristic from FDC indicators
+            score = 50
+            score_delta = 0
+            if adx is not None and adx >= 25: score_delta += 10
+            if ma_align == "多头排列": score_delta += 10
+            elif ma_align == "空头排列": score_delta -= 10
+            if rsi is not None:
+                if rsi > 60: score_delta += 5
+                elif rsi < 40: score_delta -= 5
+            if macd_dif is not None and macd_dea is not None and macd_dif > macd_dea: score_delta += 5
+            elif macd_dif is not None and macd_dea is not None and macd_dif < macd_dea: score_delta -= 5
+            if supertrend_dir == 1: score_delta += 5
+            elif supertrend_dir == -1: score_delta -= 5
+            score = max(10, min(90, 50 + score_delta))
+
+            trend_text = f"{ma_align}, {adx_desc}, {rsi_desc}, {st_desc}"
+            kl_text = f"ATR={atr:.0f} ({atr_pct:.1f}%波动率)" if atr is not None and atr_pct is not None else "ATR缺失"
+            vp_text = f"{vol_desc}, BB位置={bb_pctb:.2f}" if bb_pctb is not None else vol_desc
+
+            per_symbol_tech[sym] = {
+                "trend": trend_text,
+                "key_levels": kl_text,
+                "volume_price": vp_text,
+                "divergence": macd_desc,
+                "pattern": dc_desc,
+                "score": score,
+            }
 
     return {
         "technical_data": {
@@ -1198,18 +1298,58 @@ async def node_fundamental(state: DebateState) -> dict:
             if sym in per_symbol_fund:
                 continue
             sym_data = fdc_data.get(sym) or fdc_data.get(sym.upper()) or fdc_data.get(sym.lower())
-            f10_fields = []
-            if sym_data:
-                for fn in ["term_structure", "spread", "basis", "warrant", "fundamental"]:
-                    if sym_data.get(fn) and "error" not in sym_data.get(fn, {}):
-                        f10_fields.append(fn)
-            per_symbol_fund[sym] = {
-                "supply_demand": f"基本面数据{'(可用' + ', '.join(f10_fields) + ')' if f10_fields else '暂缺'}",
-                "inventory": "库存数据待核实",
-                "profit_margin": "利润和开工率数据待查",
-                "basis_term": "期限结构与基差待计算",
-                "leading_signals": ["数据暂缺，需实时F10接口"],
-            }
+            if not sym_data:
+                per_symbol_fund[sym] = {"supply_demand":"基本面数据暂缺","inventory":"无数据","profit_margin":"无数据","basis_term":"无数据","leading_signals":[]}
+                continue
+            def _f10s(fn):
+                entry = sym_data.get(fn)
+                if not entry or "error" in (entry if isinstance(entry, dict) else {}):
+                    return None
+                summary = entry.get("summary") if isinstance(entry, dict) else None
+                if summary and isinstance(summary, str) and len(summary) > 5:
+                    s = summary.strip()
+                    if not re.search(r'(independent|暂缺|待[核实查计算]|占位|placeholder)', s, re.I) and not re.match(r'^[a-zA-Z]{1,4}\s*基本面', s):
+                        return s[:120]
+                data = entry.get("data") if isinstance(entry, dict) else None
+                if isinstance(data, dict) and data:
+                    skip_k = {"symbol","structure","exchange","product_id"}
+                    skip_v = {"UNKNOWN","unknown","N/A","","None","none"}
+                    parts = []
+                    for k, v in list(data.items())[:6]:
+                        if k not in skip_k and isinstance(v,(int,float,str)) and str(v).strip() and str(v).strip() not in skip_v:
+                            parts.append(f"{k}={v}")
+                    return ", ".join(parts)[:120] if parts else None
+                return None
+            ts=_f10s("term_structure"); sp=_f10s("spread"); ba=_f10s("basis"); fu=_f10s("fundamental"); wa=_f10s("warrant")
+            available = [fn for fn in ["term_structure","spread","basis","warrant","fundamental"] if sym_data.get(fn) and "error" not in (sym_data.get(fn) if isinstance(sym_data.get(fn),dict) else {})]
+            sd_parts = []
+            if ts: sd_parts.append(f"期限结构: {ts}")
+            if sp: sd_parts.append(f"价差: {sp}")
+            if fu: sd_parts.append(f"基本面: {fu}")
+            ind = (sym_data.get("indicators") or {}).get("values", {})
+            def _iv(k):
+                v = ind.get(k)
+                return v if isinstance(v,(int,float)) else (v[-1] if isinstance(v,list) and v else None)
+            rsi=_iv("RSI14"); adx=_iv("ADX")
+            supply_demand = "; ".join(sd_parts) if sd_parts else (f"技术面偏弱(RSI={rsi:.1f}, ADX={adx:.1f})，供需可能宽松" if rsi and adx and adx>25 and rsi<40 else f"技术面偏强(RSI={rsi:.1f}, ADX={adx:.1f})，供需可能偏紧" if rsi and adx and adx>25 and rsi>60 else f"趋势不明(ADX={adx:.1f})，供需均衡" if adx else "基本面数据暂缺")
+            inventory = "无数据"
+            if fu and ("库存" in fu or "仓单" in fu): inventory = fu[:150]
+            elif wa and "仓单" in str(wa): inventory = str(wa)[:150]
+            bt_parts = []
+            if ba: bt_parts.append(f"基差: {ba}")
+            if ts: bt_parts.append(f"期限: {ts}")
+            basis_term = "; ".join(bt_parts) if bt_parts else "期限结构与基差待计算"
+            leading = []
+            pr = sym_data.get("position_ranking")
+            if pr and isinstance(pr,dict):
+                prd = pr.get("data")
+                if isinstance(prd,dict):
+                    t = prd.get("top1_name","")
+                    c = prd.get("top1_change","")
+                    if t: leading.append(f"持仓第一: {t}")
+                    if c and str(c)!="0": leading.append(f"持仓变化: {c}")
+            if not leading: leading = ["持仓数据暂缺"]
+            per_symbol_fund[sym] = {"supply_demand":supply_demand,"inventory":inventory,"profit_margin":fu if fu else "利润和开工率数据待查","basis_term":basis_term,"leading_signals":leading}
 
     return {
         "fundamental_data": {
@@ -1222,7 +1362,7 @@ async def node_fundamental(state: DebateState) -> dict:
 async def node_sentiment(state: DebateState) -> dict:
     """新闻情绪分析（P3）— 与链证源/观澜/探源并行。
 
-    从金十 MCP 获取快讯，由情绪化 Agent 加工为 SentimentStateVector。
+    从金十 MCP 获取快讯，由读心 Agent 加工为 SentimentStateVector。
     可自主 WebSearch/WebFetch 补充。
     """
     _ensure_llm_key()
@@ -1232,7 +1372,7 @@ async def node_sentiment(state: DebateState) -> dict:
     # 获取金十快讯原始数据（复用 _build_jin10_context 但情绪 Agent 自己分析）
     jin10_ctx = await _build_jin10_context(selected, state.get("trace_id", ""))
 
-    context = f"""作为新闻情绪分析师（情绪化），请分析以下品种的新闻情绪状态：
+    context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态：
 
 待分析品种: {selected}
 
@@ -1858,10 +1998,12 @@ async def node_verdict(state: DebateState) -> DebateState:
             if isinstance(v, list) and v: return f"{v[-1]:.2f}"
             if isinstance(v, (int, float)): return f"{v:.2f}"
             return "N/A"
-        rsi_v = _gv("rsi")
-        adx_v = _gv("adx")
-        cci_v = _gv("cci")
-        macd = _gv("macd_hist")
+        rsi_v = _gv("RSI14")
+        adx_v = _gv("ADX")
+        cci_v = _gv("CCI20")
+        macd_dif = _gv("MACD_DIF")
+        macd_dea = _gv("MACD_DEA")
+        macd = f"{macd_dif}/{macd_dea}" if macd_dif != "N/A" and macd_dea != "N/A" else _gv("macd_hist")
         # 均线排列检查
         closes_20 = None
         bars = (sd.get("kline") or {}).get("bars", []) if sd else []
@@ -2227,6 +2369,66 @@ async def node_report(state: DebateState) -> DebateState:
     tech_per_symbol = tech_raw.get("per_symbol", {}) if isinstance(tech_raw, dict) else {}
     fund_per_symbol = fund_raw.get("per_symbol", {}) if isinstance(fund_raw, dict) else {}
 
+    # Supplement fund_per_symbol from fdc_data for debate symbols not covered by LLM
+    fdc_data = state.get("fdc_data", {})
+    debate_pids = set()
+    for pid in list((state.get("debate_results") or {}).keys()):
+        debate_pids.add(pid); debate_pids.add(pid.upper()); debate_pids.add(pid.lower())
+    if fdc_data and debate_pids:
+        for sym_key in list(fdc_data.keys()):
+            sk_up = sym_key.upper()
+            if sk_up in fund_per_symbol or sym_key in fund_per_symbol:
+                continue
+            if sym_key not in debate_pids and sk_up not in debate_pids:
+                continue
+            sd = fdc_data[sym_key]
+            if not isinstance(sd, dict):
+                continue
+            def _f10s(fn):
+                entry = sd.get(fn)
+                if not entry or "error" in (entry if isinstance(entry, dict) else {}):
+                    return None
+                summary = entry.get("summary") if isinstance(entry, dict) else None
+                if summary and isinstance(summary, str) and len(summary) > 5:
+                    s = summary.strip()
+                    if not re.search(r'(independent|暂缺|待[核实查计算]|占位|placeholder)', s, re.I) and not re.match(r'^[a-zA-Z]{1,4}\s*基本面', s):
+                        return s[:150]
+                data = entry.get("data") if isinstance(entry, dict) else None
+                if isinstance(data, dict) and data:
+                    skip_k = {"symbol","structure","exchange","product_id"}
+                    skip_v = {"UNKNOWN","unknown","N/A","","None","none"}
+                    parts = [f"{k}={v}" for k, v in list(data.items())[:6] if k not in skip_k and str(v).strip() and str(v).strip() not in skip_v]
+                    return ", ".join(parts)[:150] if parts else None
+                return None
+            ts=_f10s("term_structure"); sp=_f10s("spread"); ba=_f10s("basis"); fu=_f10s("fundamental"); wa=_f10s("warrant")
+            sd_parts = []
+            if ts: sd_parts.append(f"期限结构: {ts}")
+            if sp: sd_parts.append(f"价差: {sp}")
+            if fu: sd_parts.append(f"基本面: {fu}")
+            ind = (sd.get("indicators") or {}).get("values", {})
+            def _iv(k):
+                v = ind.get(k)
+                return v if isinstance(v,(int,float)) else (v[-1] if isinstance(v,list) and v else None)
+            rsi=_iv("RSI14"); adx=_iv("ADX")
+            supply_demand = "; ".join(sd_parts) if sd_parts else (f"技术面偏弱(RSI={rsi:.1f}, ADX={adx:.1f})，供需可能宽松" if rsi and adx and adx>25 and rsi<40 else f"技术面偏强(RSI={rsi:.1f}, ADX={adx:.1f})，供需可能偏紧" if rsi and adx and adx>25 and rsi>60 else f"趋势不明(ADX={adx:.1f})，供需均衡" if adx else "基本面数据暂缺")
+            inventory = "无数据"
+            if fu and ("库存" in fu or "仓单" in fu): inventory = fu[:150]
+            elif wa and "仓单" in str(wa): inventory = str(wa)[:150]
+            bt_parts = []
+            if ba: bt_parts.append(f"基差: {ba}")
+            if ts: bt_parts.append(f"期限: {ts}")
+            basis_term = "; ".join(bt_parts) if bt_parts else "期限结构与基差待计算"
+            leading = []
+            pr = sd.get("position_ranking")
+            if pr and isinstance(pr,dict):
+                prd = pr.get("data")
+                if isinstance(prd,dict):
+                    t=prd.get("top1_name",""); c=prd.get("top1_change","")
+                    if t: leading.append(f"持仓第一: {t}")
+                    if c and str(c)!="0": leading.append(f"持仓变化: {c}")
+            if not leading: leading = ["持仓数据暂缺"]
+            fund_per_symbol[sym_key] = {"supply_demand":supply_demand,"inventory":inventory,"profit_margin":fu if fu else "利润和开工率数据待查","basis_term":basis_term,"leading_signals":leading}
+
     intermediate_data = {
         "scan_results": scan_results,
         "symbols_summary": symbols_summary,
@@ -2248,6 +2450,8 @@ async def node_report(state: DebateState) -> DebateState:
 
     verdict = state.get("verdict") or {}
     risk_check = state.get("risk_check") or {}
+    if not risk_check:
+        risk_check = (state.get("signal_output") or {}).get("risk_check", {})
 
     # Get per-symbol data from judge verdict (v8.8.0+ per-symbol output)
     judge_per_symbol = verdict.get("per_symbol", {}) if isinstance(verdict, dict) else {}
@@ -2468,6 +2672,25 @@ async def node_report(state: DebateState) -> DebateState:
     output_dir = user_workspace_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # ── 单品种辩论模式：直接生成精简报告，跳过全量模板 ──
+    _selected = state.get("selected_symbols", [])
+    if len(_selected) == 1:
+        try:
+            single_html = _generate_single_symbol_report(state)
+            report_path_single = output_dir / f"debate_report_{state['trace_id']}.html"
+            report_path_single.write_text(single_html, encoding="utf-8")
+            report_path = str(report_path_single)
+            logger.info(f"[REPORT] 单品种报告已生成: {report_path}")
+            new_phases = state["completed_phases"] + ["P6"]
+            return {
+                **state,
+                "report_path": report_path,
+                "current_phase": "P6",
+                "completed_phases": new_phases,
+            }
+        except Exception as e:
+            logger.warning(f"[REPORT] 单品种报告生成失败，回退到全量模板: {e}")
+
     cmd = [sys.executable, str(report_script),
            "--intermediate", str(intermediate_path),
            "--debate", str(debate_path),
@@ -2574,7 +2797,7 @@ def _build_data_sources(state: DebateState) -> list:
     if research.get("chain_analysis"):
         sources.append({"source": "chain", "agent": "链证源", "phase": "P3"})
     if research.get("sentiment_data"):
-        sources.append({"source": "sentiment", "agent": "情绪化", "phase": "P3"})
+        sources.append({"source": "sentiment", "agent": "读心", "phase": "P3"})
     if state.get("fdc_data_status", {}).get("collected"):
         sources.append({"source": "fdc", "agent": "FDC", "phase": "P2.5"})
     scan = state.get("scan_results", {})
@@ -2635,7 +2858,7 @@ async def node_load_cache(state: DebateState) -> DebateState:
         for sym in symbols:
             try:
                 # 拉取实时 K 线数据
-                payload = _asyncio.run(_fdc_get_kline(sym.lower(), period="daily", days=120))
+                payload = await _fdc_get_kline(sym.lower(), period="daily", days=120)
 
                 meta = payload.meta
                 grade = meta.get("data_grade_label", "")

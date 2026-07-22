@@ -2,13 +2,13 @@
 
 一套 **10-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.11.0**
+**v9.11.3**
 
 ---
 
 ## 核心特性
 
-- **10-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/情绪化/多头分析员/空头分析员/风控明/明鉴秋，边界钉死不越界
+- **10-Agent 辩论制衡** — 数技源/闫判官/链证源/观澜/探源/读心/多头分析员/空头分析员/风控明/明鉴秋，边界钉死不越界
 - **5 层鲁棒防线 (L1-L5)** — 产出校验→熔断降级→信号门禁→路径发现→健康自检，各 Agent 独立超时降级
 - **自进化闭环** — T+1 验证 → 权重校准 → Agent Prompt 进化 → LightGBM 增量训练，无需人工标注
 - **NO_FUSION 策略管线** — 8 策略各自独立打分，方向冲突不融合、不掩盖、不平均
@@ -21,7 +21,7 @@
 - **独立运行** — 去 WorkBuddy 依赖，支持 CLI/FastAPI 独立入口
 - **FDC 数据注入 (P2.5)** — 预采集所有选中品种的结构化数据（K线/指标/期限结构/基差/仓单/基本面/持仓排名）供子 Agent 使用
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据（8 工具：行情/K线/快讯/资讯/财经日历），作为实时分析素材
-- **新闻情绪分析因子** — 情绪化 Agent（第四分析因子），P3 阶段与链证源/观澜/探源并行，输出结构化 SentimentStateVector
+- **新闻情绪分析因子** — 读心 Agent（第四分析因子），P3 阶段与链证源/观澜/探源并行，输出结构化 SentimentStateVector
 - **主力合约统一解析** — `dominant_resolver` 统一主力合约判定与换月追踪
 - **字段标准化** — `field_normalizer` 统一规范 8 类子 Agent 数据栏位
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型缓存 K 线/基本面/基差，增量 UPSERT
@@ -118,7 +118,7 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 ┌──────────────────────────────────────────────────┐
 │ 辩论层: 10 Agent 分工制衡 (LangGraph)             │
 │ 数技源扫描 → 闫判官调度 → P2.5 FDC数据准备        │
-│ 金十快讯精选 → → 四源并行(链证源/观澜/探源/情绪化) │
+│ 金十快讯精选 → → 四源并行(链证源/观澜/探源/读心) │
 │ → 六阶段攻防: 多头立论→空头立论→空头驳论→多头驳论│
 │ → 空头结辩→多头结辩→闫判官裁决(含交易参数)→风控明审核│
 │ → 报告生成 → CTP信号输出                          │
@@ -154,7 +154,7 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 | 观澜 | 技术面分析（LLM 推理生成 TechnicalOutput） | 不判断多空 |
 | 探源 | 基本面分析（LLM 推理生成 FundamentalStateVector，含金十快讯素材） | 不判断多空 |
 | 链证源 | 产业链关联分析 | 不下交易结论 |
-| 情绪化 | 新闻情绪分析（LLM 推理生成 SentimentStateVector，金十+Web多源） | 不判断多空 |
+| 读心 | 新闻情绪分析（LLM 推理生成 SentimentStateVector，金十+Web多源） | 不判断多空 |
 | 多头分析员 | 独立列举 ≥3 条做多论据 | 不做空头分析 |
 | 空头分析员 | 独立列举 ≥3 条做空论据 | 不做多头分析 |
 | 闫判官 | 裁决方向+输出完整交易参数 | 不独立分析行情 |
@@ -404,7 +404,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
-| **v9.11.0** | **新闻情绪分析因子（情绪化）落地 — 第四分析因子 P3 并行** — 新增 `sentiment_state.py` 契约（SentimentStateVector）、`futures-news-sentiment-analyst.md` 情绪化 Agent、`node_sentiment()` 节点、`sentiment_data` 状态字段。P3 从三源并行升级为四源并行（链证源/观澜/探源/情绪化）。来源标记 `[sentiment:jin10]` / `[sentiment:web]`。25 个金十相关测试全绿。 |
+| **v9.11.0** | **新闻情绪分析因子（读心）落地 — 第四分析因子 P3 并行** — 新增 `sentiment_state.py` 契约（SentimentStateVector）、`futures-news-sentiment-analyst.md` 读心 Agent、`node_sentiment()` 节点、`sentiment_data` 状态字段。P3 从三源并行升级为四源并行（链证源/观澜/探源/读心）。来源标记 `[sentiment:jin10]` / `[sentiment:web]`。25 个金十相关测试全绿。 |
 | **v9.10.1** | **金十快讯精选注入探源** — `_SYMBOL_TO_KEYWORDS` 品种→中文关键词映射（41 品种）、`_build_jin10_context()` 按品种自动搜索金十快讯、去重格式化后注入 `node_fundamental` context。探源数据来源 §2 更新 + R07 金十快讯引用规范。 |
 | **v9.10.0** | **金十数据 MCP 接入** — 标准 MCP 协议财经数据源。新增 `mcp_client.py` 通用 MCP HTTP 客户端（SSE 解析/会话管理/structuredContent优先）、`jin10_mcp.py` 金十采集器（8 工具）、`data_source_adapter` 适配接口、`web_crawl_tool` LangChain 封装。Harness 文档全线同步。 |
 | **v9.6.8** | **Harness 文档整理 + 入口文档同步检查扩展** — ① harness-starter-kit 迁移到 `docs/harness-templates/`；② 设计文档、流程文档归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新。 |
