@@ -473,3 +473,67 @@ elif data_type == "debate_history":
 | `FDT_CACHE_ENABLED` | `true` | 是否启用缓存 |
 | `FDT_MODEL_FALLBACK` | `true` | 是否启用模型降级 |
 | `FDT_TOKEN_TRIM_ENABLED` | `true` | 是否启用 Token 裁剪 |
+
+## 10. CI/CD 流水线配置（v9.12.0+）
+
+### 10.1 流水线架构
+
+配置文件：`.github/workflows/ci.yml`
+
+4 个并行 Job：
+
+| Job | 运行环境 | 覆盖范围 | 预计耗时 |
+|:----|:---------|:---------|:--------|
+| **lint** | ubuntu-latest | ruff 代码检查 + Harness pre-commit 规范检查 | ~2min |
+| **test-core** | windows-latest | `tests/strategies/`、`tests/fdt_langgraph/`、`tests/fdt_scripts_tests/`、`tests/validators/` | ~5min |
+| **test-data** | windows-latest | `tests/commodity-chain/`、`tests/contracts/`、`tests/fdt-gate/`、`tests/technical-analysis/` | ~3min |
+| **test-skills** | windows-latest | `tests/quant-daily/`、`tests/debate-argument-builder/`、`tests/debate-risk-manager/`、`tests/fundamental-data-collector/` | ~4min |
+
+### 10.2 触发器
+
+- `push` 到 `main` 分支
+- `pull_request` 到 `main` 分支
+- 支持 `workflow_dispatch` 手动触发
+
+### 10.3 GitHub Secrets 配置
+
+在仓库 **Settings → Secrets and variables → Actions** 中添加：
+
+| 名称 | 用途 | 必需 |
+|:-----|:-----|:----|
+| `JIN10_MCP_TOKEN` | 金十 MCP 财经数据 Bearer Token | 否（无此 Token 则跳过相关测试） |
+
+### 10.4 Python 依赖安装策略
+
+每个 Job 独立安装最小依赖集（而非全量安装），以缩短安装时间：
+
+| Job | 安装包 |
+|:----|:-------|
+| lint | `ruff`, `pyyaml` |
+| test-core | `pytest`, `pytest-cov`, `numpy`, `pandas`, `scipy`, `lightgbm`, `scikit-learn`, `langgraph`, `sqlalchemy`, `pydantic` |
+| test-data | `pytest`, `numpy`, `pandas`, `scipy`, `sqlalchemy`, `pydantic` |
+| test-skills | `pytest`, `numpy`, `pandas`, `scipy`, `pydantic`, `sqlalchemy` |
+
+### 10.5 检查档位
+
+| 检查 | 档位 | 阻断 |
+|:-----|:-----|:-----|
+| ruff lint | L1 | 否（`continue-on-error: true`） |
+| Harness pre-commit | L1 | 否（`continue-on-error: true`） |
+| 测试失败 | L2 | 否（`continue-on-error: true`） |
+
+> 所有测试 Job 当前设为 `continue-on-error: true`（信息性），待基础测试稳定后逐步改为阻断。
+
+### 10.6 本地模拟 CI 运行
+
+```bash
+# 安装依赖
+pip install ruff pyyaml pytest numpy pandas scipy
+
+# 检查
+ruff check .
+python scripts/pre_commit_harness_check.py
+
+# 运行测试
+python -m pytest tests/strategies/ --tb=short -q -o "addopts="
+```
