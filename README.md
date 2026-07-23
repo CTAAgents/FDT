@@ -184,11 +184,11 @@ FDT 的 Agent Harness 覆盖 MemoHarness 定义的全部六个控制维度：
 | 维度 | FDT 实现 | 成熟度 |
 |------|----------|:------:|
 | **Context（上下文组装）** | `AGENTS.md` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
-| **Tool（工具交互）** | 4 级数据降级链 + 8 策略管线 + CTP 交易接口 | ★★★★☆ |
-| **Generation（解码控制）** | 逐 Agent 模型配置 + 结构化输出约束 | ★★★☆☆ |
-| **Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 4 种运行模式 | ★★★★★ |
-| **Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + 辩论日志 | ★★★★☆ |
-| **Output（输出处理）** | JSON Schema 校验 + 4 铁律 + 风控门控 + HTML 报告 | ★★★★☆ |
+| **Tool（工具交互）** | 4 级数据降级链（含自动熔断）+ 8 策略管线 + CTP 交易接口 + `ToolMetrics` 工具调用效能追踪（pipeline 运行时集成） | ★★★★★ |
+| **Generation（解码控制）** | 逐 Agent 解码配置（temperature/max_tokens/top_p）+ 结构化输出 Pydantic+JSON Schema 双校验 + 内容安全过滤 + 解码质量度量 + 失败升温重试 | ★★★★★ |
+| **Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 4 种运行模式 + 条件路由 | ★★★★★ |
+| **Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + 辩论日志 + 向量记忆 + 知识图谱 + 过期清理与 journal 压缩 | ★★★★★ |
+| **Output（输出处理）** | JSON Schema 校验 + 4 铁律 + 风控门控 + HTML 报告 + `OutputMetrics` 质量评分 + `OutputVersioning` 版本化 + `OutputAudit` 审计日志（全 pipeline 集成）| ★★★★★ |
 
 ### 双层循环结构
 
