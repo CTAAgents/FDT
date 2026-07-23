@@ -323,11 +323,47 @@ self_improve.py (自改进脚手架)
 | 线程锁 | `_journal_lock` 保护 journal 的读-改-写操作 |
 | 完整性校验 | `validate()` 检查缺失/重复/损坏 |
 
-## 8. PostgreSQL 监控指标 (v8.3.0+) — ⚠️ 未实现
+## 8. D6 Output 可观测性指标（v9.16.0 新增）
 
-> **说明**：本节 10 个 PostgreSQL 监控指标尚未实现，保留为设计参考。实际 PG 监控通过 `fdt_pg/connection.py` 健康检查和 LangGraph 运行时指标（§8.5）覆盖。
+### 8.1 D6 输出质量度量
 
-### 8.1 监控架构
+| 指标 | 来源 | 说明 | 阈值 |
+|:-----|:-----|:-----|:-----|
+| `output_quality_score` | `scripts/output_metrics.py` | 输出质量评分 (0-100) | < 60 warning, < 80 info |
+| `output_version_id` | `scripts/output_versioning.py` | 每轮报告版本 ID | 唯一可追溯 |
+| `output_audit_log` | `scripts/output_audit.py` | 审计日志条目 | 每次质检记录一条 |
+
+### 8.2 D2 Tool 工具调用指标
+
+| 指标 | 来源 | 说明 |
+|:-----|:-----|:-----|
+| `tool_call_count` | `scripts/tool_metrics.py` | 工具调用次数（按 Agent） |
+| `tool_success_rate` | `scripts/tool_metrics.py` | 工具调用成功率 |
+| `tool_latency_ms` | `scripts/tool_metrics.py` | 工具调用延迟（毫秒） |
+| `tool_anomalies` | `scripts/tool_metrics.py` | 高延迟/低成功率异常检测 |
+
+### 8.3 数据源熔断指标
+
+| 指标 | 来源 | 说明 |
+|:-----|:-----|:-----|
+| `circuit_breaker_state` | `futures_data_core.core.circuit_breaker` / `scripts/tool_circuit_breaker.py` | 熔断状态 (CLOSED/OPEN/HALF_OPEN) |
+| `failure_count` | 同上 | 窗口内失败次数 |
+| `fallback_chain` | `multi_source_adapter.py` | 降级链使用情况 |
+
+### 8.4 集成点
+
+| 点 | 指标写入 | 消费 |
+|:---|:---------|:-----|
+| `quality_inspector.py:check_report_integrity` | `OutputMetrics.score_output()` | 输出质量评分记录到 `memory/output_metrics/` |
+| `nodes.py:node_report` | `OutputVersioning.save_output()` | 输出版本记录到 `memory/output_versions/` |
+| `nodes.py:node_quality_inspect` | `OutputAudit.log()` | 审计日志记录到 `memory/output_audit/` |
+| `agents.py:FdtAgentExecutor.execute()` | `ToolMetrics.record_call()` | 工具调用指标记录到 `memory/tool_metrics/` |
+
+## 9. PostgreSQL 监控指标 (v8.3.0+) — ⚠️ 未实现
+
+> **说明**：本节 10 个 PostgreSQL 监控指标尚未实现，保留为设计参考。实际 PG 监控通过 `fdt_pg/connection.py` 健康检查和 LangGraph 运行时指标（§9.5）覆盖。
+
+### 9.1 监控架构
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -387,7 +423,7 @@ logger.error(f"[trace_id={trace_id}] PG connection failed: {error}")
 | `slow_nodes` | 列表 | 慢节点（>60s）名称 |
 | `overall_status` | 字符串 | 健康状态（healthy/degraded） |
 
-### 8.6 LLM 幻觉率指标（v9.6.2+）
+### 9.6 LLM 幻觉率指标（v9.6.2+）
 
 > **来源**: `scripts/validate_llm_output.py` — LLM 输出质量校验器，检测和度量数值型幻觉
 
@@ -445,7 +481,7 @@ python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --
 python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --threshold 0.15
 ```
 
-### 8.7 监控文件位置
+### 9.7 监控文件位置
 
 | 文件 | 路径 | 用途 |
 |:-----|:-----|:-----|

@@ -83,6 +83,41 @@ class MemoryCleaner:
         for db_file in self.memory_dir.rglob("*.db"):
             self._clean_sqlite(db_file, max_age_days, dry_run, report)
 
+        # 压缩 debate_journal.json（保留最近 100 条）
+        journal_path = self.memory_dir / "debate_journal.json"
+        if journal_path.exists():
+            try:
+                with open(journal_path, "r", encoding="utf-8") as f:
+                    entries = json.load(f)
+                if isinstance(entries, list) and len(entries) > 100:
+                    keep = entries[-100:]
+                    if not dry_run:
+                        archived = entries[:-100]
+                        archive_path = self.archive_dir / f"debate_journal_{datetime.now().strftime('%Y%m%d')}.json"
+                        with open(archive_path, "w", encoding="utf-8") as f:
+                            json.dump(archived, f, ensure_ascii=False)
+                        with open(journal_path, "w", encoding="utf-8") as f:
+                            json.dump(keep, f, ensure_ascii=False)
+                        report["archived_files"].append(f"debate_journal.json ({len(archived)} 条归档)")
+                        logger.info(f"Compressed debate_journal.json: {len(archived)} entries archived")
+                    else:
+                        report["archived_files"].append(f"debate_journal.json ({len(entries) - 100} 条可归档)")
+            except Exception as e:
+                report["errors"].append(f"debate_journal.json: {e}")
+
+        # 清理 generation_metrics 过期记录（保留最近 7 天）
+        metrics_dir = self.memory_dir / "generation_metrics"
+        if metrics_dir.exists():
+            for f in metrics_dir.iterdir():
+                if f.suffix == ".jsonl" and f.is_file():
+                    age_days = (datetime.now() - datetime.fromtimestamp(f.stat().st_mtime)).days
+                    if age_days > 7:
+                        size_kb = f.stat().st_size / 1024
+                        if not dry_run:
+                            f.unlink()
+                            logger.info(f"Cleaned metrics: {f.name} ({size_kb:.1f}KB)")
+                        report["freed_space_kb"] += size_kb
+
         # 总存储检查
         total_mb = sum(f.stat().st_size for f in self.memory_dir.rglob("*") if f.is_file()) / (1024 * 1024)
         report["current_storage_mb"] = round(total_mb, 1)

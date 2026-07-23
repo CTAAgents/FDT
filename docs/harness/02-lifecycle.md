@@ -165,6 +165,7 @@ fdt_cli.py main()
 ```
 
 > **阶段变更说明**:
+> - **v9.16.0 (D2/D5/D6 pipeline 集成)**: D2 ToolMetrics 接入 Agent 执行入口 → 工具调用指标全量采集；D5 memory_cleaner 增强 → debate_journal 压缩 + generation_metrics 自动清理；D6 Output pipeline 集成 → `quality_inspector` 输出质量评分、`node_report` 输出版本化、`node_quality_inspect` 审计日志、scheduler apm_scorecard 定时任务
 > - **P0b 新增 (v9.6.5)**: 数据新鲜度闸门作为 pre_loop 必查步骤，对标数据新鲜度分级标准
 > - **P1 重构**: 从"通道突破扫描"升级为"可插拔多策略并行扫描"，支持 trend_following(10子信号)、mean_reversion(3子信号) 及自定义策略插件
 > - **P2 信号闸门（非链证源）**: 当前 P2 是信号过滤闸门（三层门禁），与链证源无关。链证源已归入 P2 与观澜/探源/读心并行

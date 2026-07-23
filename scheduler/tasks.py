@@ -459,6 +459,26 @@ def self_optimize_verify() -> TaskResult:
     )
 
 
+@register_task("apm_scorecard")
+def apm_scorecard() -> TaskResult:
+    """APM 评分卡生成（D1-D5 五轴评估）—— 建议每周一早 08:30 运行"""
+    start = datetime.now()
+    _log("🏆 APM 评分卡生成")
+
+    success, summary = _run_script(
+        "scripts/apm_scorecard.py", timeout=120
+    )
+
+    return TaskResult(
+        task_name="apm_scorecard",
+        success=success,
+        started_at=start.strftime("%Y-%m-%d %H:%M:%S"),
+        finished_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        summary=summary,
+        error="" if success else summary,
+    )
+
+
 # ─── 直接运行（模拟调度） ──────────────────────────────
 
 if __name__ == "__main__":

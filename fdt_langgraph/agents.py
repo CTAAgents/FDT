@@ -96,6 +96,15 @@ class FdtAgentExecutor:
     def execute(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
         logger.info(f"[trace_id={trace_id}] Executing agent: {self.agent_name}")
 
+        # ── D2 Tool: 工具调用记录 ──
+        import time
+        _start = time.time()
+        try:
+            from scripts.tool_metrics import ToolMetrics
+            _tm = ToolMetrics()
+        except Exception:
+            _tm = None
+
         result = {
             "agent_name": self.agent_name,
             "role": self.role,
@@ -113,9 +122,15 @@ class FdtAgentExecutor:
         try:
             llm_output = self._call_llm(prompt, **kwargs)
             result["output"] = llm_output
+            if _tm:
+                _tm.record_call(self.agent_name, success=True,
+                                latency_ms=(time.time() - _start) * 1000)
             logger.info(f"[trace_id={trace_id}] Agent {self.agent_name} completed successfully")
         except Exception as e:
             result["error"] = str(e)
+            if _tm:
+                _tm.record_call(self.agent_name, success=False,
+                                latency_ms=(time.time() - _start) * 1000)
             logger.error(f"[trace_id={trace_id}] Agent {self.agent_name} failed: {e}")
 
         return result

@@ -248,6 +248,19 @@ def check_report_integrity(report_data: dict) -> QualityReport:
     except Exception:
         pass  # 内容过滤非阻断，失败不影响报告生成
 
+    # ── D6 Output: 输出质量评分 ──
+    try:
+        from scripts.output_metrics import OutputMetrics
+        om = OutputMetrics()
+        score = om.score_output(report_data, agent_name="quality_assurance")
+        total = score.get("total_score", 100)
+        if total < 60:
+            issues.append(_issue("output_quality", f"输出质量评分偏低: {total}/100", "warning"))
+        elif total < 80:
+            issues.append(_issue("output_quality", f"输出质量评分: {total}/100", "info"))
+    except Exception:
+        pass  # 输出质量评分非阻断
+
     return _build_report(issues)
 
 

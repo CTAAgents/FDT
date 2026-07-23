@@ -24,6 +24,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 phase2_chain_output.json
+memory/tool_metrics/
 memory/logs/
 _tmp_*
 fdt_cache/

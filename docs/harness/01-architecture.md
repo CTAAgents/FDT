@@ -717,11 +717,11 @@ FDT 的 Harness 架构天然支持 Inner Loop（内循环）和 Outer Loop（外
 | 维度 | FDT 对应实现 | 成熟度 |
 |------|-------------|:------:|
 | **D1 Context（上下文组装）** | `AGENTS.md` + `memory/knowledge/` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
-| **D2 Tool（工具交互）** | `fdt_langgraph/tools/registry.py` 工具注册中心(版本管理+调用统计) + `docs/schemas/tool_capability.json` 能力描述Schema + `scripts/tool_metrics.py` 效能追踪(异常检测) + `scripts/tool_circuit_breaker.py` 熔断降级(状态机+滑动窗口) | ★★★★★ |
+| **D2 Tool（工具交互）** | `fdt_langgraph/tools/registry.py` 工具注册中心(版本管理+调用统计) + `docs/schemas/tool_capability.json` 能力描述Schema + `scripts/tool_metrics.py` 效能追踪(异常检测) + `scripts/tool_circuit_breaker.py` 熔断降级(状态机+滑动窗口) + **v9.16.0 pipeline 接入**: `FdtAgentExecutor.execute()` 运行时调用 `ToolMetrics.record_call()` | ★★★★★ |
 | **D3 Generation（解码控制）** | `config/agents/decode_config.yaml` 逐Agent精细配置 + `scripts/enforce_structured_output.py` Pydantic+JSON Schema双校验 + `scripts/content_filter.py` 内容安全过滤 + `scripts/generation_metrics.py` 质量监控 | ★★★★★ |
 | **D4 Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 条件路由 + 多模式（default/fast/deep/tournament） | ★★★★★ |
-| **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + `scripts/vector_memory.py` 三层记忆 + `scripts/build_knowledge_graph.py` 知识图谱+ `scripts/memory_retriever.py` 召回策略(含强制负样本) + `scripts/memory_cleaner.py` 过期清理 | ★★★★★ |
-| **D6 Output（输出处理）** | `scripts/output_metrics.py` 质量度量(4维评分) + `scripts/output_versioning.py` 版本化管理(哈希+时间戳) + `scripts/output_feedback.py` 反馈闭环(准确率追踪+改进建议) + `scripts/output_audit.py` 审计日志(溯源+合规差距) | ★★★★★ |
+| **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + `scripts/vector_memory.py` 三层记忆 + `scripts/build_knowledge_graph.py` 知识图谱+ `scripts/memory_retriever.py` 召回策略(含强制负样本) + `scripts/memory_cleaner.py` 过期清理 + **v9.16.0 增强**: debate_journal压缩(保留最近100条) + generation_metrics 过期清理(保留7天) | ★★★★★ |
+| **D6 Output（输出处理）** | `scripts/output_metrics.py` 质量度量(4维评分) + `scripts/output_versioning.py` 版本化管理(哈希+时间戳) + `scripts/output_feedback.py` 反馈闭环(准确率追踪+改进建议) + `scripts/output_audit.py` 审计日志(溯源+合规差距) + **v9.16.0 pipeline 接入**: `check_report_integrity()` 调用 `OutputMetrics.score_output()`、`node_report` 调用 `OutputVersioning.save_output()`、`node_quality_inspect` 调用 `OutputAudit.log()`、scheduler 注册 `apm_scorecard` 定时任务 | ★★★★★ |
 
 ### 5.3 循环契约（Loop Contract）
 

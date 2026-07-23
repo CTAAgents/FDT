@@ -2564,6 +2564,20 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     else:
         logger.info(f"[质检] {current_sym} 裁决/风控质检 PASS")
 
+    # ── D6 Output: 审计日志 ──
+    try:
+        from scripts.output_audit import OutputAudit
+        audit = OutputAudit()
+        audit.log(
+            agent_name="quality_assurance",
+            action="quality_inspect",
+            resource=f"verdict:{current_sym}" if current_sym else "verdict:unknown",
+            status=overall_status,
+            metadata={"retry_count": retries, "issues_count": len(all_issues)},
+        )
+    except Exception:
+        pass
+
     # ── 记录耗时 ──
     timings.append({
         "phase": "quality_inspect",
@@ -2993,6 +3007,20 @@ async def node_report(state: DebateState) -> DebateState:
         report_path = output_dir / f"debate_report_{state['trace_id']}.html"
         report_path.write_text(fallback_html, encoding="utf-8")
         report_path = str(report_path)
+
+    # ── D6 Output: 输出版本化 ──
+    try:
+        from scripts.output_versioning import OutputVersioning
+        ov = OutputVersioning("debate_report")
+        vid = ov.save_output({
+            "trace_id": state.get("trace_id", ""),
+            "report_path": str(report_path),
+            "symbols": state.get("selected_symbols", []),
+            "verdict_count": len(state.get("per_symbol_results", {})),
+        }, agent_name="quality_assurance")
+        logger.info(f"[D6] 报告版本已记录: {vid}")
+    except Exception:
+        pass
 
     new_phases = state["completed_phases"] + ["P6"]
     return {**state, "report_path": report_path, "current_phase": "P6", "completed_phases": new_phases}
