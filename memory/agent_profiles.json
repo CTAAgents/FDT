@@ -2,39 +2,63 @@
   "_meta": {
     "created_at": "2026-07-06 22:25",
     "version": "5.2",
-    "last_evolved_at": "2026-07-07 16:49",
-    "total_samples": 20,
+    "last_evolved_at": "2026-07-23 11:24",
+    "total_samples": 21,
     "note": "v5.2架构重构：三类信号替代原多策略为主信号源，证真/慎思改为动态正反方，ADX角色反转"
   },
   "闫判官": {
     "type": "judge",
-    "evolution": "calibration.json（独立自进化系统）"
-  },
-  "风控明": {
-    "atr_multiplier": 1.5,
-    "max_position_pct_high": 5.0,
-    "_last_updated": "2026-07-07 16:49",
+    "evolution": "calibration.json（独立自进化系统）",
+    "rr_target": 1.7,
+    "position_coefficient": 1.0,
+    "_last_updated": "2026-07-23 11:24",
     "_evolution_log": [
       {
-        "time": "2026-07-07 16:49",
-        "action": "atr_multiplier",
-        "from": 1.5,
-        "to": 1.5,
-        "reason": "止损触发率5.0%合理, 维持不变"
+        "time": "2026-07-23 11:24",
+        "action": "rr_target",
+        "from": 1.7,
+        "to": 1.7,
+        "reason": "真实T1达标率33%合理"
       },
       {
-        "time": "2026-07-07 16:49",
-        "action": "max_position_high",
-        "from": 5.0,
-        "to": 5.0,
-        "reason": "高置信度品种累计盈亏+1.9%合理"
+        "time": "2026-07-23 11:24",
+        "action": "position_coefficient",
+        "from": 1.0,
+        "to": 1.0,
+        "reason": "均实现盈亏-1.2%合理"
       }
     ],
     "_stats": {
-      "total_validated": 20,
-      "real_stop_hit_rate": 5.0,
+      "total_validated": 21,
+      "real_target_hit_rate": 33.3,
+      "avg_realized_pnl_pct": -1.2
+    }
+  },
+  "风控明": {
+    "atr_multiplier": 1.8,
+    "max_position_pct_high": 4.0,
+    "_last_updated": "2026-07-23 11:24",
+    "_evolution_log": [
+      {
+        "time": "2026-07-23 11:24",
+        "action": "atr_multiplier",
+        "from": 1.5,
+        "to": 1.8,
+        "reason": "真实止损触发率61.9% > 15%, 放宽ATR乘数"
+      },
+      {
+        "time": "2026-07-23 11:24",
+        "action": "max_position_high",
+        "from": 5.0,
+        "to": 4.0,
+        "reason": "高置信度品种累计亏损-16.5%, 仓位上限-1%"
+      }
+    ],
+    "_stats": {
+      "total_validated": 21,
+      "real_stop_hit_rate": 61.9,
       "gap_stop_rate": 0.0,
-      "avg_realized_pnl_pct": -0.3
+      "avg_realized_pnl_pct": -1.2
     }
   },
   "辩手": {
@@ -48,14 +72,14 @@
     "慎思": {
       "role": "反方(动态)",
       "strategy": "保守",
-      "confidence_boost": -0.3,
+      "confidence_boost": -0.9,
       "_samples": 18,
       "note": "v5.2起不固定多空，根据信号方向质疑",
-      "_win_rate": 33.3,
-      "_realized_pnl": -6.5,
-      "_note": "胜率33%或亏损-6.5%, 收敛空头论述"
+      "_win_rate": 27.8,
+      "_realized_pnl": -20.4,
+      "_note": "胜率28%或亏损-20.4%, 收敛空头论述"
     },
-    "_last_updated": "2026-07-07 16:49"
+    "_last_updated": "2026-07-23 11:24"
   },
   "链证源": {
     "dedup_threshold": 0.8,
@@ -71,10 +95,10 @@
       "AKShare"
     ],
     "retry_limit": 3,
-    "_last_updated": "2026-07-07 16:49",
+    "_last_updated": "2026-07-23 11:24",
     "_evolution_log": [
       {
-        "time": "2026-07-07 16:49",
+        "time": "2026-07-23 11:24",
         "action": "retry_limit",
         "from": 3,
         "to": 3,
@@ -93,24 +117,24 @@
     "_stats": {}
   },
   "观澜": {
-    "atr_period": 16,
-    "signal_lag_tolerance": 3,
+    "atr_period": 20,
+    "signal_lag_tolerance": 5,
     "data_source": "data_interface+technical-analysis",
-    "_last_updated": "2026-07-07 16:49",
+    "_last_updated": "2026-07-23 11:24",
     "_evolution_log": [
       {
-        "time": "2026-07-07 16:49",
+        "time": "2026-07-23 11:24",
         "action": "atr_period",
-        "from": 14,
-        "to": 16,
-        "reason": "强趋势均盈-0.80% < 弱趋势0.48%, 增加ATR周期"
+        "from": 18,
+        "to": 20,
+        "reason": "强趋势均盈-1.96% < 弱趋势-0.15%, 增加ATR周期"
       }
     ],
     "_stats": {
-      "strong_trend_avg_pnl": -0.8,
-      "weak_trend_avg_pnl": 0.48,
+      "strong_trend_avg_pnl": -1.96,
+      "weak_trend_avg_pnl": -0.15,
       "strong_n": 12,
-      "weak_n": 8
+      "weak_n": 9
     }
   },
   "训辩权重": {
@@ -120,6 +144,42 @@
       "extreme": 20.0,
       "data": 10.0,
       "chain": 5.0
+    }
+  },
+  "LLM幻觉进化器": {
+    "price_reference_strategy": "hybrid",
+    "confidence_scaling_factor": 1.2,
+    "max_deviation_threshold": 0.3,
+    "hallucination_warning_enabled": false,
+    "_last_updated": "2026-07-23 11:24",
+    "_evolution_log": [
+      {
+        "time": "2026-07-23 11:24",
+        "action": "price_reference_strategy",
+        "from": "hybrid",
+        "to": "hybrid",
+        "reason": "幻觉率0%正常, 使用混合策略"
+      },
+      {
+        "time": "2026-07-23 11:24",
+        "action": "confidence_scaling_factor",
+        "from": 1.1,
+        "to": 1.2,
+        "reason": "幻觉率0%正常+样本充足, 缩放因子上调"
+      },
+      {
+        "time": "2026-07-23 11:24",
+        "action": "max_deviation_threshold",
+        "from": 0.25,
+        "to": 0.3,
+        "reason": "幻觉率0%正常, 放宽偏差阈值"
+      }
+    ],
+    "_stats": {
+      "hallucination_rate": 0,
+      "max_deviation_rate": 0,
+      "confidence_issues": 0,
+      "total_verdicts": 21
     }
   }
 }
