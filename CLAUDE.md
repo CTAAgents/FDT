@@ -220,6 +220,18 @@ P0:   自进化前置（校准/验证）+ FDC 数据准备
   → G19: 无品种跳转（质检全部 FAIL 时跳过辩论+终裁）
   → P6: 品藻汇编 → 辩论报告生成 HTML → 记忆写入
   → P6a: CTP 信号输出（风控 red 阻断）
+
+## RHI 自进化（v9.22.0+）
+
+开启 `FDT_RHI=true` 后，在自进化闭环中新增 RHI 分支（improve→calibrate→evolve→rhi→ml→complete），自动优化三层 Harness 规范（Agent Candidates / Workflow(Contract+Hop) / Auxiliary Rules）。
+
+也可手动触发：
+```bash
+python scripts/rhi_global_cli.py status
+python scripts/rhi_global_cli.py step
+```
+
+参考：RHI (arXiv:2607.15524) + MemoHarness (arXiv:2607.14159)
 ```
 
 ### 核心原则

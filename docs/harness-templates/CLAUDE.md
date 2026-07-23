@@ -44,3 +44,17 @@
 | 8 | 多循环共写 STATE | 多个 Loop 输出同目录 |
 | 9 | Chat 历史当文档 | 关键知识仅在对话历史 |
 | 10 | 一个 PR 改所有 | 单个 PR 涉及 > 20 个文件 |
+
+## RHI 递归 Harness 自进化（v9.22.0+）
+
+本项目支持 RHI 自优化，将 CLAUDE.md 作为可迭代的 Harness prompt：
+```bash
+python scripts/rhi_global_setup.py init     # 首版快照
+python scripts/rhi_global_setup.py step     # 执行一轮优化
+python scripts/rhi_global_setup.py status   # 查看状态
+```
+
+评分维度：memory_coverage(0.30) + rule_completeness(0.30) + consistency(0.20) + clarity(0.20)。
+改进率低于 0.3 或达最大轮次后自动收敛。
+
+参考：RHI (arXiv:2607.15524) + MemoHarness (arXiv:2607.14159)
