@@ -593,8 +593,8 @@ SIGNAL_VALIDATOR_MAP = {
     "near_breakout":          ["volume_confirm", "atr_vol_timing"],   # 未实质突破，轻量确认
     # P3 均值回归
     "minor_signal":           ["entity_quality", "atr_vol_timing", "stability"],
-    # 全局闸门（稳定性/拥挤度，列表级）
-    "__global__":             ["crowding"],
+    # 全局闸门（数据质量/稳定性/拥挤度，列表级）
+    "__global__":             ["data_quality", "crowding"],
 }
 
 # ═══════════════════════════════════════════════════════════

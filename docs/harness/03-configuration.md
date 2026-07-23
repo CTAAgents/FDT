@@ -131,6 +131,9 @@ line-length = 120
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
 | `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |
+|
+| `SIGNAL_VALIDATOR_MAP` | `config/settings.py` | 信号验证器注册表: 按 signal_type 路由验证器, `__global__` 为列表级闸门 | `signals/validators/__init__.py` |
+| → `__global__` | `["data_quality", "crowding"]` | v9.12.0: 新增 `data_quality` 验证器 — D级降级NOISE/C级标记/dq_web_fallback | `signals/validators/data_quality.py` |
 
 ### 环境变量设置示例
 

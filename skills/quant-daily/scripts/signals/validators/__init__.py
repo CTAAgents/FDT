@@ -60,6 +60,7 @@ from . import (  # noqa: E402
     entity_quality,
     stability,
     crowding,
+    data_quality,
 )
 
 __all__ = [

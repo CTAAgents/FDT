@@ -68,11 +68,14 @@ def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") ->
         payload = asyncio.run(_ds_get_kline(variety, period=period, days=days))
         meta = payload.meta
         grade = meta.get("data_grade_label", "")
+        # 先计算数据源标签（穿透到 FDC 的真实底层源：tdx_tq_local / web_fallback / qmt_xtquant / tqsdk）
+        _sources_list = meta.get("sources", ["fdc"])
+        _source_label = _sources_list[0] if isinstance(_sources_list, list) else str(_sources_list)
         if grade in ("UNAVAILABLE", "STALE"):
             return {"success": False, "data": [], "data_source": grade, "error": f"FDC grade={grade}"}
         bars_raw = payload.data.get("bars", [])
         if not bars_raw:
-            return {"success": False, "data": [], "data_source": meta.get("source", "fdc"), "error": "FDC 返回空 K 线"}
+            return {"success": False, "data": [], "data_source": _source_label, "error": "FDC 返回空 K 线"}
         records = []
         for b in bars_raw:
             records.append({
@@ -84,12 +87,10 @@ def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") ->
                 "volume": int(b.get("volume", 0)),
                 "oi": int(b.get("oi") or b.get("open_interest", 0)),
                 "settle": float(b.get("settle", 0) if b.get("settle") else 0),
-                "data_source": meta.get("source", "fdc"),
+                "data_source": _source_label,
                 "confidence": 1.0,
             })
-        sources = meta.get("sources", ["fdc"])
-        source_label = sources[0] if isinstance(sources, list) else str(sources)
-        return {"success": True, "data": records, "data_source": source_label, "confidence": 1.0}
+        return {"success": True, "data": records, "data_source": _source_label, "confidence": 1.0}
     except Exception as e:
         return {"success": False, "data": [], "data_source": "fdc_error", "error": str(e)}
 
@@ -1083,6 +1084,29 @@ def run_scan(
                     _oi_data = _v_oi or _collect_oi_data_sync(_all_ranked, kline_data)
                     _basis_data = _v_basis or _collect_basis_data_sync(_all_ranked)
                     ctx = ValidationContext(kline_data=kline_data, higher_tf={}, extra={"oi_data": _oi_data, "basis_data": _basis_data})
+                    # 在验证器之前注入 data_quality（Data Governance Phase 2）
+                    # 先从 kline_data 溯源 data_source 到 all_ranked
+                    for _r in _all_ranked:
+                        if not _r.get("data_source") or _r["data_source"] in ("unknown", "fdc"):
+                            _sym = _r.get("symbol", "")
+                            _kl = kline_data.get(_sym)
+                            if _kl:
+                                _bars = _kl[1] if isinstance(_kl, tuple) and len(_kl) == 2 else _kl
+                                if _bars:
+                                    _r["data_source"] = _bars[0].get("data_source", "unknown")
+                    try:
+                        from futures_data_core.core.data_quality import evaluate_symbol as _evaluate_dq
+                        for _r in _all_ranked:
+                            _sym = _r.get("symbol", "")
+                            _src = _r.get("data_source", "unknown")
+                            _kl = kline_data.get(_sym)
+                            if isinstance(_kl, tuple) and len(_kl) == 2:
+                                _kl = _kl[1]
+                            _r["data_quality"] = _evaluate_dq(_sym, _kl, _src)
+                    except ImportError:
+                        for _r in _all_ranked:
+                            _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
+                                                   "overall": "N/A", "issues": ["模块未加载"]}
                     run_signal_validators(_all_ranked, ctx)
                     summary["all_ranked"] = _all_ranked
                     for _side in ("bear_signals", "bull_signals"):

@@ -34,12 +34,15 @@ def _fdc_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
         payload = asyncio.run(_fdc_get_kline(variety, period=period, days=days))
         meta = payload.meta
         grade = meta.get("data_grade_label", "")
+        # 先计算数据源标签（穿透到 FDC 的真实底层源）
+        _sources_list = meta.get("sources", ["fdc"])
+        _source_label = _sources_list[0] if isinstance(_sources_list, list) else str(_sources_list)
         if grade in ("UNAVAILABLE", "STALE"):
             return {"success": False, "data": [], "data_source": grade,
                     "error": f"FDC grade={grade}"}
         bars_raw = payload.data.get("bars", [])
         if not bars_raw:
-            return {"success": False, "data": [], "data_source": meta.get("source", "fdc"),
+            return {"success": False, "data": [], "data_source": _source_label,
                     "error": "FDC 返回空 K 线"}
         records = []
         for b in bars_raw:
@@ -52,12 +55,10 @@ def _fdc_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
                 "volume": int(b.get("volume", 0)),
                 "oi": int(b.get("oi", 0) if b.get("oi") else 0),
                 "settle": float(b.get("settle", 0) if b.get("settle") else 0),
-                "data_source": meta.get("source", "fdc"),
+                "data_source": _source_label,
                 "confidence": 1.0,
             })
-        sources = meta.get("sources", ["fdc"])
-        source_label = sources[0] if isinstance(sources, list) else str(sources)
-        return {"success": True, "data": records, "data_source": source_label, "confidence": 1.0}
+        return {"success": True, "data": records, "data_source": _source_label, "confidence": 1.0}
     except Exception as e:
         return {"success": False, "data": [], "data_source": "fdc_error", "error": str(e)}
 

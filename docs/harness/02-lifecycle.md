@@ -82,7 +82,7 @@ fdt_cli.py main()
               │     └───────────┬────────────────────────┘
               │                 │
               │     ┌───────────▼────────────────────────┐
-              │     │  P1.5 信号过滤闸门(非链证源)                       │
+              │     │  P2 信号过滤闸门                       │
               │     │  select_triggers()                  │
               │     │  filter=ON: |total|                 │
               │     │  filter=OFF: |_raw_total|           │
@@ -91,13 +91,13 @@ fdt_cli.py main()
               │         ▼               ▼
               │  ┌──────────────┐  ┌──────────────────┐
               │  │ P2: 闫判官   │  │ 提前终止          │
-              │  │ 选品种+定方向 │  │ 汇报"无信号"      │
+              │  │ 选品种+调度  │  │ 汇报"无信号"      │
               │  │ + 调度决策    │  └──────────────────┘
               │  └──────┬───────┘
               │         │
               │         ▼ (按需并行调度)
               │  ┌──────────────────────────┐
-              │  │  P3: 并行数据源(平级)           │
+              │  │  P2: 四源并行         │
               │  │  ┌─────────┬───────────┐  │
               │  │  │ 链证源  │ 观澜     │  │
               │  │  │ 产业链  │ 技术面   │  │
@@ -109,7 +109,7 @@ fdt_cli.py main()
               │  └──────┬────────────────────┘
               │         │
               │  ┌──────▼───────┐
-              │  │ P4: 六阶段攻防 │ ← 串行六步
+              │  │  P3: 六阶段攻防 │ ← 串行六步
               │  │ bullish_v1→  │
               │  │ bearish_v1→ │
               │  │ bearish_    │
@@ -121,10 +121,9 @@ fdt_cli.py main()
               │  └──────┬───────┘
               │         │
               │  ┌──────▼───────┐
-              │  │ P5: 裁决链   │ ← 串行
-              │  │ 闫判官→风控明│
-              │  │ (闫判官含    │
-              │  │  交易参数)   │
+              │  │ P4: 闫判官终裁│ ← 串行
+              │  │ 含完整交易参数│
+              │  │   → P5 风控明 │
               │  └──────┬───────┘
               │         │
               └─────────┘ (循环每个品种)
@@ -149,10 +148,11 @@ fdt_cli.py main()
 > **阶段变更说明**:
 > - **P0b 新增 (v9.6.5)**: 数据新鲜度闸门作为 pre_loop 必查步骤，对标数据新鲜度分级标准
 > - **P1 重构**: 从"通道突破扫描"升级为"可插拔多策略并行扫描"，支持 trend_following(10子信号)、mean_reversion(3子信号) 及自定义策略插件
-> - **P1.5 信号闸门（非链证源）**: 当前 P1.5 是信号过滤闸门（三层门禁），与链证源无关。链证源已归入 P3 与观澜/探源并行
-> - **P2 增强**: 闫判官新增"调度决策"能力，决定 P3 需要哪些数据源
-> - **P3 重构**: 改为"按需并行数据源"，由闫判官调度链证源/观澜/探源并行执行
-> - **P5**: 裁决链为两步串行：闫判官（含交易参数）→ 风控明
+> - **P2 信号闸门（非链证源）**: 当前 P2 是信号过滤闸门（三层门禁），与链证源无关。链证源已归入 P2 与观澜/探源/读心并行
+> - **P2 增强**: 闫判官新增"调度决策"能力，决定 P2 需要哪些数据源
+> - **P2 重构**: 改为"按需并行数据源"（链证源/观澜/探源/读心四源并行），由闫判官调度并行执行
+> - **P3**: 六阶段攻防辩论（串行六步）
+> - **P4+P5**: 闫判官终裁（含交易参数）→ 风控明审核
 
 ### 2.2 阶段详细规格（按需并行数据源 v8.3.0+ / 新鲜度闸门 v9.6.5+）
 
@@ -161,18 +161,20 @@ fdt_cli.py main()
 | P0 | 自进化前置 | 系统 | `pg.execution_followup` | `pg.calibration` + `pg.agent_profiles` 更新 | 60s/步 | 跳过该步 |
 | **P0b** | **数据新鲜度闸门** | **系统** | **PG中行情/资金数据** | **`debate_state.freshness_report`（各品种新鲜度评级）** | **120s** | **D06 降级（新鲜度不足→降级裁决）** |
 | P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` + **`all_ranked[].stats` 纯统计特征（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）** + **P1 阶段报告 `scan_report_path`** | 600s | 提前终止 |
-| P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+定方向+**调度哪些源**） | 420s | D06 降级 |
-| P3 | **按需并行数据源** | 链证源+观澜+探源（闫判官按需调度） | P2 调度指令 | `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` + **P3 阶段报告 `research_report_path`** | **max(被调度的源)** | 单源失败不影响其他源 |
-| P3a | 链证源产业链（按需） | 链证源 | 品种+产业链 | `pg.chain_analysis` | 300s | 跳过链分析 |
-| P3b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
-| P3c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
-| P4 步1 | 多头立论 v1 | 多头分析员 | P3 合并分析结果 | `state.bullish_arguments`（round=1, v1） | 420s | D06 降级 |
-| P4 步2 | 空头立论 v1 | 空头分析员 | P3 合并分析结果 | `state.bearish_arguments`（round=2, v1） | 420s | D06 降级 |
-| P4 步3 | 空头反驳多头 | 空头分析员 | 多头立论 + P3 合并分析 | `state.bearish_rebuttal_arguments`（round=3, rebuttal_v1） | 420s | D06 降级 |
-| P4 步4 | 多头反驳空头 | 多头分析员 | 空头立论+空头反驳 + P3 | `state.bullish_rebuttal_arguments`（round=4, rebuttal_v1） | 420s | D06 降级 |
-| P4 步5 | 空头最终陈述 | 空头分析员 | 整合空头所有论据 | `state.bear_final_arguments`（round=5, final） | 420s | D06 降级 |
-| P4 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
-| P5 | 裁决链 | 闫判官(含交易参数)→风控明 | P4 辩论论据 | `pg.debate_verdicts`(含交易参数) + `pg.risk_checks` + **P5 阶段报告 `verdict_report_path`** | 420s/Agent | D06 降级 |
+| P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+**调度哪些源**） | 420s | D06 降级 |
+| P2 | **四源并行** | 闫判官(调度)+链证源+观澜+探源+读心（闫判官按需调度） | P2 调度指令 | `pg.judge_direction` + `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` + `pg.sentiment_scores` + **P2 阶段报告 `research_report_path`** | **max(被调度的源)** | 单源失败不影响其他源 |
+| P2a | 链证源产业链（按需） | 链证源 | 品种+产业链 | `pg.chain_analysis` | 300s | 跳过链分析 |
+| P2b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
+| P2c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
+| P2d | 读心新闻情绪（按需） | 读心 | 品种+方向 | `pg.sentiment_scores` | 420s | 跳过新闻情绪 |
+| P3 步1 | 多头立论 v1 | 多头分析员 | P2 合并分析结果 | `state.bullish_arguments`（round=1, v1） | 420s | D06 降级 |
+| P3 步2 | 空头立论 v1 | 空头分析员 | P2 合并分析结果 | `state.bearish_arguments`（round=2, v1） | 420s | D06 降级 |
+| P3 步3 | 空头反驳多头 | 空头分析员 | 多头立论 + P2 合并分析 | `state.bearish_rebuttal_arguments`（round=3, rebuttal_v1） | 420s | D06 降级 |
+| P3 步4 | 多头反驳空头 | 多头分析员 | 空头立论+空头反驳 + P2 | `state.bullish_rebuttal_arguments`（round=4, rebuttal_v1） | 420s | D06 降级 |
+| P3 步5 | 空头最终陈述 | 空头分析员 | 整合空头所有论据 | `state.bear_final_arguments`（round=5, final） | 420s | D06 降级 |
+| P3 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
+| P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
+| P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 明鉴秋兜底 |
 | P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |
 | P6a | CTP信号输出 | 明鉴秋 | P6 汇总 + 风控明审核 | CTP交易指令 (`pg.ctp_signals`) + **P6a 阶段报告 `signal_report_path`** | 60s | 跳过信号输出 |
 
@@ -187,9 +189,9 @@ fdt_cli.py main()
 > - 行情数据须在上一交易日内；资金/持仓须为最新交易日；过时品种>30%中止并告警
 >
 > **阶段变更说明 (v8.3.0)**:
-> - **P1-P2-P3 重构**: 从「数技源串行 → 旧P1.5(链证源) → P2 闫判官 → P3 研究」改为「P1 数技源 → P2 闫判官**调度决策** → P3 **按需并行平行执行**链证源+观澜+探源」
-> - **调度权**: 闫判官在 P2 阶段不仅选品种定方向，还决定需要哪些数据源（如趋势信号侧重观澜、周期品种侧重链证源）
-> - **链证源归入 P3**: 链证源从旧 P1.5 移至 P3，与观澜/探源并行。v8.3.0 后 P1.5 改为信号过滤闸门（P1.5_signal_gate），与链证源无关
+> - **P1-P2-P3 重构**: 从「数技源串行 → 旧闸门 → P2 闫判官 → P3 研究」改为「P1 数技源 → P2 闫判官**调度决策** → P2 **四源并行**链证源+观澜+探源+读心」
+> - **调度权**: 闫判官在 P2 阶段不仅选品种，还决定需要哪些数据源（如趋势信号侧重观澜、周期品种侧重链证源）
+> - **四源归入 P2**: 链证源/观澜/探源/读心从原独立阶段移至 P2 四源并行
 > - **数据存储**: 所有中间产出从文件系统迁移到 PostgreSQL (OLTP 层)
 > - **并行粒度**: 被调度的源在 LangGraph 中通过 `ParallelMap` 并发执行，超时取 max 而非 sum
 >
@@ -200,11 +202,13 @@ fdt_cli.py main()
 
 > **v9.6.8 变更 — P1 角色矫正**: P1 数技源从"策略评分器"回归"数据统计器"角色，新增 `all_ranked[].stats` 纯统计特征产出（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置），`total`/`direction`/`grade` 降级为内部参考。`select_triggers()` 从基于 grade+total 的方向性过滤改为数据质量闸门（stats完整性+K线数量+流动性）。
 
+> **v9.12.0 变更 — Data Governance Phase 2 数据质量门禁**: 信号验证器管道新增 V8 `data_quality` 验证器（注册为 `__global__` 列表级闸门），在 P0-4 伪信号过滤之前运行。该验证器读取 `all_ranked[].data_quality` 元数据（由 FDC 在验证器之前注入），依据 `overall` 等级触发阻断：D级→直接降级 NOISE（数据不可靠）、C级→标记 `_dq_penalty`（信号保留但可靠性存疑）、web_fallback 源→标记 `_dq_web_fallback`（低优先级）。数据源已穿透到 FDC 真实底层源（tdx_tq_local / web_fallback / qmt_xtquant / tqsdk），从 kline_data 自动传播到 all_ranked 条目。
+
 ### 2.2a 运行模式
 
 FDT 支持两种执行模式：
 
-1. **全量分析模式**（默认）：现有六阶段流水线不变 — P0b 新鲜度闸门 → P1 信号扫描 → P2 闫判官调度决策 → P3 按需并行数据源 → P4 六阶段攻防辩论 → P5 裁决链 → P6 汇总输出。从品种列表全量扫描开始，逐级传递。
+1. **全量分析模式**（默认）：现有六阶段流水线不变 — P0b 新鲜度闸门 → P1 信号扫描 → P2 闫判官+四源并行 → P3 六阶段攻防辩论 → P4 闫判官终裁 → P5 风控明 → P6 汇总输出。从品种列表全量扫描开始，逐级传递。
 
 2. **指定品种辩论模式**：当设置 `FDT_DIRECT_DEBATE=true` 和 `FDT_DEBATE_SYMBOLS=SF,SM,SC` 时，跳过 P1 扫描阶段。系统从 `fdt_cache/` 本地 SQLite 缓存直接加载指定品种的 K 线数据、基本面数据和基差数据，进入 P0b→P2→P3→P4→P5→P6 流程。适用于快速对已缓存品种启动辩论，无需等待实时扫描信号。
 
@@ -263,14 +267,14 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 |:-----|:-----|:-----------|:-----|
 | `freshness_report` | P0b 新鲜度闸门 | `freshness_report_{trace_id}.json` | JSON |
 | `scan_report_path` | P1 信号扫描 | `scan_report_{trace_id}.html` | HTML |
-| `research_report_path` | P3 四源研究 | `research_report_{trace_id}.html` | HTML |
-| `verdict_report_path` | P5 裁决链 | `verdict_report_{trace_id}.html` | HTML |
+| `research_report_path` | P2 四源并行 | `research_report_{trace_id}.html` | HTML |
+| `verdict_report_path` | P4 闫判官终裁 | `verdict_report_{trace_id}.html` | HTML |
 | `report_path` | P6 辩论汇总 | `debate_report_{date}.html` | HTML |
 | `signal_report_path` | P6a CTP信号 | `signal_report_{date}.html` | HTML |
 
 **降级策略**：
 - P0b 新鲜度闸门失败时，走 D06 降级，记录 stale_data_warning 到日志
-- P1/P3/P5/P6a 报告生成失败时，记录 warning 不中断主流程
+- P1/P2/P4/P6a 报告生成失败时，记录 warning 不中断主流程
 - P6 辩论报告失败时，fallback 写入工作空间下的 `debate_report_{trace_id}.html`，保证 `report_path` 永远有效
 - 所有 fallback 报告统一使用 `_render_html()` 模板，trace_id 全链路贯穿
 
