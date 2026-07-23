@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from langgraph.graph import StateGraph, END
@@ -53,6 +54,9 @@ from fdt_langgraph.master_nodes import (
 )
 
 logger = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_HEARTBEAT_PATH = PROJECT_ROOT / "memory" / "logs" / "master_heartbeat.log"
 
 # 任务节点注册表: (节点名, 节点函数)
 _TASK_NODES: list[tuple[str, Any]] = [
@@ -112,6 +116,15 @@ def get_master_graph():
     return _MASTER_GRAPH
 
 
+def _write_heartbeat():
+    """写入心跳文件，供 daemon_watchdog.py 检测守护进程存活状态。"""
+    try:
+        _HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _HEARTBEAT_PATH.write_text(datetime.now().isoformat(), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def run_master_once(loop_id: str = "") -> dict:
     if not loop_id:
         loop_id = f"master-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -142,4 +155,5 @@ def run_master_daemon(interval_seconds: int = 60):
         except Exception as e:
             logger.error(f"[MasterGraph] Loop #{loop_count} 异常: {e}")
         logger.info(f"[MasterGraph] 休眠 {interval_seconds}s...")
+        _write_heartbeat()
         time.sleep(interval_seconds)

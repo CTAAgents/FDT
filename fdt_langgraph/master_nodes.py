@@ -284,10 +284,31 @@ node_run_auto_publish = _make_script_node(
 # ── 3b. 有特殊逻辑的任务节点 ──
 
 def node_run_data_collection(state: dict) -> dict:
-    """数据采集: 更新主力合约映射。"""
+    """数据采集: 更新主力合约映射（内联 — 委托给 node_run_update_dominant_mapping）。"""
     state["current_task"] = "data_collection"
     started = datetime.now().isoformat()
-    ok, msg = _run_script("scripts/update_dominant_mapping.py", timeout=120)
+    try:
+        from futures_data_core.core.dominant_resolver import DominantResolver
+        from futures_data_core.collectors.tdx import TDXCollector
+
+        resolver = DominantResolver()
+        collector = TDXCollector()
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        available = loop.run_until_complete(collector.check_available())
+        if not available:
+            loop.close()
+            ok, msg = False, "TDX 数据源不可用，跳过"
+        else:
+            mapping = resolver.refresh_all(collector)
+            loop.close()
+            switch_count = len([v for v in mapping.values() if v.get("switched")])
+            ok, msg = True, f"已更新 {len(mapping)} 品种, {switch_count} 换月事件"
+    except Exception as exc:
+        ok, msg = False, str(exc)
+
     state.setdefault("task_results", {})["data_collection"] = {
         "success": ok, "summary": msg, "started_at": started,
         "completed_at": datetime.now().isoformat(),
@@ -295,7 +316,7 @@ def node_run_data_collection(state: dict) -> dict:
     _set_triggered("data_collection")
     state["task_index"] = state.get("task_index", 0) + 1
     state["phase"] = "dispatch"
-    logger.info(f"[Master] data_collection: {'✅' if ok else '❌'} {msg}")
+    logger.info(f"[Master] data_collection: {'✅' if ok else '❌'} {msg[:80]}")
     return state
 
 

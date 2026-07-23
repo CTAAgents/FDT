@@ -30,7 +30,7 @@
 | 生命周期管理 | 5/5 | 5/5 | **5/5** | 6 阶段状态机 + 自进化闭环（代码层完整） |
 | 状态管理 | 4/5 | 5/5 | **5/5** | G2 trace_id 贯穿全流水线 ✅ |
 | 错误恢复 | 5/5 | 5/5 | **5/5** | L1-L5 + D06 + 看门狗（业界领先） |
-| 可观测性 | 4/5 | 5/5 | **5/5** | G3 `pipeline/runner.py` 已用 `unified_logger`；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
+| 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
 
@@ -120,7 +120,7 @@
 
 | **G107** | 观澜/探源FDC回退模板过于简陋，LLM解析失败时只填占位文本 | 报告中技术面/基本面无具体数据 | P1 | v9.11.2 | 已关闭 | 观澜回退利用indicators.values(RSI14/ADX/MA排列/Supertrend/ATR等)生成结构化描述+启发式评分；探源回退利用f10实际数据(term_structure/spread/basis/position_ranking)填充 | fdt_langgraph/nodes.py |
 
-| **G108** | **LangGraph 迁移收尾（pipeline/runner.py 已删除，外部脚本待内联）** | ① ~~`pipeline/runner.py` 已删除~~ ✅ ② 15 个外部脚本仍通过 `_run_script()` subprocess 调用 ③ Master Graph 守护进程心跳文件待添加 ④ 文档引用已清理 | P0 | v9.19.0 | Task 1/6 关闭 | 删除 pipeline/runner.py、quality_filter.py、__init__.py、tests/pipeline/、test_integration_ab.py；清理 FDT_USE_LANGGRAPH A/B 切换机制；更新文档 | 多文件 
+| **G108** | **LangGraph 迁移收尾** | ① ~~`pipeline/runner.py` 已删除~~ ✅ ② 15 个外部脚本评估为"有意识保留 subprocess" ✅ ③ Master Graph 心跳文件已落地 ✅ ④ 文档引用已清理 ✅ ⑤ `node_run_data_collection` dangling 引用已修复 ✅ ⑥ 全量测试通过 | P0 | v9.19.0 | ✅ **已关闭（v9.19.0）** | 删除 pipeline/runner.py、quality_filter.py、__init__.py、tests/pipeline/；清理 FDT_USE_LANGGRAPH；Master Graph 心跳文件 `_write_heartbeat()`；`node_run_data_collection` 内联修复；17 处文档旧引用全量清理；daemon_watchdog 确认使用 master_heartbeat.log；新增 `test_master_graph.py` 132 行测试 | 多文件 
 
 ### 4.2 P1 — 高优先级（影响效率/质量）
 

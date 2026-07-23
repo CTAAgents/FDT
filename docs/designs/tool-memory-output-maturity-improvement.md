@@ -107,19 +107,15 @@ audit.log(
 
 #### 步骤 1.4：APM 评分卡自动化
 
-在 `scheduler/tasks.py` 中注册每周一 08:30 的 APM 任务：
+在 `master_state.py _get_default_schedules()` 中注册每周一 08:30 的 APM 任务（纯 Python datetime 调度，无需 APScheduler）：
 
 ```python
-# 每周一早 08:30 生成 APM 评分卡
-scheduler.add_job(
-    "apm_scorecard",
-    trigger="cron",
-    day_of_week="mon",
-    hour=8,
-    minute=30,
-    func=lambda: __import__("subprocess").run(
-        [sys.executable, "-m", "scripts.apm_scorecard"]
-    ),
+# _get_default_schedules() 中返回的调度条目示例
+ScheduleEntry(
+    task_id="apm_scorecard",
+    cron="30 8 * * 1",      # 每周一 08:30
+    description="生成 APM 评分卡",
+    enabled=True,
 )
 ```
 
@@ -188,21 +184,22 @@ cb.record_call(source_name, success=result is not None)
 
 #### 步骤 3.2：自进化闭环激活
 
-检查 `scheduler/tasks.py` 是否已注册 validate_verdicts → calibrate → evolve 链。未注册则追加：
+检查 `master_state.py _get_default_schedules()` 是否已注册 validate_verdicts → calibrate → evolve 链。未注册则追加：
 
 ```python
-# 每日 09:15（辩论完成后 15 分钟）执行验证
-scheduler.add_job(
-    "validate_verdicts",
-    trigger="cron", hour=9, minute=15,
-    func=lambda: run_script("scripts/validate_verdicts.py"),
-)
-# 验证 ≥5 条后自动触发 calibrate + evolve
-scheduler.add_job(
-    "calibrate_and_evolve",
-    trigger="interval", hours=6,
-    func=lambda: run_calibrate_evolve_if_ready(),
-)
+# _get_default_schedules() 中返回的调度条目示例
+ScheduleEntry(
+    task_id="validate_verdicts",
+    cron="15 9 * * *",       # 每日 09:15（辩论完成后 15 分钟）
+    description="执行验证",
+    enabled=True,
+),
+ScheduleEntry(
+    task_id="calibrate_and_evolve",
+    cron="0 */6 * * *",      # 每 6 小时
+    description="验证 ≥5 条后自动触发 calibrate + evolve",
+    enabled=True,
+),
 ```
 
 **改动量**：~20 行，1 文件。
@@ -225,11 +222,11 @@ scheduler.add_job(
 | 1.1 | `fdt_langgraph/quality_inspector.py` | +15 | 修改 |
 | 1.2 | `fdt_langgraph/nodes.py` | +20 | 修改 |
 | 1.3 | `fdt_langgraph/nodes.py` | +15 | 修改 |
-| 1.4 | `scheduler/tasks.py` | +10 | 修改 |
+| 1.4 | `master_graph.py` | +10 | 修改 |
 | 2.1 | `fdt_langgraph/agents.py` | +20 | 修改 |
 | 2.2 | `futures_data_core/core/multi_source_adapter.py` | +20 | 修改 |
 | 3.1 | `scripts/memory_cleaner.py` | +30 | 修改 |
-| 3.2 | `scheduler/tasks.py` | +20 | 修改 |
+| 3.2 | `master_graph.py` | +20 | 修改 |
 | 文档 | `harness/05-observability.md` | +10 | 更新 |
 | 文档 | `harness/03-configuration.md` | +10 | 更新 |
 | 文档 | `harness/07-operations.md` | +5 | 更新 |

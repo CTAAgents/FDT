@@ -393,51 +393,7 @@ def node_check_time(state):
 详见 [07-operations.md §3](07-operations.md#3-master-graph-运维) 完整调度注册表。
 
 
-## 5. 全自动流水线 (Pipeline Runner)
 
-### 5.1 六步管道
-
-`pipeline/runner.py` 实现了无人值守的全自动管道：
-
-| 步骤 | 函数 | 脚本 | 失败策略 |
-|:-----|:-----|:-----|:---------|
-| 1/6 | `step_scan()` | `scan_all.py`(channel_breakout) | 文件缺失则告警继续 |
-| 2/6 | `step_chain_analysis()` | `analyze_chain.py` | 跳过链分析 |
-| 3/6 | `step_debate_brief()` | `debate_brief.py` | 跳过品种精选 |
-| 4/6 | `step_assemble_intermediate()` | `assemble_intermediate_data.py` | 跳过数据适配 |
-| 5/6 | `step_generate_report()` | `phase3_generate_report.py` | 标记报告未生成 |
-| 6/6 | `step_record_history()` | `debate/history.py` + `record_verdicts.py` + `ml/trainer.py` | 各子步骤独立容错 |
-
-
-
-### 5.3 基差数据来源 (v8.8.9+)
-
-P1 扫描阶段的基差数据通过 `_collect_basis_data_sync()` 获取，数据来源优先级：
-
-1. **100ppi.com/sf/ 现期表**（主源）— 生意社公开页面，覆盖 ~50 个期货品种的现货价
-2. **TDX 近月合约代理**（降级，v8.8.9 新增）— 当 100ppi 不可用时（HW_CHECK 反爬/超时/页面变更），自动降级使用 TdxCollector 的近月合约价格作为现货价格代理
-3. **无数据** — 以上均不可用时返回空字典，验证器退化为纯 ATR%/K线重校验判断
-
-**近月代理标注**：返回数据的 `unit` 字段为 `"元/吨(近月代理)"`，`data_source` 为 `"near_month_proxy"`。消费方应据此区分真实基差与代理基差。
-
-### 5.2 容错原则
-
-- **每步失败不阻断后续**: `check=False` 传递给 `run_cmd()`
-- **超时保护**: 每步 600s 超时
-- **日志双写**: 控制台 + 文件 (`pipeline_{date}.log`)
-- **UTF-8 强制**: `PYTHONIOENCODING=utf-8` 环境变量注入
-
-### 5.3 代码位置
-
-| 组件 | 文件 | 关键函数 |
-|:-----|:-----|:---------|
-| 管道主流程 | `pipeline/runner.py` | `main()` L383 |
-| 命令执行器 | `pipeline/runner.py` | `run_cmd()` L77 |
-| 日志配置 | `pipeline/runner.py` | L22-30 (logging.basicConfig) |
-| ML 训练检查 | `pipeline/runner.py` | `step_record_history()` L271 |
-| 单品种报告 | `fdt_langgraph/single_symbol_report.py` | `generate_single_symbol_report()` |
-
-> **支持文档**：`docs/signals/channel_breakout_strategy.md` — 通道突破信号策略完整逻辑说明（唐奇安DC20/DC55 + 布林带 + 成交量确认）。
 
 
 ## 6. Loop Engineering：循环生命周期

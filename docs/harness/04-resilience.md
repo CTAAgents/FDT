@@ -99,7 +99,7 @@ spawn 闫判官 (第1次)
 
 | 项 | 内容 |
 |:---|:-----|
-| **脚本** | `scripts/run_debate.py` + `pipeline/runner.py step_scan()`（v6.3.0 数技源信号+分析师能力） |
+| **脚本** | `scripts/run_debate.py` + LangGraph P1 `node_scan` 节点（v6.3.0 数技源信号+分析师能力） |
 | **触发时机** | P1 扫描完成后 |
 | **检查内容** | `debate_trigger.json` 文件存在 + `all_ranked` 有 `abs(total) >= DEBATE_ENTRY_MIN_ABS` 的候选品种（阈值见 `config/settings.py`，当前=20，已过滤 NOISE 级） |
 | **失败动作** | **提前终止整个流程**，向用户汇报"当天无通道突破信号" |
@@ -272,7 +272,7 @@ daemon_watchdog.py 检测 (每30分钟)
     │
     └─ 挂了 → 自动重启
               ├─ 清理旧 PID 文件
-              ├─ 重新 bootstrap.py daemon
+              ├─ 重新 fdt_cli.py daemon
               └─ 记录重启事件
 ```
 

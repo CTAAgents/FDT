@@ -52,7 +52,6 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 | 原有组件 | LangGraph 对应 | 状态 |
 |:---------|:--------------|:-----|
 | `coordinator.py` | `fdt_langgraph/graph.py` | ✅ **G93 — 已迁移**（已删除，由 `build_debate_graph_with_profile()` 替代） |
-| `pipeline/runner.py` | `fdt_langgraph/graph.py` | ✅ 已迁移（A/B 切换完成） |
 | `debate_protocol_v2.py` | `fdt_langgraph/nodes.py` | ✅ **G94 — 已迁移**（已删除，常量内联到 `nodes.py`） |
 | `agent_runner.py` | `fdt_langgraph/agents.py` | ✅ **G95 — 已迁移**（已删除，由 `DebateAgentExecutor.run_single()` 替代） |
 | S04 轮询 | Checkpointer + 状态传递 | 已替代 |
@@ -93,13 +92,7 @@ scan → judge_direction → prepare_one_symbol(品种0)
               │   ├ node_run_debate               │
               │   ├ node_run_update_dominant_map  │
               │   └ ... (14个任务节点)             │
-              └────────────┬──────────────────────┘
-                           │ 触发
-              ┌────────────▼────────────┐
-              │   Pipeline Runner       │ ← 全自动流水线 (6步)
-              │   (pipeline/runner.py)  │
-              └────────────┬────────────┘
-                           │
+              └───────────────────────────────────┘
          ┌─────────────────┼─────────────────┐
          ▼                 ▼                  ▼
   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐

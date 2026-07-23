@@ -370,7 +370,6 @@ FDT/
 | `FDT_LLM_<NAME>_API_BASE` | 逐Agent API Base URL（覆盖全局） | - |
 | `FDT_LLM_<NAME>_MODEL` | 逐Agent 模型名（覆盖全局） | - |
 | `FDT_PG_DSN` | PostgreSQL 连接字符串 | - |
-| ~~`FDT_USE_LANGGRAPH`~~ | ~~是否使用 LangGraph 模式~~ | ~~`false`~~ |
 | `FDT_CHECKPOINTER` | Checkpointer 类型（pg/sqlite） | `sqlite` |
 | `FDT_SCAN_MODE` | 扫描模式（no-filter） | - |
 | `FDT_STRATEGIES` | 指定策略列表 | - |

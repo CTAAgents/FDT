@@ -34,7 +34,7 @@
 | `debate_weights.json` | `memory/` | 辩论权重配置 | 手动/脚本 |
 | `execution_followup.json` | `memory/` | 裁决执行回溯 (待验证队列) | `record_verdicts.py` |
 | `instrument_strategy_matrix.json` | `memory/` | 品种×策略族适应性矩阵 (F1-F5) | `update_matrix.py` |
-| `schedule_state.json` | `memory/` | 调度器状态 (PID/心跳/触发时间) | `scheduler/engine.py` |
+| `schedule_state.json` | `memory/` | 调度器状态 (PID/心跳/触发时间) | `master_graph.py / master_nodes.py` |
 | `dominant_map.json` | `memory/` | 主力合约映射持久化（品种→当前主力合约代码） | `dominant_resolver.py` |
 
 ## 2. 配置内容详解
@@ -117,7 +117,7 @@ line-length = 120
 | `FDB_LOG_DIR` | `logs/` | 日志文件目录 | `unified_logger.py` |
 | `DEBATE_HISTORY_DIR` | 项目内默认路径 | 辩论历史目录 (可覆盖) | `debate/history.py` |
 | `TRAINING_ORCHESTRATOR_DIR` | 项目内默认路径 | ML 模型存储目录 | `ml/trainer.py` |
-| `PYTHONIOENCODING` | (未设置) | Python IO 编码 (pipeline 强制设为 `utf-8`) | `pipeline/runner.py` |
+
 | `DCE_API_KEY` | (未设置) | 大商所官方 API key；设置后 DCE 持仓排名走官方 API（见 `futures_data_core/f10/dce_api.py`） | `f10/position.py` |
 | `DCE_API_SECRET` | (未设置) | 大商所官方 API secret；与 `DCE_API_KEY` 配对 | `f10/position.py` |
 | `FDT_CHECKPOINTER` | `sqlite` | Checkpointer 后端选择：`pg`=PostgreSQL，`sqlite`=SQLite；`pg` 连接失败自动降级到 `sqlite` | `fdt_langgraph/graph.py` `_get_checkpointer()` |
@@ -226,7 +226,7 @@ UNAVAILABLE (无数据)
 | Agent 产出 | JSON Schema (Draft 2020-12) | `docs/schemas/` (9个文件) |
 | Agent 产出 | Pydantic v2 model | `contracts/` |
 | Agent 产出 | L1 产出校验脚本 | `validate_agent_output.py` (skill内) |
-| 启动时关键文件 | 存在性检查 | `bootstrap.py` `load_memory()` |
+| 启动时关键文件 | 存在性检查 | `fdt_langgraph/` 启动逻辑 |
 
 ### 缺失的校验 (Gap)
 
