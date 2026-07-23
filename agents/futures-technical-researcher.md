@@ -195,3 +195,4 @@ append_debate_journal("futures-technical-researcher", "research_snapshot", {
 - ✅ 突破是否带量必须标注（带量突破 vs 缩量假突破）
 - ✅ 持仓变化必须区分：总持仓↑价↑=资金真进；总持仓↑价↓=空头加仓
 - ✅ 背离必须标清级别（时级别/日级别/周级别）
+- ✅ **ADX 规则**：ADX<20 标注"弱趋势/震荡"，ADX≥60 标注"极端趋势"但不下方向结论；ADX 在产出中的提及占比 ≤1/3

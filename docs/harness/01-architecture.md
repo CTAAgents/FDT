@@ -34,7 +34,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 | **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器)、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
-| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层逐品种 body 合并（v9.12.0+）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（逐品种 body 生成器，v9.12.0+ 统一入口）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+） |
+| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层逐品种 body 合并（v9.12.0+）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路） + RHI 递归 Harness 自改进（v9.21.0+，轨迹局部 pairwise 比较优化三层 Harness 规范） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（逐品种 body 生成器，v9.12.0+ 统一入口）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+）, `fdt_langgraph/rhi_graph.py`（RHI 自改进，v9.21.0+） |
 | **L5 可观测性** | 质量度量、诊断、改进 | `apm_scorecard.py`, `cluster_failures.py`, `run_benchmark.py`, `self_improve.py`, LangGraph `get_state_history()` |
 
 ### L4 LangGraph 层详细说明

@@ -244,6 +244,150 @@
           "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
         }
       ]
+    },
+    {
+      "generated_at": "2026-07-23 17:59:12",
+      "status": "enhanced",
+      "n_suggestions": 8,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "数技源",
+          "step": "P1",
+          "evidence": "P1 数技源: channel_breakout_scan — no_signals",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "观澜",
+          "step": "P3",
+          "evidence": "P3 观澜: research — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "探源",
+          "step": "P3",
+          "evidence": "P3 探源: research — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "证真",
+          "step": "P4",
+          "evidence": "P4 证真: argue — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "慎思",
+          "step": "P4",
+          "evidence": "P4 慎思: argue — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        }
+      ]
+    },
+    {
+      "generated_at": "2026-07-23 18:22:26",
+      "status": "enhanced",
+      "n_suggestions": 8,
+      "suggestions": [
+        {
+          "source": "D2_Acuity",
+          "priority": "P1",
+          "text": "共振信号退化（resonance=1 占比<25% 或样本<5）：ρ_info 不可靠，需复盘辩论信号设计中 resonance 赋值逻辑，避免噪音追逐"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P0",
+          "text": "聚类 C-structural-002(ADX≥60_追高追空风险) → 10 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "failure_clusters",
+          "priority": "P1",
+          "text": "聚类 C-structural-003(共振=0_无因子择时确认) → 15 例，纳入扫描风险加权 / 规则库补强"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "数技源",
+          "step": "P1",
+          "evidence": "P1 数技源: channel_breakout_scan — no_signals",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "观澜",
+          "step": "P3",
+          "evidence": "P3 观澜: research — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "探源",
+          "step": "P3",
+          "evidence": "P3 探源: research — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "证真",
+          "step": "P4",
+          "evidence": "P4 证真: argue — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        },
+        {
+          "source": "skill_adaptor",
+          "priority": "P1",
+          "fault_type": "execution_lapse",
+          "agent": "慎思",
+          "step": "P4",
+          "evidence": "P4 慎思: argue — ",
+          "confidence": 0.65,
+          "status": "proposal"
+        }
+      ]
     }
   ]
 }
