@@ -10,8 +10,8 @@ agent_config:
   - WebSearch
   - WebFetch
   - SendMessage
-  spawn_mode: general-purpose
-  spawn_note: ''
+  spawn_mode: null
+  spawn_note: null
 system_prompt: |
   #  空头分析员 — 做空论据独立提供者 v2.3
   

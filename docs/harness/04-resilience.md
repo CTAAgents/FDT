@@ -247,15 +247,8 @@ S04 解决了"Agent 后台 spawn 后如何知道产出就绪"的问题：
 | **D02 禁止代写裁决** | P4+P5 裁决阶段，明鉴秋不得自行撰写裁决结论 | 必须 spawn 闫判官 |
 | **D03 Phase 门禁** | P6 汇总前检查: 缺少 p4/p5 产出文件则拒绝生成报告 | 文件存在性检查 |
 | **D04 Agent 通信** | 辩论 Agent 产出通过 SendMessage→main 回传 | 明鉴秋转写入文件 |
-| **D05 Spawn 类型** | 辩论 Agent 必须用 `general-purpose` spawn | 禁止 expert subagent_type |
-| **D06 P5 降级** | 闫判官 spawn 2 次无产出 → 明鉴秋基于 P2(四源)+P3(辩论) 独立裁决 | 严基于辩论论据 |
-| **D07 P0b 新鲜度降级** (v9.22.3) | 数据新鲜度闸门检测 ALL_STALE/NO_VALID_SYMBOLS → 跳过 P2-P5，直接到 aggregate_results | node_freshness_gate 自动路由 |
-
-### 5.2 D05 根因
-
-> 2026-07-09 Bug 确认: expert subagent_type spawn 时 Write 工具不可用 (5 次失败)。
->
-> **修正**: 所有辩论 Agent 使用 `subagent_type: "general-purpose"` + prompt 手动注入角色定义。
+| **D05 P5 降级** | 闫判官 spawn 2 次无产出 → 明鉴秋基于 P2(四源)+P3(辩论) 独立裁决 | 严基于辩论论据 |
+| **D06 P0b 新鲜度降级** (v9.22.3) | 数据新鲜度闸门检测 ALL_STALE/NO_VALID_SYMBOLS → 跳过 P2-P5，直接到 aggregate_results | node_freshness_gate 自动路由 |
 
 ## 6. 异常处理流程
 

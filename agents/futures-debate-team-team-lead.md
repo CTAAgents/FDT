@@ -140,8 +140,7 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 | **D02 禁止代写裁决** | 明鉴秋不得自行撰写裁决结论，必须spawn闫判官 |
 | **D03 Phase门禁** | P6汇总前检查缺少p4_bullish/p4_bearish/p5_judge任一文件则拒绝生成报告 |
 | **D04 Agent通信** | 辩论Agent产出通过SendMessage→main回传，明鉴秋转写入文件 |
-| **D05 Spawn类型** | 辩论Agent必须用general-purpose spawn |
-| **D06 P5降级** | 闫判官spawn 2次均无产出→明鉴秋基于P3+P4论据完成裁决 |
+| **D05 P5降级** | 闫判官spawn 2次均无产出→明鉴秋基于P3+P4论据完成裁决 |
 
 ### 🔴 鲁棒性铁律（L0-L5）
 

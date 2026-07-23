@@ -91,8 +91,8 @@ agent_config:
   - Bash
   - WebSearch
   - SendMessage
-  spawn_mode: general-purpose
-  spawn_note: ''
+  spawn_mode: null
+  spawn_note: null
 
 ## P1角色矫正（2026-07-21）— 输出语义澄清
 ### verdict=null 与 score 的关系

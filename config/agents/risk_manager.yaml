@@ -128,5 +128,5 @@ system_prompt: "# 风控明 — 风险控制官（含链证源前置证据 + \U0
 version: '2.3'
 agent_config:
   allowed_tools: []
-  spawn_mode: general-purpose
-  spawn_note: ''
+  spawn_mode: null
+  spawn_note: null

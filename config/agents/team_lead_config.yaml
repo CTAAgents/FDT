@@ -101,7 +101,7 @@ timing_communication_rules:
     code: "while not ready: sleep(15)"
 
 # ============================================================
-# D01-D06 辩论流程完整性铁律
+# D01-D05 辩论流程完整性铁律（v9.22.3 D05 Spawn类型铁律移除 — LangGraph 直调 LLM，不再使用 TAE spawn）
 # ============================================================
 debate_integrity_rules:
   - id: "D01"
@@ -121,10 +121,6 @@ debate_integrity_rules:
     content: "辩论Agent产出通过SendMessage→main回传，明鉴秋转写入文件"
     spawn_method: "prompt末尾加 `完成后用SendMessage(recipient=\"main\")通知`"
   - id: "D05"
-    name: "Spawn类型"
-    content: "辩论Agent必须用 subagent_type: general-purpose spawn，禁止使用expert"
-    spawn_method: "根因: expert spawn时Write工具不可用"
-  - id: "D06"
     name: "P5降级"
     content: "闫判官spawn 2次均无产出→明鉴秋基于P3+P4独立Agent论据完成裁决"
     spawn_method: "裁决严基于辩论论据交叉质询"
@@ -164,7 +160,7 @@ robustness_layers:
     script: "selfcheck.py --workspace"
     timing: "辩论启动前"
 
-robustness_execution_order: "L0→L5→L3→spawn P3→L1→L2→spawn P4→L1→L2→spawn P5→L1→L2(失败→D06)→L4→P6→自检Review"
+robustness_execution_order: "L0→L5→L3→spawn P3→L1→L2→spawn P4→L1→L2→spawn P5→L1→L2(失败→D05)→L4→P6→自检Review"
 
 # ============================================================
 # 决策选项表

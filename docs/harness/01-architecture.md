@@ -1,6 +1,8 @@
 # 01 — Harness 架构总览
 
 > **v9.24.0** (2026-07-23): 数据源体系重构 + 差距修复收官 — TqSDK 升至第一数据源，统一 K 线标准化层，新鲜度自动降级；G-6D 六维控制空间重构；新增 `report_aggregator.py` 全量报告聚合器、AGENTS.md 配置提取至 `config/agents/`、VectorMemory 与 ToolMetrics 反哺接入辩论流程。详见 `docs/harness/07-operations.md#版本历史`。
+>
+> **v9.23.0** (2026-07-24): 六维控制空间高ROI提升 — D3 Generation Schema约束强制（enforce_structured_output全量接入）、G01模型差异化路由（decode_config.yaml）、C01 Token预算控制（_build_debate_context集成TokenBudget）、C03扫描信号表去重（_build_scan_signal_table共享函数）；langgraph默认模式。
 
 ## 1. 分层架构
 

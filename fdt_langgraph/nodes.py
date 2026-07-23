@@ -3318,7 +3318,7 @@ async def node_signal_output(state: DebateState) -> DebateState:
 
     依赖上游 node_risk_check 已写入 state["signal_output"]。
     """
-    signal_output = state.get("signal_output", {})
+    signal_output = state.get("signal_output") or {}
     signal_report_path = state.get("signal_report_path")
     trace_id = state.get("trace_id", "")
 

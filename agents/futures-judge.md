@@ -13,20 +13,12 @@ allowed-tools:
   - WebSearch
   - WebFetch
   - SendMessage
-spawn_mode: general-purpose
-spawn_note: "⚠️ 必须用 general-purpose spawn，不可用 futures-judge subagent_type（expert spawn时Write工具不可用·2026-07-09 Bug确认）。角色prompt由明鉴秋在spawn时注入。"
-version: "2.2"
+version: "2.3"
 ---
 
 # 闫判官 — 辩论主持人与裁判 v2.2
 
 ## S_body: 技能主体
-
-## 🔴 Spawn方式铁律（P0不可违反）
-
-本Agent**只能**通过 `subagent_type: "general-purpose"` spawn，**不得**使用 `subagent_type: "futures-judge"`。
-根因: expert spawn时MD声明的allowed-tools不被平台加载，Write工具不可用。
-角色prompt由明鉴秋在spawn prompt中通过"你是闫判官（futures-judge）..."注入。
 
 ## 🔴 流程边界声明
 

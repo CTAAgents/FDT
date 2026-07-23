@@ -26,6 +26,7 @@
 | `judge_config.yaml` | `config/agents/judge_config.yaml` | 闫判官运行时配置（六维评分权重、裁决修正规则、自校准参数）|
 | `team_lead_config.yaml` | `config/agents/team_lead_config.yaml` | 明鉴秋运行时配置（角色定义表、S/D/L 铁律表、决策选项、报告完整性阈值）|
 | `technical_researcher.yaml` | `config/agents/technical_researcher.yaml` | 观澜角色定义 + P1角色矫正(v9.6.8) 输出语义澄清 |
+| `decode_config.yaml` | `config/agents/decode_config.yaml` | 解码控制配置: 逐Agent温度/max_tokens/response_format/model (v9.23.0 模型差异化路由) |
 
 ### 1.3 记忆级配置 (JSON, 运行时可变)
 

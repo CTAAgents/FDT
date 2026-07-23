@@ -1228,7 +1228,12 @@ def main() -> None:
         except Exception:
             pass
     ap = argparse.ArgumentParser(description="FDT 辩论主动驱动层")
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    # v9.23.0: 顶层参数 — 无子命令时默认走 langgraph
+    ap.add_argument("--symbols", default=None, help="指定辩论品种（逗号分隔），默认自动扫描")
+    ap.add_argument("--mode", default="default", choices=["default", "fast", "deep_research", "tournament"],
+                    help="LangGraph 模式: default/fast/deep_research/tournament")
+    ap.add_argument("--trace-id", default=None, help="指定 trace_id（默认自动生成）")
+    sub = ap.add_subparsers(dest="cmd")
 
     p_plan = sub.add_parser("plan", help="产出标准化 spawn 计划 JSON")
     p_plan.add_argument("--scan", required=True)
@@ -1301,6 +1306,14 @@ def main() -> None:
                       help="指定 trace_id（默认自动生成）")
 
     args = ap.parse_args()
+    # v9.23.0: 无子命令时默认走 langgraph 模式
+    if args.cmd is None:
+        args.cmd = "langgraph"
+        args.symbols = None
+        args.mode = "default"
+        args.trace_id = None
+        print("🤖 默认模式: LangGraph 图编排")
+        print("   其他子命令: plan / finalize / debate / extract / report / validate / a2a / repair")
     # 归一化路径（Git Bash /d/… → D:\…）
     if getattr(args, 'workspace', None):
         args.workspace = _to_win_path(args.workspace)

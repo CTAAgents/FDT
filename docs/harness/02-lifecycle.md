@@ -286,7 +286,7 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 ```
 
 **关键约束**:
-- **D05 铁律**: 辩论 Agent 必须用 `subagent_type: "general-purpose"` spawn（expert 类型 Write 工具不可用）
+- **D05 (v9.24.1 移除)**: 原约束所有辩论 Agent 必须用 general-purpose spawn。该约束源于 TAE SDK expert spawn 的 Write 工具不可用 Bug (2026-07-09)。当前系统所有 Agent 通过 FdtAgentExecutor 直调 LLM API，不再使用 TAE spawn，铁律已无 runtime 作用。
 - **S02 铁律**: Agent 之间禁止 SendMessage，统一由明鉴秋通过文件传递
 - **S03 铁律**: Agent 写文件先写 `.tmp`，完成后 rename
 

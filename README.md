@@ -445,6 +445,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v9.23.0** | 六维控制空间高ROI提升：D3 Schema约束+enforce_structured_output全量接入、G01模型差异化路由、C01 Token预算控制、C03扫描信号表去重；langgraph默认模式 |
 | **v9.22.0** | RHI 完整落地：evolution_graph 集成 node_rhi 节点 + rhi_global_cli.py + 22 个 RHI 测试 |
 | **v9.21.0** | MemoHarness+RHI 整合：HarnessSpec 契约 + Pairwise Evaluator + Harness Optimizer + RHI 子图 |
 | **v9.20.2** | 文档一致性三层保障体系（结构化元数据 + 自动校验 + 数据驱动） |
