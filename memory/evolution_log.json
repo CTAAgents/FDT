@@ -1,0 +1,32 @@
+[
+  {
+    "trace_id": "test-complete",
+    "source_trace_id": "",
+    "started_at": "2026-07-23T14:19:25.958726",
+    "completed_at": "2026-07-23T14:19:25.958726",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-log",
+    "source_trace_id": "",
+    "started_at": "2026-07-23T14:19:25.960721",
+    "completed_at": "2026-07-23T14:19:25.960721",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  }
+]

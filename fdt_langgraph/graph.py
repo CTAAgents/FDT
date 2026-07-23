@@ -15,6 +15,7 @@ from .nodes import (
     node_verdict, node_risk_check, node_quality_inspect, node_report, node_signal_output,
     node_load_cache, node_update_cache,
 )
+from fdt_langgraph.evolution_graph import route_after_debate
 
 
 def _get_checkpointer():

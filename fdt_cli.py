@@ -25,7 +25,7 @@ def generate_trace_id() -> str:
     return f"fdt-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
 
 
-async def run_debate(mode: str = "default") -> DebateState:
+async def run_debate(mode: str = "default", run_evolution: bool = False) -> DebateState:
     trace_id = generate_trace_id()
     logger.info(f"Starting debate with trace_id: {trace_id}")
 
@@ -36,6 +36,28 @@ async def run_debate(mode: str = "default") -> DebateState:
     # v8.8.0: 输出各阶段报告路径
     logger.info(f"Debate completed. Phases: {result.get('completed_phases')}")
     _print_phase_reports(result)
+
+    # 辩论完成后自动触发进化闭环
+    if run_evolution:
+        try:
+            from fdt_langgraph.evolution_graph import run_evolution as run_ev
+            log_msg = f"Run evolution after debate: trace_id={trace_id}"
+            logger.info(log_msg)
+            ev_state = run_ev(source_trace_id=trace_id)
+            ev_phase = ev_state.get("phase", "unknown")
+            ev_errors = len(ev_state.get("errors", []))
+            ev_decisions = ev_state.get("decisions", {})
+            logger.info(f"Evolution completed: phase={ev_phase}, "
+                        f"errors={ev_errors}, decisions={ev_decisions}")
+            print(f"\n=== 🔄 自进化闭环完成 ===")
+            print(f"  阶段: {ev_phase}")
+            for step, result_data in ev_state.get("step_results", {}).items():
+                icon = "✅" if result_data.get("success") else "❌"
+                print(f"  {icon} {step}: {result_data.get('summary', '')[:80]}")
+            print("=" * 40 + "\n")
+        except Exception as e:
+            logger.error(f"Evolution failed: {e}")
+
     return result
 
 
@@ -79,6 +101,7 @@ def main():
 
     run_parser = subparsers.add_parser("run", help="Run a single debate")
     run_parser.add_argument("--mode", choices=["default", "fast", "deep_research", "tournament"], default="default")
+    run_parser.add_argument("--evolve", action="store_true", help="Run evolution after debate")
 
     daemon_parser = subparsers.add_parser("daemon", help="Run in daemon mode")
     daemon_parser.add_argument("--cron", default="0 9 * * 1-5")
@@ -87,10 +110,12 @@ def main():
     db_parser = subparsers.add_parser("db", help="Database operations")
     db_parser.add_argument("action", choices=["init", "migrate", "health"])
 
+    evolve_parser = subparsers.add_parser("evolve", help="Run self-evolution standalone (APM-driven)")
+
     args = parser.parse_args()
 
     if args.command == "run":
-        asyncio.run(run_debate(mode=args.mode))
+        asyncio.run(run_debate(mode=args.mode, run_evolution=args.evolve))
     elif args.command == "daemon":
         asyncio.run(daemon_mode(cron_expr=args.cron, timezone=args.timezone))
     elif args.command == "db":
@@ -104,6 +129,18 @@ def main():
             engine = PGConnection.get_engine()
             Base.metadata.create_all(engine)
             print("Database schema initialized")
+    elif args.command == "evolve":
+        logger.info("Running self-evolution standalone (APM-driven)...")
+        from fdt_langgraph.evolution_graph import run_evolution as run_ev
+        ev_state = run_ev()
+        print(f"\n=== 🔄 自进化闭环完成 ===")
+        print(f"  Phase: {ev_state.get('phase')}")
+        print(f"  APM Scores: {ev_state.get('apm_scores', {})}")
+        for step, result_data in ev_state.get("step_results", {}).items():
+            icon = "✅" if result_data.get("success") else "❌"
+            print(f"  {icon} {step}: {result_data.get('summary', '')[:80]}")
+        if ev_state.get("errors"):
+            print(f"  ⚠️ Errors: {len(ev_state['errors'])}")
 
 
 if __name__ == "__main__":
