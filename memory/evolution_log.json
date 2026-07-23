@@ -288,5 +288,15 @@
     "decisions": {},
     "step_results": {},
     "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T20:17:12.918431",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
   }
 ]

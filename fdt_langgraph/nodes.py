@@ -480,6 +480,12 @@ async def node_scan(state: DebateState) -> DebateState:
         if _summary_file.exists():
             with open(str(_summary_file), "r", encoding="utf-8") as _sf:
                 scan_results = json.load(_sf)
+            # 清理中间文件：数据加载后删除 summary 文件
+            try:
+                os.remove(str(_summary_file))
+                logger.debug(f"[SCAN] 已清理中间文件: {_summary_file.name}")
+            except Exception:
+                pass
         else:
             scan_results = {"error": "summary file not found: %s" % _summary_file}
     except Exception as e:
@@ -489,6 +495,11 @@ async def node_scan(state: DebateState) -> DebateState:
             if _alt.exists():
                 with open(str(_alt), "r", encoding="utf-8") as _sf:
                     scan_results = json.load(_sf)
+                # 清理中间文件（异常分支）
+                try:
+                    os.remove(str(_alt))
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -2596,6 +2607,33 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     counters = dict(state.get("rework_counters", {}))
     timings = list(state.get("phase_timings", []))
     retries = counters.get(current_sym, 0)
+
+    # G19: 无选定品种时跳过质检（不制造 FAIL 噪音）
+    if not current_sym or not symbols:
+        quality_report = {
+            "symbol": current_sym,
+            "status": "SKIP",
+            "issues": [],
+            "verdict_report": {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1},
+            "risk_report": {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1},
+            "retry_count": retries,
+        }
+        timings.append({
+            "phase": "quality_inspect",
+            "symbol": current_sym,
+            "elapsed_seconds": 0.0,
+            "retry_count": retries,
+            "status": "SKIP",
+        })
+        logger.info(f"[质检] 无选定品种，跳过质检 (symbol={current_sym!r}, symbols={symbols})")
+        return {
+            **state,
+            "quality_report": quality_report,
+            "rework_counters": counters,
+            "phase_timings": timings,
+            "current_phase": "P3.5",
+            "completed_phases": state["completed_phases"] + ["P3.5"],
+        }
 
     # ── 质检裁决 ──
     verdict = state.get("verdict")
