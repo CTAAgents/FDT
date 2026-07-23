@@ -25,6 +25,8 @@ __pycache__/
 Thumbs.db
 phase2_chain_output.json
 memory/tool_metrics/
+memory/output_audit/
+memory/output_history/
 memory/logs/
 _tmp_*
 fdt_cache/
