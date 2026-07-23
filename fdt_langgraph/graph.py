@@ -94,11 +94,23 @@ def route_after_quality_inspect(state: DebateState) -> str:
     逻辑:
       - 当前品种质检 FAIL + 重试 < 2 次 → 退回重修（prepare_one_symbol）
       - 否则 → 存入结果（store_per_symbol_result）
+      - G19 修复: 无有效品种时跳转到 aggregate_results，避免死循环
     """
     current_sym = _get_current_symbol(state)
     report = state.get("quality_report")
     counters = state.get("rework_counters", {})
     retries = counters.get(current_sym, 0)
+
+    # G19: 如果 current_sym 为空且重试计数器不在预期位置，则跳转到 aggregate_results
+    symbols = state.get("selected_symbols", [])
+    _original = state.get("_original_symbols", [])
+    idx = state.get("symbol_index", -1)
+    if not symbols and not _original:
+        logger.warning("G19 修复: 无任何品种可处理，跳转到 aggregate_results")
+        return "aggregate_results"
+    if not current_sym and idx < 0:
+        logger.warning("G19 修复: 无法确定当前品种(current_sym为空, idx=%s)，跳转到 aggregate_results", idx)
+        return "aggregate_results"
 
     if report and report.get("status") == "FAIL" and retries < 2:
         return "prepare_one_symbol"

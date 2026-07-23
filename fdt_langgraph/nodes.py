@@ -1482,7 +1482,18 @@ async def node_store_per_symbol_result(state: DebateState) -> DebateState:
     """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引"""
     symbols = state.get("_original_symbols", [])
     current_sym_idx = state.get("symbol_index", 0)
-    current_sym = state.get("selected_symbols", [None])[0]
+
+    # G19 修复: 使用 _original_symbols[idx] 替代 selected_symbols[0]，避免空列表越界
+    if not symbols or current_sym_idx < 0 or current_sym_idx >= len(symbols):
+        logger.warning("G19 修复: node_store_per_symbol_result 无有效品种(symbols=%s, idx=%s)，跳过存储", symbols, current_sym_idx)
+        return {
+            **state,
+            "symbol_index": current_sym_idx + 1,
+            "current_phase": "P4_skip_no_symbol",
+            "completed_phases": state["completed_phases"] + ["P4_skip_no_symbol"],
+        }
+
+    current_sym = symbols[current_sym_idx]
 
     # 收集本品种的关键数据
     per_symbol = dict(state.get("per_symbol_results", {}))

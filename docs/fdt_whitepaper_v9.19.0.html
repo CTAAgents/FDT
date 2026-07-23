@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FDT v9.19.0 — 多Agent辩论的CTA决策系统技术说明</title>
+<style>
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif; color: #333; line-height: 1.8; font-size: 15px; background: #f4f2ed; margin: 0; padding: 0; }
+.container { max-width: 680px; margin: 0 auto; background: #fff; padding: 30px 20px 40px; }
+h1 { font-size: 21px; text-align: center; color: #1a1a2e; margin-bottom: 4px; letter-spacing: 1px; font-weight: 500; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 25px; border-bottom: 2px solid #2b6c7e; padding-bottom: 15px; }
+h2 { font-size: 16px; color: #1a1a2e; margin: 26px 0 10px; padding-left: 10px; border-left: 4px solid #2b6c7e; font-weight: 500; }
+h3 { font-size: 14px; color: #2b6c7e; margin: 18px 0 6px; font-weight: 500; }
+p { margin: 7px 0; text-indent: 2em; }
+.info-box { background: #f8f6f2; border-left: 4px solid #2b6c7e; padding: 10px 14px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+.info-box p { text-indent: 0; margin: 3px 0; }
+ul, ol { margin: 5px 0 5px 1.5em; padding: 0; }
+li { margin: 3px 0; }
+strong { color: #1a1a2e; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+th { background: #1a1a2e; color: #fff; padding: 5px 8px; text-align: left; font-weight: 500; }
+td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+tr:nth-child(even) td { background: #f8f6f2; }
+.flow-chart { background: #f0eeea; padding: 12px 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre; overflow-x: auto; margin: 10px 0; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.stat-box { background: #f8f6f2; padding: 8px; text-align: center; border-radius: 4px; }
+.stat-num { font-size: 20px; color: #2b6c7e; }
+.stat-label { font-size: 11px; color: #888; margin-top: 1px; }
+hr { border: none; border-top: 1px solid #e0ddd8; margin: 18px 0; }
+.closing { background: #f5f5f0; padding: 14px; border-radius: 4px; margin: 14px 0; }
+.closing p { text-indent: 0; margin: 3px 0; font-size: 13px; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>FDT 期货辩论专家团</h1>
+<p class="subtitle">多Agent辩论的CTA决策系统 · 技术说明 v9.19.0</p>
+
+<!-- ============ 一、定位 ============ -->
+<h2>一、项目定位</h2>
+
+<p>FDT（Futures Debate Team）是一套面向期货中低频波段/隔夜策略、基于多Agent辩论实现实时推理的CTA决策系统。核心思路是通过多角色分工、交叉质询的方式，使决策过程可追溯、可审计。</p>
+
+<p>系统在交易推理路径上与主流量化方法有所不同：</p>
+
+<div class="info-box">
+<p><strong>常见量化方法（归纳推理）：</strong> 基于历史数据统计规律拟合因子、回测择优，隐含假设是"历史模式在未来仍将重复"。这种方法在结构性突变行情（如2020年原油、2022年镍）中存在适应性不足的问题。</p>
+</div>
+
+<div class="info-box">
+<p><strong>本系统思路（实时推演）：</strong> 不依赖历史行情复刻，而是聚焦当下——通过实时技术结构、基本面状态、产业链逻辑、新闻情绪，由多Agent辩论推演当前市场概率分布。决策依据来自实时信息链的逻辑自洽性，而非历史统计。这意味着每一次决策都是独立的，不因"过去类似时刻如何"而直接迁移。</p>
+</div>
+
+<p>需要说明的是，这种设计意味着系统不适用于传统量化回测框架——市场情绪、新闻语境、基本面场景往往具有即时性，难以通过历史数据还原。这是一个设计取舍，而非功能缺失。</p>
+
+<!-- ============ 二、系统架构 ============ -->
+<h2>二、系统架构</h2>
+
+<h3>2.1 整体结构</h3>
+
+<p>FDT v9.19.0 包含三个独立的 LangGraph 子图，各司其职：</p>
+
+<div class="stats-row">
+<div class="stat-box"><div class="stat-num">13</div><div class="stat-label">Agent</div></div>
+<div class="stat-box"><div class="stat-num">3</div><div class="stat-label">LangGraph子图</div></div>
+<div class="stat-box"><div class="stat-num">5</div><div class="stat-label">数据降级层</div></div>
+<div class="stat-box"><div class="stat-num">4</div><div class="stat-label">运行模式</div></div>
+<div class="stat-box"><div class="stat-num">14</div><div class="stat-label">自动化任务</div></div>
+<div class="stat-box"><div class="stat-num">1400+</div><div class="stat-label">测试用例</div></div>
+</div>
+
+<div class="flow-chart">┌─ Outer Loop（自进化）────────────────────────────┐
+│  品藻质检 → T+1验证 → APM五轴评分 → 权重校准     │
+│  → Agent进化 → ML训练 → 注入下一轮                │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       ▼
+┌─ Inner Loop（辩论执行）──────────────────────────┐
+│  P1数技源扫描 → P2闫判官 → P2.5 FDC数据准备      │
+│  → P3四源并行(链证源/观澜/探源/读心)             │
+│  → P4六阶段辩论 → P5裁决+风控+质检               │
+│  → P6明鉴秋报告+CTP信号输出                       │
+└──────────────────────────────────────────────────┘</div>
+
+<table>
+<tr><th>子图</th><th>职责</th><th>覆盖范围</th></tr>
+<tr><td>Debate Graph</td><td>单次辩论执行</td><td>P1→P2→P3→P4→P5→P6</td></tr>
+<tr><td>Master Graph</td><td>自动化任务统一调度</td><td>14个任务（时间/数据/轮次触发）</td></tr>
+<tr><td>Evolution Graph</td><td>自进化闭环</td><td>APM五轴 → 改进 → 校准 → 进化 → ML</td></tr>
+</table>
+
+<h3>2.2 Agent 分工</h3>
+
+<p>系统配置了 11 个核心 Agent 和 2 个辅助评估 Agent。为减少角色冲突，每个 Agent 的职责边界做了明确限定：</p>
+
+<table>
+<tr><th>层</th><th>Agent</th><th>职责</th><th>不做</th></tr>
+<tr><td rowspan="5">数据<br>分析</td><td>数技源</td><td>trend_following（10子信号）管线扫描</td><td>不下方向结论</td></tr>
+<tr><td>观澜</td><td>技术面分析（LLM推理）</td><td>不判断多空</td></tr>
+<tr><td>探源</td><td>基本面分析（LLM推理，含金十快讯）</td><td>不判断多空</td></tr>
+<tr><td>链证源</td><td>产业链关联分析</td><td>不下交易结论</td></tr>
+<tr><td>读心</td><td>新闻情绪分析（金十+Web）</td><td>不判断多空</td></tr>
+<tr><td rowspan="2">辩论</td><td>多头分析员</td><td>列举 ≥3 条做多论据</td><td>不自行搜索</td></tr>
+<tr><td>空头分析员</td><td>列举 ≥3 条做空论据</td><td>不自行搜索</td></tr>
+<tr><td rowspan="2">裁决</td><td>闫判官</td><td>P2初判 + P5终裁（含交易参数）</td><td>不独立分析行情</td></tr>
+<tr><td>副裁官</td><td>初审辩论输出，提取论点树（辅助）</td><td>不独立判断</td></tr>
+<tr><td rowspan="2">审核</td><td>风控明</td><td>基于闫判官 verdict 审核</td><td>不参与方向判断</td></tr>
+<tr><td>品藻</td><td>输出质检 + Schema校验 + 安全过滤</td><td>不修改裁决内容</td></tr>
+<tr><td>调度</td><td>明鉴秋</td><td>选题/调度 + 汇总 + CTP信号输出</td><td>不介入内容决策</td></tr>
+<tr><td>审计</td><td>独立裁官</td><td>审计辩论一致性（不参与主流程）</td><td>不参与裁决</td></tr>
+</table>
+
+<h3>2.3 数据引擎</h3>
+
+<p>系统通过 <strong>FDC（Futures Data Core）</strong> 整合多个数据源，按优先级自动降级。每个数据源配有独立熔断器（连续失败5次后暂停60秒）：</p>
+
+<div class="flow-chart">请求 → DataCore(0) — Data-Core统一接口
+            ↓ 失败
+       → TDX(1) — 通达信本地TQ-Local
+            ↓ 失败
+       → Web(2) — 东方财富+新浪
+            ↓ 失败
+       → QMT(3) — QMT/xtquant
+            ↓ 失败
+       → TqSDK(98) — 天勤量化(末位兜底)
+            ↓ 全部失败
+       → 本地缓存(fdt_cache/) — SQLite增量缓存</div>
+
+<p>数据覆盖：日线120天K线、实时报价、持仓排名、仓单、基差、跨期价差、期限结构、基本面(F10)、宏观数据、金十快讯/资讯/日历。</p>
+
+<p>在P2.5阶段，系统会为入选辩论的品种预采集全量结构化数据，一次采集多次复用，减少后续阶段对数据源的重复请求。</p>
+
+<!-- ============ 三、设计特点 ============ -->
+<h2>三、设计特点</h2>
+
+<h3>3.1 六阶段辩论流程</h3>
+
+<p>多空双方按固定流程完成攻防：</p>
+
+<div class="flow-chart">P4_1 多头立论(≥3条做多论据)
+P4_2 空头立论(≥3条做空论据)
+P4_3 空头反驳多头（交叉质询）
+P4_4 多头反驳空头（交叉质询）
+P4_5 空头结辩（最终陈词）
+P4_6 多头结辩（最终陈词）
+              ↓
+P5 闫判官六维评分裁决 + 风控审核 + 品藻质检</div>
+
+<p>每条论据要求附带完整推理链（reasoning_chain/analysis_chain/risk_chain）和数据溯源信息（source/data_date/data_staleness_days）。数据超过5天不作为主论据使用。</p>
+
+<h3>3.2 量化策略的定位：算力减负工具</h3>
+
+<p>系统的核心是AI辩论推理。量化策略在此不是决策核心，而是一个可选的前置筛选工具。代码中预留了多策略框架，但生产环境目前只使用了通道突破（trend_following，含10个子信号）。</p>
+
+<div class="info-box">
+<p><strong>设计原则：</strong> 策略筛选的目的是过滤明显无效的震荡行情、减少辩论环节需要处理的品种数量，从而控制推理成本。筛选结果不干涉多空逻辑和最终裁决。</p>
+</div>
+
+<p>同时，系统提供了<strong>NO_FUSION</strong>机制：所有前置信号不融合、不加权，以原始状态进入辩论环节。这样设计是为了避免多信号对冲导致信息损失。此外还叠加了多层信号校验（震荡市识别ADX+BB+KF、去趋势Hurst+VR、P0-4伪突破拦截等共20+项检查）来减少误筛。</p>
+
+<h3>3.3 质量保障</h3>
+
+<ul>
+<li><strong>P0-4 假突破拦截</strong>：六种验证器（raw_kline/volume_confirm/atr_vol_timing/trend_direction/stability/entity_quality）+ 全局 data_quality/crowding</li>
+<li><strong>辩论输出质量治理（v9.14.0）</strong>：品藻实时质检（validate_argument/verdict/risk），不合格退回重修（最多2次）</li>
+<li><strong>入口门禁</strong>：grade∈{STRONG,WATCH} 或 |total|≥40 进入辩论候选池</li>
+<li><strong>Maker-Checker 分离</strong>：裁决与审核由不同角色完成，降低自我验证偏差</li>
+</ul>
+
+<h3>3.4 多维数据融合</h3>
+
+<p>系统从四个维度获取信息：</p>
+<ul>
+<li><strong>技术面（F1）</strong>：K线、均线、ADX、RSI、BB、成交量等，由观澜Agent处理</li>
+<li><strong>基本面（F2）</strong>：库存、基差、利润、供需平衡表等，由探源Agent处理</li>
+<li><strong>持仓资金（F3）</strong>：主力持仓、持仓量变化、净多空比</li>
+<li><strong>宏观情绪（F4）</strong>：利率、贸易、地缘政策，叠加读心Agent新闻情绪分析</li>
+</ul>
+<p>这种多维度设计是为了弥补单一量价数据在消息驱动型行情中的局限性。</p>
+
+<h3>3.5 运行模式</h3>
+
+<table>
+<tr><th>模式</th><th>特点</th><th>适用</th></tr>
+<tr><td>default</td><td>通道筛选 + 逐品种辩论</td><td>日常复盘</td></tr>
+<tr><td>fast</td><td>跳过辩论，直接裁决</td><td>快速信号确认</td></tr>
+<tr><td>deep_research</td><td>分歧>0.7时循环辩论</td><td>复杂行情研判</td></tr>
+<tr><td>tournament</td><td>多轮辩论 + 投票</td><td>关键决策</td></tr>
+</table>
+
+<p>另有 direct_debate 模式：跳过全域扫描，从本地缓存加载指定品种直接进入辩论。单次全量推理成本约3元。</p>
+
+<!-- ============ 四、工程 ============ -->
+<h2>四、工程化实践</h2>
+
+<h3>4.1 Harness 规范体系</h3>
+
+<p>项目引入了 Harness Engineering 规范，覆盖六个维度：</p>
+
+<table>
+<tr><th>维度</th><th>当前状态</th></tr>
+<tr><td>Context（上下文组装）</td><td>AGENTS.md + 品种知识库 + Skill渐进式披露</td></tr>
+<tr><td>Tool（工具交互）</td><td>5级数据降级链（含熔断）+ CTP接口 + 效能追踪</td></tr>
+<tr><td>Generation（解码控制）</td><td>逐Agent解码配置 + 结构化输出校验 + 安全过滤</td></tr>
+<tr><td>Orchestration（工作流拓扑）</td><td>LangGraph三子图 + 4种模式 + 条件路由 + 状态持久化</td></tr>
+<tr><td>Memory（状态持久化）</td><td>PostgreSQL + Checkpointer + 辩论日志 + 向量记忆</td></tr>
+<tr><td>Output（输出处理）</td><td>Schema校验 + 风控门控 + HTML报告 + 质量评分 + 审计日志</td></tr>
+</table>
+
+<p>配套12项 commit 前检查、10条反模式检测规则、5份 Loop Contract 循环契约（L1自检/L2测试/L3独立审查三档）。</p>
+
+<h3>4.2 自进化闭环</h3>
+
+<p>系统包含一个自动化的质量反馈循环：</p>
+
+<div class="flow-chart">┌─ 实时层（每轮辩论）
+│  品藻质检 (validate_argument/verdict/risk)
+│  D3结构化输出校验 + D6质量评分
+├─ 反馈层（按条件触发）
+│  T+1验证 → 权重校准(≥5条有效)
+│  → Agent进化(≥5条样本) → ML训练(≥50条样本)
+├─ 监控层（周期性）
+│  每周APM五轴评分(D1-D5)
+│  失败聚类分析
+├─ 改进层（持续）
+│  自改进提案 → 解码配置微调
+│  输出审计 → 报告模板优化
+│  异常检测 → 工具调用优化</div>
+
+<p>这个循环不依赖人工标注，以实际行情反馈作为评估依据。</p>
+
+<h3>4.3 逐Agent LLM 配置</h3>
+
+<p>系统允许按角色独立配置LLM参数（API Key/BaseURL/Model），配合 D3 解码控制，配置优先级为：decode_config.yaml > 逐Agent环境变量 > 全局环境变量 > 默认值。</p>
+
+<!-- ============ 五、数据流 ============ -->
+<h2>五、数据流向</h2>
+
+<div class="flow-chart">[输入]
+  环境变量 / Agent定义 / 配置文件 / 品种知识库 / 数据源配置
+
+[执行]
+  P1: 数技源策略扫描 → 全品种信号+stats
+  P2: 闫判官调度 → 选品种
+  ┌─ 逐品种循环:
+  │  P2.5: 品种数据准备 + FDC预采集
+  │  P3: 四源并行(链/技/基/情)
+  │  P4: 六阶段辩论
+  │  P5: 裁决 + 风控 + 质检
+  │  → 存储单品种结果 → 下一个品种
+  └─ 全部完成 → P6报告 + CTP信号
+
+[输出]
+  HTML报告 / PostgreSQL持久化 / 本地缓存 / 辩论历史</div>
+
+<!-- ============ 六、待改进 ============ -->
+<h2>六、待改进方向</h2>
+
+<div class="info-box">
+<p>以下问题属于工程层面的完善空间，不影响系统顶层设计思路。</p>
+</div>
+
+<h3>6.1 数据源容灾</h3>
+<p>系统已内置五级数据降级链（DataCore→TDX→Web→QMT→TqSDK），核心行情数据具备多层容错。但金十MCP作为新闻情绪和快讯的独立数据源，尚无同等完善的降级兜底方案。金十接口异常时，读心Agent的情绪分析维度会受影响，其余数据链路不受干扰。</p>
+
+<h3>6.2 风控精细化</h3>
+<p>现有风控框架（green/yellow/red三级）偏基础，缺少动态仓位管理、阶梯止盈止损、最大回撤限制、单日交易限额、极端行情熔断等实盘所需规则，不适合全自动运行。</p>
+
+<h3>6.3 落地工具链</h3>
+<p>技术文档相对完整，但入门部署、环境配置、参数调优、问题排查方面的实操指南较少，上手门槛偏高。</p>
+
+<!-- ============ 七、结语 ============ -->
+<h2>七、结语</h2>
+
+<div class="closing">
+<p>FDT 是一个以多Agent辩论为核心机制的CTA决策系统。相较于传统量化依赖历史统计归纳的方法，它选择了一条不同的技术路径——通过实时信息的多角色交叉验证来形成判断。</p>
+
+<p>系统已具备基本的工程完备性（模块化设计、自动化调度、质量门禁、自进化机制），单次全量推理成本在可控范围内。现存的问题主要集中在工程细节和运维工具链上，不影响核心决策逻辑。</p>
+
+<p>这个项目更多地代表了作者对"AI+量化"这个方向的一种技术探索——不一定是答案，但希望提供一种有意义的参考。</p>
+</div>
+
+<hr>
+
+<p style="text-align:center;color:#999;font-size:12px;">
+FDT v9.19.0 · 系统文档 · 2026-07-23 · <a href="https://github.com/CTAAgents/experts" style="color:#2b6c7e;">github.com/CTAAgents/experts</a>
+</p>
+
+</div>
+
+</body>
+</html>
