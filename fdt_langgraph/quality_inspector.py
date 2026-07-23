@@ -98,7 +98,7 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
     """校验 P4 闫判官裁决数据。
 
     Args:
-        data: 裁决数据 dict（从 state.verdict 取）
+        data: 裁决数据 dict（从 state.verdict 取，经 normalize_verdict 标准化后）
 
     Returns:
         QualityReport
@@ -121,7 +121,7 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
         if field not in data or data[field] is None:
             issues.append(_issue(field, f"缺少必填字段 {field}", "error"))
 
-    # 条件必填字段（如 entry_price/stop_loss/target1 仅在 bull/bear 方向时必填）
+    # 条件必填字段（如 entry_price/stop_loss_price/target_price 仅在 bull/bear 方向时必填）
     if cond:
         actual_value = data.get(cond_key)
         if actual_value in cond_values:
@@ -142,30 +142,35 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
     if direction and direction not in rules["direction_valid"]:
         issues.append(_issue("direction", f"无效方向 '{direction}'", "error"))
 
-    # 置信度有效性
+    # 置信度有效性（支持 float 0-1 和中文等级）
     confidence = data.get("confidence")
-    if confidence and confidence not in rules["confidence_valid"]:
-        issues.append(_issue("confidence", f"无效置信度 '{confidence}'", "warning"))
+    if confidence is not None:
+        if isinstance(confidence, (int, float)):
+            if confidence < 0.0 or confidence > 1.0:
+                issues.append(_issue("confidence", f"置信度 {confidence} 超出 [0.0, 1.0]", "warning"))
+        elif isinstance(confidence, str):
+            if confidence not in ("高", "中", "低"):
+                issues.append(_issue("confidence", f"无效置信度 '{confidence}'", "warning"))
 
-    # 入场与止损间距
+    # 入场与止损间距（使用 normalize_verdict 标准化后的字段名）
     entry = data.get("entry_price")
-    stop = data.get("stop_loss")
+    stop = data.get("stop_loss_price")
     if isinstance(entry, (int, float)) and isinstance(stop, (int, float)) and entry > 0:
         spacing = abs(entry - stop) / entry * 100
         if spacing < rules["entry_stop_min_spacing_pct"]:
-            issues.append(_issue("stop_loss", f"入场-止损间距 {spacing:.2f}% < {rules['entry_stop_min_spacing_pct']}%", "error"))
+            issues.append(_issue("stop_loss_price", f"入场-止损间距 {spacing:.2f}% < {rules['entry_stop_min_spacing_pct']}%", "error"))
         if spacing > rules["stop_loss_max_pct"]:
-            issues.append(_issue("stop_loss", f"止损幅度 {spacing:.2f}% > {rules['stop_loss_max_pct']}%", "warning"))
+            issues.append(_issue("stop_loss_price", f"止损幅度 {spacing:.2f}% > {rules['stop_loss_max_pct']}%", "warning"))
 
-    # 盈亏比
-    target1 = data.get("target1")
-    if isinstance(entry, (int, float)) and isinstance(stop, (int, float)) and isinstance(target1, (int, float)):
+    # 盈亏比（使用 normalize_verdict 标准化后的字段名）
+    target = data.get("target_price")
+    if isinstance(entry, (int, float)) and isinstance(stop, (int, float)) and isinstance(target, (int, float)):
         if entry > 0 and entry != stop:
             loss = abs(entry - stop)
-            gain = abs(target1 - entry)
+            gain = abs(target - entry)
             ratio = gain / loss if loss > 0 else 0
             if ratio < rules["take_profit_min_ratio"]:
-                issues.append(_issue("target1", f"盈亏比 {ratio:.1f} < {rules['take_profit_min_ratio']}", "warning"))
+                issues.append(_issue("target_price", f"盈亏比 {ratio:.1f} < {rules['take_profit_min_ratio']}", "warning"))
 
     return _build_report(issues)
 

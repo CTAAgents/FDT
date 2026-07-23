@@ -74,24 +74,25 @@ class VerdictSchema(TypedDict, total=False):
 
 VERDICT_RULES = {
     "required_fields": [
-        "symbol", "direction", "confidence",
-        "entry_price", "stop_loss", "target1",
+        "direction", "confidence",
     ],
     "conditional_required": {           # 仅在非 neutral 方向时必填
-        "fields": ["entry_price", "stop_loss", "target1"],
+        "fields": ["entry_price", "stop_loss_price", "target_price"],
         "condition_key": "direction",
         "condition_values": ["bull", "bear"],
     },
     "field_types": {
-        "symbol": str,
         "direction": str,
-        "confidence": str,
+        "confidence": (int, float, str),
         "entry_price": (int, float),
-        "stop_loss": (int, float),
-        "target1": (int, float),
+        "stop_loss_price": (int, float),
+        "target_price": (int, float),
+        "symbols": list,
+        "grade": str,
+        "reason": str,
+        "contract": str,
     },
     "direction_valid": ["bull", "bear", "neutral"],
-    "confidence_valid": ["高", "中", "低"],
     "entry_stop_min_spacing_pct": 0.3,    # 入场与止损最小间距 0.3%
     "take_profit_min_ratio": 1.2,          # 最小盈亏比 1.2
     "stop_loss_max_pct": 8.0,              # 止损最大幅度 8%

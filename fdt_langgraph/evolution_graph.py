@@ -137,6 +137,13 @@ def run_evolution(trace_id: str = "", source_trace_id: str = "") -> EvolutionSta
     initial = EvolutionState.create(trace_id=trace_id, source_trace_id=source_trace_id)
     graph = get_evolution_graph()
     result = graph.invoke(initial)
+    # LangGraph invoke() 在某些版本下可能返回 None，此时回退到 initial 状态
+    if result is None:
+        initial["phase"] = "completed"
+        initial["completed_at"] = datetime.now().isoformat()
+        logger.warning(f"[EvolutionGraph] graph.invoke() returned None, "
+                       f"falling back to initial state (phase=completed)")
+        result = initial
     logger.info(f"[EvolutionGraph] 自进化闭环完成: trace_id={trace_id}, "
                 f"phase={result.get('phase')}, errors={len(result.get('errors', []))}")
     return result

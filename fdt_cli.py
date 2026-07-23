@@ -118,7 +118,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == "run":
-        asyncio.run(run_debate(mode=args.mode, run_evolution=args.evolve))
+        # 同时支持 --evolve CLI flag 和 FDT_RUN_EVOLUTION 环境变量
+        run_ev = args.evolve or os.environ.get("FDT_RUN_EVOLUTION", "").lower() == "true"
+        asyncio.run(run_debate(mode=args.mode, run_evolution=run_ev))
     elif args.command == "daemon":
         asyncio.run(daemon_mode(interval=args.interval))
     elif args.command == "db":

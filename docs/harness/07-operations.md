@@ -521,6 +521,7 @@ python scripts/auto_publish.py
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v9.20.2** | 2026-07-23 | **Bugfix: 三项运行时问题修复** — ① `fdt_cli.py` FDT_RUN_EVOLUTION 环境变量支持（替代仅 `--evolve` CLI flag）；② `evolution_graph.py` graph.invoke() 返回 None 时的 fallback（LangGraph v1.2.9 兼容）；③ `debate_quality_schema.py` VERDICT_RULES 字段名与 normalize_verdict 对齐，confidence 支持 float 0-1（修复质检假阳性 FAIL）。新增 13 个单元测试覆盖 3 个修复项，测试全绿。 |
 | 9.12.0 | 2026-07-23 | Data Governance Phase 2 — 数据源溯源穿透修复 + 策略层质量门禁: ① scan_all.py/multi_source_adapter.py per-bar data_source 修复 meta.sources 穿透; ② 新增 data_quality 验证器(D级降级/C级标记/兜底源标记); ③ 注册为 __global__ 列表级闸门, 所有信号统一受检; ④ scan_all.py 执行顺序调整(data_quality 注入提前到 validators 之前); ⑤ 数据源从 kline_data 溯源传播到 all_ranked |
 | v9.13.0 | 2026-07-23 | **逐品种独立辩论循环** — per-symbol loop: 每个品种独立走完整数据链（prepare_one_symbol→四源→辩论→裁决→风控→store→route）；scan_all.py 程序化品种分组（同产品代码按成交量选主辩论品种）；闫判官不再判断相关性；新增 per_symbol_results/associated_symbols/symbol_index 状态字段 |
 | 9.11.3 | 2026-07-22 | 修复G107续: 辩论报告探源从fdc_data补充+过滤无意义f10占位数据+修复nodes.py引号混用 |

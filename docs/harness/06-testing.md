@@ -580,6 +580,12 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 | tests/experience/test_adapter.py | 10+ | 检索 + 合并 + 边界检查（Phase C） |
 
 
+###### `quality_inspector.py` / `debate_quality_schema.py` 测试（v9.20.2 新增）
+
+| 测试文件 | 用例数 | 覆盖范围 |
+|:--|:--:|:--|
+| tests/fdt_langgraph/test_quality_inspector.py | 11 | validate_verdict float置信度 / 中文置信度 / 无symbol / normalized结构 / 越界告警 / 空数据 / VERDICT_RULES Schema校验 |
+
 ### `single_symbol_report.py` 测试需求（v9.6.9+ 新增）
 
 | 测试项 | 优先级 | 说明 |

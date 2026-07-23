@@ -1,5 +1,7 @@
 # 01 — Harness 架构总览
 
+> **v9.20.2** (2026-07-23): Bugfix 版本 — 无架构变更。详见 `docs/harness/07-operations.md#版本历史`。
+
 ## 1. 分层架构
 
 FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
