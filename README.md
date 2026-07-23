@@ -2,7 +2,7 @@
 
 一套 **10-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.13.0**
+**v9.14.0**
 
 ---
 
@@ -404,6 +404,7 @@ python scripts/run_benchmark.py --compare
 
 | 版本 | 变更 |
 |:-----|:-----|
+| **v9.13.0** | **逐品种独立辩论循环** — 每个品种独立走完整数据链（prepare_one_symbol→四源→辩论→裁决→风控→store→route）；scan_all.py 程序化品种分组（同产品代码按成交量选主辩论品种）；闫判官不再判断相关性 |
 | **v9.11.0** | **新闻情绪分析因子（读心）落地 — 第四分析因子 P3 并行** — 新增 `sentiment_state.py` 契约（SentimentStateVector）、`futures-news-sentiment-analyst.md` 读心 Agent、`node_sentiment()` 节点、`sentiment_data` 状态字段。P3 从三源并行升级为四源并行（链证源/观澜/探源/读心）。来源标记 `[sentiment:jin10]` / `[sentiment:web]`。25 个金十相关测试全绿。 |
 | **v9.10.1** | **金十快讯精选注入探源** — `_SYMBOL_TO_KEYWORDS` 品种→中文关键词映射（41 品种）、`_build_jin10_context()` 按品种自动搜索金十快讯、去重格式化后注入 `node_fundamental` context。探源数据来源 §2 更新 + R07 金十快讯引用规范。 |
 | **v9.10.0** | **金十数据 MCP 接入** — 标准 MCP 协议财经数据源。新增 `mcp_client.py` 通用 MCP HTTP 客户端（SSE 解析/会话管理/structuredContent优先）、`jin10_mcp.py` 金十采集器（8 工具）、`data_source_adapter` 适配接口、`web_crawl_tool` LangChain 封装。Harness 文档全线同步。 |

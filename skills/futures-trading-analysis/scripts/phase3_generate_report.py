@@ -2011,21 +2011,23 @@ with open(OUTPUT_DEBATE, "w", encoding="utf-8") as f:
     f.write(html_debate)
 print(f"📊 辩论报告: {OUTPUT_DEBATE}")
 
-# 保存analysis_data.json
-results = {
-    "report_date": REPORT_DATE,
-    "data_benchmark": DATA_BENCHMARK,
-    "data_source": data_source_used,
-    "filtered_signals": filtered_signals,
-    "T1_count": len(T1_signals),
-    "T2_count": len(T2_signals),
-    "T3_count": len(T3_signals),
-    "debate_count": len(debate_results),
-    "chain_count": len(chain_results_agg),
-}
-OUTPUT_JSON = os.path.join(REPORT_DIR, f"analysis_data_{REPORT_DATE_COMPACT}.json")
-with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-    json.dump(results, f, ensure_ascii=False, indent=2, default=str)
+# v9.12.0: analysis_data.json — 仅 FDT_GENERATE_INTERMEDIATE_REPORTS=true 时生成
+if os.environ.get("FDT_GENERATE_INTERMEDIATE_REPORTS", "").lower() == "true":
+    results = {
+        "report_date": REPORT_DATE,
+        "data_benchmark": DATA_BENCHMARK,
+        "data_source": data_source_used,
+        "filtered_signals": filtered_signals,
+        "T1_count": len(T1_signals),
+        "T2_count": len(T2_signals),
+        "T3_count": len(T3_signals),
+        "debate_count": len(debate_results),
+        "chain_count": len(chain_results_agg),
+    }
+    OUTPUT_JSON = os.path.join(REPORT_DIR, f"analysis_data_{REPORT_DATE_COMPACT}.json")
+    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2, default=str)
+    print(f"📊 分析数据: {OUTPUT_JSON}")
 
 print(f"\n{'=' * 60}")
 print(f"✅ Phase 3 v3.0 完成！")

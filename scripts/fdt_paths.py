@@ -86,7 +86,7 @@ class FDTDirs:
     """FDT目录结构"""
     ROOT = FDT_ROOT
     DATA = os.path.join(FDT_ROOT, "data")        # 运行时数据 (debate_results.json等)
-    REPORTS = os.path.join(FDT_ROOT, "reports")   # 生成的报告 (HTML)
+    REPORTS = os.path.join(FDT_ROOT, "memory", "reports")  # 报告 → memory/reports/
     MEMORY = os.path.join(FDT_ROOT, "memory")     # 系统记忆 (自进化燃料)
     SCRIPTS = os.path.join(FDT_ROOT, "scripts")   # 运行时代码
     SKILLS = os.path.join(FDT_ROOT, "skills")     # Agent技能
@@ -142,7 +142,6 @@ def validate_fdt_structure() -> dict:
     required = [
         (FDTDirs.MEMORY, "memory/"),
         (FDTDirs.DATA, "data/"),
-        (FDTDirs.REPORTS, "reports/"),
         (FDTDirs.SCRIPTS, "scripts/"),
         (FDTDirs.AGENTS, "agents/"),
         (FDTDirs.SKILLS, "skills/"),

@@ -60,6 +60,23 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 | 自动化调度 | `fdt_cli.py` / `fdt_api.py` 独立入口 | 已替代 |
 | DuckDB (`futures.db`) | PostgreSQL (`fdt_pg/` 连接层) | ✅ **G96 — 已迁移**（JSON→PostgreSQL 写入逻辑已实现） |
 
+### v9.13.0 逐品种循环图结构
+```
+scan → judge_direction → prepare_one_symbol(品种0)
+  → chain/tech/fund/sent(只处理当前品种) → merge_research
+  → 六阶段辩论(只辩论当前品种)
+  → verdict → risk_check → store_per_symbol_result
+  → route_next_symbol:
+    - 还有品种 → 回 prepare_one_symbol(品种1)
+    - 全部完成 → aggregate_results → report → END
+```
+
+关键变更：
+- 删除旧 batch 模式（`_register_common_nodes` / `_register_p3_nodes`）
+- 新增 `_register_per_symbol_loop` / `_register_direct_debate_loop`
+- 新增状态字段：`symbol_index`, `per_symbol_results`, `_original_symbols`, `associated_symbols`
+- scan_all.py 新增程序化品种分组（同产品代码按成交量选主辩论品种）
+
 ## 2. 组件关系图
 
 ### 2.1 当前架构（文件传递模式）

@@ -197,13 +197,14 @@ def validate_risk(data: dict, symbol: str = "") -> QualityReport:
 
 
 def check_report_integrity(report_data: dict) -> QualityReport:
-    """检查辩论报告的数据完整性（明鉴秋最终自检）。
+    """检查辩论报告的数据完整性（品藻最终自检）。
 
     检查项目:
       - report_data 非空
       - 必需区块存在
       - 无占位文本
       - 有裁决数据
+      - 内容安全合规（D3 Generation Phase 3）
 
     Args:
         report_data: debate_results dict
@@ -233,6 +234,19 @@ def check_report_integrity(report_data: dict) -> QualityReport:
     verdicts = report_data.get("final_verdicts", [])
     if isinstance(verdicts, list) and len(verdicts) == 0:
         issues.append(_issue("final_verdicts", "无裁决数据", "error"))
+
+    # ── D3 Generation: 内容安全合规检查 ──
+    try:
+        from scripts.content_filter import ContentFilter
+        cf = ContentFilter()
+        check = cf.check_sensitive(data_str)
+        if check["has_sensitive"]:
+            from collections import Counter
+            cat_counts = Counter(check.get("sensitive_categories", []))
+            cats_summary = ", ".join(f"{c}({n})" for c, n in cat_counts.most_common(3))
+            issues.append(_issue("content_safety", f"检测到敏感内容: {cats_summary}", "warning"))
+    except Exception:
+        pass  # 内容过滤非阻断，失败不影响报告生成
 
     return _build_report(issues)
 

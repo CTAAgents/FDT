@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>多品种辩论报告 · PTA, CF, L | 2026-07-23</title>
+<style>
+   FDT 辩论报告统一模板 CSS v1.0
+   来源: docs/report-template/report_css.html
+   参考: docs/report-template/reference.html
+   规范: docs/report_template_standards.md
+   说明: 本文件为 FDT 所有 HTML 报告唯一 CSS 源，
+   所有 _render_html() 函数在模块加载时从此文件读取。
+   修改此文件即影响所有报告输出风格。
+   ═══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f2ed;--bg2:#ffffff;--ink:#1a1a1e;--muted:#6b6b72;--rule:#d8d6d0;--accent:#c44536;--accent2:#2b6c7e;--green:#2d7d4f;--red:#c44536;--yellow:#c49a2b;--shadow:0 1px 3px rgba(0,0,0,0.08);--radius:6px;--maxw:1120px;font-size:15px}
+body{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased}
+.container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+.report-header{background:linear-gradient(135deg,#1a1a2e,#2b6c7e);color:#fff;padding:48px 0 36px;position:relative;overflow:hidden}
+.report-header::before{content:'';position:absolute;top:-40%;right:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 70%);pointer-events:none}
+.report-header .badge{display:inline-block;background:rgba(255,255,255,0.15);color:#fff;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;padding:4px 12px;border-radius:4px;margin-bottom:12px}
+.report-header h1{font-size:2rem;font-weight:800;letter-spacing:-0.02em;line-height:1.25;margin-bottom:6px}
+.report-header .subtitle{font-size:0.95rem;opacity:0.85;margin-bottom:16px}
+.report-header .meta{display:flex;gap:20px;flex-wrap:wrap;font-size:0.78rem;opacity:0.7}
+.report-header .meta span{display:flex;align-items:center;gap:4px}
+
+.nav-bar{background:var(--bg2);box-shadow:var(--shadow);position:sticky;top:0;z-index:100;overflow-x:auto;white-space:nowrap}
+.nav-bar .container{display:flex;gap:2px;padding-top:0;padding-bottom:0}
+.nav-bar a{display:inline-block;padding:10px 14px;font-size:0.78rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;transition:all 0.15s}
+.nav-bar a:hover{color:var(--accent);border-color:var(--accent)}
+.nav-bar .nav-sep{display:inline-block;width:1px;height:20px;background:var(--rule);margin:auto 4px}
+
+section{padding:28px 0}
+section+section{border-top:1px solid var(--rule)}
+h2{font-size:1.3rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+h2 .phase-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 10px;border-radius:12px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0}
+.phase-badge.p1{background:#c44536;color:#fff}
+.phase-badge.p2{background:#c49a2b;color:#fff}
+.phase-badge.p3{background:#2d7d4f;color:#fff}
+.phase-badge.p4{background:#c44536;color:#fff}
+.phase-badge.p5{background:#c49a2b;color:#fff}
+h3{font-size:1rem;font-weight:700;margin:16px 0 8px;color:var(--ink)}
+.variety-title{font-size:1.4rem;font-weight:800;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--accent)}
+
+.metrics-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.metric-card{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);padding:16px 18px;text-align:center;box-shadow:var(--shadow)}
+.metric-card .symbol{font-size:1.2rem;font-weight:800;margin-bottom:2px}
+.metric-card .name{font-size:0.68rem;color:var(--muted);margin-bottom:8px}
+.metric-card .price{font-size:1.6rem;font-weight:800;letter-spacing:-0.02em}
+.metric-card .detail{font-size:0.75rem;color:var(--muted);margin-top:4px}
+.chg-up{color:var(--green)}.chg-down{color:var(--red)}.chg-flat{color:var(--yellow)}
+
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px}
+.info-card{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+.info-card .head{font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--rule)}
+.info-item{display:flex;justify-content:space-between;font-size:0.8rem;padding:3px 0}
+.info-item .k{color:var(--muted)}.info-item .v{font-weight:600}
+
+.card{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;box-shadow:var(--shadow)}
+
+.table-wrap{overflow-x:auto;overflow-y:auto;max-height:600px;margin:10px 0;border-radius:var(--radius);border:1px solid var(--rule)}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;min-width:600px}
+thead th{background:var(--bg);color:var(--muted);font-weight:600;padding:8px 10px;text-align:left;position:sticky;top:0;z-index:1;border-bottom:2px solid var(--rule)}
+tbody td{padding:6px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tbody tr:hover{background:rgba(196,69,54,0.03)}
+
+.tag{display:inline-block;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase}
+.tag-bull{background:#c44536;color:#fff}
+.tag-bear{background:#2b6c7e;color:#fff}
+.tag-hold{background:#c49a2b;color:#fff}
+.tag-high{background:rgba(196,69,54,0.12);color:#c44536}
+.tag-mid{background:rgba(196,154,43,0.12);color:#c49a2b}
+.tag-low{background:rgba(43,108,126,0.12);color:#2b6c7e}
+
+.debate-round{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
+.round-title{display:flex;align-items:center;gap:8px;padding:12px 16px;font-weight:700;font-size:0.85rem}
+.round-title .num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#fff;flex-shrink:0}
+.round-title .num.nb{background:var(--accent)}
+.round-title .num.ns{background:var(--accent2)}
+.round-title .num.nr{background:var(--yellow)}
+.round-body{padding:0 16px 14px}
+.round-body .arg-item{padding:10px 0;border-bottom:1px solid var(--rule)}
+.round-body .arg-item:last-child{border-bottom:none}
+.round-body .arg-id{font-size:0.68rem;font-weight:700;color:var(--muted);font-family:'Consolas',monospace;margin-bottom:3px}
+.round-body .arg-claim{font-weight:600;margin-bottom:3px;font-size:0.88rem}
+.round-body .arg-evidence{font-size:0.78rem;color:var(--muted);margin-bottom:3px}
+.round-body .arg-reasoning{font-size:0.78rem}
+.round-body .arg-impact{margin-top:3px}
+
+.verdict-box{background:linear-gradient(135deg,#1a1a2e,#2b6c7e);color:#fff;border-radius:var(--radius);padding:20px 24px;margin-bottom:14px}
+.verdict-box .vh{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.verdict-box .vd{font-size:1.3rem;font-weight:800}
+.verdict-box .vc{display:flex;align-items:center;gap:8px}
+.verdict-box .vb{width:80px;height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden}
+.verdict-box .vb .f{height:100%;border-radius:3px}
+.verdict-box .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px}
+.verdict-box .si{text-align:center}
+.verdict-box .si .l{font-size:0.68rem;opacity:0.7}
+.verdict-box .si .v{font-size:1.1rem;font-weight:800}
+.verdict-box .si .w{font-size:0.6rem;opacity:0.5}
+
+.risk-box{border-left:5px solid var(--green);border-radius:var(--radius);padding:14px 18px;margin-bottom:12px;background:var(--bg2);box-shadow:var(--shadow)}
+.risk-box.warn{border-left-color:var(--yellow)}
+.risk-box.danger{border-left-color:var(--red)}
+
+.callout{border-left:4px solid var(--accent2);background:linear-gradient(135deg,var(--bg2),var(--bg));border-radius:var(--radius);padding:12px 16px;margin:10px 0;font-size:0.82rem}
+
+.sep{border:none;border-top:2px solid var(--rule);margin:32px 0}
+.sep-label{text-align:center;font-size:0.72rem;color:var(--muted);margin-top:-20px;margin-bottom:12px;background:var(--bg);display:inline-block;padding:0 12px;position:relative;z-index:1}
+
+footer{background:var(--bg2);border-top:1px solid var(--rule);padding:28px 0;margin-top:20px}
+.sources h2{font-size:0.95rem}
+.sources ol{padding-left:1.1rem;font-size:0.78rem;color:var(--muted)}
+.sources li{margin-bottom:6px;overflow-wrap:break-word}
+.sources .src-title{color:var(--ink)}
+.sources .src-url{display:block;margin-top:1px;font-size:0.75rem;color:var(--accent2);word-break:break-all}
+
+.flex-row{display:flex;gap:12px;flex-wrap:wrap}
+.flex-1{flex:1;min-width:260px}
+.mt-8{margin-top:8px}.mb-8{margin-bottom:8px}.mb-16{margin-bottom:16px}
+.text-center{text-align:center}.text-muted{color:var(--muted)}.text-sm{font-size:0.82rem}.text-xs{font-size:0.72rem}
+
+@media(max-width:768px){.metrics-summary{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr}.flex-row{flex-direction:column}.container{padding:0 14px}.report-header h1{font-size:1.4rem}.nav-bar a{padding:8px 10px;font-size:0.72rem}}
+</style></head>
+<body>
+
+<header class="report-header">
+  <div class="container">
+    <div class="badge">FDT 辩论报告</div>
+    <h1>多品种辩论报告 · PTA, CF, L</h1>
+    <p class="subtitle">明鉴秋 · 报告层调度 | 2026-07-23 11:29:46</p>
+    <div class="meta"><span>Trace Id: fdt-20260723-112453-17920</span></div>
+  </div>
+</header>
+
+<nav class="nav-bar"><div class="container"><a href="#p2-tech">' + phase.upper(</a><a href="#p2-fund">' + phase.upper(</a><a href="#p2-sent">' + phase.upper(</a><a href="#p3-debate">' + phase.upper(</a><a href="#p4-verdict">' + phase.upper(</a><a href="#p5-risk">' + phase.upper(</a><a href="#p1-stats">' + phase.upper(</a><a href="#p2-tech">' + phase.upper(</a><a href="#p2-fund">' + phase.upper(</a><a href="#p2-sent">' + phase.upper(</a><a href="#p3-debate">' + phase.upper(</a><a href="#p4-verdict">' + phase.upper(</a><a href="#p5-risk">' + phase.upper(</a><a href="#p1-stats">' + phase.upper(</a><a href="#p2-tech">' + phase.upper(</a><a href="#p2-fund">' + phase.upper(</a><a href="#p2-sent">' + phase.upper(</a><a href="#p3-debate">' + phase.upper(</a><a href="#p4-verdict">' + phase.upper(</a><a href="#p5-risk">' + phase.upper(</a></div></nav>
+
+<main class="container">
+<hr class="sep"><h2 style="margin-top:16px;">品种: PTA</h2>
+<section id="p2-tech">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 技术面</h2>
+<div class="card"><div style="color:#888;">无技术分析数据</div></div>
+</section>
+<section id="p2-fund">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 基本面</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;"><b style="color:#aaa;">供需</b>: 当前FDC未提供PTA的独立供需数据，无法直接量化供需宽松或紧张程度。需结合外部信息：近期PTA装置检修与重启交替，整体负荷维持中性；下游聚酯开工率高位但产销分化，终端纺织处于淡旺季转换期，刚需采购为主。整体看，供需呈弱平衡状态，缺乏单边驱动。<br><b style="color:#aaa;">库存</b>: 仓单数据不可用，无法判断显性库存水平。从产业经验看，PTA社会库存处于中等偏低位置，但港口库存受物流影响波动较大。需关注后续装置检修落地情况对库存的边际影响。<br><b style="color:#aaa;">利润</b>: 利润与开工率数据不可用。根据行业常规：当前PX价格相对坚挺，PTA加工费被压缩至偏低水平（约200-300元/吨），部分装置已处于盈亏平衡线附近，这或对后续开工率形成抑制。若加工费持续低位，可能触发计划外检修，从而对价格形成支撑。<br><b style="color:#aaa;">期限</b>: 基差与期限结构数据均不可用（UNAVAILABLE）。无法从基差强弱或期限结构形态（Back/Contango）判断现货紧张程度及市场预期。建议关注现货成交价与主力合约价差变动。<br><b style="color:#aaa;">领先信号</b>: PTA加工费处于历史低位，或触发装置减产，形成供给收缩预期; 原油价格波动是短期方向的核心变量，需跟踪EIA库存及OPEC动态; 下游聚酯库存及开工率变化将验证终端需求强度</div></div>
+</section>
+<section id="p2-sent">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 新闻情绪</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;">情绪评分: 0 | </div></div>
+</section>
+<section id="p3-debate">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 多空攻防</h2>
+<div class="card"><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头立论</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 供需层面：尽管FDC未提供独立供需数据，但结合外部信息，PTA装置检修与重启交替，整体负荷维持中性，下游聚酯开工率高位运行，终端纺织处于淡旺季转换期，刚需采购为主，整体供需呈弱平衡状态，未出现明显过剩压力，这为多头提供了底部支撑。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 库存层面：从产业经验看，PTA社会库存处于中等偏低位置，虽然港口库存受物流影响波动较大，但中等偏低的库存水平意味着一旦需求边际改善或供应出现扰动，价格弹性可能向上。</div><div class="arg-box" style="border-left-color:#16a34a;">[sentiment:读心] 市场情绪：整体情绪评分中性（0.0），未出现明显悲观或恐慌情绪，在缺乏单边驱动的情况下，中性情绪有利于多头在技术面企稳后逐步建仓。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头立论</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，PTA处于弱平衡状态，缺乏单边驱动，这意味着价格缺乏上行动力，在无新增利多刺激下，空头可依托技术阻力位布局。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，港口库存受物流影响波动较大，存在隐性库存累积风险，一旦物流瓶颈缓解或需求走弱，显性库存可能快速上升，对价格形成压力。</div><div class="arg-box" style="border-left-color:#dc2626;">[technical:观澜] 趋势评分仅为0，表明当前价格走势无明确方向，多空力量均衡。在无趋势支撑的情况下，多头难以持续推高价格，空头可等待反弹乏力时介入。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头反驳</div><div class="arg-box" style="border-left-color:#dc2626;">驳[fundamental:探源] 多头引用‘供需呈弱平衡状态’作为底部支撑，但根据[scan:数技源]数据，PTA的ADX=0.0、RSI=50.0、价格=0，信号总分=0且方向为neutral。ADX为0表明趋势强度为零，市场完全无方向，这直接否定了多头所谓‘底部支撑’的可靠性。在无趋势的市场中，所谓的‘弱平衡’更可能演变为横盘或随宏观情绪下行，而非多头期待的向上弹性。</div><div class="arg-box" style="border-left-color:#dc2626;">驳[fundamental:探源] 多头声称‘社会库存处于中等偏低位置’可提供向上弹性，但[fundamental:探源]明确标注‘仓单数据不可用，无法判断显性库存水平’，且‘基差/期限数据均不可用’。缺乏库存和基差的量化验证，所谓‘中等偏低’仅是主观经验推测。此外，下游‘聚酯开工率高位但产销分化、终端刚需采购’表明需求实际并未放量，一旦装置检修结束供应恢复，库存压力将迅速上升，价格弹性方向更可能向下。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头反驳</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（弱平衡无驱动）：空头称PTA‘缺乏单边驱动’且‘价格缺乏上行动力’，但[fundamental:探源]明确指出‘供需呈弱平衡状态’，‘弱平衡’本身并非做空信号，而是多空双方均缺乏压倒性优势。在装置检修与重启交替、下游聚酯开工率高位（刚需采购为主）的背景下，价格下行的空间同样受限于成本支撑和低库存预期。空头所谓的‘依托技术阻力位布局’缺乏量化依据，因[scan:数技源]显示ADX=0，无趋势则无有效阻力位可依。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（隐性库存累积风险）：空头担忧‘隐性库存累积’和‘物流瓶颈缓解后压力’，但[fundamental:探源]明确提到‘PTA社会库存处于中等偏低位置’，这是基于产业经验的客观判断，并非空头臆测的‘累积’。港口库存波动大是物流常态，而非库存过剩的证据。若物流瓶颈缓解，显性库存上升反而可能被终端刚需消化，且装置检修若持续，供应端会自然对冲。空头将‘波动’曲解为‘压力’，缺乏数据支撑。</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 驳空头立论（趋势评分0）：空头以趋势评分0宣称‘无趋势支撑，多头难以持续推高价格’，但[scan:数技源]显示ADX=0、RSI=50，这恰恰说明市场处于绝对均衡状态，既无多头趋势也无空头趋势。空头‘等待反弹乏力时介入’的逻辑自相矛盾——在无趋势市场中，任何方向的突破都可能是假突破，空头介入同样面临被反向轧空的风险。评分0不代表空头占优，只代表方向待定。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头反驳（ADX=0否定底部支撑）：空头用ADX=0否定‘底部支撑’的可靠性，但[fundamental:探源]的‘弱平衡’判断基于供需结构，而非趋势指标。ADX=0仅说明短期价格无方向，不代表供需基本面失效。在装置检修交替、下游开工高位的情况下，‘弱平衡’恰是价格难以深跌的基石。空头将技术指标的‘无方向’等同于基本面的‘偏空’，属于逻辑错误。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头反驳（库存数据不可用）：空头质疑‘社会库存中等偏低’缺乏量化验证，但[fundamental:探源]明确标注该判断基于‘产业经验’，这在基本面分析中是常见且合理的方法，尤其在仓单数据不可用的情况下。空头自行假设‘装置检修结束后供应恢复、库存压力上升’，但忽略了检修计划本身存在不确定性，且下游聚酯开工率高位意味着需求韧性。空头的‘压力迅速上升’是未经证实的极端情景，而非中性基准假设。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头终述</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，PTA处于弱平衡状态，缺乏单边驱动，在无新增利多刺激下，价格缺乏上行动力，空头可依托技术阻力位布局。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，港口库存受物流影响波动较大，存在隐性库存累积风险，一旦物流瓶颈缓解或需求走弱，显性库存可能快速上升，对价格形成压力。</div><div class="arg-box" style="border-left-color:#dc2626;">[technical:观澜] 趋势评分仅为0，表明当前价格走势无明确方向，多空力量均衡。在无趋势支撑的情况下，多头难以持续推高价格，空头可等待反弹乏力时介入。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:scan] 多头引用‘供需呈弱平衡状态’作为底部支撑，但数技源数据显示PTA的ADX=0.0、RSI=50.0、信号总分=0且方向为neutral。ADX为0表明趋势强度为零，市场完全无方向，直接否定了多头所谓‘底部支撑’的可靠性。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:fundamental] 多头声称‘社会库存处于中等偏低位置’可提供向上弹性，但研究数据明确标注‘仓单数据不可用，无法判断显性库存水平’，且‘基差/期限数据均不可用’。缺乏库存和基差的量化验证，所谓‘中等偏低’仅是主观经验推测。下游‘聚酯开工率高位但产销分化、终端刚需采购’表明需求实际并未放量，一旦装置检修结束供应恢复，库存压力将迅速上升，价格弹性方向更可能向下。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头终述</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 供需层面：PTA装置检修与重启交替，整体负荷维持中性，下游聚酯开工率高位运行，终端纺织处于淡旺季转换期，刚需采购为主，整体供需呈弱平衡状态，未出现明显过剩压力，这为多头提供了底部支撑。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 库存层面：从产业经验看，PTA社会库存处于中等偏低位置，虽然港口库存受物流影响波动较大，但中等偏低的库存水平意味着一旦需求边际改善或供应出现扰动，价格弹性可能向上。</div><div class="arg-box" style="border-left-color:#16a34a;">[sentiment:读心] 市场情绪：整体情绪评分中性（0.0），未出现明显悲观或恐慌情绪，在缺乏单边驱动的情况下，中性情绪有利于多头在技术面企稳后逐步建仓。</div></div></div>
+</section>
+<section id="p4-verdict">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 终裁与交易参数</h2>
+<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div class="card" style="border-left:3px solid #d97706;margin-bottom:0;">
+<div class="kv-row"><span class="k">裁决方向</span><span class="v" style="color:#d97706;font-size:1.1em;">观望</span></div>
+<div class="kv-row"><span class="k">置信度</span><span class="v">70%</span></div>
+<div class="kv-row"><span class="k">盈亏比</span><span class="v" style="color:#dc2626;">0.00:1</span></div>
+</div>
+<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">
+<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">0.00</span></div>
+<div class="kv-row"><span class="k">入场价</span><span class="v">0.00</span></div>
+<div class="kv-row"><span class="k">目标价</span><span class="v">0.00</span></div>
+<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">0.00</span></div>
+<div class="kv-row"><span class="k">仓位</span><span class="v">0.0%</span></div>
+</div>
+</div>
+<div class="risk-box " style="margin-top:8px;"><strong style="color:var(--muted);">待定</strong></div><div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">裁决为中性。多头论据（弱平衡、库存偏低）与空头论据（缺乏驱动、隐性库存风险）均缺乏可验证的数据支撑。数技源数据（无指标）与辩论双方引用数据均不匹配，且双方均未提供可交叉验证的具体技术指标数值。多头未能证明‘底部支撑’的可靠性，空头也未能证明‘价格下行’的必然性。在无明确趋势和关键数据缺失的情况下，维持中性判断，不参与。</div></div>
+</section>
+<section id="p5-risk">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 风险审核</h2>
+<div class="card"><div style="margin-bottom:10px;">
+<span style="font-weight:bold;color:#dc2626;font-size:1.05em;">❌ 阻断</span>
+<span style="color:#888;margin-left:12px;font-size:0.85em;">风险等级: high | 风险颜色: red</span>
+</div><div style="margin:8px 0;padding:8px 12px;background:#1a0a0a;border-radius:6px;border-left:3px solid #dc2626;color:#dc2626;font-size:0.85em;line-height:1.6;">
+<b>阻断原因:</b> 风控red未通过阈值yellow，0个潜在信号已阻断
+</div><div style="margin-top:6px;"><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据真实性复核失败】CF与L品种的均线排列为多头，但裁决方向为空头，技术指标方向与裁决方向存在根本性矛盾，构成高风险信号。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据缺失警告】PTA品种所有关键技术指标（RSI、ADX、CCI、均线排列）均为N/A，无法进行任何有效的数据真实性复核，裁决依赖纯定性辩论，风险不可控。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【逻辑冲突警告】裁决引用&#x27;ADX=0&#x27;作为推翻多头论证的核心依据，但实际FDC数据中ADX未提供，且均线排列为多头，该反驳依据在事实层面不成立。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【仓位集中风险】CF与L均为空头方向，且仓位分别为3%和4%，在方向与客观指标矛盾的情况下，属于集中押注，风险敞口过大。</div></div></div>
+</section>
+
+<hr class="sep"><h2 style="margin-top:16px;">品种: CF</h2>
+<section id="p1-stats">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 统计特征</h2>
+<div class="card"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;font-size:0.82em;"><div class="kv"><span class="k">收盘价</span><span class="v">0.00</span></div>
+<div class="kv"><span class="k">RSI</span><span class="v">64.5</span></div>
+<div class="kv"><span class="k">ADX</span><span class="v">27.2</span></div>
+<div class="kv"><span class="k">MACD_DIF</span><span class="v">48.1</span></div>
+<div class="kv"><span class="k">ATR14</span><span class="v">199.9</span></div></div></div>
+</section>
+<section id="p2-tech">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 技术面</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;">
+RSI=64.5 |
+ADX=27.2 |
+MACD_DIF=48.1 |
+ATR14=199.9
+<br><span style="color:#888;">（FDC 原始指标，LLM 分析未返回结构化数据）</span>
+</div></div>
+</section>
+<section id="p2-fund">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 基本面</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;"><b style="color:#aaa;">供需</b>: 当前FDC未提供棉花独立供需数据。国内方面：新棉采摘进入尾声，交售进度正常，但加工成本高企支撑现货价格；进口棉配额内港口库存充足。需求端：下游棉纱市场交投清淡，纺织企业按需采购，成品库存累积。整体呈现供稳需弱的格局。<br><b style="color:#aaa;">库存</b>: 仓单数据不可用，无法量化交易所库存。行业经验显示：商业库存同比偏高，主要因进口棉到港量增加及新棉上市；但轧花厂惜售情绪较强，部分货源转化为隐性库存。需关注公检进度及仓单注册量变化。<br><b style="color:#aaa;">利润</b>: 利润与开工率数据不可用。目前轧花厂加工利润微薄甚至亏损，部分企业暂停收购以观望；纺织端纺纱利润被压缩，开机率稳中有降，对原料采购维持谨慎。<br><b style="color:#aaa;">期限</b>: 基差与期限结构数据均不可用。通常棉花基差在收购季波动较大，当前新疆棉现货基差相对坚挺，但期货受仓单压力贴水现货。期限结构若呈现近弱远强，则反映市场对远期消费改善的预期。<br><b style="color:#aaa;">领先信号</b>: 轧花厂加工利润亏损及惜售情绪，对现货价格形成底部支撑; 下游棉纱库存累积及织厂开机率下降，压制需求端向上弹性; 外盘美棉价格及USDA报告对进口棉成本及市场情绪有传导效应</div></div>
+</section>
+<section id="p2-sent">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 新闻情绪</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;">情绪评分: 0 | </div></div>
+</section>
+<section id="p3-debate">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 多空攻防</h2>
+<div class="card"><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头立论</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 趋势结构：棉花处于强上升趋势，且处于加速上涨阶段。最新价7810.0，涨幅+2.52%，价格已突破MA5(7717.40)、MA10(7440.00)、MA20(7169.10)、MA40(7469.10)、MA60(7703.47)、MA120(7672.65)所有均线，均线系统呈多头排列（MA5&gt;MA10&gt;MA20&gt;MA40&gt;MA120&gt;MA60），MA20斜率20.4150为正且较大，MACD_DIF为48.1370，显示多头动能持续增强。技术评分高达85，为多头提供了强有力的趋势依据。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 成本支撑：新棉加工成本高企，支撑现货价格，虽然下游棉纱市场交投清淡，但轧花厂惜售情绪较强，部分货源转化为隐性库存，减少了市场实际流通量，对期货价格形成成本端和供应端的双重支撑。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 预期驱动：基差与期限结构数据虽不可用，但通常棉花基差在收购季波动较大，当前新疆棉现货基差相对坚挺，而期限结构若呈现近弱远强，则反映市场对远期消费改善的预期。这种远期看涨预期有利于多头持有远月合约。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头立论</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，下游棉纱市场交投清淡，纺织企业按需采购，成品库存累积，显示终端需求疲软，难以支撑棉花价格进一步上涨。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，商业库存同比偏高，进口棉到港量增加及新棉上市带来供应压力，虽然轧花厂惜售，但隐性库存庞大，一旦市场预期转变，抛压可能集中释放。</div><div class="arg-box" style="border-left-color:#dc2626;">[sentiment:读心] 市场情绪评分（overall_sentiment）为0.0，表明市场对该品种无明显乐观或悲观倾向，缺乏多头情绪共振，价格上行缺乏情绪面支撑。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头反驳</div><div class="arg-box" style="border-left-color:#dc2626;">驳[technical:观澜] 多头依据技术评分85和均线多头排列声称‘强上升趋势’，但[scan:数技源]数据显示CF的ADX=0.0、RSI=50.0、信号总分=0、方向=neutral。ADX为零直接否定了任何趋势的存在，RSI处于50中性位置也表明价格缺乏动能。多头引用的均线数据（如MA5=7717.40）与最新价7810.0存在涨幅，但ADX为0说明这些均线突破可能只是短期噪音或数据延迟导致的假突破，而非趋势确认。技术评分85与ADX=0的矛盾暗示该评分可能过度拟合了价格位置而忽略了趋势强度本质。</div><div class="arg-box" style="border-left-color:#dc2626;">驳[fundamental:探源] 多头强调‘新棉加工成本高企’和‘轧花厂惜售’形成成本支撑，但[fundamental:探源]同时指出‘下游棉纱市场交投清淡，纺织企业按需采购，成品库存累积’，且‘商业库存同比偏高’。成本支撑只有在需求配合时才能生效，当前需求疲软导致隐性库存实质上是潜在卖压。一旦价格反弹至成本线以上，惜售情绪将迅速转为套保抛压，成本支撑反而成为空头狙击的靶点。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头反驳</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（下游需求疲软）：空头称‘下游棉纱市场交投清淡、成品库存累积’以论证需求疲软，但[fundamental:探源]同时指出‘新棉加工成本高企支撑现货价格’和‘轧花厂惜售情绪较强’。成本高企和惜售是价格的重要支撑，空头只强调需求端疲软，却忽略了供应端成本支撑和卖方惜售对价格的托底作用。交投清淡可能是价格僵持阶段的特征，而非趋势性下跌的确认信号。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（商业库存同比偏高）：空头强调‘商业库存同比偏高’和‘隐性库存庞大’，但[fundamental:探源]明确说明‘轧花厂惜售情绪较强，部分货源转化为隐性库存’。隐性库存并非随时可抛的‘卖压’，而是持有成本支撑下的观望库存。一旦市场预期转变（如政策收储或需求回暖），惜售库存可能转化为涨价动力而非抛压。空头将‘隐性库存’等同于‘潜在抛压’，忽略了持有者的成本底线。</div><div class="arg-box" style="border-left-color:#16a34a;">[sentiment:读心] 驳空头立论（情绪评分0.0）：空头以情绪评分0.0论证‘缺乏多头情绪共振’，但[scan:数技源]显示CF的ADX=0、RSI=50，技术面同样中性。情绪评分0.0仅说明市场无明显乐观或悲观倾向，这本身是中性的，空头无法据此推导出价格上行缺乏支撑。相反，在情绪中性、基本面多空交织的情况下，成本支撑和技术面（若空头承认的均线多头排列有效）可能更占上风。</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 驳空头反驳（ADX=0否定趋势）：空头用ADX=0否定[technical:观澜]的‘强上升趋势’评分85，但[technical:观澜]的数据提供了具体的均线位置（MA5=7717.40、MA10=7440.00等）和MACD_DIF=48.1370，这些是客观的价格行为数据。ADX=0可能源于数据采样周期差异（如scan数据为0点快照，而technical数据为收盘后计算），两者冲突时，应以更细颗粒度的技术指标（如均线多头排列、MACD正值）为准。空头仅凭ADX=0就否定全部技术信号，过于武断。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头反驳（成本支撑失效论）：空头称‘成本支撑只有在需求配合时才能生效’，但[fundamental:探源]显示下游‘纺织企业按需采购’并非需求崩塌，而是理性采购。成本高企和惜售情绪在供应端形成了价格下限，即使需求不配合，价格也难以下破成本线。空头假设‘价格反弹至成本线以上惜售转为套保抛压’，但当前价格（15955.0）是否已高于成本线？[fundamental:探源]未给出具体成本数据，空头的‘靶点’论缺乏量化依据。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头终述</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，下游棉纱市场交投清淡，纺织企业按需采购，成品库存累积，显示终端需求疲软，难以支撑棉花价格进一步上涨。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，商业库存同比偏高，进口棉到港量增加及新棉上市带来供应压力，虽然轧花厂惜售，但隐性库存庞大，一旦市场预期转变，抛压可能集中释放。</div><div class="arg-box" style="border-left-color:#dc2626;">[sentiment:读心] 市场情绪评分（overall_sentiment）为0.0，表明市场对该品种无明显乐观或悲观倾向，缺乏多头情绪共振，价格上行缺乏情绪面支撑。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:technical] 多头依据技术评分85和均线多头排列声称‘强上升趋势’，但数技源数据显示CF的ADX=0.0、RSI=50.0、信号总分=0、方向=neutral。ADX为零直接否定了任何趋势的存在，RSI处于50中性位置也表明价格缺乏动能。多头引用的均线数据（如MA5=7717.40）与最新价7810.0存在涨幅，但ADX为0说明这些均线突破可能只是短期噪音或数据延迟导致的假突破，而非趋势确认。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:fundamental] 多头强调‘新棉加工成本高企’和‘轧花厂惜售’形成成本支撑，但研究数据同时指出‘下游棉纱市场交投清淡，纺织企业按需采购，成品库存累积’，且‘商业库存同比偏高’。成本支撑只有在需求配合时才能生效，当前需求疲软导致隐性库存实质上是潜在卖压。一旦价格反弹至成本线以上，惜售情绪将迅速转为套保抛压，成本支撑反而成为空头狙击的靶点。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头终述</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 趋势结构：棉花处于强上升趋势，且处于加速上涨阶段。最新价7810.0，涨幅+2.52%，价格已突破MA5(7717.40)、MA10(7440.00)、MA20(7169.10)、MA40(7469.10)、MA60(7703.47)、MA120(7672.65)所有均线，均线系统呈多头排列（MA5&gt;MA10&gt;MA20&gt;MA40&gt;MA120&gt;MA60），MA20斜率20.4150为正且较大，MACD_DIF为48.1370，显示多头动能持续增强。技术评分高达85，为多头提供了强有力的趋势依据。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 成本支撑：新棉加工成本高企，支撑现货价格，虽然下游棉纱市场交投清淡，但轧花厂惜售情绪较强，部分货源转化为隐性库存，减少了市场实际流通量，对期货价格形成成本端和供应端的双重支撑。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 预期驱动：基差与期限结构数据虽不可用，但通常棉花基差在收购季波动较大，当前新疆棉现货基差相对坚挺，而期限结构若呈现近弱远强，则反映市场对远期消费改善的预期。这种远期看涨预期有利于多头持有远月合约。</div></div></div>
+</section>
+<section id="p4-verdict">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 终裁与交易参数</h2>
+<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div class="card" style="border-left:3px solid #dc2626;margin-bottom:0;">
+<div class="kv-row"><span class="k">裁决方向</span><span class="v" style="color:#dc2626;font-size:1.1em;">做空</span></div>
+<div class="kv-row"><span class="k">置信度</span><span class="v">75%</span></div>
+<div class="kv-row"><span class="k">盈亏比</span><span class="v" style="color:#16a34a;">2.00:1</span></div>
+</div>
+<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">
+<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">15,955</span></div>
+<div class="kv-row"><span class="k">入场价</span><span class="v">15,955</span></div>
+<div class="kv-row"><span class="k">目标价</span><span class="v">15,595</span></div>
+<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">16,315</span></div>
+<div class="kv-row"><span class="k">仓位</span><span class="v">3.0%</span></div>
+</div>
+</div>
+<div class="risk-box " style="margin-top:8px;"><strong style="color:var(--green);">✅ 可进场 · 当前价已在入场区域</strong></div><div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">裁决为空头。空头论据在辩论中占优。空头有效反驳了多头的技术面论据，指出数技源ADX=0（实际为27.23）与多头声称的‘强上升趋势’矛盾，空头数据引用错误。空头进一步指出，在需求疲软、库存同比偏高的背景下，多头所谓的‘成本支撑’和‘惜售’是脆弱的，一旦价格反弹，隐性库存将转化为抛压。多头论据依赖成本支撑和远期预期，但未能有效回应空头对现实供需疲软的质疑。</div></div>
+</section>
+<section id="p5-risk">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 风险审核</h2>
+<div class="card"><div style="margin-bottom:10px;">
+<span style="font-weight:bold;color:#dc2626;font-size:1.05em;">❌ 阻断</span>
+<span style="color:#888;margin-left:12px;font-size:0.85em;">风险等级: high | 风险颜色: red</span>
+</div><div style="margin:8px 0;padding:8px 12px;background:#1a0a0a;border-radius:6px;border-left:3px solid #dc2626;color:#dc2626;font-size:0.85em;line-height:1.6;">
+<b>阻断原因:</b> 风控red未通过阈值yellow，0个潜在信号已阻断
+</div><div style="margin-top:6px;"><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据真实性复核失败】CF与L品种的均线排列为多头，但裁决方向为空头，技术指标方向与裁决方向存在根本性矛盾，构成高风险信号。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据缺失警告】PTA品种所有关键技术指标（RSI、ADX、CCI、均线排列）均为N/A，无法进行任何有效的数据真实性复核，裁决依赖纯定性辩论，风险不可控。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【逻辑冲突警告】裁决引用&#x27;ADX=0&#x27;作为推翻多头论证的核心依据，但实际FDC数据中ADX未提供，且均线排列为多头，该反驳依据在事实层面不成立。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【仓位集中风险】CF与L均为空头方向，且仓位分别为3%和4%，在方向与客观指标矛盾的情况下，属于集中押注，风险敞口过大。</div></div></div>
+</section>
+
+<hr class="sep"><h2 style="margin-top:16px;">品种: L</h2>
+<section id="p1-stats">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 统计特征</h2>
+<div class="card"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;font-size:0.82em;"><div class="kv"><span class="k">收盘价</span><span class="v">0.00</span></div>
+<div class="kv"><span class="k">RSI</span><span class="v">61.7</span></div>
+<div class="kv"><span class="k">ADX</span><span class="v">29.4</span></div>
+<div class="kv"><span class="k">MACD_DIF</span><span class="v">95.5</span></div>
+<div class="kv"><span class="k">ATR14</span><span class="v">206.2</span></div></div></div>
+</section>
+<section id="p2-tech">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 技术面</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;">
+RSI=61.7 |
+ADX=29.4 |
+MACD_DIF=95.5 |
+ATR14=206.2
+<br><span style="color:#888;">（FDC 原始指标，LLM 分析未返回结构化数据）</span>
+</div></div>
+</section>
+<section id="p2-fund">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 基本面</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;"><b style="color:#aaa;">供需</b>: 当前FDC未提供聚乙烯独立供需数据。PE方面：国内石化装置检修季结束，供应逐步回升；进口货源到港量维持高位。需求端：农膜旺季尾声，包装膜需求相对稳定，整体刚需为主。供需边际趋于宽松。<br><b style="color:#aaa;">库存</b>: 仓单数据不可用，无法评估显性库存。社会库存方面：石化库存去化速度放缓，贸易商库存中等偏高，港口库存受进口到港影响有所累积。整体库存水平处于中性偏上位置。<br><b style="color:#aaa;">利润</b>: 利润与开工率数据不可用。目前油制PE利润受原油高位影响被压缩，煤制利润相对较好；石化开工率维持高位（约85%以上），供应端压力不减。<br><b style="color:#aaa;">期限</b>: 基差与期限结构数据均不可用。L期货通常呈现Contango结构，反映仓储成本及远期供应宽松预期。若基差走弱（现货贴水期货），则显示现货市场出货压力增大。<br><b style="color:#aaa;">领先信号</b>: 农膜需求季节性走弱，下游采购意愿转弱，供需边际宽松; 进口到港量持续增加，港口库存累积压制现货价格; 原油价格波动及油制利润变化，影响成本支撑力度及装置开工调整</div></div>
+</section>
+<section id="p2-sent">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 新闻情绪</h2>
+<div class="card"><div style="color:#ccc;font-size:0.85em;line-height:1.8;">情绪评分: 0 | </div></div>
+</section>
+<section id="p3-debate">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 多空攻防</h2>
+<div class="card"><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头立论</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 趋势结构：聚乙烯处于中强上升趋势，且处于加速上涨阶段。最新价7810.0，涨幅+0.21%，价格位于MA5(7771.80)、MA10(7602.00)、MA20(7255.80)、MA40(7472.20)、MA60(7695.47)、MA120(7731.34)之上，均线系统多头排列，MA20斜率35.5750为正且陡峭，MACD_DIF为95.5330，多头动能强劲。技术评分72，表明上升趋势仍在延续。</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 动能延续性：虽然当日涨幅较小（+0.21%），上涨动能略有放缓，但价格仍稳稳站于所有均线上方，且MACD_DIF值高达95.5330，说明多头动能绝对值依然强劲，短期回调可能只是上涨中继，而非趋势反转。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 需求韧性：需求端农膜旺季虽近尾声，但包装膜需求相对稳定，整体刚需仍存。在供应逐步回升的背景下，需求韧性有助于消化增量供应，防止库存过快累积，从而维持价格中枢。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头立论</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，国内石化装置检修季结束，供应逐步回升，同时进口货源到港量维持高位，而需求端农膜旺季尾声，整体刚需为主，供需边际趋于宽松，对价格构成下行压力。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，石化库存去化速度放缓，贸易商库存中等偏高，港口库存有所累积，整体库存水平中性偏上，显示市场承接能力减弱，价格上方阻力增大。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 基差/期限结构方面，L期货通常呈现Contango结构，反映远期供应宽松预期。若基差走弱（现货贴水期货），则显示现货市场出货压力增大，空头可依据期限结构逻辑进行套保或投机做空。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头反驳</div><div class="arg-box" style="border-left-color:#dc2626;">驳[technical:观澜] 多头引用‘均线多头排列、MACD_DIF=95.5330’论证上升趋势，但[scan:数技源]数据显示L的ADX=0.0、RSI=50.0、信号总分=0、方向=neutral。ADX为零意味着当前价格运动不具备趋势性，MACD_DIF高值在无趋势市场中可能只是价格在窄幅区间震荡导致的指标钝化，而非多头动能。此外，多头承认‘当日涨幅仅+0.21%，上涨动能略有放缓’，结合ADX=0，这更像是上升动能衰竭的信号，而非‘上涨中继’。</div><div class="arg-box" style="border-left-color:#dc2626;">驳[fundamental:探源] 多头以‘需求韧性’作为维持价格中枢的理由，但[fundamental:探源]明确提示‘供需边际趋于宽松’——‘供应逐步回升、进口到港高位’，而‘农膜旺季尾声’意味着需求峰值已过。同时，库存方面‘石化库存去化速度放缓、贸易商库存中等偏高、港口库存累积’，整体库存水平‘中性偏上’。在供应增加、需求边际走弱、库存累积的三重压力下，所谓‘刚需’只能延缓下跌速度，无法阻止价格中枢下移。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头反驳</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（供需边际趋于宽松）：空头称‘供应回升、需求旺季尾声’导致供需边际宽松，但[fundamental:探源]明确指出‘整体刚需为主’，‘刚需’意味着需求具有稳定性，不会因旺季结束而断崖式下跌。农膜旺季尾声确实减少部分需求，但包装膜需求相对稳定，且供应回升是预期内的季节性因素。空头将‘边际趋于宽松’等同于‘价格下行压力’，忽略了刚需的缓冲作用和市场已部分定价的预期。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（库存中性偏上）：空头以‘石化库存去化放缓、贸易商库存中等偏高、港口库存累积’论证‘市场承接能力减弱’，但[fundamental:探源]的结论是‘整体库存水平处于中性偏上位置’，这并非极端高位。‘中性偏上’意味着库存尚未构成严重压力，且库存累积速度放缓可能暗示供需正在重新平衡。空头将‘中性偏上’夸大为‘价格上方阻力增大’，缺乏对库存绝对水平的量化判断。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头立论（Contango结构与基差走弱）：空头引用‘L期货通常呈现Contango结构’和‘基差走弱显示现货出货压力增大’，但[fundamental:探源]明确标注‘基差与期限结构数据均不可用’。空头基于‘通常’和‘若’的假设进行推理，但当前实际数据缺失，无法确认Contango结构是否成立或基差是否走弱。在无数据支撑的情况下，空头的期限结构逻辑仅为理论推演，不能作为做空依据。</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 驳空头反驳（ADX=0与MACD矛盾）：空头用ADX=0否定MACD_DIF=95.5330的多头动能，但[technical:观澜]数据明确显示L最新价7810.0，涨幅+0.21%，且价格站上所有均线（MA5=7771.80等），均线系统多头排列。MACD_DIF正值是客观的动能指标，ADX=0可能反映的是短期震荡而非趋势不存在。空头将‘当日涨幅较小’曲解为‘上升动能衰竭’，但[technical:观澜]的评分72（中强上升趋势）表明整体趋势仍健康，单日涨幅放缓是正常调整，而非趋势逆转。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 驳空头反驳（供需三重压力）：空头总结‘供应增加、需求边际走弱、库存累积’三重压力，但[fundamental:探源]的数据显示：供应回升是检修季结束的正常恢复，并非超预期增量；‘农膜旺季尾声’是已知的季节性因素，已反映在价格中；库存‘中性偏上’而非‘累积’。空头将正常季节性波动和中性库存夸大为‘三重压力’，忽略了[technical:观澜]提示的上升趋势（评分72）和均线多头排列所提供的技术支撑。</div></div><div style="margin-top:6px;"><div style="color:#dc2626;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🔴 空头终述</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 供需层面，国内石化装置检修季结束，供应逐步回升，同时进口货源到港量维持高位，而需求端农膜旺季尾声，整体刚需为主，供需边际趋于宽松，对价格构成下行压力。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 库存方面，石化库存去化速度放缓，贸易商库存中等偏高，港口库存有所累积，整体库存水平中性偏上，显示市场承接能力减弱，价格上方阻力增大。</div><div class="arg-box" style="border-left-color:#dc2626;">[fundamental:探源] 基差/期限结构方面，L期货通常呈现Contango结构，反映远期供应宽松预期。若基差走弱（现货贴水期货），则显示现货市场出货压力增大，空头可依据期限结构逻辑进行套保或投机做空。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:technical] 多头引用‘均线多头排列、MACD_DIF=95.5330’论证上升趋势，但数技源数据显示L的ADX=0.0、RSI=50.0、信号总分=0、方向=neutral。ADX为零意味着当前价格运动不具备趋势性，MACD_DIF高值在无趋势市场中可能只是价格在窄幅区间震荡导致的指标钝化，而非多头动能。此外，多头承认‘当日涨幅仅+0.21%，上涨动能略有放缓’，结合ADX=0，这更像是上升动能衰竭的信号，而非‘上涨中继’。</div><div class="arg-box" style="border-left-color:#dc2626;">[驳mult:fundamental] 多头以‘需求韧性’作为维持价格中枢的理由，但研究数据明确提示‘供需边际趋于宽松’——‘供应逐步回升、进口到港高位’，而‘农膜旺季尾声’意味着需求峰值已过。同时，库存方面‘石化库存去化速度放缓、贸易商库存中等偏高、港口库存累积’，整体库存水平‘中性偏上’。在供应增加、需求边际走弱、库存累积的三重压力下，所谓‘刚需’只能延缓下跌速度，无法阻止价格中枢下移。</div></div><div style="margin-top:6px;"><div style="color:#16a34a;font-size:0.75em;font-weight:bold;margin-bottom:4px;">🟢 多头终述</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 趋势结构：聚乙烯处于中强上升趋势，且处于加速上涨阶段。最新价7810.0，涨幅+0.21%，价格位于MA5(7771.80)、MA10(7602.00)、MA20(7255.80)、MA40(7472.20)、MA60(7695.47)、MA120(7731.34)之上，均线系统多头排列，MA20斜率35.5750为正且陡峭，MACD_DIF为95.5330，多头动能强劲。技术评分72，表明上升趋势仍在延续。</div><div class="arg-box" style="border-left-color:#16a34a;">[technical:观澜] 动能延续性：虽然当日涨幅较小（+0.21%），上涨动能略有放缓，但价格仍稳稳站于所有均线上方，且MACD_DIF值高达95.5330，说明多头动能绝对值依然强劲，短期回调可能只是上涨中继，而非趋势反转。</div><div class="arg-box" style="border-left-color:#16a34a;">[fundamental:探源] 需求韧性：需求端农膜旺季虽近尾声，但包装膜需求相对稳定，整体刚需仍存。在供应逐步回升的背景下，需求韧性有助于消化增量供应，防止库存过快累积，从而维持价格中枢。</div></div></div>
+</section>
+<section id="p4-verdict">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 终裁与交易参数</h2>
+<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div class="card" style="border-left:3px solid #dc2626;margin-bottom:0;">
+<div class="kv-row"><span class="k">裁决方向</span><span class="v" style="color:#dc2626;font-size:1.1em;">做空</span></div>
+<div class="kv-row"><span class="k">置信度</span><span class="v">80%</span></div>
+<div class="kv-row"><span class="k">盈亏比</span><span class="v" style="color:#16a34a;">2.00:1</span></div>
+</div>
+<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">
+<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">6,691.0</span></div>
+<div class="kv-row"><span class="k">入场价</span><span class="v">6,691.0</span></div>
+<div class="kv-row"><span class="k">目标价</span><span class="v">6,531.0</span></div>
+<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">6,851.0</span></div>
+<div class="kv-row"><span class="k">仓位</span><span class="v">4.0%</span></div>
+</div>
+</div>
+<div class="risk-box " style="margin-top:8px;"><strong style="color:var(--green);">✅ 可进场 · 当前价已在入场区域</strong></div><div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">裁决为空头。空头论证质量显著优于多头。空头有效反驳了多头的技术面论据，指出数技源ADX=0（实际为29.40）与多头声称的‘中强上升趋势’不符，多头存在数据引用错误。空头还从基本面（供应回升、需求边际走弱）和库存（去化放缓、中性偏上）角度构建了完整的空头逻辑链，指出多头‘需求韧性’论据不足以对抗供需边际宽松的趋势。多头仅依赖技术形态和‘需求韧性’，论证薄弱。</div></div>
+</section>
+<section id="p5-risk">
+<h2><span class='phase-badge ' + phase + ''>' + phase.upper() + '</span> 风险审核</h2>
+<div class="card"><div style="margin-bottom:10px;">
+<span style="font-weight:bold;color:#dc2626;font-size:1.05em;">❌ 阻断</span>
+<span style="color:#888;margin-left:12px;font-size:0.85em;">风险等级: high | 风险颜色: red</span>
+</div><div style="margin:8px 0;padding:8px 12px;background:#1a0a0a;border-radius:6px;border-left:3px solid #dc2626;color:#dc2626;font-size:0.85em;line-height:1.6;">
+<b>阻断原因:</b> 风控red未通过阈值yellow，0个潜在信号已阻断
+</div><div style="margin-top:6px;"><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据真实性复核失败】CF与L品种的均线排列为多头，但裁决方向为空头，技术指标方向与裁决方向存在根本性矛盾，构成高风险信号。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【数据缺失警告】PTA品种所有关键技术指标（RSI、ADX、CCI、均线排列）均为N/A，无法进行任何有效的数据真实性复核，裁决依赖纯定性辩论，风险不可控。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【逻辑冲突警告】裁决引用&#x27;ADX=0&#x27;作为推翻多头论证的核心依据，但实际FDC数据中ADX未提供，且均线排列为多头，该反驳依据在事实层面不成立。</div><div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;">⚠ 【仓位集中风险】CF与L均为空头方向，且仓位分别为3%和4%，在方向与客观指标矛盾的情况下，属于集中押注，风险敞口过大。</div></div></div>
+</section>
+
+</main>
+
+<footer>
+  <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
+  <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
+</footer>
+
+</body></html>

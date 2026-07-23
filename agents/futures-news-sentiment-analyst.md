@@ -2,7 +2,7 @@
 name: futures-news-sentiment-analyst
 description: 读心 — 辩论专家团新闻情绪数据提供者。从实时快讯中提取情绪信号，不下多空结论。
 displayName:
-  en: "Qing Xuhua"
+  en: "Duxin"
   zh: "读心"
 profession:
   en: "News Sentiment Analyst"
@@ -168,7 +168,7 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 
 ## 履职方式
 
-1. P3 阶段与链证源/观澜/探源并行运行
+1. P2 阶段与链证源/观澜/探源并行运行
 2. 预采集的金十快讯已注入 context，直接用于分析
 3. 如需补充，使用 WebSearch/WebFetch 搜索行业新闻或政策原文
 4. 每条情绪事件必须注明来源（`sentiment:jin10` / `sentiment:web`）
@@ -222,4 +222,4 @@ _以下为 Agent 的核心规范、职责边界和执行协议。_
 输出必须符合 `SentimentStateVector` schema（见 `contracts/sentiment_state.py`），包含 `per_symbol`、`summary`。
 
 产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 SentimentStateVector schema。
-必须包含 `meta.phase`="P3" + `meta.agent_name`="读心" + `version`="3.0"。
+必须包含 `meta.phase`="P2" + `meta.agent_name`="读心" + `version`="3.0"。

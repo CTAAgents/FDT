@@ -140,8 +140,9 @@ async def test_scan_report_written(workspace_tmp):
 
 
 @pytest.mark.asyncio
-async def test_research_report_written(workspace_tmp):
+async def test_research_report_written(workspace_tmp, monkeypatch):
     """node_merge_research 写入 research_report_path"""
+    monkeypatch.setenv("FDT_GENERATE_INTERMEDIATE_REPORTS", "true")
     state = create_test_state()
     state["chain_analysis"] = {"RB": "钢铁链"}
     state["technical_data"] = {"RB": {"trend": "up"}}

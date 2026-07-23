@@ -176,17 +176,20 @@ class GenerationMetrics:
 
     def get_summary(self) -> dict:
         """获取全局汇总"""
-        stats = self.get_agent_stats()
+        agent_stats = self.get_agent_stats()
+        records = self._records
 
-        total = sum(s["total"] for s in stats.values())
-        success = sum(s["success"] for s in stats.values())
+        total = len(records)
+        success = sum(1 for r in records if r.get("success"))
+        schema_valid_count = sum(1 for r in records if r.get("schema_valid"))
 
         return {
             "total_records": total,
             "total_success": success,
             "overall_success_rate": round(success / total * 100, 2) if total > 0 else 0.0,
-            "agent_count": len(stats),
-            "agents": stats,
+            "overall_schema_pass_rate": round(schema_valid_count / total * 100, 2) if total > 0 else 0.0,
+            "agent_count": len(agent_stats),
+            "agents": agent_stats,
             "report_time": datetime.now().isoformat(),
         }
 

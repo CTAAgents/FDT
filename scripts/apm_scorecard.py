@@ -442,6 +442,37 @@ def compute_coherence(debate_records: List[Dict]) -> Tuple[Optional[float], Dict
     }
 
 
+def _apply_d3_fallback(detail: dict) -> None:
+    """D3 fallback: 当辩论 <5 轮时，从 generation_metrics 读取 schema_pass_rate。
+
+    schema_pass_rate < 80% → 标记为 degenerate（解码质量差）；
+    否则保留 blocked 状态，但 status 标记为 fallback 示意已检查。
+    """
+    try:
+        from scripts.generation_metrics import GenerationMetrics
+        metrics = GenerationMetrics()
+        summary = metrics.get_summary()
+        total = summary.get("total_records", 0)
+        if total < 5:
+            detail["fallback"] = {"status": "fallback", "reason": f"generation_metrics 记录不足({total}/5)"}
+            return
+        overall_rate = summary.get("overall_schema_pass_rate", 100.0)
+        if overall_rate < 80.0:
+            detail["status"] = "degenerate"
+            detail["fallback"] = {
+                "reason": f"schema_pass_rate={overall_rate:.1f}% < 80%",
+                "description": "解码质量差（结构化输出通过率低），D3 降级为 degenerate",
+            }
+        else:
+            detail["status"] = "fallback"
+            detail["fallback"] = {
+                "reason": f"schema_pass_rate={overall_rate:.1f}% >= 80%",
+                "description": f"fallback 模式，generation_metrics 总记录 {total} 条",
+            }
+    except Exception as e:
+        detail["fallback_error"] = str(e)
+
+
 # ── D3: Composure — 波动率-过度反应 ──
 
 def compute_composure(debate_records: List[Dict], followup: Dict) -> Tuple[Optional[float], Dict]:
@@ -609,9 +640,11 @@ def main() -> None:
     d1_score, d1_detail = compute_coherence(debate_records)
     d1_status = "active" if d1_score is not None else "ready"
 
-    # ── D3: Composure（去重轮次 ≥5 自动点亮）──
+    # ── D3: Composure（去重轮次 ≥5 自动点亮；<5 时 fallback 到 generation_metrics）──
     d3_score, d3_detail = compute_composure(debate_records, followup)
     d3_status = d3_detail.get("status", "blocked")
+    if d3_status == "blocked":
+        _apply_d3_fallback(d3_detail)
 
     # ── 构建输出 ──
     # APM Overall = 当前已激活轴的等权均值（CLQT 等权哲学；D1 ready/D3 门控时暂不计入）

@@ -204,7 +204,7 @@ def daily_debate() -> TaskResult:
     # ── Step 4: 复制报告到工作空间 Commodities/ ──
     _log("  Step 4/4: 复制报告到工作空间")
     # phase3 输出在 scan_report_dir，复制到 Signal/Commodities/
-    html_files = list(scan_report_dir.glob("daily_analysis_*.html")) if scan_report_dir.exists() else []
+    html_files = list(scan_report_dir.glob("debate_report_*.html")) if scan_report_dir.exists() else []
 
     commodity_dir = Path(os.path.expanduser("~")) / "Documents" / "Signal" / "Commodities"
     copied = []

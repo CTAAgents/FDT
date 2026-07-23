@@ -50,13 +50,13 @@ class TestBenchmarkComparison:
         merged["technical_data"] = {"test": "tech"}
         merged["fundamental_data"] = {"test": "fund"}
         s3 = await node_merge_research(merged)
-        assert s3["current_phase"] == "P3"
+        assert s3["current_phase"] == "P2", f"merge_research phase should be P2, got {s3['current_phase']}"
 
         s4 = await _run_debate_sequence(s3)
-        assert s4["current_phase"] == "P4"
+        assert s4["current_phase"] in ("P3_bull_final", "P3_bullish_v1", "P3_bearish_v1"), f"debate end phase, got {s4['current_phase']}"
 
         s5 = await node_verdict(s4)
-        assert s5["current_phase"] == "P5_verdict"
+        assert s5["current_phase"] == "P4_verdict", f"verdict phase, got {s5['current_phase']}"
 
         s5["verdict"] = {
             **s5.get("verdict", {}),
@@ -69,7 +69,7 @@ class TestBenchmarkComparison:
         }
 
         s6 = await node_risk_check(s5)
-        assert s6["current_phase"] == "P5_risk"
+        assert s6["current_phase"] == "P6a", f"risk_check phase, got {s6['current_phase']}"
 
         s7 = await node_report(s6)
         assert s7["current_phase"] == "P6"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -79,12 +80,37 @@ def _extract_args_from_list(lst: list, symbol_upper: str) -> list:
     return []
 
 
+def _nav_items(body_html: str) -> str:
+    """从 body HTML 中提取带 id 的 section 标题，生成导航栏链接"""
+    links = []
+    for m in re.finditer(r'<section[^>]*?id="([^"]+)"[^>]*>.*?<h2[^>]*>(.*?)</h2>', body_html, re.DOTALL):
+        label = re.sub(r'<[^>]+>', '', m.group(2)).strip()
+        label = re.sub(r'<span[^>]*>.*?</span>\s*', '', label)  # 去掉 phase-badge
+        label = label[:16]
+        links.append(f'<a href="#{m.group(1)}">{label}</a>')
+    return ''.join(links)
+
+
+def _load_template_css() -> str:
+    """从 docs/report-template/report_css.html 加载统一模板 CSS（仅读取一次）"""
+    _REPORT_CSS_PATH = Path(__file__).parent.parent / "docs" / "report-template" / "report_css.html"
+    if _REPORT_CSS_PATH.exists():
+        css = _REPORT_CSS_PATH.read_text(encoding="utf-8")
+        # 移除注释行
+        return "\n".join(line for line in css.splitlines() if not line.strip().startswith("/*"))
+    return ""
+
+
+# 模块级缓存：CSS 仅加载一次
+_TEMPLATE_CSS = _load_template_css()
+
+
 def _render_html(title: str, body_html: str, header_meta: list | None = None) -> str:
-    """统一 HTML 报告模板（明鉴秋报告层通用）"""
+    """统一 HTML 报告模板（暖灰商务风，参考 report_template_standards.md）"""
     meta_html = ""
     if header_meta:
         items = "".join(
-            f'<div class="meta-item"><span class="label">{k}</span> <span class="value">{v}</span></div>'
+            f'<span>{k.replace("_"," ").title()}: {v}</span>'
             for k, v in header_meta
         )
         meta_html = f'<div class="meta">{items}</div>'
@@ -94,41 +120,35 @@ def _render_html(title: str, body_html: str, header_meta: list | None = None) ->
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>{title} | {datetime.now().strftime('%Y-%m-%d')}</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#0f1117;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;padding:20px}}
-.container{{max-width:1200px;margin:0 auto}}
-.header{{background:linear-gradient(135deg,#1a1d28 0%,#2a1f1f 50%,#1a1d28 100%);padding:32px;border-radius:14px;margin-bottom:24px;text-align:center;border:1px solid #f59e0b33}}
-.header h1{{font-size:1.8em;color:#f59e0b;margin-bottom:6px}}
-.header .subtitle{{color:#888;font-size:0.9em}}
-.header .meta{{display:flex;justify-content:center;gap:14px;margin-top:14px;flex-wrap:wrap}}
-.meta-item{{background:#1a1d28;padding:6px 14px;border-radius:6px;border:1px solid #2a2d38;font-size:0.85em}}
-.meta-item .label{{color:#888}}
-.meta-item .value{{color:#f59e0b;font-weight:bold}}
-.section{{background:#1a1d28;border-radius:10px;padding:20px 24px;margin-bottom:18px;border:1px solid #2a2d38}}
-.section h2{{color:#f59e0b;font-size:1.2em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #2a2d38}}
-.kv{{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #232530;}}
-.kv .k{{color:#777;font-size:0.78em;}}
-.kv .v{{color:#e8e8e8;font-weight:600;font-size:0.88em;}}
-.kv-box{{background:#1a1c26;border-radius:8px;padding:14px 16px;border:1px solid #2a2d3a;}}
-.arg-box{{margin:3px 0;padding:5px 10px;background:#14161f;border-radius:4px;border-left:3px solid;font-size:0.8em;color:#bbb;line-height:1.5;}}
-.footer{{text-align:center;color:#555;font-size:0.8em;padding:24px;border-top:1px solid #2a2d38;margin-top:24px}}
+{_TEMPLATE_CSS}
 </style></head>
-<body><div class="container">
-<div class="header">
-  <h1>{title}</h1>
-  <div class="subtitle">明鉴秋 · 报告层调度</div>
-  {meta_html}
-</div>
+<body>
+
+<header class="report-header">
+  <div class="container">
+    <div class="badge">FDT 辩论报告</div>
+    <h1>{title}</h1>
+    <p class="subtitle">明鉴秋 · 报告层调度 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    {meta_html}
+  </div>
+</header>
+
+<nav class="nav-bar"><div class="container">{_nav_items(body_html)}</div></nav>
+
+<main class="container">
 {body_html}
-<div class="footer">
-  <p>FDT 期货辩论团队 | 明鉴秋报告层 | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-  <p style="color:#ef4444;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
-</div>
-</div></body></html>"""
+</main>
+
+<footer>
+  <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
+  <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
+</footer>
+
+</body></html>"""
 
 
-def generate(state: dict) -> str:
-    """从 state 生成单品种辩论报告 HTML"""
+def _build_body_sections(state: dict) -> str:
+    """内部函数：从 state 生成单品种 body HTML（章节部分）"""
     trace_id = state.get("trace_id", "")
     symbols = state.get("selected_symbols", [])
     sym = symbols[0] if symbols else "unknown"
@@ -165,7 +185,6 @@ def generate(state: dict) -> str:
     fdc_data = state.get("fdc_data", {})
     fdc_sym = fdc_data.get(sym, fdc_data.get(sym_upper, fdc_data.get(sym.lower(), {})))
 
-    judge_dir = state.get("judge_direction", {})
     research_data = state.get("research_data") or {}
 
     tech_data = research_data.get("technical_data", {})
@@ -189,7 +208,14 @@ def generate(state: dict) -> str:
     latest_close = 0
     latest_vol = 0
     if isinstance(fdc_sym, dict):
-        kline_bars = fdc_sym.get("kline", [])
+        kline_raw = fdc_sym.get("kline", [])
+        # 兼容两种 kline 格式：list（node_load_cache）或 {"bars":[...]}（node_prepare_data）
+        if isinstance(kline_raw, dict) and "bars" in kline_raw:
+            kline_bars = kline_raw["bars"]
+        elif isinstance(kline_raw, list):
+            kline_bars = kline_raw
+        else:
+            kline_bars = []
         if isinstance(kline_bars, list) and kline_bars:
             last_bar = kline_bars[-1] if kline_bars else {}
             latest_close = float(last_bar.get("close", 0) or 0)
@@ -200,9 +226,8 @@ def generate(state: dict) -> str:
         if isinstance(ind_raw, dict):
             indicators = ind_raw.get("values", {})
 
-    # P1/P2 有效性
+    # P1 有效性
     p1_valid = bool(stats) or bool(indicators)
-    p2_valid = judge_dir.get("direction") not in (None, "neutral") or judge_dir.get("confidence", 0) > 0.3
 
     # 裁决
     judge_per_sym = verdict.get("per_symbol", {}) if isinstance(verdict, dict) else {}
@@ -291,19 +316,7 @@ def generate(state: dict) -> str:
             )
         )
 
-    # P2
-    if p2_valid:
-        p2_html = (
-            f'<div style="color:#ccc;font-size:0.85em;line-height:1.7;">\n'
-            f'<b>预判方向</b>: {judge_dir.get("direction", "—")} &nbsp;|&nbsp;\n'
-            f'<b>置信度</b>: {judge_dir.get("confidence", 0):.0%} &nbsp;|&nbsp;\n'
-            f'<b>数据源</b>: {", ".join(judge_dir.get("dispatch_sources", [])) or "—"}<br>\n'
-            f'<span style="color:#aaa;">{_esc(judge_dir.get("reason", ""))}</span>\n'
-            f'</div>'
-        )
-        sections.append(("P2 闫判官 · 方向预判", p2_html, "#8b5cf6"))
-
-    # P3 观澜
+    # P2 观澜
     if isinstance(tech_sym, dict) and tech_sym.get("analysis"):
         tech_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(tech_sym["analysis"])}</div>'
     elif isinstance(tech_sym, dict) and tech_sym.get("summary"):
@@ -322,9 +335,9 @@ def generate(state: dict) -> str:
         )
     else:
         tech_html = '<div style="color:#888;">无技术分析数据</div>'
-    sections.append(("P3 观澜 · 技术面", tech_html, "#06b6d4"))
+    sections.append(("P2 观澜 · 技术面", tech_html, "#06b6d4"))
 
-    # P3 探源
+    # P2 探源
     fund_parts = []
     if isinstance(fund_sym, dict):
         for k, label in (
@@ -345,9 +358,9 @@ def generate(state: dict) -> str:
         fund_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(fund_from_debate)}</div>'
     else:
         fund_html = '<div style="color:#888;">无基本面数据（FDC 全维度 UNAVAILABLE，LLM 未返回结构化数据）</div>'
-    sections.append(("P3 探源 · 基本面", fund_html, "#f59e0b"))
+    sections.append(("P2 探源 · 基本面", fund_html, "#f59e0b"))
 
-    # P3 读心
+    # P2 读心
     if isinstance(sentiment_data, dict) and sentiment_data:
         score = sentiment_data.get("overall_score", 0)
         sent_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">情绪评分: {score} | {_esc(sentiment_data.get("summary", ""))}</div>'
@@ -355,9 +368,9 @@ def generate(state: dict) -> str:
         sent_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(sent_from_debate)}</div>'
     else:
         sent_html = '<div style="color:#888;">无情绪数据</div>'
-    sections.append(("P3 读心 · 新闻情绪", sent_html, "#ec4899"))
+    sections.append(("P2 读心 · 新闻情绪", sent_html, "#ec4899"))
 
-    # P4 辩论
+    # P3 辩论
     debate_html = ""
     if bull_v1 or bear_v1:
 
@@ -378,27 +391,58 @@ def generate(state: dict) -> str:
         debate_html += _args_block(bull_final, "🟢 多头终述", "#16a34a")
     else:
         debate_html = '<div style="color:#888;">无辩论论据（fast 模式跳过辩论）</div>'
-    sections.append(("P4 六阶段辩论 · 多空攻防", debate_html, "#6366f1"))
+    sections.append(("P3 六阶段辩论 · 多空攻防", debate_html, "#6366f1"))
 
-    # P5 终裁
+    # P4 终裁
     rr_color = "#16a34a" if rr >= 2 else "#d97706" if rr >= 1 else "#dc2626"
+
+    # 价格偏差检查：入场价 vs 当前市价
+    current_price = latest_close if latest_close > 0 else (float(scan_item.get("price", 0) or 0) if scan_item else 0)
+    price_valid = current_price > 0 and entry_p > 0
+    price_dev_pct = abs(current_price - entry_p) / entry_p * 100 if price_valid else 0
+    is_buy_dir = str(verdict_dir).lower() in ("buy", "bull", "bullish")
+    if price_valid and price_dev_pct < 0.5:
+        action_label = "✅ 可进场 · 当前价已在入场区域"
+        action_color = "var(--green)"
+        action_cls = ""
+    elif price_valid and price_dev_pct < 2:
+        action_label = "⚠️ 接近入场区 · 当前价距入场价 {:.1f}%".format(price_dev_pct)
+        action_color = "var(--yellow)"
+        action_cls = "warn"
+    elif price_valid:
+        action_label = f"⏳ 等待 · 当前价偏离入场价 {price_dev_pct:.1f}%"
+        action_color = "var(--red)"
+        action_cls = "danger"
+    else:
+        action_label = f"入场价 {_fmt(entry_p)}" if entry_p > 0 else "待定"
+        action_color = "var(--muted)"
+        action_cls = ""
+
+    action_html = f'<div class="risk-box {action_cls}" style="margin-top:8px;"><strong style="color:{action_color};">{action_label}</strong>'
+    if price_valid and price_dev_pct >= 0.5:
+        wait_hint = "等回调至入场价附近再执行" if is_buy_dir else "等反弹至入场价附近再执行"
+        action_html += f'<p class="text-sm" style="margin-top:4px;color:var(--muted);">当前价 {_fmt(current_price)}，入场价 {_fmt(entry_p)}。{wait_hint}</p>'
+    action_html += '</div>'
+
     verdict_html = (
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">\n'
-        f'<div class="kv-box" style="border-left:3px solid {dir_color};">\n'
-        f'<div class="kv"><span class="k">裁决方向</span><span class="v" style="color:{dir_color};font-size:1.1em;">{dir_cn}</span></div>\n'
-        f'<div class="kv"><span class="k">置信度</span><span class="v">{verdict_conf:.0%}</span></div>\n'
-        f'<div class="kv"><span class="k">盈亏比</span><span class="v" style="color:{rr_color};">{rr:.2f}:1</span></div>\n'
+        f'<div class="card" style="border-left:3px solid {dir_color};margin-bottom:0;">\n'
+        f'<div class="kv-row"><span class="k">裁决方向</span><span class="v" style="color:{dir_color};font-size:1.1em;">{dir_cn}</span></div>\n'
+        f'<div class="kv-row"><span class="k">置信度</span><span class="v">{verdict_conf:.0%}</span></div>\n'
+        f'<div class="kv-row"><span class="k">盈亏比</span><span class="v" style="color:{rr_color};">{rr:.2f}:1</span></div>\n'
         f'</div>\n'
-        f'<div class="kv-box" style="border-left:3px solid #6366f1;">\n'
-        f'<div class="kv"><span class="k">入场价</span><span class="v">{_fmt(entry_p)}</span></div>\n'
-        f'<div class="kv"><span class="k">目标价</span><span class="v">{_fmt(target_p)}</span></div>\n'
-        f'<div class="kv"><span class="k">止损价</span><span class="v" style="color:#dc2626;">{_fmt(stop_p)}</span></div>\n'
-        f'<div class="kv"><span class="k">仓位</span><span class="v">{pos_pct:.1f}%</span></div>\n'
+        f'<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">\n'
+        f'<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">{_fmt(current_price)}</span></div>\n'
+        f'<div class="kv-row"><span class="k">入场价</span><span class="v">{_fmt(entry_p)}</span></div>\n'
+        f'<div class="kv-row"><span class="k">目标价</span><span class="v">{_fmt(target_p)}</span></div>\n'
+        f'<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">{_fmt(stop_p)}</span></div>\n'
+        f'<div class="kv-row"><span class="k">仓位</span><span class="v">{pos_pct:.1f}%</span></div>\n'
         f'</div>\n'
         f'</div>\n'
-        f'<div style="margin-top:10px;color:#aaa;font-size:0.82em;line-height:1.6;padding:8px 12px;background:#14161f;border-radius:6px;">{_esc(verdict_reason)}</div>'
+        f'{action_html}'
+        f'<div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">{_esc(verdict_reason)}</div>'
     )
-    sections.append(("P5 闫判官 · 终裁与交易参数", verdict_html, dir_color))
+    sections.append(("P4 闫判官 · 终裁与交易参数", verdict_html, dir_color))
 
     # P5 风控
     risk_status = "✅ 审核通过" if risk_approved else "❌ 阻断"
@@ -432,53 +476,76 @@ def generate(state: dict) -> str:
     sections.append(("P5 风控明 · 风险审核", risk_html, risk_status_color))
 
     # ── 组装 body ──
-    body_sections = ""
-    for title, html, accent_color in sections:
-        body_sections += (
-            f'<div class="section" style="border-left:3px solid {accent_color}33;">\n'
-            f'<h2 style="color:{accent_color};">{title}</h2>\n'
-            f'{html}\n'
-            f'</div>\n'
+    section_ids = {
+        "P1 数技源 · 统计特征": "p1-stats",
+        "P2 观澜 · 技术面": "p2-tech",
+        "P2 探源 · 基本面": "p2-fund",
+        "P2 读心 · 新闻情绪": "p2-sent",
+        "P3 六阶段辩论 · 多空攻防": "p3-debate",
+        "P4 闫判官 · 终裁与交易参数": "p4-verdict",
+        "P5 风控明 · 风险审核": "p5-risk",
+    }
+    body_html = ""
+    for stitle, shtml, _ in sections:
+        sid = section_ids.get(stitle, "")
+        phase = sid.split("-")[0] if sid else ""
+        label = stitle.split("·")[-1].strip() if "·" in stitle else stitle
+        badge = f'<span class="phase-badge {phase}">{phase.upper()}</span>' if phase else ""
+        body_html += (
+            f'<section id="{sid}">\n'
+            f'<h2>{badge} {label}</h2>\n'
+            f'<div class="card">{shtml}</div>\n'
+            f'</section>\n'
         )
 
-    # 报告头（简洁，不重复 _render_html 的 header）
-    header_html = (
-        f'<div style="text-align:center;margin-bottom:20px;padding:16px;background:#181a24;'
-        f'border-radius:10px;border:1px solid {dir_color}25;">\n'
-        f'<div style="color:#888;font-size:0.85em;margin-bottom:6px;">'
-        f'{sym_name} {sym_upper} · {sym_exchange or "—"} · {sym_chain or "—"}</div>\n'
-        f'<div style="display:inline-block;padding:6px 18px;border-radius:6px;font-weight:700;'
-        f'font-size:1.1em;color:{dir_color};background:{dir_color}12;border:1px solid {dir_color}35;">\n'
-        f'{dir_cn} · 置信度 {verdict_conf:.0%}\n'
-        f'</div>\n'
-        f'<div style="margin-top:8px;color:#666;font-size:0.78em;">\n'
-        f'最新价 {_fmt(latest_close)} · 成交量 {latest_vol:,} · 风控: {risk_status}\n'
-        f'</div>\n'
-        f'</div>\n'
-    )
+    return body_html
 
-    body = (
-        header_html
-        + body_sections
-        + '<div class="section" style="border-left:3px solid #dc262633;background:#1a0a0a;">\n'
-        + '<h2 style="color:#dc2626;">⚠️ 风险提示</h2>\n'
-        + '<p style="color:#c45c5c;font-size:0.82em;line-height:1.8;margin:0;">\n'
-        + "1. 本报告仅为量化分析参考，不构成任何投资建议。<br>\n"
-        + "2. 右侧交易铁律：所有信号需等待价格突破关键位置确认后方可执行，禁止提前布局。<br>\n"
-        + "3. 期货交易具有高风险性，可能导致本金全部亏损，请谨慎参与。\n"
-        + "</p>\n"
-        + "</div>\n"
-    )
 
-    return _render_html(
-        f"{sym_name} {sym_upper} 辩论报告",
-        body,
-        [
-            ("trace_id", trace_id),
-            ("品种", f"{sym_name} ({sym_upper})"),
-            ("交易所", sym_exchange or "—"),
-            ("产业链", sym_chain or "—"),
-            ("裁决", f"{dir_cn} ({verdict_conf:.0%})"),
-            ("风控", "通过" if risk_approved else "阻断"),
-        ],
-    )
+def generate(state: dict) -> str:
+    """从 state 生成完整的单品种辩论报告 HTML"""
+    symbols = state.get("selected_symbols", [])
+    sym = symbols[0] if symbols else "unknown"
+    body = generate_body(state, sym)
+    sym_upper = sym.upper()
+
+    # 提取 header metadata（轻量级）
+    profile_path = Path(__file__).parent.parent / "memory" / "knowledge" / sym.lower() / "profile.json"
+    sym_name = sym_upper
+    try:
+        if profile_path.exists():
+            import json
+            with open(profile_path, "r", encoding="utf-8") as pf:
+                prof = json.load(pf)
+            sym_name = prof.get("name", sym_upper)
+    except Exception:
+        pass
+
+    verdict = state.get("verdict") or {}
+    js = verdict.get("per_symbol", {}) if isinstance(verdict, dict) else {}
+    sv = js.get(sym, js.get(sym_upper, js.get(sym.lower(), {})))
+    if not isinstance(sv, dict): sv = {}
+    vd = sv.get("direction", verdict.get("direction", "neutral"))
+    vc = float(sv.get("confidence", verdict.get("confidence", 0.5)) or 0.5)
+    dcn = {"buy": "做多", "bull": "做多", "bullish": "做多", "sell": "做空", "bear": "做空", "bearish": "做空", "neutral": "观望", "hold": "观望"}.get(str(vd).lower(), "观望")
+    rc = state.get("risk_check") or {}
+    if not rc: rc = (state.get("signal_output") or {}).get("risk_check", {})
+    rapp = rc.get("approved", False)
+
+    return _render_html(f"{sym_name} {sym_upper} 辩论报告", body, [
+        ("trace_id", state.get("trace_id", "")),
+        ("品种", f"{sym_name} ({sym_upper})"),
+        ("交易所", prof.get("exchange", "—")),
+        ("产业链", prof.get("chain", "—")),
+        ("裁决", f"{dcn} ({vc:.0%})"),
+        ("风控", "通过" if rapp else "阻断"),
+    ])
+
+
+def generate_body(state: dict, sym: str) -> str:
+    """生成单品种辩论报告 body HTML（不含 _render_html 外壳）
+
+    构造 single-symbol state 快照后调用 generate() 提取 body 部分。
+    """
+    single_state = dict(state)
+    single_state["selected_symbols"] = [sym]
+    return _build_body_sections(single_state)

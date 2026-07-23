@@ -256,5 +256,29 @@
       "avg_pnl": -0.75,
       "net_avg_pnl": -0.77
     }
+  },
+  "by_data_quality": {
+    "A": {
+      "total": 21,
+      "correct": 6,
+      "accuracy": 28.6,
+      "profit_ratio": 28.6,
+      "target_hit_ratio": 19.0,
+      "stop_hit_rate": 61.9,
+      "avg_pnl": -1.19,
+      "net_avg_pnl": -1.21
+    }
+  },
+  "by_source": {
+    "quant-daily": {
+      "total": 21,
+      "correct": 6,
+      "accuracy": 28.6,
+      "profit_ratio": 28.6,
+      "target_hit_ratio": 19.0,
+      "stop_hit_rate": 61.9,
+      "avg_pnl": -1.19,
+      "net_avg_pnl": -1.21
+    }
   }
 }

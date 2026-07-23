@@ -115,85 +115,85 @@ action:
 
     - step: P2_judge_dispatch
       name: 闫判官调度决策
-      description: 选品种 + 定方向 + 调度哪些数据源
+      description: 选品种 + 调度哪些数据源
       timeout: 420s
       failure_strategy: D06_degrade  # 闫判官失败走 D06 降级裁决
       output: pg.judge_direction
 
-    - step: P3_parallel_sources
+    - step: P2_parallel_sources
       name: 按需并行数据源
       description: 链证源/观澜/探源/读心按需并行执行
       timeout: 480s  # max(被调度的源)
       failure_strategy: partial_failure  # 单源失败不影响其他源
       parallel: true
       sub_steps:
-        - step: P3a_chain_source
+        - step: P2a_chain_source
           name: 链证源产业链分析
           condition: 闫判官调度
           timeout: 300s
           output: pg.chain_analysis
-        - step: P3b_guanlan
+        - step: P2b_guanlan
           name: 观澜技术面分析
           condition: 闫判官调度
           timeout: 420s
           output: pg.technical_scores
-        - step: P3c_tanyuan
+        - step: P2c_tanyuan
           name: 探源基本面分析
           condition: 闫判官调度
           timeout: 420s
           output: pg.fundamental_scores
-        - step: P3d_duxin
+        - step: P2d_duxin
           name: 读心新闻情绪分析
           condition: 闫判官调度
           timeout: 300s
           output: pg.sentiment_data
 
-    - step: P3d_merge_research
+    - step: P2_merge_research
       name: 合并分析结果
       description: 整合四源分析输出
       timeout: 60s
       failure_strategy: use_available
       output: merged_research
 
-    - step: P4_debate
+    - step: P3_debate
       name: 六阶段攻防辩论
       description: 多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩
       timeout: 2520s  # 420s × 6 步
       failure_strategy: D06_degrade  # 辩论失败走降级
       max_rounds: 6  # 六阶段固定轮次
       sub_steps:
-        - step: P4_1_bull_thesis
+        - step: P3_1_bull_thesis
           name: 多头立论 v1
           agent: 多头分析员
           timeout: 420s
-        - step: P4_2_bear_thesis
+        - step: P3_2_bear_thesis
           name: 空头立论 v1
           agent: 空头分析员
           timeout: 420s
-        - step: P4_3_bear_rebuttal
+        - step: P3_3_bear_rebuttal
           name: 空头反驳多头
           agent: 空头分析员
           timeout: 420s
-        - step: P4_4_bull_rebuttal
+        - step: P3_4_bull_rebuttal
           name: 多头反驳空头
           agent: 多头分析员
           timeout: 420s
-        - step: P4_5_bear_final
+        - step: P3_5_bear_final
           name: 空头最终陈述
           agent: 空头分析员
           timeout: 420s
-        - step: P4_6_bull_final
+        - step: P3_6_bull_final
           name: 多头最终陈述
           agent: 多头分析员
           timeout: 420s
 
-    - step: P5_verdict_chain
+    - step: P4_verdict_chain
       name: 裁决链
       description: 闫判官裁决（含交易参数）→ 风控明审核
       timeout: 840s  # 420s × 2
       failure_strategy: D06_degrade
       sub_steps:
-        - step: P5a_judge_verdict
+        - step: P4_judge_verdict
           name: 闫判官裁决
           description: 含完整交易参数（方向/仓位/止损/止盈）
           agent: 闫判官
@@ -252,9 +252,9 @@ budget:
   per_step_budget:
     P1_scan: 600s / 50000 tokens
     P2_judge_dispatch: 420s / 30000 tokens
-    P3_parallel_sources: 480s / 80000 tokens  # 四源并行（链/技/基/情）
-    P4_debate: 2520s / 200000 tokens  # 六阶段串行
-    P5_verdict_chain: 840s / 60000 tokens
+    P2_parallel_sources: 480s / 80000 tokens  # 四源并行（链/技/基/情）
+    P3_debate: 2520s / 200000 tokens  # 六阶段串行
+    P4_verdict_chain: 840s / 60000 tokens
     P6_report: 120s / 10000 tokens
     P6a_ctp_signal: 60s / 5000 tokens
 

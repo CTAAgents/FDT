@@ -92,7 +92,7 @@
 | **观澜** | 技术面分析师（平级） | 下结论 |
 | **探源** | 基本面分析师（平级，LLM 推理生成 FundamentalStateVector） | 下结论 |
 | **读心** | 新闻情绪分析师（平级，LLM 推理生成 SentimentStateVector） | 下结论 |
-| **闫判官** | 辩论调度权（选品种+定方向+dispatch 分析师） | 替链证源/观澜/探源/读心做分析 |
+| **闫判官** | 辩论调度权（选品种+dispatch 分析师） | 替链证源/观澜/探源/读心做分析 |
 | **明鉴秋** | 执行 spawn + 资源/生命周期管控 | 不替闫判官做调度决策 |
 
 > 链证源/观澜/探源/读心为 **平级分析师**，仅分析方向不同（产业链/技术面/基本面/新闻情绪），**彼此无调度与被调度关系**。
@@ -163,6 +163,22 @@
 3. **Max Tokens 预算**：每步必须有明确的 max_tokens 上限（在 Loop Contract 的 per_step_budget 中定义）
 4. **采样策略**：高精度场景用 greedy（top_p=1, temperature=0）；创意场景用 nucleus sampling（top_p=0.9, temperature=0.7）
 5. **约束传播**：输出 Schema 必须与 contracts/ 目录下的 JSON Schema 一致
+
+### D3 Generation 运行时强制（v9.14.0 新增）
+
+以下机制确保解码控制从"文档定义"落地为"运行时强制"：
+
+1. **`decode_config.yaml` 运行时加载**：`FdtAgentExecutor.__init__()` 自动加载 `config/agents/decode_config.yaml`，用其中的 temperature/max_tokens 覆盖 agents.yaml 默认值。优先级：`decode_config.yaml > agents.yaml > 硬编码默认值`
+2. **结构化输出自动校验**：`agent_waiter.py` 的 `wait_for_agent_output()` 在成功读取 Agent 产出后自动调用 `enforce_structured_output()`（非阻断）。校验失败仅记录 `generation_metrics`，不阻断流程。
+3. **内容安全过滤**：`quality_inspector.py` 的 `check_report_integrity()` 自动调用 `content_filter.check_sensitive()` 检测敏感内容，结果以 warning 形式加入质检报告。
+4. **APM D3 fallback**：`apm_scorecard.py` 在辩论轮次 < 5 时从 `generation_metrics` 读取 `schema_pass_rate` 作为 D3 镇定度的 fallback 评分。`schema_pass_rate < 80%` 标记为 degenerate。
+
+| 机制 | 触发点 | 文件 | 阻断性 |
+|:-----|:-------|:-----|:------:|
+| decode_config 加载 | `FdtAgentExecutor.__init__` | `fdt_langgraph/agents.py` | 否 |
+| 结构化输出校验 | `wait_for_agent_output` | `scripts/agent_waiter.py` | 否 |
+| 内容安全过滤 | `check_report_integrity` | `fdt_langgraph/quality_inspector.py` | 否 |
+| APM D3 fallback | `apm_scorecard.main` | `scripts/apm_scorecard.py` | 否 |
 
 ---
 

@@ -2,10 +2,33 @@ import json
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Dict, Optional, Any, List
 from datetime import datetime
 
 logger = logging.getLogger("fdt_agents")
+
+# D3 Generation 解码控制：加载 decode_config.yaml
+_DECODE_CONFIG_CACHE: Optional[dict] = None
+
+
+def _get_decode_config() -> dict:
+    """懒加载 decode_config.yaml，供 FdtAgentExecutor 使用。"""
+    global _DECODE_CONFIG_CACHE
+    if _DECODE_CONFIG_CACHE is not None:
+        return _DECODE_CONFIG_CACHE
+    path = Path(__file__).resolve().parent.parent / "config" / "agents" / "decode_config.yaml"
+    if not path.exists():
+        _DECODE_CONFIG_CACHE = {}
+        return _DECODE_CONFIG_CACHE
+    try:
+        import yaml
+        with open(path, "r", encoding="utf-8") as f:
+            _DECODE_CONFIG_CACHE = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.warning(f"[DecodeControl] 加载 decode_config.yaml 失败: {e}")
+        _DECODE_CONFIG_CACHE = {}
+    return _DECODE_CONFIG_CACHE
 
 
 class FdtAgentExecutor:
@@ -19,6 +42,24 @@ class FdtAgentExecutor:
             self.system_prompt = agent_config.get("system_prompt", "")
             self.max_tokens = agent_config.get("max_tokens", 4096)
             self.temperature = agent_config.get("temperature", 0.7)
+        # D3 Generation: decode_config.yaml 覆盖（优先级最高）
+        self._apply_decode_config()
+
+    def _apply_decode_config(self):
+        """用 decode_config.yaml 的解码参数覆盖当前配置（优先级最高）。"""
+        if not self.agent_name:
+            return
+        cfg = _get_decode_config().get("agents", {}).get(self.agent_name, {})
+        if not cfg:
+            return
+        if "temperature" in cfg:
+            self.temperature = cfg["temperature"]
+        if "max_tokens" in cfg:
+            self.max_tokens = cfg["max_tokens"]
+        logger.debug(
+            f"[DecodeControl] {self.agent_name}: "
+            f"temperature={self.temperature}, max_tokens={self.max_tokens}"
+        )
 
     @staticmethod
     def _normalize_env_name(agent_name: str) -> str:

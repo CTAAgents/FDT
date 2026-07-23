@@ -163,7 +163,7 @@ append_debate_journal("futures-chain-analyst", "chain_analysis", {
 输出必须符合 `ChainAnalysisOutput` schema（见 `contracts/chain_analysis.py`），包含 `metrics`（ChainMetric列表）、`inventory_level`、`basis_status`、`summary`。
 
 产出格式：正文（Markdown分析）+ 末尾 ```json fence 按 ChainAnalysisOutput schema。
-必须包含 `meta.phase`="P1.5" + `meta.agent_name`="链证源" + `version`="3.0"。
+必须包含 `meta.phase`="P2" + `meta.agent_name`="链证源" + `version`="3.0"。
 
 ---
 

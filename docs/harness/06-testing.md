@@ -41,6 +41,9 @@ tests/
 ├── debate-risk-manager/          # 风控引擎 (1个测试)
 │   ├── conftest.py
 │   └── test_risk_manager.py      # 6层风控
+├── [root]/                      # D3 Generation 解码控制 (2个测试文件)
+│   ├── test_decode_control.py    # D3 decode_config + 结构化输出 + 内容过滤 + 质量度量 (43用例)
+│   └── test_output_control.py    # D6 输出治理: 度量/版本化/反馈/审计
 ├── fdt-gate/                     # 质量门禁 (1个测试)
 │   ├── conftest.py
 │   └── test_quality_gate.py      # L1-L5鲁棒性防线

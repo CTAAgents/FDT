@@ -513,9 +513,8 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     
     context = f"""你是闫判官（FDT 辩论调度官）。你的职责是：
 1. 基于 P1 数技源的量化统计特征，识别值得进入辩论的品种
-2. **识别品种间的相关性**，从每个相关组中挑出流动性最好的1个品种进行深度辩论
-3. 协调调度各数据源（链证源/观澜/探源/读心）为辩论做准备
-4. 你不做方向预判——多空方向由后续辩论阶段决定
+2. 协调调度各数据源（链证源/观澜/探源/读心）为辩论做准备
+3. 你不做方向预判——多空方向由后续辩论阶段决定
 
 你收到的 stats 数据由数技源提供，是纯粹的统计事实，不包含方向性判断。
 
@@ -525,25 +524,18 @@ async def node_judge_direction(state: DebateState) -> DebateState:
 --- 策略评分（仅供参考，不作为筛选依据）---
 {legacy_block}
 
-关键规则：
-- **相关品种分组**：分析品种间的相关性（同品种不同月份、同产业链品种、高度联动品种）
-- **每组只选1个主辩论品种**：从每个相关组中选择**流动性最佳**（成交量最大）的品种进行深度辩论
-- **非主辩论品种标注为关联品种**：在报告中简要说明即可，不走完整辩论流程
-- 例如 CF2609 和 CY2609 高度相关，选 CF2609 辩论，CY2609 作为关联品种
+注意：品种间的相关性已由 scan_all.py 程序化处理完毕（相同产品的不同月份合约只保留成交量最大的主辩论品种）。
+你收到的 symbols 已经是分组后的主辩论品种列表，不需要再次判断相关性。
 
 请以 JSON 格式返回：
 1. scan_direction: 始终返回 "neutral"（闫判官不做方向预判）
 2. confidence: 置信度 (0-1) — 对品种筛选的把握程度
-3. symbols: 主辩论品种列表（每组相关品种只选1个，选流动性最好的）
-4. associated_groups: 关联品种分组 {{"主品种": ["关联品种1", "关联品种2"], ...}}
-5. reason: 筛选理由（说明分组依据和流动性选择理由）
-6. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
+3. symbols: 推荐辩论的品种列表（从主辩论品种中筛选出值得辩论的）
+4. reason: 筛选理由（引用统计特征数据，而非策略评分）
+5. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
 
 返回 JSON 格式：
-{{"scan_direction": "neutral", "confidence": 0.8, "symbols": ["CF2609", "SF"],
-  "associated_groups": {{"CF2609": ["PF2609", "CY2609"]}},
-  "dispatch_sources": ["chain", "technical", "fundamental"],
-  "reason": "CF2609与PF2609/CY2609同属棉纺产业链，CF2609流动性最优选为主辩论品种；SF通过stats筛选直接进入辩论"}}
+{{"scan_direction": "neutral", "confidence": 0.7, "symbols": ["CF2609", "SF"], "dispatch_sources": ["chain", "technical"], "reason": "CF2609/SF 统计特征显示价格处于20日区间低位，ADX偏高确认趋势延续"}}
 """
 
     result = await judge.run(context, state["trace_id"])
@@ -565,8 +557,18 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     if not selected_symbols:
         selected_symbols = state.get("selected_symbols", [])
 
-    # v9.13.0: 提取关联品种分组
-    associated_groups = verdict.get("associated_groups", {})
+    # v9.13.0: 从 scan_all 读取程序化品种分组（相关性品种只选1个主辩论品种）
+    scan_results = state.get("scan_results", {})
+    associated_groups = {}
+    if isinstance(scan_results, dict):
+        associated_groups = scan_results.get("associated_groups", {}) or {}
+        # 从 scan_results 读取 primary_symbols 确保一致性
+        primary_from_scan = scan_results.get("primary_symbols", [])
+        if primary_from_scan:
+            # 只保留 LLM 选中的且是 primary 的品种
+            selected_symbols = [s for s in selected_symbols if s in primary_from_scan]
+            if not selected_symbols:
+                selected_symbols = [s for s in primary_from_scan if s in [r.get("symbol") for r in scan_results.get("all_ranked", [])]][:3]
     if not isinstance(associated_groups, dict):
         associated_groups = {}
 

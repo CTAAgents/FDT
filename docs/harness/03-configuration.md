@@ -540,3 +540,14 @@ python scripts/pre_commit_harness_check.py
 # 运行测试
 python -m pytest tests/strategies/ --tb=short -q -o "addopts="
 ```
+
+## 11. DebateState 运行时状态定义 (v9.13.0 新增)
+
+### 11.1 逐品种独立辩论循环新增字段
+
+| 字段 | 类型 | 默认值 | 说明 |
+|:-----|:-----|:------|:-----|
+| symbol_index | int | -1 | 当前处理品种在 selected_symbols 中的索引 |
+| per_symbol_results | dict | {} | {品种: {research, debate, verdict, risk}} |
+| _original_symbols | list | [] | 保存完整品种列表 |
+| associated_symbols | dict | {} | {主辩论品种: [关联品种]} |

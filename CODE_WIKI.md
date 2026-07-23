@@ -757,7 +757,7 @@ fdt_pg / fdt_cache / memory / schemas
 
 [处理层 — 六阶段流水线]
   ├── P1: scan_all.py → 策略扫描 → scan_results + scan_summary
-  ├── P2: 闫判官 → 方向预判 + 品种选择 → judge_direction + selected_symbols
+  ├── P2: 闫判官 → 品种选择 + 调度决策 → judge_direction + selected_symbols
   ├── P2.5: FDC 预采集 → fdc_data + fdc_data_status
   ├── P3: 四源并行分析 → chain_analysis + technical_data + fundamental_data + sentiment_data
   ├── P4: 六阶段辩论 → bullish_arguments + bearish_arguments + rebuttal_arguments + final_arguments

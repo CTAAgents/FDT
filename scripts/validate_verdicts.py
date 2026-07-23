@@ -99,6 +99,7 @@ def fetch_bars(symbol: str) -> list | None:
                 "high": float(d.get("high", 0) or 0),
                 "low": float(d.get("low", 0) or 0),
                 "close": float(d.get("close", 0) or 0),
+                "data_source": d.get("data_source", "unknown"),
             })
         bars.sort(key=lambda b: b["date"])
         return bars
@@ -197,7 +198,8 @@ def validate_single(verdict: dict, entry_date: str = "") -> dict:
         reason = f"边界未触，收于{last_close}，盈{realizable_pnl_pct:+.1f}%"
 
     # ── 数据质量评估（Data Governance Phase 1） ──
-    dq = _eval_dq(sym, bars, bars[0].get("source", "unknown") if enough_bars else "unknown") if _DQ_AVAILABLE else {
+    _src = bars[0].get("data_source", bars[0].get("source", "unknown")) if enough_bars else "unknown"
+    dq = _eval_dq(sym, bars, _src) if _DQ_AVAILABLE else {
         "available": enough_bars, "confidence": "FRESH" if enough_bars else "STALE",
         "overall": "A" if enough_bars else "D", "issues": [] if enough_bars else ["无数据"]
     }

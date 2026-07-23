@@ -176,6 +176,7 @@ def wait_for_agent_output(
     等待Agent产出文件并返回解析后的内容
     
     D06降级: 超时返回None, 协调员基于已有数据裁决
+    D3 Generation: 成功读取后自动调用 enforce_structured_output 校验（非阻断）
     
     Args:
         filepath: 产出文件路径
@@ -197,6 +198,9 @@ def wait_for_agent_output(
         with open(filepath, encoding="utf-8") as f:
             content = f.read()
         
+        # ── D3 Generation: 结构化输出校验（非阻断） ──
+        _validate_agent_output(content, agent_name)
+        
         # 尝试解析JSON fence
         import re
         m = re.search(r'```json\s*(.*?)```', content, re.DOTALL)
@@ -215,3 +219,22 @@ def wait_for_agent_output(
     except Exception as e:
         print(f"[AgentWaiter] 读取{agent_name}产出失败: {e}", file=sys.stderr)
         return None
+
+
+def _validate_agent_output(content: str, agent_name: str) -> None:
+    """D3 Generation: 结构化输出校验。非阻断，失败仅记录 metrics。"""
+    try:
+        from scripts.enforce_structured_output import enforce_structured_output
+        from scripts.generation_metrics import GenerationMetrics
+
+        result = enforce_structured_output(content, agent_name=agent_name)
+        if not result.get("success"):
+            errors = result.get("errors", [])
+            print(f"[DecodeControl] {agent_name} 结构化输出校验失败: {errors[:2]}", file=sys.stderr)
+            metrics = GenerationMetrics()
+            metrics.record(agent_name, success=False, latency_ms=0, schema_valid=False)
+        else:
+            metrics = GenerationMetrics()
+            metrics.record(agent_name, success=True, latency_ms=0, schema_valid=True)
+    except Exception as e:
+        print(f"[DecodeControl] {agent_name} 校验异常(非阻断): {e}", file=sys.stderr)

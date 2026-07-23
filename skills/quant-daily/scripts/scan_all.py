@@ -1613,6 +1613,37 @@ render();
         else:
             print("[SKIP] 全品种排序HTML报告跳过 (FDT_GENERATE_SCAN_REPORT 未设置)")
 
+    # ── v9.13.0: 程序化品种分组（相关性品种只选1个主辩论品种） ──
+    # 提取品种前缀（CF2609 → CF），同前缀按成交量最大选主辩论品种
+    _prod_groups: dict[str, list[dict]] = {}
+    for _r in all_ranked:
+        _sym = _r.get("symbol", "")
+        _re_match = re.match(r"^([A-Za-z]+)", _sym)
+        _prod = _re_match.group(1).upper() if _re_match else _sym
+        _prod_groups.setdefault(_prod, []).append(_r)
+
+    _primary_symbols: list[str] = []
+    _associated_groups: dict[str, list[str]] = {}
+    for _prod, _members in _prod_groups.items():
+        if len(_members) == 1:
+            _primary_symbols.append(_members[0]["symbol"])
+        else:
+            # 同产品组，按成交量（volume）选最大为主辩论品种
+            _members_sorted = sorted(_members, key=lambda x: abs(x.get("volume", 0) or 0), reverse=True)
+            _primary = _members_sorted[0]["symbol"]
+            _primary_symbols.append(_primary)
+            _associated = [m["symbol"] for m in _members_sorted[1:]]
+            if _associated:
+                _associated_groups[_primary] = _associated
+
+    summary["primary_symbols"] = _primary_symbols
+    summary["associated_groups"] = _associated_groups
+    if _associated_groups:
+        _assoc_list = "; ".join(f"{k}→{','.join(v)}" for k, v in _associated_groups.items())
+        print(f"\n[品种分组] 主辩论: {', '.join(_primary_symbols)} | 关联: {_assoc_list}")
+    else:
+        print(f"\n[品种分组] 全部独立: {', '.join(_primary_symbols)}")
+
     return summary
 
 

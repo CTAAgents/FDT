@@ -57,6 +57,10 @@ apm_scorecard.py
     │
     ├─ D3: 回归分析 stop_distance ~ ADX
     │      → 检查高波动时是否过度反应
+    │  辩论<5轮时 fallback:
+    │      → 读取 memory/generation_metrics/ 的 schema_pass_rate
+    │      → <80% → degenerate（解码质量差）
+    │      → ≥80% → fallback（正常）
     │
     ├─ D4: RuleChecker 检查每条裁决
     │      → R13: ADX≥70 仓位上限 3.5%
@@ -451,7 +455,7 @@ python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --
 
 ### audit 指标（v9.6.8 新增）
 
-P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判官方向预判与 P1 信号的偏离度：
+P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判官调度与 P1 信号的偏离度：
 
 | 字段 | 类型 | 说明 | 采集方式 |
 |:-----|:-----|:-----|:---------|

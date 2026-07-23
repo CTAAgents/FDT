@@ -11,10 +11,11 @@ from fdt_langgraph.graph import (
     build_debate_graph,
     build_debate_graph_no_checkpoint,
     _get_checkpointer,
-    _register_p3_nodes,
-    _register_common_nodes,
-    _register_debate_nodes,
+    _get_p3_node_names,
+    _register_per_symbol_loop,
+    _register_direct_debate_loop,
     calculate_divergence,
+    route_after_merge_research,
 )
 
 
@@ -135,40 +136,35 @@ class TestGraphBuilding:
         assert hasattr(graph, "checkpointer")
 
     def test_register_p3_nodes_default(self):
-        """default 模式注册全部三个 P3 节点"""
-        graph = StateGraph(DebateState)
-        graph.add_node("scan", lambda s: s)
-        graph.add_node("judge_direction", lambda s: s)
-        graph.add_node("prepare_data", lambda s: s)
-        graph.add_node("chain", lambda s: s)
-        graph.add_node("technical", lambda s: s)
-        graph.add_node("fundamental", lambda s: s)
-        graph.add_node("merge_research", lambda s: s)
-        graph.set_entry_point("scan")
-        graph.add_edge("scan", "judge_direction")
-        graph.add_edge("judge_direction", "prepare_data")
-
-        nodes = _register_p3_nodes(graph, "default")
+        """default 模式注册全部四个 P3 节点"""
+        nodes = _get_p3_node_names("default")
         assert "chain" in nodes
         assert "technical" in nodes
         assert "fundamental" in nodes
+        assert "sentiment" in nodes
 
     def test_register_p3_nodes_chain_only(self):
         """仅注册 chain 节点"""
-        graph = StateGraph(DebateState)
-        graph.add_node("scan", lambda s: s)
-        graph.add_node("judge_direction", lambda s: s)
-        graph.add_node("prepare_data", lambda s: s)
-        graph.add_node("chain", lambda s: s)
-        graph.add_node("merge_research", lambda s: s)
-        graph.set_entry_point("scan")
-        graph.add_edge("scan", "judge_direction")
-        graph.add_edge("judge_direction", "prepare_data")
-
-        nodes = _register_p3_nodes(graph, "chain")
+        nodes = _get_p3_node_names("chain")
         assert "chain" in nodes
         assert "technical" not in nodes
         assert "fundamental" not in nodes
+
+    def test_register_per_symbol_loop_default(self):
+        """验证逐品种循环注册可编译"""
+        graph = StateGraph(DebateState)
+        _register_per_symbol_loop(graph, "default")
+        compiled = graph.compile()
+        assert compiled is not None
+        assert hasattr(compiled, "invoke")
+
+    def test_register_direct_debate_loop(self):
+        """直接辩论模式逐品种循环可编译"""
+        graph = StateGraph(DebateState)
+        _register_direct_debate_loop(graph, "default")
+        compiled = graph.compile()
+        assert compiled is not None
+        assert hasattr(compiled, "invoke")
 
     def test_build_graph_execution_path(self):
         """验证图有正确的 entry point 和 exit point"""
@@ -180,29 +176,14 @@ class TestGraphBuilding:
         assert graph is not None
 
 
-class TestRegisterCommonNodes:
-    """公共节点注册"""
-
-    def test_common_nodes_registered(self):
-        """注册 11 个公共节点 + 验证可编译"""
-        graph = StateGraph(DebateState)
-        _register_common_nodes(graph)
-        # StateGraph 无 .entry 属性，验证可编译为 CompiledStateGraph
-        compiled = graph.compile()
-        assert compiled is not None
-        assert hasattr(compiled, "invoke")
-
-
 class TestRegisterDebateNodes:
     """P4 辩论节点注册 (v9.0.0)"""
 
     def test_debate_nodes_all_six(self):
         """验证 6 个辩论节点全部注册"""
         graph = StateGraph(DebateState)
-        # 注册公共节点作为入口
-        _register_common_nodes(graph)
-        _register_debate_nodes(graph)
-        # 编译验证所有节点可编译
+        # 注册逐品种循环（含辩论节点）
+        _register_per_symbol_loop(graph, "default")
         compiled = graph.compile()
         assert compiled is not None
         assert hasattr(compiled, "invoke")

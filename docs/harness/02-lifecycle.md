@@ -228,6 +228,19 @@ fdt_cli.py main()
 
 > > **v9.13.0 变更 — Data Governance Phase 3 辩论输出质量治理 + 品藻角色拆分**: 新增 `node_quality_inspect` 节点（品藻质检），在 P4 裁决→P5 风控之后运行，校验 Schema 合规性。不合格+重试<2次→退回重修；通过或超限→存入 `store_per_symbol_result`。重试硬上限 2 次，熔断直接跳过。新增 `contracts/debate_quality_schema.py`（ARGUMENT/VERDICT/RISK 三套 Schema）和 `fdt_langgraph/quality_inspector.py`（纯函数质检器）。state 新增 `quality_report`/`rework_counters`/`phase_timings` 字段。`route_after_quality_inspect` 条件边实现退回/放行路由。**品藻拆分**：将质检+报告职责从明鉴秋剥离，成立独立角色品藻（`agents/futures-quality-assurance.md`），P3.5+P6 由品藻执行。明鉴秋保留调度/编排职责。
 
+### P2 逐品种循环（v9.13.0）
+每个品种独立走完整数据链：
+1. `prepare_one_symbol` — 只准备当前品种 FDC 数据
+2. 四源并行（chain/tech/fund/sent）— 只分析当前品种
+3. `merge_research` — 合并当前品种研究数据
+4. 六阶段辩论 — 只辩论当前品种
+5. `verdict` + `risk_check` — 只裁决/审核当前品种
+6. `store_per_symbol_result` — 存入逐品种结果，递增索引
+7. `route_next_symbol` — 判断是否还有下一个品种
+
+所有品种完成后：
+8. `aggregate_results` — 从 `per_symbol_results` 重建完整裁决
+
 ### 2.2a 运行模式
 
 FDT 支持两种执行模式：
