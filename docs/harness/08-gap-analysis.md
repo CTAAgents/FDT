@@ -128,6 +128,8 @@
 
 | **G108** | **LangGraph 迁移收尾** | ① ~~`pipeline/runner.py` 已删除~~ ✅ ② 15 个外部脚本评估为"有意识保留 subprocess" ✅ ③ Master Graph 心跳文件已落地 ✅ ④ 文档引用已清理 ✅ ⑤ `node_run_data_collection` dangling 引用已修复 ✅ ⑥ 全量测试通过 | P0 | v9.19.0 | ✅ **已关闭（v9.19.0）** | 删除 pipeline/runner.py、quality_filter.py、__init__.py、tests/pipeline/；清理 FDT_USE_LANGGRAPH；Master Graph 心跳文件 `_write_heartbeat()`；`node_run_data_collection` 内联修复；17 处文档旧引用全量清理；daemon_watchdog 确认使用 master_heartbeat.log；新增 `test_master_graph.py` 132 行测试 | 多文件 
 
+| **G23** | **数据源降级链新鲜度缺失 — 过期货数据阻断辩论**（v9.24.0 已修复） | DataCore 返回已到期合约数据（SM 停在 2026-01-19）时降级链直接终止，后续 WebFallback/TqSDK 等有新鲜数据的源不被调用 | P0 | 新增末根K线日期新鲜度检查(>7天继续降级) + 统一 K 线标准化层(`_wrap_kline` 接入 `normalize_kline_row`) + TqSDK 升至第一数据源(priority=-1) + 数据质量`_calc_freshness_days` 支持 `%Y%m%d` 格式 | `multi_source_adapter.py` + `data_quality.py` + `tqsdk.py(priority=-1)` ✅ v9.24.0 |
+
 ### 4.2 P1 — 高优先级（影响效率/质量）
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
@@ -147,6 +149,19 @@
 |:-------|:-----|:------|:-----|:-----|
 | GAP-AP01-001 | AP01反模式：futures-debate-team-team-lead.md (619行) 和 futures-judge.md (482行) 超过300行阈值 | P1 | 开放 | 需拆分为多个子文档或精简至300行以内 |
 | GAP-HOOK-001 | pre_commit_harness_check.py 脚本存在但未接入 Git pre-commit hook | P2 | 开放 | 需配置 .pre-commit-config.yaml 或 pyproject.toml 的 [tool.hatch.hooks] |
+
+### 4.5 六维控制空间差距（2026-07-23 登记）
+
+| GAP ID | 差距 | 现状 | 严重度 | 状态 | 修复方案 | 涉及文件 |
+|:-------|:-----|:-----|:------:|:-----|:---------|:---------|
+| **G-6D-01** | decode_config.yaml quality_assurance 配置孤儿 | 品藻纯Python不调LLM，配置是死配置 | P1 | 开放 | 删除该配置节 | config/agents/decode_config.yaml |
+| **G-6D-02** | enforce_structured_output 未被 nodes.py 调用 | 362行D3管线存在但5处LLM解析全部绕过 | P0 | 开放 | 5处替换为 enforce_structured_output() | fdt_langgraph/nodes.py |
+| **G-6D-03** | ContentFilter 未被 quality_inspector 实际调用 | 264行仅import未实例化 | P0 | 开放 | validate_verdict/risk 末尾调用 filter() | fdt_langgraph/quality_inspector.py |
+| **G-6D-04** | LLM输出解析无统一入口 | 5处重复json.loads + _repair_json仅覆盖2/5 | P1 | 开放 | llm_provider.py 新增 parse_llm_output() | fdt_langgraph/llm_provider.py |
+| **G-6D-05** | _build_debate_context 全量注入所有品种 | 辩论prompt膨胀，无关品种数据干扰 | P2 | 开放 | 追加 current_symbol 参数过滤 | fdt_langgraph/nodes.py |
+| **G-6D-06** | vector_memory 未接入 fdt_langgraph | 306行向量检索已实现但未被辩论流程调用 | P1 | 开放 | _build_fdc_fundamental_context 追加检索 | fdt_langgraph/nodes.py |
+| **G-6D-07** | ToolMetrics 不反哺调度决策 | record_call→detect_anomalies 链路完整但仅写文件 | P2 | 开放 | node_dispatch 读取 stats 决策跳过 | fdt_langgraph/master_nodes.py |
+| **G-6D-08** | OutputMetrics 未成为硬约束 | score_output 评分0-100但不影响质检结果 | P2 | 开放 | validate_verdict 追加评分阻断逻辑 | fdt_langgraph/quality_inspector.py |
 
 ---
 

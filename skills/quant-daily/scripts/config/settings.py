@@ -585,6 +585,11 @@ TREND_G34_CONFIG = {
 }
 
 
+# ── P0-4 伪突破信号过滤开关 ──
+# True = 启用（p0_4_raw_kline 逐条校验，将疑似伪造突破降级为 NOISE）
+# False = 关闭（不做伪突破过滤，所有信号按原 grade 进入辩论）
+ENABLE_PSEUDO_BREAKOUT_FILTER = False
+
 SIGNAL_VALIDATOR_MAP = {
     # P1 通道突破 — 全装伪突破防护
     "channel_breakout":       ["p0_4_raw_kline", "volume_confirm", "atr_vol_timing", "trend_direction"],

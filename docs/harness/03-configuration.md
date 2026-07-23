@@ -303,6 +303,8 @@ UNAVAILABLE (无数据)
 | `FDT_API_PORT` | `8000` | API 监听端口 | `fdt_api.py` |
 | `FDT_API_KEY` | (未设置) | API 认证密钥 | `fdt_api.py` |
 | `FDT_LOG_DIR` | `logs/` | 日志目录 | `unified_logger.py` |
+| `FDT_DATA_SOURCE` | `fdc` | 数据源引擎: `fdc`(futures_data_core) / `datacore`(Data-Core) | `data_source_adapter.py` |
+| `ENABLE_PSEUDO_BREAKOUT_FILTER` | `True`(settings.py) | 伪突破信号过滤，`False` 时 P0-4 raw kline 重校验跳过 | `config/settings.py` |
 
 ### 3.3 逐Agent LLM 配置 (v8.9.1)
 
@@ -385,6 +387,57 @@ set FDT_LLM_RISK_MANAGER_MODEL=local-model
 ```
 
 > **日志目录**: 默认使用项目内 `logs/` 目录，通过 `FDT_LOG_DIR` 环境变量可自定义。
+
+## 8. 策略启用/禁用配置与演化路径
+
+### 8.1 现状
+
+目前仅 `trend_following`（趋势跟踪）为活跃策略，其余 7 个策略均已在 `skills/quant-daily/scripts/config/settings.py::DISABLED_STRATEGIES` 中禁用。
+这是 FDT 辩论演化路径的 **Layer 0（通用策略）** 阶段的策略配置。
+
+### 8.2 演化路径
+
+FDT 的策略配置随辩论能力同步演化（详见 `10-coding-standards.md §10`）：
+
+| 阶段 | 策略配置模式 | 说明 |
+|:-----|:------------|:------|
+| **Layer 0 — 通用**（当前） | 所有品种使用同一套策略参数，`trend_following` 唯一活跃 | 趋势跟踪与大波段捕捉方向一致，其余禁用 |
+| **Layer 1 — 品种适配** | 按品种大类配置差异化策略集和参数（如黑色系侧重趋势、农产品侧重季节性） | 不改变禁用集合，但在禁用的基础上做品种级分层启用 |
+| **Layer 2 — 行情适配** | 根据市场状态动态切换策略权重（趋势市放大 trend_following，震荡市可考虑重审 mean_reversion） | 需先完成 Layer 1 的品种基础画像 |
+| **Layer 3 — 因子定制** | 各品种围绕核心驱动因子构建专属策略组合 | 最高级别定制 |
+
+> **核心原则**：FDT 是一个跟随用户、跟随市场、跟随自身分析能力而渐进深化开发的**活系统**。每一步深化都让 FDT 更贴合市场实际状况。不跳过演化阶段，不追求一步到位。
+
+### 8.3 设计约束（2026-07-23 掌柜确立）
+
+| 约束 | 说明 |
+|:-----|:------|
+| **商品期货 → 从通用起步** | 当前使用通用策略，以 `trend_following` 为唯一信号源。后续按演化路径逐步分层深化 |
+| **非趋势策略当前全部禁用** | mean_reversion/arbitrage/pairs_reversion/spread_reversion/basis_reversion/macro_regime/multi_factor 均因偏离当前 Layer 0 的通用模式而禁用 |
+| **股指期货 → 独立路径** | 将来接入股指期货时同样遵守上述演化路径，但从 Layer 0 起步，不与商品期货共享 Layer 1+ 的定制逻辑 |
+| **隔离要求** | 任何股指期货相关策略必须与商品期货路径明确隔离 |
+| **渐进原则** | 不得跳过演化阶段，不经充分验证不得进入下一层 |
+
+### 8.4 当前禁用策略一览
+
+| 策略 | 类型 | 禁用理由 |
+|:-----|:-----|:---------|
+| `mean_reversion` | 价格反转 | RSI/CCI/BB 极端值回归，与趋势捕捉目标冲突 |
+| `arbitrage` | 套利 | 跨品种产业链配对，短线回归逻辑 |
+| `pairs_reversion` | 配对回归 | EG 协整 + Hurst + KF z，配对价差回归 |
+| `spread_reversion` | 近远月价差 | OU 拟合 + KF z，价差偏离回归 |
+| `basis_reversion` | 期现基差 | OU 拟合 + KF z，基差偏离回归 |
+| `macro_regime` | 宏观轮动 | 5 板块 46 品种制度切换，宏观动量逻辑 |
+| `multi_factor` | 多因子加权 | 四维 13 因子评分，因子源缺口未补齐 |
+
+### 8.4 启用策略的条件
+
+如需启用已禁用策略，须：
+1. 确认该策略与"商品期货捕捉大波段趋势"的核心目标一致
+2. 或明确标注为"股指期货专用策略"并隔离执行路径
+3. 更新本配置文件 + 01-architecture.md 的架构图
+
+---
 
 ## 9. 成本工程规范（v9.6.4+）
 

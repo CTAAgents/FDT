@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from .state import DebateState
 from .agents import FdtAgentExecutor
+from .llm_provider import parse_llm_output
 from .single_symbol_report import generate as _generate_single_symbol_report, generate_body as _generate_symbol_body
 from futures_data_core.core.field_normalizer import (
     normalize_signal_list,
@@ -393,7 +394,8 @@ def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path,
 <table>
 <tr><th>方向</th><td>{signal.get('direction', '—')}</td></tr>
 <tr><th>合约</th><td>{signal.get('contract', '—')}</td></tr>
-<tr><th>入场价</th><td class="num">{signal.get('entry_price', 0)}</td></tr>
+<tr><th>指令类型</th><td>市价单 (market order)</td></tr>
+<tr><th>参考入场价</th><td class="num">{signal.get('entry_price', 0)}</td></tr>
 <tr><th>止损价</th><td class="num">{signal.get('stop_loss_price', 0)}</td></tr>
 <tr><th>目标价</th><td class="num">{signal.get('target_price', 0)}</td></tr>
 <tr><th>仓位</th><td class="num">{signal.get('position_pct', 0)}%</td></tr>
@@ -410,13 +412,13 @@ def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path,
 </div>"""
 
     if signals_list:
-        sig_rows = '<table><thead><tr><th>\u54c1\u79cd</th><th>\u65b9\u5411</th><th class="num">\u4fe1\u5fc3\u5ea6</th><th class="num">\u5165\u573a\u4ef7</th></tr></thead><tbody>'
+        sig_rows = '<table><thead><tr><th>\u54c1\u79cd</th><th>\u65b9\u5411</th><th>\u6307\u4ee4</th><th class="num">\u4fe1\u5fc3\u5ea6</th><th class="num">\u53c2\u8003\u4ef7</th></tr></thead><tbody>'
         for x in sorted(signals_list, key=lambda v: abs(v.get("score", 0)), reverse=True):
             nm = x.get("symbol", "")
             sd = x.get("direction", "")
             sc = x.get("score", 0) or 0
             ep = float(x.get("entry_price", 0) or 0)
-            sig_rows += '<tr><td>%s</td><td>%s</td><td class="num">%d%%</td><td class="num">%.2f</td></tr>' % (nm, sd, min(100, sc), ep)
+            sig_rows += '<tr><td>%s</td><td>%s</td><td>market</td><td class="num">%d%%</td><td class="num">%.2f</td></tr>' % (nm, sd, min(100, sc), ep)
         sig_rows += '</tbody></table>'
         body += '<div class="section"><h2>\U0001f4ca \u5168\u90e8\u53ef\u6267\u884c\u4fe1\u53f7\u6e05\u5355</h2>' + sig_rows + '</div>'
 
@@ -590,16 +592,12 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     result = await judge.run(context, state["trace_id"])
 
     output = result.get("output", "")
-    try:
-        if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            verdict = json.loads(output[start:end])
-        else:
-            verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
-    except Exception as e:
-        logger.warning(f"Failed to parse judge output: {e}")
-        verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
+    parsed = parse_llm_output(output, agent_name="judge_direction",
+                              default={"scan_direction": "neutral", "symbols": []})
+    if parsed.get("success"):
+        verdict = parsed["data"]
+    else:
+        verdict = {"scan_direction": "neutral", "symbols": [], "reason": output, "_parse_errors": parsed.get("errors", [])}
 
     # v9.11.4: 闫判官不做方向预判，方向统一为 neutral
     selected_symbols = verdict.get("symbols", [])
@@ -856,6 +854,32 @@ async def node_chain(state: DebateState) -> dict:
     return {"chain_analysis": chain_data}
 
 
+def _build_scan_signal_table(all_ranked: list, symbols: list, header_suffix: str = "") -> list:
+    """生成数技源扫描信号对照表的格式化行列表。"""
+    lines: list[str] = []
+    lines.append(f"\n\n【数技源扫描信号对照（TDX数据源）{header_suffix}】")
+    lines.append("品种 | 方向 | 总分 | 等级 | RSI | ADX | 均线排列 | 子策略一致性")
+    lines.append("-" * 80)
+    for item in all_ranked:
+        sym = item.get("symbol", "").upper()
+        if sym not in [s.upper() for s in symbols]:
+            continue
+        dir_map = {"bull": "多头", "bear": "空头", "neutral": "中性"}
+        dir_str = dir_map.get(item.get("direction", ""), item.get("direction", ""))
+        total = item.get("total", 0)
+        grade = item.get("grade", "N/A")
+        rsi = item.get("rsi", "N/A")
+        adx = item.get("adx", "N/A")
+        ma = item.get("ma_align", "N/A")
+        sub_sigs = item.get("sub_signals", [])
+        sub_bear = sum(1 for s in sub_sigs if s.get("direction") in ("bear", "SELL"))
+        sub_bull = sum(1 for s in sub_sigs if s.get("direction") in ("bull", "BUY"))
+        sub_total = len(sub_sigs)
+        consistency = f"空{sub_bear}/多{sub_bull}/共{sub_total}" if sub_total else "N/A"
+        lines.append(f"{sym} | {dir_str} | {total} | {grade} | {rsi} | {adx} | {ma} | {consistency}")
+    return lines
+
+
 def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_results: dict | None = None) -> str:
     if not fdc_data:
         return "（FDC 数据暂不可用，基于扫描数据进行分析）"
@@ -938,26 +962,28 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
     if scan_results:
         all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
         if all_ranked:
-            lines.append("\n\n【数技源扫描信号对照（TDX数据源）— 仅供参考】")
-            lines.append("品种 | 方向 | 总分 | 等级 | RSI | ADX | 均线排列 | 子策略一致性")
-            lines.append("-" * 80)
-            for item in all_ranked:
-                sym = item.get("symbol", "").upper()
-                if sym not in [s.upper() for s in symbols]:
-                    continue
-                dir_str = {"bull": "多头", "bear": "空头", "neutral": "中性"}.get(item.get("direction", ""), item.get("direction", ""))
-                total = item.get("total", 0)
-                grade = item.get("grade", "N/A")
-                rsi = item.get("rsi", "N/A")
-                adx = item.get("adx", "N/A")
-                ma = item.get("ma_align", "N/A")
-                # 子策略一致性：统计同向/反向子信号比例
-                sub_sigs = item.get("sub_signals", [])
-                sub_bear = sum(1 for s in sub_sigs if s.get("direction") in ("bear", "SELL"))
-                sub_bull = sum(1 for s in sub_sigs if s.get("direction") in ("bull", "BUY"))
-                sub_total = len(sub_sigs)
-                consistency = f"空{sub_bear}/多{sub_bull}/共{sub_total}" if sub_total else "N/A"
-                lines.append(f"{sym} | {dir_str} | {total} | {grade} | {rsi} | {adx} | {ma} | {consistency}")
+            lines.extend(_build_scan_signal_table(all_ranked, symbols, "— 仅供参考"))
+
+    # v9.22.4: 追加 Vector Memory 历史模式
+    try:
+        from scripts.vector_memory import VectorMemory  # type: ignore
+        vm = VectorMemory()
+        memory_sections = []
+        for sym in symbols[:3]:  # 最多 3 个品种
+            records = vm.query(sym, top_k=3)
+            if records:
+                mem_lines = [f"品种: {sym}"]
+                for i, rec in enumerate(records, 1):
+                    mem_lines.append(
+                        f"  {i}. 方向={rec.get('direction', 'N/A')} | "
+                        f"置信度={rec.get('confidence', 'N/A')} | "
+                        f"理由={str(rec.get('reason', ''))[:80]}"
+                    )
+                memory_sections.append("\n".join(mem_lines))
+        if memory_sections:
+            lines.append("\n\n【品种历史模式】\n" + "\n---\n".join(memory_sections))
+    except Exception as e:
+        logger.debug(f"[FUND] VectorMemory 查询失败 (非关键): {e}")
 
     return "\n".join(lines)
 
@@ -1014,30 +1040,11 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
             qual_parts.append(f"指标{ind_q.get('completeness', '?/8')}")
             lines.append(f"  技术指标质量: {' | '.join(qual_parts)}")
 
-    # ── 追加数技源扫描对照（让观澜同时看到两套数据，做交叉验证） ──
+    # ── 追加数技源扫描对照 ──
     if scan_results:
         all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
         if all_ranked:
-            lines.append("\n\n【数技源扫描信号对照（TDX数据源）】")
-            lines.append("品种 | 方向 | 总分 | 等级 | RSI | ADX | 均线排列 | 子策略一致性")
-            lines.append("-" * 80)
-            for item in all_ranked:
-                sym = item.get("symbol", "").upper()
-                if sym not in [s.upper() for s in symbols]:
-                    continue
-                dir_str = {"bull": "多头", "bear": "空头", "neutral": "中性"}.get(item.get("direction", ""), item.get("direction", ""))
-                total = item.get("total", 0)
-                grade = item.get("grade", "N/A")
-                rsi = item.get("rsi", "N/A")
-                adx = item.get("adx", "N/A")
-                ma = item.get("ma_align", "N/A")
-                # 子策略一致性：统计同向/反向子信号比例
-                sub_sigs = item.get("sub_signals", [])
-                sub_bear = sum(1 for s in sub_sigs if s.get("direction") in ("bear", "SELL"))
-                sub_bull = sum(1 for s in sub_sigs if s.get("direction") in ("bull", "BUY"))
-                sub_total = len(sub_sigs)
-                consistency = f"空{sub_bear}/多{sub_bull}/共{sub_total}" if sub_total else "N/A"
-                lines.append(f"{sym} | {dir_str} | {total} | {grade} | {rsi} | {adx} | {ma} | {consistency}")
+            lines.extend(_build_scan_signal_table(all_ranked, symbols))
 
     return "\n".join(lines)
 
@@ -1078,25 +1085,34 @@ async def node_technical(state: DebateState) -> dict:
     output = tech_result.get("output", "")
     per_symbol_tech = {}
     llm_parse_ok = False
-    try:
-        if "{" in output and "}" in output:
-            # JSON repair 预处理
+    parsed = parse_llm_output(output, agent_name="technical_researcher")
+    if parsed.get("success") and isinstance(parsed.get("data"), dict):
+        raw_per_symbol = parsed["data"].get("per_symbol", {})
+        for sym in selected:
+            sym_key = sym.upper()
+            if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
+                per_symbol_tech[sym] = raw_per_symbol[sym_key]
+        llm_parse_ok = len(per_symbol_tech) > 0
+    else:
+        logger.warning(f"[TECH] parse_llm_output 失败: {parsed.get('errors', [])}")
+
+    # If no per-symbol data extracted, try _repair_json fallback
+    if not llm_parse_ok:
+        logger.warning(f"[TECH] LLM 返回未解析出逐品种数据 ({len(output)} chars), 尝试 _repair_json 回退")
+        try:
             repaired = _repair_json(output)
-            start = repaired.find("{")
-            end = repaired.rfind("}") + 1
-            parsed = json.loads(repaired[start:end])
-            raw_per_symbol = parsed.get("per_symbol", {})
-            for sym in selected:
-                sym_key = sym.upper()
-                if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
-                    per_symbol_tech[sym] = raw_per_symbol[sym_key]
-            llm_parse_ok = len(per_symbol_tech) > 0
-        if not llm_parse_ok:
-            logger.warning(f"[TECH] LLM 返回未解析出逐品种数据 ({len(output)} chars), 回退FDC数据")
-            logger.debug(f"[TECH] LLM 原始输出(前300chars): {output[:300]}")
-    except Exception as e:
-        logger.warning(f"[TECH] LLM 输出解析失败: {e}")
-        llm_parse_ok = False
+            if "{" in repaired and "}" in repaired:
+                start = repaired.find("{")
+                end = repaired.rfind("}") + 1
+                fallback = json.loads(repaired[start:end])
+                raw_per_symbol = fallback.get("per_symbol", {})
+                for sym in selected:
+                    sym_key = sym.upper()
+                    if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
+                        per_symbol_tech[sym] = raw_per_symbol[sym_key]
+                llm_parse_ok = len(per_symbol_tech) > 0
+        except Exception:
+            pass
 
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
@@ -1378,24 +1394,34 @@ async def node_fundamental(state: DebateState) -> dict:
     output = fund_result.get("output", "")
     per_symbol_fund = {}
     llm_parse_ok = False
-    try:
-        if "{" in output and "}" in output:
-            # JSON repair 预处理
+    parsed = parse_llm_output(output, agent_name="fundamental_researcher")
+    if parsed.get("success") and isinstance(parsed.get("data"), dict):
+        raw_per_symbol = parsed["data"].get("per_symbol", {})
+        for sym in selected:
+            sym_key = sym.upper()
+            if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
+                per_symbol_fund[sym] = raw_per_symbol[sym_key]
+        llm_parse_ok = len(per_symbol_fund) > 0
+    else:
+        logger.warning(f"[FUND] parse_llm_output 失败: {parsed.get('errors', [])}")
+
+    # If no per-symbol data, try _repair_json fallback
+    if not llm_parse_ok:
+        logger.warning(f"[FUND] LLM 返回未解析出逐品种数据 ({len(output)} chars), 尝试 _repair_json 回退")
+        try:
             repaired = _repair_json(output)
-            start = repaired.find("{")
-            end = repaired.rfind("}") + 1
-            parsed = json.loads(repaired[start:end])
-            raw_per_symbol = parsed.get("per_symbol", {})
-            for sym in selected:
-                sym_key = sym.upper()
-                if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
-                    per_symbol_fund[sym] = raw_per_symbol[sym_key]
-            llm_parse_ok = len(per_symbol_fund) > 0
-        if not llm_parse_ok:
-            logger.warning(f"[FUND] LLM 返回未解析出逐品种数据 ({len(output)} chars), 回退FDC数据")
-    except Exception as e:
-        logger.warning(f"[FUND] LLM 输出解析失败: {e}")
-        llm_parse_ok = False
+            if "{" in repaired and "}" in repaired:
+                start = repaired.find("{")
+                end = repaired.rfind("}") + 1
+                fallback = json.loads(repaired[start:end])
+                raw_per_symbol = fallback.get("per_symbol", {})
+                for sym in selected:
+                    sym_key = sym.upper()
+                    if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
+                        per_symbol_fund[sym] = raw_per_symbol[sym_key]
+                llm_parse_ok = len(per_symbol_fund) > 0
+        except Exception:
+            pass
 
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
@@ -1722,10 +1748,18 @@ async def node_merge_research(state: DebateState) -> DebateState:
     }
 
 
-def _build_debate_context(state: DebateState) -> str:
-    """构建辩论上下文：扫描指标 + 研究员快照（技术面+基本面+产业链），带来源标记"""
+def _build_debate_context(state: DebateState, current_symbol: str = "") -> str:
+    """构建辩论上下文：扫描指标 + 研究员快照（技术面+基本面+产业链），带来源标记
+
+    Args:
+        state: 辩论状态 (DebateState)
+        current_symbol: 当前辩论品种，非空时只包含该品种数据
+    """
     research = state.get("research_data", {})
     symbols = state.get("selected_symbols", [])
+    # v9.22.3: 按品种过滤 — 仅保留当前品种数据
+    if current_symbol:
+        symbols = [s for s in symbols if s.upper() == current_symbol.upper()] or symbols[:1]
     scan_data = state.get("scan_results", {})
     all_ranked = scan_data.get("all_ranked", []) if isinstance(scan_data, dict) else []
 
@@ -1791,7 +1825,26 @@ def _build_debate_context(state: DebateState) -> str:
             if sent_output:
                 lines.append(f"[sentiment:\u8bfb\u5fc3] {sent_output[:200]}")
 
-    return "\n".join(lines)
+    # v9.23.0: Token 预算控制
+    import os
+    _MAX_CONTEXT_TOKENS = int(os.environ.get("FDT_CONTEXT_MAX_TOKENS", "8000"))
+    raw_context = "\n".join(lines)
+    try:
+        try:
+            from scripts.llm.token_budget import TokenBudget  # type: ignore
+            estimated = TokenBudget.estimate(raw_context)
+        except ImportError:
+            estimated = len(raw_context) // 2  # fallback: 粗略估计
+        if estimated > _MAX_CONTEXT_TOKENS:
+            ratio = _MAX_CONTEXT_TOKENS / max(estimated, 1)
+            cutoff = int(len(raw_context) * ratio)
+            raw_context = raw_context[:cutoff]
+            raw_context += f"\n\n[系统截断: context 预估 {estimated} tokens > 上限 {_MAX_CONTEXT_TOKENS}, 已截断至约 {_MAX_CONTEXT_TOKENS} tokens]"
+            logger.warning(f"[Context] context token 预算超限: {estimated} > {_MAX_CONTEXT_TOKENS}, 已截断")
+    except Exception:
+        pass
+
+    return raw_context
 
 
 def _parse_per_symbol_debate(result: dict, symbols: list) -> dict | None:
@@ -1825,7 +1878,7 @@ async def node_bullish_v1(state: DebateState) -> DebateState:
 
     symbols = state.get("selected_symbols", [])
     judge_dir = state.get("judge_direction", {})
-    research_context = _build_debate_context(state)
+    research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
 
     context = f"""你是多头分析员，代表多头利益，必须只从分析师资料中寻找做多理由。
 
@@ -1875,7 +1928,7 @@ async def node_bearish_v1(state: DebateState) -> DebateState:
 
     symbols = state.get("selected_symbols", [])
     judge_dir = state.get("judge_direction", {})
-    research_context = _build_debate_context(state)
+    research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
 
     context = f"""你是空头分析员，代表空头利益，独立从分析师资料中寻找做空理由。
 
@@ -1927,7 +1980,7 @@ async def node_bearish_rebuttal(state: DebateState) -> DebateState:
 
     symbols = state.get("selected_symbols", [])
     judge_dir = state.get("judge_direction", {})
-    research_context = _build_debate_context(state)
+    research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
 
     # 读取多头立论 bullish_arguments
     prev_bullish = state.get("bullish_arguments", [])
@@ -1989,7 +2042,7 @@ async def node_bullish_rebuttal(state: DebateState) -> DebateState:
 
     symbols = state.get("selected_symbols", [])
     judge_dir = state.get("judge_direction", {})
-    research_context = _build_debate_context(state)
+    research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
 
     # 将空头立论和空头反驳注入上下文
     prev_bearish = state.get("bearish_arguments", [])
@@ -2327,11 +2380,13 @@ async def node_verdict(state: DebateState) -> DebateState:
 【FDC 实际技术指标（基准事实）】
 {fdc_indicator_table}
 
-⚠️ 交易参数关键约束：
-- **entry_price 必须以【实际行情】中的当前收盘价为基准**，不允许使用任意价格
-- entry_price 应在收盘价 ±0.5×ATR 范围内
-- 止损价（stop_loss_price）和止盈价（target_price）基于 entry_price 合理计算
-- 参考以下价格参考表：
+⚠️ 交易参数关键约束（P0 规则，不可违反）：
+- **entry_price 必须严格等于【实际行情】中的当前收盘价**，不得有任何偏离
+- 严禁使用挂单价/限价单/条件单：交易指令为**市价单（market order）**，不是限价单（limit/stop order）
+- 市价单的含义：以当前市场价格立即成交，不等待特定价格
+- **entry_price 必须在以下价格参考表中精确取值，不允许 LLM 自行计算或微调**
+- 止损价（stop_loss_price）和止盈价（target_price）基于当前收盘价合理计算
+- 参考以下价格参考表（entry_price 必须从该表取值）：
 
 {price_table}
 
@@ -2339,11 +2394,12 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 {debate_context}
 
-请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"：
+请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
+**再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
 {{"per_symbol": {{
     "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）",
             "overturn_scan": true, "overturn_reason": "推翻数技源方向的理由",
-            "entry_price": <实际行情中的当前收盘价>, "stop_loss_price": <收盘价+ATR>, "target_price": <收盘价-ATR>,
+            "entry_price": <从价格参考表取当前收盘价>, "stop_loss_price": <收盘价-ATR>, "target_price": <收盘价+ATR>,
             "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}}
   }},
   "overall_direction": "bearish/neutral/bullish",
@@ -2354,13 +2410,16 @@ async def node_verdict(state: DebateState) -> DebateState:
     result = await judge.run(context, state["trace_id"])
 
     output = result.get("output", "")
-    try:
-        if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            parsed = json.loads(output[start:end])
-            per_symbol = parsed.get("per_symbol", {})
-            # Validate per-symbol verdicts
+    parsed = parse_llm_output(output, agent_name="judge")
+    if parsed.get("success"):
+        parsed_data = parsed["data"]
+        per_symbol = parsed_data.get("per_symbol", {}) if isinstance(parsed_data, dict) else {}
+    else:
+        parsed_data = {}
+        per_symbol = {}
+        logger.warning(f"[VERDICT] parse_llm_output 失败: {parsed.get('errors', [])}")
+
+    if per_symbol:
             validated_symbols = {}
             for sym in symbols:
                 sym_key = sym.upper()
@@ -2373,6 +2432,11 @@ async def node_verdict(state: DebateState) -> DebateState:
                     sv.setdefault("contract", sv.get("contract", ""))
                     sv.setdefault("risk_reward_ratio", sv.get("risk_reward_ratio", 0))
                     sv.setdefault("confidence", sv.get("confidence", 0.5))
+                    # 强制 entry_price = 实际扫描价格（杜绝挂单价）
+                    sp = sym_prices.get(sym_key, {})
+                    scan_price = sp.get("price", 0)
+                    if scan_price > 0:
+                        sv["entry_price"] = scan_price
                     validated_symbols[sym] = sv
 
             overall = {
@@ -2388,15 +2452,14 @@ async def node_verdict(state: DebateState) -> DebateState:
                     "current_phase": "P4_verdict",
                     "completed_phases": new_phases
                 }
-    except Exception as e:
-        logger.warning(f"Failed to parse verdict output: {e}")
 
-    # Fallback: single verdict
+    # Fallback: single verdict (enforce_structured_output 失败或无品种数据时)
+    # v9.20.3+: 使用 auto_fix_json 处理 markdown 代码块等格式，并尝试提取 per_symbol
     try:
         if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            verdict_raw = json.loads(output[start:end])
+            from scripts.enforce_structured_output import auto_fix_json
+            fixed = auto_fix_json(output)
+            verdict_raw = json.loads(fixed)
             verdict_raw.setdefault("entry_price", verdict_raw.get("price", 0))
             verdict_raw.setdefault("stop_loss_price", verdict_raw.get("stop_loss", 0))
             verdict_raw.setdefault("target_price", verdict_raw.get("target", 0))
@@ -2404,6 +2467,37 @@ async def node_verdict(state: DebateState) -> DebateState:
             verdict_raw.setdefault("contract", verdict_raw.get("contract", ""))
             verdict_raw.setdefault("risk_reward_ratio", verdict_raw.get("risk_reward_ratio", 0))
             verdict_raw.setdefault("direction", verdict_raw.get("verdict", verdict_raw.get("direction", "neutral")))
+            # 尝试从 fallback JSON 提取 per_symbol 数据
+            fb_per_symbol = verdict_raw.get("per_symbol", {})
+            if isinstance(fb_per_symbol, dict) and fb_per_symbol:
+                validated = {}
+                for sym in symbols:
+                    sym_key = sym.upper()
+                    sv = fb_per_symbol.get(sym_key, fb_per_symbol.get(sym, {}))
+                    if isinstance(sv, dict) and sv.get("direction"):
+                        sv.setdefault("entry_price", sv.get("price", 0))
+                        sv.setdefault("stop_loss_price", sv.get("stop_loss", 0))
+                        sv.setdefault("target_price", sv.get("target", 0))
+                        sv.setdefault("position_pct", sv.get("position_pct", 3))
+                        sv.setdefault("contract", sv.get("contract", ""))
+                        sv.setdefault("risk_reward_ratio", sv.get("risk_reward_ratio", 0))
+                        sv.setdefault("confidence", sv.get("confidence", 0.5))
+                        sp = sym_prices.get(sym_key, {})
+                        scan_price = sp.get("price", 0)
+                        if scan_price > 0:
+                            sv["entry_price"] = scan_price
+                        validated[sym] = sv
+                if validated:
+                    return {
+                        **state,
+                        "verdict": {
+                            "direction": verdict_raw.get("direction", "neutral"),
+                            "reason": verdict_raw.get("reason", output[:200]),
+                            "per_symbol": validated,
+                        },
+                        "current_phase": "P4_verdict",
+                        "completed_phases": state["completed_phases"] + ["P4_verdict"],
+                    }
         else:
             verdict_raw = {"direction": "neutral", "reason": output}
     except Exception as e:
@@ -2478,15 +2572,16 @@ async def node_risk_check(state: DebateState) -> DebateState:
     try:
         result = await risk_manager.run(context, state["trace_id"])
         output = result.get("output", "")
-        if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            risk_check = json.loads(output[start:end])
+        # v9.22.2: 使用 parse_llm_output 统一入口
+        parsed = parse_llm_output(output, agent_name="risk_manager",
+                                  default={"approved": True, "risk_level": "low", "risk_color": "yellow"})
+        if parsed.get("success"):
+            risk_check = parsed["data"]
         else:
-            risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": ["LLM返回非JSON格式"]}
+            risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
     except Exception as e:
-        logger.warning(f"[RISK] 风控LLM调用失败: {e}, 使用默认yellow")
-        risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM调用异常: {e}"]}
+        logger.warning(f"[RISK] 风控LLM解析失败: {e}, 使用默认yellow")
+        risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析异常: {e}"]}
     """P6a: CTP 信号输出"""
     verdict = state.get("verdict", {})
 
@@ -2504,6 +2599,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "symbol": item.get("symbol", item.get("pid", "")),
                 "direction": "BUY",
                 "entry_price": item.get("price", 0),
+                "order_type": "market",
                 "score": abs(total),
             })
         elif raw_dir in ("bear", "SELL", "sell") and abs(total) >= 60:
@@ -2511,6 +2607,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "symbol": item.get("symbol", item.get("pid", "")),
                 "direction": "SELL",
                 "entry_price": item.get("price", 0),
+                "order_type": "market",
                 "score": abs(total),
             })
     actionable_signals.sort(key=lambda x: x["score"], reverse=True)
@@ -2548,6 +2645,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "direction": "BUY",
                 "symbol": best_buy["symbol"],
                 "entry_price": best_buy["entry_price"],
+                "order_type": "market",
                 "stop_loss_price": best_buy["entry_price"] * 0.97,
                 "target_price": best_buy["entry_price"] * 1.05,
                 "position_pct": 3,
@@ -2560,6 +2658,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "direction": "SELL",
                 "symbol": best_sell["symbol"],
                 "entry_price": best_sell["entry_price"],
+                "order_type": "market",
                 "stop_loss_price": best_sell["entry_price"] * 1.03,
                 "target_price": best_sell["entry_price"] * 0.95,
                 "position_pct": 3,

@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import json
+from collections import Counter
 from typing import Any
 
 from contracts.debate_quality_schema import (
@@ -172,6 +174,34 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
             if ratio < rules["take_profit_min_ratio"]:
                 issues.append(_issue("target_price", f"盈亏比 {ratio:.1f} < {rules['take_profit_min_ratio']}", "warning"))
 
+    # ── D3 Generation: 内容安全合规检查 ──
+    try:
+        from scripts.content_filter import ContentFilter
+        cf = ContentFilter()
+        check = cf.filter(json.dumps(data, ensure_ascii=False))
+        if check.get("blocked"):
+            issues.append(_issue("content_safety", f"内容安全阻断: {check.get('sensitive_categories', [])}", "error"))
+        elif check.get("has_sensitive"):
+            from collections import Counter
+            cat_counts = Counter(check.get("sensitive_categories", []))
+            cats_summary = ", ".join(f"{c}({n})" for c, n in cat_counts.most_common(3))
+            issues.append(_issue("content_safety", f"检测到敏感内容: {cats_summary}", "warning"))
+    except Exception:
+        pass
+
+    # ── D6 Output: OutputMetrics 硬约束 (v9.22.6) ──
+    try:
+        from scripts.output_metrics import OutputMetrics
+        om = OutputMetrics()
+        score_result = om.score_output(data)
+        total_score = score_result.get("total_score", 100)
+        if total_score < 40:
+            issues.append(_issue("output_quality", f"输出质量评分 {total_score:.0f}/100 — 强制阻断", "error"))
+        elif total_score < 60:
+            issues.append(_issue("output_quality", f"输出质量评分 {total_score:.0f}/100 — 低于阈值", "error"))
+    except Exception:
+        pass
+
     return _build_report(issues)
 
 
@@ -217,6 +247,21 @@ def validate_risk(data: dict, symbol: str = "") -> QualityReport:
     check_items = data.get("check_items", [])
     if isinstance(check_items, list) and len(check_items) < rules["min_check_items"]:
         issues.append(_issue("check_items", f"检查项不足({len(check_items)}<{rules['min_check_items']})", "warning"))
+
+    # ── D3 Generation: 内容安全合规检查 ──
+    try:
+        from scripts.content_filter import ContentFilter
+        cf = ContentFilter()
+        check = cf.filter(json.dumps(data, ensure_ascii=False))
+        if check.get("blocked"):
+            issues.append(_issue("content_safety", f"风控内容安全阻断: {check.get('sensitive_categories', [])}", "error"))
+        elif check.get("has_sensitive"):
+            from collections import Counter
+            cat_counts = Counter(check.get("sensitive_categories", []))
+            cats_summary = ", ".join(f"{c}({n})" for c, n in cat_counts.most_common(3))
+            issues.append(_issue("content_safety", f"风控检测到敏感内容: {cats_summary}", "warning"))
+    except Exception:
+        pass
 
     return _build_report(issues)
 

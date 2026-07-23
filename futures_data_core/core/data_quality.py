@@ -512,11 +512,17 @@ def _calc_news_age_hours(time_str: str) -> float:
 
 
 def _calc_freshness_days(date_str: str) -> int:
-    """计算最后 K 线日期距今天数（交易日近似 = 自然日 * 0.7）。"""
+    """计算最后 K 线日期距今天数（交易日近似 = 自然日 * 0.7）。
+
+    支持 %Y%m%d（如 20260723）和 %Y-%m-%d（如 2026-07-23）两种格式。
+    WebFallback(datacore) 用前一种，DataCore 用后一种。
+    """
     if not date_str:
         return 999
     try:
-        last = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+        # 统一为 %Y%m%d 再解析
+        clean = date_str[:10].replace("-", "")[:8]
+        last = datetime.strptime(clean, "%Y%m%d").date()
         delta = (date.today() - last).days
         # 粗略近似交易日数
         return max(0, int(delta * 0.7))

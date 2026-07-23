@@ -13,15 +13,17 @@
 | `api` | `python fdt_api.py --host 0.0.0.0 --port 8000` | FastAPI HTTP 服务 | 收到 SIGINT/SIGTERM |
 | `api trigger` | `POST /api/v1/debate` | API 触发单次辩论 | 执行完返回 |
 
-### 1.1a 已删除的历史模式
+### 1.1a 启动模式
 
-| 模式 | 删除版本 | 替代方案 |
-|:-----|:---------|:---------|
-| `scheduler/engine.py` (60s心跳) | v9.18.1 | `fdt_cli.py daemon` (Master Graph) |
-| `bootstrap.py` | v9.18.1 | `fdt_cli.py` |
-| `scripts/scheduler.py` | v9.18.1 | `fdt_cli.py daemon` |
+| 模式 | 触发 | 生命周期 |
+|:-----|:------|:---------|
+| `fdt_cli.py daemon` | Master Graph 60s 心跳 | 常驻（默认） |
+| `fdt_cli.py run` | 命令行手动 | 执行完返回 |
+| `fdt_cli.py master` | 单次检查到期任务 | 执行完返回 |
+| `fdt_api.py` | FastAPI 服务 | 常驻 |
+| `api trigger` | `POST /api/v1/debate` | API 触发单次辩论 | 执行完返回 |
 
-> **说明**: FDT 所有自动化任务统一由 LangGraph Master Graph 编排，零第三方调度依赖。
+> 所有自动化任务统一由 LangGraph Master Graph 编排，零第三方调度依赖。
 
 ### 1.2 启动序列
 

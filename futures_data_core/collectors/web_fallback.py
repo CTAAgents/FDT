@@ -54,7 +54,7 @@ def _get_exchange_code(variety: str, known: dict) -> Optional[int]:
 
 
 class WebFallbackCollector(BaseCollector):
-    """Web 兜底采集器（priority=1，TQ-Local 之后首选降级，规避 TqSDK 关闭挂死）。"""
+    """Web 兜底采集器（priority=1，TqSDK/DataCore/TDX 之后降级）。"""
 
     name = "web_fallback"
     priority = 1

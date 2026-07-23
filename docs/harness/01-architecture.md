@@ -1,6 +1,6 @@
 # 01 — Harness 架构总览
 
-> **v9.20.2** (2026-07-23): Bugfix 版本 — 无架构变更。详见 `docs/harness/07-operations.md#版本历史`。
+> **v9.24.0** (2026-07-23): 数据源体系重构 — TqSDK 升至第一数据源，统一 K 线标准化层，新鲜度自动降级。详见 `docs/harness/07-operations.md#版本历史`。
 
 ## 1. 分层架构
 
@@ -105,15 +105,16 @@ scan → judge_direction → prepare_one_symbol(品种0)
   └──────────────┘ └──────────────┘ └──────────────┘
                            │
               ┌────────────▼────────────┐
-              │   10 Agent 协作         │
-              │  (spawn via Agent tool) │
-              │  通信: 文件 + S04轮询   │
+              │   13 Agent 图节点       │
+              │  (FdtAgentExecutor      │
+              │   → FdtLlm.chat())      │
+              │  状态: DebateState      │
               │  契约: JSON Schema      │
               │  恢复: L1-L5 + D06      │
               └─────────────────────────┘
 ```
 
-### 2.2 LangGraph 架构（迁移后 — 并行数据源 + 独立运行）
+### 2.2 LangGraph 子图详情（并行数据源 + 独立运行）
 
 ```
                     ┌─────────────────────────────────────┐
@@ -167,11 +168,12 @@ scan → judge_direction → prepare_one_symbol(品种0)
                     │  │  [merge_research] 合并节点  │  │  │
                     │  │       │                    │  │  │
                     │  │       ▼                    │  │  │
-                    │  │ • [debate] 证真+慎思        │  │  │
-                    │  │ • [verdict] 裁决+风控       │  │  │
-                    │  │ • [report] 品藻             │  │  │
-                    │  │ • [risk_check] 风控明       │  │  │
-                    │  │ • [signal_output] CTP信号    │  │  │
+                    │  │ • [debate] 六阶段攻防辩论        │  │  │
+                    │  │ • [verdict] 闫判官裁决         │  │  │
+                    │  │ • [risk_check] 风控明         │  │  │
+                    │  │ • [quality_inspect] 品藻      │  │  │
+                    │  │ • [report] 品藻               │  │  │
+                    │  │ • [signal_output] 明鉴秋      │  │  │
                     │  └───────────────────────────────┘  │
                     │                                     │
                     │  ┌───────────────────────────────┐  │
@@ -200,9 +202,7 @@ scan → judge_direction → prepare_one_symbol(品种0)
 | `selected_symbols` 非空 | 遍历每个品种 → `_generate_symbol_body(state, sym)` → 合并 body → `_render_html()` | 逐品种调用 `single_symbol_report` 的 body 生成器，各品种独立渲染后拼接为一份完整 HTML 报告 |
 | `selected_symbols` 为空 | 写入 fallback 占位报告（"无选定品种"） | 跳过报告内容生成 |
 
-> v9.12.0 之前使用双路径分流（`single_symbol_report.generate()` 单品种 / `phase3_generate_report.py` 子进程多品种），v9.12.0 统一为逐品种 body 模式，移除了子进程依赖。
-
-报告生成特点：
+> 报告生成特点：
 - 浮点数截断到合理精度（价格2位，百分比1位，指标1-2位）
 - P1 仅在 `stats` 或 `indicators` 非空时显示
 - P2 仅在 `judge_direction` 有实质内容时显示
@@ -212,7 +212,7 @@ scan → judge_direction → prepare_one_symbol(品种0)
 
 ## 3. 数据流总览
 
-### 3.1 主数据流（当前模式 — 文件传递）
+### 3.1 主数据流（LangGraph 编排）
 
 ```
 用户请求
@@ -223,8 +223,18 @@ scan → judge_direction → prepare_one_symbol(品种0)
     ▼
 [P1] 可插拔多策略并行扫描（v8.8.6+ 架构）
     ├─ trend_following (10子信号)       ──→ scan_result_tf_{date}.json
-    ├─ mean_reversion (3子信号)         ──→ scan_result_mr_{date}.json
+    ├─ mean_reversion (3子信号)         ──→ scan_result_mr_{date}.json  (当前禁用)
     └─ 自定义策略插件                    ──→ scan_result_{plugin}_{date}.json
+    │
+    │  ═══════════════════════════════════════════════════════════════
+    │  设计约束（2026-07-23 掌柜确立）:
+    │  本系统目前处于辩论能力演化的 Layer 0（通用策略）阶段。
+    │  商品期货以捕捉大波段、趋势行情为核心目标，trend_following 为唯一活跃策略。
+    │  后续将按"品种特性→行情特点→关键因子"路径逐步深化。
+    │  将来股指期货接入时建立独立路径，同样从 Layer 0 起步。
+    │  FDT 是一个跟随用户、跟随市场、跟随自身分析能力而渐进深化开发的活系统。
+    │  ═══════════════════════════════════════════════════════════════
+    │
     │                    ↓ 信号检查闸门: select_triggers(all_ranked, threshold, disable_filter)
     │                    filter=ON → 读 total（P0-4过滤后，默认）
     │                    filter=OFF → 读 _raw_total（无过滤，配合 --mode no-filter）
@@ -481,162 +491,186 @@ class HookManager:
 
 ## 4. Agent 拓扑
 
-### 4.1 当前拓扑（文件传递模式）
+### 4.1 当前拓扑（LangGraph 图编排 — 逐品种循环 v9.13.0+）
+
+当前 FDT 的 Agent 拓扑基于 **LangGraph StateGraph** 编排，13 个 Agent 通过图节点函数调用（非文件传递），状态统一存放于 `DebateState`（TypedDict 内存传递）。明鉴秋（Master Orchestrator）负责调度触发，不介入具体辩论节点。
 
 ```
-                    ┌─────────────┐
-                    │  明鉴秋     │ ← 团队主管 (调度+汇总)
-                    │  team-lead  │
-                    └──────┬──────┘
-                           │ spawn + 文件传递
-          ┌────────────────┼────────────────┐
-          ▼                │                ▼
-   ┌──────────────┐       │       ┌──────────────┐
-   │ 数技源       │       │       │ 闫判官       │
-   │ datatech     │       │       │ judge        │
-   │ (P1 多策略扫描)│      │       │ (P2 调度协调)│
-   │ tf+mr+插件    │       │       │ (P4+P5 终裁+风控)│
-   └──────┬───────┘       │       └──────┬───────┘
-          │               │               │ 调度决策
-          ▼               │               ▼
-   [信号检查闸门]         │       ┌──────────────────────────┐
-          │               │       │     P2 四源并行            │
-          └───────┬───────┘       │                           │
-                  │               │  ┌─────────┬──────────┬──────────┬──────────┐   │
-                  │               │  ▼         ▼          ▼          ▼          ▼   │
-                  │               │ │链证源   │ 观澜     │探源      │读心      │闫判官│
-                  │               │ │产业链   │ 技术面   │基本面    │新闻情绪   │调度协调│
-                  │               │ └─────────┴──────────┴──────────┴──────────┘   │
-                  │               │       ← 平行关系，无先后  │
-                  │               │            │              │
-                  │               └────────────┼──────────────┘
-                  │                            ▼
-                  │                  ┌─────────────────────┐
-                  │                  │ 证真 ⇄ 慎思         │ ← P3 (串行六步)
-                  │                  │ affirmative/opposition│
-                  │                  └──────────┬──────────┘
-                  │                             │
-                  │                  ┌──────────▼──────────┐
-                  │                  │  P4 闫判官终裁       │
-                  │                  │  含完整交易参数      │
-                  │                  │        → P5 风控明  │
-                  │                  │                  │
-                  │                  └──────────┬──────────┘
-                  └─────────────────────────────┘
+                    ┌──────────────────────────────────────────────────┐
+                    │       明鉴秋 (Master Orchestrator)               │
+                    │       调度触发 / 汇聚归档 / CTP 信号输出          │
+                    │       master_graph.py (14 定时任务)               │
+                    └────────────────────┬─────────────────────────────┘
+                                         │ 辩论完成后自动触发进化
+                    ┌────────────────────┴─────────────────────────────┐
+                    │         Evolution Graph (自进化闭环)               │
+                    │   collect_metrics → apm_eval → decide_actions     │
+                    │   → improve → calibrate → evolve → RHI → ML      │
+                    └────────────────────┬─────────────────────────────┘
+                                         │ handoff
+                                         ▼
+        ┌────────────────────────────────────────────────────────────────┐
+        │                 Debate Graph (fdt_langgraph/graph.py)          │
+        │   状态传递: DebateState (TypedDict, 内存 + Checkpointer)        │
+        │                                                                │
+        │  P1 [scan] 数技源 ──→ scan_results + stats                    │
+        │       ↓                                                        │
+        │  P2 [judge_direction] 闫判官 ──→ 选品种+调度 (direction=neutral)│
+        │       ↓                                                        │
+        │  P2.5 [prepare_one_symbol] FDC数据预采集 + 金十快讯精选         │
+        │       ↓                                                        │
+        │  ════ 逐品种循环开始 ════                                     │
+        │  P3 ┌──── 四源并行 (LLM 推理, 300s超时跳过) ────┐              │
+        │     ├─ [chain] 链证源 — 产业链关联分析                         │
+        │     ├─ [technical] 观澜 — 技术面分析                          │
+        │     ├─ [fundamental] 探源 — 基本面分析 (含金十快讯)             │
+        │     └─ [sentiment] 读心 — 新闻情绪分析                        │
+        │              ↓                                                 │
+        │     [merge_research] 合并四源                                  │
+        │     ├─ fast模式 → 直接裁决                                     │
+        │     └─ default → 六阶段辩论                                    │
+        │  P4 ┌──── 六阶段攻防辩论 (串行) ────┐                          │
+        │     │ 多头立论 → 空头立论 → 空头反驳 → 多头反驳 → 空头结辩 → 多头结辩│
+        │     └────────────────────────────────┘                          │
+        │              ↓                                                 │
+        │     [verdict] 闫判官终裁 (含交易参数)                           │
+        │              ↓                                                 │
+        │     [risk_check] 风控明 → green/yellow/red                     │
+        │              ↓                                                 │
+        │  P3.5 [quality_inspect] 品藻质检 (PASS/FAIL/重修≤2次)          │
+        │     ├─ PASS → store_per_symbol_result                          │
+        │     ├─ FAIL+重试<2 → 退回P3重修                                │
+        │     └─ FAIL+重试≥2 → 跳过存储                                  │
+        │              ↓                                                 │
+        │     [route_next_symbol]                                        │
+        │     ├─ 还有品种 → prepare_one_symbol                           │
+        │     └─ 全部完成 → aggregate_results                            │
+        │  ════ 逐品种循环结束 ════                                      │
+        │              ↓                                                 │
+        │  P6 [report] 品藻 — HTML辩论报告生成                            │
+        │  P6a [signal_output] 明鉴秋 — CTP 信号输出 (风控red阻断)        │
+        └────────────────────────────────────────────────────────────────┘
 ```
 
 > **当前模式关键特征**:
-> - P1: 可插拔多策略并行扫描（trend_following + mean_reversion + 自定义插件）
-> - P2: 闫判官调度协调 + 链证源/观澜/探源/读心四源并行，平行关系无先后次序
-> - P3: 六阶段攻防辩论（串行六步）
-> - P4: 闫判官终裁（含完整交易参数）
-> - P5: 风控明审核（直接基于闫判官 verdict）
-> - 通信方式: 文件传递 + S04 轮询
+> - 编排方式: LangGraph StateGraph 图编排，状态通过 DebateState 内存传递 + Checkpointer 持久化
+> - P1: 数技源通道突破扫描（trend_following 唯一活跃 — 当前处于 Layer 0 通用阶段）
+> - P2: 闫判官调度 — 选品种 (direction=neutral) + 调度四源并行
+> - P2.5: FDC 数据预采集 — 逐品种采集 K线(默认120天)、计算技术指标、收集 F10 数据（期限结构/基差/价差/仓单/基本面/持仓排名），注入 DebateState 供后续分析使用。由 `FDT_FDC_INJECTION_ENABLED` 控制开关。**金十快讯精选在 P3 探源节点内部通过 `_build_jin10_context()` 调用，不属于 P2.5**
+> - P3: 链证源/观澜/探源/读心四源并行 LLM 推理，任一源超时(300s)跳过
+> - P3 → P4: merge_research 后 fast 模式跳过辩论直达裁决，default 模式进入六阶段辩论
+> - P4: 六阶段攻防辩论串行（多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩）
+> - P5: 闫判官终裁（含完整交易参数）→ 风控明独立审核 (green/yellow/red)
+> - P3.5: 品藻质检（Schema 校验 + conditional_required, FAIL≤2次可重修）
+> - 逐品种循环: 每个品种独立走 P3→P4→P5→质检→存储，全部完成汇聚
+> - 辅助 Agent: 副裁官（初审提取论点树）、独立裁官（审计辩论一致性）不参与主流程
+> - 自进化: Evolution Graph 辩论后自动触发（FDT_RUN_EVOLUTION=true），RHI 分支需 FDT_RHI=true
 
 
-### P1角色矫正（v9.6.8）
+### P1 数技源角色说明
 
-P1 数技源从"策略评分器"回归"数据统计器"角色：
-- **新增产出物**：`all_ranked[].stats` 对象（纯定量统计特征：MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）
-- **保留字段**：`total`/`direction`/`grade` 保留但降级为内部参考，不再作为P1的"判断产出"
-- **P2 闸门变更**：`select_triggers()` 从基于 grade+total 的方向性过滤改为数据质量闸门（stats完整性+K线数量+流动性）
-- **P2 闫判官变更**：消费 stats 而非 total/direction，新增 audit 字段记录与P1信号的偏离度
-- **P2 观澜变更**：从 state 读取 stats 注入技术分析上下文（观澜已归入 P2 四源并行）
-- **不变**：指定品种辩论模式、策略引擎 pipeline.py、验证器、P3辩论prompt、P4+P5裁决prompt
+P1 数技源角色为**数据统计器**，产出 `all_ranked[].stats` 对象（纯定量统计特征：MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）。`total`/`direction`/`grade` 字段保留但不作为 P1 的判断产出（历史上 P1 曾承担"策略评分器"角色，v9.6.8 矫正为数据统计器）。
 
-### 4.2 LangGraph 拓扑（迁移后 — 并行数据源）
+- **P2 闸门**：`select_triggers()` 使用数据质量闸门（stats完整性+K线数量+流动性），非方向性过滤
+- **P2 闫判官**：消费 stats 而非 total/direction，含 audit 字段记录与P1信号偏离度
+- **P2 观澜**：从 state 读取 stats 注入技术分析上下文（观澜归入 P3 四源并行）
+
+### 4.2 Debate Graph 节点与边（LangGraph 逐品种循环拓扑）
+
+Debate Graph 是 FDT 的核心辩论子图，由 `fdt_langgraph/graph.py` 构建。以下为编译后的节点与边拓扑：
 
 ```
-                    ┌────────────────────────────────────────────────────┐
-                    │              FdtDebateGraph                         │
-                    │              (fdt_langgraph/graph.py)               │
-                    │                                                    │
-                    │  ┌─────────────────────────────────────────────┐   │
-                    │  │  Nodes (节点函数)                              │   │
-                    │  │                                               │   │
-                    │  │  [scan:数技源] ──→ state["scan_results"]      │   │
-                    │  │       │                                       │   │
-                    │  │       ▼                                       │   │
-                    │  │  [judge_direction] 闫判官                      │   │
-                    │  │  选品种 + 调度决策                              │   │
-                    │  │       │                                       │   │
-                    │  │       ▼                                       │   │
-                    │  │  [prepare_data] 数据准备                       │   │
-                    │  │       │                                       │   │
-                    │  │       ▼ (按需并行调度)                         │   │
-                    │  │  ┌─────────┬──────────┬──────────┬──────────┐           │   │
-                    │  │  ▼         ▼          ▼          ▼           │   │
-                    │  │ [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:读心]  │   │
-                    │  │ 产业链   技术面     基本面      新闻情绪       │   │
-                    │  │ (按需)   (按需)     (按需)      (按需)       │   │
-                    │  │       │         │              │         │   │   │
-                    │  │       └─────────┴──────────────┴─────────┘   │   │
-                    │  │                 │                              │   │
-                    │  │                 ▼                              │   │
-                    │  │  [merge_research] ──→ 合并各源分析结果        │   │
-                    │  │                 │                              │   │
-                    │  │                 ▼                              │   │
-                    │  │  [debate] 证真+慎思 ──→ 多空论据               │   │
-                    │  │                 │                              │   │
-                    │  │                 ▼                              │   │
-                    │  │  [verdict] 闫判官 ──→ 裁决+方案+风控            │   │
-                    │  │                 │                              │   │
-                    │  │                 ▼                              │   │
-                    │  │  [report] 品藻 ──→ HTML辩论报告+signal_output   │   │
-                    │  │  [signal_output] 品藻 ──→ CTP信号扫描报告        │   │
-                    │  │                                               │   │
-                    │  └─────────────────────────────────────────────┘   │
-                    │                                                    │
-                    │  ┌─────────────────────────────────────────────┐   │
-                    │  │  Edges (边)                                    │   │
-                    │  │                                               │   │
-                    │  │  scan ──→ judge_direction (闫判官调度决策)    │   │
-                    │  │              │                                │   │
-                    │  │              ▼                                │   │
-                    │  │  prepare_data (数据准备)                      │   │
-                    │  │              │                                │   │
-                    │  │              ▼ (按需并行调度四源)              │   │
-                    │  │  ParallelMap(链证源,观澜,探源,读心)          │   │
-                    │  │              │                                │   │
-                    │  │              ▼                                │   │
-                    │  │  merge_research ──→ debate                    │   │
-                    │  │              │                                │   │
-                    │  │              ▼                                │   │
-                    │  │  verdict ──→ report ──→ END                   │   │
-                    │  │                                               │   │
-                    │  │  条件边: fast模式  → 跳过debate直达verdict    │   │
-                    │  │        deep模式  → debate循环(分歧>0.7)       │   │
-                    │  │        tournament → 多轮辩论+投票             │   │
-                    │  │        direct_debate → 跳过P1扫描,从fdt_cache/加载数据 │   │
-                    │  └─────────────────────────────────────────────┘   │
-                    │                                                    │
-                    │  ┌─────────────────────────────────────────────┐   │
-                    │  │  Checkpointer (PostgreSQL)                     │   │
-                    │  │  • pg.langgraph_checkpoints (状态历史)         │   │
-                    │  │  • pg.debate_verdicts (裁决记录)               │   │
-                    │  └─────────────────────────────────────────────┘   │
-                    └────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                      FdtDebateGraph  —  逐品种循环拓扑                      │
+│                                                                            │
+│  [scan:数技源] ──→ state["scan_results"] (10子信号通道突破扫描)           │
+│       │                                                                   │
+│       ▼                                                                   │
+│  [judge_direction:闫判官] ──→ 选品种+调度决策 (direction=neutral)          │
+│       │                                                                   │
+│       ▼                                                                   │
+│  [prepare_one_symbol] ──→ 提取当前品种 + FDC数据预采集 + 金十快讯精选      │
+│       │                                                                   │
+│  ┌────┴──────────────────── 逐品种循环 ──────────────────────────────┐     │
+│  │  P3 ┌──── 四源并行 (LLM推理, 300s跳过) ────┐                      │     │
+│  │     │ [chain:链证源] [technical:观澜]       │                      │     │
+│  │     │ [fundamental:探源] [sentiment:读心]   │                      │     │
+│  │     └──────────────────┬──────────────────┘                       │     │
+│  │                        ▼                                          │     │
+│  │  [merge_research] ──→ 合并四源                                    │     │
+│  │     │ fast模式 → [verdict] (跳过辩论)                              │     │
+│  │     │ default  → [六阶段辩论]                                      │     │
+│  │  P4 ┌── 六阶段攻防辩论 (串行) ───────────────────┐                │     │
+│  │     │ [bullish_v1:多头立论]                        │                │     │
+│  │     │ [bearish_v1:空头立论]                        │                │     │
+│  │     │ [bearish_rebuttal:空头反驳]                  │                │     │
+│  │     │ [bullish_rebuttal:多头反驳]                  │                │     │
+│  │     │ [bear_final:空头结辩]                        │                │     │
+│  │     │ [bull_final:多头结辩]                        │                │     │
+│  │     └──────────────────┬──────────────────────────┘                │     │
+│  │                        ▼                                          │     │
+│  │  P5 [verdict:闫判官] ──→ 终裁(含交易参数)                          │     │
+│  │                        ▼                                          │     │
+│  │  P5 [risk_check:风控明] ──→ green/yellow/red                      │     │
+│  │                        ▼                                          │     │
+│  │  P3.5 [quality_inspect:品藻] ──→ Schema校验 + conditional_required │     │
+│  │     ├─ PASS ──→ [store_per_symbol_result]                          │     │
+│  │     ├─ FAIL+重试<2 ──→ 退回 [prepare_one_symbol] 重修              │     │
+│  │     └─ FAIL+重试≥2 ──→ [store_per_symbol_result] (跳过存储)        │     │
+│  │                        │                                           │     │
+│  │  [route_next_symbol]                                               │     │
+│  │     ├─ 还有品种 ──→ [prepare_one_symbol] (循环)                     │     │
+│  │     └─ 全部完成 ──→ [aggregate_results]                            │     │
+│  └────────────────────────────────────────────────────────────────┘     │
+│                        │                                                │
+│  P6 [report:品藻] ──→ HTML辩论报告 (逐品种body拼接, 单文件)            │
+│                        │                                                │
+│  P6a [signal_output:明鉴秋] ──→ CTP信号输出 (风控red阻断)              │
+│                        │                                                │
+│  ──→ END (辩论完成, 若 FDT_RUN_EVOLUTION=true 则触发 Evolution Graph)   │
+│                                                                            │
+│  条件边:                                                                    │
+│    route_after_merge_research: fast→verdict, default→六阶段辩论           │
+│    route_after_quality_inspect: FAIL+<2→重修, PASS/≥2→下一品种            │
+│    route_next_symbol: 还有品种→循环, 完成→aggregate                       │
+│    mode切换: deep_research分歧度>0.7追加辩论, tournament多轮投票          │
+│    direct_debate: 跳过P1 scan, 从fdt_cache/加载数据                       │
+│                                                                            │
+│  辅助 Agent (不参与主流程图):                                              │
+│    副裁官: P3.5 初审辩论输出, 提取论点树 (分歧度校验)                      │
+│    独立裁官: 审计辩论一致性 (CLQT §6.4.1, held-out judge)                 │
+│                                                                            │
+│  Checkpointer: SQLite (默认) / PostgreSQL (FDT_CHECKPOINTER=pg)          │
+│    • langgraph_checkpoints — 状态断点与历史回放                             │
+│    • debate_verdicts — 裁决持久化记录                                      │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 4.3 Agent 到图节点映射（按需并行数据源拓扑）
 
 | Agent | 节点函数 | 角色 | 并行执行 | 阶段 | 调度权 |
 |:------|:---------|:-----|:---------|:-----|:-------|
-| 数技源 | `node_scan` | 信号扫描 | 否 | P1 | 无 |
-| 闫判官 | `node_judge_direction` | 选品种+**调度决策** | 否 | P2 | **有** |
-| 数据准备 | `node_prepare_data` | 数据准备（解析K线/计算指标） | 否 | P2→P3 | 无 |
-| 链证源 | `node_chain` | 产业链分析（按需） | **是**（与观澜、探源、读心并行） | P2 | 无 |
-| 观澜 | `node_technical` | 技术面分析（按需） | **是**（与链证源、探源、读心并行） | P2 | 无 |
-| 探源 | `node_fundamental` | 基本面分析（按需） | **是**（与链证源、观澜、读心并行） | P2 | 无 |
-| 读心 | `node_sentiment` | 新闻情绪分析（按需） | **是**（与链证源、观澜、探源并行） | P2 | 无 |
-| 证真/多头分析员(v1) | `node_bullish_v1` | 多头立论（正方 v1） | 否（串行交叉质询） | P3 步1 | 无 |
-| 慎思/空头分析员(v1) | `node_bearish_v1` | 空头质疑（反方 v1） | 否（串行交叉质询） | P3 步2 | 无 |
-| 证真/多头分析员(v2) | `node_bullish_rebuttal` | 多头反驳（正方 v2 rebuttal） | 否（串行交叉质询） | P3 步3 | 无 |
-| 闫判官 | `node_verdict` | 裁决(含交易参数) | 否 | P4 | 有 |
-| 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
-| 品藻(质检) | `node_quality_inspect` | 辩论输出质检（Schema 校验，PASS/FAIL/重试） | 否 | P3.5 | 无 |
-| 品藻(报告) | `node_report` | 报告生成 + verdict 字典构建（含 G35 最小论据降级：论据为空时从 reasoning 自动生成） | 否 | P6 | 有 |
-| 品藻(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6 | 有 |
+| 数技源 | `node_scan` | 通道突破扫描 (10子信号, trend_following) | 否 | P1 | 无 |
+| 闫判官 | `node_judge_direction` | 选品种+**调度决策** (direction=neutral) | 否 | P2 | **有** |
+| 数据准备 | `node_prepare_one_symbol` | 单品种FDC数据预采集 | 否 | P2.5 | 无 |
+| 链证源 | `node_chain` | 产业链关联分析 | **是**（与观澜、探源、读心并行） | P3 | 无 |
+| 观澜 | `node_technical` | 技术面分析 (LLM推理) | **是**（与链证源、探源、读心并行） | P3 | 无 |
+| 探源 | `node_fundamental` | 基本面分析 (LLM推理, 含金十快讯) | **是**（与链证源、观澜、读心并行） | P3 | 无 |
+| 读心 | `node_sentiment` | 新闻情绪分析 (LLM推理, 金十+Web) | **是**（与链证源、观澜、探源并行） | P3 | 无 |
+| 数据合并 | `node_merge_research` | 合并四源分析结果，路由下一阶段 | 否 | P3→P4 | 无 |
+| 多头分析员 | `node_bullish_v1` | 多头立论 (≥3条论据) | 否 | P4 步1 | 无 |
+| 空头分析员 | `node_bearish_v1` | 空头立论 (≥3条论据) | 否 | P4 步2 | 无 |
+| 空头分析员 | `node_bearish_rebuttal` | 空头反驳多头论据 | 否 | P4 步3 | 无 |
+| 多头分析员 | `node_bullish_rebuttal` | 多头反驳空头论据 | 否 | P4 步4 | 无 |
+| 空头分析员 | `node_bear_final` | 空头结辩（最终陈述） | 否 | P4 步5 | 无 |
+| 多头分析员 | `node_bull_final` | 多头结辩（最终陈述） | 否 | P4 步6 | 无 |
+| 闫判官 | `node_verdict` | 终裁(含完整交易参数: direction/entry/stop/target/position) | 否 | P5 | **有** |
+| 风控明 | `node_risk_check` | 风控独立审核 (green/yellow/red) | 否 | P5 | 无 |
+| 品藻 | `node_quality_inspect` | 辩论输出质检 (Schema校验 + conditional_required) | 否 | P3.5 | 无 |
+| 品藻 | `node_report` | HTML辩论报告生成 (逐品种body拼接) | 否 | P6 | 有 |
+| 明鉴秋 | `node_signal_output` | CTP信号输出 (风控red阻断) | 否 | P6a | 有 |
+| 副裁官 | (P3.5初审) | 提取论点树+分歧度校验 (辅助评估, 不参与主流程) | 否 | P3.5 | 无 |
+| 独立裁官 | (审计) | 审计辩论一致性 (held-out judge, CLQT §6.4.1) | 否 | 审计 | 无 |
 
 #### 运行模式说明
 
@@ -649,39 +683,29 @@ FDT 支持两种执行模式，通过环境变量控制：
 
 #### 按需并行数据源设计说明
 
-**核心流程**：数技源输出信号 → 闫判官调度决策 → 按需并行触发四源 → 合并分析 → 辩论 → 裁决 → 策略 → 风控
+**核心流程**：数技源输出信号 → 闫判官调度决策 → 按需并行触发四源 → 合并分析 → 辩论 → 裁决 → 风控 → 报告
 
 ```
-变更前（串行）:
-  scan → chain_analysis → judge_direction → research(观澜+探源并行)
-    │         P2(旧1.5)         P2               P3(旧)
-    │
-    └─→ 数技源产出后等待链证源完成，再等待闫判官方向，最后才触发研究
-
-变更后（按需并行）:
-  scan ──→ judge_direction (闫判官)
+scan ──→ judge_direction (闫判官)
     │              │
     │              ▼ 调度决策：需要哪些源？
     │       [prepare_data] 数据准备
     │              │
     │       ┌──────┴──────┬─────────────┬──────────────────┐
     │       ▼             ▼             ▼                  ▼
-    │   [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:读心]  ← 按需并行（仅调度需要的源）
+    │   [chain:链证源]  [technical:观澜]  [fundamental:探源]  [sentiment:读心]  ← 按需并行
     │   产业链       技术面        基本面        新闻情绪
     │       │         │             │                  │
     │       └─────────┴─────────────┴──────────────────┘
     │                     │
     │                     ▼
-    │              merge_research
-    │                     │
-    │                     ▼
-    └──────────────→ debate → verdict → plan → risk → report
-
-收益:
-  • 总耗时: scan + judge + max(所需源) + debate + verdict...
+    │              merge_research → 六阶段辩论 → verdict → risk_check → report → signal
+    │
+设计收益:
+  • 总耗时 = scan + judge + max(所需源) + debate + verdict
   • 各源独立失败不影响其他源（L2 降级）
   • 闫判官根据信号特征智能调度（如趋势信号侧重观澜、周期品种侧重链证源）
-  • 便于后续扩展新数据源（如宏观源、舆情源）
+  • 便于后续扩展新源（如宏观源、舆情源）
 ```
 
 ## 5. Loop Engineering 视角
@@ -719,7 +743,7 @@ FDT 的 Harness 架构天然支持 Inner Loop（内循环）和 Outer Loop（外
 |------|-------------|:------:|
 | **D1 Context（上下文组装）** | `AGENTS.md` + `memory/knowledge/` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
 | **D2 Tool（工具交互）** | `fdt_langgraph/tools/registry.py` 工具注册中心(版本管理+调用统计) + `docs/schemas/tool_capability.json` 能力描述Schema + `scripts/tool_metrics.py` 效能追踪(异常检测) + `scripts/tool_circuit_breaker.py` 熔断降级(状态机+滑动窗口) + **v9.16.0 pipeline 接入**: `FdtAgentExecutor.execute()` 运行时调用 `ToolMetrics.record_call()` | ★★★★★ |
-| **D3 Generation（解码控制）** | `config/agents/decode_config.yaml` 逐Agent精细配置 + `scripts/enforce_structured_output.py` Pydantic+JSON Schema双校验 + `scripts/content_filter.py` 内容安全过滤 + `scripts/generation_metrics.py` 质量监控 | ★★★★★ |
+| **D3 Generation（解码控制）** | `config/agents/decode_config.yaml` 逐Agent精细配置 + `scripts/enforce_structured_output.py` Pydantic+JSON Schema双校验（**v9.22.1** 全量接入5处LLM解析节点） + `scripts/content_filter.py` 内容安全过滤 + `scripts/generation_metrics.py` 质量监控 | ★★★★★ |
 | **D4 Orchestration（工作流拓扑）** | LangGraph 图编排 + 按需并行 + 条件路由 + 多模式（default/fast/deep/tournament） | ★★★★★ |
 | **D5 Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + `scripts/vector_memory.py` 三层记忆 + `scripts/build_knowledge_graph.py` 知识图谱+ `scripts/memory_retriever.py` 召回策略(含强制负样本) + `scripts/memory_cleaner.py` 过期清理 + **v9.16.0 增强**: debate_journal压缩(保留最近100条) + generation_metrics 过期清理(保留7天) | ★★★★★ |
 | **D6 Output（输出处理）** | `scripts/output_metrics.py` 质量度量(4维评分) + `scripts/output_versioning.py` 版本化管理(哈希+时间戳) + `scripts/output_feedback.py` 反馈闭环(准确率追踪+改进建议) + `scripts/output_audit.py` 审计日志(溯源+合规差距) + **v9.16.0 pipeline 接入**: `check_report_integrity()` 调用 `OutputMetrics.score_output()`、`node_report` 调用 `OutputVersioning.save_output()`、`node_quality_inspect` 调用 `OutputAudit.log()`、scheduler 注册 `apm_scorecard` 定时任务 | ★★★★★ |

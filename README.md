@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.22.0**
+**v9.24.0**
 
 ---
 
@@ -358,7 +358,7 @@ FDT/
 ├── memory/                    # 知识库与记忆系统
 ├── scripts/                   # 80+ 辅助脚本
 ├── skills/                    # 10 个子技能实现
-├── tests/                     # 1400+ 测试用例
+├── tests/                     # 1124 测试用例
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
 ├── data_source_adapter.py     # 统一数据入口封装

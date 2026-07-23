@@ -56,6 +56,11 @@ class FdtAgentExecutor:
             self.temperature = cfg["temperature"]
         if "max_tokens" in cfg:
             self.max_tokens = cfg["max_tokens"]
+        # v9.23.0: 注入 response_format + model
+        if "response_format" in cfg:
+            self.response_format = cfg["response_format"]
+        if "model" in cfg:
+            self.model = cfg["model"]
         logger.debug(
             f"[DecodeControl] {self.agent_name}: "
             f"temperature={self.temperature}, max_tokens={self.max_tokens}"
@@ -84,6 +89,7 @@ class FdtAgentExecutor:
             self.system_prompt = agent.system_prompt
             self.max_tokens = agent.max_tokens
             self.temperature = agent.temperature
+            self.response_format = getattr(agent, "response_format", None)
             self.agent_config = agent.agent_config
         else:
             self.agent_name = agent_name
@@ -91,6 +97,7 @@ class FdtAgentExecutor:
             self.system_prompt = ""
             self.max_tokens = 4096
             self.temperature = 0.7
+            self.response_format = None
             self.agent_config = {"name": agent_name}
 
     def execute(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
@@ -174,6 +181,10 @@ class FdtAgentExecutor:
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
         }
+
+        # v9.23.0: 注入 response_format 硬件约束
+        if getattr(self, "response_format", None):
+            data["response_format"] = {"type": "json_object"}
 
         max_retries = 3
         backoff = 2

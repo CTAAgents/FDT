@@ -396,33 +396,17 @@ def _build_body_sections(state: dict) -> str:
     # P4 终裁
     rr_color = "#16a34a" if rr >= 2 else "#d97706" if rr >= 1 else "#dc2626"
 
-    # 价格偏差检查：入场价 vs 当前市价
+    # 市价确认：入场价 = 当前市价，不存在"等待特定价格"的概念
     current_price = latest_close if latest_close > 0 else (float(scan_item.get("price", 0) or 0) if scan_item else 0)
-    price_valid = current_price > 0 and entry_p > 0
-    price_dev_pct = abs(current_price - entry_p) / entry_p * 100 if price_valid else 0
-    is_buy_dir = str(verdict_dir).lower() in ("buy", "bull", "bullish")
-    if price_valid and price_dev_pct < 0.5:
-        action_label = "✅ 可进场 · 当前价已在入场区域"
-        action_color = "var(--green)"
-        action_cls = ""
-    elif price_valid and price_dev_pct < 2:
-        action_label = "⚠️ 接近入场区 · 当前价距入场价 {:.1f}%".format(price_dev_pct)
-        action_color = "var(--yellow)"
-        action_cls = "warn"
-    elif price_valid:
-        action_label = f"⏳ 等待 · 当前价偏离入场价 {price_dev_pct:.1f}%"
-        action_color = "var(--red)"
-        action_cls = "danger"
-    else:
-        action_label = f"入场价 {_fmt(entry_p)}" if entry_p > 0 else "待定"
-        action_color = "var(--muted)"
-        action_cls = ""
+    entry_market = current_price if current_price > 0 else entry_p  # 优先用当前市价
+    if entry_p > 0 and current_price > 0 and entry_p != current_price:
+        entry_p = current_price  # 强制对齐到市价，杜绝挂单价偏差
+    entry_p = current_price if current_price > 0 else entry_p
 
-    action_html = f'<div class="risk-box {action_cls}" style="margin-top:8px;"><strong style="color:{action_color};">{action_label}</strong>'
-    if price_valid and price_dev_pct >= 0.5:
-        wait_hint = "等回调至入场价附近再执行" if is_buy_dir else "等反弹至入场价附近再执行"
-        action_html += f'<p class="text-sm" style="margin-top:4px;color:var(--muted);">当前价 {_fmt(current_price)}，入场价 {_fmt(entry_p)}。{wait_hint}</p>'
-    action_html += '</div>'
+    action_label = "✅ 市价入场 · 以当前市场价格立即成交"
+    action_color = "var(--green)"
+    action_cls = ""
+    action_hint = f"当前市价 {_fmt(current_price)}，以 market order 执行" if current_price > 0 else ""
 
     verdict_html = (
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">\n'
@@ -433,13 +417,14 @@ def _build_body_sections(state: dict) -> str:
         f'</div>\n'
         f'<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">\n'
         f'<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">{_fmt(current_price)}</span></div>\n'
-        f'<div class="kv-row"><span class="k">入场价</span><span class="v">{_fmt(entry_p)}</span></div>\n'
+        f'<div class="kv-row"><span class="k">市价入场</span><span class="v">{_fmt(entry_p)}</span></div>\n'
         f'<div class="kv-row"><span class="k">目标价</span><span class="v">{_fmt(target_p)}</span></div>\n'
         f'<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">{_fmt(stop_p)}</span></div>\n'
         f'<div class="kv-row"><span class="k">仓位</span><span class="v">{pos_pct:.1f}%</span></div>\n'
         f'</div>\n'
         f'</div>\n'
-        f'{action_html}'
+        f'<div class="risk-box" style="margin-top:8px;"><strong style="color:{action_color};">{action_label}</strong>'
+        f'<p class="text-sm" style="margin-top:4px;color:var(--muted);">{action_hint}</p></div>'
         f'<div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">{_esc(verdict_reason)}</div>'
     )
     sections.append(("P4 闫判官 · 终裁与交易参数", verdict_html, dir_color))

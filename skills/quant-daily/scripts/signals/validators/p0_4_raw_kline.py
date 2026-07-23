@@ -39,6 +39,13 @@ except Exception:
 
 
 def validate_p0_4_raw_kline(r: dict, context) -> None:
+    # 配置开关：关闭时不执行任何伪突破过滤
+    try:
+        from config.settings import ENABLE_PSEUDO_BREAKOUT_FILTER as _ENABLE_P04
+        if not _ENABLE_P04:
+            return
+    except Exception:
+        pass  # 默认启用（向后兼容）
     sig = r.get("signal_type", "")
     if sig not in _BREAKOUT_SIGNALS and not _is_v2_breakout(sig):
         return

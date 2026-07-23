@@ -298,5 +298,105 @@
     "decisions": {},
     "step_results": {},
     "errors": []
+  },
+  {
+    "trace_id": "test-complete",
+    "source_trace_id": "",
+    "started_at": "2026-07-23T20:33:00.991385",
+    "completed_at": "2026-07-23T20:33:00.991385",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-log",
+    "source_trace_id": "",
+    "started_at": "2026-07-23T20:33:00.998366",
+    "completed_at": "2026-07-23T20:33:00.998366",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T20:33:01.355655",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T21:52:35.217455",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T21:58:15.736184",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T22:05:44.760773",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T22:25:00.603321",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T22:30:13.201023",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T22:33:35.931575",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
   }
 ]

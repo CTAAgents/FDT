@@ -133,4 +133,36 @@ class FdtLlm:
             return False
 
 
-__all__ = ["FdtLlm"]
+def parse_llm_output(raw: str, agent_name: str = "", default: dict = None) -> dict:
+    """
+    统一 LLM 输出解析入口。
+    封装 enforce_structured_output 调用，提供兼容回退。
+
+    Args:
+        raw: LLM 原始输出字符串
+        agent_name: Agent 名称，用于 enforce_structured_output 的校验模板
+        default: 解析失败时的默认返回值
+
+    Returns:
+        {"success": bool, "data": dict, "errors": list}
+    """
+    if default is None:
+        default = {}
+    try:
+        from scripts.enforce_structured_output import enforce_structured_output  # type: ignore
+        parsed = enforce_structured_output(raw, agent_name=agent_name)
+        if parsed.get("success"):
+            return {"success": True, "data": parsed["data"], "errors": []}
+        else:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"[{agent_name}] enforce_structured_output 失败: {parsed.get('errors', [])}")
+            return {"success": False, "data": default, "errors": parsed.get("errors", [])}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[{agent_name}] LLM 输出解析异常: {e}")
+        return {"success": False, "data": default, "errors": [str(e)]}
+
+
+__all__ = ["FdtLlm", "parse_llm_output"]

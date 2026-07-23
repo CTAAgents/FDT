@@ -95,7 +95,7 @@ class TqSdkCollector(BaseCollector):
     """天勤 TqSDK 采集器（全能力封装，连接复用）。"""
 
     name = "tqsdk"
-    priority = 98
+    priority = -1
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
@@ -299,8 +299,13 @@ class TqSdkCollector(BaseCollector):
             return bars
         for row in rows:
             try:
+                _dt_val = getattr(row, "datetime")
+                if hasattr(_dt_val, "strftime"):
+                    _date_str = _dt_val.strftime("%Y%m%d")
+                else:
+                    _date_str = str(_dt_val)[:10].replace("-", "").replace("/", "")
                 bars.append(KlineBar(
-                    date=str(getattr(row, "datetime")),
+                    date=_date_str,
                     open=float(getattr(row, "open")),
                     high=float(getattr(row, "high")),
                     low=float(getattr(row, "low")),

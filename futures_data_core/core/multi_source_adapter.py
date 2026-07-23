@@ -36,20 +36,21 @@ from futures_data_core.core.dominant_resolver import DominantResolver
 def _default_collectors() -> list[BaseCollector]:
     """构建默认采集器列表（按优先级升序）。
 
-    🔴 数据源优先级（2026-07-15 调整：Web 前置于 TqSDK 以规避关闭挂死）：
-        0. DataCoreCollector — Data-Core 统一数据接口（v9.3.0 新增，优先级 0，最高）
-        1. TDXCollector(TQ-Local) — 通达信本地TQ-Local（第一数据源，priority=1）
-        2. WebFallbackCollector — 东方财富+新浪（TQ-Local 失败首选降级，priority=2）
-        3. QMTCollector — QMT/xtquant（priority=3）
-        4. TqSdkCollector — 天勤量化（末位兜底，关闭偶发挂死已由超时保护，priority=98）
+    🔴 数据源优先级（2026-07-23 调整：TqSDK 升至第一数据源）：
+        0. TqSdkCollector — 天勤量化（第一数据源，priority=-1，最高）
+        1. DataCoreCollector — Data-Core 统一数据接口（priority=0）
+        2. TDXCollector(TQ-Local) — 通达信本地TQ-Local（priority=0）
+        3. WebFallbackCollector — 东方财富+新浪（priority=1）
+        4. QMTCollector — QMT/xtquant（priority=2）
+        各源数据过期时自动降级（新鲜度检查 >7 日继续下一源）。
     """
     return select_by_priority(
         [
-            DataCoreCollector(),    # 最高优先级：Data-Core 统一接口
-            TDXCollector(),         # 第一数据源：通达信TQ-Local
-            TqSdkCollector(),       # 降级：TqSDK免费版（24h可用）
-            QMTCollector(),         # 降级：QMT/xtquant
-            WebFallbackCollector(), # 最后兜底：东方财富+新浪
+            TqSdkCollector(),       # 第一数据源：天勤量化
+            DataCoreCollector(),    # 降级：Data-Core 统一接口
+            TDXCollector(),         # 降级：通达信TQ-Local
+            WebFallbackCollector(), # 降级：东方财富+新浪
+            QMTCollector(),         # 最后兜底：QMT/xtquant
         ]
     )
 
@@ -152,6 +153,26 @@ class MultiSourceAdapter:
                 # 成功、降级链中断。判空后继续降级，确保落到 Web/QMT/TqSDK。
                 br.record_failure()
                 continue
+            # 🛡️ 2026-07-23: 数据新鲜度检查 — 末根K线距今>7日(≈5交易日)视为过期
+            # DataCore 等源可能返回已到期合约的旧数据（如 SM 停在2026-01-19），
+            # 若无此检查，降级链将在此终止，WebFallback/天勤等有新鲜数据的源不被调用。
+            _bars = data.bars
+            if _bars:
+                _lb = _bars[-1]
+                _ds = getattr(_lb, 'date', '') or ''
+                _clean = _ds[:10].replace('-', '')[:8]
+                if _clean.isdigit():
+                    from datetime import datetime as _dt
+                    _bd = _dt.strptime(_clean, "%Y%m%d")
+                    _sd = (_dt.now() - _bd).days
+                    if _sd > 7:
+                        import logging as _lg
+                        _lg.getLogger(__name__).info(
+                            "[Freshness] %s 末根K线(%s)距今%sd，视为过期，继续降级",
+                            symbol, _ds, _sd,
+                        )
+                        br.record_failure()
+                        continue
             br.record_success()
             return await self._wrap_kline(collector, data, tried)
 
@@ -225,10 +246,14 @@ class MultiSourceAdapter:
     async def _wrap_kline(self, collector: BaseCollector, data, tried: list[str]) -> A2APayload:
         """将成功的 KlineData 包装为 A2APayload 并写入缓存。"""
         grade = "PRIMARY" if collector.name in ("tqsdk", "tdx_tq_local", "qmt_xtquant") else "DAILY"
+        # ── 统一 K 线数据标准化 ──
+        # normalize_kline_row 处理所有采集器的字段名/日期格式差异，确保下游一致消费
+        from futures_data_core.core.field_normalizer import normalize_kline_row
+        normalized_bars = [normalize_kline_row(b.__dict__ if hasattr(b, '__dict__') else b) for b in data.bars]
         payload = A2APayload(
             type=DATA_TYPES["KLINE"],
             runtime_mode="independent",
-            data=data.to_dict(),
+            data={"bars": normalized_bars, "contract": getattr(data, "contract", "")},
         )
         payload.set_grade(grade)
         payload.meta["sources"] = [collector.name]
@@ -236,7 +261,7 @@ class MultiSourceAdapter:
         payload.meta["tried_sources"] = tried
         if self._cache is not None:
             key = self._kline_key(data.symbol, data.period)
-            await self._cache.set(key, data.to_dict())
+            await self._cache.set(key, payload.data)
         return payload
 
     async def _fallback_kline(
