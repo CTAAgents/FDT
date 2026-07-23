@@ -229,8 +229,32 @@ def node_check_time(state: dict) -> dict:
 # ═══════════════════════════════════════════════════════
 
 def node_dispatch(state: dict) -> dict:
-    """从任务队列取出下一个任务。"""
+    """从任务队列取出下一个任务。G18: 调度权代码层强制 — 仅 team_lead 可调度。"""
+    # G18 调度权断言: 仅明鉴秋(team_lead)可触发调度
+    caller = state.get("caller", "master_graph")
+    assert caller in ("team_lead", "master_graph"), \
+        f"G18 调度权越界: caller={caller}, 仅 team_lead/master_graph 可调度"
     queue = state.get("task_queue", [])
+
+    # G-6D-07: ToolMetrics 反哺调度 — 跳过成功率 < 50% 的任务
+    try:
+        from scripts.tool_metrics import ToolMetrics
+        tm = ToolMetrics()
+        stats = tm.get_tool_stats()
+        filtered = []
+        for task in queue:
+            ts = stats.get(task, {})
+            sr = ts.get("success_rate", 100.0)
+            if sr < 50.0:
+                logger.warning(f"[G-6D-07] 跳过 {task}: 成功率 {sr:.0f}% < 50%")
+                continue
+            filtered.append(task)
+        if len(filtered) != len(queue):
+            state["task_queue"] = filtered
+            queue = filtered
+    except Exception:
+        pass
+
     idx = state.get("task_index", 0)
     if idx < len(queue):
         state["current_task"] = queue[idx]

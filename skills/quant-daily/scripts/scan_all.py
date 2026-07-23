@@ -67,12 +67,14 @@ def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") ->
     try:
         payload = asyncio.run(_ds_get_kline(variety, period=period, days=days))
         meta = payload.meta
-        grade = meta.get("data_grade_label", "")
+        grade = meta.get("data_grade_label", 5)
+        grade_str = meta.get("data_grade", "")
         # 先计算数据源标签（穿透到 FDC 的真实底层源：tdx_tq_local / web_fallback / qmt_xtquant / tqsdk）
         _sources_list = meta.get("sources", ["fdc"])
         _source_label = _sources_list[0] if isinstance(_sources_list, list) else str(_sources_list)
-        if grade in ("UNAVAILABLE", "STALE"):
-            return {"success": False, "data": [], "data_source": grade, "error": f"FDC grade={grade}"}
+        # data_grade_label: 0=PRIMARY, 1=SECONDARY, 2=TERTIARY, 3=COMPUTED, 4=STALE, 5=UNAVAILABLE
+        if (isinstance(grade, (int, float)) and grade >= 4) or grade_str in ("UNAVAILABLE", "STALE"):
+            return {"success": False, "data": [], "data_source": grade_str or f"grade={grade}", "error": f"FDC grade={grade}"}
         bars_raw = payload.data.get("bars", [])
         if not bars_raw:
             return {"success": False, "data": [], "data_source": _source_label, "error": "FDC 返回空 K 线"}
@@ -795,7 +797,17 @@ def run_scan(
         for _r in _fail_reasons[:5]:
             print(f"     {_r}")
         print(f"    按R23/R24规则, 当前环境无法提供可靠分析, 任务终止")
-        return {"_meta": {"r24_rejected": True, "fail_reasons": _fail_reasons, "period": period}}
+        return {
+            "_meta": {"r24_rejected": True, "fail_reasons": _fail_reasons, "period": period},
+            "freshness_report": {
+                "status": "ALL_STALE",
+                "total_symbols": len(target_symbols),
+                "valid_symbols": 0,
+                "fail_reasons": _fail_reasons[:10],
+                "summary": f"全局闸门触发: {len(target_symbols)} 品种全部无有效数据, 各数据源均不可靠",
+                "r24_rejected": True,
+            }
+        }
 
     # ── Step 1.5: 实时报价采集（双源融合）──
     quotes_map = {}

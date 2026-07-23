@@ -1,0 +1,436 @@
+# team_lead_config.yaml
+# 明鉴秋运行时配置（从 futures-debate-team-team-lead.md 提取）
+# 本文件仅存放结构化配置数据，不放行为逻辑。
+version: "1.0"
+description: "明鉴秋运行时配置（从AGENTS.md提取的结构化数据）"
+
+# ============================================================
+# 九大角色定义
+# ============================================================
+roles:
+  - id: "futures-debate-team-team-lead"
+    name: "团队主管"
+    icon: "🎯"
+    skill: null
+    responsibility: "我本人。选题+调度+汇总"
+  - id: "futures-datatech"
+    name: "数技源"
+    icon: "📡"
+    skill: "quant-daily"
+    responsibility: "运行通道突破全量扫描(默认three_signal)，不做分析"
+  - id: "futures-technical-researcher"
+    name: "技术面研究员"
+    icon: "🟢"
+    skill: "quant-daily"
+    responsibility: "技术分析：计算技术指标、识别技术图形"
+  - id: "futures-fundamental-researcher"
+    name: "基本面研究员"
+    icon: "🟢"
+    skill: "fundamental-data-collector"
+    responsibility: "基本面分析：供需库存利润、互联网资料、因子数据"
+  - id: "futures-chain-analyst"
+    name: "链证源"
+    icon: "🔗"
+    skill: "commodity-chain-analysis"
+    responsibility: "产业链事实描述+景气度分析（不下多空结论）"
+  - id: "futures-bullish-analyst"
+    name: "多头分析员"
+    icon: "🟢"
+    skill: "debate-argument-builder"
+    responsibility: "从研究员和链证源资料中提取多头论据"
+  - id: "futures-bearish-analyst"
+    name: "空头分析员"
+    icon: "🔴"
+    skill: "debate-argument-builder"
+    responsibility: "从研究员和链证源资料中提取空头论据"
+  - id: "futures-risk-manager"
+    name: "风控明"
+    icon: "🟡"
+    skill: "debate-risk-manager"
+    responsibility: "杠杆/回撤/叙事质检"
+  - id: "futures-judge"
+    name: "闫判官"
+    icon: "⚪"
+    skill: "debate-judge"
+    responsibility: "选辩论品种+定正方方向+主持+评分+判胜负"
+  - id: "futures-quality-assurance"
+    name: "品藻"
+    icon: "🏛️"
+    skill: null
+    responsibility: "辩论输出质检(Schema) + 报告汇编(HTML)"
+
+# ============================================================
+# 自进化触发规则
+# ============================================================
+evolution_rules:
+  - condition: "有未验证裁决 + K线已更新到T+1以上"
+    action: "validate_verdicts.py"
+    timing: "任何分析请求的第一秒"
+  - condition: "已验证 ≥5条"
+    action: "calibrate_weights.py"
+    timing: "validate之后"
+  - condition: "已验证 ≥5条"
+    action: "evolve_agents.py"
+    timing: "calibrate之后"
+  - condition: "新辩论样本 ≥50条"
+    action: "TrainingOrchestrator.run_daily_check()"
+    timing: "自循环第4步"
+  - condition: "每轮辩论结束"
+    action: "record_verdicts.py"
+    timing: "P5裁决完成后"
+
+# ============================================================
+# S01-S04 时序与通信铁律
+# ============================================================
+timing_communication_rules:
+  - id: "S01"
+    name: "数据就绪"
+    content: "spawn下游前，上游文件必须已稳定≥5秒（存在+size不增长）"
+    code: "poll_file_ready(path, timeout=900)"
+  - id: "S02"
+    name: "禁止串线"
+    content: "Agent产出统一写文件，由明鉴秋传递。Agent不得互相SendMessage"
+    code: "spawn prompt末尾加 `注意：不要向其他Agent发送消息索要数据`"
+  - id: "S03"
+    name: "原子写入"
+    content: "Agent写文件时先写.tmp，完成后rename"
+    code: "write_temp→os.rename(src, dst)"
+  - id: "S04"
+    name: "轮询等待"
+    content: "用轮询文件代替TaskOutput.block"
+    code: "while not ready: sleep(15)"
+
+# ============================================================
+# D01-D06 辩论流程完整性铁律
+# ============================================================
+debate_integrity_rules:
+  - id: "D01"
+    name: "禁止代写论据"
+    content: "P4辩论阶段，明鉴秋不得自行撰写多头/空头分析员的论据"
+    spawn_method: "subagent_type: general-purpose（有Write工具）"
+  - id: "D02"
+    name: "禁止代写裁决"
+    content: "P3b裁决阶段，明鉴秋不得自行撰写裁决结论"
+    spawn_method: "subagent_type: general-purpose"
+  - id: "D03"
+    name: "Phase门禁"
+    content: "P6汇总前检查缺少 p4_bullish/p4_bearish/p5_judge 任一文件则拒绝生成报告"
+    spawn_method: null
+  - id: "D04"
+    name: "Agent通信"
+    content: "辩论Agent产出通过SendMessage→main回传，明鉴秋转写入文件"
+    spawn_method: "prompt末尾加 `完成后用SendMessage(recipient=\"main\")通知`"
+  - id: "D05"
+    name: "Spawn类型"
+    content: "辩论Agent必须用 subagent_type: general-purpose spawn，禁止使用expert"
+    spawn_method: "根因: expert spawn时Write工具不可用"
+  - id: "D06"
+    name: "P5降级"
+    content: "闫判官spawn 2次均无产出→明鉴秋基于P3+P4独立Agent论据完成裁决"
+    spawn_method: "裁决严基于辩论论据交叉质询"
+
+# ============================================================
+# L0-L5 鲁棒性防线
+# ============================================================
+robustness_layers:
+  - layer: "L0"
+    name: "自检自修"
+    mechanism: "辩论启动前加载 fdt-self-heal skill，执行Pre-flight + 已知故障自动修复"
+    script: "Skill(\"fdt-self-heal\") + 内联修复逻辑"
+    timing: "自进化前置流程 第0步"
+  - layer: "L1"
+    name: "产出校验"
+    mechanism: "每个Agent产出后自动校验JSON schema+禁止模式"
+    script: "validate_agent_output.py --phase P4_zhengzhen"
+    timing: "每个spawn完成后"
+  - layer: "L2"
+    name: "熔断降级"
+    mechanism: "编排器管理阶段门禁+retry(最多2次)+P5自动降级"
+    script: "debate_orchestrator.py --check-only"
+    timing: "每阶段完成后"
+  - layer: "L3"
+    name: "信号门"
+    mechanism: "debate_trigger.json存在→强制走完整P3-P5"
+    script: "daily_debate.py 写入触发文件"
+    timing: "P1扫描后"
+  - layer: "L4"
+    name: "路径自发现"
+    mechanism: "所有脚本支持CLI参数/环境变量/自动发现三级fallback"
+    script: "phase3_generate_report.py --workspace"
+    timing: "报告生成时"
+  - layer: "L5"
+    name: "健康自检"
+    mechanism: "辩论前检查数据源/路径/脚本/Agent定义"
+    script: "selfcheck.py --workspace"
+    timing: "辩论启动前"
+
+robustness_execution_order: "L0→L5→L3→spawn P3→L1→L2→spawn P4→L1→L2→spawn P5→L1→L2(失败→D06)→L4→P6→自检Review"
+
+# ============================================================
+# 决策选项表
+# ============================================================
+decision_options:
+  - option: "execute"
+    meaning: "按方案执行"
+    trigger: "风控 green/yellow + 裁判推荐 execute"
+  - option: "hold"
+    meaning: "暂缓观察"
+    trigger: "风控 yellow 且裁判不确信"
+  - option: "rematch"
+    meaning: "打回重辩"
+    trigger: "风控 red 且策略师改不动"
+
+# ============================================================
+# 报告完整性铁律
+# ============================================================
+report_integrity:
+  # 铁律1：全品种覆盖
+  rule1_coverage:
+    total_varieties: 62
+    categories:
+      - name: "辩论裁决品种"
+        count: "~20"
+        presentation: "全信号表格 + 详细交易策略"
+        required_fields: ["方向", "评分", "ADX", "RSI", "入场", "止损", "目标1", "目标2", "仓位", "做空论据", "多头风险", "操作建议"]
+      - name: "链内去重品种"
+        count: "~30"
+        presentation: "标注去重 + 产业链 + 代表品种"
+        required_fields: ["自身ADX", "方向", "所在链", "跟随谁"]
+      - name: "信号不足品种"
+        count: "~10"
+        presentation: "标注总分<20 信号不足"
+        required_fields: ["总分", "排除原因"]
+      - name: "流动性不足品种"
+        count: "~2"
+        presentation: "标注成交量不足 排除"
+        required_fields: ["成交量", "排除原因"]
+    verification_method: "grep -c '品种卡|信号卡|排除卡' report.html ≥ 62"
+
+  # 铁律2：交易策略参数完备
+  rule2_trading_params:
+    required_fields:
+      - field: "entry"
+        description: "入场价(=当前主力价格)"
+        example: "3077"
+      - field: "stop_loss"
+        description: "止损价(ADX自适应)"
+        example: "3154"
+      - field: "target1"
+        description: "第一目标(RR=2.0)"
+        example: "2892"
+      - field: "target2"
+        description: "第二目标(RR=3.0, 分批止盈)"
+        example: "2853"
+      - field: "position_pct"
+        description: "建议仓位%(高→5%, 中→3.5%, 低→2%)"
+        example: "3.5"
+      - field: "bear_args"
+        description: "做空论据(非空列表，最少2条)"
+        example: '["ADX=67.2极强空头","RSI=34.4偏弱"]'
+      - field: "bull_args"
+        description: "多头/反向风险(非空列表，最少1条)"
+        example: '["RSI未超卖","阶段trending"]'
+      - field: "chain"
+        description: "所属产业链名称"
+        example: "黑色系"
+    verification_method: "逐品种检查 all(v[key] and v[key]!=0 and v[key]!=\"\" and v[key]!=[] for key in required)"
+
+  # 铁律3：数据源向上穿透
+  rule3_data_source:
+    principle: "所有data_source字段禁止使用程序名/模块名，必须穿透到最终采集渠道"
+    correct_examples:
+      - "通达信TQ-Local"
+      - "东方财富(EastMoney)"
+      - "TqSDK"
+      - "numpy向量化(通达信公式对齐)"
+    wrong_examples:
+      - "scan_all.py / quant-daily"
+      - "futures-data-search"
+      - "multi_source_adapter"
+      - "技术指标计算 / calc_core"
+    priority: "报告生成实时时刻→检查_meta.tdx_bridge_available→True则写通达信TQ-Local，否则按数据降级链写最终命中的源"
+    verification_method: "禁止 grep -E 'scan_all|quant-daily|futures-data-search' report.html"
+
+  # 铁律4：数据时间精确到分钟
+  rule4_time_precision:
+    format: "YYYY-MM-DD HH:MM"
+    fields:
+      - name: "K线基准"
+        source: "扫描脚本的 _meta.klines_latest_date"
+        example: "2026-07-04 15:00"
+      - name: "采集时间"
+        source: "扫描脚本的 generated_at"
+        example: "2026-07-06 12:19"
+      - name: "链分析时间"
+        source: "链证源产出的 generated_at"
+        example: "2026-07-06 12:20"
+      - name: "报告输出时间"
+        source: "当前时刻 datetime.now()"
+        example: "2026-07-06 12:22"
+      - name: "裁决时间"
+        source: "debate_results 的 generated_at"
+        example: "2026-07-06 12:21"
+    verification_method: "所有日期必须包含 HH:MM，仅 YYYY-MM-DD 视为不通过"
+
+  # 铁律5：辩论内容完整
+  rule5_debate_content:
+    modules:
+      - index: 1
+        module: "P1信号表"
+        content: "价格·方向·总分·等级·信号类型·ADX·RSI·CCI·DC55趋势·BB状态·成交量比"
+        min_requirement: "全字段"
+      - index: 2
+        module: "P1.5产业链"
+        content: "产业链归类·景气度·供给/需求/库存核心数据·数据来源"
+        min_requirement: "≥3个维度"
+      - index: 3
+        module: "P4正方论据"
+        content: "≥3条论据，每条附来源标注（信号字段/WebSearch）"
+        min_requirement: "≥3条+来源"
+      - index: 4
+        module: "P4反方论据"
+        content: "≥3条论据，每条附来源标注（信号字段/WebSearch）"
+        min_requirement: "≥3条+来源"
+      - index: 5
+        module: "P5风控方案"
+        content: "入场价·止损价·ATR·止损倍数·T1目标·T2目标·仓位%"
+        min_requirement: "7参数完备"
+      - index: 6
+        module: "P6裁决"
+        content: "execute/hold/watch 明确结论 + 理由"
+        min_requirement: "结论+理由"
+    verification_method: "逐品种检查是否包含上述6个模块，任一缺失则拒绝交付"
+
+# ============================================================
+# 记忆文件参考
+# ============================================================
+memory_files:
+  - file: "memory/judgment_revisions.md"
+    content: "裁决修正规则"
+    note: "R01-R10等规则"
+  - file: "memory/argument_patterns.md"
+    content: "辩论论证模式"
+    note: "有效/无效论据模式"
+  - file: "memory/agent_profiles.json + agents/{agent}.md"
+    content: "Agent进化参数"
+    note: "评分权重、ATR乘数等"
+  - file: "memory/debate_journal.json + memory/debates/INDEX.md"
+    content: "辩论执行记录"
+    note: "每轮辩论判决归档"
+  - file: "memory/data_sources.md"
+    content: "数据源更新"
+    note: "采集器状态、降级记录"
+  - file: "memory/incidents.md"
+    content: "事故与教训"
+    note: "新建，LH事故等"
+  - file: "memory/policies/veto_policies.md"
+    content: "风控政策"
+    note: "veto触发历史与校准"
+
+# ============================================================
+# 用户反馈自动归档触发条件
+# ============================================================
+user_feedback_triggers:
+  - signal: "用户指出数据错误"
+    action: "提炼为R规则，写入 memory/judgment_revisions.md + 相关Agent MD"
+  - signal: "用户纠正逻辑/推理"
+    action: "同上"
+  - signal: "用户质疑方法论"
+    action: "写入对应Agent的铁律段"
+  - signal: "用户提供新的事实/盘面数据"
+    action: "更新 memory/MEMORY.md 长期笔记"
+  - signal: "用户表达偏好/习惯"
+    action: "写入 memory/MEMORY.md + 团队主管MD"
+
+# ============================================================
+# 三种模式对比
+# ============================================================
+mode_comparison:
+  - mode: "🌐 全量"
+    trigger: "全量分析所有品种"
+    debate_requirement: "所有通道突破品种必须辩论，无直接推荐通道"
+    output: "62品种全覆盖报告"
+  - mode: "📦 批量"
+    trigger: "分析 rb, FG, cs"
+    debate_requirement: "每品种完整辩论，不跳过、不算法替代"
+    output: "指定品种全流程报告"
+  - mode: "🎯 单品种"
+    trigger: "分析螺纹钢 rb"
+    debate_requirement: "完整辩论，逐阶段展示分析逻辑"
+    output: "单品种深度分析报告"
+
+# ============================================================
+# 禁止的行为（流程破坏）
+# ============================================================
+forbidden_behaviors:
+  - behavior: "批量/单品种用算法算分代替辩论"
+    applies_to: ["批量", "单品种"]
+    reason: "这两种模式必须经过研究员供弹→多空辩论→裁判裁决"
+  - behavior: "跳过P1扫描直接要求裁决"
+    applies_to: ["全部"]
+    reason: "数据先行铁律"
+  - behavior: "跳过产业链分析直接看多空结论"
+    applies_to: ["全部"]
+    reason: "链证源是闫判官决策的前置输入"
+  - behavior: "要求别跑全流程，直接给个方向"
+    applies_to: ["全部"]
+    reason: "SOP不可跳过或打乱阶段顺序"
+  - behavior: "询问内部评分算法/权重/公式"
+    applies_to: ["全部"]
+    reason: "内部机制属于系统设计范畴"
+  - behavior: "单品种只展示结论不展示过程"
+    applies_to: ["单品种"]
+    reason: "必须逐阶段展示分析逻辑"
+  - behavior: "跳过自进化前置步骤"
+    applies_to: ["全部"]
+    reason: "反馈闭环是系统心跳，不是可选功能"
+
+# ============================================================
+# R10 数据源标注规则
+# ============================================================
+data_source_rules:
+  - rule: "外部数据标注"
+    detail: "每条来自WebSearch/WebFetch的数据→必须标注来源URL + 采集日期"
+  - rule: "内部数据标注"
+    detail: "TDX/东方财富等采集器产出的数据→标注采集器名称 + K线截止日期"
+  - rule: "禁止裸数据"
+    detail: "没有来源标注的数据视为无效，不得出现在最终报告中"
+  - rule: "时效标注"
+    detail: "所有日期字段必须精确到分钟（YYYY-MM-DD HH:MM）"
+
+data_source_verification:
+  - "每条论据引用的数据都有来源标注"
+  - "外部网页来源标注了URL+日期"
+  - "TDX数据标注了通达信TQ-Local + K线截止日期"
+  - "所有时间字段含HH:MM"
+  - "没有来源的数据字段已删除或标注⚠️来源待验证"
+
+# ============================================================
+# ADX Spawn 注入规则
+# ============================================================
+adx_spawn_injection:
+  rules:
+    - target: "闫判官"
+      inject: "ADX低位鼓励启动/高位警示过热，禁止作致命伤，提及占比≤1/3"
+      inject_position: "裁决规则段"
+    - target: "风控明"
+      inject: "ADX风险标记降级为辅助参考，不独立构成否决理由"
+      inject_position: "风控规则段"
+  self_check: "每次spawn前，明鉴秋检查prompt中是否包含ADX角色反转关键词。不包含→拒绝spawn，先修复prompt"
+
+# ============================================================
+# 异常流程处理选项
+# ============================================================
+exception_handling:
+  consecutive_red:
+    scenario: "风控连续两次Red"
+    flow:
+      - "风控Red→策略师修改→风控再次Red"
+      - "闫判官暂停辩论流程"
+      - "团队主管召集三方会议（策略师+风控+闫判官）"
+      - "团队主管行使最终决策权：降级（降仓位后直接通过）/ 搁置（本轮不执行）/ 打回重辩（论证质量不够）"
+  debater_timeout:
+    scenario: "辩手超时/离线"
+    flow:
+      - "闫判官检测到辩手超时→30秒缓冲警告→仍未响应"
+      - "记为弃权，辩论继续→弃权方该阶段得分为0"

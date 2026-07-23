@@ -1,0 +1,167 @@
+# judge_config.yaml
+# 闫判官运行时配置（从 agents/futures-judge.md 提取）
+version: "2.0"
+description: "闫判官运行时配置 — 评分模型、裁决修正、自校准、收敛控制"
+
+# ============================================================
+# 六维加权评分 — 评分模型核心
+# ============================================================
+scoring:
+  dimensions:
+    - name: "逻辑严谨度"
+      weight: 0.25
+      field: "logic"
+      criteria: "论证有无断层、因果是否成立、有无偷换概念"
+      family_weighted: false
+    - name: "证据充分性"
+      weight: 0.20
+      field: "evidence"
+      criteria: "是否引用通道突破信号数据+辅助验证数据、数据口径正确、非纯叙事"
+      family_weighted: true
+      diversity_bonus: { ge: 3, value: 1.0 }
+      diversity_penalty: { le: 1, value: -1.0 }
+    - name: "量化一致性"
+      weight: 0.15
+      field: "quantitative_consistency"
+      criteria: "辩手观点是否与所引用的策略数据吻合；论据的策略族标注是否准确"
+      family_weighted: true
+      labeling_correct_bonus: 0.5
+      labeling_error_penalty: -1.0
+    - name: "反驳有效性"
+      weight: 0.20
+      field: "rebuttal"
+      criteria: "是否正面回应对方核心论点、有无遗漏"
+      family_weighted: false
+    - name: "风险意识"
+      weight: 0.10
+      field: "risk_awareness"
+      criteria: "是否给出合理止损/仓位、区分基准与尾部情景"
+      family_weighted: false
+    - name: "表达与结构"
+      weight: 0.10
+      field: "presentation"
+      criteria: "论点清晰、层次分明、不超时"
+      family_weighted: false
+  draw_threshold: 5.0  # 分差<5分可判draw
+  family_weighting:
+    impact_map:
+      HIGH: 3.0
+      MEDIUM: 1.5
+      LOW: 0.5
+
+# ============================================================
+# 阈值配置
+# ============================================================
+thresholds:
+  adx:
+    low: 20
+    medium: 40
+    high: 60
+  rsi:
+    oversold: 30
+    near_oversold: 35
+  divergence:
+    low: 0.3       # 0.0~0.3: 高度收敛
+    high: 0.7      # 0.7~1.0: 严重分歧→置信度降一档
+  convergence:
+    spread_decisive: 15    # ≥15 提前终止辩论
+    spread_converged: 3    # ≤3 结束辩论
+
+# ============================================================
+# 裁决修正规则 — 每次输出裁决前逐条核验
+# ============================================================
+correction_rules:
+  - id: R01
+    name: "超卖保护"
+    severity: P0
+    trigger: "空头方向 RSI < 30"
+    action: "强制降置信度为SELL中，禁止标HIGH"
+  - id: R02
+    name: "超卖标记"
+    severity: P1
+    trigger: "空头方向 RSI < 35 且 置信度=高"
+    action: "添加⚠️超卖风险标签，仓位减半"
+  - id: R03
+    name: "链内去重"
+    severity: P0
+    trigger: "Top5推荐中同链出现≥2品种"
+    action: "只保留评分最高的1个，其余降级候补"
+  - id: R04
+    name: "链覆盖"
+    severity: P1
+    trigger: "Top5覆盖链数<5"
+    action: "从SORTED候补中补入未覆盖链的最高分品种"
+  - id: R05
+    name: "安全边际排序"
+    severity: P1
+    trigger: "裁决最终排序阶段"
+    action: "使用 composite = ADX_adj × (1 + max(0,|RSI-30|)/30) 替代纯评分排序"
+  - id: R06
+    name: "数据时效检查"
+    severity: P0
+    trigger: "引用的外部数据>3天"
+    action: "标注'可能已过时'；>5天禁止作主论据"
+  - id: R07
+    name: "反向证据强制检索"
+    severity: P0
+    trigger: "辩论裁决前"
+    action: "搜索与裁决方向相反的最新数据；反向强度≥正向50%→rematch"
+  - id: R09
+    name: "异常值引用禁令"
+    severity: P0
+    trigger: "数据标记为'异常/过滤/unknown'"
+    action: "禁止作论据；如需引用须标注+独立验证"
+
+# ============================================================
+# 评分自校准参数 — 从 memory/calibration.json 自动加载
+# ============================================================
+calibration:
+  learning_rate: 0.30       # 保守型，每轮只移动30%错位量
+  clamp_max: 10.0           # 每个维度修正±10分
+  min_samples: 5            # ≥5个样本才启用该维度修正
+  dimensions:
+    - name: "置信度修正"
+      sub: ["high", "medium", "low"]
+    - name: "ADX区间修正"
+      sub: ["ADX≥70", "50≤ADX<70"]
+    - name: "RSI区间修正"
+      sub: ["RSI<30", "30≤RSI<35"]
+    - name: "冲突修正"
+      description: "conflict标识的品种是否历史胜率差异大"
+    - name: "产业链修正"
+      description: "14条链各有一条adj"
+  direction_bias:
+    bear: "空头系统性偏差修正"
+
+# ============================================================
+# 结构化论点验证参数
+# ============================================================
+structured_args:
+  validation:
+    required_fields: ["id", "family", "claim", "evidence", "reasoning", "impact"]
+    family_range: ["F1", "F2", "F3", "F4", "F5"]
+    argument_count_min: 2
+    argument_count_max: 5
+    fallback_penalty: -1.0
+
+# ============================================================
+# 硬性边界检查参数
+# ============================================================
+boundary_check:
+  # 如果某一方超过此比例的论点被标记为无效 → 扣减"证据充分性"维度分数
+  invalid_ratio_threshold: 0.5
+  evidence_penalty: -3.0
+
+# ============================================================
+# 收敛控制
+# ============================================================
+convergence:
+  rules:
+    - condition: "spread >= spread_decisive"
+      action: "提前终止辩论，认可当前胜方"
+    - condition: "spread <= spread_converged"
+      action: "结束辩论进入策略阶段"
+    - condition: "rounds >= max_rounds"
+      action: "强制结束按当前评分判决"
+    - condition: "other"
+      action: "追加一轮（标注'分歧未收敛，追加第N轮'）"

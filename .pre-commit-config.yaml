@@ -1,0 +1,29 @@
+# GAP-HOOK-001: Harness pre-commit hook 接入
+# 安装: pre-commit install
+# 手动运行: pre-commit run --all-files
+repos:
+  - repo: local
+    hooks:
+      - id: harness-check
+        name: 🔧 Harness 工程规范检查
+        description: "运行 12 项检查 + 10 条反模式检测"
+        entry: python scripts/pre_commit_harness_check.py
+        language: system
+        stages: [commit]
+        pass_filenames: false
+
+      - id: ruff-check
+        name: 🐍 Ruff 代码检查
+        entry: ruff check --fix
+        language: system
+        stages: [commit]
+        types: [python]
+        pass_filenames: true
+
+      - id: ruff-format
+        name: 🐍 Ruff 格式化
+        entry: ruff format
+        language: system
+        stages: [commit]
+        types: [python]
+        pass_filenames: true

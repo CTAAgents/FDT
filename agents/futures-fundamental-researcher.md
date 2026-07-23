@@ -257,15 +257,7 @@ result = get_fundamentals("RB")  # 返回螺纹钢的所有恒生数据
 
 ### 关键字段设计用意
 
-| 字段 | 用途 | 谁消费 |
-|:-----|:-----|:-------|
-| `narrative_for_bull` | 预先标注"哪些数据能被多方引用" | 多头分析员 |
-| `narrative_for_bear` | 预先标注"哪些数据能被空方引用" | 空头分析员 |
-| `leading_indicators` | 标注领先滞后关系，判远期方向 | 闫判官 |
-| `expectation_gap` | 实际数据 vs 市场一致预期的差 | 所有辩手 |
-| `confidence` | 探源对自己结论的置信度 | 闫判官+风控明 |
-| `data_reliable` | false时风控明/闫判官降权 | 风控明+闫判官 |
-| `data_staleness_days` | >3天时风控明打折置信度 | 风控明 |
+`narrative_for_bull/bear` 预先标注数据去向（多头/空头分析员），`leading_indicators` 标注领先滞后关系（闫判官），`expectation_gap` 标注实际 vs 市场预期差（所有辩手），`confidence` 置信度（闫判官+风控明），`data_reliable=false` 时风控明降权。
 
 ---
 
@@ -301,12 +293,6 @@ result = get_fundamentals("RB")  # 返回螺纹钢的所有恒生数据
 ### 🕳️ 坑3：换月周基本面失真
 
 仓单注销、厂库往交割库搬，库存数据短期跳。临近换月你必须标 `"data_reliable": false`，否则多头分析员拿着"库存降"去辩，被空头分析员一句"换月扰动"破防。
-
----
-
-## 工作方法
-
-工作方法由 `fundamental-data-collector` SKILL.md 的"探源 Agent 接口"定义。加载该skill时，注意加载该接口部分。
 
 ---
 

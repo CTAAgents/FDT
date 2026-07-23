@@ -26,7 +26,7 @@ agents:
     validation_config:
       pydantic_model: "contracts.VerdictItem"
       json_schema: "docs/schemas/VerdictItem.json"
-      required_fields: ["symbol", "direction", "confidence", "entry_price", "stop_loss"]
+      required_fields: ["per_symbol", "overall_direction", "overall_reason"]
 
   judge_direction:
     display_name: 闫判官初判
@@ -163,7 +163,7 @@ agents:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["symbol", "signals", "conclusion"]
+      required_fields: ["per_symbol", "summary"]
 
   fundamental_researcher:
     display_name: 探源（基本面研究员）
@@ -181,7 +181,7 @@ agents:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["symbol", "supply_demand", "inventory", "conclusion"]
+      required_fields: ["per_symbol", "summary"]
 
   # ── 风控组 ──
   risk_manager:
@@ -203,7 +203,7 @@ agents:
     validation_config:
       pydantic_model: "contracts.RiskOutput"
       json_schema: "docs/schemas/RiskOutput.json"
-      required_fields: ["risk_color", "max_leverage", "reasons"]
+      required_fields: ["approved", "risk_color", "max_position", "warnings"]
 
   # ── 主管组 ──
   debate_team_team_lead:

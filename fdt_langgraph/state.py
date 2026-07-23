@@ -81,6 +81,9 @@ class DebateState(TypedDict, total=False):
     _original_symbols: list                 # 保存完整品种列表，循环中用
     associated_symbols: dict                # {primary_symbol: [associated_symbols]} 关联品种
 
+    # v9.22.3: P0b 数据新鲜度闸门
+    freshness_report: Optional[dict]        # 数据新鲜度报告（R24闸门结果）
+
     # v9.14.0: Phase 3 辩论输出质量治理
     quality_report: Optional[dict]          # 当前质检结果 QualityReport
     rework_counters: dict                   # {symbol: retry_count} 品种级重试计数
@@ -134,5 +137,6 @@ def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
         rework_counters={},
         rework_pending_symbols=[],
         phase_timings=[],
+        freshness_report=None,
         quality_metrics=None,
     )

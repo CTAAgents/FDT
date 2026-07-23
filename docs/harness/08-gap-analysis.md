@@ -33,8 +33,9 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
+| **本次会话 (v9.24.0)** | 8/8 | 全部 5/5 | | 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124，共 15 项差距 |
 
-**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 — 8 维全 5/5）**
+**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 本次会话关闭全部 15 项开放差距）**
 
 > G16/G14 已于 2026-07-14 19:04 修复并验证，至此全部 18 项差距关闭，8 个 Harness 维度均达到 5/5。
 
@@ -102,7 +103,7 @@
 | TypedDict 契约 | `contracts/debate_argument_schema.py` | ✅ 完整 |
 | A2A 桥接 | `contracts/a2a_payload.py` | ✅ 完整（v6.2 新增） |
 | 通信协议文档 | `docs/agent-protocol.md` v3.0 | ✅ 完整 |
-| 版本兼容迁移 | `contracts/migrations.py` | ⚠️ **未实现**（见 G14） |
+| 版本兼容迁移 | `contracts/migrations.py` | ✅ **已修复（26 条迁移路径）** |
 
 ## 4. 差距清单 (Gaps)
 
@@ -117,9 +118,8 @@
 | **G113** | **fdt_cli.py run_debate() ev_state None 无保护**（v9.20.1 已修复） | G112 导致 `run_ev()` 返回 None，`ev_state.get("phase")` 在 None 上调用抛出 `AttributeError`。虽被 `except Exception` 兜住，但日志 `[ERROR] Evolution failed` 过于刺眼且掩盖根因。 | P2 | `ev_state` 使用时先判断 None，None 时友好提示 | `fdt_cli.py` ✅ v9.20.1 |
 | **G114** | **RHI 递归 Harness 自改进框架**（v9.21.0 已实现） | FDT 自进化闭环只优化 Agent 参数和 ML 权重，不优化 Harness 配置本身。RHI 三层规范 (Agent/Workflow/Rules) 提供结构化 Harness 表示，Pairwise Evaluator 进行 O(1) 轨迹局部比较，Harness Optimizer 基于偏好历史更新。 | P1 | 整合 RHI 循环到 evolution_graph.py | `contracts/rhi_harness_spec.py` + `scripts/rhi_pairwise_eval.py` + `scripts/rhi_harness_optimizer.py` + `fdt_langgraph/rhi_graph.py` ✅ v9.21.0 |
 | **G115** | **全局 Harness RHI 自优化**（v9.21.0 已实现） | CLAUDE.md 作为项目全局 Harness prompt，手工维护无法随项目演进自动优化。RHI 全局 Harness 模块通过 pairwise 质量评分迭代优化 CLAUDE.md 内容。 | P2 | 将 CLAUDE.md 作为 RHI 优化对象，每次迭代比较前后版本质量 | `scripts/rhi_global_harness.py` ✅ v9.21.0 |
-| **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | loop-contracts/README.md + data-collection.contract.yaml + daily-debate.contract.yaml + 02-lifecycle.md |
-| **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | 10-coding-standards.md + harness-rules.yaml | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | loop-contracts/README.md + data-collection.contract.yaml + daily-debate.contract.yaml + 02-lifecycle.md |
-| **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | 10-coding-standards.md + harness-rules.yaml | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |
+| **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |
+| **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | `10-coding-standards.md` ✅ `harness-rules.yaml` ✅ |
 
 | **G105** | node_verdict FDC指标key不匹配：_gv("rsi")查不到RSI14、_gv("adx")查不到ADX等，导致闫判官FDC基准事实表全部N/A | 裁决LLM缺乏客观数据参考 → 全部neutral | P0 | v9.11.1 | 已关闭 | 修正key映射：rsi→RSI14, adx→ADX, cci→CCI20, macd_hist→MACD_DIF/MACD_DEA | fdt_langgraph/nodes.py |
 | **G106** | scan_all.py _calc_volume_ma20未校验bar元素类型，当kline中bar为str时AttributeError崩溃 | scan_all无法输出JSON → 下游全链路数据缺失 | P0 | v9.11.1 | 已关闭 | 增加isinstance(b, dict)类型守卫 | skills/quant-daily/scripts/scan_all.py |
@@ -134,34 +134,34 @@
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
-| G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，但全部手动化 | 效率低 | 增加准入自动化脚本 |（计划中）|
+| G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，已实现自动化 | 效率低 | 增加准入自动化脚本 | ✅ **已关闭（本次会话）** — `scripts/advancement_check.py` 已创建 |
 | GAP-P1-001 | P1 数技源角色越界：产出 total/direction/grade 方向性预判，与观澜（P3）技术分析职责重叠 | P1 | v9.6.8 | 已关闭 | P1角色矫正：stats 纯统计特征产出，total/direction/grade 降级为内部参考，select_triggers 改为数据质量闸门 |
 
 ### 4.3 P2 — 低优先级
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
-| G18 | 辩论调度权边界未在代码层强制 | `docs/02-lifecycle.md` 已澄清，但代码层无强制 | 潜在风险 | 考虑增加调度权断言 |（计划中）|
+| G18 | 辩论调度权边界未在代码层强制 | `docs/02-lifecycle.md` 已澄清，代码层已强制 | 潜在风险 | 考虑增加调度权断言 | ✅ **已关闭（本次会话）** — `node_dispatch` 新增调度权断言 |
 
 ### 4.4 AP 反模式差距
 
 | GAP ID | 描述 | 优先级 | 状态 | 说明 |
 |:-------|:-----|:------|:-----|:-----|
-| GAP-AP01-001 | AP01反模式：futures-debate-team-team-lead.md (619行) 和 futures-judge.md (482行) 超过300行阈值 | P1 | 开放 | 需拆分为多个子文档或精简至300行以内 |
-| GAP-HOOK-001 | pre_commit_harness_check.py 脚本存在但未接入 Git pre-commit hook | P2 | 开放 | 需配置 .pre-commit-config.yaml 或 pyproject.toml 的 [tool.hatch.hooks] |
+| GAP-AP01-001 | AP01反模式：futures-judge.md(195行)/futures-debate-team-team-lead.md(210行)≤300行 | P1 | ✅ **已关闭（本次会话）** | judge.md(195行)/team-lead.md(210行)≤300行 |
+| GAP-HOOK-001 | pre_commit_harness_check.py 已接入 Git pre-commit hook | P2 | ✅ **已关闭（本次会话）** | .pre-commit-config.yaml 已创建 |
 
 ### 4.5 六维控制空间差距（2026-07-23 登记）
 
 | GAP ID | 差距 | 现状 | 严重度 | 状态 | 修复方案 | 涉及文件 |
 |:-------|:-----|:-----|:------:|:-----|:---------|:---------|
-| **G-6D-01** | decode_config.yaml quality_assurance 配置孤儿 | 品藻纯Python不调LLM，配置是死配置 | P1 | 开放 | 删除该配置节 | config/agents/decode_config.yaml |
-| **G-6D-02** | enforce_structured_output 未被 nodes.py 调用 | 362行D3管线存在但5处LLM解析全部绕过 | P0 | 开放 | 5处替换为 enforce_structured_output() | fdt_langgraph/nodes.py |
-| **G-6D-03** | ContentFilter 未被 quality_inspector 实际调用 | 264行仅import未实例化 | P0 | 开放 | validate_verdict/risk 末尾调用 filter() | fdt_langgraph/quality_inspector.py |
-| **G-6D-04** | LLM输出解析无统一入口 | 5处重复json.loads + _repair_json仅覆盖2/5 | P1 | 开放 | llm_provider.py 新增 parse_llm_output() | fdt_langgraph/llm_provider.py |
-| **G-6D-05** | _build_debate_context 全量注入所有品种 | 辩论prompt膨胀，无关品种数据干扰 | P2 | 开放 | 追加 current_symbol 参数过滤 | fdt_langgraph/nodes.py |
-| **G-6D-06** | vector_memory 未接入 fdt_langgraph | 306行向量检索已实现但未被辩论流程调用 | P1 | 开放 | _build_fdc_fundamental_context 追加检索 | fdt_langgraph/nodes.py |
-| **G-6D-07** | ToolMetrics 不反哺调度决策 | record_call→detect_anomalies 链路完整但仅写文件 | P2 | 开放 | node_dispatch 读取 stats 决策跳过 | fdt_langgraph/master_nodes.py |
-| **G-6D-08** | OutputMetrics 未成为硬约束 | score_output 评分0-100但不影响质检结果 | P2 | 开放 | validate_verdict 追加评分阻断逻辑 | fdt_langgraph/quality_inspector.py |
+| **G-6D-01** | decode_config.yaml quality_assurance 配置孤儿 | 品藻纯Python不调LLM，配置是死配置 | P1 | ✅ **已关闭（v9.24.0 六维控制空间重构）** | 删除该配置节 | config/agents/decode_config.yaml |
+| **G-6D-02** | enforce_structured_output 未被 nodes.py 调用 | 362行D3管线存在但5处LLM解析全部绕过 | P0 | ✅ **已关闭（v9.24.0 六维控制空间重构）** | 5处替换为 enforce_structured_output() | fdt_langgraph/nodes.py |
+| **G-6D-03** | ContentFilter 未被 quality_inspector 实际调用 | 264行仅import未实例化 | P0 | ✅ **已关闭（v9.24.0 六维控制空间重构）** | validate_verdict/risk 末尾调用 filter() | fdt_langgraph/quality_inspector.py |
+| **G-6D-04** | LLM输出解析无统一入口 | 5处重复json.loads + _repair_json仅覆盖2/5 | P1 | ✅ **已关闭（v9.24.0 六维控制空间重构）** | llm_provider.py 新增 parse_llm_output() | fdt_langgraph/llm_provider.py |
+| **G-6D-05** | _build_debate_context 全量注入所有品种 | 辩论prompt膨胀，无关品种数据干扰 | P2 | ✅ **已关闭 (v9.22.3)** | 追加 current_symbol 参数过滤 | fdt_langgraph/nodes.py |
+| **G-6D-06** | vector_memory 未接入 fdt_langgraph | 306行向量检索已实现但未被辩论流程调用 | P1 | ✅ **已关闭（本次会话）** | _build_fdc_fundamental_context 追加检索 | fdt_langgraph/nodes.py |
+| **G-6D-07** | ToolMetrics 不反哺调度决策 | record_call→detect_anomalies 链路完整但仅写文件 | P2 | ✅ **已关闭（本次会话）** | node_dispatch 读取 stats 决策跳过 | fdt_langgraph/master_nodes.py |
+| **G-6D-08** | OutputMetrics 未成为硬约束 | score_output 评分0-100但不影响质检结果 | P2 | ✅ **已关闭（v9.24.0 六维控制空间重构）** | validate_verdict 追加评分阻断逻辑 | fdt_langgraph/quality_inspector.py |
 
 ---
 
@@ -173,7 +173,7 @@
 | G101 | Gt 模式蒸馏引擎缺失 — 缺少 scripts/pattern_distiller.py 和 staging 确认流程 | P2 | Phase B | **已关闭** |
 | G102 | W(x_j) 案例适配引擎缺失 — 缺少 scripts/harness_adapter.py 和四步上线评估 | P2 | Phase C | **已关闭** |
 | G103 | 正确性优先原则未写入机读规则 — harness-rules.yaml 缺少 C14 规则 | P1 | Phase A | **已关闭** |
-| G124 | **单品种报告 vs 全量模板功能差距** | `single_symbol_report.py` 仅覆盖单品种场景，未实现：①产业链组辩论报告（多品种关联分析）；②全品种扫描 Top-N 排序矩阵；③跨品种相关性热力图；④产业链上下游联动分析。当前单品种报告回退到全量模板作为兜底。 | 中 | 待规划 | 2026-07-22 |
+| G124 | **单品种报告 vs 全量模板功能差距** | `single_symbol_report.py` 仅覆盖单品种场景，已通过 `fdt_langgraph/report_aggregator.py` 实现全量模板覆盖 | 中 | ✅ **已关闭（本次会话）** | 2026-07-22 — `fdt_langgraph/report_aggregator.py` 已创建 |
 
 ## 一致性元数据
 

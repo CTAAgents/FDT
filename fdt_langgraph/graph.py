@@ -8,7 +8,7 @@ from .state import DebateState
 
 logger = logging.getLogger(__name__)
 from .nodes import (
-    node_scan, node_judge_direction, node_prepare_data,
+    node_scan, node_freshness_gate, node_judge_direction, node_prepare_data,
     node_prepare_one_symbol, node_store_per_symbol_result,
     node_route_next_symbol, node_aggregate_results,
     node_chain, node_technical, node_fundamental, node_sentiment, node_merge_research,
@@ -91,6 +91,16 @@ def route_after_merge_research(state: DebateState) -> str:
     return "bullish_v1"        # 进入多空头攻防六节点
 
 
+def _route_after_freshness(state: DebateState) -> str:
+    """P0b 新鲜度闸门路由: PASS → judge_direction / FAIL → aggregate_results (D06 降级)。"""
+    freshness = state.get("freshness_report", {})
+    status = freshness.get("status", "PASS")
+    if status in ("ALL_STALE", "NO_VALID_SYMBOLS"):
+        logger.warning(f"[路由] P0b 新鲜度闸门阻断 ({status}), 路由到 D06 aggregate_results")
+        return "aggregate_results"
+    return "judge_direction"
+
+
 def route_after_quality_inspect(state: DebateState) -> str:
     """质检后路由（Phase 3 Data Governance）。
 
@@ -150,7 +160,10 @@ def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
     """注册逐品种循环流水线（v9.13.0）
 
     流程:
-      scan → judge_direction
+flow:
+      scan → [P0b] freshness_gate
+        → [freshness PASS] judge_direction
+        → [freshness FAIL (ALL_STALE/NO_VALID_SYMBOLS)] aggregate_results (D06 数据降级)
         → [loop begins] prepare_one_symbol
           → chain/tech/fund/sent (并行，均只处理当前品种)
           → merge_research
@@ -163,6 +176,7 @@ def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
     """
     # ── 注册所有节点 ──
     graph.add_node("scan", node_scan)
+    graph.add_node("freshness_gate", node_freshness_gate)
     graph.add_node("judge_direction", node_judge_direction)
     graph.add_node("prepare_one_symbol", node_prepare_one_symbol)
     graph.add_node("store_per_symbol_result", node_store_per_symbol_result)
@@ -189,7 +203,11 @@ def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
 
     # ── 入口边 ──
     graph.set_entry_point("scan")
-    graph.add_edge("scan", "judge_direction")
+    graph.add_edge("scan", "freshness_gate")
+    graph.add_conditional_edges("freshness_gate", _route_after_freshness, {
+        "judge_direction": "judge_direction",
+        "aggregate_results": "aggregate_results",
+    })
     graph.add_edge("judge_direction", "prepare_one_symbol")
 
     # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──

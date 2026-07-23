@@ -526,6 +526,74 @@ async def node_scan(state: DebateState) -> DebateState:
             "current_phase": "P1", "completed_phases": ["P1"]}
 
 
+def node_freshness_gate(state: DebateState) -> DebateState:
+    """P0b: 数据新鲜度闸门 — 检查 scan_results 的数据新鲜度。
+
+    从 scan_all.py 的 freshness_report + R24 闸门结果判断数据是否可用。
+    如果所有品种数据均为 STALE/UNAVAILABLE，标记 freshness_report 供 D06 降级路由决策。
+    """
+    scan_results = state.get("scan_results", {})
+    if not scan_results:
+        return {**state, "freshness_report": {"status": "NO_SCAN", "summary": "无扫描结果，无法验证新鲜度"}}
+
+    # 从 scan_results 读取 freshness_report（由 scan_all.py R24 闸门输出）
+    freshness = scan_results.get("freshness_report", {})
+    r24_meta = scan_results.get("_meta", {})
+
+    # 检查 R24 全局闸门是否触发
+    r24_rejected = freshness.get("r24_rejected", False) or r24_meta.get("r24_rejected", False)
+
+    # 从 all_ranked 判断实际有多少有效品种
+    all_ranked = scan_results.get("all_ranked", [])
+    valid_symbols = len(all_ranked)
+    freshness_report = {
+        "status": "PASS",
+        "r24_rejected": r24_rejected,
+        "total_symbols_scan": freshness.get("total_symbols", len(all_ranked)),
+        "valid_symbols": valid_symbols,
+        "summary": f"数据新鲜度检查通过: {valid_symbols} 品种有有效数据",
+        "fail_reasons": freshness.get("fail_reasons", []),
+    }
+
+    new_phases = state["completed_phases"] + ["P0b"]
+
+    # ── ALL_STALE: 所有品种数据均为过期/不可用 → D06 降级路由 ──
+    if r24_rejected or freshness.get("status") == "ALL_STALE":
+        freshness_report["status"] = "ALL_STALE"
+        freshness_report["summary"] = (
+            f"⛔ 数据新鲜度闸门阻断: 所有品种数据源均不可靠. "
+            f"请检查 TQ-Local/FDC 数据源连接."
+        )
+        logger.warning(f"[P0b] {freshness_report['summary']}")
+        for r in freshness_report["fail_reasons"][:3]:
+            logger.warning(f"[P0b]   原因: {r}")
+        return {
+            **state,
+            "freshness_report": freshness_report,
+            "current_phase": "P0b",
+            "completed_phases": new_phases,
+        }
+
+    # ── 部分品种过期（非全局阻塞）: 记录但继续 ──
+    if valid_symbols == 0:
+        freshness_report["status"] = "NO_VALID_SYMBOLS"
+        freshness_report["summary"] = "扫描结果中无有效品种（all_ranked 为空），但非 R24 全局闸门阻断"
+        logger.warning(f"[P0b] {freshness_report['summary']}")
+        return {
+            **state,
+            "freshness_report": freshness_report,
+            "current_phase": "P0b",
+            "completed_phases": new_phases,
+        }
+
+    return {
+        **state,
+        "freshness_report": freshness_report,
+        "current_phase": "P0b",
+        "completed_phases": new_phases,
+    }
+
+
 async def node_judge_direction(state: DebateState) -> DebateState:
     _ensure_llm_key()
     judge = FdtAgentExecutor("judge")
@@ -1045,6 +1113,25 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
         all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
         if all_ranked:
             lines.extend(_build_scan_signal_table(all_ranked, symbols))
+
+    # ── G-6D-06: vector_memory 历史记忆注入 ──
+    try:
+        from scripts.vector_memory import VectorMemory
+        vm = VectorMemory()
+        for symbol in symbols:
+            memories = vm.query(symbol, top_k=3)
+            if memories:
+                lines.append(f"\n📜【{symbol}】历史记忆")
+                for m in memories:
+                    rec = m["record"]
+                    ts = rec.get("timestamp", "")[:10]
+                    direction = {"long": "多头", "short": "空头"}.get(rec.get("direction", ""), rec.get("direction", ""))
+                    pnl = rec.get("pnl", 0)
+                    pnl_label = f"盈利{pnl}" if pnl >= 0 else f"亏损{abs(pnl)}"
+                    regime = rec.get("regime", "")
+                    lines.append(f"  [{ts}] {direction} | {pnl_label} | 区制:{regime} | 置信:{m['similarity_score']:.0%}")
+    except Exception:
+        pass
 
     return "\n".join(lines)
 

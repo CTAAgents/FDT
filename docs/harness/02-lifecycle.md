@@ -1,6 +1,7 @@
 # 02 — 生命周期与编排
 
-> **v9.20.2** (2026-07-23): Bugfix 版本 — 无生命周期/编排变更。详见 `docs/harness/07-operations.md#版本历史`。
+> **v9.22.3** (2026-07-23): 实现 P0b 数据新鲜度闸门节点 (node_freshness_gate) + D06 降级路由。
+> 修复 scan_all.py data_grade_label 整数vs字符串比较 bug。详见 `docs/harness/07-operations.md#版本历史`。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 
@@ -64,9 +65,11 @@ fdt_cli.py main()
                                 │
                     ┌───────────▼────────────────────────┐
                     │   P0b: 数据新鲜度闸门               │
-                    │   检查各品种行情/资金数据新鲜度    │
-                    │   freshness_level: 0/1/2 评级       │
-                    │   stale_ratio>30% → 中止并告警     │
+                    │   node_freshness_gate() 读取         │
+                    │   scan_results.freshness_report      │
+                    │   ├─ PASS → 继续 P2 品种筛选        │
+                    │   ├─ ALL_STALE → D06 降级           │
+                    │   └─ NO_VALID_SYMBOLS → D06 降级    │
                     └───────────┬────────────────────────┘
                                 │
                     ┌───────────▼────────────────────────┐
@@ -179,7 +182,7 @@ fdt_cli.py main()
 | 阶段 | 名称 | 执行者 | 输入 | 输出 | 超时 | 降级 |
 |:-----|:-----|:-------|:-----|:-----|:-----|:-----|
 | P0 | 自进化前置 | 系统 | `pg.execution_followup` | `pg.calibration` + `pg.agent_profiles` 更新 | 60s/步 | 跳过该步 |
-| **P0b** | **数据新鲜度闸门** | **系统** | **PG中行情/资金数据** | **`debate_state.freshness_report`（各品种新鲜度评级）** | **120s** | **D06 降级（新鲜度不足→降级裁决）** |
+| **P0b** | **数据新鲜度闸门** | **系统** | **`scan_results.freshness_report` + `scan_results._meta.r24_rejected`** | **`debate_state.freshness_report`（status: PASS/ALL_STALE/NO_VALID_SYMBOLS）** | **120s** | **D06 降级（新鲜度不足→aggregate_results）** |
 | P1 | 数技源信号扫描 | 数技源 | 品种列表 | `pg.scan_signals` + **`all_ranked[].stats` 纯统计特征（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置）** + **P1 阶段报告 `scan_report_path`** | 600s | 提前终止 |
 | P2 | 闫判官调度决策 | 闫判官（**调度权**） | P1 信号 | `pg.judge_direction`（选品种+**调度哪些源**） | 420s | D06 降级 |
 | P2 | **四源并行** | 闫判官(调度)+链证源+观澜+探源+读心（闫判官按需调度） | P2 调度指令 | `pg.judge_direction` + `pg.chain_analysis` + `pg.technical_scores` + `pg.fundamental_scores` + `pg.sentiment_scores` + **P2 阶段报告 `research_report_path`** | **max(被调度的源)** | 单源失败不影响其他源 |

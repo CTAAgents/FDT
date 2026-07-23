@@ -249,6 +249,7 @@ S04 解决了"Agent 后台 spawn 后如何知道产出就绪"的问题：
 | **D04 Agent 通信** | 辩论 Agent 产出通过 SendMessage→main 回传 | 明鉴秋转写入文件 |
 | **D05 Spawn 类型** | 辩论 Agent 必须用 `general-purpose` spawn | 禁止 expert subagent_type |
 | **D06 P5 降级** | 闫判官 spawn 2 次无产出 → 明鉴秋基于 P2(四源)+P3(辩论) 独立裁决 | 严基于辩论论据 |
+| **D07 P0b 新鲜度降级** (v9.22.3) | 数据新鲜度闸门检测 ALL_STALE/NO_VALID_SYMBOLS → 跳过 P2-P5，直接到 aggregate_results | node_freshness_gate 自动路由 |
 
 ### 5.2 D05 根因
 

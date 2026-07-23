@@ -67,7 +67,19 @@ async def run_debate(mode: str = "default", run_evolution: bool = False) -> Deba
 
 
 def _print_phase_reports(result: DebateState) -> None:
-    """统一输出各阶段报告路径（v8.8.0）"""
+    """统一输出各阶段报告路径（v8.8.0）+ 数据新鲜度状态（v9.22.3）"""
+    # ── 数据新鲜度状态（P0b 闸门） ──
+    freshness = result.get("freshness_report")
+    if freshness:
+        f_status = freshness.get("status", "")
+        if f_status in ("ALL_STALE", "NO_VALID_SYMBOLS"):
+            print(f"\n⛔ [P0b] 数据新鲜度闸门阻断: {freshness.get('summary', '')}")
+            for r in freshness.get("fail_reasons", [])[:3]:
+                print(f"      原因: {r}")
+        elif f_status == "PASS":
+            v = freshness.get("valid_symbols", 0)
+            print(f"\n  ✅ [P0b] 数据新鲜度检查通过: {v} 品种有有效数据")
+
     phase_reports = [
         ("P1 扫描报告", result.get("scan_report_path")),
         ("P3 研究报告", result.get("research_report_path")),
