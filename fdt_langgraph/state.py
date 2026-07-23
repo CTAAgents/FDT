@@ -75,6 +75,19 @@ class DebateState(TypedDict, total=False):
     completed_phases: list
     phase_start_time: Optional[float]
 
+    # v9.13.0: 逐品种循环处理
+    symbol_index: int                       # 当前处理品种在 selected_symbols 中的索引，-1=未开始
+    per_symbol_results: dict                # {symbol: {research, debate, verdict, risk}}
+    _original_symbols: list                 # 保存完整品种列表，循环中用
+    associated_symbols: dict                # {primary_symbol: [associated_symbols]} 关联品种
+
+    # v9.14.0: Phase 3 辩论输出质量治理
+    quality_report: Optional[dict]          # 当前质检结果 QualityReport
+    rework_counters: dict                   # {symbol: retry_count} 品种级重试计数
+    rework_pending_symbols: list            # 待退回重修的品种列表
+    phase_timings: list                     # [PhaseTiming] 各阶段耗时记录
+    quality_metrics: Optional[dict]         # 自优化指标 QualityMetrics
+
 
 def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
     return DebateState(
@@ -112,5 +125,14 @@ def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
         current_phase="P0",
         error=None,
         completed_phases=[],
-        phase_start_time=None
+        phase_start_time=None,
+        symbol_index=-1,
+        per_symbol_results={},
+        _original_symbols=[],
+        associated_symbols={},
+        quality_report=None,
+        rework_counters={},
+        rework_pending_symbols=[],
+        phase_timings=[],
+        quality_metrics=None,
     )

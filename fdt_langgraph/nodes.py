@@ -2515,6 +2515,71 @@ async def node_risk_check(state: DebateState) -> DebateState:
     }
 
 
+async def node_quality_inspect(state: DebateState) -> DebateState:
+    """明鉴秋质检节点（Phase 3 Data Governance）。
+
+    校验当前品种的 P4 裁决 + P5 风控数据质量。
+    不合格 + 重试未超限 → 退回重修；通过或超限 → 存入结果。
+    """
+    from fdt_langgraph.quality_inspector import validate_verdict, validate_risk
+
+    symbols = state.get("selected_symbols", [])
+    idx = state.get("symbol_index", -1)
+    current_sym = symbols[idx] if 0 <= idx < len(symbols) else ""
+    counters = dict(state.get("rework_counters", {}))
+    timings = list(state.get("phase_timings", []))
+    retries = counters.get(current_sym, 0)
+
+    # ── 质检裁决 ──
+    verdict = state.get("verdict")
+    vr_report = validate_verdict(verdict) if verdict else {"status": "SKIP", "issues": [], "passed": 0, "failed": 1, "skipped": 0}
+
+    # ── 质检风控 ──
+    risk = state.get("risk_check")
+    rr_report = validate_risk(risk) if risk else {"status": "SKIP", "issues": [], "passed": 0, "failed": 1, "skipped": 0}
+
+    # ── 合并结果 ──
+    all_issues = (vr_report.get("issues", []) if isinstance(vr_report, dict) else []) \
+                 + (rr_report.get("issues", []) if isinstance(rr_report, dict) else [])
+    total_failed = (vr_report.get("failed", 0) if isinstance(vr_report, dict) else 0) \
+                   + (rr_report.get("failed", 0) if isinstance(rr_report, dict) else 0)
+    overall_status = "FAIL" if total_failed > 0 else "PASS"
+
+    quality_report = {
+        "symbol": current_sym,
+        "status": overall_status,
+        "issues": all_issues,
+        "verdict_report": vr_report,
+        "risk_report": rr_report,
+        "retry_count": retries,
+    }
+
+    # ── 更新重试计数器 ──
+    if overall_status == "FAIL":
+        counters[current_sym] = retries + 1
+        logger.warning(f"[质检] {current_sym} 裁决/风控质检 FAIL (重试 {retries + 1}/2): {[i['message'] for i in all_issues[:3]]}")
+    else:
+        logger.info(f"[质检] {current_sym} 裁决/风控质检 PASS")
+
+    # ── 记录耗时 ──
+    timings.append({
+        "phase": "quality_inspect",
+        "symbol": current_sym,
+        "elapsed_seconds": 0.0,
+        "retry_count": retries,
+        "status": overall_status,
+    })
+
+    return {
+        **state,
+        "quality_report": quality_report,
+        "rework_counters": counters,
+        "phase_timings": timings,
+        "current_phase": "P3.5",
+        "completed_phases": state["completed_phases"] + ["P3.5"],
+    }
+
+
 async def node_report(state: DebateState) -> DebateState:
     import subprocess
     import sys

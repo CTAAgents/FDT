@@ -204,7 +204,9 @@ fdt_cli.py main()
 
 > **v9.12.0 变更 — Data Governance Phase 2 数据质量门禁**: 信号验证器管道新增 V8 `data_quality` 验证器（注册为 `__global__` 列表级闸门），在 P0-4 伪信号过滤之前运行。该验证器读取 `all_ranked[].data_quality` 元数据（由 FDC 在验证器之前注入），依据 `overall` 等级触发阻断：D级→直接降级 NOISE（数据不可靠）、C级→标记 `_dq_penalty`（信号保留但可靠性存疑）、web_fallback 源→标记 `_dq_web_fallback`（低优先级）。数据源已穿透到 FDC 真实底层源（tdx_tq_local / web_fallback / qmt_xtquant / tqsdk），从 kline_data 自动传播到 all_ranked 条目。
 >
-> > **补充 — F10/技术指标质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade，输出 `f10_quality` 块（含 overall 等级/可用字段数/问题列表）。技术指标检查 NaN/Inf/关键指标完整性/数值范围，输出 `indicator_quality` 块。质量信息通过 `_build_fdc_fundamental_context` 注入探源 Agent 上下文，标注在【FDC 基本面数据】区块尾部。
+> > **补充 — F10/技术指标/新闻质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。`node_sentiment` 新增 `evaluate_jin10_context()` 评估快讯数量/新鲜度/时效分布。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade。
+
+> > **v9.14.0 变更 — Data Governance Phase 3 辩论输出质量治理**: 新增 `node_quality_inspect` 节点（明鉴秋质检），在 P4 裁决→P5 风控之后运行，校验 Schema 合规性。不合格+重试<2次→退回重修；通过或超限→存入 `store_per_symbol_result`。重试硬上限 2 次，熔断直接跳过。新增 `contracts/debate_quality_schema.py`（ARGUMENT/VERDICT/RISK 三套 Schema）和 `fdt_langgraph/quality_inspector.py`（纯函数质检器）。state 新增 `quality_report`/`rework_counters`/`phase_timings` 字段。`route_after_quality_inspect` 条件边实现退回/放行路由。
 
 ### 2.2a 运行模式
 

@@ -6,11 +6,13 @@ from pathlib import Path
 from .state import DebateState
 from .nodes import (
     node_scan, node_judge_direction, node_prepare_data,
+    node_prepare_one_symbol, node_store_per_symbol_result,
+    node_route_next_symbol, node_aggregate_results,
     node_chain, node_technical, node_fundamental, node_sentiment, node_merge_research,
     node_bullish_v1, node_bearish_v1,
     node_bearish_rebuttal, node_bullish_rebuttal,
     node_bear_final, node_bull_final,
-    node_verdict, node_risk_check, node_report, node_signal_output,
+    node_verdict, node_risk_check, node_quality_inspect, node_report, node_signal_output,
     node_load_cache, node_update_cache,
 )
 
@@ -54,7 +56,6 @@ def calculate_divergence(state: DebateState) -> float:
         if isinstance(entry, dict) and entry.get("symbols"):
             for sdata in entry["symbols"].values():
                 bear_score += float(sdata.get("confidence", 0))
-    # 反驳阶段
     for entry in state.get("bullish_rebuttal_arguments", []):
         if isinstance(entry, dict) and entry.get("symbols"):
             for sdata in entry["symbols"].values():
@@ -63,7 +64,6 @@ def calculate_divergence(state: DebateState) -> float:
         if isinstance(entry, dict) and entry.get("symbols"):
             for sdata in entry["symbols"].values():
                 bear_score += float(sdata.get("confidence", 0))
-    # 最终陈述阶段
     for entry in state.get("bull_final_arguments", []):
         if isinstance(entry, dict) and entry.get("symbols"):
             for sdata in entry["symbols"].values():
@@ -87,28 +87,77 @@ def route_after_merge_research(state: DebateState) -> str:
     return "bullish_v1"        # 进入多空头攻防六节点
 
 
-# ==================== 图构建函数 ====================
+def route_after_quality_inspect(state: DebateState) -> str:
+    """质检后路由（Phase 3 Data Governance）。
 
-def _register_p3_nodes(graph: StateGraph, mode: str) -> list[str]:
-    p3_nodes = []
-    # 全量模式：default / deep_research / tournament 包含所有 P3 节点
-    _full_p3_modes = {"default", "deep_research", "tournament"}
-    if mode in _full_p3_modes or "chain" in mode:
-        p3_nodes.append("chain")
-    if mode in _full_p3_modes or "technical" in mode:
-        p3_nodes.append("technical")
-    if mode in _full_p3_modes or "fundamental" in mode:
-        p3_nodes.append("fundamental")
-    if mode in _full_p3_modes or "sentiment" in mode:
-        p3_nodes.append("sentiment")
-    for node_name in p3_nodes:
-        graph.add_edge("prepare_data", node_name)
-        graph.add_edge(node_name, "merge_research")
-    return p3_nodes
+    逻辑:
+      - 当前品种质检 FAIL + 重试 < 2 次 → 退回重修（prepare_one_symbol）
+      - 否则 → 存入结果（store_per_symbol_result）
+    """
+    current_sym = _get_current_symbol(state)
+    report = state.get("quality_report")
+    counters = state.get("rework_counters", {})
+    retries = counters.get(current_sym, 0)
+
+    if report and report.get("status") == "FAIL" and retries < 2:
+        return "prepare_one_symbol"
+    return "store_per_symbol_result"
 
 
-def _register_debate_nodes(graph: StateGraph) -> None:
-    """注册 P4 多空头攻防六节点 (v9.0)"""
+def _get_current_symbol(state: DebateState) -> str:
+    """获取当前处理的品种代码。"""
+    symbols = state.get("selected_symbols", [])
+    idx = state.get("symbol_index", -1)
+    if 0 <= idx < len(symbols):
+        return symbols[idx]
+    return ""
+
+
+# ==================== 逐品种循环图构建 (v9.13.0) ====================
+
+def _get_p3_node_names(mode: str) -> list[str]:
+    """根据 mode 返回需要激活的四源节点列表"""
+    p3 = []
+    _full = {"default", "deep_research", "tournament"}
+    if mode in _full or "chain" in mode:
+        p3.append("chain")
+    if mode in _full or "technical" in mode:
+        p3.append("technical")
+    if mode in _full or "fundamental" in mode:
+        p3.append("fundamental")
+    if mode in _full or "sentiment" in mode:
+        p3.append("sentiment")
+    return p3
+
+
+def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
+    """注册逐品种循环流水线（v9.13.0）
+
+    流程:
+      scan → judge_direction
+        → [loop begins] prepare_one_symbol
+          → chain/tech/fund/sent (并行，均只处理当前品种)
+          → merge_research
+          → debate chain (bullish_v1 → ... → bull_final)
+          → verdict → risk_check → store_per_symbol_result
+          → route_next_symbol:
+            - 还有品种 → 回到 prepare_one_symbol
+            - 全部完成 → aggregate_results
+          → report → signal_output → END
+    """
+    # ── 注册所有节点 ──
+    graph.add_node("scan", node_scan)
+    graph.add_node("judge_direction", node_judge_direction)
+    graph.add_node("prepare_one_symbol", node_prepare_one_symbol)
+    graph.add_node("store_per_symbol_result", node_store_per_symbol_result)
+    graph.add_node("aggregate_results", node_aggregate_results)
+
+    graph.add_node("chain", node_chain)
+    graph.add_node("technical", node_technical)
+    graph.add_node("fundamental", node_fundamental)
+    graph.add_node("sentiment", node_sentiment)
+    graph.add_node("merge_research", node_merge_research)
+
     graph.add_node("bullish_v1", node_bullish_v1)
     graph.add_node("bearish_v1", node_bearish_v1)
     graph.add_node("bearish_rebuttal", node_bearish_rebuttal)
@@ -116,9 +165,24 @@ def _register_debate_nodes(graph: StateGraph) -> None:
     graph.add_node("bear_final", node_bear_final)
     graph.add_node("bull_final", node_bull_final)
 
-    # 辩论流向：merge_research -> bullish_v1 -> bearish_v1
-    #           -> bearish_rebuttal -> bullish_rebuttal
-    #           -> bear_final -> bull_final -> verdict
+    graph.add_node("verdict", node_verdict)
+    graph.add_node("risk_check", node_risk_check)
+    graph.add_node("quality_inspect", node_quality_inspect)
+    graph.add_node("report", node_report)
+    graph.add_node("signal_output", node_signal_output)
+
+    # ── 入口边 ──
+    graph.set_entry_point("scan")
+    graph.add_edge("scan", "judge_direction")
+    graph.add_edge("judge_direction", "prepare_one_symbol")
+
+    # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──
+    p3_nodes = _get_p3_node_names(mode)
+    for node_name in p3_nodes:
+        graph.add_edge("prepare_one_symbol", node_name)
+        graph.add_edge(node_name, "merge_research")
+
+    # ── 辩论链条 ──
     graph.add_conditional_edges("merge_research", route_after_merge_research, {
         "bullish_v1": "bullish_v1", "verdict": "verdict",
     })
@@ -129,65 +193,102 @@ def _register_debate_nodes(graph: StateGraph) -> None:
     graph.add_conditional_edges("bear_final", lambda s: "bull_final", {"bull_final": "bull_final"})
     graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
 
-
-def _register_common_nodes(graph: StateGraph) -> None:
-    """注册 P1/P2/P5/P6 公共节点"""
-    graph.add_node("scan", node_scan)
-    graph.add_node("judge_direction", node_judge_direction)
-    graph.add_node("prepare_data", node_prepare_data)
-    graph.add_node("chain", node_chain)
-    graph.add_node("technical", node_technical)
-    graph.add_node("fundamental", node_fundamental)
-    graph.add_node("sentiment", node_sentiment)
-    graph.add_node("merge_research", node_merge_research)
-    graph.add_node("verdict", node_verdict)
-    graph.add_node("risk_check", node_risk_check)
-    graph.add_node("report", node_report)
-    graph.add_node("signal_output", node_signal_output)
-
-    graph.set_entry_point("scan")
-    graph.add_edge("scan", "judge_direction")
-    graph.add_edge("judge_direction", "prepare_data")
+    # ── 单品种收尾 + 质检 + 循环路由 ──
+    # Phase 3: verdict → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
     graph.add_edge("verdict", "risk_check")
-    graph.add_edge("risk_check", "report")
+    graph.add_edge("risk_check", "quality_inspect")
+    graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
+        "prepare_one_symbol": "prepare_one_symbol",
+        "store_per_symbol_result": "store_per_symbol_result",
+    })
+    graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
+        "prepare_one_symbol": "prepare_one_symbol",
+        "aggregate_results": "aggregate_results",
+    })
+
+    # ── 汇聚 → 报告 ──
+    graph.add_edge("aggregate_results", "report")
     graph.add_edge("report", "signal_output")
     graph.add_edge("signal_output", END)
 
 
-def _register_direct_debate_nodes(graph: StateGraph) -> None:
-    """注册跳过P1扫描直接进入辩论的节点（load_cache 替代 scan）。
-
-    流程: load_cache -> judge_direction -> prepare_data -> ... -> update_cache -> END
-    """
+def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
+    """逐品种循环 + 直接辩论（跳过 scan，从 load_cache 进入）"""
     graph.add_node("load_cache", node_load_cache)
     graph.add_node("update_cache", node_update_cache)
+
+    # 复用逐品种循环的全部节点
     graph.add_node("judge_direction", node_judge_direction)
-    graph.add_node("prepare_data", node_prepare_data)
+    graph.add_node("prepare_one_symbol", node_prepare_one_symbol)
+    graph.add_node("store_per_symbol_result", node_store_per_symbol_result)
+    graph.add_node("aggregate_results", node_aggregate_results)
+
     graph.add_node("chain", node_chain)
     graph.add_node("technical", node_technical)
     graph.add_node("fundamental", node_fundamental)
     graph.add_node("sentiment", node_sentiment)
     graph.add_node("merge_research", node_merge_research)
+
+    graph.add_node("bullish_v1", node_bullish_v1)
+    graph.add_node("bearish_v1", node_bearish_v1)
+    graph.add_node("bearish_rebuttal", node_bearish_rebuttal)
+    graph.add_node("bullish_rebuttal", node_bullish_rebuttal)
+    graph.add_node("bear_final", node_bear_final)
+    graph.add_node("bull_final", node_bull_final)
+
     graph.add_node("verdict", node_verdict)
     graph.add_node("risk_check", node_risk_check)
+    graph.add_node("quality_inspect", node_quality_inspect)
     graph.add_node("report", node_report)
     graph.add_node("signal_output", node_signal_output)
 
+    # ── 入口边 (load_cache → judge → per-symbol loop) ──
     graph.set_entry_point("load_cache")
     graph.add_edge("load_cache", "judge_direction")
-    graph.add_edge("judge_direction", "prepare_data")
+    graph.add_edge("judge_direction", "prepare_one_symbol")
+
+    # ── 四源并行 ──
+    p3_nodes = _get_p3_node_names(mode)
+    for node_name in p3_nodes:
+        graph.add_edge("prepare_one_symbol", node_name)
+        graph.add_edge(node_name, "merge_research")
+
+    # ── 辩论链条 ──
+    graph.add_conditional_edges("merge_research", route_after_merge_research, {
+        "bullish_v1": "bullish_v1", "verdict": "verdict",
+    })
+    graph.add_conditional_edges("bullish_v1", lambda s: "bearish_v1", {"bearish_v1": "bearish_v1"})
+    graph.add_conditional_edges("bearish_v1", lambda s: "bearish_rebuttal", {"bearish_rebuttal": "bearish_rebuttal"})
+    graph.add_conditional_edges("bearish_rebuttal", lambda s: "bullish_rebuttal", {"bullish_rebuttal": "bullish_rebuttal"})
+    graph.add_conditional_edges("bullish_rebuttal", lambda s: "bear_final", {"bear_final": "bear_final"})
+    graph.add_conditional_edges("bear_final", lambda s: "bull_final", {"bull_final": "bull_final"})
+    graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
+
+    # ── 单品种收尾 + 质检 + 循环路由 ──
+    # Phase 3: verdict → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
     graph.add_edge("verdict", "risk_check")
-    graph.add_edge("risk_check", "report")
+    graph.add_edge("risk_check", "quality_inspect")
+    graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
+        "prepare_one_symbol": "prepare_one_symbol",
+        "store_per_symbol_result": "store_per_symbol_result",
+    })
+    graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
+        "prepare_one_symbol": "prepare_one_symbol",
+        "aggregate_results": "aggregate_results",
+    })
+
+    # ── 汇聚 → 报告 → 缓存写入 ──
+    graph.add_edge("aggregate_results", "report")
     graph.add_edge("report", "signal_output")
     graph.add_edge("signal_output", "update_cache")
     graph.add_edge("update_cache", END)
 
 
+# ==================== 公开构建函数 ====================
+
 def build_debate_graph(mode: str = "default") -> StateGraph:
     graph = StateGraph(DebateState)
-    _register_common_nodes(graph)
-    _register_p3_nodes(graph, mode)
-    _register_debate_nodes(graph)
+    _register_per_symbol_loop(graph, mode)
 
     memory = _get_checkpointer()
     graph = graph.compile(checkpointer=memory)
@@ -212,11 +313,9 @@ def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
     direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"
 
     if direct_debate:
-        _register_direct_debate_nodes(graph)
+        _register_direct_debate_loop(graph, mode)
     else:
-        _register_common_nodes(graph)
+        _register_per_symbol_loop(graph, mode)
 
-    _register_p3_nodes(graph, mode)
-    _register_debate_nodes(graph)
     graph = graph.compile()
     return graph
