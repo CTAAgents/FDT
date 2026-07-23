@@ -34,7 +34,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 | **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器)、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
-| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层分流（单品种/全量扫描）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（单品种精简报告生成器，v9.6.9+）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+） |
+| **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层逐品种 body 合并（v9.12.0+）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（逐品种 body 生成器，v9.12.0+ 统一入口）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+） |
 | **L5 可观测性** | 质量度量、诊断、改进 | `apm_scorecard.py`, `cluster_failures.py`, `run_benchmark.py`, `self_improve.py`, LangGraph `get_state_history()` |
 
 ### L4 LangGraph 层详细说明
@@ -191,16 +191,18 @@ scan → judge_direction → prepare_one_symbol(品种0)
 ```
 
 
-### 报告层分流架构（v9.6.9+）
+### 报告层分流架构（v9.12.0+ — 统一逐品种 body 模式）
 
-`node_report` 根据 `selected_symbols` 数量自动选择报告生成路径：
+`node_report` 对所有品种统一使用 `_generate_symbol_body()`（来自 `single_symbol_report`）逐品种生成 HTML body 段，合并为一份报告：
 
-| 模式 | 条件 | 生成器 | 说明 |
-|:-----|:-----|:-------|:-----|
-| **单品种报告** | `len(selected_symbols) == 1` | `single_symbol_report.generate()` | 按 FDT 实际流程（P1→P3→P4→P5）组织，跳过无效 P1/P2，从辩论论据回退提取 Agent 输出 |
-| **全量扫描报告** | `len(selected_symbols) != 1` | `phase3_generate_report.py` | 多品种对比矩阵，产业链组分析，Top-N 排序 |
+| 条件 | 生成方式 | 说明 |
+|:-----|:---------|:-----|
+| `selected_symbols` 非空 | 遍历每个品种 → `_generate_symbol_body(state, sym)` → 合并 body → `_render_html()` | 逐品种调用 `single_symbol_report` 的 body 生成器，各品种独立渲染后拼接为一份完整 HTML 报告 |
+| `selected_symbols` 为空 | 写入 fallback 占位报告（"无选定品种"） | 跳过报告内容生成 |
 
-单品种报告特点：
+> v9.12.0 之前使用双路径分流（`single_symbol_report.generate()` 单品种 / `phase3_generate_report.py` 子进程多品种），v9.12.0 统一为逐品种 body 模式，移除了子进程依赖。
+
+报告生成特点：
 - 浮点数截断到合理精度（价格2位，百分比1位，指标1-2位）
 - P1 仅在 `stats` 或 `indicators` 非空时显示
 - P2 仅在 `judge_direction` 有实质内容时显示
@@ -966,3 +968,20 @@ class NewsSentimentVector:
 ### 7.6 节点实现
 
 读心 Agent 由 `node_sentiment()` 节点实现，位于 `fdt_langgraph/nodes.py`，输出写入 `state["sentiment_data"]`，并持久化到 `pg.sentiment_scores` 表。
+
+## 一致性元数据
+
+本表记录架构文档中提及的关键代码实体与文档章节的对应关系，作为架构一致性检查的可验证锚点，防止文档与代码漂移。
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `fdt_langgraph/graph.py::build_debate_graph()` | §2.2 图结构 | 编译图入口函数名 | `grep -n "def build_debate_graph"` |
+| `fdt_langgraph/nodes.py::node_report()` | §2.4 报告层分流 | 使用 `_generate_symbol_body()` 逐品种合并 | `grep -n "_generate_symbol_body"` |
+| `fdt_langgraph/state.py::DebateState` | §2.4 状态字段 | 包含 `per_symbol_results` / `symbol_index` 字段 | `grep -n "per_symbol_results"` |
+| `fdt_langgraph/single_symbol_report.py::_generate_symbol_body` | §2.4 报告层 | 逐品种 HTML body 生成器，`single_symbol_report.py` 导出 | `grep -n "def _generate_symbol_body"` |
+| `fdt_langgraph/evolution_graph.py::run_evolution()` | §2.5 自进化 | 辩论后自动触发改进链路 | `grep -n "def run_evolution"` |
+| `pyproject.toml::version` | 全局 | FDT 项目唯一版本真相源 | `grep "^version" pyproject.toml` |
+| `skills/quant-daily/scripts/scan_all.py run_scan()` | §2.6 Agent映射 | 数技源策略扫描入口 | `grep -n "def run_scan" skills/quant-daily/scripts/scan_all.py` |
+| `fdt_langgraph/hooks.py::HookManager` | §2.7 Hook链 | pre_hook/post_hook/safety_hook 三层 | `grep -n "class HookManager"` |
+| `fdt_langgraph/master_graph.py::run_master_daemon()` | §2.8 Master Graph | 60s 心跳检查的统一编排 | `grep -n "def run_master_daemon"` |
+| `config/schema.py` / `contracts/` | §3.1 配置校验 | Pydantic v2 模型 + JSON Schema | `grep -n "class.*Config\|class.*Settings" config/schema.py` |

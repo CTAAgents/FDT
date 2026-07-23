@@ -511,3 +511,21 @@ P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判
 | gt_staging_count | gauge | status=staging 的模式数 |
 | gt_confirmed_count | gauge | status=confirmed 的模式数 |
 | distillation_last_run | timestamp | 蒸馏引擎最后运行时间 |
+
+## 一致性元数据
+
+下表记录 `05-observability.md` 各章节与对应代码文件之间的断言关系，供自动校验使用：
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `scripts/apm_scorecard.py` | §2 APM-CS 评分卡 | D1-D5 五轴评分计算 | `grep -n "def compute_\|class APMScorecard"` |
+| `scripts/apm_scorecard.py compute_reliability()` | §2.5 D5 | fresh 完成率计算，stale 排除逻辑 | `grep -n "def compute_reliability\|stale_excluded\|fresh_score"` |
+| `scripts/memory_writer.py compute_heldout_coherence()` | §2.1 D1 | held-out judge 一致性审计 | `grep -n "def compute_heldout_coherence\|class.*Coherence"` |
+| `scripts/enforce_discipline.py` | §2.4 D4 | R13/R14/R-resonance 仓位上限钳制 | `grep -n "def capped_position\|R13\|R14\|R-resonance"` |
+| `scripts/unified_logger.py get_logger()` | §3 统一日志 | 日志写入 logs/fdb_{date}.log | `grep -n "def get_logger\|fdb_"` |
+| `scripts/cluster_failures.py` | §4 失败聚类 | `--min-cases` / `--min-winrate` 参数 | `grep -n "min-cases\|min-winrate\|def main" cluster_failures.py` |
+| `scripts/run_benchmark.py --replay` | §5 ViBench | 20 金标准案例方向一致性 ≥95% | `grep -n "benchmark\|replay\|golden" run_benchmark.py` |
+| `scripts/output_versioning.py save_output()` | §7 D6 | D6 输出版本化 | `grep -n "class OutputVersioning\|def save_output"` |
+| `scripts/output_audit.py log()` | §7 D6 | output_audit 审计日志 | `grep -n "class OutputAudit\|def log"` |
+| `scripts/validate_llm_output.py` | §8 LLM 幻觉检测 | `--scan` / `--verdict` / `--history` / `--threshold` 参数 | `grep -n "def main\|add_argument.*threshold" validate_llm_output.py` |
+| `scripts/tool_circuit_breaker.py` | §2.6 熔断 | CLOSED / OPEN / HALF_OPEN 状态机 | `grep -n "CLOSED\|OPEN\|HALF_OPEN\|class.*CircuitBreaker"` |

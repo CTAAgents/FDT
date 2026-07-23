@@ -144,6 +144,19 @@ checks:
       (2) token 成本仅作为平局打破条件；
       (3) 禁止为降低成本而牺牲正确性
 
+  # ── C15: 文档一致性校验（v9.20.2 新增 — Layer 2 自动化） ────
+  - id: C15
+    name: "文档一致性校验"
+    severity: "P1"
+    type: "process_check"
+    scope: "docs/harness/*.md"
+    trigger_pattern: "docs/harness/.*\\.md"
+    message: >
+      Harness 文档与代码的一致性校验。运行
+      `python scripts/verify_doc_consistency.py`
+      检查各文档 `## 一致性元数据` 表格中的断言是否仍与代码匹配。
+      每行断言对应一条可验证事实（函数存在、路径正确、版本一致等）。
+
 anti_patterns:
   - id: AP01
     name: "巨型 Prompt"

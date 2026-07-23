@@ -1,0 +1,18 @@
+# FDT 版本配置 — 结构化数据（文档引用源）
+# version 字段必须与 pyproject.toml 一致。
+# v9.20.2 | 2026-07-23
+
+version: "9.20.2"
+version_source: "pyproject.toml"
+runtime_reader: "scripts/fdt_paths.py::get_fdt_version()"
+
+changelog:
+  v9_20_2:
+    date: "2026-07-23"
+    type: "bugfix"
+    summary: "三项运行时问题修复"
+    items:
+      - "fdt_cli.py: FDT_RUN_EVOLUTION 环境变量支持"
+      - "evolution_graph.py: graph.invoke() None fallback"
+      - "debate_quality_schema.py: VERDICT_RULES 对齐 normalize_verdict"
+      - "13 个新增单元测试，38+17 测试全绿"

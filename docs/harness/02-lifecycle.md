@@ -470,3 +470,19 @@ FDT 多个循环之间通过 handoff 消息协作，不共享状态：
 - **蒸馏循环**：self-evolve pipeline → pattern_distiller → memory/experience/patterns/ (staging)
 - **审查步骤**：人工确认 staging → confirmed（通过 pattern_reviewer CLI）
 - **适配循环**：daily-debate pre_loop → harness_adapter → W(x_j)（Phase C）
+
+## 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `fdt_cli.py main()` | §1.1 启动模式 | CLI 唯一入口，支持 `run` / `daemon` / `evolve` 子命令 | `grep -n "def main\|subparsers.add_parser"` |
+| `fdt_langgraph/master_graph.py run_master_once()` | §1.2 daemon 模式 | Master Graph 单次检查到期任务 | `grep -n "def run_master_once"` |
+| `fdt_langgraph/graph.py build_debate_graph_no_checkpoint()` | §2 辩论图 | `fdt_cli.py run` 使用的编译图 | `grep -n "def build_debate_graph"` |
+| `fdt_langgraph/nodes.py node_scan()` | §3.1 P1 | 数技源扫描节点 | `grep -n "async def node_scan"` |
+| `fdt_langgraph/nodes.py node_judge_direction()` | §3.2 P2 | 闫判官选品种+调度四源 | `grep -n "async def node_judge_direction"` |
+| `fdt_langgraph/nodes.py node_chain/technical/fundamental/sentiment` | §3.3 P2 | 四源并行节点 | `grep -n "async def node_chain\|async def node_technical\|async def node_fundamental\|async def node_sentiment"` |
+| `fdt_langgraph/nodes.py node_bullish_v1/node_bearish_v1` | §3.4 P3 | 六阶段辩论入口 | `grep -n "async def node_bullish_v1\|async def node_bearish_v1"` |
+| `fdt_langgraph/nodes.py node_verdict` | §3.5 P4 | 闫判官终裁节点 | `grep -n "async def node_verdict"` |
+| `fdt_langgraph/nodes.py node_quality_inspect` | §3.6 P3.5 | 品藻质检节点 | `grep -n "def node_quality_inspect"` |
+| `fdt_langgraph/master_state.py _get_default_schedules()` | §4 Master 调度 | 13 个自动化任务定义 | `grep -n "def _get_default_schedules"` |
+| `scripts/validate_verdicts.py` / `calibrate_weights.py` / `evolve_agents.py` | §5 自进化 | 自进化三步脚本链 | `ls scripts/validate_verdicts.py scripts/calibrate_weights.py scripts/evolve_agents.py` |

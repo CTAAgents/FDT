@@ -1,0 +1,35 @@
+# 报告路由配置 — 结构化数据（文档引用源）
+# 当代码变更时仅需更新此文件，markdown 通过引用保持一致。
+# v9.20.2 | 2026-07-23
+
+current_mode:
+  since: v9.12.0
+  description: "逐品种 body 合并模式"
+  entry_point: "fdt_langgraph/nodes.py::node_report"
+  generator: "fdt_langgraph/single_symbol_report.py::_generate_symbol_body()"
+  render: "node_report::_render_html()"
+  fallback: "selected_symbols 为空时写入'无选定品种'占位报告"
+  history:
+    - version: "v9.6.9 - v9.11.x"
+      mode: "双路径分流"
+      single_symbol: "single_symbol_report.generate()"
+      multi_symbol: "phase3_generate_report.py subprocess"
+    - version: "v9.12.0+"
+      mode: "统一逐品种 body"
+      generator: "_generate_symbol_body(state, sym)"
+      note: "移除 phase3_generate_report.py 子进程依赖"
+
+agent_entry_points:
+  scan: "fdt_langgraph/nodes.py::node_scan"
+  judge_direction: "fdt_langgraph/nodes.py::node_judge_direction"
+  chain: "fdt_langgraph/nodes.py::node_chain"
+  technical: "fdt_langgraph/nodes.py::node_technical"
+  fundamental: "fdt_langgraph/nodes.py::node_fundamental"
+  sentiment: "fdt_langgraph/nodes.py::node_sentiment"
+  bullish_v1: "fdt_langgraph/nodes.py::node_bullish_v1"
+  bearish_v1: "fdt_langgraph/nodes.py::node_bearish_v1"
+  verdict: "fdt_langgraph/nodes.py::node_verdict"
+  risk_check: "fdt_langgraph/nodes.py::node_risk_check"
+  quality_inspect: "fdt_langgraph/nodes.py::node_quality_inspect"
+  report: "fdt_langgraph/nodes.py::node_report"
+  signal_output: "fdt_langgraph/nodes.py::node_signal_output"

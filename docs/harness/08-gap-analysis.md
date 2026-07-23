@@ -157,3 +157,19 @@
 | G102 | W(x_j) 案例适配引擎缺失 — 缺少 scripts/harness_adapter.py 和四步上线评估 | P2 | Phase C | **已关闭** |
 | G103 | 正确性优先原则未写入机读规则 — harness-rules.yaml 缺少 C14 规则 | P1 | Phase A | **已关闭** |
 | G124 | **单品种报告 vs 全量模板功能差距** | `single_symbol_report.py` 仅覆盖单品种场景，未实现：①产业链组辩论报告（多品种关联分析）；②全品种扫描 Top-N 排序矩阵；③跨品种相关性热力图；④产业链上下游联动分析。当前单品种报告回退到全量模板作为兜底。 | 中 | 待规划 | 2026-07-22 |
+
+## 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `scripts/validate_agent_output.py` | §2.1 L1 | 产出校验活跃状态 | `grep -n "def " validate_agent_output.py` |
+| `scripts/agent_waiter.py wait_for_agent_output()` | §2.2 S04 | 轮询重试+降级活跃 | `grep -n "def wait_for_agent_output" agent_waiter.py` |
+| `scripts/daemon_watchdog.py` | §2.2 看门狗 | 健康检查活跃 | `grep -n "def " daemon_watchdog.py` |
+| `scripts/apm_scorecard.py` | §3 D1-D5 | 五轴评分活跃 | `grep -n "def " apm_scorecard.py` |
+| `scripts/enforce_discipline.py` | §3 D4 | 纪律钳制活跃 | `grep -n "def " enforce_discipline.py` |
+| `scripts/validate_verdicts.py` | §3 裁决验证 | 裁决验证活跃 | `grep -n "def " validate_verdicts.py` |
+| `scripts/calibrate_weights.py` | §3 校准 | 权重校准活跃 | `grep -n "def " calibrate_weights.py` |
+| `scripts/evolve_agents.py` | §3 进化 | Agent 进化活跃 | `grep -n "def " evolve_agents.py` |
+| `contracts/migrations.py` | G14 | 26 条迁移路径已修复 | `grep -n "def apply_migration" contracts/migrations.py` |
+| `docs/schemas/` | §4 | 9 个 JSON Schema 活跃 | `ls docs/schemas/*.json` |
+| All gap entries with status | §7 差距表 | Gxxx 状态可追踪 | `grep -c "\[" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |

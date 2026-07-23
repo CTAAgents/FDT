@@ -219,4 +219,21 @@
 
 ---
 
-*版本 v1.1 | 2026-07-21 | 新增 §9 交易建议可操作性原则*
+## 11. 一致性元数据
+
+本表维护代码文件与文档章节之间的关键断言关系，用于快速验证文档-代码一致性。每个条目应可通过指定检验方式独立验证。
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `pyproject.toml version` | §5 版本号 | FDT 唯一版本真相源 | `grep "^version" pyproject.toml` |
+| `scripts/fdt_paths.py get_fdt_version()` | §5 | 运行时读取版本 | `grep -n "def get_fdt_version"` |
+| `fdt_langgraph/agents.py FdtAgentExecutor` | §10 D3 Generation | D3 结构化输出控制 | `grep -n "class FdtAgentExecutor\|response_format\|json_object"` |
+| `scripts/enforce_structured_output.py retry_with_temperature_escalation()` | §10 D3 | 温度递增重试 | `grep -n "def retry_with_temperature\|temperature_escalation"` |
+| `contracts/` | §3 契约优先 | Pydantic / TypedDict 定义 | `ls contracts/*.py` |
+| `scripts/pre_commit_harness_check.py` | §2 检查清单 | 12 项检查自动化 | `grep -n "check\|C0[1-9]\|C1[0-2]" harness-rules.yaml` |
+| `docs/harness/` | §1 修改顺序 | 8 维影响面扫描 | `ls docs/harness/0*.md \| wc -l` (应有 10 个) |
+| `docs/harness/loop-contracts/` | §3 契约优先 | Loop Contract 规范 | `ls docs/harness/loop-contracts/*.yaml` |
+
+---
+
+*版本 v1.2 | 2026-07-23 | 新增 §11 一致性元数据*

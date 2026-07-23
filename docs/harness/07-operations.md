@@ -521,7 +521,7 @@ python scripts/auto_publish.py
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
-| **v9.20.2** | 2026-07-23 | **Bugfix: 三项运行时问题修复** — ① `fdt_cli.py` FDT_RUN_EVOLUTION 环境变量支持（替代仅 `--evolve` CLI flag）；② `evolution_graph.py` graph.invoke() 返回 None 时的 fallback（LangGraph v1.2.9 兼容）；③ `debate_quality_schema.py` VERDICT_RULES 字段名与 normalize_verdict 对齐，confidence 支持 float 0-1（修复质检假阳性 FAIL）。新增 13 个单元测试覆盖 3 个修复项，测试全绿。 |
+| **v9.20.2** | 2026-07-23 | **Harness 文档一致性三层保障体系** — Layer 1: 10 篇文档追加结构化一致性元数据表格；Layer 2: `scripts/verify_doc_consistency.py` 自动校验脚本，解析元数据并执行检验命令；Layer 3: `docs/harness/_data/` YAML 数据文件分离易变配置。C15 规则纳入 pre-commit。51 测试全绿，81 条断言通过。 |
 | 9.12.0 | 2026-07-23 | Data Governance Phase 2 — 数据源溯源穿透修复 + 策略层质量门禁: ① scan_all.py/multi_source_adapter.py per-bar data_source 修复 meta.sources 穿透; ② 新增 data_quality 验证器(D级降级/C级标记/兜底源标记); ③ 注册为 __global__ 列表级闸门, 所有信号统一受检; ④ scan_all.py 执行顺序调整(data_quality 注入提前到 validators 之前); ⑤ 数据源从 kline_data 溯源传播到 all_ranked |
 | v9.13.0 | 2026-07-23 | **逐品种独立辩论循环** — per-symbol loop: 每个品种独立走完整数据链（prepare_one_symbol→四源→辩论→裁决→风控→store→route）；scan_all.py 程序化品种分组（同产品代码按成交量选主辩论品种）；闫判官不再判断相关性；新增 per_symbol_results/associated_symbols/symbol_index 状态字段 |
 | 9.11.3 | 2026-07-22 | 修复G107续: 辩论报告探源从fdc_data补充+过滤无意义f10占位数据+修复nodes.py引号混用 |
@@ -543,3 +543,21 @@ python scripts/auto_publish.py
 | **v9.6.6 → v9.6.7** | 2026-07-21 | **Harness 文档整理 + 入口文档同步检查扩展** — ① `harness-starter-kit/` 迁移到 `docs/harness-templates/`；② 设计文档（G21/G22）、流程文档（agent-protocol.md/business_flow.md/execution_modes_flowchart.md）归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新；⑤ README.md 更新项目结构、技术文档链接、版本历史。 |
 | **v9.5.0 → v9.6.0** | 2026-07-20 | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
 | **v9.4.2 → v9.5.0** | 2026-07-20 | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；README 增加 Harness & Loop Engineering 专章；差距分析登记 G20/G21/G22 |
+
+---
+
+## 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源 | `grep "^version" pyproject.toml` |
+| `scripts/fdt_paths.py get_fdt_version()` | §6.2 | 运行时从 pyproject.toml 动态读取 | `grep -n "def get_fdt_version\|pyproject"` |
+| `fdt_cli.py run --evolve` | §3.1 启动 | 辩论+自进化一次性执行 | `grep -n "run.*evolve\|--evolve" fdt_cli.py` |
+| `fdt_langgraph/master_graph.py run_master_daemon()` | §3 Master Graph | 60s 心跳检查 | `grep -n "def run_master_daemon\|heartbeat\|60"` |
+| `fdt_langgraph/master_state.py _get_default_schedules()` | §3.3 | 13 个自动化任务 | `grep -n "def _get_default_schedules\|schedule"` |
+| `scripts/daemon_watchdog.py` | §3.2 看门狗 | 30 分钟检查 + 3 分钟心跳阈值 | `grep -n "30\|3\|heartbeat\|watchdog" daemon_watchdog.py` |
+| `memory/schedule_state.json` | §3.3 | Master Graph 持久化触发状态 | `test -f memory/schedule_state.json && echo exists` |
+| `scripts/dashboard.py --watch` | §4 运维工具 | APM-CS 五轴 HTML 看板 | `grep -n "def main\|--watch\|dashboard" dashboard.py` |
+| `scripts/health_server.py --port 9000` | §4 | /health + /metrics HTTP 端点 | `grep -n "def main\|/health\|/metrics" health_server.py` |
+| `scripts/auto_publish.py` | §6.3 发布 | Git 标签 + GitHub Release | `grep -n "def publish\|release\|auto_publish"` |
+| `scripts/run_benchmark.py --replay` | §5.2 金标准 | 方向一致性 ≥95% | `grep -n "consistency\|accuracy\|95" run_benchmark.py"` |

@@ -600,3 +600,17 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 
 **目标**：新增 `tests/langgraph/test_single_symbol_report.py`，覆盖上述 7 项，目标覆盖率 ≥80%。
 
+## 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `tests/fdt_langgraph/` (5 个测试文件) | §1 测试金字塔 | 包含 test_nodes / state / graph / agents / health | `ls tests/fdt_langgraph/test_*.py` |
+| `tests/fdt-gate/test_quality_gate.py` | §1 门禁 | G1-G5 质量门禁 + 17 个测试用例 | `grep -n "def test_" tests/fdt-gate/test_quality_gate.py` |
+| `tests/fdt_langgraph/test_evolution_graph.py` | §2.3 | 27+2 个测试 (含 graph.invoke None fallback) | `grep -c "def test_" tests/fdt_langgraph/test_evolution_graph.py` |
+| `tests/fdt_langgraph/test_quality_inspector.py` | §2.3 | 11 个测试 (validate_verdict 兼容 float 置信度) | `grep -c "def test_" tests/fdt_langgraph/test_quality_inspector.py` |
+| `tests/fdt_langgraph/test_reports.py` | §2.3 报告层 | 12 个测试 (P1/P3/P5/P6/P6a) | `grep -c "def test_" tests/fdt_langgraph/test_reports.py` |
+| `tests/contracts/test_contracts.py` | §3 契约测试 | 9 个 JSON Schema 校验 | `grep -c "def test_" tests/contracts/test_contracts.py` |
+| `docs/schemas/` | §3 | 9 个 JSON Schema (Draft 2020-12) | `ls docs/schemas/*.json` |
+| `scripts/validate_agent_output.py` | §4 验证器 | 漏放率 ≤1% / 误杀率 ≤5% | `grep -n "leak\|misclassify\|漏放\|误杀"` |
+| `tests/experience/` | §4 经验库 | recorder(17) / distiller(13) / adapter(10+) | `ls tests/experience/test_*.py` |
+| `pyproject.toml` | 全局 | pytest 配置 (coverage / asyncio_mode) | `grep -A5 "\[tool.pytest" pyproject.toml` |

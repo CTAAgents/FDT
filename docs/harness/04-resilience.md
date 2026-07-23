@@ -533,3 +533,17 @@ Data-Core 的结果被视为"有效"的条件（任一满足）：
 - `A2APayload.meta.sources` 中包含 `"datacore"` 标记
 - `A2APayload.data_grade` 沿用 Data-Core 返回中的 `data_grade`；无标注时设为 `"STALE"`
 - 当回退到原有实现时，`sources` 中不包含 `"datacore"` 标记
+
+## 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `scripts/validate_agent_output.py` | §2.1 L1 产出校验 | JSON Schema + 禁止模式检查 | `grep -n "def validate\|class.*Validator"` |
+| `scripts/agent_waiter.py wait_for_agent_output()` | §2.2 S04 轮询 | retry 最多 2 次 → D06 降级 | `grep -n "def wait_for_agent_output\|retry\|D06"` |
+| `fdt_langgraph/nodes.py node_chain/technical/fundamental/sentiment` | §3.2 P2 降级 | 300s 超时跳过，单源失败不影响其他 | `grep -n "timeout\|300"` |
+| `fdt_langgraph/graph.py` | §3.3 P3 降级 | 六阶段辩论 600s 超时自动跳过 | `grep -n "600\|timeout" fdt_langgraph/graph.py` |
+| `fdt_langgraph/nodes.py node_report` | §3.4 报告层降级 | `_render_html()` fallback 模板 | `grep -n "_render_html\|fallback"` |
+| `fdt_langgraph/graph.py _get_checkpointer()` | §4 PG 降级 | `FDT_CHECKPOINTER=pg` → PG 不可用 → SQLite | `grep -n "def _get_checkpointer\|SQLite\|checkpointer"` |
+| `scripts/daemon_watchdog.py` | §5 看门狗 | 每 30 分钟健康检查 | `grep -n "30\|watchdog\|heartbeat"` |
+| `futures_data_core/core/_datacore_bridge.py try_datacore_first()` | §4 Data-Core 降级 | Data-Core → TDX → TqSDK → QMT → Web 五级降级 | `grep -n "def try_datacore_first\|fallback\|降级"` |
+| `fdt_langgraph/nodes.py node_quality_inspect` | §2.1 编纂重试 | retry ≤ 2 次，超过则熔断 | `grep -n "retry\|rework_counters\|max_retries"` |

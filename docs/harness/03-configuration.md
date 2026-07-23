@@ -549,3 +549,16 @@ python -m pytest tests/strategies/ --tb=short -q -o "addopts="
 | per_symbol_results | dict | {} | {品种: {research, debate, verdict, risk}} |
 | _original_symbols | list | [] | 保存完整品种列表 |
 | associated_symbols | dict | {} | {主辩论品种: [关联品种]} |
+
+## 12. 一致性元数据
+
+| 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
+|:--------------|:---------|:-------------------|:---------|
+| `pyproject.toml version` | §1 项目级配置 | FDT 唯一版本真相源 | `grep "^version" pyproject.toml` |
+| `fdt_pg/config.py` | §5 PG 配置 | PG_HOST / PG_PORT / PG_DATABASE 等环境变量 | `grep -n "PG_HOST\|PG_PORT\|PG_DATABASE"` |
+| `config/schema.py Settings/DataSourcesConfig/AgentProfilesData` | §4 配置校验 | Pydantic v2 校验模型 | `grep -n "class Settings\|class DataSourcesConfig\|class AgentProfilesData"` |
+| `docs/schemas/` (9 个 JSON Schema) | §4 配置校验 | DebateState / ArgumentOutput 等 Schema | `ls docs/schemas/` |
+| `fdt_langgraph/agents.py _normalize_env_name()` | §6 逐 Agent LLM | Agent→环境变量名映射 | `grep -n "def _normalize_env_name\|_LLM_ENV_PREFIXES"` |
+| `memory/agent_profiles.json` | §2 记忆级配置 | `evolve_agents.py` 写入 | `grep -n "agent_profiles" scripts/evolve_agents.py` |
+| `futures_data_core/config/data_sources.yaml` | §2 数据源 | 数据源降级链定义 | `grep -n "sources\|priority"` |
+| `fdt_langgraph/graph.py FDT_DIRECT_DEBATE / FDT_DEBATE_SYMBOLS` | §3 环境变量 | 直接辩论模式切换 | `grep -n "FDT_DIRECT_DEBATE\|FDT_DEBATE_SYMBOLS"` |
