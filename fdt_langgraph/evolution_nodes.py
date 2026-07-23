@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -191,11 +192,16 @@ def node_decide_actions(state: EvolutionState) -> EvolutionState:
     decisions["need_ml_train"] = (
         total_samples >= ML_TRAIN_MIN_SAMPLES
     )   # 新样本足够 → ML 训练
+    decisions["need_rhi"] = (
+        os.environ.get("FDT_RHI", "").lower() == "true"
+        and validated_count >= 1
+    )   # FDT_RHI=true 且有样本 → 递归 Harness 自改进
 
     logger.info(f"[Evolution] 决策: improve={decisions['need_improve']}, "
                 f"calibrate={decisions['need_calibrate']}(n={validated_count}), "
                 f"evolve={decisions['need_evolve']}(n={total_samples}), "
-                f"ml={decisions['need_ml_train']}")
+                f"ml={decisions['need_ml_train']}, "
+                f"rhi={decisions['need_rhi']}")
 
     return state
 
@@ -245,6 +251,49 @@ def node_evolve(state: EvolutionState) -> EvolutionState:
         "timestamp": datetime.now().isoformat(),
     }
     logger.info(f"[Evolution] Agent 进化: {'✅' if ok else '❌'} {msg}")
+    return state
+
+
+# ═══════════════════════════════════════════════════════
+#  Step 6.5: RHI 递归 Harness 自改进 (v9.21.0+)
+# ═══════════════════════════════════════════════════════
+
+def node_rhi(state: EvolutionState) -> EvolutionState:
+    """递归 Harness 自改进 — RHI 单步迭代。
+
+    从 debate_state 中提取当前辩论的产出路径，执行 pairwise 比较，
+    并调用 Harness Optimizer 更新三层 Harness 规范。
+    仅在 FDT_RHI=true 时触发。
+    """
+    state["phase"] = "rhi"
+    try:
+        from fdt_langgraph.rhi_graph import node_rhi_step
+        # 构造临时 state 用于 rhi_step
+        temp_state = state.copy()
+        temp_state["report_path"] = state.get("report_path", "")
+        result = node_rhi_step(temp_state)
+        rhi_converged = result.get("rhi_converged", False)
+        rhi_iter = result.get("rhi_iteration", 0)
+        rhi_pref = result.get("rhi_last_preference", {})
+
+        state.setdefault("step_results", {})["rhi"] = {
+            "success": True,
+            "summary": f"迭代 #{rhi_iter}, "
+                       f"偏好={rhi_pref.get('preference', '?')}, "
+                       f"收敛={rhi_converged}",
+            "timestamp": datetime.now().isoformat(),
+        }
+        logger.info(f"[Evolution] RHI 步骤: 迭代 #{rhi_iter}, "
+                     f"偏好={rhi_pref.get('preference', '?')}, "
+                     f"收敛={rhi_converged}")
+    except Exception as e:
+        state.setdefault("step_results", {})["rhi"] = {
+            "success": False,
+            "summary": str(e),
+            "timestamp": datetime.now().isoformat(),
+        }
+        state.setdefault("errors", []).append(f"RHI 步骤失败: {e}")
+        logger.warning(f"[Evolution] RHI 步骤异常(非阻断): {e}")
     return state
 
 
@@ -309,7 +358,7 @@ def node_complete(state: EvolutionState) -> EvolutionState:
 # ═══════════════════════════════════════════════════════
 
 def route_after_decide(state: EvolutionState) -> str:
-    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → ml → complete。"""
+    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → rhi → ml → complete。"""
     d = state.get("decisions", {})
     if d.get("need_improve"):
         return "improve"
@@ -317,6 +366,8 @@ def route_after_decide(state: EvolutionState) -> str:
         return "calibrate"
     if d.get("need_evolve"):
         return "evolve"
+    if d.get("need_rhi"):
+        return "rhi"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -329,6 +380,8 @@ def route_after_improve(state: EvolutionState) -> str:
         return "calibrate"
     if d.get("need_evolve"):
         return "evolve"
+    if d.get("need_rhi"):
+        return "rhi"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -339,6 +392,8 @@ def route_after_calibrate(state: EvolutionState) -> str:
     d = state.get("decisions", {})
     if d.get("need_evolve"):
         return "evolve"
+    if d.get("need_rhi"):
+        return "rhi"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -346,6 +401,16 @@ def route_after_calibrate(state: EvolutionState) -> str:
 
 def route_after_evolve(state: EvolutionState) -> str:
     """evolve 完成后继续。"""
+    d = state.get("decisions", {})
+    if d.get("need_ml_train"):
+        return "ml_train"
+    if d.get("need_rhi"):
+        return "rhi"
+    return "complete"
+
+
+def route_after_rhi(state: EvolutionState) -> str:
+    """RHI 完成后判断是否需要进入 ML 训练。"""
     d = state.get("decisions", {})
     if d.get("need_ml_train"):
         return "ml_train"

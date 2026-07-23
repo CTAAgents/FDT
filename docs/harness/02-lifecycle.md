@@ -162,6 +162,7 @@ fdt_cli.py main()
 > - **v9.18.0 (Master Orchestrator Graph)**: 全量自动化迁移至 LangGraph。新增 Master Graph（`master_state.py`/`master_nodes.py`/`master_graph.py`），统一编排日常辩论/数据采集/APM评分/自动发布，纯 Python datetime 调度判断。`fdt_cli.py daemon` 模式替换 APScheduler 为 `run_master_daemon()`。零第三方依赖。
 > - **v9.17.0 (LangGraph Evolution Graph)**: 自进化闭环从 scheduler 迁移至 LangGraph 子图。新增 `evolution_state.py`(APM五轴驱动状态)、`evolution_nodes.py`(8节点)、`evolution_graph.py`(编译图)。辩论后 `FDT_RUN_EVOLUTION=true` 自动触发，或 `fdt_cli.py evolve` 独立运行。基于 APM 评分 + 样本量条件路由：collect_metrics→apm_eval→decide_actions→[improve|calibrate|evolve|ml_train|rhi|complete]
 > - **v9.21.0 (RHI 递归 Harness 自改进)**: 新增 RHI 分支作为自进化闭环的第 6 个动作。RHI 将 Harness 表示为三层文本规范 (Agent Candidates / Workflow(Contract+Hop) / Auxiliary Rules)，通过 pairwise 比较两轮辩论产出的质量（质检通过率/风控/信号/完整性），在 3-5 轮内以 O(1) 成本收敛到更优 Harness。参考 MemoHarness (arXiv:2607.14159) + RHI (arXiv:2607.15524)。
+> - **v9.22.0 (RHI 完整落地)**: `evolution_graph.py` 路由链新增 `rhi` 分支（improve→calibrate→evolve→rhi→ml→complete），`FDT_RHI=true` 环境变量开关。`scripts/rhi_global_cli.py` 全局 CLI 工具，任何项目可独立使用 RHI Harness 自优化。
 > - **v9.16.0 (D2/D5/D6 pipeline 集成)**: D2 ToolMetrics 接入 Agent 执行入口 → 工具调用指标全量采集；D5 memory_cleaner 增强 → debate_journal 压缩 + generation_metrics 自动清理；D6 Output pipeline 集成 → `quality_inspector` 输出质量评分、`node_report` 输出版本化、`node_quality_inspect` 审计日志、scheduler apm_scorecard 定时任务
 > - **P0b 新增 (v9.6.5)**: 数据新鲜度闸门作为 pre_loop 必查步骤，对标数据新鲜度分级标准
 > - **P1 重构**: 从"通道突破扫描"升级为"可插拔多策略并行扫描"，支持 trend_following(10子信号)、mean_reversion(3子信号) 及自定义策略插件

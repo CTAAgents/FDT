@@ -33,8 +33,8 @@ from langgraph.graph import StateGraph, END
 from fdt_langgraph.evolution_state import EvolutionState
 from fdt_langgraph.evolution_nodes import (
     node_collect_metrics, node_apm_eval, node_decide_actions,
-    node_improve, node_calibrate, node_evolve, node_ml_train, node_complete,
-    route_after_decide, route_after_improve, route_after_calibrate, route_after_evolve,
+    node_improve, node_calibrate, node_evolve, node_rhi, node_ml_train, node_complete,
+    route_after_decide, route_after_improve, route_after_calibrate, route_after_evolve, route_after_rhi,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ def _build_evolution_graph() -> StateGraph:
     graph.add_node("improve", node_improve)
     graph.add_node("calibrate", node_calibrate)
     graph.add_node("evolve", node_evolve)
+    graph.add_node("rhi", node_rhi)
     graph.add_node("ml_train", node_ml_train)
     graph.add_node("complete", node_complete)
 
@@ -67,33 +68,45 @@ def _build_evolution_graph() -> StateGraph:
             "improve": "improve",
             "calibrate": "calibrate",
             "evolve": "evolve",
+            "rhi": "rhi",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── improve 后可流转到 calibrate/evolve/ml/complete ──
+    # ── improve 后可流转到 calibrate/evolve/rhi/ml/complete ──
     graph.add_conditional_edges(
         "improve", route_after_improve, {
             "calibrate": "calibrate",
             "evolve": "evolve",
+            "rhi": "rhi",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── calibrate 后可流转到 evolve/ml/complete ──
+    # ── calibrate 后可流转到 evolve/rhi/ml/complete ──
     graph.add_conditional_edges(
         "calibrate", route_after_calibrate, {
             "evolve": "evolve",
+            "rhi": "rhi",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── evolve 后可流转到 ml/complete ──
+    # ── evolve 后可流转到 rhi/ml/complete ──
     graph.add_conditional_edges(
         "evolve", route_after_evolve, {
+            "rhi": "rhi",
+            "ml_train": "ml_train",
+            "complete": "complete",
+        }
+    )
+
+    # ── rhi 后可流转到 ml/complete ──
+    graph.add_conditional_edges(
+        "rhi", route_after_rhi, {
             "ml_train": "ml_train",
             "complete": "complete",
         }
