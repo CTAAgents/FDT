@@ -396,6 +396,117 @@ def _check_indicator_range(key: str, val: float, issues: list) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  新闻源质量评估（金十 MCP 快讯）
+# ═══════════════════════════════════════════════════════════════
+
+
+def evaluate_jin10_context(
+    symbol: str,
+    flash_items: list[dict] | None,
+    jin10_available: bool = True,
+) -> dict:
+    """评估单个品种的金十快讯数据质量。
+
+    检查维度:
+      - 可用性: Jin10 MCP 是否配置
+      - 数量: 品种相关快讯数量
+      - 新鲜度: 最新快讯距今时间
+      - 时效分布: 1h内/1-4h/4-24h/>24h 各多少条
+
+    Args:
+        symbol: 品种代码
+        flash_items: 该品种的快讯列表，每项含 {time, text, ...}
+        jin10_available: Jin10 MCP 是否可用
+
+    Returns:
+        news_quality dict
+    """
+    if not jin10_available:
+        return {
+            "symbol": symbol,
+            "available": False,
+            "n_items": 0,
+            "freshness_hours": -1,
+            "time_distribution": {"lt_1h": 0, "1_4h": 0, "4_24h": 0, "gt_24h": 0},
+            "overall": "D",
+            "issues": ["金十 MCP 未配置"],
+        }
+
+    if not flash_items:
+        return {
+            "symbol": symbol,
+            "available": False,
+            "n_items": 0,
+            "freshness_hours": -1,
+            "time_distribution": {"lt_1h": 0, "1_4h": 0, "4_24h": 0, "gt_24h": 0},
+            "overall": "D",
+            "issues": [f"{symbol} 无相关快讯"],
+        }
+
+    n_items = len(flash_items)
+    dist = {"lt_1h": 0, "1_4h": 0, "4_24h": 0, "gt_24h": 0}
+    newest_hours = 999
+
+    for item in flash_items:
+        time_str = item.get("time", "")
+        hours = _calc_news_age_hours(time_str)
+        if 0 <= hours < 1:
+            dist["lt_1h"] += 1
+        elif hours < 4:
+            dist["1_4h"] += 1
+        elif hours < 24:
+            dist["4_24h"] += 1
+        elif hours >= 24:
+            dist["gt_24h"] += 1
+        if hours < newest_hours:
+            newest_hours = hours
+
+    issues = []
+    if n_items < 3:
+        issues.append(f"快讯偏少({n_items}<3)")
+    if newest_hours > 24:
+        issues.append(f"最新快讯距今{newest_hours}h(>24h)")
+    if dist["lt_1h"] == 0 and dist["1_4h"] == 0:
+        issues.append("无4h内快讯")
+
+    if n_items >= 5 and newest_hours <= 4 and not issues:
+        overall = "A"
+    elif n_items >= 3 and newest_hours <= 24:
+        overall = "B"
+    elif n_items >= 1:
+        overall = "C"
+    else:
+        overall = "D"
+
+    return {
+        "symbol": symbol,
+        "available": True,
+        "n_items": n_items,
+        "freshness_hours": newest_hours if newest_hours < 999 else -1,
+        "time_distribution": dist,
+        "overall": overall,
+        "issues": issues,
+    }
+
+
+def _calc_news_age_hours(time_str: str) -> float:
+    """计算快讯时间距现在的小时数。
+
+    金十快讯 time 格式示例: "2026-07-23 14:30:00"
+    """
+    if not time_str:
+        return 999
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d %H:%M"):
+        try:
+            dt = datetime.strptime(time_str[:19], fmt)
+            delta = (datetime.now() - dt).total_seconds()
+            return max(0, delta / 3600)
+        except (ValueError, TypeError):
+            continue
+    return 999
+
+
+# ═══════════════════════════════════════════════════════════════
 #  工具函数
 # ═══════════════════════════════════════════════════════════════
 

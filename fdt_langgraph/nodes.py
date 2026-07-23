@@ -1210,19 +1210,20 @@ _SYMBOL_TO_KEYWORDS: dict[str, list[str]] = {
 _SYMBOL_DEFAULT_KEYWORDS = ["期货", "大宗商品", "商品市场"]
 
 
-async def _build_jin10_context(symbols: list[str], trace_id: str) -> str:
-    """按品种从金十 MCP 获取精选快讯，返回格式化上下文文本。
+async def _build_jin10_context(symbols: list[str], trace_id: str) -> tuple[str, list[dict]]:
+    """按品种从金十 MCP 获取精选快讯，返回 (格式化文本, 结构化快讯列表)。
 
     对每个品种，取其映射的中文关键词搜索金十快讯，
     去重后按品种分类输出，供基本面研究员（探源）作为分析素材。
+    结构化列表用于质量评估（evaluate_jin10_context）。
     """
     try:
         from data_source_adapter import jin10_available, jin10_search_flash
     except ImportError:
-        return "【金十精选快讯】jin10 MCP 适配层未加载\n"
+        return "【金十精选快讯】jin10 MCP 适配层未加载\n", []
 
     if not jin10_available():
-        return "【金十精选快讯】金十 MCP 未配置（JIN10_MCP_TOKEN 缺失）\n"
+        return "【金十精选快讯】金十 MCP 未配置（JIN10_MCP_TOKEN 缺失）\n", []
 
     lines = []
     lines.append("\n【金十精选快讯（实时快讯，作为基本面分析素材）】")
@@ -1267,7 +1268,7 @@ async def _build_jin10_context(symbols: list[str], trace_id: str) -> str:
                 lines.append(f"    ... 还有 {len(sym_flash) - 5} 条相关快讯")
 
     lines.append("\n【引用规范】引用金十快讯时请标注来源 [jin10]，示例：据金十快讯，[jin10] 某某品种供需情况...")
-    return "\n".join(lines)
+    return "\n".join(lines), all_flash
 
 
 async def node_fundamental(state: DebateState) -> dict:
@@ -1280,7 +1281,7 @@ async def node_fundamental(state: DebateState) -> dict:
 
     scan_results = state.get("scan_results", {})
     fdc_fund_context = _build_fdc_fundamental_context(selected, fdc_data, scan_results)
-    jin10_context = await _build_jin10_context(selected, state.get("trace_id", ""))
+    jin10_context, _ = await _build_jin10_context(selected, state.get("trace_id", ""))
 
     context = f"""作为基本面研究员（探源），请分析以下品种的基本面状态：
 
@@ -1408,7 +1409,18 @@ async def node_sentiment(state: DebateState) -> dict:
     selected = state.get("selected_symbols", [])
 
     # 获取金十快讯原始数据（复用 _build_jin10_context 但情绪 Agent 自己分析）
-    jin10_ctx = await _build_jin10_context(selected, state.get("trace_id", ""))
+    jin10_ctx, jin10_flash = await _build_jin10_context(selected, state.get("trace_id", ""))
+
+    # ── 逐品种新闻质量评估（Data Governance Phase 2） ──
+    news_quality = {}
+    try:
+        from futures_data_core.core.data_quality import evaluate_jin10_context
+        for sym in selected:
+            sym_flash = [f for f in jin10_flash if f["symbol"] == sym]
+            jin10_avail = "jin10" in str(jin10_ctx[:30]) and "未配置" not in jin10_ctx[:30]
+            news_quality[sym] = evaluate_jin10_context(sym, sym_flash, jin10_avail)
+    except ImportError:
+        news_quality = {}
 
     context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态：
 
@@ -1436,6 +1448,7 @@ divergence(情绪与基本面的偏离度，0时不填)。
     return {
         "sentiment_data": {
             "raw": result,
+            "news_quality": news_quality,
         }
     }
 
