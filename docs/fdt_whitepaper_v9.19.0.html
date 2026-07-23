@@ -209,7 +209,45 @@ P5 闫判官六维评分裁决 + 风控审核 + 品藻质检</div>
 <tr><td>Output（输出处理）</td><td>Schema校验 + 风控门控 + HTML报告 + 质量评分 + 审计日志</td></tr>
 </table>
 
-<p>配套12项 commit 前检查、10条反模式检测规则、5份 Loop Contract 循环契约（L1自检/L2测试/L3独立审查三档）。</p>
+<p>配套12项 commit 前检查、10条反模式检测规则。</p>
+
+<h3>4.2 Loop Engineering：三层循环体系</h3>
+
+<p>FDT 的自动执行链路实际上由三个嵌套的"循环"构成，每个循环有明确的触发条件、执行范围、预算约束、停止条件和输出报告——即 Loop Contract（循环契约）。</p>
+
+<p><strong>第一层：品种级重修循环（最内层）</strong></p>
+<p>在单次辩论会话中，每个品种完成 P3→P4→P5 后进入品藻质检。如果输出不合格且重试次数未达上限（2次），系统将该品种退回 P2.5 重新处理，而非直接丢弃。这个微型循环确保辩论输出满足基本质量标准后才进入下一步。</p>
+
+<p><strong>第二层：辩论执行循环（Inner Loop）</strong></p>
+<p>完整的 P1→P2→逐品种循环→P6 流程构成一次辩论会话。Master Graph 在设定的时间窗口（如工作日19:15）触发 daily-debate 任务，所有品种处理完成后输出报告和 CTP 信号，会话终止。该循环的停止条件是"所有选中品种全部完成处理"。</p>
+
+<p><strong>第三层：自进化循环（Outer Loop）</strong></p>
+<p>辩论会话结束后，Evolution Graph 自动启动：收集质量指标 → APM五轴评分 → 按条件触发后续步骤（APM退化则自改进、样本充足则校准权重、再充足则进化 Agent、积累足够则增量训练 ML）。该循环的停止条件是"所有条件均已评估完毕，无更多操作可执行"。</p>
+
+<p>三个循环通过 <strong>Loop Contract</strong> 进行契约化管理，每份契约定义六项要素：</p>
+
+<table>
+<tr><th>要素</th><th>daily-debate 示例</th><th>self-evolve 示例</th></tr>
+<tr><td>TRIGGER（触发条件）</td><td>工作日 19:15 时间窗口</td><td>辩论完成 + 数据冷却到期</td></tr>
+<tr><td>SCOPE（执行范围）</td><td>全品种辩论 → CTP 信号输出</td><td>质检/APM/改进/校准/进化/ML</td></tr>
+<tr><td>ACTION（执行动作）</td><td>Debate Graph invoke</td><td>Evolution Graph invoke</td></tr>
+<tr><td>BUDGET（预算约束）</td><td>单品种四源超时 300s，辩论超时 600s</td><td>各步骤超时 120-300s</td></tr>
+<tr><td>STOP（停止条件）</td><td>全部品种完成 + 报告输出</td><td>所有条件评估完毕，无更多操作</td></tr>
+<tr><td>REPORT（输出报告）</td><td>debate_report_{trace_id}.html</td><td>evolution_log.json</td></tr>
+</table>
+
+<p>当前系统定义了 5 份 Loop Contract，按验证档位分级：</p>
+
+<table>
+<tr><th>循环 ID</th><th>验证档位</th><th>权限</th></tr>
+<tr><td>daily-debate</td><td>L3（独立 Agent 审查）</td><td>Write（含 CTP 信号）</td></tr>
+<tr><td>self-evolve</td><td>L2（测试套件）</td><td>Draft</td></tr>
+<tr><td>ml-training</td><td>L2（测试套件）</td><td>Draft</td></tr>
+<tr><td>health-check</td><td>L1（自检）</td><td>只读</td></tr>
+<tr><td>data-collection</td><td>L1（自检）</td><td>只读</td></tr>
+</table>
+
+<p>三档验证体系：L1 由 Agent 自检 + JSON Schema 完成，适用于报告型和采集型循环；L2 通过 pytest 测试套件验证，适用于中等风险操作；L3 由独立 Agent 审查辩论输出完整性，适用于含实盘信号输出的高风险循环。权限三档（只读/Draft/Write）进一步约束循环对系统和外部环境的写入能力。</p>
 
 <h3>4.2 自进化闭环</h3>
 
@@ -231,7 +269,7 @@ P5 闫判官六维评分裁决 + 风控审核 + 品藻质检</div>
 
 <p>这个循环不依赖人工标注，以实际行情反馈作为评估依据。</p>
 
-<h3>4.3 逐Agent LLM 配置</h3>
+<h3>4.4 逐Agent LLM 配置</h3>
 
 <p>系统允许按角色独立配置LLM参数（API Key/BaseURL/Model），配合 D3 解码控制，配置优先级为：decode_config.yaml > 逐Agent环境变量 > 全局环境变量 > 默认值。</p>
 
