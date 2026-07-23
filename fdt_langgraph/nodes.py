@@ -13,12 +13,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from .state import DebateState
 from .agents import FdtAgentExecutor
-from .single_symbol_report import generate as _generate_single_symbol_report
+from .single_symbol_report import generate as _generate_single_symbol_report, generate_body as _generate_symbol_body
 from futures_data_core.core.field_normalizer import (
     normalize_signal_list,
     normalize_verdict,
     normalize_risk_check,
-    normalize_direction_raw,
+)
+from futures_data_core.core.data_quality import (
+    evaluate_f10_data,
+    evaluate_indicators,
 )
 
 _SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -71,53 +74,67 @@ def _resolve_report_dir() -> Path:
     return Path(tempfile.gettempdir()) / "fdt_reports"
 
 
+def _load_template_css() -> str:
+    """从 docs/report-template/report_css.html 加载统一模板 CSS"""
+    _REPORT_CSS_PATH = Path(__file__).resolve().parent.parent / "docs" / "report-template" / "report_css.html"
+    if _REPORT_CSS_PATH.exists():
+        css = _REPORT_CSS_PATH.read_text(encoding="utf-8")
+        return "\n".join(line for line in css.splitlines() if not line.strip().startswith("/*"))
+    return ""
+
+
+# 模块级缓存
+_TEMPLATE_CSS = _load_template_css()
+
+
 def _render_html(title: str, body_html: str, header_meta: list[tuple[str, str]] | None = None) -> str:
-    """统一 HTML 报告模板（明鉴秋报告层通用）"""
+    """统一 HTML 报告模板（暖灰商务风，参考 docs/report-template/）"""
     from datetime import datetime as _dt
     meta_html = ""
     if header_meta:
-        items = "".join(f'<div class="meta-item"><span class="label">{k}</span> <span class="value">{v}</span></div>' for k, v in header_meta)
+        items = "".join(
+            f'<span>{k.replace("_"," ").title()}: {v}</span>'
+            for k, v in header_meta
+        )
         meta_html = f'<div class="meta">{items}</div>'
+
+    # 从 body 提取 nav 项
+    nav_links = ""
+    for m in __import__("re").finditer(r'<section[^>]*?id="([^"]+)"[^>]*>.*?<h2[^>]*>(.*?)</h2>', body_html, __import__("re").DOTALL):
+        label = __import__("re").sub(r'<[^>]+>', '', m.group(2)).strip()[:16]
+        nav_links += f'<a href="#{m.group(1)}">{label}</a>'
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>{title} | {_dt.now().strftime('%Y-%m-%d')}</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#0f1117;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;padding:20px}}
-.container{{max-width:1200px;margin:0 auto}}
-.header{{background:linear-gradient(135deg,#1a1d28 0%,#2a1f1f 50%,#1a1d28 100%);padding:32px;border-radius:14px;margin-bottom:24px;text-align:center;border:1px solid #f59e0b33}}
-.header h1{{font-size:1.8em;color:#f59e0b;margin-bottom:6px}}
-.header .subtitle{{color:#888;font-size:0.9em}}
-.header .meta{{display:flex;justify-content:center;gap:14px;margin-top:14px;flex-wrap:wrap}}
-.meta-item{{background:#1a1d28;padding:6px 14px;border-radius:6px;border:1px solid #2a2d38;font-size:0.85em}}
-.meta-item .label{{color:#888}}
-.meta-item .value{{color:#f59e0b;font-weight:bold}}
-.section{{background:#1a1d28;border-radius:10px;padding:20px 24px;margin-bottom:18px;border:1px solid #2a2d38}}
-.section h2{{color:#f59e0b;font-size:1.2em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #2a2d38}}
-table{{width:100%;border-collapse:collapse;font-size:0.85em}}
-th{{background:#252836;color:#f59e0b;padding:8px 10px;text-align:left;border-bottom:2px solid #f59e0b44;white-space:nowrap}}
-td{{padding:6px 10px;border-bottom:1px solid #2a2d38;word-break:break-word}}
-tr:hover td{{background:#25283644}}
-.num{{text-align:right;font-family:'Courier New',monospace;white-space:nowrap}}
-.tag-buy{{color:#22c55e;font-weight:bold}}
-.tag-sell{{color:#ef4444;font-weight:bold}}
-.tag-hold{{color:#f59e0b;font-weight:bold}}
-.footer{{text-align:center;color:#555;font-size:0.8em;padding:24px;border-top:1px solid #2a2d38;margin-top:24px}}
+{_TEMPLATE_CSS}
 </style></head>
-<body><div class="container">
-<div class="header">
-  <h1>{title}</h1>
-  <div class="subtitle">明鉴秋 · 报告层调度</div>
-  {meta_html}
-</div>
+<body>
+
+<header class="report-header">
+  <div class="container">
+    <div class="badge">FDT 辩论报告</div>
+    <h1>{title}</h1>
+    <p class="subtitle">明鉴秋 · 报告层调度 | {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    {meta_html}
+  </div>
+</header>
+
+<nav class="nav-bar"><div class="container">{nav_links}</div></nav>
+
+<main class="container">
 {body_html}
-<div class="footer">
-  <p>FDT 期货辩论团队 | 明鉴秋报告层 | {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-  <p style="color:#ef4444;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
-</div>
-</div></body></html>"""
+</main>
+
+<footer>
+  <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
+  <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
+</footer>
+
+</body></html>"""
 
 
 def _write_scan_report(trace_id: str, scan_results: dict, output_dir: Path) -> str:
@@ -170,7 +187,7 @@ def _write_scan_report(trace_id: str, scan_results: dict, output_dir: Path) -> s
 def _write_verdict_report(trace_id: str, verdict: dict, risk_check: dict,
                           selected_symbols: list, output_dir: Path,
                           scan_summary: list = None) -> str:
-    """生成裁决报告 (P5 阶段) — 闫判官裁决 + 风控明审核"""
+    """生成裁决报告 (P4 阶段) — 闫判官裁决 + 风控明审核"""
     direction = verdict.get("direction", verdict.get("verdict", "neutral"))
     direction_cn = {"bull": "多头", "bullish": "多头", "BUY": "做多",
                     "bear": "空头", "bearish": "空头", "SELL": "做空"}.get(direction, "中性")
@@ -191,7 +208,7 @@ def _write_verdict_report(trace_id: str, verdict: dict, risk_check: dict,
     warn_html = "".join(f"<li>{w}</li>" for w in warnings) if warnings else "<li style='color:#888;'>无警告</li>"
 
     body = f"""<div class="section">
-<h2>⚖️ P5 · 闫判官裁决</h2>
+<h2>⚖️ P4 · 闫判官裁决</h2>
 <p class="subtitle">trace_id={trace_id} · 辩论品种: {', '.join(selected_symbols) or '—'}</p>
 <table>
 <tr><th>裁决方向</th><td><span class="tag-{'buy' if 'buy' in str(direction).lower() else 'sell' if 'sell' in str(direction).lower() else 'hold'}">{direction} ({direction_cn})</span></td></tr>
@@ -236,7 +253,7 @@ def _write_verdict_report(trace_id: str, verdict: dict, risk_check: dict,
 
 
 def _write_research_report(trace_id: str, research_data: dict, output_dir: Path) -> str:
-    """生成研究报告 (P3 阶段) — 三源（链证源/观澜/探源）合并分析"""
+    """生成研究报告 (P2 阶段) — 四源（链证源/观澜/探源/读心）合并分析"""
     chain_analysis = research_data.get("chain_analysis", {}) or {}
     technical_data = research_data.get("technical_data", {}) or {}
     fundamental_data = research_data.get("fundamental_data", {}) or {}
@@ -274,31 +291,31 @@ def _write_research_report(trace_id: str, research_data: dict, output_dir: Path)
         sentiment_output = (sent_raw.get("output", "") if isinstance(sent_raw, dict) else "")[:500]
 
     body = f"""<div class="section">
-<h2>🔗 P3 · 链证源 — 产业链分析</h2>
+<h2>🔗 P2 · 链证源 — 产业链分析</h2>
 <p class="subtitle">覆盖产业链 {chain_count} 条</p>
 <pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{str(chain_analysis)[:2000] if chain_analysis else '（未触发）'}</pre>
 </div>
 
 <div class="section">
-<h2>📈 P3 · 观澜 — 技术面分析（逐品种）</h2>
+<h2>📈 P2 · 观澜 — 技术面分析（逐品种）</h2>
 <p class="subtitle">覆盖 {len(tech_per_symbol)} 个品种</p>
 <table><thead><tr><th>品种</th><th>趋势判断</th><th class="num">评分</th></tr></thead>
 <tbody>{tech_rows}</tbody></table>
 </div>
 
 <div class="section">
-<h2>🔬 P3 · 探源 — 基本面分析（逐品种）</h2>
+<h2>🔬 P2 · 探源 — 基本面分析（逐品种）</h2>
 <p class="subtitle">覆盖 {len(fund_per_symbol)} 个品种</p>
 <table><thead><tr><th>品种</th><th>供需</th><th>库存</th><th>期限结构</th></tr></thead>
 <tbody>{fund_rows}</tbody></table>
 </div>
 
 <div class="section">
-<h2>📰 P3 · 读心 — 新闻情绪分析</h2>
+<h2>📰 P2 · 读心 — 新闻情绪分析</h2>
 <pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{sentiment_output if sentiment_output else '（未触发）'}</pre>
 </div>"""
 
-    html = _render_html("🔍 研究报告（三源）", body, [
+    html = _render_html("🔍 研究报告（四源）", body, [
         ("trace_id", trace_id),
         ("产业链", f"{chain_count}"),
         ("技术", f"{len(tech_per_symbol)}"),
@@ -495,28 +512,38 @@ async def node_judge_direction(state: DebateState) -> DebateState:
     legacy_block = "\n".join(legacy_lines) if legacy_lines else "（无策略评分）"
     
     context = f"""你是闫判官（FDT 辩论调度官）。你的职责是：
-1. 基于品种的量化统计特征，评估当前市场状态
-2. 判断哪些品种值得进入深度辩论
-3. 给出方向性预判供后续环节参考
+1. 基于 P1 数技源的量化统计特征，识别值得进入辩论的品种
+2. **识别品种间的相关性**，从每个相关组中挑出流动性最好的1个品种进行深度辩论
+3. 协调调度各数据源（链证源/观澜/探源/读心）为辩论做准备
+4. 你不做方向预判——多空方向由后续辩论阶段决定
 
 你收到的 stats 数据由数技源提供，是纯粹的统计事实，不包含方向性判断。
-品种的技术方向判断由观澜（P3）负责，闫判官只做调度决策和方向预判。
 
---- 统计特征（主要判断依据）---
+--- 统计特征（品种筛选依据）---
 {stats_block}
 
---- 策略评分（仅供参考，不作为判断依据）---
+--- 策略评分（仅供参考，不作为筛选依据）---
 {legacy_block}
 
+关键规则：
+- **相关品种分组**：分析品种间的相关性（同品种不同月份、同产业链品种、高度联动品种）
+- **每组只选1个主辩论品种**：从每个相关组中选择**流动性最佳**（成交量最大）的品种进行深度辩论
+- **非主辩论品种标注为关联品种**：在报告中简要说明即可，不走完整辩论流程
+- 例如 CF2609 和 CY2609 高度相关，选 CF2609 辩论，CY2609 作为关联品种
+
 请以 JSON 格式返回：
-1. scan_direction: 闫判官方向预判 (bullish/bearish/neutral) — 基于统计特征独立判断
-2. confidence: 置信度 (0-1)
-3. symbols: 推荐辩论的品种列表（优先选 stats 特征显著的品种）
-4. reason: 判断理由（引用统计特征数据，而非策略评分）
-5. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
+1. scan_direction: 始终返回 "neutral"（闫判官不做方向预判）
+2. confidence: 置信度 (0-1) — 对品种筛选的把握程度
+3. symbols: 主辩论品种列表（每组相关品种只选1个，选流动性最好的）
+4. associated_groups: 关联品种分组 {{"主品种": ["关联品种1", "关联品种2"], ...}}
+5. reason: 筛选理由（说明分组依据和流动性选择理由）
+6. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
 
 返回 JSON 格式：
-{{"scan_direction": "bearish", "confidence": 0.7, "symbols": ["SF", "SM"], "dispatch_sources": ["chain", "technical"], "reason": "SF/SM 统计特征显示价格处于20日区间低位，ADX偏高确认趋势延续"}}
+{{"scan_direction": "neutral", "confidence": 0.8, "symbols": ["CF2609", "SF"],
+  "associated_groups": {{"CF2609": ["PF2609", "CY2609"]}},
+  "dispatch_sources": ["chain", "technical", "fundamental"],
+  "reason": "CF2609与PF2609/CY2609同属棉纺产业链，CF2609流动性最优选为主辩论品种；SF通过stats筛选直接进入辩论"}}
 """
 
     result = await judge.run(context, state["trace_id"])
@@ -533,36 +560,20 @@ async def node_judge_direction(state: DebateState) -> DebateState:
         logger.warning(f"Failed to parse judge output: {e}")
         verdict = {"scan_direction": "neutral", "symbols": [], "reason": output}
 
-    # v9.3.0: 标准化方向字段
-    raw_dir = verdict.get("scan_direction", verdict.get("direction", "neutral"))
-    verdict["scan_direction"] = normalize_direction_raw(raw_dir)
-
+    # v9.11.4: 闫判官不做方向预判，方向统一为 neutral
     selected_symbols = verdict.get("symbols", [])
     if not selected_symbols:
         selected_symbols = state.get("selected_symbols", [])
 
-    # 兼容新旧字段名: scan_direction (新) 或 direction (旧)
-    scan_dir = verdict.get("scan_direction", verdict.get("direction", "neutral"))
+    # v9.13.0: 提取关联品种分组
+    associated_groups = verdict.get("associated_groups", {})
+    if not isinstance(associated_groups, dict):
+        associated_groups = {}
+
+    scan_dir = "neutral"
     scan_reason = verdict.get("reason", "")
 
     dispatch_sources = verdict.get("dispatch_sources", ["chain", "technical", "fundamental"])
-
-    # ── P1角色矫正：增加 audit 段，记录闫判官与P1信号的偏离 ──
-    # 用于 T+1 验证"去锚定"后的判断质量
-    _audit = {}
-    if selected_symbols and scan_summary:
-        _top = next((r for r in scan_summary if r.get("symbol") in selected_symbols), None)
-        if _top:
-            _audit = {
-                "p1_signal_direction": _top.get("direction", "neutral"),
-                "p1_signal_total": _top.get("total", 0),
-                "p1_signal_grade": _top.get("grade", "NOISE"),
-                "deviation": "aligned" if (
-                    (scan_dir in ("bearish", "bear") and _top.get("direction") == "bear") or
-                    (scan_dir in ("bullish", "bull") and _top.get("direction") == "bull") or
-                    (scan_dir == "neutral")
-                ) else "diverged",
-            }
 
     new_phases = state["completed_phases"] + ["P2"]
     return {
@@ -572,9 +583,13 @@ async def node_judge_direction(state: DebateState) -> DebateState:
             "confidence": verdict.get("confidence", 0.5),
             "symbols": selected_symbols,
             "reason": scan_reason,
-            "audit": _audit,
+            "audit": {},
         },
         "selected_symbols": selected_symbols,
+        "_original_symbols": list(selected_symbols),  # v9.13.0: 保存完整品种列表用于逐品种循环
+        "symbol_index": 0 if selected_symbols else -1, # v9.13.0: 从第一个品种开始
+        "per_symbol_results": {},
+        "associated_symbols": associated_groups,
         "dispatch_sources": dispatch_sources,
         "current_phase": "P2",
         "completed_phases": new_phases
@@ -643,6 +658,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             # 检查并反转：如果第一根 bar 的日期 > 最后一根，说明是倒序
             if _raw_bars and len(_raw_bars) > 1 and str(_raw_bars[0].get("date", "")) > str(_raw_bars[-1].get("date", "")):
                 _raw_bars.reverse()
+
             symbol_data["kline"] = {
                 "bars": _raw_bars,
                 "meta": {k: v for k, v in kline_payload.meta.items() if k != "sources"},
@@ -726,6 +742,11 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             except Exception as e:
                 logger.warning(f"[FDC] {symbol} 持仓排名失败: {e}")
                 data_grades["position_ranking"] = "UNAVAILABLE"
+
+        # ── F10 数据质量评估（Data Governance Phase 2） ──
+        symbol_data["f10_quality"] = evaluate_f10_data(symbol, symbol_data)
+        # ── 技术指标质量评估 ──
+        symbol_data["indicator_quality"] = evaluate_indicators(symbol, symbol_data.get("indicators"))
 
         symbol_data["data_grades"] = data_grades
         return symbol, symbol_data, error
@@ -914,6 +935,23 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
                           ["term_structure", "basis", "spread", "warrant", "position_ranking", "fundamental"]}
             if f10_grades:
                 lines.append(f"  数据质量: {json.dumps(f10_grades, ensure_ascii=False)}")
+        # ── Data Governance Phase 2: F10 质量详情 ──
+        f10_q = sym_data.get("f10_quality", {})
+        if f10_q and f10_q.get("f10_issues"):
+            lines.append(f"  ⚠️ F10质量: {f10_q.get('f10_overall','?')}级 | "
+                         f"可用{f10_q.get('f10_available',0)}/{f10_q.get('f10_total',0)} | "
+                         f"问题: {'; '.join(f10_q['f10_issues'][:3])}")
+        ind_q = sym_data.get("indicator_quality", {})
+        if ind_q:
+            qual_parts = []
+            if ind_q.get("overall"):
+                qual_parts.append(f"{ind_q['overall']}级")
+            if ind_q.get("n_nan", 0) > 0:
+                qual_parts.append(f"NaN={ind_q['n_nan']}")
+            if ind_q.get("n_inf", 0) > 0:
+                qual_parts.append(f"Inf={ind_q['n_inf']}")
+            qual_parts.append(f"指标{ind_q.get('completeness', '?/8')}")
+            lines.append(f"  技术指标质量: {' | '.join(qual_parts)}")
 
     # ── 追加数技源扫描对照（让观澜同时看到两套数据，做交叉验证） ──
     if scan_results:
@@ -1402,6 +1440,167 @@ divergence(情绪与基本面的偏离度，0时不填)。
     }
 
 
+# ==================== 逐品种循环节点 (v9.13.0) ====================
+
+
+async def node_prepare_one_symbol(state: DebateState) -> DebateState:
+    """P2.5-per-symbol: 只准备 symbol_index 指向的单个品种的 FDC 数据，合并到已积累数据中"""
+    symbols = state.get("_original_symbols", state.get("selected_symbols", []))
+    idx = state.get("symbol_index", 0)
+    if idx < 0 or idx >= len(symbols):
+        return state
+
+    current_sym = symbols[idx]
+    existing_fdc = dict(state.get("fdc_data", {}) or {})
+
+    # 调用现有的 node_prepare_data，但只传当前品种
+    mini_state = {**state, "selected_symbols": [current_sym]}
+    result = await node_prepare_data(mini_state)
+
+    # 合并新旧 fdc_data（保留已积累的其他品种数据）
+    new_fdc = result.get("fdc_data", {}) or {}
+    result["fdc_data"] = {**existing_fdc, **new_fdc}
+    return result
+
+
+async def node_store_per_symbol_result(state: DebateState) -> DebateState:
+    """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引"""
+    symbols = state.get("_original_symbols", [])
+    current_sym_idx = state.get("symbol_index", 0)
+    current_sym = state.get("selected_symbols", [None])[0]
+
+    # 收集本品种的关键数据
+    per_symbol = dict(state.get("per_symbol_results", {}))
+
+    sym_result = {
+        "fdc_data": {current_sym: state.get("fdc_data", {}).get(current_sym, {})},
+        "research_data": state.get("research_data"),
+        "chain_analysis": state.get("chain_analysis"),
+        "technical_data": state.get("technical_data"),
+        "fundamental_data": state.get("fundamental_data"),
+        "sentiment_data": state.get("sentiment_data"),
+        "bullish_arguments": state.get("bullish_arguments"),
+        "bearish_arguments": state.get("bearish_arguments"),
+        "bearish_rebuttal_arguments": state.get("bearish_rebuttal_arguments"),
+        "bullish_rebuttal_arguments": state.get("bullish_rebuttal_arguments"),
+        "bear_final_arguments": state.get("bear_final_arguments"),
+        "bull_final_arguments": state.get("bull_final_arguments"),
+        "verdict": state.get("verdict"),
+        "risk_check": state.get("risk_check"),
+        "signal_output": state.get("signal_output"),
+    }
+    per_symbol[current_sym] = sym_result
+
+    next_idx = current_sym_idx + 1
+    return {
+        **state,
+        "per_symbol_results": per_symbol,
+        "symbol_index": next_idx,
+        "current_phase": f"P4_{current_sym}_stored",
+        "completed_phases": state["completed_phases"] + [f"P4_{current_sym}_stored"],
+    }
+
+
+def node_route_next_symbol(state: DebateState) -> str:
+    """路由：还有品种未处理 → 回到 prepare_one_symbol；全部完成 → aggregate_results"""
+    symbols = state.get("_original_symbols", [])
+    idx = state.get("symbol_index", 0)
+    if idx < len(symbols):
+        return "prepare_one_symbol"
+    return "aggregate_results"
+
+
+async def node_aggregate_results(state: DebateState) -> DebateState:
+    """P5-per-symbol: 恢复完整品种列表，从 per_symbol_results 重建最终状态"""
+    original_symbols = list(state.get("_original_symbols", []))
+    per_symbol = state.get("per_symbol_results", {})
+
+    # 从第一个有数据的品种恢复 research_data
+    research_data = None
+    for sym in original_symbols:
+        sr = per_symbol.get(sym, {})
+        if sr.get("research_data"):
+            research_data = sr["research_data"]
+            break
+
+    # 合并各品种的裁决/风控
+    combined_verdict = {"direction": "neutral", "per_symbol": {}, "reason": ""}
+    combined_risk = {"approved": True, "risk_level": "low", "risk_color": "green", "warnings": []}
+    reasons = []
+
+    for sym in original_symbols:
+        sr = per_symbol.get(sym, {})
+        v = sr.get("verdict", {})
+        r = sr.get("risk_check", {})
+        if v and isinstance(v, dict):
+            ps = v.get("per_symbol", {})
+            combined_verdict["per_symbol"].update(ps)
+        if r:
+            combined_risk = r
+
+    # 从 per_symbol_results 重建完整的 research_data，包含所有品种的技术/基本面/情绪数据
+    combined_tech = {}
+    combined_fund = {}
+    combined_sent = {}
+    combined_chain = None
+    for sym in original_symbols:
+        sr = per_symbol.get(sym, {})
+        rd = sr.get("research_data") or {}
+        if rd:
+            t = rd.get("technical_data", {})
+            if isinstance(t, dict):
+                ts = t.get("per_symbol", {})
+                if sym in ts or any(k.upper() == sym.upper() for k in ts):
+                    combined_tech.update(ts)
+                elif t.get("output"):
+                    combined_tech[sym] = t
+            f = rd.get("fundamental_data", {})
+            if isinstance(f, dict):
+                fs = f.get("per_symbol", {})
+                if sym in fs or any(k.upper() == sym.upper() for k in fs):
+                    combined_fund.update(fs)
+            s = rd.get("sentiment_data", {})
+            if s and isinstance(s, dict):
+                combined_sent[sym] = s
+            if not combined_chain:
+                ch = rd.get("chain_analysis", {})
+                if ch:
+                    combined_chain = ch
+
+    # 判断整体方向
+    directions = set()
+    for sym in original_symbols:
+        ps = combined_verdict["per_symbol"].get(sym, {})
+        if isinstance(ps, dict) and ps.get("direction"):
+            directions.add(ps["direction"])
+    combined_verdict["direction"] = "neutral" if len(directions) != 1 else directions.pop()
+
+    # 重建含所有品种数据的 research_data
+    rebuilt_research = {}
+    if research_data:
+        rebuilt_research = dict(research_data)
+    if combined_tech:
+        rebuilt_research["technical_data"] = {"per_symbol": combined_tech}
+    if combined_fund:
+        rebuilt_research["fundamental_data"] = {"per_symbol": combined_fund}
+    if combined_sent:
+        rebuilt_research["sentiment_data"] = combined_sent
+    if combined_chain:
+        rebuilt_research["chain_analysis"] = combined_chain
+
+    return {
+        **state,
+        "selected_symbols": original_symbols,
+        "research_data": rebuilt_research,
+        "technical_data": {"per_symbol": combined_tech} if combined_tech else {},
+        "fundamental_data": {"per_symbol": combined_fund} if combined_fund else {},
+        "verdict": combined_verdict,
+        "risk_check": combined_risk,
+        "current_phase": "P5_aggregate",
+        "completed_phases": state["completed_phases"] + ["P5_aggregate"],
+    }
+
+
 async def node_merge_research(state: DebateState) -> DebateState:
     merged_data = {
         "chain_analysis": state.get("chain_analysis", {}),
@@ -1410,22 +1609,25 @@ async def node_merge_research(state: DebateState) -> DebateState:
         "sentiment_data": state.get("sentiment_data", {}),
         "dispatch_sources": state.get("dispatch_sources", []),
     }
-    new_phases = state["completed_phases"] + ["P3"]
+    new_phases = state["completed_phases"] + ["P2"]
 
-    # v8.8.0: 生成研究报告 (P3 阶段)
+    # v9.12.0: 研究报告 (P2 阶段) — 仅 FDT_GENERATE_INTERMEDIATE_REPORTS=true 时生成
     research_report_path = None
-    try:
-        report_dir = _resolve_report_dir()
-        research_report_path = _write_research_report(state["trace_id"], merged_data, report_dir)
-        logger.info(f"[MERGE] 研究报告: {research_report_path}")
-    except Exception as e:
-        logger.warning(f"[MERGE] 研究报告生成失败: {e}")
+    if os.environ.get("FDT_GENERATE_INTERMEDIATE_REPORTS", "").lower() == "true":
+        try:
+            report_dir = _resolve_report_dir()
+            research_report_path = _write_research_report(state["trace_id"], merged_data, report_dir)
+            logger.info(f"[MERGE] 研究报告: {research_report_path}")
+        except Exception as e:
+            logger.warning(f"[MERGE] 研究报告生成失败: {e}")
+    else:
+        logger.debug("[MERGE] 研究报告跳过 (FDT_GENERATE_INTERMEDIATE_REPORTS 未设置)")
 
     return {
         **state,
         "research_data": merged_data,
         "research_report_path": research_report_path,
-        "current_phase": "P3",
+        "current_phase": "P2",
         "completed_phases": new_phases
     }
 
@@ -1527,7 +1729,7 @@ def _parse_per_symbol_debate(result: dict, symbols: list) -> dict | None:
 
 
 async def node_bullish_v1(state: DebateState) -> DebateState:
-    """P4 步1: 多头立论 — 多头分析员独立寻找做多理由"""
+    """P3 步1: 多头立论 — 多头分析员独立寻找做多理由"""
     _ensure_llm_key()
     bullish = FdtAgentExecutor("bullish_analyst")
 
@@ -1568,16 +1770,16 @@ async def node_bullish_v1(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bullish_v1"]
+    new_phases = state["completed_phases"] + ["P3_bullish_v1"]
     return {
         **state,
         "bullish_arguments": [{"round": 1, "role": "bullish", "phase": "v1", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bullish_v1",
+        "current_phase": "P3_bullish_v1",
         "completed_phases": new_phases,
     }
 async def node_bearish_v1(state: DebateState) -> DebateState:
-    """P4 步2: 空头立论 — 空头分析员独立寻找做空理由（不再是对多头质疑）"""
+    """P3 步2: 空头立论 — 空头分析员独立寻找做空理由（不再是对多头质疑）"""
     _ensure_llm_key()
     bearish = FdtAgentExecutor("bearish_analyst")
 
@@ -1619,17 +1821,17 @@ async def node_bearish_v1(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bearish_v1"]
+    new_phases = state["completed_phases"] + ["P3_bearish_v1"]
     return {
         **state,
         "bearish_arguments": [{"round": 2, "role": "bearish", "phase": "v1", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bearish_v1",
+        "current_phase": "P3_bearish_v1",
         "completed_phases": new_phases,
     }
 
 async def node_bearish_rebuttal(state: DebateState) -> DebateState:
-    """P4 步3: 空头反驳多头立论 — 针对多头的做多论据进行反驳"""
+    """P3 步3: 空头反驳多头立论 — 针对多头的做多论据进行反驳"""
     _ensure_llm_key()
     bearish = FdtAgentExecutor("bearish_analyst")
 
@@ -1682,16 +1884,16 @@ async def node_bearish_rebuttal(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bearish_rebuttal"]
+    new_phases = state["completed_phases"] + ["P3_bearish_rebuttal"]
     return {
         **state,
         "bearish_rebuttal_arguments": [{"round": 3, "role": "bearish", "phase": "rebuttal_v1", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bearish_rebuttal",
+        "current_phase": "P3_bearish_rebuttal",
         "completed_phases": new_phases,
     }
 async def node_bullish_rebuttal(state: DebateState) -> DebateState:
-    """P4 步4: 多头反驳 — 针对空头的做空论据和空头反驳进行再反驳"""
+    """P3 步4: 多头反驳 — 针对空头的做空论据和空头反驳进行再反驳"""
     _ensure_llm_key()
     bullish = FdtAgentExecutor("bullish_analyst")
 
@@ -1757,19 +1959,19 @@ async def node_bullish_rebuttal(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bullish_rebuttal"]
+    new_phases = state["completed_phases"] + ["P3_bullish_rebuttal"]
     return {
         **state,
         "bullish_rebuttal_arguments": [{"round": 4, "role": "bullish", "phase": "rebuttal", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bullish_rebuttal",
+        "current_phase": "P3_bullish_rebuttal",
         "completed_phases": new_phases,
     }
 
 
 
 async def node_bear_final(state: DebateState) -> DebateState:
-    """P4 步5: 空头最终陈述 — 整合空头立论+反驳，给出最终信心度"""
+    """P3 步5: 空头最终陈述 — 整合空头立论+反驳，给出最终信心度"""
     _ensure_llm_key()
     bearish = FdtAgentExecutor("bearish_analyst")
 
@@ -1830,18 +2032,18 @@ async def node_bear_final(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bear_final"]
+    new_phases = state["completed_phases"] + ["P3_bear_final"]
     return {
         **state,
         "bear_final_arguments": [{"round": 5, "role": "bearish", "phase": "final", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bear_final",
+        "current_phase": "P3_bear_final",
         "completed_phases": new_phases,
     }
 
 
 async def node_bull_final(state: DebateState) -> DebateState:
-    """P4 步6: 多头最终陈述 — 整合多头立论+反驳，给出最终信心度"""
+    """P3 步6: 多头最终陈述 — 整合多头立论+反驳，给出最终信心度"""
     _ensure_llm_key()
     bullish = FdtAgentExecutor("bullish_analyst")
 
@@ -1901,12 +2103,12 @@ async def node_bull_final(state: DebateState) -> DebateState:
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
     new_round = state.get("debate_round", 0) + 1
-    new_phases = state["completed_phases"] + ["P4_bull_final"]
+    new_phases = state["completed_phases"] + ["P3_bull_final"]
     return {
         **state,
         "bull_final_arguments": [{"round": 6, "role": "bullish", "phase": "final", "symbols": per_symbol}],
         "debate_round": new_round,
-        "current_phase": "P4_bull_final",
+        "current_phase": "P3_bull_final",
         "completed_phases": new_phases,
     }
 async def node_verdict(state: DebateState) -> DebateState:
@@ -2089,11 +2291,11 @@ async def node_verdict(state: DebateState) -> DebateState:
                 "per_symbol": validated_symbols,
             }
             if validated_symbols:
-                new_phases = state["completed_phases"] + ["P5_verdict"]
+                new_phases = state["completed_phases"] + ["P4_verdict"]
                 return {
                     **state,
                     "verdict": overall,
-                    "current_phase": "P5_verdict",
+                    "current_phase": "P4_verdict",
                     "completed_phases": new_phases
                 }
     except Exception as e:
@@ -2127,11 +2329,11 @@ async def node_verdict(state: DebateState) -> DebateState:
     # v9.3.0: 标准化裁决字段
     verdict = normalize_verdict(verdict)
 
-    new_phases = state["completed_phases"] + ["P5_verdict"]
+    new_phases = state["completed_phases"] + ["P4_verdict"]
     return {
         **state,
         "verdict": verdict,
-        "current_phase": "P5_verdict",
+        "current_phase": "P4_verdict",
         "completed_phases": new_phases
     }
 
@@ -2278,15 +2480,18 @@ async def node_risk_check(state: DebateState) -> DebateState:
 
     new_phases = state["completed_phases"] + ["P6a"]
 
-    # v8.8.0: 生成 CTP 信号扫描报告 (P6a 阶段)
+    # v9.12.0: CTP 信号扫描报告 (P6a 阶段) — 仅 FDT_GENERATE_INTERMEDIATE_REPORTS=true 时生成
     signal_report_path = None
-    try:
-        report_dir = _resolve_report_dir()
-        _signals_list_ = signal_output.get("signals", [])
-        signal_report_path = _write_signal_report(state["trace_id"], signal_output, report_dir, signals_list=_signals_list_)
-        logger.info(f"[SIGNAL] CTP 信号扫描报告: {signal_report_path}")
-    except Exception as e:
-        logger.warning(f"[SIGNAL] CTP 信号扫描报告生成失败: {e}")
+    if os.environ.get("FDT_GENERATE_INTERMEDIATE_REPORTS", "").lower() == "true":
+        try:
+            report_dir = _resolve_report_dir()
+            _signals_list_ = signal_output.get("signals", [])
+            signal_report_path = _write_signal_report(state["trace_id"], signal_output, report_dir, signals_list=_signals_list_)
+            logger.info(f"[SIGNAL] CTP 信号扫描报告: {signal_report_path}")
+        except Exception as e:
+            logger.warning(f"[SIGNAL] CTP 信号扫描报告生成失败: {e}")
+    else:
+        logger.debug("[SIGNAL] CTP 信号扫描报告跳过 (FDT_GENERATE_INTERMEDIATE_REPORTS 未设置)")
 
     return {
         **state,
@@ -2672,68 +2877,36 @@ async def node_report(state: DebateState) -> DebateState:
     output_dir = user_workspace_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── 单品种辩论模式：直接生成精简报告，跳过全量模板 ──
+    # v9.12.0: 逐个品种生成 body 段，合并为一份报告，跳过中间 JSON + 子进程
     _selected = state.get("selected_symbols", [])
-    if len(_selected) == 1:
-        try:
-            single_html = _generate_single_symbol_report(state)
-            report_path_single = output_dir / f"debate_report_{state['trace_id']}.html"
-            report_path_single.write_text(single_html, encoding="utf-8")
-            report_path = str(report_path_single)
-            logger.info(f"[REPORT] 单品种报告已生成: {report_path}")
-            new_phases = state["completed_phases"] + ["P6"]
-            return {
-                **state,
-                "report_path": report_path,
-                "current_phase": "P6",
-                "completed_phases": new_phases,
-            }
-        except Exception as e:
-            logger.warning(f"[REPORT] 单品种报告生成失败，回退到全量模板: {e}")
-
-    cmd = [sys.executable, str(report_script),
-           "--intermediate", str(intermediate_path),
-           "--debate", str(debate_path),
-           "--output", str(output_dir)]
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        if result.returncode != 0:
-            print(f"⚠️ 报告生成警告: {result.stderr[:200]}")
-        # v8.8.0+: 取最新生成的报告（按mtime倒序），避免复用旧缓存
-        report_files = sorted(output_dir.glob("debate_report_*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if not report_files:
-            report_files = sorted(temp_dir.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if report_files:
-            report_path = str(report_files[0])
-        else:
-            # fallback: 写入工作空间下，确保报告路径有效
-            fallback_html = _render_html(
-                "📋 辩论报告（fallback）",
-                f'<div class="section"><h2>⚠️ 报告生成降级</h2>'
-                f'<p>trace_id={state["trace_id"]} · 主报告脚本未产出HTML，以下为辩论结果概要。</p>'
-                f'<pre style="background:#252836;padding:12px;border-radius:6px;overflow:auto;font-size:0.78em;color:#ccc;">{json.dumps(debate_results, ensure_ascii=False, default=str)[:3000]}</pre>'
-                f'</div>',
-                [("trace_id", state["trace_id"]), ("status", "fallback")],
-            )
-            fallback_path = output_dir / f"debate_report_{state['trace_id']}.html"
-            fallback_path.write_text(fallback_html, encoding="utf-8")
-            report_path = str(fallback_path)
-    except Exception as e:
-        # v8.8.0: fallback 改为用户工作空间，而非 /tmp
-        try:
-            fallback_html = _render_html(
-                "📋 辩论报告（异常）",
-                f'<div class="section"><h2>❌ 报告生成异常</h2>'
-                f'<p>trace_id={state["trace_id"]} · 错误: {e}</p></div>',
-                [("trace_id", state["trace_id"]), ("status", "error")],
-            )
-            fallback_path = output_dir / f"debate_report_{state['trace_id']}.html"
-            fallback_path.write_text(fallback_html, encoding="utf-8")
-            report_path = str(fallback_path)
-        except Exception:
-            report_path = None
-        logger.warning(f"[REPORT] 主报告脚本异常: {e}")
+    if _selected:
+        all_bodies = []
+        meta_pairs = [("trace_id", state.get("trace_id", ""))]
+        for sym in _selected:
+            try:
+                sym_body = _generate_symbol_body(state, sym)
+                all_bodies.append(f'<hr class="sep"><h2 style="margin-top:16px;">品种: {sym.upper()}</h2>\n' + sym_body)
+            except Exception as e:
+                logger.warning(f"[REPORT] 品种 {sym} 报告段生成失败: {e}")
+        final_body = "\n".join(all_bodies)
+        report_html = _render_html(
+            f"多品种辩论报告 · {', '.join(s.upper() for s in _selected)}",
+            final_body,
+            meta_pairs,
+        )
+        report_path = output_dir / f"debate_report_{state['trace_id']}.html"
+        report_path.write_text(report_html, encoding="utf-8")
+        logger.info(f"[REPORT] 多品种辩论报告已生成: {report_path}")
+    else:
+        # 无选中品种 → fallback
+        fallback_html = _render_html(
+            "📋 辩论报告（无选定品种）",
+            '<div class="callout"><h2>⚠️ 无选定品种</h2><p>未指定辩论品种，跳过报告生成。</p></div>',
+            [("trace_id", state.get("trace_id", ""))],
+        )
+        report_path = output_dir / f"debate_report_{state['trace_id']}.html"
+        report_path.write_text(fallback_html, encoding="utf-8")
+        report_path = str(report_path)
 
     new_phases = state["completed_phases"] + ["P6"]
     return {**state, "report_path": report_path, "current_phase": "P6", "completed_phases": new_phases}
@@ -2791,13 +2964,13 @@ def _build_data_sources(state: DebateState) -> list:
     sources = []
     research = state.get("research_data", {})
     if research.get("technical_data"):
-        sources.append({"source": "technical", "agent": "观澜", "phase": "P3"})
+        sources.append({"source": "technical", "agent": "观澜", "phase": "P2"})
     if research.get("fundamental_data"):
-        sources.append({"source": "fundamental", "agent": "探源", "phase": "P3"})
+        sources.append({"source": "fundamental", "agent": "探源", "phase": "P2"})
     if research.get("chain_analysis"):
-        sources.append({"source": "chain", "agent": "链证源", "phase": "P3"})
+        sources.append({"source": "chain", "agent": "链证源", "phase": "P2"})
     if research.get("sentiment_data"):
-        sources.append({"source": "sentiment", "agent": "读心", "phase": "P3"})
+        sources.append({"source": "sentiment", "agent": "读心", "phase": "P2"})
     if state.get("fdc_data_status", {}).get("collected"):
         sources.append({"source": "fdc", "agent": "FDC", "phase": "P2.5"})
     scan = state.get("scan_results", {})

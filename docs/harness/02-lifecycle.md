@@ -203,6 +203,8 @@ fdt_cli.py main()
 > **v9.6.8 变更 — P1 角色矫正**: P1 数技源从"策略评分器"回归"数据统计器"角色，新增 `all_ranked[].stats` 纯统计特征产出（MA/ATR/RSI/ADX/量能比/通道位置/20日区间位置），`total`/`direction`/`grade` 降级为内部参考。`select_triggers()` 从基于 grade+total 的方向性过滤改为数据质量闸门（stats完整性+K线数量+流动性）。
 
 > **v9.12.0 变更 — Data Governance Phase 2 数据质量门禁**: 信号验证器管道新增 V8 `data_quality` 验证器（注册为 `__global__` 列表级闸门），在 P0-4 伪信号过滤之前运行。该验证器读取 `all_ranked[].data_quality` 元数据（由 FDC 在验证器之前注入），依据 `overall` 等级触发阻断：D级→直接降级 NOISE（数据不可靠）、C级→标记 `_dq_penalty`（信号保留但可靠性存疑）、web_fallback 源→标记 `_dq_web_fallback`（低优先级）。数据源已穿透到 FDC 真实底层源（tdx_tq_local / web_fallback / qmt_xtquant / tqsdk），从 kline_data 自动传播到 all_ranked 条目。
+>
+> > **补充 — F10/技术指标质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade，输出 `f10_quality` 块（含 overall 等级/可用字段数/问题列表）。技术指标检查 NaN/Inf/关键指标完整性/数值范围，输出 `indicator_quality` 块。质量信息通过 `_build_fdc_fundamental_context` 注入探源 Agent 上下文，标注在【FDC 基本面数据】区块尾部。
 
 ### 2.2a 运行模式
 

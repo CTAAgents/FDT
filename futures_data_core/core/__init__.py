@@ -13,6 +13,8 @@ from futures_data_core.core.data_freshness import (
 )
 from futures_data_core.core.data_quality import (
     evaluate_symbol as evaluate_data_quality,
+    evaluate_f10_data,
+    evaluate_indicators,
 )
 from futures_data_core.core.types import (
     KlineBar,
@@ -41,6 +43,8 @@ __all__ = [
     "reload",
     "data_grade_from_age",
     "evaluate",
+    "evaluate_f10_data",
+    "evaluate_indicators",
     "KlineBar",
     "KlineData",
     "QuoteData",
