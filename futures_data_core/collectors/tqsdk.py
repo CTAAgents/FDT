@@ -36,12 +36,14 @@ def _pump(api, data_obj, min_rows=1, max_wait=5.0):
     TqSDK 的 get_kline_serial/get_tick_serial 只创建 DataFrame 结构，
     实际数据要通过 WebSocket 推送 + wait_update 驱动事件循环才能灌入。
     不加 wait_update 返回的是空 DataFrame → _parse_kline 返回0行 → 数据获取失败。
+
+    TqSDK 3.10.1 的 wait_update 参数为 deadline（绝对时间戳），非 timeout。
     """
     import time
-    deadline = time.time() + max_wait
-    while time.time() < deadline:
+    _pump_deadline = time.time() + max_wait
+    while time.time() < _pump_deadline:
         try:
-            api.wait_update(timeout=0.5)
+            api.wait_update(deadline=time.time() + 0.5)
         except Exception:
             break
         try:
@@ -303,7 +305,12 @@ class TqSdkCollector(BaseCollector):
                 if hasattr(_dt_val, "strftime"):
                     _date_str = _dt_val.strftime("%Y%m%d")
                 else:
-                    _date_str = str(_dt_val)[:10].replace("-", "").replace("/", "")
+                    try:
+                        # TqSDK uses nanosecond Unix timestamps
+                        _ts = float(_dt_val) / 1_000_000_000
+                        _date_str = __import__('datetime').datetime.fromtimestamp(_ts).strftime("%Y%m%d")
+                    except (TypeError, ValueError, OSError):
+                        _date_str = str(_dt_val)[:10].replace("-", "").replace("/", "")
                 bars.append(KlineBar(
                     date=_date_str,
                     open=float(getattr(row, "open")),
@@ -313,7 +320,7 @@ class TqSdkCollector(BaseCollector):
                     volume=float(getattr(row, "volume", 0.0) or 0.0),
                     open_interest=float(getattr(row, "open_interest", 0.0) or 0.0),
                 ))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, AttributeError):
                 continue
         return bars
 
@@ -336,7 +343,7 @@ class TqSdkCollector(BaseCollector):
                         volume=float(getattr(row, "volume", 0) or 0),
                         open_interest=float(getattr(row, "open_interest", 0) or 0),
                     ))
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, AttributeError):
                     continue
         except Exception:
             pass
@@ -362,7 +369,7 @@ class TqSdkCollector(BaseCollector):
                         "volume": float(getattr(row, "volume", 0) or 0),
                         "open_interest": float(getattr(row, "open_interest", 0) or 0),
                     })
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, AttributeError):
                     continue
         return {"symbol": symbol, "contract": eff, "tick_count": len(ticks), "ticks": ticks}
 
@@ -436,7 +443,7 @@ class TqSdkCollector(BaseCollector):
             return None
         try:
             return float(v)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError):
             return None
 
     # ═══════════════════════════════════════════════════════════

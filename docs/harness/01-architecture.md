@@ -1,8 +1,6 @@
 # 01 — Harness 架构总览
 
-> **v9.24.0** (2026-07-23): 数据源体系重构 + 差距修复收官 — TqSDK 升至第一数据源，统一 K 线标准化层，新鲜度自动降级；G-6D 六维控制空间重构；新增 `report_aggregator.py` 全量报告聚合器、AGENTS.md 配置提取至 `config/agents/`、VectorMemory 与 ToolMetrics 反哺接入辩论流程。详见 `docs/harness/07-operations.md#版本历史`。
->
-> **v9.23.0** (2026-07-24): 六维控制空间高ROI提升 — D3 Generation Schema约束强制（enforce_structured_output全量接入）、G01模型差异化路由（decode_config.yaml）、C01 Token预算控制（_build_debate_context集成TokenBudget）、C03扫描信号表去重（_build_scan_signal_table共享函数）；langgraph默认模式。
+> **v9.25.0** (2026-07-24): 记忆系统全面重构 — MemoryManager 统一管理层（manager/store/retrieval/maintenance 四层架构），替换散落直写；G30 自进化规则注入接入 evolution_graph。详见 `docs/designs/memory-system-overhaul.md`。
 
 ## 1. 分层架构
 
@@ -23,9 +21,9 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 │   L1产出校验 · L2熔断降级 · L3信号门 · L4路径发现 · L5健康自检        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                     L1 — 基础设施层 (Infrastructure)                   │
-│   PostgreSQL(OLTP+OLAP) · memory系统 · unified_logger · memory_writer │
+│   PostgreSQL(OLTP+OLAP) · MemoryManager(memory统一管理)               │
 │   · fdt_cache(SQLite增量缓存) · dominant_resolver(主力合约映射持久化)   │
-│   · _datacore_bridge(Data-Core F10 桥接器) · debate_archiver · fdt_pg(连接层) │
+│   · _datacore_bridge(Data-Core F10 桥接器) · fdt_pg(连接层)           │
 │   · 独立CLI/FastAPI入口                                              │
 ```
 

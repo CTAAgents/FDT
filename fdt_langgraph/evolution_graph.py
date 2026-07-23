@@ -18,6 +18,8 @@ evolution_graph.py — 自进化闭环 LangGraph 图 (APM-CS 五轴驱动)
         → [条件] improve (APM 任一轴 degenerate)
         → [条件] calibrate (验证样本 ≥5)
         → [条件] evolve (总样本 ≥5)
+        → [条件] rhi (FDT_RHI=true)
+        → [条件] inject_rules (Checker 缺口 / APM D2 退化)
         → [条件] ml_train (总样本 ≥50)
         → complete
 """
@@ -34,7 +36,9 @@ from fdt_langgraph.evolution_state import EvolutionState
 from fdt_langgraph.evolution_nodes import (
     node_collect_metrics, node_apm_eval, node_decide_actions,
     node_improve, node_calibrate, node_evolve, node_rhi, node_ml_train, node_complete,
-    route_after_decide, route_after_improve, route_after_calibrate, route_after_evolve, route_after_rhi,
+    node_inject_rules,
+    route_after_decide, route_after_improve, route_after_calibrate,
+    route_after_evolve, route_after_rhi,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +56,7 @@ def _build_evolution_graph() -> StateGraph:
     graph.add_node("calibrate", node_calibrate)
     graph.add_node("evolve", node_evolve)
     graph.add_node("rhi", node_rhi)
+    graph.add_node("inject_rules", node_inject_rules)
     graph.add_node("ml_train", node_ml_train)
     graph.add_node("complete", node_complete)
 
@@ -69,44 +74,57 @@ def _build_evolution_graph() -> StateGraph:
             "calibrate": "calibrate",
             "evolve": "evolve",
             "rhi": "rhi",
+            "inject_rules": "inject_rules",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── improve 后可流转到 calibrate/evolve/rhi/ml/complete ──
+    # ── improve 后可流转到 calibrate/evolve/rhi/inject_rules/ml/complete ──
     graph.add_conditional_edges(
         "improve", route_after_improve, {
             "calibrate": "calibrate",
             "evolve": "evolve",
             "rhi": "rhi",
+            "inject_rules": "inject_rules",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── calibrate 后可流转到 evolve/rhi/ml/complete ──
+    # ── calibrate 后可流转到 evolve/rhi/inject_rules/ml/complete ──
     graph.add_conditional_edges(
         "calibrate", route_after_calibrate, {
             "evolve": "evolve",
             "rhi": "rhi",
+            "inject_rules": "inject_rules",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── evolve 后可流转到 rhi/ml/complete ──
+    # ── evolve 后可流转到 rhi/inject_rules/ml/complete ──
     graph.add_conditional_edges(
         "evolve", route_after_evolve, {
             "rhi": "rhi",
+            "inject_rules": "inject_rules",
             "ml_train": "ml_train",
             "complete": "complete",
         }
     )
 
-    # ── rhi 后可流转到 ml/complete ──
+    # ── rhi 后可流转到 inject_rules/ml/complete ──
     graph.add_conditional_edges(
         "rhi", route_after_rhi, {
+            "inject_rules": "inject_rules",
+            "ml_train": "ml_train",
+            "complete": "complete",
+        }
+    )
+
+    # ── inject_rules 后可流转到 ml/complete ──
+    graph.add_conditional_edges(
+        "inject_rules", route_after_rhi, {
             "ml_train": "ml_train",
             "complete": "complete",
         }

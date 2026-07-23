@@ -141,4 +141,12 @@ def _get_default_schedules() -> dict:
             "cooldown_minutes": 1440,
             "description": "D3 Composure 自动点亮（轮次≥5）",
         },
+        # ── 记忆系统维护（时间触发） ─────────────────────
+        "memory_maintenance": {
+            "trigger_type": "time",
+            "weekdays": [0, 1, 2, 3, 4, 5, 6],
+            "hour": 4, "minute": 0,
+            "cooldown_minutes": 1440,
+            "description": "记忆系统维护（清理+归档+知识老化）",
+        },
     }

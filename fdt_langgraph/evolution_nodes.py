@@ -197,11 +197,29 @@ def node_decide_actions(state: EvolutionState) -> EvolutionState:
         and validated_count >= 1
     )   # FDT_RHI=true 且有样本 → 递归 Harness 自改进
 
+    # ── 检查记忆规则注入需求（G30） ──
+    decisions["need_inject_rules"] = False
+    try:
+        from memory.manager import get_memory
+        gap = get_memory().check_gaps()
+        has_gaps = any(v for v in gap.values() if isinstance(v, list) and v)
+        if has_gaps:
+            decisions["need_inject_rules"] = True
+            logger.info(f"[Evolution] G30 触发: Checker 发现记忆缺口")
+    except Exception:
+        pass
+    # APM D2 退化也触发规则注入
+    d2 = scores.get("D2_acuity")
+    if d2 is not None and d2 < APM_DEGENERATE_THRESHOLDS.get("D2_acuity", 0.0):
+        decisions["need_inject_rules"] = True
+        logger.info(f"[Evolution] G30 触发: APM D2 退化 ({d2:.3f})")
+
     logger.info(f"[Evolution] 决策: improve={decisions['need_improve']}, "
                 f"calibrate={decisions['need_calibrate']}(n={validated_count}), "
                 f"evolve={decisions['need_evolve']}(n={total_samples}), "
                 f"ml={decisions['need_ml_train']}, "
-                f"rhi={decisions['need_rhi']}")
+                f"rhi={decisions['need_rhi']}, "
+                f"inject_rules={decisions['need_inject_rules']}")
 
     return state
 
@@ -354,11 +372,54 @@ def node_complete(state: EvolutionState) -> EvolutionState:
 
 
 # ═══════════════════════════════════════════════════════
+#  G30: 记忆规则注入 (Checker 缺口 / APM D2 退化时触发)
+# ═══════════════════════════════════════════════════════
+
+def node_inject_rules(state: EvolutionState) -> EvolutionState:
+    """激活记忆规则注入：写入 injection_config.json，下一轮辩论生效。
+
+    触发后写入 memory/evolution/injection_config.json，
+    nodes.py 中的 Agent 节点函数读取该配置并调用 rules_injector.get_rules_for_agent()。
+    """
+    state["phase"] = "injecting"
+    now = datetime.now().isoformat()
+
+    config_path = PROJECT_ROOT / "memory" / "evolution" / "injection_config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 确定需要注入的 Agent 列表 (所有在 MEMORY.md 中有标签的 Agent)
+    agents = ["judge", "risk_manager", "bullish_analyst", "bearish_analyst",
+              "quality_assurance"]
+
+    injection_config = {
+        "active": True,
+        "agents": agents,
+        "triggered_by": (
+            "checker_gap" if state.get("decisions", {}).get("need_inject_rules")
+            else "apm_d2_degradation"
+        ),
+        "activated_at": now,
+    }
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(injection_config, f, indent=2, ensure_ascii=False)
+
+    state["injection_config"] = injection_config
+    state.setdefault("step_results", {})["inject_rules"] = {
+        "success": True,
+        "summary": f"注入已激活: agents={agents}",
+        "timestamp": now,
+    }
+    logger.info(f"[Evolution] G30 记忆规则注入激活: agents={agents}")
+    return state
+
+
+# ═══════════════════════════════════════════════════════
 #  路由函数
 # ═══════════════════════════════════════════════════════
 
 def route_after_decide(state: EvolutionState) -> str:
-    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → rhi → ml → complete。"""
+    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → rhi → inject_rules → ml → complete。"""
     d = state.get("decisions", {})
     if d.get("need_improve"):
         return "improve"
@@ -368,6 +429,8 @@ def route_after_decide(state: EvolutionState) -> str:
         return "evolve"
     if d.get("need_rhi"):
         return "rhi"
+    if d.get("need_inject_rules"):
+        return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -382,6 +445,8 @@ def route_after_improve(state: EvolutionState) -> str:
         return "evolve"
     if d.get("need_rhi"):
         return "rhi"
+    if d.get("need_inject_rules"):
+        return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -394,6 +459,8 @@ def route_after_calibrate(state: EvolutionState) -> str:
         return "evolve"
     if d.get("need_rhi"):
         return "rhi"
+    if d.get("need_inject_rules"):
+        return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"
@@ -406,12 +473,16 @@ def route_after_evolve(state: EvolutionState) -> str:
         return "ml_train"
     if d.get("need_rhi"):
         return "rhi"
+    if d.get("need_inject_rules"):
+        return "inject_rules"
     return "complete"
 
 
 def route_after_rhi(state: EvolutionState) -> str:
-    """RHI 完成后判断是否需要进入 ML 训练。"""
+    """RHI 完成后判断是否需要进入 ML 训练或规则注入。"""
     d = state.get("decisions", {})
+    if d.get("need_inject_rules"):
+        return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
     return "complete"

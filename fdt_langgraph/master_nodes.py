@@ -54,14 +54,19 @@ def _get_trigger_state() -> dict:
 
 
 def _set_triggered(task_name: str):
-    """记录任务已触发。"""
+    """记录任务已触发（通过 MemoryManager）。"""
     state = _get_trigger_state()
     state["last_triggered"][task_name] = datetime.now().strftime("%Y-%m-%d %H:%M")
     state["last_heartbeat"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    fp = PROJECT_ROOT / _TRIGGER_STATE_PATH
-    fp.parent.mkdir(parents=True, exist_ok=True)
-    with open(fp, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+    try:
+        from memory.manager import get_memory
+        get_memory().store_schedule("task_trigger", state)
+    except Exception:
+        # fallback: 直接写文件
+        fp = PROJECT_ROOT / _TRIGGER_STATE_PATH
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        with open(fp, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
 
 
 def _count_json_data(data: dict, count_key: str) -> int:
@@ -535,6 +540,32 @@ def node_run_vibench_baseline(state: dict) -> dict:
     return state
 
 
+def node_run_memory_maintenance(state: dict) -> dict:
+    """记忆系统维护 — 清理 + 归档 + 知识老化。"""
+    state["current_task"] = "memory_maintenance"
+    started = datetime.now().isoformat()
+    try:
+        from memory.manager import get_memory
+        report = get_memory().run_maintenance()
+        ok = True
+        msg = (f"清理={report['cleaned_journals']}, "
+               f"归档={report['archived_items']}, "
+               f"老化={len(report['decayed_patterns'])}")
+    except Exception as e:
+        ok = False
+        msg = str(e)
+
+    state.setdefault("task_results", {})["memory_maintenance"] = {
+        "success": ok, "summary": msg, "started_at": started,
+        "completed_at": datetime.now().isoformat(),
+    }
+    _set_triggered("memory_maintenance")
+    state["task_index"] = state.get("task_index", 0) + 1
+    state["phase"] = "dispatch"
+    logger.info(f"[Master] memory_maintenance: {'✅' if ok else '❌'} {msg[:80]}")
+    return state
+
+
 def node_run_d3_auto_light(state: dict) -> dict:
     """D3 Composure 自动点亮 — 辩论轮次去重计数≥threshold 触发评分卡重算。"""
     state["current_task"] = "d3_auto_light"
@@ -585,6 +616,7 @@ _TASK_NODE_MAP: dict[str, str] = {
     "discipline_enforce": "run_discipline_enforce",
     "vibench_baseline": "run_vibench_baseline",
     "d3_auto_light": "run_d3_auto_light",
+    "memory_maintenance": "run_memory_maintenance",
 }
 
 

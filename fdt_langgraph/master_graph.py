@@ -74,6 +74,7 @@ _TASK_NODES: list[tuple[str, Any]] = [
     ("run_vibench_baseline", node_run_vibench_baseline),
     ("run_d3_auto_light", node_run_d3_auto_light),
     ("run_data_collection", node_run_data_collection),
+    ("run_memory_maintenance", node_run_memory_maintenance),
 ]
 
 _ALL_TASK_NODE_NAMES = [name for name, _ in _TASK_NODES]

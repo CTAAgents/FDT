@@ -391,6 +391,27 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 
 调度逻辑定义在 `fdt_langgraph/master_nodes.py`，纯 Python datetime 判断，零第三方依赖。
 
+### 4.1 调度任务清单
+
+| 任务 | 触发类型 | 时间 | 说明 |
+|:-----|:---------|:-----|:------|
+| `daily_debate` | time | 交易日 09:00 | 每日辩论 |
+| `memory_maintenance` | time | 每日 04:00 | 清理+归档+知识老化 |
+| `self_optimize_evolve` | time | 工作日 15:35 | Skillevolver 技能层进化 |
+| `discipline_enforce` | time | 周一 08:45 | D4 纪律钳制 |
+| `validate_and_evolve` | data | — | 验证→校准→进化管道 |
+
+### 4.2 记忆系统维护（v9.25.0 新增）
+
+`memory_maintenance` 任务每天 04:00 执行，调用 `MemoryManager.run_maintenance()`：
+
+- **日志清理**：删除超过 30 天的 debate_journal 记录
+- **归档**：debate_journal.json 超过 100 条时自动压缩前 N-100 条到 `archive/`
+- **知识老化**：60 天未辩论的品种知识标记 stale
+- **缺口检查**：扫描 session_memory 缺失/learned 不完整
+
+### 4.3 执行示例
+
 ```python
 # master_nodes.py — 核心检查 (简化)
 def node_check_time(state):

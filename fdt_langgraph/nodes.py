@@ -661,6 +661,7 @@ async def node_judge_direction(state: DebateState) -> DebateState:
 {{"scan_direction": "neutral", "confidence": 0.7, "symbols": ["CF2609", "SF"], "dispatch_sources": ["chain", "technical"], "reason": "CF2609/SF 统计特征显示价格处于20日区间低位，ADX偏高确认趋势延续"}}
 """
 
+    context = _inject_memory_rules("judge", context)
     result = await judge.run(context, state["trace_id"])
 
     output = result.get("output", "")
@@ -926,6 +927,40 @@ async def node_chain(state: DebateState) -> dict:
     return {"chain_analysis": chain_data}
 
 
+def _inject_memory_rules(agent_name: str, context: str) -> str:
+    """如果自进化系统激活了规则注入，向 context 追加记忆规则。
+
+    读取 memory/evolution/injection_config.json，
+    若 active=true 且 agent_name 在注入列表中，追加规则文本。
+    进程内缓存文件状态，避免频繁 I/O。
+    """
+    import json
+    from pathlib import Path
+
+    config_path = Path("memory/evolution/injection_config.json")
+    if not config_path.exists():
+        return context
+
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if not config.get("active"):
+            return context
+        if agent_name not in config.get("agents", []):
+            return context
+    except Exception:
+        return context
+
+    # 注入规则
+    try:
+        from memory.retrieval.rules_injector import get_rules_for_agent
+        rules = get_rules_for_agent(agent_name)
+        if rules:
+            context += "\n\n【记忆规则注入】\n" + rules
+    except Exception:
+        pass
+    return context
+
+
 def _build_scan_signal_table(all_ranked: list, symbols: list, header_suffix: str = "") -> list:
     """生成数技源扫描信号对照表的格式化行列表。"""
     lines: list[str] = []
@@ -1036,13 +1071,13 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
         if all_ranked:
             lines.extend(_build_scan_signal_table(all_ranked, symbols, "— 仅供参考"))
 
-    # v9.22.4: 追加 Vector Memory 历史模式
+    # v9.22.4: 追加 Vector Memory 历史模式（通过 MemoryManager）
     try:
-        from scripts.vector_memory import VectorMemory  # type: ignore
-        vm = VectorMemory()
+        from memory.manager import get_memory
+        memory = get_memory()
         memory_sections = []
         for sym in symbols[:3]:  # 最多 3 个品种
-            records = vm.query(sym, top_k=3)
+            records = memory.retrieve_similar(sym, top_k=3)
             if records:
                 mem_lines = [f"品种: {sym}"]
                 for i, rec in enumerate(records, 1):
@@ -1997,6 +2032,7 @@ async def node_bullish_v1(state: DebateState) -> DebateState:
   "overall_summary": "总体多头判断"
 }}"""
 
+    context = _inject_memory_rules("bullish_analyst", context)
     result = await bullish.run(context, state["trace_id"])
     per_symbol = _parse_per_symbol_debate(result, symbols)
     if per_symbol is None:
@@ -2048,6 +2084,7 @@ async def node_bearish_v1(state: DebateState) -> DebateState:
   "overall_summary": "总体空头判断"
 }}"""
 
+    context = _inject_memory_rules("bearish_analyst", context)
     result = await bearish.run(context, state["trace_id"])
     per_symbol = _parse_per_symbol_debate(result, symbols)
     if per_symbol is None:
@@ -2498,6 +2535,7 @@ async def node_verdict(state: DebateState) -> DebateState:
   "scan_overturned": true/false
 }}"""
 
+    context = _inject_memory_rules("judge", context)
     result = await judge.run(context, state["trace_id"])
 
     output = result.get("output", "")
@@ -2660,6 +2698,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
   "max_position": 2, "warnings": ["警告1", "警告2"],
   "entry_price_check": true, "stop_loss_check": true, "position_pct_check": true}}"""
     # ── 调用风险经理 LLM ──
+    context = _inject_memory_rules("risk_manager", context)
     try:
         result = await risk_manager.run(context, state["trace_id"])
         output = result.get("output", "")

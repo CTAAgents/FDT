@@ -553,3 +553,25 @@
 **参数自优化自动化任务**：`automation-1783404492691` 改名"参数自优化 - 日线(每4周)"，prompt 修正路径（原 `<FDT>/scripts/optimizer/run.py` 缺 `quant-daily/scripts` 段，已修正为 `<FDT>/skills/quant-daily/scripts/optimizer/run.py`）+ 明确 `--period daily`、不含120m。
 
 **验证**：run.py / backtest_optimizer.py py_compile 通过；grep 全包（除 changelog 历史）无功能性120m残留；monitoring_symbols.json 有效，顶层键 `[version, _comment, daily]`，daily 62品种；run_120m_wf.py 删除后全包无 import 断裂。
+
+## 2026-07-24 — CF2609/PTA609 深度辩论报告 + 交易建议规则确立
+
+- **动机**：应要求对 CF2609 和 PTA609 执行 FDT 深度辩论流程（P1-P6a）
+- **问题与修复**：
+  - 交易建议使用挂单价区间 → 确立 P0 铁律：市价入场，禁止挂单价
+  - 缺少 P3.5 品藻质检可视化 → 确立必经阶段规则
+  - P6 裁决汇总展示 JSON 源码 → 改为中文可视化表格
+  - RSI/ADX 值与通达信有偏差 → 确立数据源标注规则
+- **记忆写入**：本会话记录已写入 MEMORY.md / changelog.md / knowledge/cf/ / knowledge/ta/ / incidents.md
+- **联调**：未涉及代码变更，为报告生成 + 规则确立
+
+## 2026-07-24 — CF2609/PTA609 深度辩论报告 + 交易建议规则确立
+
+- **动机**：应要求对 CF2609 和 PTA609 执行 FDT 深度辩论流程（P1-P6a）
+- **问题与修复**：
+  - 交易建议使用挂单价区间 → 确立 P0 铁律：市价入场，禁止挂单价
+  - 缺少 P3.5 品藻质检可视化 → 确立必经阶段规则
+  - P6 裁决汇总展示 JSON 源码 → 改为中文可视化表格
+  - RSI/ADX 值与通达信有偏差 → 确立数据源标注规则
+- **记忆写入**：本会话记录已写入 MEMORY.md / changelog.md / knowledge/cf/ / knowledge/ta/ / incidents.md
+- **联调**：未涉及代码变更，为报告生成 + 规则确立

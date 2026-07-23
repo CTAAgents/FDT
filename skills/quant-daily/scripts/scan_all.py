@@ -845,6 +845,7 @@ def run_scan(
 
     tech_list = []
     df_map = {}  # 策略可能需要 DataFrame
+    summary = {}  # 预初始化，防止 target_symbols 为空时 NameError
     for i, (sym, name) in enumerate(target_symbols):
         if sym not in kline_data:
             continue

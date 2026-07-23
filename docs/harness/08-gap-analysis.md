@@ -33,19 +33,15 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
-| **本次会话 (v9.24.0)** | 8/8 | 全部 5/5 | | 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124，共 15 项差距 |
+| **本次会话 (v9.25.0)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124，共 15 项差距。G30 已登记待实施。 |
 
-**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 本次会话关闭全部 15 项开放差距）**
+**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5，G30 开放中）**
 
-> G16/G14 已于 2026-07-14 19:04 修复并验证，至此全部 18 项差距关闭，8 个 Harness 维度均达到 5/5。
+> G16/G14 已于 2026-07-14 19:04 修复并验证。G30 为当前唯一开放差距（P1 — 记忆规则注入未纳入自进化闭环）。
 
 **G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
 
-**G20（2026-07-18 辩论重构·来源标签格式一致性）**：✅ **已关闭（v9.5.0）** — 来源标签已统一为 `[domain:source]` 格式 — 存在 `[观澜]`（短格式）、`[technical:观澜]`（domain:source格式）、`[scan]`（英文）、`[数技源]`（无 prefix）等多种格式。需要统一为 `[domain:source]` 规范格式。
-- 优先级: P2
-- 状态: 已开放
-- 目标: ✅ 已完成 — 统一为 `[domain:source]` 格式，如 `[technical:观澜]`、`[fundamental:探源]`、`[scan:数技源]`、`[chain:链证源]`
-- 工作量: 小（修改 `nodes.py` 扫描标注 + 3 篇文档架构图描述）
+**G20（2026-07-18 辩论重构·来源标签格式一致性）**：✅ **已关闭（v9.5.0）** — 来源标签已统一为 `[domain:source]` 格式，如 `[technical:观澜]`、`[fundamental:探源]`、`[scan:数技源]`、`[chain:链证源]`。此前存在 `[观澜]`（短格式）、`[technical:观澜]`（domain:source格式）、`[scan]`（英文）、`[数技源]`（无 prefix）等多种格式。
 
 **G21（2026-07-21 数据新鲜度保障机制正式化）**：
 > 数据新鲜度保障过去是隐性要求，未编码为机读规则。辩论/裁决环节偶有引用过时数据（如使用 4 天前的纺企开机率数据做短期判断），影响分析可信度。
@@ -129,6 +125,8 @@
 | **G108** | **LangGraph 迁移收尾** | ① ~~`pipeline/runner.py` 已删除~~ ✅ ② 15 个外部脚本评估为"有意识保留 subprocess" ✅ ③ Master Graph 心跳文件已落地 ✅ ④ 文档引用已清理 ✅ ⑤ `node_run_data_collection` dangling 引用已修复 ✅ ⑥ 全量测试通过 | P0 | v9.19.0 | ✅ **已关闭（v9.19.0）** | 删除 pipeline/runner.py、quality_filter.py、__init__.py、tests/pipeline/；清理 FDT_USE_LANGGRAPH；Master Graph 心跳文件 `_write_heartbeat()`；`node_run_data_collection` 内联修复；17 处文档旧引用全量清理；daemon_watchdog 确认使用 master_heartbeat.log；新增 `test_master_graph.py` 132 行测试 | 多文件 
 
 | **G23** | **数据源降级链新鲜度缺失 — 过期货数据阻断辩论**（v9.24.0 已修复） | DataCore 返回已到期合约数据（SM 停在 2026-01-19）时降级链直接终止，后续 WebFallback/TqSDK 等有新鲜数据的源不被调用 | P0 | 新增末根K线日期新鲜度检查(>7天继续降级) + 统一 K 线标准化层(`_wrap_kline` 接入 `normalize_kline_row`) + TqSDK 升至第一数据源(priority=-1) + 数据质量`_calc_freshness_days` 支持 `%Y%m%d` 格式 | `multi_source_adapter.py` + `data_quality.py` + `tqsdk.py(priority=-1)` ✅ v9.24.0 |
+| **G26** | **TqSDK `_pump` 中 `wait_update` 参数名错误导致数据泵送始终为空**（v9.24.2 已修复） | `futures_data_core/collectors/tqsdk.py::_pump()` 调用 `api.wait_update(timeout=0.5)`，但 TqSDK 3.10.1 的 `wait_update` 参数为 `deadline`（绝对时间戳）而非 `timeout`。`TypeError` 被 `except Exception: break` 静默吞噬，导致泵送循环立即返回空 DataFrame。下游 `_parse_kline` 返回 0 条 K 线 → scan_all 中 `all_ranked` 为空 → 无信号无辩论。此 bug 自 G23 将 TqSDK 提升为首位采集器后（v9.24.0）全面暴露。 | P0 | 修正为 `api.wait_update(deadline=time.time() + 0.5)`，遵循 TqSDK 3.10.1 API 签名。 | `futures_data_core/collectors/tqsdk.py` ✅ v9.24.2 |
+| **G27** | **node_signal_output 中 signal_output 为 None 时崩溃**（v9.24.2 已修复） | P0b 新鲜度闸门阻断后 signal_output 保持 `None`（state.py 默认值 `Optional[dict]`），但 `node_signal_output()` 中 `state.get("signal_output", {})` 因 key 存在但值为 None 返回 None，`signal_output.get("status")` 抛出 `AttributeError`。 | P0 | `state.get("signal_output") or {}` 确保 None 时返回空字典。 | `fdt_langgraph/nodes.py` ✅ v9.24.2 |
 
 ### 4.2 P1 — 高优先级（影响效率/质量）
 
@@ -136,6 +134,8 @@
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，已实现自动化 | 效率低 | 增加准入自动化脚本 | ✅ **已关闭（本次会话）** — `scripts/advancement_check.py` 已创建 |
 | GAP-P1-001 | P1 数技源角色越界：产出 total/direction/grade 方向性预判，与观澜（P3）技术分析职责重叠 | P1 | v9.6.8 | 已关闭 | P1角色矫正：stats 纯统计特征产出，total/direction/grade 降级为内部参考，select_triggers 改为数据质量闸门 |
+| **G28** | **_resolve_report_dir 跨日子目录生成**（v9.24.2 已修复） | `_resolve_report_dir()` 用 `datetime.now()` 日期匹配 workspace 目录名。当 workspace 为昨日（如 `20260723`）但当前时刻已过午夜（`20260724`），目录名不匹配 → 生成额外子目录（`.../20260723/2026-07-24/`）。 | P1 | 改用正则 `^\d{8}$` 匹配任意日期格式目录名。 | `fdt_langgraph/nodes.py` ✅ v9.24.2 |
+| **G29** | **scan_all.py summary 未初始化 NameError 隐患**（v9.24.2 已修复） | 当 `target_symbols` 为空时 `for` 循环体不执行，`summary` 变量未定义，`summary.get("all_ranked", [])` 抛出 `NameError`。 | P1 | `for` 循环前预初始化 `summary = {}`。 | `skills/quant-daily/scripts/scan_all.py` ✅ v9.24.2 |
 
 ### 4.3 P2 — 低优先级
 
@@ -175,6 +175,23 @@
 | G103 | 正确性优先原则未写入机读规则 — harness-rules.yaml 缺少 C14 规则 | P1 | Phase A | **已关闭** |
 | G124 | **单品种报告 vs 全量模板功能差距** | `single_symbol_report.py` 仅覆盖单品种场景，已通过 `fdt_langgraph/report_aggregator.py` 实现全量模板覆盖 | 中 | ✅ **已关闭（本次会话）** | 2026-07-22 — `fdt_langgraph/report_aggregator.py` 已创建 |
 
+### G30 — 记忆规则注入 Agent Prompt 未纳入自进化闭环（2026-07-24 登记）
+
+| 字段 | 内容 |
+|:-----|:------|
+| **标题** | MEMORY.md 运行时规则注入 Agent Prompt 未接入自进化闭环 |
+| **描述** | `memory/rules/MEMORY.md` 包含多条运行时铁律（市价入场、去融合、品藻质检、中文术语等），各有归属 Agent（judge/risk_manager/bullish/bearish/quality_assurance）。`memory/retrieval/rules_injector.py` 已实现按 Agent 提取规则的能力，但该机制未纳入自进化闭环（Outer Loop），无法自动判断"何时注入哪些规则给哪些 Agent"以及"注入后的效果是否改善决策质量"。 |
+| **优先级** | P1 |
+| **现状** | 基础设施就绪（标签 + injector），等待接入自进化系统 |
+| **已就绪的资产** | ① `memory/rules/MEMORY.md` 已打 `<!-- agents: -->` 标签 ② `memory/retrieval/rules_injector.py` 已实现（缓存、mtime 刷新、别名映射） ③ 自进化闭环 `evolution_graph.py` 已有 `decide_actions` 条件路由架构 |
+| **未完成的工作** | ④ `evolution_graph.py` 新增 `inject_rules` 节点 + 条件触发逻辑 ⑤ `evolution_state.py` 新增 `injection_config` 字段 ⑥ `nodes.py` 读取 `injection_config` 决定是否调用 `get_rules_for_agent()` |
+| **建议方案** | 在 `evolution_nodes.py` 新增 `node_inject_rules()`，由 `decide_actions` 根据 Checker 缺口报告 + 质检 FAIL 模式 + APM D2 退化信号触发。注入效果通过 A/B 对比验证（开关开启 N 轮后比较质检通过率）。详见 [memory-system-overhaul.md](../designs/memory-system-overhaul.md) §自进化闭环设计。 |
+| **触发条件** | 任一满足即触发：(a) Checker 报告 Agent 输出违反 MEMORY.md 规则 (b) 质检 FAIL 中包含规则违反类错误 (c) APM D2 (Acuity) 连续 3 轮下降 |
+| **验证方式** | A/B 对比：开启注入 N 轮后 vs 无注入历史基线。改善标准：裁决准确率 ↑ or 质检 PASS 率 ↑ |
+| **关联文件** | `memory/rules/MEMORY.md`、`memory/retrieval/rules_injector.py`、`fdt_langgraph/evolution_nodes.py`、`fdt_langgraph/evolution_graph.py`、`fdt_langgraph/evolution_state.py`、`fdt_langgraph/nodes.py`、`memory/maintenance/checker.py` |
+| **登记日期** | 2026-07-24 |
+| **状态** | ✅ **已实施（v9.25.0）** — evolution_graph 新增 `inject_rules` 节点，由 `decide_actions` 根据 Checker 缺口/APM D2 触发；nodes.py 中 5 个 Agent 节点读取 `injection_config.json` 并调用 `get_rules_for_agent()` |
+
 ## 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
@@ -189,4 +206,4 @@
 | `scripts/evolve_agents.py` | §3 进化 | Agent 进化活跃 | `grep -n "def " evolve_agents.py` |
 | `contracts/migrations.py` | G14 | 26 条迁移路径已修复 | `grep -n "def apply_migration" contracts/migrations.py` |
 | `docs/schemas/` | §4 | 9 个 JSON Schema 活跃 | `ls docs/schemas/*.json` |
-| All gap entries with status | §7 差距表 | Gxxx 状态可追踪 | `grep -c "\[" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |
+| All gap entries with status | §4 差距表 | Gxxx 状态可追踪 | `grep -c "\[" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |

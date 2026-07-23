@@ -448,5 +448,175 @@
     "decisions": {},
     "step_results": {},
     "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-23T23:56:32.950118",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T00:01:20.769724",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T00:28:26.692520",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T00:44:09.637311",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T00:49:11.769731",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-complete",
+    "source_trace_id": "",
+    "started_at": "2026-07-24T00:59:52.511937",
+    "completed_at": "2026-07-24T00:59:52.511937",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-log",
+    "source_trace_id": "",
+    "started_at": "2026-07-24T00:59:52.521418",
+    "completed_at": "2026-07-24T00:59:52.521418",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T00:59:52.833171",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T01:10:23.089130",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T01:15:14.958889",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T01:20:04.820996",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T01:42:19.671316",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-complete",
+    "source_trace_id": "",
+    "started_at": "2026-07-24T01:53:08.772162",
+    "completed_at": "2026-07-24T01:53:08.772162",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": "test-log",
+    "source_trace_id": "",
+    "started_at": "2026-07-24T01:53:08.780141",
+    "completed_at": "2026-07-24T01:53:08.780141",
+    "apm_scores": {},
+    "decisions": {
+      "need_improve": false,
+      "need_calibrate": false,
+      "need_evolve": false,
+      "need_ml_train": false
+    },
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T01:53:08.864914",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
   }
 ]

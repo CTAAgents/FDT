@@ -26,6 +26,9 @@ def generate_trace_id() -> str:
 
 
 async def run_debate(mode: str = "default", run_evolution: bool = False) -> DebateState:
+    from memory.manager import init_memory
+    init_memory()
+
     trace_id = generate_trace_id()
     logger.info(f"Starting debate with trace_id: {trace_id}")
 

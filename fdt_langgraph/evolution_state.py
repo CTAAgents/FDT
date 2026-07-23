@@ -37,7 +37,14 @@ class EvolutionState(dict):
             ├── need_improve: bool (任一轴 degenerate)
             ├── need_calibrate: bool (D2/D4 偏低且样本足够)
             ├── need_evolve: bool (总样本足够)
-            └── need_ml_train: bool (新样本足够)
+            ├── need_ml_train: bool (新样本足够)
+            └── need_inject_rules: bool (Checker 缺口 / 质检规则违反)
+
+        injection_config: 记忆规则注入配置
+            ├── active: bool  (是否启用注入)
+            ├── agents: list  (启用注入的 Agent 列表)
+            ├── triggered_by: str (触发原因)
+            └── activated_at: str (时间戳)
 
         step_results: 各步骤执行结果
         errors: 非阻断错误列表
@@ -62,6 +69,13 @@ class EvolutionState(dict):
                 "need_calibrate": False,
                 "need_evolve": False,
                 "need_ml_train": False,
+                "need_inject_rules": False,
+            },
+            "injection_config": {
+                "active": False,
+                "agents": [],
+                "triggered_by": "",
+                "activated_at": "",
             },
             "step_results": {},
             "errors": [],
