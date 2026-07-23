@@ -1,8 +1,17 @@
 import os, shutil, subprocess, sys
 
-STARTER_KIT = r"d:\Programs\FDT\harness-starter-kit"
+STARTER_KIT = r"D:\HarnessStarterKit"
+
 
 def deploy(project_root):
+    # 确保 rhi_global_setup.py 也在部署范围内
+    _rhi_setup_src = os.path.join(STARTER_KIT, "scripts", "rhi_global_setup.py")
+    _rhi_setup_dst = os.path.join(project_root, "scripts", "rhi_global_setup.py")
+    if os.path.exists(_rhi_setup_src) and not os.path.exists(_rhi_setup_dst):
+        os.makedirs(os.path.join(project_root, "scripts"), exist_ok=True)
+        shutil.copy2(_rhi_setup_src, _rhi_setup_dst)
+        result.setdefault("deployed_files", []).append("scripts/rhi_global_setup.py")
+
     result = {"deployed_files": [], "skipped_files": [], "warnings": []}
     
     has_claude = os.path.exists(os.path.join(project_root, "CLAUDE.md"))
@@ -12,17 +21,17 @@ def deploy(project_root):
         result["warnings"].append("已有规范")
         return result
     
-    src = os.path.join(STARTER_KIT, "CLAUDE.md")
+    # 1. CLAUDE.md
     dst = os.path.join(project_root, "CLAUDE.md")
     if not os.path.exists(dst):
-        shutil.copy2(src, dst)
+        shutil.copy2(os.path.join(STARTER_KIT, "CLAUDE.md"), dst)
         result["deployed_files"].append("CLAUDE.md")
     else:
         result["skipped_files"].append("CLAUDE.md")
     
+    # 2. docs/harness/
     hdir = os.path.join(project_root, "docs", "harness")
     os.makedirs(hdir, exist_ok=True)
-    
     for f in ["harness-rules.yaml", "README.md"]:
         src_f = os.path.join(STARTER_KIT, "docs", "harness", f)
         dst_f = os.path.join(hdir, f)
@@ -32,15 +41,26 @@ def deploy(project_root):
         else:
             result["skipped_files"].append(f"docs/harness/{f}")
     
+    # 2b. docs/harness/_data/
+    data_dir = os.path.join(hdir, "_data")
+    os.makedirs(data_dir, exist_ok=True)
+    src_data = os.path.join(STARTER_KIT, "docs", "harness", "_data", "version.yaml")
+    dst_data = os.path.join(data_dir, "version.yaml")
+    if not os.path.exists(dst_data):
+        shutil.copy2(src_data, dst_data)
+        result["deployed_files"].append("docs/harness/_data/version.yaml")
+    
+    # 3. scripts/
     sdir = os.path.join(project_root, "scripts")
     if os.path.isdir(sdir):
-        src_h = os.path.join(STARTER_KIT, "scripts", "pre_commit_harness_check.py")
-        dst_h = os.path.join(sdir, "pre_commit_harness_check.py")
-        if not os.path.exists(dst_h):
-            shutil.copy2(src_h, dst_h)
-            result["deployed_files"].append("scripts/pre_commit_harness_check.py")
-        else:
-            result["skipped_files"].append("scripts/pre_commit_harness_check.py")
+        for script_name in ["pre_commit_harness_check.py", "verify_doc_consistency.py"]:
+            src_s = os.path.join(STARTER_KIT, "scripts", script_name)
+            dst_s = os.path.join(sdir, script_name)
+            if os.path.exists(src_s) and not os.path.exists(dst_s):
+                shutil.copy2(src_s, dst_s)
+                result["deployed_files"].append(f"scripts/{script_name}")
+            else:
+                result["skipped_files"].append(f"scripts/{script_name}")
     
     return result
 

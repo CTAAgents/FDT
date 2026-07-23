@@ -29,7 +29,7 @@
 
 ### 工程架构
 - **LangGraph 3 子图架构** — Debate Graph（辩论执行）+ Master Graph（14 任务统一调度）+ Evolution Graph（自进化闭环），零第三方调度依赖
-- **自进化闭环** — 品藻质检 + APM-CS 五轴评分(D1-D5) → 自改进提案 → 权重校准 → Agent 进化 → ML 增量训练
+- **自进化闭环** — 品藻质检 + APM-CS 五轴评分(D1-D5) → 自改进提案 → 权重校准 → Agent 进化 → RHI Harness 自优化 → ML 增量训练
 - **Harness 工程规范** — 12 项 commit 前检查 + 10 条反模式检测 + Loop Contract 循环契约
 - **独立运行** — 去平台依赖，支持 CLI / FastAPI / LangGraph 守护进程三种入口
 

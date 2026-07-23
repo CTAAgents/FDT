@@ -17,3 +17,4 @@
 | 10 | [10-coding-standards.md](10-coding-standards.md) | 编码规范、D3 Generation 控制 |
 | 11 | [loop-contracts/README.md](loop-contracts/README.md) | 循环契约规范（可选） |
 | 12 | [harness-rules.yaml](harness-rules.yaml) | 12 项机读检查规则 |
+| 13 | [scripts/rhi_global_setup.py](../../scripts/rhi_global_setup.py) | RHI 递归 Harness 自进化（v9.22.0+） |
