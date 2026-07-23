@@ -44,17 +44,22 @@ async def run_debate(mode: str = "default", run_evolution: bool = False) -> Deba
             log_msg = f"Run evolution after debate: trace_id={trace_id}"
             logger.info(log_msg)
             ev_state = run_ev(source_trace_id=trace_id)
-            ev_phase = ev_state.get("phase", "unknown")
-            ev_errors = len(ev_state.get("errors", []))
-            ev_decisions = ev_state.get("decisions", {})
-            logger.info(f"Evolution completed: phase={ev_phase}, "
-                        f"errors={ev_errors}, decisions={ev_decisions}")
-            print(f"\n=== 🔄 自进化闭环完成 ===")
-            print(f"  阶段: {ev_phase}")
-            for step, result_data in ev_state.get("step_results", {}).items():
-                icon = "✅" if result_data.get("success") else "❌"
-                print(f"  {icon} {step}: {result_data.get('summary', '')[:80]}")
-            print("=" * 40 + "\n")
+            if ev_state:
+                ev_phase = ev_state.get("phase", "unknown")
+                ev_errors = len(ev_state.get("errors", []))
+                ev_decisions = ev_state.get("decisions", {})
+                logger.info(f"Evolution completed: phase={ev_phase}, "
+                            f"errors={ev_errors}, decisions={ev_decisions}")
+                print(f"\n=== 🔄 自进化闭环完成 ===")
+                print(f"  阶段: {ev_phase}")
+                for step, result_data in ev_state.get("step_results", {}).items():
+                    icon = "✅" if result_data.get("success") else "❌"
+                    print(f"  {icon} {step}: {result_data.get('summary', '')[:80]}")
+                print("=" * 40 + "\n")
+            else:
+                logger.warning("Evolution returned None state, skipping evolution display")
+                print(f"\n=== ⚠️ 自进化闭环返回空状态 ===")
+                print("=" * 40 + "\n")
         except Exception as e:
             logger.error(f"Evolution failed: {e}")
 

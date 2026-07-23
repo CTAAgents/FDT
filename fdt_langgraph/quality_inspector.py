@@ -110,9 +110,24 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
     rules = VERDICT_RULES
 
     # 必填字段
+    cond = rules.get("conditional_required")
+    cond_fields = set(cond.get("fields", [])) if cond else set()
+    cond_key = cond.get("condition_key", "") if cond else ""
+    cond_values = cond.get("condition_values", []) if cond else []
     for field in rules["required_fields"]:
+        # 条件必填字段由后续逻辑处理，此处跳过
+        if field in cond_fields:
+            continue
         if field not in data or data[field] is None:
             issues.append(_issue(field, f"缺少必填字段 {field}", "error"))
+
+    # 条件必填字段（如 entry_price/stop_loss/target1 仅在 bull/bear 方向时必填）
+    if cond:
+        actual_value = data.get(cond_key)
+        if actual_value in cond_values:
+            for field in cond.get("fields", []):
+                if field not in data or data[field] is None:
+                    issues.append(_issue(field, f"缺少条件必填字段 {field}（{cond_key}={actual_value} 时必填）", "error"))
 
     # 字段类型
     for field, expected_type in rules["field_types"].items():

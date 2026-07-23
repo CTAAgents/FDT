@@ -1082,6 +1082,7 @@ async def node_technical(state: DebateState) -> dict:
             llm_parse_ok = len(per_symbol_tech) > 0
         if not llm_parse_ok:
             logger.warning(f"[TECH] LLM 返回未解析出逐品种数据 ({len(output)} chars), 回退FDC数据")
+            logger.debug(f"[TECH] LLM 原始输出(前300chars): {output[:300]}")
     except Exception as e:
         logger.warning(f"[TECH] LLM 输出解析失败: {e}")
         llm_parse_ok = False

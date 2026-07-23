@@ -965,7 +965,10 @@ def main() -> None:
     # ── 知识萃取（非阻断） ──
     print(f"\n{'='*50}")
     print("📖 品种知识萃取:")
-    extract_knowledge_from_validated_verdicts(followup_path)
+    try:
+        extract_knowledge_from_validated_verdicts(followup_path)
+    except Exception as exc:
+        print(f"  ⚠️ 知识萃取异常(非阻断): {exc}")
 
     # ── 技能层进化（Skillevolver，非阻断） ──
     print(f"\n{'='*50}")
