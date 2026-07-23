@@ -24,6 +24,13 @@ from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
 
+# 数据质量评估
+try:
+    from futures_data_core.core.data_quality import evaluate_symbol as _eval_dq
+    _DQ_AVAILABLE = True
+except ImportError:
+    _DQ_AVAILABLE = False
+
 
 # ─── 成本模型 ──────────────────────────────────────────
 COST_BPS = 2.0           # 往返交易成本(基点)
@@ -189,6 +196,12 @@ def validate_single(verdict: dict, entry_date: str = "") -> dict:
     else:
         reason = f"边界未触，收于{last_close}，盈{realizable_pnl_pct:+.1f}%"
 
+    # ── 数据质量评估（Data Governance Phase 1） ──
+    dq = _eval_dq(sym, bars, bars[0].get("source", "unknown") if enough_bars else "unknown") if _DQ_AVAILABLE else {
+        "available": enough_bars, "confidence": "FRESH" if enough_bars else "STALE",
+        "overall": "A" if enough_bars else "D", "issues": [] if enough_bars else ["无数据"]
+    }
+
     return {
         "symbol": sym,
         "direction": direction,
@@ -205,6 +218,7 @@ def validate_single(verdict: dict, entry_date: str = "") -> dict:
         "reason": reason,
         "data_source": bars[0].get("source", "none") if enough_bars else "none",
         "n_bars": len(bars) if bars else 0,
+        "data_quality": dq,  # 数据质量元数据
     }
 
 
@@ -328,6 +342,10 @@ def compute_group_stats(all_records: list) -> dict:
                                      "stop_hit": 0, "target_hit": 0, "profit": 0})
     by_adx_range = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0,
                                          "stop_hit": 0, "target_hit": 0, "profit": 0})
+    by_data_quality = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0,
+                                            "stop_hit": 0, "target_hit": 0, "profit": 0})
+    by_source = defaultdict(lambda: {"total": 0, "correct": 0, "pnl_sum": 0, "net_pnl_sum": 0,
+                                      "stop_hit": 0, "target_hit": 0, "profit": 0})
 
     for record in all_records:
         if not record.get("validated"):
@@ -394,6 +412,29 @@ def compute_group_stats(all_records: list) -> dict:
                 stats["pnl_sum"] += pnl
                 stats["net_pnl_sum"] += net
 
+            # 数据质量分组
+            dq = r.get("data_quality", {})
+            dq_grade = dq.get("overall", "N/A")
+            dq_source = dq.get("source", r.get("data_source", "unknown"))
+            by_data_quality[dq_grade]["total"] += 1
+            by_source[dq_source]["total"] += 1
+            if r["correct"]:
+                by_data_quality[dq_grade]["correct"] += 1
+                by_source[dq_source]["correct"] += 1
+            if r.get("hit_stop"):
+                by_data_quality[dq_grade]["stop_hit"] += 1
+                by_source[dq_source]["stop_hit"] += 1
+            if r.get("target_hit"):
+                by_data_quality[dq_grade]["target_hit"] += 1
+                by_source[dq_source]["target_hit"] += 1
+            if r.get("realized_pnl_pct", 0) > 0:
+                by_data_quality[dq_grade]["profit"] += 1
+                by_source[dq_source]["profit"] += 1
+            by_data_quality[dq_grade]["pnl_sum"] += pnl
+            by_data_quality[dq_grade]["net_pnl_sum"] += net
+            by_source[dq_source]["pnl_sum"] += pnl
+            by_source[dq_source]["net_pnl_sum"] += net
+
     def _format(stats):
         result = {}
         for key, s in stats.items():
@@ -417,6 +458,8 @@ def compute_group_stats(all_records: list) -> dict:
         "by_direction": _format(by_direction),
         "by_chain": _format(by_chain),
         "by_adx_range": _format(by_adx_range),
+        "by_data_quality": _format(by_data_quality),
+        "by_source": _format(by_source),
     }
 
 
@@ -513,6 +556,23 @@ def main() -> None:
     print(f"  {'产业链':10s} {'准确率':>8s} {'胜率':>6s} {'均盈':>8s}")
     for key, s in sorted(stats["by_chain"].items(), key=lambda x: -x[1]['accuracy']):
         print(f"  {key:10s} {s['accuracy']:6.1f}%  {s['profit_ratio']:5.1f}%  {s['avg_pnl']:+.2f}%")
+
+    # 数据质量分组输出
+    print(f"\n{'─'*50}")
+    print(f"  按数据质量等级:")
+    print(f"  {'等级':6s} {'数量':>4s} {'准确率':>8s} {'胜率':>6s} {'均盈':>8s}")
+    for grade in ["A", "B", "C", "D", "N/A"]:
+        s = stats["by_data_quality"].get(grade)
+        if s and s["total"] > 0:
+            print(f"  {grade:6s} {s['total']:4d} {s['accuracy']:6.1f}%  "
+                  f"{s['profit_ratio']:5.1f}%  {s['avg_pnl']:+.2f}%")
+
+    print(f"\n{'─'*50}")
+    print(f"  按数据源:")
+    print(f"  {'数据源':12s} {'数量':>4s} {'准确率':>8s} {'均盈':>8s}")
+    for key, s in sorted(stats["by_source"].items(), key=lambda x: -x[1]['total']):
+        if s["total"] > 0:
+            print(f"  {key:12s} {s['total']:4d} {s['accuracy']:6.1f}%  {s['avg_pnl']:+.2f}%")
 
     stats_path = followup_path.parent / "validation_stats.json"
     with open(stats_path, 'w', encoding='utf-8') as f:

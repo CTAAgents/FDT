@@ -1113,6 +1113,24 @@ def run_scan(
     for _r in all_ranked:
         _r["stats"] = _build_pure_stats(_r, kline_data.get(_r.get("symbol", "")))
 
+    # ── 数据质量元数据（Data Governance Phase 1） ──
+    # 每个品种附加 data_quality 块，溯源数据源/新鲜度/完整性/综合等级
+    try:
+        from futures_data_core.core.data_quality import evaluate_symbol
+        for _r in all_ranked:
+            _sym = _r.get("symbol", "")
+            _src = _r.get("data_source", "unknown")
+            _kl = kline_data.get(_sym)
+            # kline_data 格式为 (meta_dict, bars_list)，取第二个元素
+            if isinstance(_kl, tuple) and len(_kl) == 2:
+                _kl = _kl[1]
+            _r["data_quality"] = evaluate_symbol(_sym, _kl, _src)
+    except ImportError:
+        # data_quality 模块不可用时静默跳过
+        for _r in all_ranked:
+            _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
+                                   "overall": "N/A", "issues": ["模块未加载"]}
+
     bear = summary.get("bear_signals", [])
     bull = summary.get("bull_signals", [])
     meta = summary.get("_meta", {})
