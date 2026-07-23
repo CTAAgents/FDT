@@ -98,13 +98,17 @@ def _resolve_report_dir() -> Path:
     """
     workspace = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE")
     if workspace:
+        import re as _re
         from datetime import datetime as _dt
         from pathlib import Path as _Path
         ws_path = _Path(workspace)
         today_str = _dt.now().strftime("%Y-%m-%d")
         today_compact = _dt.now().strftime("%Y%m%d")
         # 检查 workspace 是否已包含日期后缀（yyyy-mm-dd 或 yyyymmdd）
-        if ws_path.name in (today_str, today_compact):
+        # 使用正则匹配而非仅匹配今日日期，避免跨日运行时生成多余子目录
+        _is_date_dir = bool(_re.match(r'^\d{4}-\d{2}-\d{2}$', ws_path.name) or
+                            _re.match(r'^\d{8}$', ws_path.name))
+        if ws_path.name in (today_str, today_compact) or _is_date_dir:
             report_dir = ws_path
         else:
             report_dir = ws_path / today_str
@@ -1198,8 +1202,8 @@ async def node_technical(state: DebateState) -> dict:
                     if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                         per_symbol_tech[sym] = raw_per_symbol[sym_key]
                 llm_parse_ok = len(per_symbol_tech) > 0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[TECH] _repair_json 回退失败: {e}")
 
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
@@ -1507,8 +1511,8 @@ async def node_fundamental(state: DebateState) -> dict:
                     if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                         per_symbol_fund[sym] = raw_per_symbol[sym_key]
                 llm_parse_ok = len(per_symbol_fund) > 0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[FUND] _repair_json 回退失败: {e}")
 
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
@@ -3333,11 +3337,15 @@ async def node_signal_output(state: DebateState) -> DebateState:
     if signal_report_path:
         logger.info(f"[SIGNAL_OUTPUT] 报告: {signal_report_path}")
 
-    # 将 CTP 信号写入 memory/ctp_signals/ 目录归档
+    # 将 CTP 信号写入工作区目录（优先 FDT_REPORT_WORKSPACE，fallback 到 memory/ctp_signals/）
     try:
         import datetime as _dt
         import json
-        signal_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "memory", "ctp_signals")
+        workspace_env = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE")
+        if workspace_env:
+            signal_dir = str(_resolve_report_dir())
+        else:
+            signal_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "memory", "ctp_signals")
         os.makedirs(signal_dir, exist_ok=True)
         date_compact = _dt.datetime.now().strftime("%Y%m%d")
         archive_path = os.path.join(signal_dir, f"ctp_signals_{trace_id.split('-')[-1]}_{date_compact}.json")

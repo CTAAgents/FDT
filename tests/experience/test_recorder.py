@@ -143,12 +143,14 @@ class TestExperienceRecorder:
 
     def test_record_filename_format(self, sample_execution_record, tmp_path):
         """文件名应遵循 {symbol}_{date}_{trace_short}.json 格式"""
+        from datetime import datetime
         from scripts.experience_recorder import write_record
         records_dir = tmp_path / "records"
         records_dir.mkdir()
 
         path = write_record(sample_execution_record, records_dir)
-        assert path.stem.startswith("RB2501_20260722_")
+        today_str = datetime.now().strftime("%Y%m%d")
+        assert path.stem.startswith(f"RB2501_{today_str}_")
         assert path.suffix == ".json"
 
     def test_index_updated_after_write(self, sample_execution_record, tmp_path):

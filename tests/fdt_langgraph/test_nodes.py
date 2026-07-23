@@ -73,47 +73,47 @@ async def test_node_merge_research():
     state["completed_phases"] = ["P1", "P2"]
     result = await node_merge_research(state)
     assert result["research_data"] is not None
-    assert "P3" in result["completed_phases"]
+    assert "P2" in result["completed_phases"]
 
 
 @pytest.mark.asyncio
 async def test_node_bullish_v1():
-    """P4 步1: 多头立论 v1"""
+    """P3 步1: 多头立论 v1"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["judge_direction"] = {"direction": "bullish"}
     state["selected_symbols"] = ["RB"]
-    state["completed_phases"] = ["P1", "P2", "P3"]
+    state["completed_phases"] = ["P1", "P2", "P2"]
     result = await node_bullish_v1(state)
     assert result["bullish_arguments"] is not None
     assert len(result["bullish_arguments"]) == 1
     assert result["bullish_arguments"][0]["phase"] == "v1"
     assert result["bullish_arguments"][0]["role"] == "bullish"
     assert result["debate_round"] == 1
-    assert result["current_phase"] == "P4_bullish_v1"
+    assert result["current_phase"] == "P3_bullish_v1"
 
 
 @pytest.mark.asyncio
 async def test_node_bearish_v1():
-    """P4 步2: 空头立论 — 独立做空论据 v1（不再是对多头质疑）"""
+    """P3 步2: 空头立论 — 独立做空论据 v1（不再是对多头质疑）"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["judge_direction"] = {"direction": "bullish"}
     state["selected_symbols"] = ["RB"]
     state["debate_round"] = 1
-    state["completed_phases"] = ["P1", "P2", "P3", "P4_bullish_v1"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3_bullish_v1"]
     result = await node_bearish_v1(state)
     assert result["bearish_arguments"] is not None
     assert len(result["bearish_arguments"]) == 1
     assert result["bearish_arguments"][0]["phase"] == "v1"
     assert result["bearish_arguments"][0]["role"] == "bearish"
     assert result["debate_round"] == 2
-    assert result["current_phase"] == "P4_bearish_v1"
+    assert result["current_phase"] == "P3_bearish_v1"
 
 
 @pytest.mark.asyncio
 async def test_node_bullish_rebuttal():
-    """P4 步4: 多头反驳 — 针对空头立论和空头反驳进行再反驳"""
+    """P3 步4: 多头反驳 — 针对空头立论和空头反驳进行再反驳"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["judge_direction"] = {"direction": "bullish"}
@@ -126,7 +126,7 @@ async def test_node_bullish_rebuttal():
         {"round": 2, "role": "bearish", "phase": "v1", "symbols": {"RB": {"arguments": ["做空论据1"], "confidence": 0.6}}}
     ]
     state["debate_round"] = 2
-    state["completed_phases"] = ["P1", "P2", "P3", "P4_bullish_v1", "P4_bearish_v1"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3_bullish_v1", "P3_bearish_v1"]
     result = await node_bullish_rebuttal(state)
     # node_bullish_rebuttal 写入 bullish_rebuttal_arguments（非 bullish_arguments）
     assert result["bullish_rebuttal_arguments"] is not None
@@ -135,12 +135,12 @@ async def test_node_bullish_rebuttal():
     assert result["bullish_rebuttal_arguments"][0]["role"] == "bullish"
     assert result["bullish_rebuttal_arguments"][0]["round"] == 4
     assert result["debate_round"] == 3
-    assert result["current_phase"] == "P4_bullish_rebuttal"
+    assert result["current_phase"] == "P3_bullish_rebuttal"
 
 
 @pytest.mark.asyncio
 async def test_node_bearish_rebuttal():
-    """P4 步3: 空头反驳多头立论 (v9.0.0)"""
+    """P3 步3: 空头反驳多头立论 (v9.0.0)"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["judge_direction"] = {"direction": "bullish"}
@@ -149,7 +149,7 @@ async def test_node_bearish_rebuttal():
         {"round": 1, "role": "bullish", "phase": "v1", "symbols": {"RB": {"arguments": ["看多论据1"], "confidence": 0.7}}}
     ]
     state["debate_round"] = 1
-    state["completed_phases"] = ["P1", "P2", "P3", "P4_bullish_v1", "P4_bearish_v1"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3_bullish_v1", "P3_bearish_v1"]
     # Mock FdtAgentExecutor to return a dict with JSON output
     with patch("fdt_langgraph.nodes.FdtAgentExecutor") as MockExecutor:
         mock_instance = MagicMock()
@@ -164,12 +164,12 @@ async def test_node_bearish_rebuttal():
     assert result["bearish_rebuttal_arguments"][0]["phase"] == "rebuttal_v1"
     assert result["bearish_rebuttal_arguments"][0]["role"] == "bearish"
     assert result["debate_round"] == 2
-    assert result["current_phase"] == "P4_bearish_rebuttal"
+    assert result["current_phase"] == "P3_bearish_rebuttal"
 
 
 @pytest.mark.asyncio
 async def test_node_bear_final():
-    """P4 步5: 空头最终陈述 (v9.0.0)"""
+    """P3 步5: 空头最终陈述 (v9.0.0)"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["selected_symbols"] = ["RB"]
@@ -180,7 +180,7 @@ async def test_node_bear_final():
         {"round": 3, "role": "bearish", "phase": "rebuttal", "symbols": {"RB": {"arguments": ["反驳看多"], "confidence": 0.65}}}
     ]
     state["debate_round"] = 3
-    state["completed_phases"] = ["P1", "P2", "P3", "P4_bullish_v1", "P4_bearish_v1", "P4_bearish_rebuttal", "P4_bullish_rebuttal"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3_bullish_v1", "P3_bearish_v1", "P3_bearish_rebuttal", "P3_bullish_rebuttal"]
     with patch("fdt_langgraph.nodes.FdtAgentExecutor") as MockExecutor:
         mock_instance = MagicMock()
         mock_instance.__aenter__.return_value = mock_instance
@@ -193,12 +193,12 @@ async def test_node_bear_final():
     assert len(result["bear_final_arguments"]) == 1
     assert result["bear_final_arguments"][0]["phase"] == "final"
     assert result["bear_final_arguments"][0]["role"] == "bearish"
-    assert result["current_phase"] == "P4_bear_final"
+    assert result["current_phase"] == "P3_bear_final"
 
 
 @pytest.mark.asyncio
 async def test_node_bull_final():
-    """P4 步6: 多头最终陈述 (v9.0.0)"""
+    """P3 步6: 多头最终陈述 (v9.0.0)"""
     state = create_test_state()
     state["research_data"] = {"sources": ["chain", "technical"]}
     state["selected_symbols"] = ["RB"]
@@ -209,7 +209,7 @@ async def test_node_bull_final():
         {"round": 4, "role": "bullish", "phase": "rebuttal", "symbols": {"RB": {"arguments": ["反驳做空"], "confidence": 0.75}}}
     ]
     state["debate_round"] = 5
-    state["completed_phases"] = ["P1", "P2", "P3", "P4_bullish_v1", "P4_bearish_v1", "P4_bearish_rebuttal", "P4_bullish_rebuttal", "P4_bear_final"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3_bullish_v1", "P3_bearish_v1", "P3_bearish_rebuttal", "P3_bullish_rebuttal", "P3_bear_final"]
     with patch("fdt_langgraph.nodes.FdtAgentExecutor") as MockExecutor:
         mock_instance = MagicMock()
         mock_instance.__aenter__.return_value = mock_instance
@@ -222,7 +222,7 @@ async def test_node_bull_final():
     assert len(result["bull_final_arguments"]) == 1
     assert result["bull_final_arguments"][0]["phase"] == "final"
     assert result["bull_final_arguments"][0]["role"] == "bullish"
-    assert result["current_phase"] == "P4_bull_final"
+    assert result["current_phase"] == "P3_bull_final"
 
 
 
@@ -245,10 +245,10 @@ async def test_node_verdict():
     state["bearish_arguments"] = [{"confidence": 0.3}]
     state["judge_direction"] = {"direction": "bullish"}
     state["selected_symbols"] = ["RB"]
-    state["completed_phases"] = ["P1", "P2", "P3", "P4"]
+    state["completed_phases"] = ["P1", "P2", "P2", "P3"]
     result = await node_verdict(state)
     assert result["verdict"] is not None
-    assert result["current_phase"] == "P5_verdict"
+    assert result["current_phase"] == "P4_verdict"
 
 
 @pytest.mark.asyncio

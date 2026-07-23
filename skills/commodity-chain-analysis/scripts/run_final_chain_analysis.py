@@ -313,7 +313,7 @@ FUNDAMENTAL_NOTES = {
 
 def main():
     summary, l1l4, ft = load_qd_data()
-    symbol_map = build_symbol_map(summary, l1l4, ft)
+    symbol_map = build_symbol_map(summary)
     price_dict = build_price_dict(l1l4)
 
     chain_data = analyze_chains(symbol_map, price_dict)

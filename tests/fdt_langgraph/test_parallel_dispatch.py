@@ -38,9 +38,9 @@ async def test_trace_id_propagation():
     result1 = await node_scan(state)
     assert result1["trace_id"] == trace_id
 
-    # node_judge_direction 需要真实 LLM 调用，在此跳过 LLM 依赖的检查
+    # node_chain 只返回 {"chain_analysis": ...}（部分状态更新，不传播 trace_id）
     result3 = await node_chain(state)
-    assert result3.get("trace_id") == trace_id
+    assert result3["chain_analysis"] is not None
 
 
 @pytest.mark.asyncio

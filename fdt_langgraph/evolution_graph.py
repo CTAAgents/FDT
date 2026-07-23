@@ -150,16 +150,59 @@ def run_evolution(trace_id: str = "", source_trace_id: str = "") -> EvolutionSta
     initial = EvolutionState.create(trace_id=trace_id, source_trace_id=source_trace_id)
     graph = get_evolution_graph()
     result = graph.invoke(initial)
-    # LangGraph invoke() 在某些版本下可能返回 None，此时回退到 initial 状态
+    # LangGraph invoke() 在某些版本下可能返回 None（节点原地修改 state 时）
+    # 此时尝试从 evolution_log.json 读取实际状态，而非回退到空白 initial
     if result is None:
-        initial["phase"] = "completed"
-        initial["completed_at"] = datetime.now().isoformat()
         logger.warning(f"[EvolutionGraph] graph.invoke() returned None, "
-                       f"falling back to initial state (phase=completed)")
-        result = initial
+                       f"attempting recovery from evolution_log.json")
+        recovered = _recover_from_evolution_log(trace_id, source_trace_id)
+        if recovered:
+            result = recovered
+        else:
+            initial["phase"] = "completed"
+            initial["completed_at"] = datetime.now().isoformat()
+            logger.warning(f"[EvolutionGraph] 恢复失败，falling back to initial state")
+            result = initial
     logger.info(f"[EvolutionGraph] 自进化闭环完成: trace_id={trace_id}, "
                 f"phase={result.get('phase')}, errors={len(result.get('errors', []))}")
     return result
+
+
+def _recover_from_evolution_log(trace_id: str, source_trace_id: str) -> EvolutionState | None:
+    """从 evolution_log.json 恢复进化图的实际执行结果。
+
+    当 graph.invoke() 返回 None 但节点已执行时，进化日志文件已被
+    node_complete 写入，可通过读取最新条目重建最终状态。
+    """
+    import json
+    import os
+    log_path = os.path.join(os.path.dirname(__file__), "..", "memory", "evolution_log.json")
+    if not os.path.exists(log_path):
+        return None
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        if not isinstance(entries, list) or not entries:
+            return None
+        # 找到匹配 trace_id 的最新条目
+        for entry in reversed(entries):
+            if entry.get("trace_id") == trace_id:
+                recovered = EvolutionState.create(trace_id=trace_id, source_trace_id=source_trace_id)
+                recovered["phase"] = entry.get("completed_at", "") if entry.get("step_results") else "completed"
+                recovered["phase"] = "completed"
+                recovered["completed_at"] = entry.get("completed_at", datetime.now().isoformat())
+                recovered["apm_scores"] = entry.get("apm_scores", {})
+                recovered["decisions"] = entry.get("decisions", recovered["decisions"])
+                recovered["step_results"] = entry.get("step_results", {})
+                recovered["errors"] = entry.get("errors", [])
+                logger.info(f"[EvolutionGraph] 从 evolution_log 恢复: "
+                            f"decisions={recovered['decisions']}, "
+                            f"steps={list(recovered['step_results'].keys())}")
+                return recovered
+        return None
+    except Exception as e:
+        logger.warning(f"[EvolutionGraph] 读取 evolution_log 失败: {e}")
+        return None
 
 
 def route_after_debate(debate_state: dict) -> EvolutionState | None:
