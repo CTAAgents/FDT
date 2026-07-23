@@ -2568,12 +2568,11 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     try:
         from scripts.output_audit import OutputAudit
         audit = OutputAudit()
-        audit.log(
+        audit.log_output(
             agent_name="quality_assurance",
-            action="quality_inspect",
-            resource=f"verdict:{current_sym}" if current_sym else "verdict:unknown",
-            status=overall_status,
-            metadata={"retry_count": retries, "issues_count": len(all_issues)},
+            action="review",
+            output={"symbol": current_sym or "unknown", "status": overall_status,
+                    "retry_count": retries, "issues_count": len(all_issues)},
         )
     except Exception:
         pass
