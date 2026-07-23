@@ -227,6 +227,102 @@ def enforce_structured_output(
     return result
 
 
+def retry_with_temperature_escalation(
+    llm_func,
+    agent_name: str,
+    prompt: str,
+    system_prompt: str = "",
+    initial_temperature: float = 0.2,
+    max_tokens: int = 4000,
+) -> dict:
+    """结构化输出校验失败时自动升温重试 (D3 Generation Phase 4)。
+
+    从 decode_config.yaml 读取 retry_config，按 temperature_multiplier 逐次升温。
+    重试成功 → 返回结构化数据；全部失败 → 返回最后一次校验结果。
+
+    Args:
+        llm_func: Callable(prompt, system, temperature, max_tokens) → str
+        agent_name: Agent 名称（用于加载配置）
+        prompt: LLM 输入提示
+        system_prompt: 系统提示词
+        initial_temperature: 初始温度
+        max_tokens: 最大 token 数
+
+    Returns:
+        dict: {
+            "success": bool,
+            "data": dict | None,
+            "retries": int,
+            "final_temperature": float,
+            "last_validation": dict,
+        }
+    """
+    agent_config = get_agent_config(agent_name)
+    retry_cfg = agent_config.get("retry_config", {})
+    max_retries = retry_cfg.get("max_retries", 2)
+    temp_mult = retry_cfg.get("temperature_multiplier", 1.5)
+
+    for attempt in range(max_retries + 1):
+        temperature = round(initial_temperature * (temp_mult ** attempt), 4)
+        temperature = min(temperature, 1.0)  # 上限 1.0
+        logger.info(
+            "[DecodeControl] %s 尝试 %d/%d: temperature=%.2f",
+            agent_name, attempt + 1, max_retries + 1, temperature,
+        )
+
+        raw_text = llm_func(
+            prompt, system=system_prompt,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+        if not raw_text:
+            continue
+
+        result = enforce_structured_output(raw_text, agent_name=agent_name)
+        if result.get("success"):
+            return {
+                "success": True,
+                "data": result["data"],
+                "retries": attempt,
+                "final_temperature": temperature,
+                "last_validation": result,
+            }
+
+    # 全部重试失败
+    logger.warning(
+        "[DecodeControl] %s 升温重试全部失败 (%d 次), 返回最后一次结果",
+        agent_name, max_retries + 1,
+    )
+    return {
+        "success": False,
+        "data": None,
+        "retries": max_retries + 1,
+        "final_temperature": min(initial_temperature * (temp_mult ** (max_retries + 1)), 1.0),
+        "last_validation": result if "result" in dir() else {},
+    }
+
+
+def write_retry_signal(agent_name: str, output_path: str, temperature_multiplier: float) -> str:
+    """写入重试信号文件，供编排层消费。
+
+    文件路径: {output_path}.retry_signal.json
+    编排层检测到此文件后应重新 spawn Agent 并提高 temperature。
+
+    Returns:
+        信号文件路径
+    """
+    signal = {
+        "agent_name": agent_name,
+        "original_output": output_path,
+        "temperature_multiplier": temperature_multiplier,
+        "triggered_at": __import__("datetime").datetime.now().isoformat(),
+    }
+    signal_path = output_path + ".retry_signal.json"
+    with open(signal_path, "w", encoding="utf-8") as f:
+        json.dump(signal, f, ensure_ascii=False)
+    logger.info("[DecodeControl] 重试信号已写入: %s", signal_path)
+    return signal_path
+
+
 def main():
     """CLI 入口"""
     import argparse

@@ -198,8 +198,8 @@ def wait_for_agent_output(
         with open(filepath, encoding="utf-8") as f:
             content = f.read()
         
-        # ── D3 Generation: 结构化输出校验（非阻断） ──
-        _validate_agent_output(content, agent_name)
+        # ── D3 Generation: 结构化输出校验（非阻断，含重试信号） ──
+        _validate_agent_output(content, agent_name, output_path=filepath)
         
         # 尝试解析JSON fence
         import re
@@ -221,10 +221,16 @@ def wait_for_agent_output(
         return None
 
 
-def _validate_agent_output(content: str, agent_name: str) -> None:
-    """D3 Generation: 结构化输出校验。非阻断，失败仅记录 metrics。"""
+def _validate_agent_output(content: str, agent_name: str, output_path: str = "") -> None:
+    """D3 Generation: 结构化输出校验。非阻断，失败时写入重试信号。
+
+    当校验失败且 decode_config.yaml 中定义了 retry_config 时，
+    自动写入 {output_path}.retry_signal.json 供编排层消费。
+    """
     try:
-        from scripts.enforce_structured_output import enforce_structured_output
+        from scripts.enforce_structured_output import (
+            enforce_structured_output, get_agent_config, write_retry_signal,
+        )
         from scripts.generation_metrics import GenerationMetrics
 
         result = enforce_structured_output(content, agent_name=agent_name)
@@ -233,6 +239,15 @@ def _validate_agent_output(content: str, agent_name: str) -> None:
             print(f"[DecodeControl] {agent_name} 结构化输出校验失败: {errors[:2]}", file=sys.stderr)
             metrics = GenerationMetrics()
             metrics.record(agent_name, success=False, latency_ms=0, schema_valid=False)
+
+            # ── Phase 4: 写入重试信号 ──
+            if output_path:
+                agent_cfg = get_agent_config(agent_name)
+                retry_cfg = agent_cfg.get("retry_config", {})
+                if retry_cfg.get("max_retries", 0) > 0:
+                    temp_mult = retry_cfg.get("temperature_multiplier", 1.5)
+                    write_retry_signal(agent_name, output_path, temp_mult)
+                    print(f"[DecodeControl] {agent_name} 重试信号已写入 (multiplier={temp_mult})", file=sys.stderr)
         else:
             metrics = GenerationMetrics()
             metrics.record(agent_name, success=True, latency_ms=0, schema_valid=True)

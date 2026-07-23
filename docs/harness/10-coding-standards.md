@@ -173,10 +173,13 @@
 3. **内容安全过滤**：`quality_inspector.py` 的 `check_report_integrity()` 自动调用 `content_filter.check_sensitive()` 检测敏感内容，结果以 warning 形式加入质检报告。
 4. **APM D3 fallback**：`apm_scorecard.py` 在辩论轮次 < 5 时从 `generation_metrics` 读取 `schema_pass_rate` 作为 D3 镇定度的 fallback 评分。`schema_pass_rate < 80%` 标记为 degenerate。
 
+5. **升温重试（Phase 4 反馈闭环）**：`enforce_structured_output.retry_with_temperature_escalation()` 按 `decode_config.yaml` 的 `retry_config.temperature_multiplier` 逐次升温重试。`agent_waiter.py` 校验失败时自动写入 `{output_path}.retry_signal.json` 信号文件，编排层检测后重新 spawn。
+
 | 机制 | 触发点 | 文件 | 阻断性 |
 |:-----|:-------|:-----|:------:|
 | decode_config 加载 | `FdtAgentExecutor.__init__` | `fdt_langgraph/agents.py` | 否 |
 | 结构化输出校验 | `wait_for_agent_output` | `scripts/agent_waiter.py` | 否 |
+| 升温重试 | `_validate_agent_output` 校验失败 | `scripts/agent_waiter.py` / `scripts/enforce_structured_output.py` | 否（信号文件） |
 | 内容安全过滤 | `check_report_integrity` | `fdt_langgraph/quality_inspector.py` | 否 |
 | APM D3 fallback | `apm_scorecard.main` | `scripts/apm_scorecard.py` | 否 |
 
