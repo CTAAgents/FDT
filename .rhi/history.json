@@ -1,0 +1,38 @@
+{
+  "versions": [
+    {
+      "version": 0,
+      "timestamp": "2026-07-23T19:24:52.600582",
+      "score": 0.7,
+      "breakdown": {
+        "memory_coverage": 0.0,
+        "rule_completeness": 1.0,
+        "consistency": 1.0,
+        "clarity": 1.0
+      },
+      "content_length": 7016
+    }
+  ],
+  "preferences": [
+    {
+      "iteration": 0,
+      "preference": "tie",
+      "score_current": 0.7,
+      "score_previous": 0.0,
+      "score_breakdown": {
+        "current": {
+          "memory_coverage": 0.0,
+          "rule_completeness": 1.0,
+          "consistency": 1.0,
+          "clarity": 1.0
+        },
+        "previous": {}
+      },
+      "rationale": "首轮基准评分",
+      "key_diffs": []
+    }
+  ],
+  "improvement_rate": 0.0,
+  "best_version": 0,
+  "converged": false
+}
