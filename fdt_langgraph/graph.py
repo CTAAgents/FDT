@@ -3,7 +3,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
 import os
 from pathlib import Path
+import logging
 from .state import DebateState
+
+logger = logging.getLogger(__name__)
 from .nodes import (
     node_scan, node_judge_direction, node_prepare_data,
     node_prepare_one_symbol, node_store_per_symbol_result,
@@ -213,6 +216,7 @@ def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
     graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
         "prepare_one_symbol": "prepare_one_symbol",
         "store_per_symbol_result": "store_per_symbol_result",
+        "aggregate_results": "aggregate_results",
     })
     graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
         "prepare_one_symbol": "prepare_one_symbol",
@@ -284,6 +288,7 @@ def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
     graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
         "prepare_one_symbol": "prepare_one_symbol",
         "store_per_symbol_result": "store_per_symbol_result",
+        "aggregate_results": "aggregate_results",
     })
     graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
         "prepare_one_symbol": "prepare_one_symbol",

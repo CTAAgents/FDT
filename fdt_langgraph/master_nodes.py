@@ -383,9 +383,13 @@ def node_run_daily_debate(state: dict) -> dict:
 
         # 自动触发进化
         ev_state = run_evolution(source_trace_id=trace_id)
-        ev_steps = list(ev_state.get("step_results", {}).keys())
-        logger.info(f"[Master] 自进化完成: steps={ev_steps}")
-        debate_msg += f" → 进化: {ev_steps}"
+        if ev_state:
+            ev_steps = list(ev_state.get("step_results", {}).keys())
+            logger.info(f"[Master] 自进化完成: steps={ev_steps}")
+            debate_msg += f" → 进化: {ev_steps}"
+        else:
+            logger.warning(f"[Master] 自进化返回 None，跳过进化步骤")
+            debate_msg += " → 进化: None"
 
     except Exception as e:
         debate_ok = False

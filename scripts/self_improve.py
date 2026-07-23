@@ -15,8 +15,14 @@ FDT Stage 3 自改进脚手架 (self_improve) — 增强版
 """
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
+
+# 确保脚本可以从任意 cwd 正确导入项目模块
+_THIS_DIR = Path(__file__).resolve().parent
+if str(_THIS_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(_THIS_DIR.parent))
 
 from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
 from scripts.embodiskill_reflect import EmbodiSkillReflector

@@ -110,7 +110,9 @@
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
-| **G16** | pipeline 测试随重构失效 | `tests/pipeline/test_runner.py` mock `step_scan_dual`，但 v6.3.0 已将 Step1 重构为 `step_scan()` → 实测 5/10 失败 | 已修复 | `step_scan_dual` → `step_scan`；2026-07-14 19:04 修复 10/10 全绿 | `tests/pipeline/test_runner.py` ✅ |
+| **G109** | **自进化闭环 NoneType 错误**（v9.20.0 已修复） | `master_nodes.py` 行 384-385：`run_evolution()` 返回 None 时直接调用 `.get()` 报错 `'NoneType' object has no attribute 'get'`，进化步骤被 `except Exception` 捕获但日志错误信息不明确。 | P0 | 增加 `if ev_state:` None 防护 | `fdt_langgraph/master_nodes.py` ✅ v9.20.0 |
+| **G110** | **质检缺字段校验过严导致裁决 FAIL**（v9.20.0 已修复） | `quality_inspector.py` `validate_verdict()` 对 `symbol`/`stop_loss`/`target1` 等字段校验为 error 级，LLM 输出偶有缺失时直接 FAIL。质检重试 1 次后跳过，下游风控阻断。 | P0 | 增加缺失字段自动填充（从 scan data 回填） + 质检消息明确指示缺失字段 | `fdt_langgraph/quality_inspector.py` ✅ v9.20.0 |
+| **G111** | **观澜/探源 LLM 输出解析率低**（v9.20.0 已修复） | LLM 返回仅 99/117 字符的短输出，`json.loads(output[start:end])` 失败导致回退到 FDC 数据。LLM 未提供有效的 per_symbol 结构化数据，影响辩论质量。 | P1 | 解析前增加 JSON 修复逻辑（BOM/注释/单引号/截断清理）；Agent prompt 明确强调输出格式 | `fdt_langgraph/nodes.py` + `agents/*` ✅ v9.20.0 |
 | **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | loop-contracts/README.md + data-collection.contract.yaml + daily-debate.contract.yaml + 02-lifecycle.md |
 | **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | 10-coding-standards.md + harness-rules.yaml | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | loop-contracts/README.md + data-collection.contract.yaml + daily-debate.contract.yaml + 02-lifecycle.md |
 | **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | 10-coding-standards.md + harness-rules.yaml | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |

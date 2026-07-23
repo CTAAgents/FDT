@@ -56,6 +56,34 @@ def _ensure_llm_key():
             logger.info("[LLM] Using OPENAI_API_KEY as FDT_LLM_API_KEY")
 
 
+def _repair_json(text: str) -> str:
+    """修复 LLM 输出的残缺 JSON 字符串，提高 json.loads 成功率。
+
+    处理 BOM、注释、单引号、尾随逗号、首尾非 JSON 文本包裹等问题。
+    """
+    if not text or not text.strip():
+        return text
+    # 移除 BOM
+    cleaned = text.strip().lstrip("\ufeff")
+    # 查找第一个 { 和最后一个 }
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1:
+        return text
+    cleaned = cleaned[start:end+1]
+    # 移除 Python/js 风格的单行注释 // 和 #
+    cleaned = re.sub(r'(?m)^\s*//.*$', '', cleaned)
+    cleaned = re.sub(r'(?m)^\s*#.*$', '', cleaned)
+    # 尝试将单引号替换为双引号（但跳过已转义的引号）
+    cleaned = re.sub(r"(?<!\\)'(?=[^:,\]\{\}\s])", '"', cleaned)
+    cleaned = re.sub(r"(?<=[:\],\{\}])\s*'\s*", '"', cleaned)
+    cleaned = re.sub(r"'\s*(?=[:\],\{\}])", '"', cleaned)
+    # 移除尾随逗号
+    cleaned = re.sub(r',\s*}', '}', cleaned)
+    cleaned = re.sub(r',\s*]', ']', cleaned)
+    return cleaned
+
+
 # ==================== 报告层调度 (v8.8.0) ====================
 def _resolve_report_dir() -> Path:
     """解析报告输出目录：用户指定工作空间 > 默认工作空间 > 程序目录 fallback
@@ -64,11 +92,21 @@ def _resolve_report_dir() -> Path:
       1. 环境变量 FDT_REPORT_WORKSPACE 指向的工作空间根目录
       2. 环境变量 FDT_DAILY_WORKSPACE（D:\\FDTWorkspace 之类）
       3. 调用方传入的临时目录（test 场景）
+
+    注意：如果 workspace 已包含日期后缀（如 .../20260723），不再追加日期子目录。
     """
     workspace = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE")
     if workspace:
         from datetime import datetime as _dt
-        report_dir = Path(workspace) / _dt.now().strftime("%Y-%m-%d")
+        from pathlib import Path as _Path
+        ws_path = _Path(workspace)
+        today_str = _dt.now().strftime("%Y-%m-%d")
+        today_compact = _dt.now().strftime("%Y%m%d")
+        # 检查 workspace 是否已包含日期后缀（yyyy-mm-dd 或 yyyymmdd）
+        if ws_path.name in (today_str, today_compact):
+            report_dir = ws_path
+        else:
+            report_dir = ws_path / today_str
         report_dir.mkdir(parents=True, exist_ok=True)
         return report_dir
     return Path(tempfile.gettempdir()) / "fdt_reports"
@@ -769,6 +807,16 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     success_count = len([s for s in symbols if s in fdc_data and fdc_data[s].get("kline", {}).get("bars")])
     logger.info(f"[FDC] 数据准备完成: {success_count}/{len(symbols)} 品种成功, 耗时 {elapsed:.1f}s")
 
+    # 诊断：标记指标 N/A 的品种
+    na_symbols = []
+    for s in symbols:
+        sd = fdc_data.get(s, {})
+        iq = sd.get("indicator_quality", {})
+        if iq.get("available") == False or iq.get("completeness_pct", 100) == 0 or iq.get("overall") == "D":
+            na_symbols.append(s)
+    if na_symbols:
+        logger.warning(f"[FDC] 指标 N/A 或质量 D 级品种: {na_symbols} — 这些品种的裁决/分析可能依赖 FDC 回退数据")
+
     return {
         **state,
         "fdc_data": fdc_data,
@@ -1021,9 +1069,11 @@ async def node_technical(state: DebateState) -> dict:
     llm_parse_ok = False
     try:
         if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            parsed = json.loads(output[start:end])
+            # JSON repair 预处理
+            repaired = _repair_json(output)
+            start = repaired.find("{")
+            end = repaired.rfind("}") + 1
+            parsed = json.loads(repaired[start:end])
             raw_per_symbol = parsed.get("per_symbol", {})
             for sym in selected:
                 sym_key = sym.upper()
@@ -1318,9 +1368,11 @@ async def node_fundamental(state: DebateState) -> dict:
     llm_parse_ok = False
     try:
         if "{" in output and "}" in output:
-            start = output.find("{")
-            end = output.rfind("}") + 1
-            parsed = json.loads(output[start:end])
+            # JSON repair 预处理
+            repaired = _repair_json(output)
+            start = repaired.find("{")
+            end = repaired.rfind("}") + 1
+            parsed = json.loads(repaired[start:end])
             raw_per_symbol = parsed.get("per_symbol", {})
             for sym in selected:
                 sym_key = sym.upper()

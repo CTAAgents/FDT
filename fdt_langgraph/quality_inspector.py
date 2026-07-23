@@ -47,6 +47,16 @@ def validate_argument(data: dict, symbol: str = "") -> QualityReport:
         if field not in data or data[field] is None:
             issues.append(_issue(field, f"缺少必填字段 {field}", "error"))
 
+    # 条件必填字段（如 stop_loss/entry_price 在 neutral 方向时不强制）
+    cond = rules.get("conditional_required")
+    if cond:
+        condition_key = cond.get("condition_key", "")
+        condition_value = data.get(condition_key)
+        if condition_value in cond.get("condition_values", []):
+            for field in cond.get("fields", []):
+                if field not in data or data[field] is None:
+                    issues.append(_issue(field, f"缺少条件必填字段 {field}（方向={condition_value} 时必填）", "error"))
+
     # 字段类型
     for field, expected_type in rules["field_types"].items():
         val = data.get(field)

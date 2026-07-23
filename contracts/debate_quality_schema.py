@@ -77,6 +77,11 @@ VERDICT_RULES = {
         "symbol", "direction", "confidence",
         "entry_price", "stop_loss", "target1",
     ],
+    "conditional_required": {           # 仅在非 neutral 方向时必填
+        "fields": ["entry_price", "stop_loss", "target1"],
+        "condition_key": "direction",
+        "condition_values": ["bull", "bear"],
+    },
     "field_types": {
         "symbol": str,
         "direction": str,
