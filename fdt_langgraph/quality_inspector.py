@@ -1,5 +1,5 @@
 """
-明鉴秋质检器 — 辩论输出数据质量校验（Phase 3 Data Governance）。
+品藻质检器 — 辩论输出数据质量校验（Phase 3 Data Governance）。
 
 纯函数，无 IO/无 side effect。规则硬编码自 contracts/debate_quality_schema.py。
 输出统一的 QualityReport（PASS / FAIL / SKIP + issues 列表）。

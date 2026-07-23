@@ -97,15 +97,14 @@ fdt_cli.py main()
               │         │
               │         ▼ (按需并行调度)
               │  ┌──────────────────────────┐
-              │  │  P2: 四源并行         │
-              │  │  ┌─────────┬───────────┐  │
-              │  │  │ 链证源  │ 观澜     │  │
-              │  │  │ 产业链  │ 技术面   │  │
-              │  │  └─────────┴───────────┘  │
-              │  │  ┌───────────────────┐    │
-              │  │  │ 探源              │    │
-              │  │  │ 基本面            │    │
-              │  │  └───────────────────┘    │
+              │  │  P2: 四源并行 (按需)    │
+              │  │  ┌──────────┬──────────┐ │
+              │  │  │ 链证源   │ 观澜    │ │
+              │  │  │ 产业链   │ 技术面  │ │
+              │  │  ├──────────┼──────────┤ │
+              │  │  │ 探源     │ 读心    │ │
+              │  │  │ 基本面   │ 新闻情绪│ │
+              │  │  └──────────┴──────────┘ │
               │  └──────┬────────────────────┘
               │         │
               │  ┌──────▼───────┐
@@ -123,14 +122,34 @@ fdt_cli.py main()
               │  ┌──────▼───────┐
               │  │ P4: 闫判官终裁│ ← 串行
               │  │ 含完整交易参数│
-              │  │   → P5 风控明 │
               │  └──────┬───────┘
               │         │
-              └─────────┘ (循环每个品种)
+              │  ┌──────▼───────┐
+              │  │ P5: 风控明   │
+              │  │ green/yellow │
+              │  │ /red 审核    │
+              │  └──────┬───────┘
+              │         │
+              │  ┌──────▼───────┐
+              │  │P3.5: 品藻     │  ← 质检+报告角色
+              │  │ 质检(Schema) │
+              │  │ verdict+risk │
+              │  └──┬───────┬───┘
+              │     │PASS   │FAIL
+              │     ▼       ▼
+              │  ┌────┐ ┌───────┐
+              │  │存入│ │重试<2 │
+              │  │结果│ │ →重修 │
+              │  └────┘ │retry≥2│
+              │         │→跳过  │
+              │         └───┬───┘
+              │             │ (退回prepare_one_symbol)
+              └─────────────┘ (循环每个品种)
                         │
               ┌─────────▼─────────┐
-              │ P6: 汇总输出      │
-              │ 4铁律核验→JSON→HTML│
+              │ P6: 品藻汇编      │
+              │ 组装→核验→JSON→   │
+              │ HTML               │
               └─────────┬─────────┘
                         │
               ┌─────────▼─────────┐
@@ -174,9 +193,10 @@ fdt_cli.py main()
 | P3 步5 | 空头最终陈述 | 空头分析员 | 整合空头所有论据 | `state.bear_final_arguments`（round=5, final） | 420s | D06 降级 |
 | P3 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
 | P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
-| P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 明鉴秋兜底 |
-| P6 | 汇总输出 | 明鉴秋 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |
-| P6a | CTP信号输出 | 明鉴秋 | P6 汇总 + 风控明审核 | CTP交易指令 (`pg.ctp_signals`) + **P6a 阶段报告 `signal_report_path`** | 60s | 跳过信号输出 |
+| P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 品藻兜底 |
+| P3.5 | 辩论质检 | 品藻 | 闫判官裁决 + 风控明审核 | `state.quality_report`（PASS/FAIL + issues） | 30s | 品藻汇总时兜底 |
+| P6 | 汇总输出 | 品藻 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |
+| P6a | CTP信号输出 | 品藻 | P6 汇总 + 风控明审核 | CTP交易指令 (`pg.ctp_signals`) + **P6a 阶段报告 `signal_report_path`** | 60s | 跳过信号输出 |
 
 > **v9.6.5 变更 — LangGraph 迁移全部完成 (G93-G96)**:
 > - **G93**: `coordinator.py` 已删除，Profile 切换逻辑由 `graph.py` 的 `build_debate_graph_with_profile()` 替代
@@ -206,7 +226,7 @@ fdt_cli.py main()
 >
 > > **补充 — F10/技术指标/新闻质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。`node_sentiment` 新增 `evaluate_jin10_context()` 评估快讯数量/新鲜度/时效分布。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade。
 
-> > **v9.14.0 变更 — Data Governance Phase 3 辩论输出质量治理**: 新增 `node_quality_inspect` 节点（明鉴秋质检），在 P4 裁决→P5 风控之后运行，校验 Schema 合规性。不合格+重试<2次→退回重修；通过或超限→存入 `store_per_symbol_result`。重试硬上限 2 次，熔断直接跳过。新增 `contracts/debate_quality_schema.py`（ARGUMENT/VERDICT/RISK 三套 Schema）和 `fdt_langgraph/quality_inspector.py`（纯函数质检器）。state 新增 `quality_report`/`rework_counters`/`phase_timings` 字段。`route_after_quality_inspect` 条件边实现退回/放行路由。
+> > **v9.13.0 变更 — Data Governance Phase 3 辩论输出质量治理 + 品藻角色拆分**: 新增 `node_quality_inspect` 节点（品藻质检），在 P4 裁决→P5 风控之后运行，校验 Schema 合规性。不合格+重试<2次→退回重修；通过或超限→存入 `store_per_symbol_result`。重试硬上限 2 次，熔断直接跳过。新增 `contracts/debate_quality_schema.py`（ARGUMENT/VERDICT/RISK 三套 Schema）和 `fdt_langgraph/quality_inspector.py`（纯函数质检器）。state 新增 `quality_report`/`rework_counters`/`phase_timings` 字段。`route_after_quality_inspect` 条件边实现退回/放行路由。**品藻拆分**：将质检+报告职责从明鉴秋剥离，成立独立角色品藻（`agents/futures-quality-assurance.md`），P3.5+P6 由品藻执行。明鉴秋保留调度/编排职责。
 
 ### 2.2a 运行模式
 

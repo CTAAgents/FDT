@@ -2516,10 +2516,11 @@ async def node_risk_check(state: DebateState) -> DebateState:
 
 
 async def node_quality_inspect(state: DebateState) -> DebateState:
-    """明鉴秋质检节点（Phase 3 Data Governance）。
+    """品藻质检节点（Phase 3 Data Governance）。
 
     校验当前品种的 P4 裁决 + P5 风控数据质量。
     不合格 + 重试未超限 → 退回重修；通过或超限 → 存入结果。
+    品藻仅输出 PASS/FAIL，退回/跳过由 LangGraph 条件边决定。
     """
     from fdt_langgraph.quality_inspector import validate_verdict, validate_risk
 
@@ -2581,6 +2582,11 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
 
 
 async def node_report(state: DebateState) -> DebateState:
+    """品藻报告节点（P6）。
+
+    组装辩论结果 → HTML 辩论报告 → 核验完整性。
+    品藻负责报告排版、验证和数据归档。
+    """
     import subprocess
     import sys
     import tempfile
@@ -2991,7 +2997,7 @@ async def node_report(state: DebateState) -> DebateState:
 
 
 async def node_signal_output(state: DebateState) -> DebateState:
-    """P6a: CTP 信号输出 — 从 state 中读取已由 node_risk_check 构建的信号，输出并记录。
+    """品藻 P6a: CTP 信号输出 — 从 state 中读取已由 node_risk_check 构建的信号，输出并记录。
 
     依赖上游 node_risk_check 已写入 state["signal_output"]。
     """

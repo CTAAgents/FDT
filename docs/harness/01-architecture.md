@@ -154,7 +154,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
                     │  │       ▼                    │  │  │
                     │  │ • [debate] 证真+慎思        │  │  │
                     │  │ • [verdict] 裁决+风控       │  │  │
-                    │  │ • [report] 明鉴秋           │  │  │
+                    │  │ • [report] 品藻             │  │  │
                     │  │ • [risk_check] 风控明       │  │  │
                     │  │ • [signal_output] CTP信号    │  │  │
                     │  └───────────────────────────────┘  │
@@ -565,8 +565,8 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
                     │  │  [verdict] 闫判官 ──→ 裁决+方案+风控            │   │
                     │  │                 │                              │   │
                     │  │                 ▼                              │   │
-                    │  │  [report] 明鉴秋 ──→ HTML辩论报告+signal_output │   │
-                    │  │  [signal_output] 明鉴秋 ──→ CTP信号扫描报告      │   │
+                    │  │  [report] 品藻 ──→ HTML辩论报告+signal_output   │   │
+                    │  │  [signal_output] 品藻 ──→ CTP信号扫描报告        │   │
                     │  │                                               │   │
                     │  └─────────────────────────────────────────────┘   │
                     │                                                    │
@@ -617,8 +617,9 @@ P1 数技源从"策略评分器"回归"数据统计器"角色：
 | 证真/多头分析员(v2) | `node_bullish_rebuttal` | 多头反驳（正方 v2 rebuttal） | 否（串行交叉质询） | P3 步3 | 无 |
 | 闫判官 | `node_verdict` | 裁决(含交易参数) | 否 | P4 | 有 |
 | 风控明 | `node_risk_check` | 风控审核(v8.7.0 直接基于 verdict) | 否 | P5 | 无 |
-| 明鉴秋(报告) | `node_report` | 报告生成 + verdict 字典构建（含 G35 最小论据降级：论据为空时从 reasoning 自动生成） | 否 | P6 | 有 |
-| 明鉴秋(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6 | 有 |
+| 品藻(质检) | `node_quality_inspect` | 辩论输出质检（Schema 校验，PASS/FAIL/重试） | 否 | P3.5 | 无 |
+| 品藻(报告) | `node_report` | 报告生成 + verdict 字典构建（含 G35 最小论据降级：论据为空时从 reasoning 自动生成） | 否 | P6 | 有 |
+| 品藻(CTP) | `node_signal_output` | CTP信号输出(v8.7.0 新增) | 否 | P6 | 有 |
 
 #### 运行模式说明
 
