@@ -15,9 +15,6 @@ REPORT_ROOT = r"D:\FDTWorkspace"
 
 sys.path.insert(0, FDT_ROOT)
 
-# 显式依赖边：pipeline.runner 在运行时通过 subprocess 调用
-import pipeline.runner  # noqa: E402, F401 — 建立 import 图可见性
-
 from datetime import datetime
 
 today = datetime.now()
@@ -60,14 +57,13 @@ def configure_strategies():
 
 def run_pipeline():
     env = os.environ.copy()
-    env["FDT_USE_LANGGRAPH"] = "true"
     # FDT_SCAN_MODE removed → default filter ON
     env["FDT_STRATEGIES"] = "trend_following"
     env["FDT_DAILY_WORKSPACE"] = REPORT_ROOT
 
-    pipeline_script = os.path.join(FDT_ROOT, "pipeline", "runner.py")
+    fdt_cli = os.path.join(FDT_ROOT, "fdt_cli.py")
     result = subprocess.run(
-        [sys.executable, pipeline_script],
+        [sys.executable, fdt_cli, "run"],
         capture_output=True,
         text=True,
         encoding="utf-8",

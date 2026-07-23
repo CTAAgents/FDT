@@ -324,7 +324,7 @@ async def health_page():
     html = HTML_HEADER
     html += '<div class="card"><h3>系统健康</h3><table>'
 
-    # LLM
+    # LLM 状态
     try:
         from scripts.fdt_llm import FdtLlm
         llm = FdtLlm()
@@ -334,13 +334,6 @@ async def health_page():
             html += f'<tr><td>LLM 模型</td><td>{llm.config["model"]}</td></tr>'
     except Exception:
         html += '<tr><td>LLM 后端</td><td>❌ 加载失败</td></tr>'
-
-    # 调度器
-    pid_file = ROOT / "scheduler" / "scheduler.pid"
-    if pid_file.exists():
-        html += f'<tr><td>调度器</td><td>✅ 运行中 (PID: {pid_file.read_text().strip()})</td></tr>'
-    else:
-        html += '<tr><td>调度器</td><td>⏹️ 未启动</td></tr>'
 
     # 数据源
     html += '<tr><td>TQ-Local</td><td>未检测</td></tr>'
@@ -353,7 +346,7 @@ async def health_page():
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page():
-    """调度器日志查看"""
+    """运行日志查看"""
     log_file = ROOT / "memory" / "logs" / "scheduler.log"
     lines = []
     if log_file.exists():
@@ -362,7 +355,7 @@ async def logs_page():
 
     html = HTML_HEADER
     html += '<div class="nav"><a href="/">首页</a><a href="/logs">日志</a></div>'
-    html += '<div class="card"><h3>调度器日志</h3>'
+    html += '<div class="card"><h3>运行日志</h3>'
     html += f'<p style="color:#666;margin-bottom:8px;">共 {len(lines)} 条 (最近100条) | 每10秒自动刷新</p>'
     html += '<div style="background:#111;border-radius:6px;padding:12px;max-height:600px;overflow:auto;">'
     html += '<pre style="color:#0f0;font-size:0.75em;line-height:1.5;font-family:monospace;">'
@@ -436,15 +429,10 @@ async def api_health():
     except Exception:
         llm_ok = False
 
-    pid_file = ROOT / "scheduler" / "scheduler.pid"
-    scheduler_pid = pid_file.read_text().strip() if pid_file.exists() else None
-
     return JSONResponse({
         "status": "ok",
         "fdt_version": FDT_VERSION,
         "llm": llm_ok,
-        "scheduler": bool(scheduler_pid),
-        "scheduler_pid": scheduler_pid,
         "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
 

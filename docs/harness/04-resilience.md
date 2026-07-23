@@ -477,63 +477,15 @@ Checkpointer (PostgreSQL)
 | 守护进程看门狗 | `fdt_cli.py daemon` + APScheduler | 已替代 |
 | 外部心跳 | `fdt_api.py /health` + 进程监控 | 已替代 |
 
-### 9.9 生产化 A/B 切换与降级路径 (v8.4.0+ — G52-G55)
+### 9.9 LangGraph 降级策略 (v8.4.0+ — G52-G55)
 
-> 本节登记 LangGraph 生产集成（G52-G55）引入的 A/B 切换机制与三级降级路径，确保生产 pipeline 从旧 subprocess 路径向 LangGraph 路径迁移过程中零风险。
+> 本节登记 LangGraph 生产集成（G52-G55）的降级路径。
 
-#### 9.9.1 A/B 切换机制
-
-```
-FDT_USE_LANGGRAPH 环境变量
-    │
-    ├─ false (默认) ──→ 旧 subprocess 路径 (pipeline/runner.py step_*)
-    │                   零风险，完全保留原有行为
-    │
-    └─ true ──────────→ LangGraph 路径 (run_langgraph_pipeline)
-                        │
-                        └─ FDT_LANGGRAPH_MODE 选择执行模式:
-                            ├─ default       (默认全链路)
-                            ├─ fast          (跳过辩论)
-                            ├─ deep_research (深度辩论)
-                            └─ tournament    (锦标赛模式)
-```
-
-#### 9.9.2 三级降级路径
+#### 9.9.1 Checkpointer 降级路径
 
 | 降级场景 | 触发条件 | 降级行为 | 影响 | 恢复 |
 |:---------|:---------|:---------|:-----|:-----|
-| **LangGraph 模块导入失败** | `fdt_langgraph` 包 import 抛异常 | 自动回退到 subprocess 模式（`run_langgraph_pipeline()` 捕获 ImportError 后调用旧 `step_*` 函数链） | LangGraph 特性不可用，其余功能正常 | 修复 import 错误后下次调用恢复 |
 | **PG Checkpointer 连接失败** | `FDT_CHECKPOINTER=pg` 时 PostgreSQL 连接超时/拒绝 | `_get_checkpointer()` 自动降级到 SQLite Checkpointer（内存/本地文件） | 检查点持久化从 PG 退化为 SQLite，单机可用 | PG 恢复后重启进程切换回 PG |
-| **A/B 切换零风险兜底** | `FDT_USE_LANGGRAPH=false` | 完全走旧 subprocess 路径，不 import `fdt_langgraph`，不触发任何 LangGraph 代码 | 零影响（与 v8.3.0 前行为完全一致） | 设置 `FDT_USE_LANGGRAPH=true` 启用 |
-
-#### 9.9.3 降级流程图
-
-```
-pipeline/runner.py run_pipeline()
-    │
-    ├─ FDT_USE_LANGGRAPH=false ──→ step_scan → step_chain → ... → step_report
-    │                              (旧路径，零风险)
-    │
-    └─ FDT_USE_LANGGRAPH=true ───→ run_langgraph_pipeline()
-                                   │
-                                   ├─ import fdt_langgraph 成功
-                                   │   │
-                                   │   ├─ _get_checkpointer(FDT_CHECKPOINTER)
-                                   │   │   │
-                                   │   │   ├─ pg ──→ PG 连接成功 → PostgresSaver
-                                   │   │   │
-                                   │   │   └─ pg 连接失败 → 降级 SqliteSaver (告警日志)
-                                   │   │
-                                   │   │   └─ sqlite ──→ SqliteSaver (默认)
-                                   │   │
-                                   │   └─ build_debate_graph().invoke() → 全链路执行
-                                   │
-                                   └─ import fdt_langgraph 失败 (ImportError)
-                                       │
-                                       └─ 自动回退 subprocess 模式 (告警日志)
-```
-
-> **测试验证**：`tests/fdt_langgraph/test_integration_ab.py`（G55，18 个测试）覆盖以上全部降级路径，确保 A/B 切换机制等价性。详见 `06-testing.md §10`。
 
 ## 10. Data-Core / FDC 降级 (v9.4.0+)
 

@@ -35,8 +35,9 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORKSPACE_DIR = os.path.join(os.path.expanduser("~"), "logs")
-FEEDBACK_DIR = os.path.join(WORKSPACE_DIR, "feedback")
+_WS = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE") or os.path.join(os.path.expanduser("~"), "Documents", "FDT", "Reports")
+WORKSPACE_DIR = _WS
+FEEDBACK_DIR = os.path.join(os.path.expanduser("~"), "logs", "feedback")
 FEEDBACK_LOG = os.path.join(FEEDBACK_DIR, "debate_feedback.jsonl")
 LESSONS_FILE = os.path.join(FEEDBACK_DIR, "lessons_learned.json")
 PROMPT_INJECTION_FILE = os.path.join(FEEDBACK_DIR, "agent_prompt_injection.md")
@@ -513,7 +514,7 @@ if __name__ == "__main__":
         # 扫描Agent产出文件中的###FEEDBACK段并路由
         import glob
 
-        report_dir = os.path.join(WORKSPACE_DIR, "Commodities", "Reports", "商品期货深度分析")
+        report_dir = WORKSPACE_DIR
         today = datetime.now().strftime("%Y-%m-%d")
         debate_file = os.path.join(report_dir, today, "debate_results.json")
         if os.path.exists(debate_file):

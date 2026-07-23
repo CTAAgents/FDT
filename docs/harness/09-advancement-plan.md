@@ -189,13 +189,14 @@ Phase 8 ──── ✅ v8.3.0 ── LangGraph 迁移 · 按需并行拓扑 ·
 Phase 9 ──── ✅ v8.4.0 ── LangGraph 生产集成 · A/B 切换机制 · PG+SQLite Checkpointer 降级 · 99 测试全绿 · G52-G58 全部关闭
 Phase 10 ─── ✅ v9.0.0 ── 六阶段攻防辩论 · 多头初论→空头初论→空头驳论→多头驳论→空头结辩→多头结辩 · 6个P4 state字段 · 43个全绿测试 · G82/G83/G84
 Phase 11 ─── ✅ v9.6.3 ── G92 LLM 幻觉率降低：Phase A(检测层 validate_llm_output.py) + Phase B(校准层 calibrate_weights 扩展) + Phase C(进化层 evolve_agents 扩展) 全部完成
-Phase 12 ─── ✅ v9.6.5 ── G93-G96 LangGraph 迁移全部完成 + D2/D3/D5/D6 四维 ★★★★★ + config schema 扩展（data_sources.yaml + agent_profiles.json）
+Phase 12 ─── ✅ v9.6.5 ── G93-G96 LangGraph 迁移（编排层）全部完成 + D2/D3/D5/D6 四维 ★★★★★ + config schema 扩展
+Phase 13 ─── 🔄 v9.19.0 ── **LangGraph 迁移收尾**：G108 全部关闭 — pipeline/runner.py 强制退役 · 15 个外部脚本内联（优先高频率/高耦合） · Master Graph 心跳文件 · daemon_watchdog 升级 · Harness 文档全部同步
 
 ```
 
 ## 8. 执行总结
 
-全部 Phase 在 2026-07-20 完成，12 个 Phase 全部交付。
+全部 Phase 在 2026-07-20 完成前 12 个 Phase。Phase 13（LangGraph 收尾）推进中。
 
 | Phase | 交付物 | 数量 |
 |:------|:-------|:----:|
@@ -207,7 +208,8 @@ Phase 12 ─── ✅ v9.6.5 ── G93-G96 LangGraph 迁移全部完成 + D2/D
 | P6 | G19-G23 全部关闭（阈值常量集中/100ppi 降级/策略并行/信号命名空间） | 5 项 |
 | P7-P10 | 策略插拔化 + LangGraph 迁移 + 六阶段攻防辩论 | 4 个大版本 |
 | P11 | G92 LLM 幻觉率降低三层（检测→校准→进化）全部完成 | 3 项 |
-| P12 | G93-G96 LangGraph 迁移 4 项 + D2/D3/D5/D6 ★★★★★ + config schema 扩展 | 6 项 |
+| P12 | G93-G96 LangGraph 迁移（编排层）4 项 + D2/D3/D5/D6 ★★★★★ + config schema 扩展 | 6 项 |
+| P13 | **G108 LangGraph 迁移收尾** — pipeline 退役 · 外部脚本内联 · 心跳 · 文档 | 6 项 |
 
 **所有风险评估均已验证**：pipeline 测试用 tmp_path+monkeypatch 隔离、scheduler 用 datetime 注入、memory 用 threading.Barrier 并发、G14 用工厂函数批量覆盖。
 

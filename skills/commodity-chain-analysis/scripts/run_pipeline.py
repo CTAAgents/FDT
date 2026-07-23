@@ -33,9 +33,9 @@ def run_pipeline(symbols_data: list = None):
         try:
             # 查找最新的趋势信号报告
             report_date = datetime.now().strftime("%Y-%m-%d")
-            report_dir = os.path.join(
-                os.path.dirname(__file__), "..", "..", "Commodities", "Reports", "商品期货深度分析", report_date
-            )
+            _HOME = os.path.expanduser("~")
+            _ws = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE") or os.path.join(_HOME, "Documents", "FDT", "Reports")
+            report_dir = os.path.join(_ws, report_date)
 
             # 查找最新的报告文件
             report_files = [f for f in os.listdir(report_dir) if f.startswith("trend_signal_") and f.endswith(".md")]
@@ -295,9 +295,9 @@ def run_pipeline(symbols_data: list = None):
 
     # 保存报告
     report_date = datetime.now().strftime("%Y-%m-%d")
-    report_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "Commodities", "Reports", "商品期货深度分析", report_date
-    )
+    _HOME = os.path.expanduser("~")
+    _ws = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE") or os.path.join(_HOME, "Documents", "FDT", "Reports")
+    report_dir = os.path.join(_ws, report_date)
     os.makedirs(report_dir, exist_ok=True)
 
     report_file = os.path.join(report_dir, f"chain_analysis_{datetime.now().strftime('%Y%m%d')}.json")

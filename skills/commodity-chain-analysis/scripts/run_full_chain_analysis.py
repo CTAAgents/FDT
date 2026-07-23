@@ -23,10 +23,11 @@ from chains import (
     WITHIN_CHAIN_INDEPENDENT,
 )
 
-HOME = os.path.expanduser("~")
 DATE_STR = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
 DATE_COMPACT = DATE_STR.replace("-", "")
-DATADIR = os.path.join(HOME, "logs", "Commodities", "Reports", "商品期货深度分析", DATE_STR)
+_HOME = os.path.expanduser("~")
+_ws = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE") or os.path.join(_HOME, "Documents", "FDT", "Reports")
+DATADIR = os.path.join(_ws, DATE_STR)
 
 
 def _find_file(pattern):

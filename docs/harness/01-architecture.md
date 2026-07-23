@@ -83,13 +83,17 @@ scan → judge_direction → prepare_one_symbol(品种0)
 
 ```
                     ┌──────────────┐
-                    │  fdt_cli     │ ← 入口 (once/daemon/interactive)
+                    │  fdt_cli     │ ← 入口 (daemon/master/run)
                     └──────┬───────┘
                            │
-              ┌────────────▼────────────┐
-              │   SchedulerEngine       │ ← 心跳调度 (60s间隔)
-              │   (scheduler/engine.py) │
-              └────────────┬────────────┘
+              ┌────────────▼──────────────────────┐
+              │   Master Graph (LangGraph)        │
+              │   fdt_langgraph/master_graph.py   │ ← 统一编排 (60s心跳检查)
+              │   ├ check_time → dispatch         │
+              │   ├ node_run_debate               │
+              │   ├ node_run_update_dominant_map  │
+              │   └ ... (14个任务节点)             │
+              └────────────┬──────────────────────┘
                            │ 触发
               ┌────────────▼────────────┐
               │   Pipeline Runner       │ ← 全自动流水线 (6步)
@@ -127,9 +131,8 @@ scan → judge_direction → prepare_one_symbol(品种0)
                               │                │
                               ▼                ▼
                     ┌─────────────────────────────────────┐
-                    │   SchedulerEngine (可选)            │
-                    │   APScheduler / Celery Beat         │
-                    │   (cron: 0 9 * * 1-5 触发)          │
+                    │   Master Graph (LangGraph)            │
+                    │   (60s 心跳检查, 见 07-operations)     │
                     └──────────────┬──────────────────────┘
                                    │ 触发
                     ┌──────────────▼──────────────────────┐
@@ -373,7 +376,7 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 | 辩论索引 | `memory/debates/INDEX.md` | `pg.debate_index` | PostgreSQL | `debate_archiver.py` | OLTP |
 | DuckDB 数据 | `futures.db` | `pg.*` 表 + `pg.v_*` 视图 | PostgreSQL | `fdt_pg/` | OLTP+OLAP |
 | 统一日志 | `logs/fdb_{date}.log` | `pg.log_entries` | PostgreSQL | `unified_logger.py` | OLTP |
-| 调度器日志 | `scheduler/scheduler.log` | `pg.scheduler_logs` | PostgreSQL | `scheduler/engine.py` | OLTP |
+| Master Graph 心跳日志 | `memory/schedule_state.json` | `pg.scheduler_logs` | PostgreSQL | `fdt_langgraph/master_nodes.py` | OLTP |
 | 状态历史 | - | `pg.langgraph_checkpoints` | PostgreSQL | Checkpointer | OLTP |
 | 信号绩效分析 | - | `pg.v_signal_performance` | PostgreSQL 视图 | - | OLAP |
 | 辩论汇总 | - | `pg.v_debate_summary` | PostgreSQL 视图 | - | OLAP |

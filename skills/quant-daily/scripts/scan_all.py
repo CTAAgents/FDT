@@ -1743,8 +1743,11 @@ if __name__ == "__main__":
 
     OUT = _normalize_path(args.output) if args.output else None
     if not OUT:
-        workspace = os.path.expanduser("~/logs")
-        OUT = os.path.join(workspace, "Commodities", "Reports", "商品期货深度分析", date.today().strftime("%Y-%m-%d"))
+        _ws = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE")
+        if _ws:
+            OUT = os.path.join(_ws, date.today().strftime("%Y-%m-%d"))
+        else:
+            OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", date.today().strftime("%Y-%m-%d"))
 
     run_scan(
         output_dir=OUT,

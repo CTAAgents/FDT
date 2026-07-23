@@ -40,17 +40,6 @@ def build_dashboard_data() -> dict:
     journal = _read_json(ROOT / "memory" / "debate_journal.json", {"entries": []})
     recent = journal.get("entries", [])[-10:]
 
-    # 调度器状态
-    pid_file = ROOT / "memory" / "daemon.pid"
-    scheduler_alive = False
-    if pid_file.exists():
-        try:
-            import os
-            os.kill(int(pid_file.read_text().strip()), 0)
-            scheduler_alive = True
-        except Exception:
-            pass
-
     # 最近裁决
     followup = _read_json(ROOT / "memory" / "execution_followup.json", {"records": []})
 
@@ -60,7 +49,6 @@ def build_dashboard_data() -> dict:
         "agents": agents,
         "agent_count": len(agents),
         "recent_debates": recent[-5:] if isinstance(recent, list) else [],
-        "scheduler": "running" if scheduler_alive else "stopped",
         "followup_count": len(followup.get("records", [])),
     }
 
@@ -94,10 +82,8 @@ h1{{font-size:18px;font-weight:500;margin-bottom:4px}}
 <h1>FDT 期货辩论专家团 <span class="live" style="color:var(--accent)">◉</span></h1>
 <div style="color:var(--muted);font-size:11px">数据刷新: <span id="ts">{data["generated_at"]}</span></div>
 <div class="grid">
-<div class="card"><h2>调度器</h2>
-<div class="row"><span class="label">状态</span>
-<span class="value {'ok' if data['scheduler']=='running' else 'warn'}">{'运行中' if data['scheduler']=='running' else '已停止'}</span></div>
-<div class="row"><span class="label">Agent 定义</span><span class="value">{data['agent_count']} 个</span></div>
+<div class="card"><h2>Agent 定义</h2>
+<div class="row"><span class="label">注册数</span><span class="value">{data['agent_count']} 个</span></div>
 <div class="row"><span class="label">待验证裁决</span><span class="value">{data['followup_count']} 条</span></div>
 </div>
 <div class="card"><h2>APM-CS 五轴</h2>
@@ -152,7 +138,6 @@ def main(output: str = "dashboard.html") -> None:
     out_path.write_text(html, encoding="utf-8")
     print(f"📊 看板已生成: {out_path.resolve()}")
     print(f"   数据时间: {data['generated_at']}")
-    print(f"   调度器:   {data['scheduler']}")
     print(f"   Agent:    {data['agent_count']} 个")
     print(f"   未决裁决: {data['followup_count']} 条")
 

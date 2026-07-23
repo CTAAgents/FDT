@@ -33,7 +33,6 @@ CHANGED_PY = [
     "scripts/apm_scorecard.py",
     "scripts/memory_writer.py",
     "scripts/run_benchmark.py",
-    "scheduler/triggers.py",
 ]
 CHANGED_MD = [
     "agents/futures-judge-heldout.md",
@@ -63,7 +62,7 @@ def _run_script(rel, *args, cwd=None):
 # ============ G3 幻觉率: 导入冒烟 ============
 def test_import_smoke(modules):
     for name in ["apm_scorecard", "enforce_discipline", "self_improve",
-                 "memory_writer", "triggers", "replay_harness", "run_benchmark"]:
+                 "memory_writer", "replay_harness", "run_benchmark"]:
         assert rec(f"import:{name}", name in modules, "import"), f"模块导入失败: {name}"
 
 
@@ -247,24 +246,6 @@ def test_integration_enforce_discipline():
     rc, out = _run_script("scripts/enforce_discipline.py")
     assert rec("integ:enforce dry-run 退出0", rc == 0, "integration")
     assert rec("integ:enforce 输出含'钳制后 D4'", "钳制后 D4" in out, "integration")
-
-
-def test_integration_triggers(modules):
-    if "triggers" not in modules:
-        pytest.skip("triggers 未导入")
-    code = (
-        "import sys; sys.path.insert(0, %r); "
-        "from scheduler.triggers import get_default_triggers as g; "
-        "t = g(); names = [x.task_name for x in t]; "
-        "assert 'd3_auto_light' in names, 'missing d3_auto_light'; "
-        "assert 'discipline_enforce' in names, 'missing discipline_enforce'; "
-        "print('OK', names)" % str(PROJECT_ROOT)
-    )
-    rc = subprocess.run(
-        [sys.executable, "-c", code], cwd=str(PROJECT_ROOT),
-        capture_output=True, text=True, timeout=120,
-    ).returncode
-    assert rec("integ:triggers 含 d3_auto_light+discipline_enforce", rc == 0, "integration")
 
 
 # ============ G2 硬规则遵守率 ============

@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **版本**: v9.17.0 | **最后更新**: 2026-07-23 | **定位**: 理解项目的技术基础文档
+> **版本**: v9.18.0 | **最后更新**: 2026-07-23 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -39,7 +39,7 @@
 
 ### 1.3 当前版本
 
-**v9.17.0** — LangGraph Evolution Graph 自进化闭环：APM-CS 五轴评分(D1-D5)驱动，辩论完成后自动触发改进链路（collect_metrics→apm_eval→decide_actions→[improve|calibrate|evolve|ml_train]→complete），`FDT_RUN_EVOLUTION` 环境变量开关，`fdt_cli.py evolve` 独立运行入口，25 测试全绿。
+**v9.18.0** — Master Orchestrator Graph：全量自动化迁移至 LangGraph，统一编排辩论/进化/数据采集/APM/发布，纯 Python datetime 调度，零第三方依赖。`fdt_cli.py daemon` 模式替换 APScheduler 为 LangGraph 守护进程。
 
 ---
 
@@ -755,28 +755,7 @@ PostgreSQL OLTP+OLAP 数据库模块。
 
 ---
 
-### 3.6 pipeline — 流水线执行
-
-**runner.py** — 全自动零人工干预流水线：
-
-| 函数 | 说明 |
-|:-----|:-----|
-| `main()` | 全自动管道主流程入口 |
-| `run_langgraph_pipeline(trace_id)` | LangGraph 模式执行 |
-| `run_subprocess_pipeline(trace_id)` | subprocess 模式执行（回退） |
-
-**流水线步骤**:
-
-| 步骤 | 说明 |
-|:-----|:-----|
-| Step 1 | 通道突破信号生成（调用 scan_all.py） |
-| Step 2 | 产业链分析（调用 commodity-chain-analysis） |
-| Step 3 | 辩论品种精选（闫判官调度） |
-| Step 4 | 数据适配（FDC 数据注入） |
-| Step 5 | 深度分析报告（明鉴秋报告层） |
-| Step 6 | 历史记录 + ML 检查 |
-
-**A/B 切换**: `FDT_USE_LANGGRAPH=true` → LangGraph 模式（优先），否则回退 subprocess
+### 3.6 ~~pipeline 模块包含全自动零人工干预流水线，现已完全被 LangGraph 图编排替代（见 §3.8）。~~
 
 ---
 
@@ -825,10 +804,10 @@ PostgreSQL OLTP+OLAP 数据库模块。
 **任务注册机制**: `@register_task(name)` 装饰器 → `_task_registry` 字典 → `get_task(name)` 查找
 
 **调度架构**:
-- `daily_debate` 由 TRAE Schedule 外部 cron 触发（工作日 20:15），不依赖本地 scheduler
-- `validate_and_evolve` 任务保留为兼容层，自进化闭环已迁移至 LangGraph Evolution Graph（`fdt_langgraph/evolution_graph.py`）
-- 辩论后自动触发进化：设置 `FDT_RUN_EVOLUTION=true` 环境变量，或通过 `python fdt_cli.py run --evolve`
-- 独立运行进化：`python fdt_cli.py evolve`
+- 所有自动化任务由 `fdt_langgraph/master_graph.py` Master Orchestrator Graph 驱动（纯 Python datetime 调度，零第三方依赖）
+- 守护进程: `python fdt_cli.py daemon [--interval 60]`（LangGraph `run_master_daemon()` 循环，替代了外部 APScheduler）
+- 单次检查到期任务: `python fdt_cli.py master`
+- 原有 `scheduler/` 目录保留为兼容层，新开发全部走 LangGraph
 
 ---
 
@@ -1049,7 +1028,6 @@ python fdt_api.py
 | `FDT_LLM_API_BASE` | LLM API Base URL | `https://api.deepseek.com/v1` |
 | `FDT_LLM_MODEL` | LLM 模型名称 | `deepseek-chat` |
 | `FDT_PG_DSN` | PostgreSQL 连接字符串 | - |
-| `FDT_USE_LANGGRAPH` | 是否使用 LangGraph | `false` |
 | `FDT_CHECKPOINTER` | Checkpointer 类型 (`sqlite` / `pg`) | `sqlite` |
 | `FDT_DIRECT_DEBATE` | 指定品种直接辩论模式 | `false` |
 | `FDT_DEBATE_SYMBOLS` | 指定辩论品种列表 | - |

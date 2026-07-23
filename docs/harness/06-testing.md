@@ -77,10 +77,6 @@ tests/
 │   ├── test_debate_history.py           # 历史反馈
 │   ├── test_keltner_wf.py               # Keltner通道
 │   └── test_quality_filter.py           # 研报过滤
-├── scheduler/                     # 调度器 (3个测试)
-│   ├── conftest.py
-│   ├── test_engine.py             # 触发器匹配+防重复
-│   └── test_tasks_paths.py        # 任务路径测试
 ├── self-improve-enhanced/        # 自改进增强 (4个测试)
 │   ├── conftest.py
 │   ├── test_analyze_trajectory.py
@@ -292,7 +288,6 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | contracts | ✅ | — | ✅ | — | — |
 | fdt-gate (L1-L5) | — | — | — | ✅ | — |
 | pipeline (runner) | ✅ | ✅ | — | — | — | — | — | 10 用例 ✅ |
-| scheduler (engine) | ✅ | ✅ | — | — | — | — | — | 3 用例 |
 | memory (writer/archiver) | ✅ | ✅ | — | — | — | — | — | 9 用例 |
 | **dominant-resolver** | ✅ | ✅ | — | — | — | — | — | **75 用例** (28 dominant + 22 datacore + 25 normalizer, v9.3.0 新增) |
 | **validators** | ✅ | — | — | — | — | **4 用例** |
@@ -305,10 +300,14 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 
 ```bash
 # 全部 Harness 测试
-python -m pytest tests/pipeline/ tests/scheduler/ tests/memory/ tests/contracts/ tests/validators/ -v --no-cov
+python -m pytest tests/ --ignore=tests/commodity-chain -v --no-cov
+```
 
-# 带覆盖率（已扩展到全 skill）
-python -m pytest tests/ --cov=skills --cov=pipeline --cov=scheduler --cov=scripts --cov-report=term-missing
+5. 覆盖率（慢）
+
+```bash
+python -m pytest tests/ --cov=scripts --cov=fdt_langgraph --cov-report=term-missing
+```
 
 # 仅门禁测试
 python -m pytest tests/fdt-gate/ -v

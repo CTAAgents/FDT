@@ -11,7 +11,6 @@ FILE_MAP = {
     "enforce_discipline": "scripts/enforce_discipline.py",
     "self_improve": "scripts/self_improve.py",
     "memory_writer": "scripts/memory_writer.py",
-    "triggers": "scheduler/triggers.py",
     "replay_harness": "scripts/replay_harness.py",
     "run_benchmark": "scripts/run_benchmark.py",
 }
@@ -33,7 +32,7 @@ def modules():
             pass
     # 清理所有被加载的 scripts.* 模块，避免污染其他测试
     for mod_name in list(sys.modules.keys()):
-        if mod_name.startswith("scripts.") or mod_name in ("scheduler.triggers",):
+        if mod_name.startswith("scripts."):
             sys.modules.pop(mod_name, None)
     return mods
 

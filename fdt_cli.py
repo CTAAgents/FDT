@@ -79,20 +79,16 @@ def _print_phase_reports(result: DebateState) -> None:
     print("=" * 40 + "\n")
 
 
-async def daemon_mode(cron_expr: str, timezone: str = "Asia/Shanghai"):
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    from apscheduler.triggers.cron import CronTrigger
+async def daemon_mode(cron_expr: str = "", interval: int = 60):
+    """守护进程模式 (LangGraph Master Graph 驱动，替代 APScheduler)。
 
-    scheduler = AsyncIOScheduler(timezone=timezone)
-    scheduler.add_job(run_debate, CronTrigger.from_crontab(cron_expr))
-    logger.info(f"Daemon mode started with cron: {cron_expr}")
-    scheduler.start()
-
-    try:
-        await asyncio.Event().wait()
-    except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
-        logger.info("Daemon mode stopped")
+    Args:
+        cron_expr: 保留参数兼容，不再使用 (由 master_graph 内部调度判断)
+        interval: 检查间隔秒数
+    """
+    from fdt_langgraph.master_graph import run_master_daemon
+    logger.info(f"Daemon mode (LangGraph Master Graph): interval={interval}s")
+    run_master_daemon(interval_seconds=interval)
 
 
 def main():
@@ -103,21 +99,23 @@ def main():
     run_parser.add_argument("--mode", choices=["default", "fast", "deep_research", "tournament"], default="default")
     run_parser.add_argument("--evolve", action="store_true", help="Run evolution after debate")
 
-    daemon_parser = subparsers.add_parser("daemon", help="Run in daemon mode")
-    daemon_parser.add_argument("--cron", default="0 9 * * 1-5")
-    daemon_parser.add_argument("--timezone", default="Asia/Shanghai")
+    daemon_parser = subparsers.add_parser("daemon", help="Run as daemon (LangGraph Master Graph)")
+    daemon_parser.add_argument("--interval", type=int, default=60,
+                               help="Check interval in seconds (default: 60)")
 
     db_parser = subparsers.add_parser("db", help="Database operations")
     db_parser.add_argument("action", choices=["init", "migrate", "health"])
 
     evolve_parser = subparsers.add_parser("evolve", help="Run self-evolution standalone (APM-driven)")
 
+    master_parser = subparsers.add_parser("master", help="Run Master Orchestrator once (check & execute due tasks)")
+
     args = parser.parse_args()
 
     if args.command == "run":
         asyncio.run(run_debate(mode=args.mode, run_evolution=args.evolve))
     elif args.command == "daemon":
-        asyncio.run(daemon_mode(cron_expr=args.cron, timezone=args.timezone))
+        asyncio.run(daemon_mode(interval=args.interval))
     elif args.command == "db":
         if args.action == "health":
             PGConnection.initialize()
@@ -141,6 +139,18 @@ def main():
             print(f"  {icon} {step}: {result_data.get('summary', '')[:80]}")
         if ev_state.get("errors"):
             print(f"  ⚠️ Errors: {len(ev_state['errors'])}")
+    elif args.command == "master":
+        logger.info("Master Orchestrator: checking & executing due tasks...")
+        from fdt_langgraph.master_graph import run_master_once
+        result = run_master_once()
+        tasks = result.get("task_results", {})
+        print(f"\n=== 📋 Master 调度完成 ===")
+        if tasks:
+            for name, r in tasks.items():
+                icon = "✅" if r.get("success") else "❌"
+                print(f"  {icon} {name}: {r.get('summary', '')[:80]}")
+        else:
+            print(f"  无到期任务 (当前时间无匹配的调度)")
 
 
 if __name__ == "__main__":

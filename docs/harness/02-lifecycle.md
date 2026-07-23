@@ -7,19 +7,19 @@
 | 模式 | 命令 | 用途 | 退出条件 |
 |:-----|:-----|:-----|:---------|
 | `cli once` | `python fdt_cli.py --once` | 单次执行完整辩论流程 | 执行完即退出 |
-| `cli daemon` | `python fdt_cli.py --daemon --cron "0 9 * * 1-5"` | 后台守护进程（APScheduler） | 收到 SIGINT/SIGTERM |
+| `cli daemon` | `python fdt_cli.py daemon` | 后台守护进程 (LangGraph Master Graph) | 收到 SIGINT/SIGTERM |
 | `api` | `python fdt_api.py --host 0.0.0.0 --port 8000` | FastAPI HTTP 服务 | 收到 SIGINT/SIGTERM |
 | `api trigger` | `POST /api/v1/debate` | API 触发单次辩论 | 执行完返回 |
 
-### 1.1a 旧模式（已废弃）
+### 1.1a 已删除的历史模式
 
-| 模式 | 状态 | 替代方案 |
-|:-----|:-----|:---------|
-| 自动化调度 (30min) | **已废弃** | `fdt_cli.py --daemon` |
-| `bootstrap.py` | **已废弃** | `fdt_cli.py` |
-| `scheduler/engine.py` (60s心跳) | **可选保留** | APScheduler / Celery Beat |
+| 模式 | 删除版本 | 替代方案 |
+|:-----|:---------|:---------|
+| `scheduler/engine.py` (60s心跳) | v9.18.1 | `fdt_cli.py daemon` (Master Graph) |
+| `bootstrap.py` | v9.18.1 | `fdt_cli.py` |
+| `scripts/scheduler.py` | v9.18.1 | `fdt_cli.py daemon` |
 
-> **迁移说明**: 第三方平台依赖已完全移除。FDT 现在作为独立 Python 应用运行，通过 CLI 或 HTTP API 触发。原有 `bootstrap.py` 和 `scheduler/engine.py` 保留为兼容层，但新入口推荐使用 `fdt_cli.py` 和 `fdt_api.py`。
+> **说明**: FDT 所有自动化任务统一由 LangGraph Master Graph 编排，零第三方调度依赖。
 
 ### 1.2 启动序列
 
@@ -28,22 +28,14 @@ fdt_cli.py main()
     │
     ├─ 1. 路径校准: os.chdir(_ROOT) + sys.path.insert
     │
-    ├─ 2. 记忆加载: load_memory()
-    │     ├─ 扫描 memory/*.md (文档文件)
-    │     ├─ 扫描 memory/*.json (数据文件)
-    │     ├─ 关键文件检查 (judgment_revisions.md, incidents.md, agent_profiles.json, execution_followup.json)
-    │     ├─ R规则计数
-    │     └─ Agent/Skill 数量统计
+    ├─ 2. 模式分发:
+    │     ├─ daemon → run_master_daemon() (LangGraph Master Graph)
+    │     ├─ master → run_master_once() (单次检查到期任务)
+    │     └─ run   → run_debate() (一次辩论)
     │
-    ├─ 3. 模式分发:
-    │     ├─ daemon → SchedulerEngine().run_forever()
-    │     ├─ once   → run_once() (单次 check_and_run)
-    │     └─ interactive → 打印可用命令
-    │
-    └─ 4. daemon 模式额外:
-          ├─ 写入 PID 到 memory/daemon.pid
-          ├─ 注册 SIGINT/SIGTERM 信号处理
-          └─ 进入 60s 心跳循环
+    └─ 3. daemon 模式:
+          ├─ 每 60s 检查所有到期任务
+          └─ 纯 Python time.sleep 循环
 ```
 
 ### 1.3 代码位置
@@ -51,9 +43,9 @@ fdt_cli.py main()
 | 组件 | 文件 | 行号 |
 |:-----|:-----|:-----|
 | 入口函数 | `fdt_cli.py` | `main()` |
-| 守护进程 | `scheduler/engine.py` | `run_forever()` L170 |
-| 信号处理 | `scheduler/engine.py` | `_handle_sig()` L185 |
-| 进程分离 | `scheduler/engine.py` | `_daemonize()` L131 |
+| Master Graph | `fdt_langgraph/master_graph.py` | `run_master_daemon()` / `run_master_once()` |
+| 调度注册表 | `fdt_langgraph/master_state.py` | `_get_default_schedules()` |
+| 节点函数 | `fdt_langgraph/master_nodes.py` | 14 个任务节点 |
 
 ## 2. 六阶段流水线 (P1-P6) + 前置检查
 
@@ -165,6 +157,7 @@ fdt_cli.py main()
 ```
 
 > **阶段变更说明**:
+> - **v9.18.0 (Master Orchestrator Graph)**: 全量自动化迁移至 LangGraph。新增 Master Graph（`master_state.py`/`master_nodes.py`/`master_graph.py`），统一编排日常辩论/数据采集/APM评分/自动发布，纯 Python datetime 调度判断。`fdt_cli.py daemon` 模式替换 APScheduler 为 `run_master_daemon()`。零第三方依赖。
 > - **v9.17.0 (LangGraph Evolution Graph)**: 自进化闭环从 scheduler 迁移至 LangGraph 子图。新增 `evolution_state.py`(APM五轴驱动状态)、`evolution_nodes.py`(8节点)、`evolution_graph.py`(编译图)。辩论后 `FDT_RUN_EVOLUTION=true` 自动触发，或 `fdt_cli.py evolve` 独立运行。基于 APM 评分 + 样本量条件路由：collect_metrics→apm_eval→decide_actions→[improve|calibrate|evolve|ml_train]→complete
 > - **v9.16.0 (D2/D5/D6 pipeline 集成)**: D2 ToolMetrics 接入 Agent 执行入口 → 工具调用指标全量采集；D5 memory_cleaner 增强 → debate_journal 压缩 + generation_metrics 自动清理；D6 Output pipeline 集成 → `quality_inspector` 输出质量评分、`node_report` 输出版本化、`node_quality_inspect` 审计日志、scheduler apm_scorecard 定时任务
 > - **P0b 新增 (v9.6.5)**: 数据新鲜度闸门作为 pre_loop 必查步骤，对标数据新鲜度分级标准
@@ -384,39 +377,20 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 | `ml/trainer.py` | 新样本 ≥50 | debate_journal.json | models/*.txt (LightGBM) | `run_daily_check()` |
 | `update_matrix.py` | 每次裁决后 | execution_followup.json | instrument_strategy_matrix.json | `--symbol` `--family` `--correct` |
 
-## 4. 调度器 (Scheduler)
+## 4. Master Graph 调度器
 
-### 4.1 心跳循环
+调度逻辑定义在 `fdt_langgraph/master_nodes.py`，纯 Python datetime 判断，零第三方依赖。
 
 ```python
-# scheduler/engine.py — 核心循环 (简化)
-while self._running:
-    triggered = self.check_and_run()  # 检查所有触发器
-    save_heartbeat()                   # 保存状态到 schedule_state.json
-    time.sleep(self.heartbeat_interval)  # 60s
+# master_nodes.py — 核心检查 (简化)
+def node_check_time(state):
+    for task_name, sched in state["schedules"].items():
+        if time_match(sched, now) or data_trigger_match(sched, last_triggered):
+            task_queue.append(task_name)
+    return state
 ```
 
-### 4.2 触发器类型
-
-| 类型 | 类名 | 触发条件 | 示例 |
-|:-----|:-----|:---------|:-----|
-| 时间触发 | `TimeTrigger` | 按时间/星期 | auto_publish 每日 23:05 |
-| 数据触发 | `DataTrigger` | 按数据量 | ml_training_check ≥50 样本 |
-| 事件触发 | `EventTrigger` | 按文件信号 | debate_trigger.json 存在 |
-| 辩论计数触发 | `DebateRecordTrigger` | 按辩论轮次 | d3_auto_light ≥5 轮 |
-
-### 4.3 默认触发配置
-
-| 任务名 | 触发器 | 触发条件 | 执行内容 |
-|:-------|:-------|:---------|:---------|
-| `daily_debate` | EventTrigger | debate_trigger.json 存在 | 4步管道 (scan→summary→report→copy) |
-| `auto_publish` | TimeTrigger | 每日 23:05 | 版本号自增 + Git 推送 |
-| `update_dominant_mapping` | TimeTrigger | 工作日 15:30 | 主力合约映射更新 |
-| `validate_and_evolve` | EventTrigger | 有未验证记录 | validate→calibrate→evolve→ML |
-| `ml_training_check` | DataTrigger | ≥50 条新样本 + 3天冷却 | ML 模型训练 |
-| `self_optimize_analysis` | TimeTrigger | 每日 02:00 | SkillAdaptor 归因分析 |
-| `self_optimize_evolve` | TimeTrigger | 每日 03:00 | Skillevolver 技能层进化 |
-| `self_optimize_verify` | TimeTrigger | 每日 04:00 | Autoresearch A/B 验证 |
+详见 [07-operations.md §3](07-operations.md#3-master-graph-运维) 完整调度注册表。
 
 
 ## 5. 全自动流水线 (Pipeline Runner)

@@ -16,79 +16,10 @@ for k in list(sys.modules.keys()):
 import pytest
 import numpy as np
 from signals import debate_brief as db
-from pipeline import quality_filter as qf
 from debate import history as dh
 from ml import trainer as ato
 
 
-# ═══════════════════════════════════════════════════════════
-# quality_filter.py 覆盖缺口 (96% → 目标 98%+)
-# ═══════════════════════════════════════════════════════════
-
-
-class TestQualityFilterGaps:
-    def test_parse_nonstring_text(self):
-        """filter_reports 中非字符串text字段（覆盖str()转换路径）"""
-        rs = [{"text": 12345}]
-        f = qf.filter_reports(rs)
-        assert len(f) == 0  # 数字转字符串后无关键词
-
-    def test_filter_bytes_text(self):
-        """filter_reports bytes类型text"""
-        rs = [{"text": b"bytes text"}]
-        f = qf.filter_reports(rs)
-        assert len(f) == 0
-
-    def test_filter_nonstring_text(self):
-        """filter_reports 中非字符串text字段"""
-        rs = [{"text": 12345, "src": "a"}]
-        f = qf.filter_reports(rs)
-        assert len(f) == 0  # 无关键词 → 不过滤通过
-
-    def test_auto_label_nonstring(self):
-        """auto_label_reports 非字符串text"""
-        l = qf.auto_label_reports([{"text": b"some bytes", "score_5layer": 10, "driver_id": 0}])
-        assert l[0]["label"] == 0
-
-    def test_integrate_filter_dict_input(self, tmp_path):
-        """integrate_filter_into_pipeline 输入为dict格式"""
-        p = tmp_path / "reports_dict.json"
-        p.write_text(
-            json.dumps(
-                {
-                    "reports": [
-                        {"text": "库存350万吨。检修。需求回暖。预计上涨。今日情况。", "score_5layer": 75},
-                        {"text": "今日震荡。", "score_5layer": 10},
-                    ],
-                    "meta": {"source": "test"},
-                }
-            ),
-            encoding="utf-8",
-        )
-        out = tmp_path / "out_dict.json"
-        r = qf.integrate_filter_into_pipeline(str(p), str(out))
-        assert r["original_count"] == 2
-        assert r["filtered_count"] == 1
-        # 验证输出dict包含_filter字段
-        with open(out, encoding="utf-8") as f:
-            od = json.load(f)
-        assert "_filter" in od
-
-    def test_integrate_filter_items_fallback(self, tmp_path):
-        """integrate_filter_into_pipeline items字段回退"""
-        p = tmp_path / "reports_items.json"
-        p.write_text(
-            json.dumps(
-                {
-                    "items": [
-                        {"content": "库存350万吨。检修。需求回暖。预计上涨。今日情况。"},
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-        r = qf.integrate_filter_into_pipeline(str(p), str(tmp_path / "out_items.json"))
-        assert r["original_count"] == 1
 
 
 # ═══════════════════════════════════════════════════════════

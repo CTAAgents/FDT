@@ -120,6 +120,8 @@
 
 | **G107** | 观澜/探源FDC回退模板过于简陋，LLM解析失败时只填占位文本 | 报告中技术面/基本面无具体数据 | P1 | v9.11.2 | 已关闭 | 观澜回退利用indicators.values(RSI14/ADX/MA排列/Supertrend/ATR等)生成结构化描述+启发式评分；探源回退利用f10实际数据(term_structure/spread/basis/position_ranking)填充 | fdt_langgraph/nodes.py |
 
+| **G108** | **LangGraph 迁移收尾（pipeline/runner.py 已删除，外部脚本待内联）** | ① ~~`pipeline/runner.py` 已删除~~ ✅ ② 15 个外部脚本仍通过 `_run_script()` subprocess 调用 ③ Master Graph 守护进程心跳文件待添加 ④ 文档引用已清理 | P0 | v9.19.0 | Task 1/6 关闭 | 删除 pipeline/runner.py、quality_filter.py、__init__.py、tests/pipeline/、test_integration_ab.py；清理 FDT_USE_LANGGRAPH A/B 切换机制；更新文档 | 多文件 
+
 ### 4.2 P1 — 高优先级（影响效率/质量）
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |

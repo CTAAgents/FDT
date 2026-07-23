@@ -120,8 +120,6 @@ line-length = 120
 | `PYTHONIOENCODING` | (未设置) | Python IO 编码 (pipeline 强制设为 `utf-8`) | `pipeline/runner.py` |
 | `DCE_API_KEY` | (未设置) | 大商所官方 API key；设置后 DCE 持仓排名走官方 API（见 `futures_data_core/f10/dce_api.py`） | `f10/position.py` |
 | `DCE_API_SECRET` | (未设置) | 大商所官方 API secret；与 `DCE_API_KEY` 配对 | `f10/position.py` |
-| `FDT_USE_LANGGRAPH` | `false` | 控制 `pipeline/runner.py` 使用 LangGraph 模式（A/B 切换）：`true`=走 LangGraph 路径，`false`=走旧 subprocess 路径（零风险） | `pipeline/runner.py` |
-| `FDT_LANGGRAPH_MODE` | `default` | LangGraph 模式选择：`default`/`fast`/`deep_research`/`tournament`；仅当 `FDT_USE_LANGGRAPH=true` 时生效 | `pipeline/runner.py` `fdt_langgraph/graph.py` |
 | `FDT_CHECKPOINTER` | `sqlite` | Checkpointer 后端选择：`pg`=PostgreSQL，`sqlite`=SQLite；`pg` 连接失败自动降级到 `sqlite` | `fdt_langgraph/graph.py` `_get_checkpointer()` |
 | `FDT_DIRECT_DEBATE` | `false` | 设为 `true` 时跳过 P1 扫描阶段，直接从 `fdt_cache/` 加载缓存数据进入指定品种辩论模式 | `fdt_langgraph/graph.py` |
 | `FDT_DEBATE_SYMBOLS` | (未设置) | 指定辩论品种列表，逗号分隔（如 `SF,SM,SC`）；仅当 `FDT_DIRECT_DEBATE=true` 时生效 | `fdt_langgraph/graph.py` |

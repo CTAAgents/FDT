@@ -67,7 +67,7 @@
   },
   "hallucination_adjustment": 0,
   "_meta": {
-    "calibrated_at": "2026-07-23 11:24",
+    "calibrated_at": "2026-07-23 14:39",
     "total_samples": 21,
     "baseline": 0.6,
     "learning_rate": 0.3,

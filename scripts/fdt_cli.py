@@ -663,20 +663,17 @@ def main() -> int:
             sc_args += ["--scan", args.scan]
         return _run(sc_args)
 
-    # ── 守护进程 —— 内置调度器 ──
+    # ── 守护进程 —— LangGraph Master Graph ──
     if args.cmd == "daemon":
         action = args.action
-        job = getattr(args, "job", "daily_debate")
-        bg = getattr(args, "background", False)
-        sch_args = [py, str(_SCRIPTS / "scheduler.py")]
-        if action == "start":
-            sch_args += ["--job", job]
-            if bg:
-                sch_args.append("--daemon")
-        elif action == "stop":
-            sch_args.append("--stop")
-        elif action == "status":
-            sch_args.append("--status")
+        # 已迁移至 fdt_cli.py daemon（LangGraph Master Graph）
+        root_cli = str(_ROOT / "fdt_cli.py")
+        sch_args = [py, root_cli, "daemon"]
+        if action in ("stop", "status"):
+            print(f"⚠️  [DEPRECATED] daemon start/stop/status 已被 'fdt_cli.py daemon' 替代")
+            print(f"   请直接运行: python fdt_cli.py daemon")
+            sch_args.append("--interval")
+            sch_args.append("60")
         return _run(sch_args)
 
     # ── Web 服务 ──

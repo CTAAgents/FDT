@@ -15,12 +15,13 @@ FDT 的可观测性体系由三个维度组成：
 │ (D1-D5)         │ (统一日志)       │ (辩论全链路记录)          │
 │                 │                 │                         │
 │ 失败聚类         │ pipeline日志    │ ViBench 回放            │
-│ (cluster_       │ (流水线日志)     │ (replay_harness.py)     │
-│  failures.py)   │                 │                         │
+│ (cluster_       │ (流水线日志，     │ (replay_harness.py)     │
+│  failures.py)   │  已随 runner.py  │                         │
+│                 │  退役)           │                         │
 │                 │                 │ held-out judge          │
 │ 纪律钳制         │ scheduler日志   │ (一致性审计)             │
-│ (enforce_       │ (调度器日志)     │                         │
-│  discipline.py) │                 │                         │
+│ (enforce_       │ (调度器日志，     │                         │
+│  discipline.py) │  已随 scheduler/ │                         │
 └─────────────────┴─────────────────┴─────────────────────────┘
 ```
 

@@ -2297,65 +2297,6 @@ class TestDaemonWatchdog:
                         assert result is True
 
 
-class TestScheduler:
-    def test_parse_dow_range(self) -> None:
-        from scripts.scheduler import _parse_dow
-        result = _parse_dow("mon-fri")
-        assert result == {0, 1, 2, 3, 4}
-
-    def test_parse_dow_comma(self) -> None:
-        from scripts.scheduler import _parse_dow
-        result = _parse_dow("mon,wed,fri")
-        assert result == {0, 2, 4}
-
-    def test_parse_dow_digit(self) -> None:
-        from scripts.scheduler import _parse_dow
-        result = _parse_dow("0,2,4")
-        assert result == {0, 2, 4}
-
-    def test_parse_dow_single(self) -> None:
-        from scripts.scheduler import _parse_dow
-        result = _parse_dow("tue")
-        assert result == {1}
-
-    def test_match_cron(self) -> None:
-        from scripts.scheduler import _match_cron, _parse_dow
-        # We can't easily test exact time match, but we can test the structure
-        now = __import__("datetime").datetime.now()
-        result = _match_cron("mon-fri", now.hour, now.minute)
-        # Result depends on current weekday
-        assert isinstance(result, bool)
-
-    def test_jobs_defined(self) -> None:
-        from scripts.scheduler import JOBS
-        assert "daily_debate" in JOBS
-        assert "cron" in JOBS["daily_debate"]
-        assert JOBS["daily_debate"]["cron"]["hour"] == 20
-        assert JOBS["daily_debate"]["cron"]["minute"] == 15
-
-    def test_read_pid_no_file(self) -> None:
-        from scripts.scheduler import _read_pid
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch("scripts.scheduler.PID_FILE", Path(tmp) / "nonexistent.pid"):
-                assert _read_pid() is None
-
-    def test_read_pid_with_file(self) -> None:
-        from scripts.scheduler import _read_pid
-        with tempfile.TemporaryDirectory() as tmp:
-            pid_file = Path(tmp) / "daemon.pid"
-            pid_file.write_text("12345", encoding="utf-8")
-            with patch("scripts.scheduler.PID_FILE", pid_file):
-                assert _read_pid() == 12345
-
-    def test_write_pid(self) -> None:
-        from scripts.scheduler import _write_pid
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch("scripts.scheduler.PID_FILE", Path(tmp) / "daemon.pid"):
-                with patch("scripts.scheduler.SCHEDULER_DIR", Path(tmp)):
-                    _write_pid(99999)
-                    assert Path(tmp, "daemon.pid").read_text(encoding="utf-8") == "99999"
-
-
 class TestRunBenchmark:
     def test_norm_variety(self) -> None:
         from scripts.run_benchmark import _norm_variety
