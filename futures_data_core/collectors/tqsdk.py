@@ -374,6 +374,135 @@ class TqSdkCollector(BaseCollector):
         except Exception:
             return None
 
+    # ── TqSDK 技术指标计算（同步，使用 tqsdk.tafunc）──
+    @staticmethod
+    def get_indicators_sync(symbol: str, period: str = "daily", days: int = 120) -> dict | None:
+        """从 TqSDK 获取 K 线并使用 tqsdk.tafunc 计算技术指标。
+
+        当数据源为 TqSDK 时，优先使用此方法获取指标（而非 numpy 兜底）。
+        返回 tech dict，与 _compute_indicators_numpy 输出格式兼容。
+
+        Args:
+            symbol: FDT 品种代码（如 "CF", "RB2601"）。
+            period: K 线周期，默认 "daily"。
+            days: 获取天数。
+
+        Returns:
+            tech dict（含 RSI14/ADX/ATR/CCI/MACD/MA 系列等），失败返回 None。
+        """
+        try:
+            import numpy as np
+            import pandas as pd
+            from tqsdk import tafunc as ta
+
+            _inst = TqSdkCollector()
+            eff = _inst._resolve_tqsdk_symbol(symbol)
+            dur = _PERIOD_SECONDS.get(period, 86400)
+            df = _inst._klines_sync(eff, dur, days)
+            if df is None or len(df) < days:
+                return None
+
+            o, h, l_, c, v = (df[c].astype(float).values for c in ["open", "high", "low", "close"])
+            close_s = df["close"].astype(float)
+            high_s = df["high"].astype(float)
+            low_s = df["low"].astype(float)
+            vol_s = df["volume"].astype(float) if "volume" in df.columns else None
+
+            tech = {}
+            tech["symbol"] = symbol
+            tech["name"] = symbol
+            tech["_data_source"] = "tqsdk"
+
+            # RSI14 (Wilder SMA via tafunc)
+            delta = close_s.diff()
+            gain = delta.where(delta > 0, 0.0)
+            loss = (-delta).where(delta < 0, 0.0)
+            avg_g = ta.sma(pd.Series(gain.values), 14)
+            avg_l = ta.sma(pd.Series(loss.values), 14)
+            rs = avg_g / avg_l.replace(0, np.nan)
+            rsi = 100.0 - (100.0 / (1.0 + rs))
+            tech["RSI14"] = float(rsi.iloc[-1]) if not np.isnan(rsi.iloc[-1]) else None
+            tech["rsi"] = tech["RSI14"]
+
+            # ATR14 (Wilder SMA of True Range)
+            tr = pd.concat([
+                high_s - low_s,
+                (high_s - close_s.shift(1)).abs(),
+                (low_s - close_s.shift(1)).abs(),
+            ], axis=1).max(axis=1)
+            atr = ta.sma(pd.Series(tr.values), 14)
+            tech["ATR"] = float(atr.iloc[-1]) if not np.isnan(atr.iloc[-1]) else None
+            tech["ATR14"] = tech["ATR"]
+
+            # ADX / DMI
+            _period = 14
+            _tr_s = ta.sma(pd.Series(tr.values), _period)
+            up = high_s - high_s.shift(1)
+            down = low_s.shift(1) - low_s
+            pdi_ = pd.Series(np.where((up > down) & (up > 0), up, 0.0))
+            mdi_ = pd.Series(np.where((down > up) & (down > 0), down, 0.0))
+            pdi_s = ta.sma(pdi_, _period)
+            mdi_s = ta.sma(mdi_, _period)
+            pdi = 100.0 * pdi_s / _tr_s.replace(0, np.nan)
+            mdi = 100.0 * mdi_s / _tr_s.replace(0, np.nan)
+            dx = 100.0 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)
+            adx = ta.sma(pd.Series(dx.values), _period)
+            tech["ADX"] = float(adx.iloc[-1]) if not np.isnan(adx.iloc[-1]) else None
+            tech["DMI_PDI"] = float(pdi.iloc[-1]) if not np.isnan(pdi.iloc[-1]) else None
+            tech["DMI_MDI"] = float(mdi.iloc[-1]) if not np.isnan(mdi.iloc[-1]) else None
+
+            # CCI20
+            tp = (high_s + low_s + close_s) / 3.0
+            tp_ma = ta.ma(tp, 20)
+            tp_mad = tp.rolling(20).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
+            cci = (tp - tp_ma) / (0.015 * tp_mad.replace(0, np.nan))
+            tech["CCI20"] = float(cci.iloc[-1]) if not np.isnan(cci.iloc[-1]) else None
+
+            # MACD
+            ema12 = ta.ema(close_s, 12)
+            ema26 = ta.ema(close_s, 26)
+            dif = ema12 - ema26
+            dea = ta.ema(pd.Series(dif.values), 9)
+            macd_hist = 2.0 * (dif - dea)
+            tech["MACD_DIF"] = float(dif.iloc[-1]) if not np.isnan(dif.iloc[-1]) else None
+            tech["MACD_DEA"] = float(dea.iloc[-1]) if not np.isnan(dea.iloc[-1]) else None
+            tech["MACD_HIST"] = float(macd_hist.iloc[-1]) if not np.isnan(macd_hist.iloc[-1]) else None
+
+            # MA series
+            for p in [5, 10, 20, 40, 60]:
+                ma_v = ta.ma(close_s, p)
+                tech[f"MA{p}"] = float(ma_v.iloc[-1]) if not np.isnan(ma_v.iloc[-1]) else None
+
+            # Bollinger Bands (20,2)
+            bb_ma = ta.ma(close_s, 20)
+            bb_std = pd.Series(close_s.rolling(20).std(ddof=0).values)
+            tech["BOLL_MID"] = float(bb_ma.iloc[-1]) if not np.isnan(bb_ma.iloc[-1]) else None
+            tech["BOLL_UP"] = float((bb_ma + 2 * bb_std).iloc[-1]) if not np.isnan((bb_ma + 2 * bb_std).iloc[-1]) else None
+            tech["BOLL_DN"] = float((bb_ma - 2 * bb_std).iloc[-1]) if not np.isnan((bb_ma - 2 * bb_std).iloc[-1]) else None
+
+            # 均线排列
+            ma5 = tech.get("MA5", 0) or 0
+            ma10 = tech.get("MA10", 0) or 0
+            ma20 = tech.get("MA20", 0) or 0
+            if ma5 > ma10 > ma20:
+                tech["ma_align"] = "bull"
+            elif ma5 < ma10 < ma20:
+                tech["ma_align"] = "bear"
+            else:
+                tech["ma_align"] = "mixed"
+
+            # last_price / close
+            tech["last_price"] = float(c[-1])
+            tech["close"] = float(c[-1])
+            tech["price"] = float(c[-1])
+            tech["volume"] = int(v[-1]) if vol_s is not None else 0
+            tech["change_pct"] = ((c[-1] / c[-2]) - 1) * 100 if len(c) > 1 else 0.0
+
+            return tech
+
+        except Exception:
+            return None
+
     # ═══════════════════════════════════════════════════════════
     # 2. Tick
     # ═══════════════════════════════════════════════════════════

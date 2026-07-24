@@ -887,18 +887,34 @@ def run_scan(
                 df["open_interest"] = [float(r.get("open_interest", 0)) for r in dlist]
             if "oi" in dlist[0]:
                 df["oi"] = [float(r.get("oi", 0)) for r in dlist]
-            # ── numpy 指标计算：品种级超时防护（防止单一品种卡死全盘）──
-            _NUMPY_TIMEOUT = 60  # 秒/品种
-            try:
-                from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-                with ThreadPoolExecutor(max_workers=1) as _exec:
-                    _fut = _exec.submit(_compute_indicators_numpy, df, sym, period=period)
-                    tech = _fut.result(timeout=_NUMPY_TIMEOUT)
-            except _FutTimeout:
-                print(f"  ⚠️ [{sym}] numpy指标计算超时(>{_NUMPY_TIMEOUT}s)，跳过")
-                continue
-            except Exception:
-                continue
+            # ── 数据源感知指标计算 ──
+            # TqSDK 数据源 → 使用 TqSDK tafunc 计算指标
+            # TDX/其他 → 使用 numpy + tdx_bridge 桥接
+            _variety, _ = _split_symbol_contract(sym)
+            _data_source = dlist[0].get("data_source", "") if dlist else ""
+            if _data_source == "tqsdk":
+                try:
+                    from futures_data_core.collectors.tqsdk import TqSdkCollector
+                    tech = TqSdkCollector.get_indicators_sync(_variety, period=period, days=120)
+                except Exception:
+                    tech = None
+                if not tech:
+                    print(f"  ⚠️ [{sym}] TqSDK 指标计算失败，回退到 numpy")
+                    _data_source = "fallback"  # fall through to numpy
+
+            if _data_source != "tqsdk":
+                # ── numpy 指标计算：品种级超时防护 ──
+                _NUMPY_TIMEOUT = 60
+                try:
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
+                    with ThreadPoolExecutor(max_workers=1) as _exec:
+                        _fut = _exec.submit(_compute_indicators_numpy, df, sym, period=period)
+                        tech = _fut.result(timeout=_NUMPY_TIMEOUT)
+                except _FutTimeout:
+                    print(f"  ⚠️ [{sym}] numpy指标计算超时(>{_NUMPY_TIMEOUT}s)，跳过")
+                    continue
+                except Exception:
+                    continue
             price = tech.get("last_price", float(df["close"].iloc[-1]))
             prev = float(df["close"].iloc[-2]) if len(df) > 1 else price
             # ── 双源融合：实时报价覆盖 ──
