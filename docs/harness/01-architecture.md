@@ -25,7 +25,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 │                     L1 — 基础设施层 (Infrastructure)                   │
 │   PostgreSQL(OLTP+OLAP) · MemoryManager(memory统一管理)               │
 │   · fdt_cache(SQLite增量缓存) · dominant_resolver(主力合约映射持久化)   │
-│   · _datacore_bridge(Data-Core F10 桥接器) · fdt_pg(连接层)           │
+│   · fdt_pg(连接层)                                                │
 │   · 独立CLI/FastAPI入口                                              │
 ```
 
@@ -223,10 +223,8 @@ scan → judge_direction → prepare_one_symbol(品种0)
 [自进化前置] ──→ validate_verdicts.py ──→ calibrate_weights.py ──→ evolve_agents.py
     │                    (K线验证)           (权重校准)              (参数进化)
     ▼
-[P1] 可插拔多策略并行扫描（v8.8.6+ 架构）
-    ├─ trend_following (10子信号)       ──→ scan_result_tf_{date}.json
-    ├─ mean_reversion (3子信号)         ──→ scan_result_mr_{date}.json  (当前禁用)
-    └─ 自定义策略插件                    ──→ scan_result_{plugin}_{date}.json
+[P1] 数技源通道突破单策略扫描（v9.23.1+ channel_breakout 唯一活跃）
+    └─ channel_breakout (唐奇安DC20/DC55 + 布林带) ──→ full_scan_summary_{date}.json
     │
     │  ═══════════════════════════════════════════════════════════════
     │  设计约束（2026-07-23 掌柜确立）:
@@ -244,14 +242,13 @@ scan → judge_direction → prepare_one_symbol(品种0)
 [P2] 闫判官 ──→ p2_judge_direction.json (选品种+调度)
     │
     ▼
-[P2.5] FDC 数据预采集 + F10质量评估 + 金十快讯精选
+[P2.5] data_adapter 数据预采集 + 金十快讯精选
     │  · 输入: selected_symbols
-    │  · 处理: node_prepare_data — K线+F10(基差/期限结构/仓单/持仓排名/基本面)采集、技术指标计算
-    │  · 处理: evaluate_f10_data + evaluate_indicators — 每品种F10/指标质量评估(levels/等级/问题摘要)
+    │  · 处理: node_prepare_data — K线(data_adapter/AKShareSource)+基差/期限结构/仓单/持仓排名/基本面采集、技术指标计算
     │  · 处理: _build_jin10_context() 按品种中文关键词搜索金十快讯，去重后格式化
-    │  · 输出: fdc_data (含 f10_quality + indicator_quality) 注入 state，格式化文本注入 context
-    │  · 数据流: node_prepare_data → _build_fdc_fundamental_context → node_fundamental context（探源）
-│  · 数据流: node_prepare_data → _build_fdc_technical_context → node_technical context（观澜，含持仓排名/资金流向/外盘）
+    │  · 输出: data_pack (含 kline/indicators/basis/term_structure/warrant) 注入 state
+    │  · 数据流: node_prepare_data → _build_technical_context → node_technical context（观澜）
+    │  · 数据流: node_prepare_data → _build_fundamental_context → node_fundamental context（探源）
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
     │
     ▼
@@ -366,25 +363,25 @@ Checkpointer ──→ PostgreSQL (langgraph_checkpoints 表)
 
 | 数据类型 | 当前存储位置 | 迁移后存储位置 | 格式 | 写入者 | 存储模式 |
 |:---------|:-------------|:--------------|:-----|:-------|:---------|
-| 信号扫描结果 | `Commodities/Reports/.../{date}/` | `pg.scan_signals` | PostgreSQL | `node_scan` | OLTP |
-| 链证源分析 | `Commodities/Reports/.../{date}/` | `pg.chain_analysis` | PostgreSQL | `node_chain` | OLTP |
-| 观澜技术面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.technical_scores` | PostgreSQL | `node_technical` | OLTP |
-| 探源基本面 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.fundamental_scores` | PostgreSQL | `node_fundamental` | OLTP |
-| 读心新闻情绪 | `Commodities/Reports/.../{date}/research_snapshots/` | `pg.sentiment_scores` | PostgreSQL | `node_sentiment` | OLTP |
-| 扫描阶段报告 | `{workspace}/{date}/scan_report_{trace_id}.html` | `pg.scan_signals` | HTML+JSON | `node_scan` (嵌入) | 文件+OLTP |
-| 研究阶段报告 | `{workspace}/{date}/research_report_{trace_id}.html` | - | HTML | `node_merge_research` | 文件 |
-| 裁决阶段报告 | `{workspace}/{date}/verdict_report_{trace_id}.html` | `pg.debate_verdicts` | HTML+JSON | `node_verdict` (嵌入) | 文件+OLTP |
-| 辩论阶段报告 | `{workspace}/{date}/debate_report_{date}.html` | - | HTML | `node_report` | 文件 |
-| CTP信号扫描报告 | `{workspace}/{date}/signal_report_{trace_id}.html` | - | HTML+JSON | `node_signal_output` | 文件 |
-| 辩论裁决 | `Commodities/Reports/.../{date}/debate_results.json` | `pg.debate_verdicts` | PostgreSQL | `node_verdict` | OLTP |
-| HTML 报告 | `Commodities/Reports/.../{date}/debate_results.html` | 保持不变 | HTML | `phase3_generate_report.py` | - |
+| 信号扫描结果 | `FDTWorkspace/{date}/full_scan_{date}.json` | `pg.scan_signals` | JSON | `node_scan` | 文件+OLTP |
+| 链证源分析 | `FDTWorkspace/{date}/` | `pg.chain_analysis` | PostgreSQL | `node_chain` | OLTP |
+| 观澜技术面 | `FDTWorkspace/{date}/` | `pg.technical_scores` | PostgreSQL | `node_technical` | OLTP |
+| 探源基本面 | `FDTWorkspace/{date}/` | `pg.fundamental_scores` | PostgreSQL | `node_fundamental` | OLTP |
+| 读心新闻情绪 | `FDTWorkspace/{date}/` | `pg.sentiment_scores` | PostgreSQL | `node_sentiment` | OLTP |
+| 扫描阶段报告 | `FDTWorkspace/{date}/scan_report_{trace_id}.html` | `pg.scan_signals` | HTML+JSON | `node_scan` (嵌入) | 文件+OLTP |
+| 研究阶段报告 | `FDTWorkspace/{date}/research_report_{trace_id}.html` | - | HTML | `node_merge_research` | 文件 |
+| 裁决阶段报告 | `FDTWorkspace/{date}/verdict_report_{trace_id}.html` | `pg.debate_verdicts` | HTML+JSON | `node_verdict` (嵌入) | 文件+OLTP |
+| 辩论阶段报告 | `FDTWorkspace/{date}/debate_report_{trace_id}.html` | - | HTML | `node_report` | 文件 |
+| CTP信号扫描报告 | `FDTWorkspace/{date}/signal_report_{trace_id}.html` | - | HTML+JSON | `node_signal_output` | 文件 |
+| 辩论裁决 | `FDTWorkspace/{date}/` | `pg.debate_verdicts` | PostgreSQL | `node_verdict` | OLTP |
+| HTML 报告 | `FDTWorkspace/{date}/debate_report_{trace_id}.html` | - | HTML | `node_report` | 文件 |
 | 辩论日志 | `memory/debate_journal.json` | `pg.langgraph_checkpoints` | PostgreSQL | Checkpointer | OLTP |
 | 裁决回溯 | `memory/execution_followup.json` | `pg.execution_followup` | PostgreSQL | `record_verdicts.py` | OLTP |
 | Agent 进化参数 | `memory/agent_profiles.json` | `pg.agent_profiles` | PostgreSQL | `evolve_agents.py` | OLTP |
 | 权重校准 | `memory/calibration.json` | `pg.calibration` | PostgreSQL | `calibrate_weights.py` | OLTP |
 | 验证统计 | `memory/validation_stats.json` | `pg.validation_stats` | PostgreSQL | `validate_verdicts.py` | OLTP |
 | 辩论索引 | `memory/debates/INDEX.md` | `pg.debate_index` | PostgreSQL | `debate_archiver.py` | OLTP |
-| DuckDB 数据 | `futures.db` | `pg.*` 表 + `pg.v_*` 视图 | PostgreSQL | `fdt_pg/` | OLTP+OLAP |
+| DuckDB 数据 | `futures.db`（已废弃） | `pg.*` 表 + `pg.v_*` 视图 | PostgreSQL | `fdt_pg/` | OLTP+OLAP |
 | 统一日志 | `logs/fdb_{date}.log` | `pg.log_entries` | PostgreSQL | `unified_logger.py` | OLTP |
 | Master Graph 心跳日志 | `memory/schedule_state.json` | `pg.scheduler_logs` | PostgreSQL | `fdt_langgraph/master_nodes.py` | OLTP |
 | 状态历史 | - | `pg.langgraph_checkpoints` | PostgreSQL | Checkpointer | OLTP |
@@ -520,7 +517,7 @@ class HookManager:
         │       ↓                                                        │
         │  P2 [judge_direction] 闫判官 ──→ 选品种+调度 (direction=neutral)│
         │       ↓                                                        │
-        │  P2.5 [prepare_one_symbol] FDC数据预采集 + 金十快讯精选         │
+        │  P2.5 [prepare_one_symbol] data_adapter 数据预采集 + 金十快讯精选         │
         │       ↓                                                        │
         │  ════ 逐品种循环开始 ════                                     │
         │  P3 ┌──── 四源并行 (LLM 推理, 300s超时跳过) ────┐              │
@@ -559,7 +556,7 @@ class HookManager:
 > - 编排方式: LangGraph StateGraph 图编排，状态通过 DebateState 内存传递 + Checkpointer 持久化
 > - P1: 数技源通道突破扫描（trend_following 唯一活跃 — 当前处于 Layer 0 通用阶段）
 > - P2: 闫判官调度 — 选品种 (direction=neutral) + 调度四源并行
-> - P2.5: FDC 数据预采集 — 逐品种采集 K线(默认120天)、计算技术指标、收集 F10 数据（期限结构/基差/价差/仓单/基本面/持仓排名），注入 DebateState 供后续分析使用。由 `FDT_FDC_INJECTION_ENABLED` 控制开关。**金十快讯精选在 P3 探源节点内部通过 `_build_jin10_context()` 调用，不属于 P2.5**
+> - P2.5: data_adapter 数据预采集 — 逐品种采集 K线(data_adapter/AKShareSource，默认120天)、计算技术指标、收集衍生数据（期限结构/基差/价差/仓单/基本面/持仓排名），注入 DebateState 供后续分析使用。由 `FDT_FDC_INJECTION_ENABLED` 控制开关。**金十快讯精选在 P3 探源节点内部通过 `_build_jin10_context()` 调用，不属于 P2.5**
 > - P3: 链证源/观澜/探源/读心四源并行 LLM 推理，任一源超时(300s)跳过
 > - P3 → P4: merge_research 后 fast 模式跳过辩论直达裁决，default 模式进入六阶段辩论
 > - P4: 六阶段攻防辩论串行（多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩）
@@ -592,7 +589,7 @@ Debate Graph 是 FDT 的核心辩论子图，由 `fdt_langgraph/graph.py` 构建
 │  [judge_direction:闫判官] ──→ 选品种+调度决策 (direction=neutral)          │
 │       │                                                                   │
 │       ▼                                                                   │
-│  [prepare_one_symbol] ──→ 提取当前品种 + FDC数据预采集 + 金十快讯精选      │
+│  [prepare_one_symbol] ──→ 提取当前品种 + data_adapter 数据预采集 + 金十快讯精选      │
 │       │                                                                   │
 │  ┌────┴──────────────────── 逐品种循环 ──────────────────────────────┐     │
 │  │  P3 ┌──── 四源并行 (LLM推理, 300s跳过) ────┐                      │     │
@@ -655,7 +652,7 @@ Debate Graph 是 FDT 的核心辩论子图，由 `fdt_langgraph/graph.py` 构建
 |:------|:---------|:-----|:---------|:-----|:-------|
 | 数技源 | `node_scan` | 通道突破扫描 (10子信号, trend_following) | 否 | P1 | 无 |
 | 闫判官 | `node_judge_direction` | 选品种+**调度决策** (direction=neutral) | 否 | P2 | **有** |
-| 数据准备 | `node_prepare_one_symbol` | 单品种FDC数据预采集 | 否 | P2.5 | 无 |
+| 数据准备 | `node_prepare_one_symbol` | 单品种 data_adapter 数据预采集 | 否 | P2.5 | 无 |
 | 链证源 | `node_chain` | 产业链关联分析 | **是**（与观澜、探源、读心并行） | P3 | 无 |
 | 观澜 | `node_technical` | 技术面分析 (LLM推理) | **是**（与链证源、探源、读心并行） | P3 | 无 |
 | 探源 | `node_fundamental` | 基本面分析 (LLM推理, 含金十快讯) | **是**（与链证源、观澜、读心并行） | P3 | 无 |

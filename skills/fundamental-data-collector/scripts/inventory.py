@@ -45,7 +45,7 @@ def query_inventory(symbol: str) -> dict:
         symbol: 品种代码
 
     Returns:
-        dict: 库存数据（绝对量+分位数+来源）
+        dict: 库存数据（绝对量+分位数+来源），含结构化元数据
     """
     sym = symbol.upper()
     base = _INVENTORY_CACHE.get(sym, {"info": f"无{sym}库存数据"})
@@ -53,4 +53,9 @@ def query_inventory(symbol: str) -> dict:
         base["seasonal"] = _SEASONAL_PERCENTILES[sym]
     base["_source"] = "探源自研库存数据库+季节性模型（数据截至2026-07-04）"
     base["_updated"] = "2026-07-04"
+
+    # Phase 3.1: 附加结构化元数据（不改变原始文本）
+    from scripts.structured_data import enrich_all_fields
+    enrich_all_fields(base, default_source=base["_source"])
+
     return base

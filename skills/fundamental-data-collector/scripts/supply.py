@@ -73,12 +73,17 @@ def query_supply(symbol: str) -> dict:
         symbol: 品种代码（大小写不敏感）
 
     Returns:
-        dict: 供给数据，含来源标注
+        dict: 供给数据，含来源标注和结构化元数据
     """
     sym = symbol.upper()
     base = _SUPPLY_CACHE.get(sym, {"info": f"无{sym}供给数据"})
     base["_source"] = _get_source(sym)
     base["_updated"] = "2026-07-04"
+
+    # Phase 3.1: 附加结构化元数据（不改变原始文本）
+    from scripts.structured_data import enrich_all_fields
+    enrich_all_fields(base, default_source=base["_source"])
+
     return base
 
 

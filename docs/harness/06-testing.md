@@ -495,7 +495,7 @@ python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-rep
 | 指标 | 数量 |
 |:-----|:-----|
 | 测试文件数 | 12 |
-| 测试用例总数 | 595 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 66 data_adapter/cleaning + 222 其他) |
+| 测试用例总数 | 623 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 66 data_adapter/cleaning + 28 structured_data + 222 其他) |
 | 测试通过率 | 100% |
 | conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
 | LangGraph 节点覆盖率 | 96% (nodes.py) |

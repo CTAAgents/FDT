@@ -29,10 +29,15 @@ def query_margin(symbol: str) -> dict:
         symbol: 品种代码
 
     Returns:
-        dict: 利润数据
+        dict: 利润数据，含结构化元数据
     """
     sym = symbol.upper()
     base = _MARGIN_CACHE.get(sym, {"info": f"无{sym}利润数据"})
     base["_source"] = "探源自研利润数据库（数据截至2026-07-04，来源Mysteel/隆众/卓创）"
     base["_updated"] = "2026-07-04"
+
+    # Phase 3.1: 附加结构化元数据（不改变原始文本）
+    from scripts.structured_data import enrich_all_fields
+    enrich_all_fields(base, default_source=base["_source"])
+
     return base

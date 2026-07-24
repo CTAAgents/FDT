@@ -10,6 +10,30 @@ from typing import Optional
 
 
 @dataclass
+class StructuredFundamentalMeta:
+    """基本面数据单字段的结构化元数据。
+
+    用于 ``fundamental-data-collector`` 的硬编码数据升级，
+    附加在每条文本值旁，供清洗层消费。
+
+    Attributes:
+        value: 数值（可清洗校验）
+        unit: 单位（如 "元/吨", "%", "万吨"）
+        direction: 趋势方向（"上升"/"下降"/"持平"）
+        data_date: 数据日期 YYYY-MM-DD
+        source: 数据来源（如 "Mysteel", "隆众资讯"）
+        revision: 版本号（初始 "v1"）
+    """
+
+    value: float | None = None
+    unit: str = ""
+    direction: str = ""
+    data_date: str = ""
+    source: str = ""
+    revision: str = "v1"
+
+
+@dataclass
 class CleaningAction:
     """单条清洗动作记录。"""
 

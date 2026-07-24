@@ -511,6 +511,7 @@ FDT 多个循环之间通过 handoff 消息协作，不共享状态：
 | `fdt_langgraph/nodes.py node_scan()` | §3.1 P1 | 数技源扫描节点 | `grep -n "async def node_scan"` |
 | `fdt_langgraph/nodes.py node_judge_direction()` | §3.2 P2 | 闫判官选品种+调度四源 | `grep -n "async def node_judge_direction"` |
 | `fdt_langgraph/nodes.py node_chain/technical/fundamental/sentiment` | §3.3 P2 | 四源并行节点 | `grep -n "async def node_chain\|async def node_technical\|async def node_fundamental\|async def node_sentiment"` |
+| `skills/fundamental-data-collector/scripts/structured_data.py` | §3.3 P2c | 结构化元数据注入（Phase 3.1） | `grep -n "def enrich_all_fields\|def enrich_with_meta"` |
 | `fdt_langgraph/nodes.py node_bullish_v1/node_bearish_v1` | §3.4 P3 | 六阶段辩论入口 | `grep -n "async def node_bullish_v1\|async def node_bearish_v1"` |
 | `fdt_langgraph/nodes.py node_verdict` | §3.5 P4 | 闫判官终裁节点 | `grep -n "async def node_verdict"` |
 | `fdt_langgraph/nodes.py node_quality_inspect` | §3.6 P3.5 | 品藻质检节点 | `grep -n "def node_quality_inspect"` |

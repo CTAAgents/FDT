@@ -142,5 +142,120 @@ class TestSKILLMd(unittest.TestCase):
         self.assertIn("version:", content)
 
 
+# ═══════════════════════════════════════════════════════════════
+#  数据结构化升级测试（Phase 3.1）
+# ═══════════════════════════════════════════════════════════════
+
+from scripts.structured_data import (
+    parse_numeric,
+    parse_unit,
+    detect_direction,
+    enrich_with_meta,
+    enrich_all_fields,
+)
+
+
+class TestStructuredDataParse(unittest.TestCase):
+    """结构化工具函数测试。"""
+
+    def test_parse_numeric_simple(self):
+        self.assertEqual(parse_numeric("80元/吨"), 80.0)
+
+    def test_parse_numeric_negative(self):
+        self.assertEqual(parse_numeric("-500元/吨"), -500.0)
+
+    def test_parse_numeric_decimal(self):
+        self.assertEqual(parse_numeric("36.5%"), 36.5)
+
+    def test_parse_numeric_none(self):
+        self.assertIsNone(parse_numeric("亏损加深"))
+
+    def test_parse_unit_yuan_per_ton(self):
+        self.assertEqual(parse_unit("80元/吨"), "元/吨")
+
+    def test_parse_unit_percent(self):
+        self.assertEqual(parse_unit("36.5%"), "%")
+
+    def test_parse_unit_wan_ton(self):
+        self.assertEqual(parse_unit("105万吨"), "万吨")
+
+    def test_parse_unit_empty(self):
+        self.assertEqual(parse_unit("亏损"), "")
+
+    def test_detect_direction_up(self):
+        self.assertEqual(detect_direction("上升"), "上升")
+        self.assertEqual(detect_direction("高位"), "上升")
+
+    def test_detect_direction_down(self):
+        self.assertEqual(detect_direction("下降"), "下降")
+        self.assertEqual(detect_direction("亏损"), "下降")
+
+    def test_detect_direction_flat(self):
+        self.assertEqual(detect_direction("中性"), "持平")
+
+    def test_enrich_with_meta_explicit(self):
+        data = enrich_with_meta({"利润": "80元/吨"}, "利润", value=80, unit="元/吨", direction="下降")
+        self.assertIn("_meta", data)
+        meta = data["_meta"]["利润"]
+        self.assertEqual(meta.value, 80)
+        self.assertEqual(meta.unit, "元/吨")
+        self.assertEqual(meta.direction, "下降")
+        self.assertEqual(meta.revision, "v1")
+
+    def test_enrich_with_meta_auto_parse(self):
+        data = enrich_with_meta({"开工率": "36.5%"}, "开工率")
+        meta = data["_meta"]["开工率"]
+        self.assertEqual(meta.value, 36.5)
+        self.assertEqual(meta.unit, "%")
+
+    def test_enrich_with_meta_no_numeric(self):
+        data = enrich_with_meta({"趋势": "低位"}, "趋势")
+        self.assertIn("_meta", data)
+        meta = data["_meta"]["趋势"]
+        self.assertIsNone(meta.value)
+
+    def test_enrich_all_fields(self):
+        raw = {
+            "开工率": "78%",
+            "库存": "105万吨",
+            "_source": "隆众资讯",
+            "_updated": "2026-07-04",
+        }
+        data = enrich_all_fields(raw)
+        self.assertIn("_meta", data)
+        self.assertIn("开工率", data["_meta"])
+        self.assertIn("库存", data["_meta"])
+        self.assertEqual(data["_meta"]["开工率"].value, 78.0)
+        self.assertEqual(data["_meta"]["库存"].value, 105.0)
+        # 原始文本不变
+        self.assertEqual(data["开工率"], "78%")
+
+
+class TestStructuredDataIntegration(unittest.TestCase):
+    """集成测试：query_* 函数返回的数据结构。"""
+
+    def test_supply_has_source(self):
+        from scripts.supply import query_supply
+        result = query_supply("PK")
+        self.assertIn("_source", result)
+
+    def test_demand_has_source(self):
+        from scripts.demand import query_demand
+        result = query_demand("PK")
+        self.assertIn("_source", result)
+
+    def test_inventory_has_source(self):
+        from scripts.inventory import query_inventory
+        result = query_inventory("RB")
+        self.assertIn("_source", result)
+        self.assertIn("_updated", result)
+
+    def test_margin_has_source(self):
+        from scripts.margin import query_margin
+        result = query_margin("RB")
+        self.assertIn("_source", result)
+        self.assertIn("_updated", result)
+
+
 if __name__ == "__main__":
     unittest.main()
