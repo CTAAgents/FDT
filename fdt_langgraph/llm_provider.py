@@ -15,7 +15,7 @@ FDT_ROOT = Path(__file__).resolve().parent.parent
 
 # 默认配置
 DEFAULT_API_BASE = "https://api.deepseek.com/v1"
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-v4-flash"
 
 # Mock 模式
 MOCK_MODE = os.environ.get("FDT_LLM_MOCK", "").lower() in ("1", "true", "yes")

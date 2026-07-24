@@ -1,0 +1,38 @@
+# 统计口径变更事件库（交易所/监管规则调整）
+# 由 `data_adapter/cleaning/fundamental.py` 的 `_load_caliber_changes()` 动态加载
+# 格式：每项为 caliber change 事件
+#   date: YYYY-MM-DD
+#   symbol: 品种代码
+#   field: 变更字段（margin_rate / tick_size / trading_limit / delivery_standard）
+#   description: 变更描述
+#   exchange: 交易所代码（SZ=深交所/SH=上交所/ZCE=郑商所/DCE=大商所/SHFE=上期所/GFEX=广期所/CFFEX=中金所）
+
+- date: "2023-08-04"
+  symbol: "SA"
+  field: "margin_rate"
+  description: "纯碱保证金率从 9% 调至 12%"
+  exchange: "ZCE"
+
+- date: "2023-09-08"
+  symbol: "SA"
+  field: "margin_rate"
+  description: "纯碱保证金率从 12% 调至 15%"
+  exchange: "ZCE"
+
+- date: "2023-10-13"
+  symbol: "LC"
+  field: "tick_size"
+  description: "碳酸锂最小变动价位从 50 调至 10 元/吨"
+  exchange: "GFEX"
+
+- date: "2024-01-10"
+  symbol: "LC"
+  field: "margin_rate"
+  description: "碳酸锂保证金率从 12% 调至 15%"
+  exchange: "GFEX"
+
+- date: "2024-04-17"
+  symbol: "SI"
+  field: "trading_limit"
+  description: "工业硅涨跌停板从 6% 调至 7%"
+  exchange: "GFEX"

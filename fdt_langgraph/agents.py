@@ -152,7 +152,7 @@ class FdtAgentExecutor:
         # 逐Agent LLM 配置（动态解析，支持环境变量在运行时修改）
         api_key = self._resolve_llm_config("API_KEY", os.environ.get("FDT_LLM_API_KEY"))
         api_base = self._resolve_llm_config("API_BASE", os.environ.get("FDT_LLM_API_BASE", "https://api.deepseek.com/v1"))
-        model = self._resolve_llm_config("MODEL", os.environ.get("FDT_LLM_MODEL", "deepseek-chat"))
+        model = self._resolve_llm_config("MODEL", os.environ.get("FDT_LLM_MODEL", "deepseek-v4-flash"))
 
         logger.debug(f"[LLM] Agent={self.agent_name}, API_BASE={api_base}, "
                      f"API_KEY present: {bool(api_key)}, len={len(api_key) if api_key else 0}")

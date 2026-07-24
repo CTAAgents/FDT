@@ -137,3 +137,78 @@ def format_fundamentals_summary(symbol: str) -> str:
         lines.append(f"    · ... 还有 {info['huishang_count'] - 10} 个主题")
     lines.append(f"╚{'═'*30}╝")
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  DuckDB-first 查询（Phase 3.2）
+# ═══════════════════════════════════════════════════════════════
+
+# 数据类型到 category 关键词的映射
+_DATA_TYPE_CATEGORY = {
+    "inventory": {"库存", "仓单", "社库", "厂库", "港口"},
+    "supply": {"产量", "开工率", "进口", "到港", "产能"},
+    "demand": {"需求", "消费", "订单", "提货", "出口"},
+    "margin": {"利润", "加工费", "毛利", "亏损"},
+}
+
+
+def query_duckdb_first(
+    symbol: str,
+    data_type: str,
+    max_results: int = 5,
+) -> tuple[Optional[list], Optional[str]]:
+    """DuckDB 优先查询 — 按数据类型搜索主题，获取最新数据点。
+
+    Args:
+        symbol: 品种代码（如 "RB"）。
+        data_type: 数据类型（"supply" / "demand" / "inventory" / "margin"）。
+        max_results: 最大返回主题数。
+
+    Returns:
+        (data_points_list, summary_text) — DuckDB 有数据时返回列表 + 摘要，
+        无数据时返回 (None, None) 供 caller fallback。
+    """
+    cn_name = VARIETY_CN_MAP.get(symbol.upper())
+    if not cn_name:
+        return None, None
+
+    keywords = _DATA_TYPE_CATEGORY.get(data_type, set())
+    if not keywords:
+        return None, None
+
+    topics = huishang_search(cn_name)
+    if not topics:
+        return None, None
+
+    # 筛选匹配数据类型关键词的主题
+    matched = []
+    for t in topics:
+        name = t.get("name", "")
+        for kw in keywords:
+            if kw in name:
+                matched.append(t)
+                break
+
+    if not matched:
+        return None, None
+
+    # 获取最新数据点
+    all_points = []
+    for t in matched[:max_results]:
+        points = huishang_data_points(t["id"])
+        if points:
+            # 只保留最新一条
+            latest = max(points, key=lambda p: str(p.get("date_label", "")))
+            latest["topic_name"] = t["name"]
+            latest["source"] = t.get("source", "huishang")
+            all_points.append(latest)
+
+    if not all_points:
+        return None, None
+
+    summary_parts = [f"{cn_name}-{data_type}: {len(matched)} 个数据主题"]
+    for p in all_points[:3]:
+        summary_parts.append(f"{p.get('topic_name','?')}={p.get('value','?')}")
+    summary = " | ".join(summary_parts)
+
+    return all_points, summary

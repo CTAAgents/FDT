@@ -147,11 +147,11 @@ def _run_langgraph_debate(workspace: str, scan_json: str, threshold: int, trace_
         return 0
 
     async def _run():
-        state = create_initial_state(trace_id, mode="default")
+        state = create_initial_state(trace_id, mode="fast")
         state["scan_results"] = scan_results
         state["selected_symbols"] = trigger_symbols
 
-        graph = build_debate_graph_no_checkpoint(mode="default")
+        graph = build_debate_graph_no_checkpoint(mode="fast")
         config = {"configurable": {"thread_id": trace_id}}
 
         final_state = await graph.ainvoke(state, config=config)
@@ -536,9 +536,9 @@ def build_parser() -> argparse.ArgumentParser:
     # ── LangGraph 模式 ──
     p_lg = sub.add_parser("langgraph",
                           help="LangGraph 图编排模式：使用声明式图定义运行完整辩论流水线")
-    p_lg.add_argument("--mode", default="default",
+    p_lg.add_argument("--mode", default="fast",
                       choices=["default", "fast", "deep_research", "tournament"],
-                      help="LangGraph 模式: default(默认) / fast(跳过辩论) / deep_research(深度研究) / tournament(锦标赛)")
+                      help="LangGraph 模式: default(深度研究) / fast(默认,跳过辩论) / deep_research / tournament")
     p_lg.add_argument("--symbols", default=None,
                       help="指定辩论品种（逗号分隔），默认自动扫描")
     p_lg.add_argument("--trace-id", default=None,
@@ -702,7 +702,7 @@ def main() -> int:
             print(f"⛔ LangGraph 模块不可用: {e}")
             return 1
 
-        mode = getattr(args, "mode", "default")
+        mode = getattr(args, "mode", "fast")
         symbols = getattr(args, "symbols", None)
         trace_id = getattr(args, "trace_id", None)
 

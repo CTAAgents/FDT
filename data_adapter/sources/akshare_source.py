@@ -341,7 +341,19 @@ class AKShareSource(DataSource):
             if fn is None:
                 return self._unavailable_dict(f"AKShare 无此函数: {fn_name}")
 
-            df = fn()
+            result = fn()
+            # akshare SHFE 仓单接口返回 dict[str, DataFrame]（品种名→数据表）
+            if isinstance(result, dict):
+                frames = []
+                for variety, frame in result.items():
+                    if isinstance(frame, pd.DataFrame) and not frame.empty:
+                        frame = frame.copy()
+                        if "品种" not in frame.columns:
+                            frame["品种"] = variety
+                        frames.append(frame)
+                df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+            else:
+                df = result
             if df is None or (isinstance(df, pd.DataFrame) and df.empty):
                 return self._unavailable_dict(f"{exchange} 仓单数据为空")
 
@@ -460,12 +472,26 @@ class AKShareSource(DataSource):
 
             # 交易所判断：尝试 SHFE → DCE → GFEX
             for exchange, fn_name in _POSITION_FN_MAP.items():
-                fn = getattr(ak, fn_name, None)
-                if fn is None:
-                    continue
+                try:
+                    fn = getattr(ak, fn_name, None)
+                    if fn is None:
+                        continue
 
-                df = fn()
-                if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+                    result = fn()
+                    # 兼容 dict 返回（GFEX 等接口）
+                    if isinstance(result, dict):
+                        frames = []
+                        for variety, frame in result.items():
+                            if isinstance(frame, pd.DataFrame) and not frame.empty:
+                                frame = frame.copy()
+                                frames.append(frame)
+                        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+                    else:
+                        df = result
+                    if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+                        continue
+                except Exception as inner_e:
+                    logger.warning("[AKShareSource] get_position_ranking 跳过 %s: %s", exchange, inner_e)
                     continue
 
                 sym_col = self._find_column(

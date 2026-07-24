@@ -127,7 +127,7 @@ line-length = 120
 | `FDT_DIRECT_DEBATE` | `false` | 设为 `true` 时跳过 P1 扫描阶段，直接从 `fdt_cache/` 加载缓存数据进入指定品种辩论模式 | `fdt_langgraph/graph.py` |
 | `FDT_DEBATE_SYMBOLS` | (未设置) | 指定辩论品种列表，逗号分隔（如 `SF,SM,SC`）；仅当 `FDT_DIRECT_DEBATE=true` 时生效 | `fdt_langgraph/graph.py` |
 | `FDT_DATA_SOURCE` | `fdc` | 数据源选择：`fdc`=futures_data_core 包（默认），`datacore`=datacore.fdc_compat 包。通过 `data_source_adapter.py` 统一适配层切换所有消费者的数据路由 | `data_source_adapter.py` |
-| `FDT_DATA_CLEANING_ENABLED` | `true` / `false` | `true` | 数据清洗层开关。开启时对原始 K 线执行 OHLC 校验、去重、毛刺修复、前复权处理、期货专项清洗（交割月过滤+涨跌停标记）。 | `data_adapter/sources/akshare_source.py` |
+| `FDT_DATA_CLEANING_ENABLED` | `true` / `false` | `true` | 数据清洗层开关。开启时对原始 K 线执行 OHLC 校验、去重、毛刺修复、前复权处理、期货专项清洗（交割月过滤+涨跌停标记），以及基本面快照清洗（缺失字段/值校验/新鲜度/口径变更/修订追踪）。 | `data_adapter/sources/akshare_source.py` |
 | `FDT_CACHE_DIR` | `{FDT_ROOT}/memory/` | 本地 SQLite 缓存数据库目录，存放按品种+数据类型持久化的 K 线/基本面/基差数据缓存文件 | `fdt_cache/` 模块 |
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |

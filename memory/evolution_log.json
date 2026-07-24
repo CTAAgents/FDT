@@ -178,5 +178,35 @@
     "decisions": {},
     "step_results": {},
     "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-24T23:57:54.872290",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-25T00:10:47.118024",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-25T00:23:22.615711",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
   }
 ]

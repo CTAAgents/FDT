@@ -162,7 +162,7 @@ def _get_current_symbol(state: DebateState) -> str:
 def _get_p3_node_names(mode: str) -> list[str]:
     """根据 mode 返回需要激活的四源节点列表"""
     p3 = []
-    _full = {"default", "deep_research", "tournament"}
+    _full = {"default", "deep_research", "tournament", "fast"}
     if mode in _full or "chain" in mode:
         p3.append("chain")
     if mode in _full or "technical" in mode:
@@ -340,7 +340,7 @@ def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
 
 # ==================== 公开构建函数 ====================
 
-def build_debate_graph(mode: str = "default") -> StateGraph:
+def build_debate_graph(mode: str = "fast") -> StateGraph:
     graph = StateGraph(DebateState)
     _register_per_symbol_loop(graph, mode)
 
@@ -357,11 +357,11 @@ def build_debate_graph_with_profile(profile: str = "default") -> StateGraph:
         "deep_research": "deep_research",
         "tournament": "default",
     }
-    mode = PROFILE_MODES.get(profile, "default")
+    mode = PROFILE_MODES.get(profile, "fast")
     return build_debate_graph(mode=mode)
 
 
-def build_debate_graph_no_checkpoint(mode: str = "default") -> StateGraph:
+def build_debate_graph_no_checkpoint(mode: str = "fast") -> StateGraph:
     graph = StateGraph(DebateState)
 
     direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"

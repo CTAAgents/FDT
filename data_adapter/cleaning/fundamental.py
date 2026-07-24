@@ -13,15 +13,36 @@ Phase 3 of the cleaning pipeline.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from data_adapter.types import CleaningAction, CleaningReport
 
-# ── 已知的统计口径变更事件（交易所规则调整） ──
-# 格式：YYYY-MM-DD 字段名 描述
-_KNOWN_CALIBER_CHANGES: list[dict] = [
+# ── 口径变更 YAML 路径 ──
+_CALIBER_YAML_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "docs", "harness", "_data", "caliber_changes.yaml",
+)
+
+
+def _load_caliber_changes() -> list[dict]:
+    """从 YAML 文件加载口径变更事件，无法加载时返回空列表。"""
+    try:
+        import yaml
+        path = os.path.abspath(_CALIBER_YAML_PATH)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+                if isinstance(data, list):
+                    return data
+    except Exception:
+        pass
+    return _FALLBACK_CALIBER_CHANGES
+
+
+# ── 硬编码后备（YAML 加载失败时使用） ──
+_FALLBACK_CALIBER_CHANGES: list[dict] = [
     {"date": "2023-08-04", "field": "margin_rate", "symbol": "SA",
      "description": "纯碱保证金率从 9% 调至 12%"},
     {"date": "2023-09-08", "field": "margin_rate", "symbol": "SA",
@@ -284,6 +305,7 @@ def detect_caliber_change(
 ) -> tuple[dict, list[CleaningAction]]:
     """检测已知的统计口径变更。
 
+    从 ``docs/harness/_data/caliber_changes.yaml`` 动态加载事件列表。
     检查当前品种是否有已知的规则调整事件。
     """
     actions: list[CleaningAction] = []
@@ -293,8 +315,9 @@ def detect_caliber_change(
         return result, actions
 
     bare = symbol.upper().rstrip("0123456789")
+    changes = _load_caliber_changes()
 
-    for change in _KNOWN_CALIBER_CHANGES:
+    for change in changes:
         sym_match = change.get("symbol", "")
         if bare in sym_match or sym_match in bare:
             actions.append(CleaningAction(

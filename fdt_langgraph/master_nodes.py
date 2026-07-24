@@ -385,8 +385,8 @@ def node_run_daily_debate(state: dict) -> dict:
 
     trace_id = f"master-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     try:
-        initial = create_initial_state(trace_id, "default")
-        graph = build_debate_graph(mode="default")
+        initial = create_initial_state(trace_id, "fast")
+        graph = build_debate_graph(mode="fast")
         import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

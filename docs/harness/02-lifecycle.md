@@ -512,6 +512,9 @@ FDT 多个循环之间通过 handoff 消息协作，不共享状态：
 | `fdt_langgraph/nodes.py node_judge_direction()` | §3.2 P2 | 闫判官选品种+调度四源 | `grep -n "async def node_judge_direction"` |
 | `fdt_langgraph/nodes.py node_chain/technical/fundamental/sentiment` | §3.3 P2 | 四源并行节点 | `grep -n "async def node_chain\|async def node_technical\|async def node_fundamental\|async def node_sentiment"` |
 | `skills/fundamental-data-collector/scripts/structured_data.py` | §3.3 P2c | 结构化元数据注入（Phase 3.1） | `grep -n "def enrich_all_fields\|def enrich_with_meta"` |
+| `fdt_langgraph/nodes.py node_prepare_data` | §2.5 P2.5 | 基本面清洗激活 + 数据质量警告注入 | `grep -n "clean_fundamental_data\|quality_warnings"` |
+| `data_adapter/cleaning/fundamental.py _load_caliber_changes()` | §3.3 P2c | 口径变更 YAML 动态加载 | `grep -n "def _load_caliber_changes"` |
+| `docs/harness/_data/caliber_changes.yaml` | §3.3 P2c | 口径变更事件库 | `grep "^\- date:"` |
 | `fdt_langgraph/nodes.py node_bullish_v1/node_bearish_v1` | §3.4 P3 | 六阶段辩论入口 | `grep -n "async def node_bullish_v1\|async def node_bearish_v1"` |
 | `fdt_langgraph/nodes.py node_verdict` | §3.5 P4 | 闫判官终裁节点 | `grep -n "async def node_verdict"` |
 | `fdt_langgraph/nodes.py node_quality_inspect` | §3.6 P3.5 | 品藻质检节点 | `grep -n "def node_quality_inspect"` |

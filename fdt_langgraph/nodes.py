@@ -913,6 +913,14 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     if na_symbols:
         logger.warning(f"[FDC] 指标 N/A 或质量 D 级品种: {na_symbols} — 这些品种的裁决/分析可能依赖 FDC 回退数据")
 
+    # ── Phase 3.3+3.7: 基本面清洗激活 ──
+    try:
+        from data_adapter.cleaning import clean_fundamental_data
+        cleaning_enabled = os.environ.get("FDT_DATA_CLEANING_ENABLED", "true").lower() == "true"
+        fdc_data = clean_fundamental_data(fdc_data, cleaning_enabled=cleaning_enabled)
+    except Exception:
+        pass  # cleaning layer unavailable, continue without
+
     return {
         **state,
         "fdc_data": fdc_data,
@@ -1207,6 +1215,27 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
         all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
         if all_ranked:
             lines.extend(_build_scan_signal_table(all_ranked, symbols))
+
+    # ── Phase 3.7: 清洗质量警告注入（探源 Agent 数据质量感知） ──
+    for symbol in symbols:
+        sym_data = fdc_data.get(symbol) or fdc_data.get(symbol.upper()) or fdc_data.get(symbol.lower())
+        if not sym_data:
+            continue
+        quality_warnings = []
+        for dtype in ("basis", "warrant", "position_ranking", "fund_flow"):
+            field = sym_data.get(dtype, {})
+            cleaning = field.get("_cleaning") if isinstance(field, dict) else None
+            if cleaning and cleaning.get("total_actions", 0) > 0:
+                for act in cleaning.get("actions", []):
+                    if act.get("action") == "marked" and "stale" in act.get("reason", ""):
+                        quality_warnings.append(f"  ⏳ {dtype} 数据过期: {act['reason']}")
+                    if act.get("action") == "marked" and "caliber" in act.get("reason", ""):
+                        quality_warnings.append(f"  🔧 {dtype} 口径变更: {act['reason']}")
+                    if act.get("action") == "marked" and "missing" in act.get("reason", ""):
+                        quality_warnings.append(f"  ⚠️ {dtype} 字段缺失: {act['reason']}")
+        if quality_warnings:
+            lines.append(f"\n【{symbol}】数据质量提示")
+            lines.extend(quality_warnings[:4])  # 最多 4 条
 
     # ── G-6D-06: vector_memory 历史记忆注入 ──
     try:

@@ -25,7 +25,7 @@ def generate_trace_id() -> str:
     return f"fdt-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
 
 
-async def run_debate(mode: str = "default", run_evolution: bool = False) -> DebateState:
+async def run_debate(mode: str = "fast", run_evolution: bool = False) -> DebateState:
     from memory.manager import init_memory
     init_memory()
 
@@ -116,7 +116,8 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="Run a single debate")
-    run_parser.add_argument("--mode", choices=["default", "fast", "deep_research", "tournament"], default="default")
+    run_parser.add_argument("--mode", choices=["default", "fast", "deep_research", "tournament"], default="fast",
+                            help="执行模式: default(深度研究) / fast(默认,跳过辩论) / deep_research / tournament")
     run_parser.add_argument("--evolve", action="store_true", help="Run evolution after debate")
 
     daemon_parser = subparsers.add_parser("daemon", help="Run as daemon (LangGraph Master Graph)")

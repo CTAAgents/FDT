@@ -1,6 +1,6 @@
 # FDT 执行模式流程图
 
-> v4.6 | 2026-07-22 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源/读心) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式 | 闫判官(含交易参数)，新增 signal_output(CTP)
+> v4.7 | 2026-07-24 | 数技源信号生产 + 闫判官判断调度(链证源/观澜/探源/读心) + 多空头辩论 + 资源管控 + 生命周期 → 8种执行模式 + LangGraph 图编排模式 | 闫判官(含交易参数)，新增 signal_output(CTP)
 
 ---
 
@@ -285,8 +285,23 @@ curl -X POST http://localhost:8000/api/v1/debate \
 
 | 参数 | 选项 | 说明 |
 |:-----|:-----|:-----|
-| `FDT_LANGGRAPH_MODE` | `default`/`fast`/`deep_research`/`tournament` | 执行模式 |
+| `FDT_LANGGRAPH_MODE` | `default`(深度研究) / **`fast`(默认)** / `deep_research` / `tournament` | 执行模式（v9.23.0 起默认 `fast`） |
 | `FDT_CHECKPOINTER` | `sqlite`/`pg` | Checkpointer 后端（默认 sqlite） |
+
+### 模式选择建议（面向用户）
+
+选择合适的执行模式，取决于你的使用场景：
+
+| 使用场景 | 推荐模式 | 原因 |
+|:---------|:---------|:-----|
+| **定时自动化任务、全量扫描** | **`fast`（默认）** | 跳过 P4 六阶段辩论，仅执行 P3 四源研究 + P5 直接裁决，节省 ~40% 运行时间。**系统全局默认为此模式，无需手动指定。** |
+| **指定品种深度分析**（如人工复核信号） | `default` / `deep_research` | 完整执行 P4 多空六阶段攻防辩论（立论→反驳→结辩×2），获得更充分的多空交叉质询论证。需显式指定 `--mode default` 或 `--mode deep_research`。 |
+| **快速试验 / 调试** | `fast`（默认） | 最低 LLM 开销，快速验证流程是否正常。 |
+| **锦标赛多品种对比** | `tournament` | 等价于 `default`，保留全流程辩论。 |
+
+> 注意：
+> - `fast` 是系统全局默认模式（v9.23.0+）。所有入口（CLI、API、定时任务、Master Graph）默认走 `fast`，**除非用户特别指定 `--mode default` 或 `--mode deep_research`**。
+> - `fast` 模式因跳过辩论环节，终裁结论缺少多空直接交锋的论证深度，**不可作为实盘唯一决策依据**，建议人工复核后再执行。
 
 ### LangGraph vs 传统模式对比
 
@@ -564,4 +579,4 @@ flowchart LR
 > **v9.6.8 变更**：P1 产出新增 `all_ranked[].stats` 纯统计特征对象（MA/ATR/RSI/ADX/量能比/通道位置）。P1.5 闸门从"方向性信号过滤"改为"数据质量闸门"（检查stats完整性、K线数量、流动性）。P2 闫判官优先消费 stats 做独立判断，P1 的 direction/total/grade 降级为参考。详见 `01-architecture.md` P1角色矫正章节。
 
 
-*文档版本 v4.5 | 2026-07-17 | FDT v8.7.0 | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源) | 闫判官(含交易参数) | 新增 signal_output(CTP)*
+*文档版本 v4.7 | 2026-07-24 | FDT v9.x | 明鉴秋全程资源管控 + 生命周期管理 | 闫判官判断调度(链证源/观澜/探源) | 闫判官(含交易参数) | 新增 signal_output(CTP)*

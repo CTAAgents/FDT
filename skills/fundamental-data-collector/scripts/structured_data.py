@@ -102,6 +102,97 @@ def enrich_with_meta(
     return data
 
 
+# ═══════════════════════════════════════════════════════════════
+#  清洗对接（Phase 3.3）
+# ═══════════════════════════════════════════════════════════════
+
+def apply_fundamental_cleaning(
+    data: dict,
+    data_type: str,
+    symbol: str = "",
+) -> tuple[dict, Optional[dict]]:
+    """对基本面数据应用清洗管线。
+
+    将 query_* 返回的数据包装为 ``clean_fundamental_snapshot()`` 可消费的格式，
+    执行清洗后返回清洗后的数据和清洗报告。
+
+    Args:
+        data: query_* 返回的原始数据（含 ``_meta``）。
+        data_type: 数据类型（\"inventory\" / \"supply\" / \"demand\" / \"margin\"）。
+        symbol: 品种代码。
+
+    Returns:
+        (cleaned_data, cleaning_summary) — 清洗后的数据和清洗摘要。
+        清洗不可用时返回 (data, None)。
+    """
+    try:
+        from data_adapter.cleaning.fundamental import clean_fundamental_snapshot
+
+        # 包装为标准格式
+        wrapper = {
+            "data": {
+                "_meta": data.get("_meta", {}),
+                "source": data.get("_source", ""),
+            },
+            "data_grade": "PRIMARY",
+        }
+
+        cleaned, report = clean_fundamental_snapshot(wrapper, data_type, symbol=symbol)
+
+        if report.total_actions > 0:
+            summary = {
+                "total_actions": report.total_actions,
+                "actions": [
+                    {"action": a.action, "field": a.field, "reason": a.reason}
+                    for a in report.actions[:5]  # 最多 5 条
+                ],
+            }
+            data["_cleaning"] = summary
+            if "_caliber_warnings" in cleaned:
+                data["_caliber_warnings"] = cleaned["_caliber_warnings"]
+            return data, summary
+
+    except ImportError:
+        pass  # cleaning module not available
+    except Exception:
+        pass  # cleaning failed
+
+    return data, None
+
+
+# ═══════════════════════════════════════════════════════════════
+#  时间对齐层（Phase 3.4）
+# ═══════════════════════════════════════════════════════════════
+
+def align_to_timeline(
+    data: dict,
+    target_dates: Optional[list[str]] = None,
+    method: str = "ffill",
+) -> dict:
+    """将低频率基本面数据对齐到日 K 线时间轴。
+
+    由于当前数据为硬编码快照（单期），此函数返回包含对齐元信息的包装，
+    后续接入 DuckDB 多期时序数据后可启用真实对齐。
+
+    Args:
+        data: query_* 返回的数据（含 ``_meta`` / ``_updated``）。
+        target_dates: 目标 K 线日期序列（当前未使用，预留）。
+        method: 对齐方法（\"ffill\" 前向填充 / \"interp\" 线性插值）。
+
+    Returns:
+        添加 ``_timeline`` 元信息后的数据。
+    """
+    updated = str(data.get("_updated", ""))
+    data["_timeline"] = {
+        "aligned": False,
+        "method": method,
+        "data_date": updated,
+        "target_count": len(target_dates) if target_dates else 0,
+        "note": "single snapshot - multi-period data required for true alignment",
+    }
+    return data
+
+
 def enrich_all_fields(
     data: dict,
     default_date: str = "2026-07-04",

@@ -24,7 +24,7 @@ _running_tasks = {}
 
 
 class DebateRequest(BaseModel):
-    mode: Literal["default", "fast", "deep_research", "tournament"] = "default"
+    mode: Literal["default", "fast", "deep_research", "tournament"] = "fast"
     trace_id: Optional[str] = None
 
 

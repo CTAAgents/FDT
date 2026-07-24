@@ -92,7 +92,7 @@ class DebateState(TypedDict, total=False):
     quality_metrics: Optional[dict]         # 自优化指标 QualityMetrics
 
 
-def create_initial_state(trace_id: str, mode: str = "default") -> DebateState:
+def create_initial_state(trace_id: str, mode: str = "fast") -> DebateState:
     return DebateState(
         trace_id=trace_id,
         timestamp=datetime.now(),

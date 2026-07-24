@@ -1231,8 +1231,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="FDT 辩论主动驱动层")
     # v9.23.0: 顶层参数 — 无子命令时默认走 langgraph
     ap.add_argument("--symbols", default=None, help="指定辩论品种（逗号分隔），默认自动扫描")
-    ap.add_argument("--mode", default="default", choices=["default", "fast", "deep_research", "tournament"],
-                    help="LangGraph 模式: default/fast/deep_research/tournament")
+    ap.add_argument("--mode", default="fast", choices=["default", "fast", "deep_research", "tournament"],
+                    help="LangGraph 模式: default/深度研究 / fast(默认,跳过辩论) / deep_research / tournament(锦标赛)")
     ap.add_argument("--trace-id", default=None, help="指定 trace_id（默认自动生成）")
     sub = ap.add_subparsers(dest="cmd")
 
@@ -1300,9 +1300,9 @@ def main() -> None:
     p_lg = sub.add_parser("langgraph", help="LangGraph 模式：使用图编排运行完整辩论流水线")
     p_lg.add_argument("--symbols", default=None,
                       help="指定辩论品种（逗号分隔），默认自动扫描")
-    p_lg.add_argument("--mode", default="default",
+    p_lg.add_argument("--mode", default="fast",
                       choices=["default", "fast", "deep_research", "tournament"],
-                      help="LangGraph 模式: default(默认) / fast(跳过辩论) / deep_research(深度研究) / tournament(锦标赛)")
+                      help="LangGraph 模式: default/深度研究 / fast(默认,跳过辩论) / deep_research / tournament(锦标赛)")
     p_lg.add_argument("--trace-id", default=None,
                       help="指定 trace_id（默认自动生成）")
 
@@ -1311,9 +1311,9 @@ def main() -> None:
     if args.cmd is None:
         args.cmd = "langgraph"
         args.symbols = None
-        args.mode = "default"
+        args.mode = "fast"
         args.trace_id = None
-        print("🤖 默认模式: LangGraph 图编排")
+        print("🤖 默认模式: LangGraph 图编排 (fast)")
         print("   其他子命令: plan / finalize / debate / extract / report / validate / a2a / repair")
     # 归一化路径（Git Bash /d/… → D:\…）
     if getattr(args, 'workspace', None):
