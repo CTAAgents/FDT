@@ -2,6 +2,7 @@
 
 > **v9.22.3** (2026-07-23): 实现 P0b 数据新鲜度闸门节点 (node_freshness_gate) + D06 降级路由。
 > 修复 scan_all.py data_grade_label 整数vs字符串比较 bug。详见 `docs/harness/07-operations.md#版本历史`。
+> **v9.23.1** (2026-07-24): 数据源优先级变更 — TqSDK=0(第一), TDX/DataCore=1(第二), WebFallback=2, QMT=3。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 

@@ -196,15 +196,15 @@ FDT 通过四个独立的 LangGraph 子图分别管理不同职责，由 Master 
 
 ### 2.5 数据降级链
 
-数据源优先级（自动降级）：
+数据源优先级（自动降级，按 `select_by_priority` 升序排序）：
 
 | 优先级 | 采集器 | 说明 |
 |:------:|:-------|:------|
-| 0 | DataCoreCollector | Data-Core 统一数据接口（最高优先级） |
+| 0 | TqSdkCollector | 天勤量化（第一数据源，优先提供K线+技术指标） |
 | 1 | TDXCollector | 通达信本地 TQ-Local |
+| 1 | DataCoreCollector | Data-Core 统一数据接口（同 TDX 优先级） |
 | 2 | WebFallbackCollector | 东方财富+新浪 |
 | 3 | QMTCollector | QMT/xtquant |
-| 4 | TqSdkCollector | 天勤量化（末位兜底，关闭偶发挂死已由超时保护） |
 
 **熔断机制**: 每个采集器独立熔断器，连续失败 5 次后自动屏蔽，冷却时间 60 秒。
 状态机：CLOSED（放行）→ OPEN（屏蔽 60s）→ HALF_OPEN（探测）→ CLOSED/OPEN

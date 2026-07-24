@@ -195,7 +195,7 @@ def _write_scan_report(trace_id: str, scan_results: dict, output_dir: Path) -> s
             direction = "BUY" if raw_dir in ("bull", "BUY", "buy") else "SELL" if raw_dir in ("bear", "SELL", "sell") else "HOLD"
             total = item.get("total", 0)
             adx = item.get("adx", 0)
-            rsi = item.get("rsi", 50)
+            rsi = item.get("rsi") or 0
             price = item.get("price", 0)
             atr = item.get("atr", 0)
             stage = item.get("stage", "")
@@ -614,7 +614,7 @@ async def node_judge_direction(state: DebateState) -> DebateState:
             stats_lines.append(
                 f"  {sym}: 收盘={st.get('latest_close',0)} ({st.get('change_pct',0):+.2f}%), "
                 f"MA20={st.get('ma_20',0)}, MA60={st.get('ma_60',0)}, 排列={st.get('ma_align','?')}, "
-                f"ATR={st.get('atr_14',0)}, RSI={st.get('rsi_14',50)}, ADX={st.get('adx_14',25)}, "
+                f"ATR={st.get('atr_14',0)}, RSI={st.get('rsi_14','N/A')}, ADX={st.get('adx_14',25)}, "
                 f"+DI={st.get('di_plus',0)}, -DI={st.get('di_minus',0)}, "
                 f"量={st.get('volume',0)}(比20均={st.get('volume_ma20_ratio',0)}x), "
                 f"持仓={st.get('oi',0)}(增={st.get('oi_change',0)}), "
@@ -2741,6 +2741,17 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "score": abs(total),
             })
     actionable_signals.sort(key=lambda x: x["score"], reverse=True)
+
+    # v9.23.1: CTP信号关联selected_symbols
+    # - selected_symbols非空时，仅输出已辩论品种的信号
+    # - selected_symbols为空时（无品种通过初选），清空信号
+    selected_syms = state.get("selected_symbols", [])
+    if selected_syms:
+        selected_lower = set(s.lower() for s in selected_syms)
+        actionable_signals = [s for s in actionable_signals if s.get("symbol", "").lower() in selected_lower]
+    else:
+        actionable_signals = []
+
     best_buy = next((s for s in actionable_signals if s["direction"] == "BUY"), None)
     best_sell = next((s for s in actionable_signals if s["direction"] == "SELL"), None)
 
@@ -2973,7 +2984,7 @@ async def node_report(state: DebateState) -> DebateState:
             "symbol": symbol, "pid": symbol.lower(), "name": item.get("name", symbol),
             "product_name": item.get("name", symbol), "direction": direction,
             "total": item.get("total", 0), "adx": item.get("adx", 0),
-            "rsi": item.get("rsi", 50), "cci": item.get("cci", 0),
+            "rsi": item.get("rsi") or 0, "cci": item.get("cci", 0),
             "stage": item.get("stage", ""), "z_score": item.get("z_score", 0),
             "cons": item.get("cons", 0), "volume": item.get("volume", 0),
             "dc20_break": item.get("dc20_break", "none"), "ma_align": item.get("ma_align", "mixed"),
@@ -3247,7 +3258,7 @@ async def node_report(state: DebateState) -> DebateState:
                     rr = round(reward / risk, 2)
 
         adx = float(judge_sym.get("adx", 0)) or (float(item.get("adx", 0)) if item else 0)
-        rsi = float(judge_sym.get("rsi", 50)) or (float(item.get("rsi", 50)) if item else 50)
+        rsi = float(judge_sym.get("rsi") or 0) or (float(item.get("rsi") or 0) if item else 0)
         score = float(judge_sym.get("score", 0)) or (abs(item.get("total", 0)) if item else 0)
 
         # G35: 论据为空时从 judge reasoning 生成最小论据

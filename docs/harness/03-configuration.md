@@ -20,7 +20,7 @@
 | `varieties.yaml` | `skills/quant-daily/scripts/references/` | 62 个期货品种定义 |
 | `symbol_map.yaml` | `futures_data_core/config/` | 品种映射定义（含交易所/合约乘数/最小变动价位/分类） |
 | `overseas_varieties.yaml` | `skills/quant-daily/scripts/references/` | 海外品种定义 |
-| `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (DataCore→TDX→WebFallback→QMT→TqSDK) |
+| `data_sources.yaml` | `futures_data_core/config/` | 数据源降级链配置 (TqSDK→TDX/DataCore→WebFallback→QMT) |
 | `datatech.yaml` | `config/agents/datatech.yaml` | 数技源角色定义 + P1角色矫正(v9.6.8) stats产出规范 |
 | `judge.yaml` | `config/agents/judge.yaml` | 闫判官角色定义 + P1角色矫正(v9.6.8) 数据消费优先级 |
 | `judge_config.yaml` | `config/agents/judge_config.yaml` | 闫判官运行时配置（六维评分权重、裁决修正规则、自校准参数）|
@@ -182,38 +182,38 @@ if _LOG_DIR is None:
 ### 5.1 降级链 (data_sources.yaml)
 
 ```
-通达信 TDX TQ-Local (优先级 0, 最高)
+TqSDK (优先级 0, 第一数据源, 云端API)
     ↓ 不可用时降级
-WebFallback (优先级 1, 东方财富+新浪免费API)
+通达信 TDX TQ-Local / DataCore (优先级 1, 第二数据源)
     ↓ 不可用时降级
-QMT/xtquant (优先级 2, 本地TCP直取)
+WebFallback (优先级 2, 第三数据源, 东方财富+新浪免费API)
     ↓ 不可用时降级
-TqSDK (优先级 98, 末位兜底, 云端API)
+QMT/xtquant (优先级 3, 第四数据源, 本地TCP直取)
     ↓ 全部实时源失败
 缓存兜底 (Postgres / Redis)
     ↓ 缓存未命中
 UNAVAILABLE (无数据)
 ```
 
-> **2026-07-15 调整说明**：WebFallback 前置于 QMT/TqSDK，以规避 TqSDK `TqApi.close()` 偶发挂死 300s 的问题。TqSDK 作为末位兜底，由超时保护（建连 15s + 拉取 25s + close 5s）兜住。
+> **2026-07-24 调整说明**：数据源优先级统一为 `select_by_priority` 升序排序。TqSDK 为第一数据源 (priority=0)，优先提供技术指标。WebFallback/QMT/TqSDK 各有超时保护（建连 + 拉取 + close）兜住单源挂死。
 
 ### 5.2 数据源能力矩阵
 
 | 数据源 | K线周期 | 行情快照 | 技术指标 | Tick | F10数据 | 超时 |
 |:-------|:--------|:--------|:--------|:-----|:--------|:-----|
+| **TqSDK** | 全周期 (含 tick) | ✅ | ✅ (numpy/K线计算) | ✅ | ✅ (EDB库存/基差/宏观/利润) | 建连15s/拉取25s |
 | **TDX TQ-Local** | daily/60m/120m/240m/weekly | ✅ | ✅ (DMI/RSI/CCI/MACD/MA/BOLL/OBV) | ❌ | ❌ | 3s |
 | **WebFallback** | daily (新浪主, 东方财富辅) | ❌ | ❌ | ❌ | ❌ | — |
 | **QMT/xtquant** | tick/1m/5m/15m/30m/60m/daily/weekly/monthly | ❌ | ❌ | ✅ | ✅ (期限结构/基差期货端) | 20s |
-| **TqSDK** | 全周期 (含 tick) | ✅ | ❌ | ✅ | ✅ (EDB库存/基差/宏观/利润) | 建连15s/拉取25s |
 
 ### 5.3 数据源选择逻辑
 
 | 场景 | 盘中 | 盘后 | 实时价 |
 |:-----|:-----|:-----|:-------|
-| TDX 可用 | TDX (close=实时价) | TDX | TDX |
+| TqSDK 可用 | TqSDK (K线+指标) | TqSDK | TqSDK |
+| TqSDK 不可用 | TDX (close=实时价) | TDX | TDX |
 | TDX 不可用 | WebFallback | WebFallback | (无实时价) |
 | WebFallback 不可用 | QMT | QMT | (无实时价) |
-| QMT 不可用 | TqSDK | TqSDK | TqSDK |
 | 全部实时源不可用 | 缓存兜底 | 缓存兜底 | (无实时价) |
 
 ### 5.4 K线一致性

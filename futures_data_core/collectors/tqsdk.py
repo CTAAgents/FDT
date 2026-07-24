@@ -97,7 +97,7 @@ class TqSdkCollector(BaseCollector):
     """天勤 TqSDK 采集器（全能力封装，连接复用）。"""
 
     name = "tqsdk"
-    priority = -1
+    priority = 0  # 第一数据源
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
@@ -323,6 +323,56 @@ class TqSdkCollector(BaseCollector):
             except (TypeError, ValueError, AttributeError):
                 continue
         return bars
+
+    # ── TqSDK K线 fallback（同步，无 asyncio，供 scan_all.py 等非异步环境使用）──
+    @staticmethod
+    def fetch_kline_sync(symbol: str, period: str = "daily", days: int = 120, min_bars: int = 50) -> list[dict] | None:
+        """同步获取 K 线数据（asyncio-free），返回 FDC 兼容的 bar list。
+
+        当 FDC 主链路（TDX/TqSDK multi-source）无数据时作为 fallback，
+        自建临时 TqSdkCollector 实例，生命周期完全自包含。
+
+        Args:
+            symbol: FDT 品种代码（如 "CF", "RB2601"）。
+            period: K 线周期，默认 "daily"。
+            days: 获取天数。
+            min_bars: 最少返回 K 线根数。
+
+        Returns:
+            与 _fdc_get_kline_sync 兼容的 bar list，每项含 date/open/high/low/close/volume。
+            失败或数据不足返回 None。
+        """
+        try:
+            # 每个临时实例自包含完整的 TqApi 生命周期
+            _inst = TqSdkCollector()
+            eff = _inst._resolve_tqsdk_symbol(symbol)
+            dur = _PERIOD_SECONDS.get(period, 86400)
+            df = _inst._klines_sync(eff, dur, days)
+            if df is None or len(df) < min_bars:
+                return None
+            bars = []
+            for row in df.tail(min_bars).itertuples():
+                try:
+                    _dt_val = getattr(row, "datetime")
+                    if hasattr(_dt_val, "strftime"):
+                        _date_str = _dt_val.strftime("%Y%m%d")
+                    else:
+                        # TqSDK nanosecond Unix timestamp
+                        _ts = float(_dt_val) / 1_000_000_000
+                        _date_str = __import__("datetime").datetime.fromtimestamp(_ts).strftime("%Y%m%d")
+                    bars.append({
+                        "date": _date_str,
+                        "open": float(getattr(row, "open", 0)),
+                        "high": float(getattr(row, "high", 0)),
+                        "low": float(getattr(row, "low", 0)),
+                        "close": float(getattr(row, "close", 0)),
+                        "volume": int(getattr(row, "volume", 0)),
+                    })
+                except (TypeError, ValueError, AttributeError):
+                    continue
+            return bars if len(bars) >= min_bars else None
+        except Exception:
+            return None
 
     # ═══════════════════════════════════════════════════════════
     # 2. Tick

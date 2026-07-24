@@ -1,5 +1,8 @@
 # 04 — 错误恢复与鲁棒性
 
+> **2026-07-24**: 数据源优先级变更 — TqSDK=0(第一) → TDX/DataCore=1(第二) → WebFallback=2 → QMT=3。
+> 详见 `docs/harness/03-configuration.md#5-数据源配置`。
+
 ## 1. L1-L5 五层防线总览
 
 FDT 的鲁棒性架构由 5 层防线组成，确保辩论流程在任何异常情况下不静默断裂：

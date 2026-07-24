@@ -306,7 +306,7 @@ def _build_pure_stats(r: dict, kline: list | None) -> dict:
     
     # ── 波动与强度 ──
     stats["atr_14"] = r.get("atr", 0)
-    stats["rsi_14"] = r.get("rsi", 50)
+    stats["rsi_14"] = r.get("rsi") or 0
     stats["adx_14"] = r.get("adx", 25)
     stats["di_plus"] = r.get("di_plus", 0)
     stats["di_minus"] = r.get("di_minus", 0)
@@ -524,6 +524,18 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
                 dlist = resp["data"]
                 valid = [r for r in dlist if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
                 if len(valid) >= min_bars:
+                    return sym, (name, valid)
+        except Exception:
+            pass
+        # TqSDK fallback: 当 FDC 主链路无数据时，直接从 TqSDK 获取 K 线
+        try:
+            from futures_data_core.collectors.tqsdk import TqSdkCollector
+            bars = TqSdkCollector.fetch_kline_sync(variety, period=period, days=days, min_bars=min_bars)
+            if bars:
+                # 过滤过期数据
+                valid = [r for r in bars if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
+                if len(valid) >= min_bars:
+                    print(f"  [TqSDK fallback] {sym} 通过 TqSDK 获取 K 线 ({len(valid)} 根)")
                     return sym, (name, valid)
         except Exception:
             pass
@@ -982,7 +994,7 @@ def run_scan(
                         _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
                         _adx_rsi_pairs = [
                             (_safe_float(t.get("adx", t.get("ADX", 0))),
-                             _safe_float(t.get("rsi", t.get("RSI14", 50))))
+                             _safe_float(t.get("rsi", t.get("RSI14"))))
                             for t in tech_list
                         ]
                         _bull_c = sum(1 for adx, rsi in _adx_rsi_pairs
@@ -1249,7 +1261,7 @@ def run_scan(
                         price=r.get("price", 0),
                         adx=r.get("adx", 0),
                         atr=r.get("atr", 0),
-                        rsi=r.get("rsi", 50),
+                        rsi=r.get("rsi"),
                     )
             except Exception:
                 pass  # 数据追踪是可选功能，不可用时静默跳过

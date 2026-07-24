@@ -28,7 +28,7 @@ class DataCoreCollector(BaseCollector):
     """
 
     name: str = "datacore"
-    priority: int = 0
+    priority: int = 1  # 与 TDX 同优先级（第二数据源）
     collector_type: CollectorType = CollectorType.INDEPENDENT
 
     def __init__(self) -> None:

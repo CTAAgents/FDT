@@ -1,6 +1,7 @@
 # 01 — Harness 架构总览
 
 > **v9.25.0** (2026-07-24): 记忆系统全面重构 — MemoryManager 统一管理层（manager/store/retrieval/maintenance 四层架构），替换散落直写；G30 自进化规则注入接入 evolution_graph。详见 `docs/designs/memory-system-overhaul.md`。
+> **v9.23.1** (2026-07-24): 数据源优先级变更 — TqSDK=0(第一), TDX/DataCore=1(第二), WebFallback=2, QMT=3。详见 `docs/harness/03-configuration.md#5-数据源配置`。
 
 ## 1. 分层架构
 

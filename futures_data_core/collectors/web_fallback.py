@@ -54,10 +54,10 @@ def _get_exchange_code(variety: str, known: dict) -> Optional[int]:
 
 
 class WebFallbackCollector(BaseCollector):
-    """Web 兜底采集器（priority=1，TqSDK/DataCore/TDX 之后降级）。"""
+    """Web 兜底采集器（priority=2，第三数据源）。"""
 
     name = "web_fallback"
-    priority = 1
+    priority = 2  # 第三数据源
     collector_type = CollectorType.INDEPENDENT
     llm_requirement = ""
 
