@@ -1,7 +1,6 @@
 """
 StrategyV1Adapter 测试 — v1 → v2 桥接兼容
 """
-import pytest
 
 
 class TestStrategyV1Adapter:
@@ -54,7 +53,7 @@ class TestStrategyV1Adapter:
 
     def test_adapter_score_converts_to_scored_signal(self):
         """score() 输出 ScoredSignal 列表"""
-        from strategies.base_v2 import StrategyV1Adapter, ScoredSignal
+        from strategies.base_v2 import ScoredSignal, StrategyV1Adapter
         mock = self._make_v1_mock()
         adapter = StrategyV1Adapter(mock)
         tech_list = [{"symbol": "RB"}, {"symbol": "SA"}]

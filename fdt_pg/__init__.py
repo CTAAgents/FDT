@@ -1,22 +1,22 @@
+from .connection import PGConfig, PGConnection
 from .schema import (
+    OLAP_VIEWS,
+    AgentProfiles,
     Base,
-    ScanSignals,
+    Calibration,
     ChainAnalysis,
-    TechnicalScores,
+    DebateArguments,
+    DebateIndex,
+    DebateVerdicts,
+    ExecutionFollowup,
     FundamentalScores,
     JudgeDirection,
-    DebateArguments,
-    DebateVerdicts,
-    TradingPlans,
-    RiskChecks,
-    ExecutionFollowup,
-    AgentProfiles,
-    Calibration,
     LogEntries,
-    DebateIndex,
-    OLAP_VIEWS,
+    RiskChecks,
+    ScanSignals,
+    TechnicalScores,
+    TradingPlans,
 )
-from .connection import PGConnection, PGConfig
 
 __all__ = [
     "Base",

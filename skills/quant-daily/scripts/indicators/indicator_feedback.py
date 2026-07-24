@@ -16,11 +16,11 @@ CLI:
   python indicator_feedback.py stats
 """
 
-import os
 import json
+import os
 import sys
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 
 FEEDBACK_DIR = os.path.join(
     os.path.expanduser("~"), "logs", "feedback"

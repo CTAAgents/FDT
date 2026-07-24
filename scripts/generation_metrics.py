@@ -17,12 +17,9 @@ generation_metrics.py — 解码质量监控与反馈 (D3 Generation Phase 4)
 
 import json
 import logging
-import os
-import time
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +200,6 @@ class GenerationMetrics:
         Returns:
             dict: 按小时聚合的趋势数据
         """
-        from collections import defaultdict
 
         cutoff = datetime.now().timestamp() - hours * 3600
         hourly: dict[str, dict] = {}
@@ -248,7 +244,7 @@ class GenerationMetrics:
 
         lines = []
         lines.append("=" * 60)
-        lines.append(f"📊 Generation Quality Report")
+        lines.append("📊 Generation Quality Report")
         lines.append(f"   Report Time: {summary['report_time']}")
         lines.append(f"   Total Records: {summary['total_records']}")
         lines.append(f"   Overall Success Rate: {summary['overall_success_rate']}%")

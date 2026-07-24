@@ -11,11 +11,10 @@ v2 核心变化:
 from __future__ import annotations
 
 import os
-import sys
-import json
 import re
+import sys
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional, Any
+from typing import Any, Dict, List, Tuple
 
 PROJECT_ROOT = Path(__file__).parent.parent
 

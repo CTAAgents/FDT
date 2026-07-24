@@ -16,13 +16,12 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+
+import uvicorn
 
 # FastAPI 导入
-from fastapi import FastAPI, Request, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-import uvicorn
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -479,7 +478,7 @@ def main() -> None:
 
     print(f"🌐 FDT Dashboard: http://{args.host}:{args.port}")
     print(f"   API: http://{args.host}:{args.port}/api/workspaces")
-    print(f"   停止: Ctrl+C")
+    print("   停止: Ctrl+C")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

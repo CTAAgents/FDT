@@ -4,7 +4,7 @@
 优先使用 futures-data-search DuckDB 数据，不足时走 WebSearch。
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 # ── 内置缓存数据（初始覆盖核心品种，后续通过 WebSearch 补充） ──
 _SUPPLY_CACHE: Dict[str, dict] = {

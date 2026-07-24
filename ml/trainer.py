@@ -22,8 +22,7 @@ import os
 import pickle
 import shutil
 import sys
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +210,7 @@ class TrainingOrchestrator:
         # 评估
         metrics = {}
         if X_val is not None and y_val is not None:
-            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+            from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
             y_pred = (model.predict(X_val) > 0.5).astype(int)
             y_prob = model.predict(X_val)
@@ -266,7 +265,7 @@ class TrainingOrchestrator:
 
         metrics = {}
         if X_val is not None and y_val is not None:
-            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+            from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
             dval = xgb.DMatrix(X_val, label=y_val)
             y_prob = model.predict(dval)
@@ -307,7 +306,7 @@ class TrainingOrchestrator:
 
         metrics = {}
         if X_val is not None and y_val is not None:
-            from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+            from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
             y_pred = model.predict(X_val)
             y_prob = model.predict_proba(X_val)[:, 1]
@@ -978,7 +977,7 @@ def cli_main():
         return 0 if result.get("final_decision") in ("deployed", "skipped", "skip_no_trigger") else 1
 
     # 默认模式：输出状态摘要
-    print(f"ML 训练调度中心")
+    print("ML 训练调度中心")
     print(f"  上次训练: {status['last_train_date'] or '从未'}")
     print(f"  已训练: {status['total_trained']} 次")
     print(f"  已部署: {status['total_deployed']} 次")

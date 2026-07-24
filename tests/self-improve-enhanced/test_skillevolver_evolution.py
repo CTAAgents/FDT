@@ -3,10 +3,8 @@ Unit tests for scripts.skillevolver_evolution — SkillEvolver integration.
 Covers: strategy exploration, contrastive update, audit, dry-run.
 """
 
-from pathlib import Path
 
 import pytest
-from conftest import sample_debate_results, sample_trajectory
 
 
 class TestSkillEvolverInit:
@@ -14,7 +12,7 @@ class TestSkillEvolverInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.skillevolver_evolution import SkillEvolver, K_EXPLORATIONS, EXPLORATION_STRATEGIES, R_ITERATIONS
+        from scripts.skillevolver_evolution import EXPLORATION_STRATEGIES, K_EXPLORATIONS, R_ITERATIONS, SkillEvolver
         self.SkillEvolver = SkillEvolver
         self.K = K_EXPLORATIONS
         self.strategies = EXPLORATION_STRATEGIES
@@ -102,7 +100,6 @@ class TestSkillEvolverContrastiveUpdate:
 
     def test_contrastive_update_with_faults(self):
         """Faults should generate patch records."""
-        from scripts.skillevolver_evolution import SkillEvolver
         faults = [{
             "fault_step_id": "P4",
             "fault_agent": "慎思",

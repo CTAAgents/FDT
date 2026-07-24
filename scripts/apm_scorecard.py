@@ -22,13 +22,10 @@ APM-CS 五轴能力诊断评分卡引擎 v1.0
 from __future__ import annotations
 
 import json
-import os
-import re
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-
+from typing import Dict, List, Optional, Tuple
 
 # ── 路径配置 ──
 
@@ -134,7 +131,7 @@ class RuleChecker:
                 "severity": "P1",
                 "type": "软约束",
                 "desc": f"多头RSI={rsi}>70 超买风险，建议降为SELL中",
-                "actual": f"confidence=高",
+                "actual": "confidence=高",
                 "expected": "confidence ≤ 中 或标注超买风险",
             })
 
@@ -779,7 +776,7 @@ def main() -> None:
         ] if scorecard["axes"][key]["status"] == "active"
     ]
     print(f"  APM Overall:  {apm_overall:.3f}  (激活轴等权均值: {', '.join(active_axes) or '—'})")
-    print(f"  ─────────────────────────────────")
+    print("  ─────────────────────────────────")
     d1ax = scorecard["axes"]["D1_Coherence"]
     d1str = f"{d1ax['score']:.3f}  (n={d1ax.get('n')}, mean_coh={d1ax.get('mean_coherence')})" if d1ax["status"] == "active" else "— 机制就位，待 debate_record"
     print(f"  D1 Coherence   : {d1ax['status'].upper()}  {d1str}")
@@ -797,14 +794,14 @@ def main() -> None:
         print(f"    共振组平均PnL={d2_detail.get('resonance_group_avg_pnl')}% | 非共振组={d2_detail.get('non_resonance_group_avg_pnl')}%")
         print(f"    ADX≥60组平均PnL={d2_detail.get('adx_ge60_group_avg_pnl')}% | ADX<60组={d2_detail.get('adx_lt60_group_avg_pnl')}%")
     print()
-    print(f"  D4 违规分布:")
+    print("  D4 违规分布:")
     for rule_info in sorted(by_rule.values(), key=lambda x: x["count"], reverse=True):
         symbols_str = ",".join(rule_info["symbols"][:5])
         trail = "..." if len(rule_info["symbols"]) > 5 else ""
         print(f"    [{rule_info['severity']}] {rule_info['rule']}: {rule_info['count']}次 → {symbols_str}{trail}")
     print()
     if d5_detail.get("error_types"):
-        print(f"  D5 错误类型:")
+        print("  D5 错误类型:")
         for et, cnt in d5_detail["error_types"].items():
             print(f"    {et}: {cnt}次")
     print(f"\n  输出: {OUTPUT_PATH}")

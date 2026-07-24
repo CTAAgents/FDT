@@ -19,7 +19,6 @@ FDT 最终信号复查器 v1.0 — 确定性校验，不依赖 LLM
   errors = validate_signals(debate_data)
 """
 from __future__ import annotations
-from __future__ import annotations
 
 import argparse
 import json

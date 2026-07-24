@@ -144,6 +144,7 @@ class TestExperienceRecorder:
     def test_record_filename_format(self, sample_execution_record, tmp_path):
         """文件名应遵循 {symbol}_{date}_{trace_short}.json 格式"""
         from datetime import datetime
+
         from scripts.experience_recorder import write_record
         records_dir = tmp_path / "records"
         records_dir.mkdir()
@@ -155,7 +156,7 @@ class TestExperienceRecorder:
 
     def test_index_updated_after_write(self, sample_execution_record, tmp_path):
         """写入记录后 INDEX.json 应更新"""
-        from scripts.experience_recorder import write_record, update_index
+        from scripts.experience_recorder import update_index, write_record
         records_dir = tmp_path / "records"
         records_dir.mkdir()
         index_path = tmp_path / "INDEX.json"

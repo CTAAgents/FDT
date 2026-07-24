@@ -7,7 +7,6 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from ..manager.schemas import CURRENT_SCHEMA_VERSION, JournalEntry, validate_schema
 

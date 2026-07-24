@@ -2,7 +2,8 @@
 """产业链验证模块测试（Skill 2: commodity-chain-analysis）。"""
 
 import unittest
-from scripts.chain_verifier import get_chain_for_symbol, chain_verification
+
+from scripts.chain_verifier import chain_verification, get_chain_for_symbol
 
 
 class TestGetChainForSymbol(unittest.TestCase):

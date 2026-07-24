@@ -12,7 +12,7 @@
   所有可选/必选字段由 TypedDict 约束。不合法则下游拒绝接收。
 """
 
-from typing import TypedDict, Optional, Literal
+from typing import Literal, Optional, TypedDict
 
 # ----- 策略族枚举 -----
 StrategyFamily = Literal[

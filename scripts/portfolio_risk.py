@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("portfolio_risk")
@@ -23,10 +24,8 @@ _logger = get_logger("portfolio_risk")
 """
 
 import json
-import math
-from typing import Dict, List, Any
 from collections import defaultdict
-
+from typing import Any, Dict, List
 
 # ── 产业链映射 ──
 CHAIN_MAP = {

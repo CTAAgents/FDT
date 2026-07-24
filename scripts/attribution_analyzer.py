@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("attribution")
@@ -27,12 +28,9 @@ _logger = get_logger("attribution")
 """
 
 import json
-import math
-import os
 from datetime import datetime
-from typing import Dict, List, Any, Optional
-from collections import defaultdict
 from pathlib import Path
+from typing import Any, Dict, List
 
 
 class ShapleyAttribution:

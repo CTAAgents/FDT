@@ -1,7 +1,6 @@
 # 04 — 错误恢复与鲁棒性
 
-> **2026-07-24**: 数据源优先级变更 — TqSDK=0(第一) → TDX/DataCore=1(第二) → WebFallback=2 → QMT=3。
-> 详见 `docs/harness/03-configuration.md#5-数据源配置`。
+> **v10.0.1 (2026-07-24)**: K线数据源优先使用新浪财经 API（快速稳定），东方财富降级为备选。FDC→AKShare 全面迁移 — AKShare 为唯一 K 线数据源，废除多源降级链。原 §2.6 新鲜度降级/§2.7 K线标准化层已不再适用；§10 Data-Core 降级仅适用于 F10 模块。
 
 ## 1. L1-L5 五层防线总览
 
@@ -143,36 +142,17 @@ spawn 闫判官 (第1次)
 | **失败动作** | 输出诊断报告，标记不健康项 |
 | **代码位置** | 各 skill 的 `scripts/selfcheck.py` |
 
-## 2.6 L0 — 数据源新鲜度自动降级（v9.24.0）
+## 2.6 L0 — 数据新鲜度检查（v10.0.0 — 单源架构简化）
 
-在 `MultiSourceAdapter._collect_kline_impl()` 的采集降级链中，每源返回数据后新增新鲜度检查：
+> **不再适用（K线层面）**：AKShare 为唯一 K 线数据源，不再有多源降级链。K线数据优先从新浪财经 API 获取，东方财富为降级备选。新鲜度由新浪/东方财富返回的实时数据天然保障。
 
-```
-采集器返回 KlineData
-    │
-    ├─ bars 为空? → 记录失败 → 继续下一源
-    │
-    └─ 末根 K 线距今 > 7 天?
-         │                  │
-         是                 否
-         │                  │
-         ▼                  ▼
-     视为过期               使用该源数据
-     记录失败
-     继续下一源
-```
+保留 `node_freshness_gate()`（P0b 节点）作为数据新鲜度闸门：
+- scan → judge_direction 之间检查 AKShare 返回数据的时效性
+- ALL_STALE/NO_VALID_SYMBOLS → D06 aggregate_results（跳过 P2-P5 辩论链）
 
-- **触发条件**：末根 K 线 `bars[-1].date` 距今 > 7 日历天（≈ 5 交易日）
-- **效果**：跳过该采集器，继续尝试优先级较低的下一源
-- **典型场景**：DataCore 返回已到期合约旧数据（如 SM 停在 2026-01-19）→ 降级到 WebFallback 获取当前主力数据
-- **防护**：所有源均过期时最终回退到缓存数据（`_fallback_kline`）
+## 2.7 L0 — K 线标准化（v10.0.0 — 单源架构简化）
 
-## 2.7 L0 — 统一 K 线标准化层（v9.24.0）
-
-在 `_wrap_kline()` 中对所有采集器返回的 K 线数据统一应用 `normalize_kline_row()`：
-- **日期格式化**：同时支持 `%Y%m%d`（TqSDK）和 `%Y-%m-%d`（DataCore），统一输出规范格式
-- **字段归一**：`oi`（废弃 `open_interest`/`OI`）、`volume`/`amount` 统一 float
-- **数据源标记**：`meta.sources` 记录实际采集器名称
+> **不再适用**：AKShare 单源架构下，K 线数据由 `field_normalizer.py` 统一标准化（格式: `%Y-%m-%d`，字段: oi/volume/amount 统一 float），不再需要多格式兼容。
 
 ## 3. S04 轮询协议
 
@@ -250,7 +230,7 @@ S04 解决了"Agent 后台 spawn 后如何知道产出就绪"的问题：
 | **D02 禁止代写裁决** | P4+P5 裁决阶段，明鉴秋不得自行撰写裁决结论 | 必须 spawn 闫判官 |
 | **D03 Phase 门禁** | P6 汇总前检查: 缺少 p4/p5 产出文件则拒绝生成报告 | 文件存在性检查 |
 | **D04 Agent 通信** | 辩论 Agent 产出通过 SendMessage→main 回传 | 明鉴秋转写入文件 |
-| **D05 P5 降级** | 闫判官 spawn 2 次无产出 → 明鉴秋基于 P2(四源)+P3(辩论) 独立裁决 | 严基于辩论论据 |
+| **D05 P5 降级** (v10.0.0) | 闫判官 2 次失败无产出 → 明鉴秋基于 P2(四源)+P3(辩论) 独立裁决 | 严基于辩论论据 |
 | **D06 P0b 新鲜度降级** (v9.22.3) | 数据新鲜度闸门检测 ALL_STALE/NO_VALID_SYMBOLS → 跳过 P2-P5，直接到 aggregate_results | node_freshness_gate 自动路由 |
 
 ## 6. 异常处理流程
@@ -515,52 +495,24 @@ Checkpointer (PostgreSQL)
 |:---------|:---------|:---------|:-----|:-----|
 | **PG Checkpointer 连接失败** | `FDT_CHECKPOINTER=pg` 时 PostgreSQL 连接超时/拒绝 | `_get_checkpointer()` 自动降级到 SQLite Checkpointer（内存/本地文件） | 检查点持久化从 PG 退化为 SQLite，单机可用 | PG 恢复后重启进程切换回 PG |
 
-## 10. Data-Core / FDC 降级 (v9.4.0+)
+## 10. Data-Core / FDC 降级 (v9.4.0+, v10.0.0 更新)
 
-### 10.1 降级架构
+> **注意 (v10.0.0)**: 本节仅适用于 F10 模块（期限结构/基差/价差/仓单/基本面/持仓排名）的数据采集。K 线数据已统一由 AKShare 单源提供，不再经此降级链。
 
-FDT 的 F10 数据模块通过 `_datacore_bridge.py`（`futures_data_core/core/_datacore_bridge.py`）实现 Data-Core 优先的降级链：
+### 10.1 架构说明
 
-```
-F10 模块入口 (term_structure / spread / basis / warrant / fundamental / position)
-    │
-    ├─ _try_datacore_first("func_name", symbol)
-    │   │
-    │   ├─ datacore.fdc_compat 可导入 → 返回 Data-Core 数据 (dict)
-    │   │                                   │
-    │   │                                   └─ 数据有效 → 包装为 A2APayload 返回
-    │   │                                   │
-    │   │                                   └─ 数据为空 → 回退原有实现 (fallthrough)
-    │   │
-    │   └─ datacore 不可导入 (ImportError) ─→ 回退原有实现 (fallthrough)
-    │
-    └─ 原有实现 (TDX/QMT/TqSDK 等直连)
-```
+FDT 的 F10 数据模块通过 `_datacore_bridge.py`（`futures_data_core/core/_datacore_bridge.py`）实现 Data-Core 优先采集。由于 AKShare 不提供 F10 数据，F10 模块保留原有降级策略。
 
 ### 10.2 F10 桥接函数映射
 
-| F10 模块 | 桥接函数 | Data-Core 接口 | 降级行为 |
-|:---------|:---------|:---------------|:---------|
-| `term_structure.py` | `get_term_structure` | `dc.get_term_structure(symbol)` | Data-Core 返回空时走 TDX/QMT |
-| `spread.py` | `get_spread` | `dc.get_spread(symbol)` | Data-Core 返回空时走 TDX |
-| `basis.py` | `get_basis` | `dc.get_basis(symbol)` | Data-Core 返回空时走生意社+QMT |
-| `warrant.py` | `get_warrant` | `dc.get_warrant(symbol)` | Data-Core 返回空时走交易所直连 |
-| `fundamentals.py` | `get_fundamental` | `dc.get_fundamental(symbol)` | Data-Core 返回空时走缓存+爬虫 |
-| `position.py` | `get_position_ranking` | `dc.get_position_ranking(symbol)` | Data-Core 返回空时走交易所直连 |
-
-### 10.3 降级判定标准
-
-Data-Core 的结果被视为"有效"的条件（任一满足）：
-- 返回的 dict 非空 (`bool(result) == True`)
-- 包含预期字段（如 `basis` 有 `basis` 或 `basis_pct`，`term_structure` 有 `structure` 或 `contracts`）
-- 未抛出任何异常（ImportError / TimeoutError / Exception 均视为不可用）
-
-### 10.4 数据源标注
-
-当 Data-Core 提供数据时：
-- `A2APayload.meta.sources` 中包含 `"datacore"` 标记
-- `A2APayload.data_grade` 沿用 Data-Core 返回中的 `data_grade`；无标注时设为 `"STALE"`
-- 当回退到原有实现时，`sources` 中不包含 `"datacore"` 标记
+| F10 模块 | 桥接函数 | 降级策略 (v10.0.0) |
+|:---------|:---------|:---------|
+| `term_structure.py` | `get_term_structure` | Data-Core → 本地缓存 |
+| `spread.py` | `get_spread` | Data-Core → 本地缓存 |
+| `basis.py` | `get_basis` | 100ppi → 近月合约代理 |
+| `warrant.py` | `get_warrant` | Data-Core → 本地缓存 |
+| `fundamentals.py` | `get_fundamental` | Data-Core → 本地缓存 |
+| `position.py` | `get_position_ranking` | Data-Core → 本地缓存 |
 
 ## 一致性元数据
 
@@ -573,5 +525,6 @@ Data-Core 的结果被视为"有效"的条件（任一满足）：
 | `fdt_langgraph/nodes.py node_report` | §3.4 报告层降级 | `_render_html()` fallback 模板 | `grep -n "_render_html\|fallback"` |
 | `fdt_langgraph/graph.py _get_checkpointer()` | §4 PG 降级 | `FDT_CHECKPOINTER=pg` → PG 不可用 → SQLite | `grep -n "def _get_checkpointer\|SQLite\|checkpointer"` |
 | `scripts/daemon_watchdog.py` | §5 看门狗 | 每 30 分钟健康检查 | `grep -n "30\|watchdog\|heartbeat"` |
-| `futures_data_core/core/_datacore_bridge.py try_datacore_first()` | §4 Data-Core 降级 | Data-Core → TDX → TqSDK → QMT → Web 五级降级 | `grep -n "def try_datacore_first\|fallback\|降级"` |
+| `futures_data_core/core/_datacore_bridge.py try_datacore_first()` | §10 Data-Core 降级 (F10模块) | F10 模块仅 Data-Core → 本地缓存两级降级，K线不走此链 | `grep -n "def try_datacore_first\|fallback\|降级"` |
 | `fdt_langgraph/nodes.py node_quality_inspect` | §2.1 编纂重试 | retry ≤ 2 次，超过则熔断 | `grep -n "retry\|rework_counters\|max_retries"` |
+| `futures_data_core/core/akshare_provider.py get_kline()` | §1 数据源 | AKShare 1.18.64 K线数据：优先新浪财经 API，降级到 `futures_hist_em`（东方财富），再降级到缓存 (v10.0.1) | `grep -n "_fetch_sina_kline\|futures_hist_em" akshare_provider.py` |

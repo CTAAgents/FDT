@@ -17,18 +17,18 @@
 """
 
 import argparse
-import sys
-import os
 import json
+import os
+import sys
 from datetime import datetime
 from typing import Optional
 
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _SCRIPTS_DIR)
 
+from config.symbols import ALL_SYMBOLS
 from optimizer.data_tracker import get_stats
 from optimizer.param_optimizer import analyze_symbol_patterns, optimize_symbol
-from config.symbols import ALL_SYMBOLS
 
 
 def cmd_status():
@@ -125,14 +125,16 @@ def cmd_update_monitoring_config(config_out: str, period: str = "all",
     优化参数镜像自洽写入本目录 optimized_params.json（不再硬编码用户目录）。
     本函数即原 Signal 侧 update_monitoring_config.py 的全部核心逻辑，已迁移至此。
     """
-    from optimizer.backtest_optimizer import optimize_period
     from config.settings import CHANNEL_BREAKOUT_CONFIG
+    from optimizer.backtest_optimizer import optimize_period
 
     _OPT_DIR = os.path.dirname(os.path.abspath(__file__))  # scripts/optimizer
 
     # 结构单一来源: 从 backtest_optimizer.WF_CONFIG 派生(冻结+版本化)
     from optimizer.backtest_optimizer import (
-        WF_CONFIG, WF_CONFIG_VERSION, classify_tier,
+        WF_CONFIG,
+        WF_CONFIG_VERSION,
+        classify_tier,
     )
     TIER_THRESHOLDS = {
         per: {"good": WF_CONFIG["tiers"][per]["good"],
@@ -346,7 +348,7 @@ def cmd_regime(symbol: str, period: str = "daily", out_path: str = None,
     监测宇宙。本命令用低成本指标(ADX 长期分位 / 波动率比值 / 价格斜率)估算
     regime, 输出权重乘数(0.5~1.5)供 scan_monitored 后续乘到信号总分。
     """
-    from optimizer.regime import compute_regime, build_regime_from_kline
+    from optimizer.regime import build_regime_from_kline, compute_regime
     if from_json:
         with open(from_json, encoding="utf-8") as f:
             data = json.load(f)

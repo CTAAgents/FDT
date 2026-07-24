@@ -4,7 +4,6 @@ Covers: expert panel, scoring, verdict logic, ViBench loading.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 from conftest import sample_vibench_cases
@@ -15,7 +14,7 @@ class TestEvolutionVerifierInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.verify_evolution import EvolutionVerifier, FDT_EXPERT_PANEL, MIN_SCORE
+        from scripts.verify_evolution import FDT_EXPERT_PANEL, MIN_SCORE, EvolutionVerifier
         self.panel = FDT_EXPERT_PANEL
         self.min_score = MIN_SCORE
         self.verifier = EvolutionVerifier  # class ref

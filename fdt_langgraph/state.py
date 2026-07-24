@@ -1,6 +1,6 @@
-from typing import TypedDict, Optional, Literal, Annotated
 import operator
 from datetime import datetime
+from typing import Annotated, Literal, Optional, TypedDict
 
 
 class FdcSymbolData(TypedDict, total=False):

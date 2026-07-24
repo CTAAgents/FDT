@@ -11,7 +11,10 @@ v2.1 (2026-07-11): 机制修正——全量监控+负向过滤，评分仅作优
 v2.2 (2026-07-12): 内化——移除 Signal 仓库依赖，品种池从 FDT 内部 ALL_SYMBOLS 派生，输出目录自包含
 """
 
-import sys, os, json, shutil
+import json
+import os
+import shutil
+import sys
 from datetime import datetime
 
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -71,8 +74,8 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     # ── 扫描 ──
     print("\n  [1] 扫描通道突破信号...")
     try:
-        from scan_all import run_scan
         from config.settings import PRIMARY_PERIOD
+        from scan_all import run_scan
         scan_result = run_scan(
             output_dir=OUTPUT_DIR,
             output_prefix=f"daily_{timestamp}",
@@ -99,9 +102,9 @@ def run_daily_debate(dry_run: bool = False) -> dict:
     period_fitness_path = None
     if has_signals:
         try:
-            from signals.period_fitness import build_period_fitness
-            from scan_all import run_scan
             from config.settings import SYMBOL_CHAIN_MAP
+            from scan_all import run_scan
+            from signals.period_fitness import build_period_fitness
 
             def _pf_scan(period, symbol):
                 r = run_scan(
@@ -160,7 +163,7 @@ def run_daily_debate(dry_run: bool = False) -> dict:
                 "_note": "完整辩论由明鉴秋（团队主管）调度，不走daily_debate.py内建的轻量分析。此文件为触发信号。"
             }, tf, ensure_ascii=False, indent=2)
         print(f"  触发文件: {trigger_path}")
-        print(f"  ⚠ 需团队主管读取触发文件后启动完整辩论流程(P3-P5)")
+        print("  ⚠ 需团队主管读取触发文件后启动完整辩论流程(P3-P5)")
         # 仍然生成轻量报告作为速览
         report = _debate_report(result, date_str)
 
@@ -203,8 +206,8 @@ p {{ color:#999; font-size:14px; margin:0 0 4px 0; }}
 
 
 def _debate_report(result: dict, date_str: str) -> str:
-    from optimizer.knowledge_bridge import get_symbol_knowledge, get_knowledge_summary
     from config.settings import SYMBOL_CHAIN_MAP
+    from optimizer.knowledge_bridge import get_knowledge_summary, get_symbol_knowledge
 
     all_signals = result.get("strong", []) + result.get("watch", [])
     strong_count = len(result.get("strong", []))
@@ -401,7 +404,7 @@ if __name__ == "__main__":
     r = run_daily_debate(dry_run=args.dry_run)
     if r["has_signals"]:
         print(f"\n【扫描结果】{r['signal_count']}个信号已写入触发文件 → Commodities/debate_trigger.json")
-        print(f"【下一步】团队主管读取触发文件 → 启动完整P3-P5辩论流程")
+        print("【下一步】团队主管读取触发文件 → 启动完整P3-P5辩论流程")
         print(f"【速览】轻量报告 → {r['report_path']}")
     else:
         print("\n【扫描结果】无STRONG/WATCH信号，无交易建议")

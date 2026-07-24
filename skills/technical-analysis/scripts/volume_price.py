@@ -7,8 +7,8 @@ v2.0 改进：
 - check_fake_breakout 增加自动 price_confirmation 计算
 """
 
-from typing import Dict, Optional, List
 import math
+from typing import Dict, List, Optional
 
 
 def _estimate_dynamic_threshold(prices: List[float] = None) -> float:

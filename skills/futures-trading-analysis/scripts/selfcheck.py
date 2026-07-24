@@ -7,7 +7,9 @@ FDT 鲁棒性 Layer 5: 健康自检 v1.0
 用法: python selfcheck.py --workspace C:/path/to/Signal
 """
 
-import json, os, sys, subprocess
+import json
+import os
+import sys
 from datetime import datetime
 
 
@@ -16,7 +18,7 @@ def check_python() -> tuple:
     try:
         v = sys.version_info
         return True, f"Python {v.major}.{v.minor}.{v.micro}"
-    except:
+    except Exception:
         return False, "Python不可用"
 
 def check_data_source(ds_name="通达信TQ-Local") -> tuple:
@@ -38,8 +40,8 @@ def check_path_writable(path: str) -> tuple:
             with open(test_file, 'w') as f:
                 f.write("test")
             os.remove(test_file)
-            return True, f"可写"
-        except:
+            return True, "可写"
+        except Exception:
             return False, f"不可写: {path}"
     else:
         return False, f"路径不存在: {path}"
@@ -58,7 +60,7 @@ def check_debate_scripts(scripts_dir: str) -> tuple:
             missing.append(s)
     if missing:
         return False, f"缺失脚本: {', '.join(missing)}"
-    return True, f"所有关键脚本就绪"
+    return True, "所有关键脚本就绪"
 
 def check_agent_defs(agents_dir: str) -> tuple:
     """检查Agent定义文件"""
@@ -77,7 +79,7 @@ def check_agent_defs(agents_dir: str) -> tuple:
             missing.append(r)
     if missing:
         return False, f"缺失Agent定义: {', '.join(missing)}"
-    return True, f"所有Agent定义就绪"
+    return True, "所有Agent定义就绪"
 
 def check_signal_file(workspace: str) -> tuple:
     """检查触发信号文件（用于信号门判定）"""
@@ -89,7 +91,7 @@ def check_signal_file(workspace: str) -> tuple:
                 data = json.load(f)
             count = data.get("signal_count", 0)
             return True, f"有{count}个信号待辩论"
-        except:
+        except Exception:
             return False, "信号文件损坏"
     elif os.path.exists(scan):
         return True, "扫描报告存在但无触发文件(无信号或需手动检查)"

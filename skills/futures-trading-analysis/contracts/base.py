@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Literal, Optional
 from datetime import datetime
+from typing import Literal, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_VERSION = "3.0"  # P1-1: 协议版本号
 

@@ -16,7 +16,11 @@
 消除之前临时编写的 build_v2_report.py 胶水代码。
 """
 
-import sys, os, json, math, datetime
+import datetime
+import json
+import math
+import os
+import sys
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
@@ -144,7 +148,7 @@ if rps:
             r_val = f" r={pearson(price_series[a], price_series[b])}"
         corr_details.append(f"<li>⚠️ {rp['chain']}: 保留{a}，排除{b}{r_val}</li>")
     parts.append(
-        f"""<div class="yellow-box"><strong>动态冗余检测：</strong>{"|".join(f"{rp["chain"]}: {rp["redundant"]}→{rp["primary"]}" for rp in rps)}</div>"""
+        f"""<div class="yellow-box"><strong>动态冗余检测：</strong>{"|".join(f"{rp['chain']}: {rp['redundant']}→{rp['primary']}" for rp in rps)}</div>"""
     )
 
 # 闫判官裁决

@@ -13,8 +13,7 @@ RHI Harness 三层规范 — 代表 agent loop 的 prompt 级文本规范。
 
 from __future__ import annotations
 
-from typing import TypedDict, Literal, Optional, Any
-
+from typing import Any, Literal, Optional, TypedDict
 
 # ── RHI 三层 Harness 规范 ──
 

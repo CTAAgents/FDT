@@ -1,8 +1,12 @@
 """
 批量下载恒生数据中心全部数据到DuckDB
 """
-import requests, json, time, sys, os
+import json
+import os
+import time
 from datetime import datetime
+
+import requests
 
 requests.packages.urllib3.disable_warnings()
 
@@ -19,6 +23,7 @@ PROGRESS_FILE = "huishang_cache/dump_progress.json"
 TOPICS_CACHE = "huishang_cache/topics_list.json"
 
 import pathlib
+
 CACHE_DIR = pathlib.Path("huishang_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
@@ -194,7 +199,7 @@ for idx, topic in enumerate(valid_topics):
         time.sleep(0.12)  # Rate limit
 
     except Exception as e:
-        print(f"  [{i+1}/{len(all_topics)}] ID={tid} ERROR: {e}")
+        print(f"  [{idx+1}/{len(all_topics)}] ID={tid} ERROR: {e}")
         failed_ids.append(tid)
         time.sleep(1)
         continue
@@ -206,7 +211,7 @@ progress["completed_at"] = datetime.now().isoformat()
 save_progress(progress)
 
 # Summary
-print(f"\n=== Done ===")
+print("\n=== Done ===")
 print(f"Success: {len(downloaded_ids)} topics")
 print(f"Failed: {len(failed_ids)} topics")
 if duckdb_available:

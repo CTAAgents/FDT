@@ -1,24 +1,41 @@
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite import SqliteSaver
-import sqlite3
-import os
-from pathlib import Path
 import logging
+import os
+import sqlite3
+from pathlib import Path
+
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.graph import END, StateGraph
+
 from .state import DebateState
 
 logger = logging.getLogger(__name__)
 from .nodes import (
-    node_scan, node_freshness_gate, node_judge_direction, node_prepare_data,
-    node_prepare_one_symbol, node_store_per_symbol_result,
-    node_route_next_symbol, node_aggregate_results,
-    node_chain, node_technical, node_fundamental, node_sentiment, node_merge_research,
-    node_bullish_v1, node_bearish_v1,
-    node_bearish_rebuttal, node_bullish_rebuttal,
-    node_bear_final, node_bull_final,
-    node_verdict, node_risk_check, node_quality_inspect, node_report, node_signal_output,
-    node_load_cache, node_update_cache,
+    node_aggregate_results,
+    node_bear_final,
+    node_bearish_rebuttal,
+    node_bearish_v1,
+    node_bull_final,
+    node_bullish_rebuttal,
+    node_bullish_v1,
+    node_chain,
+    node_freshness_gate,
+    node_fundamental,
+    node_judge_direction,
+    node_load_cache,
+    node_merge_research,
+    node_prepare_one_symbol,
+    node_quality_inspect,
+    node_report,
+    node_risk_check,
+    node_route_next_symbol,
+    node_scan,
+    node_sentiment,
+    node_signal_output,
+    node_store_per_symbol_result,
+    node_technical,
+    node_update_cache,
+    node_verdict,
 )
-from fdt_langgraph.evolution_graph import route_after_debate
 
 
 def _get_checkpointer():
@@ -27,6 +44,7 @@ def _get_checkpointer():
     if use_pg:
         try:
             from langgraph.checkpoint.postgres import PostgresSaver
+
             from fdt_pg.connection import PGConnection
             engine = PGConnection.get_engine()
             import psycopg2

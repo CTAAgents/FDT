@@ -1,5 +1,7 @@
 """pipeline 端到端集成测试 — 验证扫描→策略→融合→验证器→输出完整链路。"""
-import json, os, sys
+import os
+import sys
+
 import pytest
 
 FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,13 +10,10 @@ sys.path.insert(0, os.path.join(FDT_ROOT, "skills", "quant-daily", "scripts"))
 if "config" in sys.modules:
     del sys.modules["config"]
 
+from strategies.arbitrage_strategy import ArbitrageStrategy
+from strategies.mean_reversion_strategy import MeanReversionStrategy
 from strategies.registry_v2 import get_pipeline, register_v2
 from strategies.trend_following_strategy import TrendFollowingStrategy
-from strategies.mean_reversion_strategy import MeanReversionStrategy
-from strategies.arbitrage_strategy import ArbitrageStrategy
-from strategies.macro_regime_strategy import MacroRegimeStrategy
-from strategies.event_driven_strategy import EventDrivenStrategy
-from strategies.ml_signal_strategy import MlSignalStrategy
 
 
 def _make_tech(sym: str, price: float = 5000, rsi: float = 50, adx: float = 30,

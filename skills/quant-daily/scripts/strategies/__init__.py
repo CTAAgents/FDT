@@ -7,7 +7,7 @@ quant-daily 策略层
 
 """
 
-from .registry import get_strategy, list_strategies, register_strategy
 from .base import BaseStrategy, SignalResult
+from .registry import get_strategy, list_strategies, register_strategy
 
 __all__ = ["get_strategy", "list_strategies", "register_strategy", "BaseStrategy", "SignalResult"]

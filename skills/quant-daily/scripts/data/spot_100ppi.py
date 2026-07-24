@@ -17,10 +17,10 @@
 """
 
 import json
-import urllib.request
-import urllib.error
 import re
-from datetime import datetime, date
+import urllib.error
+import urllib.request
+from datetime import date, datetime
 from typing import Dict, Optional, Tuple
 
 # ============================================================
@@ -370,7 +370,7 @@ def parse_ppi_sf_page(html: str) -> Tuple[str, Dict[str, dict]]:
         r'(\d{4})\s+'               # 主力合约代码
         r'([\d,.]+(?:\.\d+)?)'      # 主力合约价
     )
-    
+
     # 简化版: 只匹配现期表中的现货-主力对
     # 格式: 商品链接 → 现货 → ... → 主力代码 主力价 现期差
     items = {}
@@ -382,7 +382,7 @@ def parse_ppi_sf_page(html: str) -> Tuple[str, Dict[str, dict]]:
                 sf_id = int(sf_id_str)
                 spot = float(spot_str.replace(",", ""))
                 main_price = float(main_price_str.replace(",", ""))
-                
+
                 # 反向映射: sf_id → symbol
                 symbol = None
                 for sym, sid in PPI_SYMBOL_MAP.items():
@@ -515,7 +515,7 @@ def main():
     import sys
 
     print(f"\n{'='*60}")
-    print(f"100ppi 现货基准价采集 v1.0")
+    print("100ppi 现货基准价采集 v1.0")
     print(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}\n")
 

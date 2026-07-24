@@ -1,5 +1,7 @@
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List
+
 from .base import BaseSkillOutput
 
 

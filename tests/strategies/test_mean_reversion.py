@@ -1,7 +1,6 @@
 """
 MeanReversionStrategy 测试 — RSI/CCI/布林带极端反转
 """
-import pytest
 
 
 class TestMeanReversion:
@@ -62,8 +61,8 @@ class TestMeanReversion:
 
     def test_score_maps_grade(self):
         """score() 根据强度映射 grade"""
-        from strategies.mean_reversion_strategy import MeanReversionStrategy
         from strategies.base_v2 import RawSignal
+        from strategies.mean_reversion_strategy import MeanReversionStrategy
         s = MeanReversionStrategy()
         raw = RawSignal(symbol="RB", direction="bull", signal_type="mean_reversion.rsi",
                         raw_score=0.6, strategy_name="mean_reversion", meta={"rsi": 15})

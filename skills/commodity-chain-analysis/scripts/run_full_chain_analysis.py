@@ -6,7 +6,10 @@
 若不传日期，自动使用今天日期。
 """
 
-import sys, os, json, math, statistics, glob
+import glob
+import json
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,12 +18,11 @@ if SKILL_DIR not in sys.path:
 
 from chains import (
     CHAIN_PRODUCTS,
-    get_chain_for_symbol,
-    is_cross_chain_variety,
-    get_dominant_chain,
-    get_all_chains_for_symbol,
-    classify_chain,
     WITHIN_CHAIN_INDEPENDENT,
+    classify_chain,
+    get_chain_for_symbol,
+    get_dominant_chain,
+    is_cross_chain_variety,
 )
 
 DATE_STR = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
@@ -333,7 +335,7 @@ def main():
     # === 报告1：策略报告 ===
     strategy_report = []
     strategy_report.append("# 链证源策略报告 — 给闫判官参考辩论方向\n")
-    strategy_report.append(f"**数据来源**: 数技源 | **日期**: 2026-07-05\n")
+    strategy_report.append("**数据来源**: 数技源 | **日期**: 2026-07-05\n")
     strategy_report.append("---\n")
 
     for chain_name in sorted(chain_data.keys()):
@@ -361,13 +363,13 @@ def main():
 
         # 期限结构（根据品种）
         back_count = sum(1 for m in data["members"] if m.get("z_score", 0) is not None)
-        strategy_report.append(f"- **期限结构倾向**: 全链Contango为主（远月升水，反映需求悲观预期）")
+        strategy_report.append("- **期限结构倾向**: 全链Contango为主（远月升水，反映需求悲观预期）")
         strategy_report.append("")
 
     # === 报告2：产业链分析报告 ===
     analysis_report = []
     analysis_report.append("# 链证源产业链分析报告 — 给闫判官做辩论品种取舍\n")
-    analysis_report.append(f"**数据来源**: 数技源 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
+    analysis_report.append("**数据来源**: 数技源 + WebSearch 基本面验证 | **日期**: 2026-07-05\n")
     analysis_report.append("---\n")
 
     # 冗余排除建议

@@ -10,8 +10,8 @@ FDT 合约版本迁移工具 — 顶层重新导出桥。
     from contracts.migrations import apply_migration, MIGRATION_REGISTRY, VERSION_MATRIX
 """
 
-import sys
 import importlib.util
+import sys
 from pathlib import Path
 
 # skills/futures-trading-analysis/contracts/migrations.py 的绝对路径

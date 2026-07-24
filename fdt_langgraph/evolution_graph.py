@@ -28,18 +28,27 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
-from fdt_langgraph.evolution_state import EvolutionState
 from fdt_langgraph.evolution_nodes import (
-    node_collect_metrics, node_apm_eval, node_decide_actions,
-    node_improve, node_calibrate, node_evolve, node_rhi, node_ml_train, node_complete,
+    node_apm_eval,
+    node_calibrate,
+    node_collect_metrics,
+    node_complete,
+    node_decide_actions,
+    node_evolve,
+    node_improve,
     node_inject_rules,
-    route_after_decide, route_after_improve, route_after_calibrate,
-    route_after_evolve, route_after_rhi,
+    node_ml_train,
+    node_rhi,
+    route_after_calibrate,
+    route_after_decide,
+    route_after_evolve,
+    route_after_improve,
+    route_after_rhi,
 )
+from fdt_langgraph.evolution_state import EvolutionState
 
 logger = logging.getLogger(__name__)
 
@@ -171,15 +180,15 @@ def run_evolution(trace_id: str = "", source_trace_id: str = "") -> EvolutionSta
     # LangGraph invoke() 在某些版本下可能返回 None（节点原地修改 state 时）
     # 此时尝试从 evolution_log.json 读取实际状态，而非回退到空白 initial
     if result is None:
-        logger.warning(f"[EvolutionGraph] graph.invoke() returned None, "
-                       f"attempting recovery from evolution_log.json")
+        logger.warning("[EvolutionGraph] graph.invoke() returned None, "
+                       "attempting recovery from evolution_log.json")
         recovered = _recover_from_evolution_log(trace_id, source_trace_id)
         if recovered:
             result = recovered
         else:
             initial["phase"] = "completed"
             initial["completed_at"] = datetime.now().isoformat()
-            logger.warning(f"[EvolutionGraph] 恢复失败，falling back to initial state")
+            logger.warning("[EvolutionGraph] 恢复失败，falling back to initial state")
             result = initial
     logger.info(f"[EvolutionGraph] 自进化闭环完成: trace_id={trace_id}, "
                 f"phase={result.get('phase')}, errors={len(result.get('errors', []))}")

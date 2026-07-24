@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("ops_monitor")
@@ -21,13 +22,11 @@ _logger = get_logger("ops_monitor")
     monitor.send_alert("critical", "数据源中断", "RB数据超过30分钟未更新")
 """
 
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
-import html
-import json
 import os
 import time
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 
 class OpsMonitor:
@@ -203,7 +202,7 @@ td, th {{ padding: 8px 12px; border-bottom: 1px solid #eee; text-align: left; }}
 <div class="card">
 <h2>🔔 今日告警</h2>
 <table><tr><th>级别</th><th>标题</th><th>时间</th></tr>
-{"".join(f"<tr><td>{a["level"]}</td><td>{a["title"]}</td><td>{a["timestamp"][:19]}</td></tr>" for a in self.alerts[-20:] if a["title"] != "")}
+{"".join(f'<tr><td>{a["level"]}</td><td>{a["title"]}</td><td>{a["timestamp"][:19]}</td></tr>' for a in self.alerts[-20:] if a['title'] != '')}
 </table>
 </div>
 

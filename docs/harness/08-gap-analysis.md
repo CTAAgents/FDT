@@ -33,11 +33,11 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
-| **本次会话 (v9.25.0)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124，共 15 项差距。G30 已登记待实施。 |
+| **本次会话 (v10.0.0)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124 + G111 + G112 + GAP-AK-001 + GAP-AK-002，共 19 项差距。**当前零开放差距。** |
 
-**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5，G30 开放中）**
+**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5，当前零开放差距）**
 
-> G16/G14 已于 2026-07-14 19:04 修复并验证。G30 为当前唯一开放差距（P1 — 记忆规则注入未纳入自进化闭环）。
+> G16/G14 已于 2026-07-14 19:04 修复并验证。G30/G111/GAP-AK-001/GAP-AK-002 已全部关闭（v10.0.0）。**当前零开放差距。**
 
 **G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
 
@@ -136,12 +136,15 @@
 | GAP-P1-001 | P1 数技源角色越界：产出 total/direction/grade 方向性预判，与观澜（P3）技术分析职责重叠 | P1 | v9.6.8 | 已关闭 | P1角色矫正：stats 纯统计特征产出，total/direction/grade 降级为内部参考，select_triggers 改为数据质量闸门 |
 | **G28** | **_resolve_report_dir 跨日子目录生成**（v9.24.2 已修复） | `_resolve_report_dir()` 用 `datetime.now()` 日期匹配 workspace 目录名。当 workspace 为昨日（如 `20260723`）但当前时刻已过午夜（`20260724`），目录名不匹配 → 生成额外子目录（`.../20260723/2026-07-24/`）。 | P1 | 改用正则 `^\d{8}$` 匹配任意日期格式目录名。 | `fdt_langgraph/nodes.py` ✅ v9.24.2 |
 | **G29** | **scan_all.py summary 未初始化 NameError 隐患**（v9.24.2 已修复） | 当 `target_symbols` 为空时 `for` 循环体不执行，`summary` 变量未定义，`summary.get("all_ranked", [])` 抛出 `NameError`。 | P1 | `for` 循环前预初始化 `summary = {}`。 | `skills/quant-daily/scripts/scan_all.py` ✅ v9.24.2 |
+| **G31** | **AKShare `adjust=""` 参数不兼容（v10.0.1 已修复）** | `akshare_provider.py` 中 `ak.futures_hist_em()` 调用传入了 `adjust=""`，但 AKShare 1.18.64 函数签名无此参数，60+ 品种每调用均抛 `TypeError`，被 `except` 静默捕获后 fallback 返回 `UNAVAILABLE`，数据全链路断裂。错误被 P0b 闸门转化为"无有效品种"输出，真实根因完全不可见。 | P1 | 移除 `adjust=""` 参数，使其匹配 AKShare 1.18.64 的 `(symbol, period, start_date, end_date)` 签名。 | `futures_data_core/core/akshare_provider.py` ✅ v10.0.1 |
 
 ### 4.3 P2 — 低优先级
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
 | G18 | 辩论调度权边界未在代码层强制 | `docs/02-lifecycle.md` 已澄清，代码层已强制 | 潜在风险 | 考虑增加调度权断言 | ✅ **已关闭（本次会话）** — `node_dispatch` 新增调度权断言 |
+| **GAP-AK-001** | **资金流向数据不可用** | `akshare.futures_hold_pos_sina()` 返回空数据。data_adapter 已封装 try/except + UNAVAILABLE 降级，下游消费方读取 `data_grade` 后自动跳过。 | P2 | data_adapter 已处理（返回 UNAVAILABLE），待 AKShare 修复或接入替代源后自然解决 | `data_adapter/sources/akshare_source.py` | ✅ **v10.0.0 已关闭（data_adapter 封装 + UNAVAILABLE 降级）** |
+| **GAP-AK-002** | **外盘历史K线不可用** | `akshare.futures_foreign_hist()` 部分品种有数据（通过 `_FOREIGN_MAP` 映射），无映射品种返回 UNAVAILABLE。data_adapter 已封装 try/except + UNAVAILABLE 降级。 | P2 | data_adapter 已处理（映射品种尽力获取，无映射返回 UNAVAILABLE），待接入更多外盘映射后扩展 | `data_adapter/sources/akshare_source.py` | ✅ **v10.0.0 已关闭（data_adapter 封装 + 映射表 + UNAVAILABLE 降级）** |
 
 ### 4.4 AP 反模式差距
 
@@ -190,7 +193,15 @@
 | **验证方式** | A/B 对比：开启注入 N 轮后 vs 无注入历史基线。改善标准：裁决准确率 ↑ or 质检 PASS 率 ↑ |
 | **关联文件** | `memory/rules/MEMORY.md`、`memory/retrieval/rules_injector.py`、`fdt_langgraph/evolution_nodes.py`、`fdt_langgraph/evolution_graph.py`、`fdt_langgraph/evolution_state.py`、`fdt_langgraph/nodes.py`、`memory/maintenance/checker.py` |
 | **登记日期** | 2026-07-24 |
-| **状态** | ✅ **已实施（v9.25.0）** — evolution_graph 新增 `inject_rules` 节点，由 `decide_actions` 根据 Checker 缺口/APM D2 触发；nodes.py 中 5 个 Agent 节点读取 `injection_config.json` 并调用 `get_rules_for_agent()` |
+| **状态** | ✅ **已实施（v10.0.0）** — evolution_graph 新增 `inject_rules` 节点，由 `decide_actions` 根据 Checker 缺口/APM D2 触发；nodes.py 中 5 个 Agent 节点读取 `injection_config.json` 并调用 `get_rules_for_agent()` |
+
+| **G31** | **观澜 context 数据注入不全**（v10.0.0 已修复） | `_build_fdc_technical_context` 仅注入 K线和技术指标，未注入持仓排名/资金流向/外盘数据。观澜 Agent prompt 要求"持仓结构、资金流、多空比"，但实际 context 无对应数据。 | P1 | 在 `prepare_one_symbol` 追加 `get_fund_flow`/`get_foreign_hist` 调用；在 `_build_fdc_technical_context` 新增持仓排名(净多/前5多/前5空)、资金流向(总持仓/多空比)、外盘(收盘价/涨跌幅)三块注入。 | `fdt_langgraph/nodes.py` `_build_fdc_technical_context()`, `data_source_adapter.py` | `futures_data_core/core/data_quality.py` | ✅ **v10.0.0 已关闭** |
+
+| **G112** | **scan_all.py 品种去重逻辑不完整**（v10.0.0 已修复） | 当前仅按品种代码前缀分组（CF2609→CF），未计算真实相关系数。聚酯链品种（PF/PR/TA/PX 等 r>0.95）无法去重。 | P1 | 在 `run_scan()` 末尾调用 `_compute_correlation_groups()`，基于 60 日收盘价 Pearson r > 0.80 做真实相关系数去重。 | `skills/quant-daily/scripts/scan_all.py` `run_scan()` | ✅ **v10.0.0 已关闭** |
+
+| **G109** | **node_judge_direction 越权做品种筛选**（v10.0.0 已修复） | 闫判官职责应是协调数据源调度，但当前节点让 LLM 从 62 个品种中选辩论品种。 | P0 | 移除 LLM 选品种逻辑，直接从 `scan_results.primary_symbols` 读取预筛选品种。LLM 只决定 `dispatch_sources`。 | `fdt_langgraph/nodes.py` `node_judge_direction()` | ✅ **v10.0.0 已关闭** |
+
+| **G111** | **FDC 退役后数据链路断裂**（v10.0.0 已修复） | FDC（futures_data_core）已正式退役，data_adapter/ 包已创建（6 文件，12 统一接口），scan_all.py 和 nodes.py P2.5 全面接入，FDC 目录已物理删除。 | P0 | 创建 `data_adapter/` 包，含 DataSource 抽象基类、AKShareSource 实现（12个统一接口）、路由入口。scan_all.py 和 nodes.py P2.5 全面接入，完成后物理删除 `futures_data_core/` 目录。 | `data_adapter/` (新建) , `skills/quant-daily/scripts/scan_all.py`, `fdt_langgraph/nodes.py` | ✅ **v10.0.0 已关闭** |
 
 ## 一致性元数据
 

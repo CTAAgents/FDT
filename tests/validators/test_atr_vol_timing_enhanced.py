@@ -6,7 +6,6 @@ V3 atr_vol_timing 基差+低波联合增强测试
 2. ATR%<0.5% 但基差走阔>2% → 撤销降级（undemote）
 3. ATR%>4% 且基差收缩<-2% → 降级
 """
-import pytest
 from dataclasses import dataclass, field
 
 

@@ -11,10 +11,12 @@ Token管理:
   失效后重新从浏览器复制
 """
 
-import requests, json, os, re, base64, time
-from datetime import datetime
+import json
+import os
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
+import requests
 
 CACHE_DIR = Path(__file__).parent / "huishang_cache"
 CACHE_DIR.mkdir(exist_ok=True)

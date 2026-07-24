@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("execution")
@@ -23,13 +24,9 @@ _logger = get_logger("execution")
 """
 
 import json
-import math
-import os
-import time
-from datetime import datetime, timedelta, date
+from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict
 
 
 class ExecutionMode(Enum):
@@ -291,7 +288,6 @@ class PaperExecutionEngine:
             return {"status": "rejected", "reason": "保证金超限"}
 
         # 3. 动态滑点（置信度越低，滑点越大）
-        import random
 
         slippage_ticks = max(0, int((1 - confidence) * 5))  # 0~5 ticks
         slippage_price = slippage_ticks * (1 if direction == "long" else -1)

@@ -18,10 +18,7 @@
   bear_ammo = build_ammunition("RB", role="慎思", guanlan={}, tanyuan={})
 """
 
-from typing import Dict, List, Optional, Tuple
-import json, os, copy
-from datetime import datetime
-
+from typing import List, Optional
 
 # ═══════════════════════════════════════════════════════════════
 # 一、弹药偏好清单（决定"从同一份数据里挑什么"）
@@ -322,7 +319,7 @@ def _pick_fundamental(tanyuan: dict, picks: List[str], is_bull: bool) -> List[di
             if "厂库降" in structure and "社库降" in structure:
                 evidence.append(
                     {
-                        "point": f"厂库+社库双降=主动去库，产业健康出清",
+                        "point": "厂库+社库双降=主动去库，产业健康出清",
                         "source": "探源",
                         "weight": 0.75,
                     }
@@ -341,7 +338,7 @@ def _pick_fundamental(tanyuan: dict, picks: List[str], is_bull: bool) -> List[di
             if "厂库升" in structure and "社库降" in structure:
                 evidence.append(
                     {
-                        "point": f"厂库升+社库降=被动累库，下游不接货",
+                        "point": "厂库升+社库降=被动累库，下游不接货",
                         "source": "探源",
                         "weight": 0.85,
                     }

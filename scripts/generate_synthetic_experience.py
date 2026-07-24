@@ -13,11 +13,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.experience_recorder import write_record, update_index
+from scripts.experience_recorder import update_index, write_record
+from scripts.harness_adapter import adapt_harness, log_adaptation
 from scripts.pattern_distiller import distill_patterns, save_pattern
 from scripts.pattern_reviewer import confirm_pattern
-from scripts.harness_adapter import adapt_harness, log_adaptation
-
 
 FDT_ROOT = Path(__file__).resolve().parents[1]
 RECORDS_DIR = FDT_ROOT / "memory" / "experience" / "records"
@@ -154,7 +153,7 @@ def main():
     base_date = datetime(2026, 7, 22)
 
     # 第一步：生成 Et 记录
-    print(f"\n[1/4] 生成模拟 Et 记录...")
+    print("\n[1/4] 生成模拟 Et 记录...")
     all_records = []
     for scenario in SCENARIOS:
         records = generate_records(scenario, base_date)
@@ -183,7 +182,7 @@ def main():
     print(f"  INDEX.json records_count: {index['records_count']}")
 
     # 第二步：蒸馏 Gt 模式
-    print(f"\n[3/4] 蒸馏 Gt 模式...")
+    print("\n[3/4] 蒸馏 Gt 模式...")
     patterns = distill_patterns(RECORDS_DIR, PATTERNS_DIR, min_sample=5, confidence_threshold=0.1)
     print(f"  蒸馏出 {len(patterns)} 条模式")
 
@@ -204,7 +203,7 @@ def main():
         print(f"    config_delta: {p['config_delta']}")
 
     # 第三步：验证适配效果
-    print(f"\n[4/4] 验证适配效果...")
+    print("\n[4/4] 验证适配效果...")
     for scenario in SCENARIOS:
         tc = {
             "adx_range": scenario["adx_range"],
@@ -222,7 +221,7 @@ def main():
             for a in result['adaptations']:
                 print(f"    适配: {a['dimension']}.{a['field']} = {a.get('value', a.get('from', '?'))} ({a['reason']})")
         else:
-            print(f"    适配: 无变更（使用默认配置）")
+            print("    适配: 无变更（使用默认配置）")
 
     print(f"\n{'='*60}")
     print(f"完成！Et: {index['records_count']} 条, Gt: {len(patterns)} 条")

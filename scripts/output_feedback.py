@@ -17,10 +17,9 @@ output_feedback.py — 输出反馈闭环 (D6 Output Phase 3)
 
 import json
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

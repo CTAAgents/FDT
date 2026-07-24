@@ -23,7 +23,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -88,7 +88,6 @@ def run_daily_training(symbols: list[str] = None, auto: bool = False) -> None:
 
 def _build_training_samples(trades: list) -> tuple:
     """从交易记录构建训练样本。"""
-    import random
     import numpy as np
 
     if not trades:

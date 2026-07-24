@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """technical-analysis 测试"""
 
-import sys, os
+import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from scripts.trend_analysis import analyze_trend, check_momentum
-from scripts.volume_price import analyze_volume_price, check_fake_breakout
 from scripts.divergence import check_divergence
 from scripts.flow_analysis import analyze_seat_flow, estimate_long_short_ratio
+from scripts.trend_analysis import analyze_trend, check_momentum
+from scripts.volume_price import analyze_volume_price, check_fake_breakout
 
 
 class TestTrendAnalysis(unittest.TestCase):

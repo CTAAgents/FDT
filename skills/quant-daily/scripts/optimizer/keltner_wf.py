@@ -18,24 +18,21 @@ Walk-Forward 训练/测试分割，产出最优参数组合。
   python -m scripts.optimizer.keltner_wf --all --top-n 5
 """
 
-import sys
-import os
 import json
-import math
+import os
+import sys
 from datetime import datetime
 from typing import Optional
-from itertools import product
 
 import numpy as np
-import pandas as pd
 
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _SCRIPTS_DIR)
 
+from config.settings import DEBATE_ENTRY_MIN_ABS, TREND_G30_CONFIG
 from config.symbols import ALL_SYMBOLS, SYMBOL_DETAILS
-from config.settings import TREND_G30_CONFIG, DEBATE_ENTRY_MIN_ABS
 from scan_all import collect_kline_for_all
-from indicators.calc_core import calculate_tdx_compatible
+
 from futures_data_core.indicators.tdx_compat import calculate_keltner
 
 # ─── Keltner 参数候选空间 ───
@@ -291,21 +288,21 @@ def run_keltner_wf(
         symbols = ALL_SYMBOLS
 
     print(f"\n{'=' * 55}")
-    print(f"  Keltner 通道 Walk-Forward 参数训练")
+    print("  Keltner 通道 Walk-Forward 参数训练")
     print(f"  period: {KELTNER_PERIOD_CANDIDATES}")
     print(f"  atr_mult: {KELTNER_ATR_MULT_CANDIDATES}")
     print(f"  组合数: {len(KELTNER_PERIOD_CANDIDATES) * len(KELTNER_ATR_MULT_CANDIDATES)}")
     print(f"{'=' * 55}")
 
     # 1. 加载数据
-    print(f"\n[1/3] 加载历史数据...")
+    print("\n[1/3] 加载历史数据...")
     kline_data = collect_kline_for_all(
         symbols, days=DAYS_OF_DATA, min_bars=MIN_BARS, period="daily"
     )
     print(f"  有效品种: {len(kline_data)}/{len(symbols)}")
 
     # 2. 构建截面
-    print(f"\n[2/3] 构建历史截面...")
+    print("\n[2/3] 构建历史截面...")
     all_snapshots = {}
     for sym, name in symbols:
         snaps = _build_snapshots(sym, name, kline_data)
@@ -315,7 +312,7 @@ def run_keltner_wf(
     print(f"  有效截面品种: {len(all_snapshots)}/{len(symbols)}")
 
     # 3. Walk-Forward
-    print(f"\n[3/3] Walk-Forward 训练+测试...")
+    print("\n[3/3] Walk-Forward 训练+测试...")
     results = []
     for sym, name in symbols:
         snaps = all_snapshots.get(sym, [])
@@ -355,7 +352,7 @@ def run_keltner_wf(
         wavg_mult = 2.25
 
     print(f"\n{'=' * 55}")
-    print(f"  Keltner WF 结果汇总")
+    print("  Keltner WF 结果汇总")
     print(f"{'=' * 55}")
     print(f"  有效品种: {len(results)}/{len(symbols)}")
     print(f"\n  period 分布: {dict(sorted(period_dist.items()))}")
@@ -433,7 +430,7 @@ def _write_results(results: list, mode_period: int, mode_mult: float,
     TREND_G30_CONFIG["keltner"]["period"] = new_p
     TREND_G30_CONFIG["keltner"]["atr_mult"] = new_m
 
-    print(f"\n  ✅ TREND_G30_CONFIG.keltner 已更新:")
+    print("\n  ✅ TREND_G30_CONFIG.keltner 已更新:")
     print(f"     period: {old_p} → {new_p}")
     print(f"     atr_mult: {old_m} → {new_m}")
     print(f"     (加权均值参考: period={wavg_period:.1f}, atr_mult={wavg_mult:.2f})")
@@ -468,7 +465,7 @@ def _patch_legacy_numpy(period: int, atr_mult: float):
             f.write(new_content)
         print(f"  ✅ legacy_numpy.py 已更新: period={period}, atr_mult={atr_mult}")
     else:
-        print(f"  ℹ legacy_numpy.py 无需变更（参数已一致）")
+        print("  ℹ legacy_numpy.py 无需变更（参数已一致）")
 
 
 def main():

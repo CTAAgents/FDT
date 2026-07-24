@@ -14,16 +14,19 @@ Phase Gate机制:
 用法: python debate_orchestrator.py --workspace C:/path/to/Signal [--auto-fallback]
 """
 
-import json, os, sys, time
+import json
+import os
+import sys
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 # 导入Layer 1校验器
 try:
-    from validate_agent_output import validate, SCHEMAS
+    from validate_agent_output import SCHEMAS, validate
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from validate_agent_output import validate, SCHEMAS
+    from validate_agent_output import validate
 
 
 class DebatePhaseGate:
@@ -245,7 +248,7 @@ if __name__ == "__main__":
             print("无信号文件 → 跳过编排")
             sys.exit(0)
 
-        print(f"\n=== 辩论编排启动 ===")
+        print("\n=== 辩论编排启动 ===")
         print(f"  品种: {[s['symbol'] for s in signals.get('signals', [])]}")
         print(f"  阶段数: {len(orch.gates)}")
 

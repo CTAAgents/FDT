@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import sys
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,7 +23,6 @@ from futures_data_core.core._datacore_bridge import (
     dc_result_to_a2apayload,
     try_datacore_first,
 )
-
 
 _DC_PREFIX = "datacore"
 

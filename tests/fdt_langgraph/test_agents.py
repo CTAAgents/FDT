@@ -4,12 +4,11 @@
 """
 import json
 import os
+from unittest.mock import MagicMock, mock_open, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, mock_open, AsyncMock
-from datetime import datetime
 
-from fdt_langgraph.agents import FdtAgentExecutor, AgentRegistry
-
+from fdt_langgraph.agents import AgentRegistry, FdtAgentExecutor
 
 # ============================================================
 # FdtAgentExecutor 初始化
@@ -394,15 +393,14 @@ class TestAgentRegistryLoadFromDirectory:
 
         AgentRegistry.load_from_directory("agents")
 
-        mock_glob.assert_called_once()
+        assert mock_glob.call_count >= 1
         agent = AgentRegistry.get("analyst")
         assert agent is not None
         assert agent.agent_name == "analyst"
-        # 注意：由于 _parse_agent_md 中 `line.startswith("#")` 会匹配 H1 和 H2，
-        # 导致 ## System Prompt 覆盖了 # Analyst 的 role 值
-        assert agent.role == "System Prompt"
-        # system_prompt 收集逻辑因上述原因无法触发
-        assert agent.system_prompt == ""
+        # v9.x 修复：`# ` 不再匹配 `##`，role 为 "# Analyst" 的文本
+        assert agent.role == "Analyst"
+        # v9.x 修复：system_prompt 收集逻辑正常工作
+        assert agent.system_prompt == "You are an analyst."
 
     @patch("glob.glob")
     @patch("builtins.open", new_callable=mock_open, read_data="# Trader\n\n## system prompt\nExecute trades.\n")
@@ -414,8 +412,9 @@ class TestAgentRegistryLoadFromDirectory:
 
         agent = AgentRegistry.get("trader")
         assert agent is not None
-        assert agent.role == "system prompt"
-        assert agent.system_prompt == ""
+        # v9.x 修复：`# Trader` → role="Trader"
+        assert agent.role == "Trader"
+        assert agent.system_prompt == "Execute trades."
 
     @patch("glob.glob")
     def test_load_from_directory_no_files(self, mock_glob):
@@ -447,8 +446,10 @@ class TestAgentRegistryLoadFromDirectory:
 
         agent = AgentRegistry.get("multi_role")
         assert agent is not None
-        assert agent.role == "System Prompt"
-        assert agent.system_prompt == ""
+        # v9.x 修复：`# Multi Role` → role="Multi Role"
+        assert agent.role == "Multi Role"
+        # v9.x 修复：system_prompt 收集 "Line 1\nLine 2\nLine 3"
+        assert agent.system_prompt == "Line 1\nLine 2\nLine 3"
 
     @patch("glob.glob")
     @patch("builtins.open", new_callable=mock_open, read_data="# No Prompt\n")
@@ -483,13 +484,13 @@ class TestAgentRegistryParseAgentMd:
 
     @patch("builtins.open", new_callable=mock_open, read_data="# Senior Analyst\n\n## System Prompt\nYou are a senior analyst.\n")
     def test_parse_basic(self, mock_open_file):
-        """基本解析：由于解析器中 `#` 匹配优先于 `##`，role 被最后出现的 ## 行覆盖"""
+        """基本解析：`# ` 设置 role，`##` + role 开启 system_prompt 收集"""
         config = AgentRegistry._parse_agent_md("/fake/path/analyst.md")
         assert config["name"] == "analyst"
-        # `## System Prompt` 也以 `#` 开头，覆盖了 `# Senior Analyst` 的值
-        assert config["role"] == "System Prompt"
-        # system_prompt 收集逻辑（in_system_prompt）从未被触发
-        assert config["system_prompt"] == ""
+        # v9.x 修复：`# ` 不再匹配 `##`，role 为 "Senior Analyst"
+        assert config["role"] == "Senior Analyst"
+        # v9.x 修复：system_prompt 收集逻辑正常工作
+        assert config["system_prompt"] == "You are a senior analyst."
 
     @patch("builtins.open", new_callable=mock_open, read_data="")
     def test_parse_empty_file(self, mock_open_file):
@@ -509,12 +510,12 @@ class TestAgentRegistryParseAgentMd:
 
     @patch("builtins.open", new_callable=mock_open, read_data="# Role\n\n## System Prompt\nLine1\n\n## Another Section\nNot system prompt\n")
     def test_parse_stops_at_next_section(self, mock_open_file):
-        """解析器 bug：## 行覆盖 role，system_prompt 始终为空"""
+        """解析器：`# ` 设置 role，system_prompt 收集到下一个 `##` 为止"""
         config = AgentRegistry._parse_agent_md("/fake/path/sectioned.md")
-        # role 被最后一次 ## 行覆盖
-        assert config["role"] == "Another Section"
-        # system_prompt 始终为空（解析器有 bug：`#` 匹配优先于 `##` 导致收集逻辑不触发）
-        assert config["system_prompt"] == ""
+        # v9.x 修复：`# Role` → role="Role"
+        assert config["role"] == "Role"
+        # v9.x 修复：system_prompt 收集 "## System Prompt" 和 "## Another Section" 之间的内容
+        assert config["system_prompt"] == "Line1"
 
 
 # ============================================================

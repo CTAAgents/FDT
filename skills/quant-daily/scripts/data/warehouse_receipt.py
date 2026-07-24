@@ -21,10 +21,7 @@
 品种映射: symbol → (exchange, variety_code, unit)
 """
 
-from datetime import datetime, date
 from typing import Dict, List, Optional, Tuple
-import json
-
 
 # ============================================================
 # 品种 → 交易所映射
@@ -129,17 +126,17 @@ class WarehouseReceipt:
         self.total_registered: Optional[int] = None    # 总注册仓单
         self.daily_change: Optional[int] = None         # 日增减
         self.daily_change_pct: Optional[float] = None   # 日增减%
-        
+
         # 趋势数据
         self.week_change: Optional[int] = None           # 近7日变化
         self.week_change_pct: Optional[float] = None
-        self.month_change: Optional[int] = None          # 近30日变化  
+        self.month_change: Optional[int] = None          # 近30日变化
         self.month_change_pct: Optional[float] = None
-        
+
         # 分位数据
         self.percentile_1y: Optional[float] = None       # 近1年分位数(%)
         self.percentile_3y: Optional[float] = None       # 近3年分位数(%)
-        
+
         # 交割压力
         self.total_oi: Optional[int] = None              # 总持仓
         self.warrant_oi_ratio: Optional[float] = None    # 仓单/持仓比
@@ -311,13 +308,13 @@ def generate_debate_brief(symbols: List[str], warehouse_data: dict) -> str:
         Markdown格式的仓单素材摘要
     """
     lines = ["## 仓单数据（基本面）", ""]
-    
+
     for sym in symbols:
         key = sym.lower()
         wr = warehouse_data.get(key)
         if wr is None:
             continue
-        
+
         if isinstance(wr, dict):
             signal = wr.get("signal", {})
             total = wr.get("total_registered")
@@ -332,9 +329,9 @@ def generate_debate_brief(symbols: List[str], warehouse_data: dict) -> str:
             daily = wr.daily_change
             month = wr.month_change_pct
             pct1y = wr.percentile_1y
-        
+
         lines.append(f"### {sym.upper()}")
-        
+
         # 基础数据
         if total:
             data_str = f"注册仓单: {total:,}{unit}"
@@ -347,18 +344,18 @@ def generate_debate_brief(symbols: List[str], warehouse_data: dict) -> str:
             if pct1y:
                 data_str += f" [近1年{pct1y:.0f}%分位]"
             lines.append(f"- {data_str}")
-        
+
         # 信号
         lines.append(f"- 仓单信号: **{signal['direction']}** ({signal['strength']})")
         lines.append(f"- 总结: {signal['summary']}")
-        
+
         # 风险标注
         if signal["risk_flags"]:
             for flag in signal["risk_flags"]:
                 lines.append(f"  - ⚠️ {flag}")
-        
+
         lines.append("")
-    
+
     lines.append("---")
     lines.append("*数据来源: 各交易所仓单日报 (上期所/郑商所/大商所)*")
     return "\n".join(lines)
@@ -371,7 +368,7 @@ def generate_debate_brief(symbols: List[str], warehouse_data: dict) -> str:
 def get_sample_data() -> Dict[str, WarehouseReceipt]:
     """获取示例仓单数据（2026-07-09，实际WebSearch采集）"""
     samples = {}
-    
+
     # SP 纸浆 — 数据源: 99qh + 同花顺
     sp = WarehouseReceipt("sp", "2026-07-09")
     sp.total_registered = 293788
@@ -381,7 +378,7 @@ def get_sample_data() -> Dict[str, WarehouseReceipt]:
     sp.month_change_pct = 23.05
     sp.percentile_1y = 92  # 近1年高位 (仓单年初仅15万吨级别)
     samples["sp"] = sp
-    
+
     # SN 锡 — 数据源: SMM 7月7日
     sn = WarehouseReceipt("sn", "2026-07-07")
     sn.total_registered = 4907
@@ -391,7 +388,7 @@ def get_sample_data() -> Dict[str, WarehouseReceipt]:
     sn.month_change_pct = -14.0
     sn.percentile_1y = 35  # 偏低
     samples["sn"] = sn
-    
+
     # NI 镍 — 数据源: SMM 7月7日
     ni = WarehouseReceipt("ni", "2026-07-07")
     ni.total_registered = 98094
@@ -401,7 +398,7 @@ def get_sample_data() -> Dict[str, WarehouseReceipt]:
     ni.month_change_pct = 5.4
     ni.percentile_1y = 55
     samples["ni"] = ni
-    
+
     # AL 铝 — 数据源: SMM 7月7日
     al = WarehouseReceipt("al", "2026-07-07")
     al.total_registered = 397145
@@ -411,7 +408,7 @@ def get_sample_data() -> Dict[str, WarehouseReceipt]:
     al.month_change_pct = -3.6
     al.percentile_1y = 75
     samples["al"] = al
-    
+
     return samples
 
 
@@ -420,24 +417,24 @@ def get_sample_data() -> Dict[str, WarehouseReceipt]:
 # ============================================================
 def main():
     import sys
-    
+
     print(f"\n{'='*50}")
     print("期货仓单数据分析 v1.0")
     print(f"{'='*50}\n")
-    
+
     samples = get_sample_data()
-    
+
     if len(sys.argv) > 1:
         symbols = [s.lower() for s in sys.argv[1].split(",")]
     else:
         symbols = list(samples.keys())
-    
+
     for sym in symbols:
         wr = samples.get(sym)
         if wr is None:
             print(f"  {sym}: 无仓单数据")
             continue
-        
+
         signal = wr.get_signal()
         print(f"\n  {sym.upper()} {wr.variety_name}")
         print(f"    注册仓单: {wr.total_registered:,}{wr.unit} (日{wr.daily_change:+,})")
@@ -448,7 +445,7 @@ def main():
         print(f"    信号: {signal['direction']} ({signal['strength']})")
         for flag in signal['risk_flags']:
             print(f"      ⚠️ {flag}")
-    
+
     # 输出辩论素材
     print("\n" + "="*50)
     brief = generate_debate_brief(symbols, {s: samples[s] for s in symbols if s in samples})

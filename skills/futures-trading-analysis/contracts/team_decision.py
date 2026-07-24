@@ -3,8 +3,10 @@
 接收闫判官 FinalJudgment，结合风控 verdict 做最终裁定。
 """
 
-from pydantic import BaseModel, Field
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
 from .base import BaseSkillOutput
 
 

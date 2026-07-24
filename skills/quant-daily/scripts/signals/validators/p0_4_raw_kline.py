@@ -90,7 +90,7 @@ def validate_p0_4_raw_kline(r: dict, context) -> None:
         _basis_info = (context.extra or {}).get("basis_data", {}).get(sym.upper(), {})
         _oi_change = _oi_info.get("oi_change_pct", 0)
         _basis_pct = _basis_info.get("basis_pct", 0)
-        
+
         _overridden = False
         if _oi_change > 15.0:
             # OI 暴增 >15% → 主力建仓，即使价格没破极值也不降级
@@ -104,7 +104,7 @@ def validate_p0_4_raw_kline(r: dict, context) -> None:
             r["_strangle_compressed"] = True
             r["_override_reason"] = f"基差走阔(basis_pct={_basis_pct:+.2f}%)弹簧压缩覆写伪突破降级"
             print(f"  ✅ [P0-4] {sym} 基差走阔({_basis_pct:+.2f}%)覆写伪突破降级")
-        
+
         if not _overridden:
             demote(r, reason)
             # 保留原 P0-4 的追溯键，兼容下游读者

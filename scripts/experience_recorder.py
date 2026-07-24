@@ -18,7 +18,6 @@ from typing import Optional
 
 from contracts.experience_schema import validate_execution_record
 
-
 # ── 常量 ──
 
 INDEX_VERSION = "1.0"

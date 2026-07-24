@@ -3,7 +3,9 @@
 Loop driver for FDC data injection verification.
 Runs validation checks on fdt_langgraph modules to ensure changes persist.
 """
-import sys, json, os, subprocess, time
+import json
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -60,7 +62,7 @@ def main():
         try:
             with open(STATE_FILE) as f:
                 state = json.load(f)
-        except:
+        except Exception:
             pass
 
     round_num = state.get("round", 0) + 1

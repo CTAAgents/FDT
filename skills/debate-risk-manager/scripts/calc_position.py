@@ -8,7 +8,7 @@
 - 左侧信号仓位 ≤ 标准仓位50%
 """
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 
 def calc_margin_per_lot(price: float, lot_size: int, margin_rate: float) -> float:

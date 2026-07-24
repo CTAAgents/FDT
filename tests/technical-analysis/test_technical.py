@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """technical-analysis 测试"""
 
-import pytest
-import sys, os
+import os
+import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 try:
     from scripts.trend_analysis import analyze_trend, check_momentum
     _HAS_MODULE = True
@@ -14,9 +15,9 @@ except ImportError:
     _HAS_MODULE = False
     pytest.skip("module scripts.trend_analysis not available", allow_module_level=True)
 
-from scripts.volume_price import analyze_volume_price, check_fake_breakout
 from scripts.divergence import check_divergence
 from scripts.flow_analysis import analyze_seat_flow, estimate_long_short_ratio
+from scripts.volume_price import analyze_volume_price, check_fake_breakout
 
 
 class TestTrendAnalysis(unittest.TestCase):

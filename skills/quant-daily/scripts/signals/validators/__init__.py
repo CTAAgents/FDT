@@ -10,6 +10,7 @@
 """
 
 from config.settings import SIGNAL_VALIDATOR_MAP
+
 from .base import ValidationContext, demote
 
 VALIDATOR_REGISTRY = {}
@@ -53,14 +54,14 @@ def run_signal_validators(all_ranked: list, context: ValidationContext) -> list:
 
 # ── 导入即注册：确保 VALIDATOR_REGISTRY 填充 ──
 from . import (  # noqa: E402
-    p0_4_raw_kline,
-    volume_confirm,
     atr_vol_timing,
-    trend_direction,
-    entity_quality,
-    stability,
     crowding,
     data_quality,
+    entity_quality,
+    p0_4_raw_kline,
+    stability,
+    trend_direction,
+    volume_confirm,
 )
 
 __all__ = [

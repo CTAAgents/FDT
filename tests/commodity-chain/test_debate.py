@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """debate.py 单元测试 - 100%覆盖。"""
 
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from scripts.debate import bull_argument, bear_argument, research_manager_decision
+from scripts.debate import bear_argument, bull_argument, research_manager_decision
 
 
 class TestBullArgument(unittest.TestCase):

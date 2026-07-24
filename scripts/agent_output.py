@@ -31,8 +31,6 @@ import os
 import re
 import sys
 from pathlib import Path, PureWindowsPath
-from datetime import datetime
-from typing import Any
 
 # ── 工作空间推导 ──
 # 优先级：FDT_WORKSPACE 环境变量 > 当前目录含 scan/信号文件 > 未设置(由下游拼接)

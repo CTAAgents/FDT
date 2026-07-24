@@ -23,8 +23,8 @@ FDT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(FDT_ROOT))
 
 from scripts.harness_adapter import (
-    adapt_harness,
     DEFAULT_CONFIG,
+    adapt_harness,
     log_adaptation,
 )
 

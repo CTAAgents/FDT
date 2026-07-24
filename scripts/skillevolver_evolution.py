@@ -13,12 +13,9 @@ Usage:
 """
 from __future__ import annotations
 
-import json
-import copy
 import logging
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +257,6 @@ class SkillEvolver:
 
 def _cli() -> None:
     import sys
-    import pprint
 
     evolver = SkillEvolver()
     dry_run = "--dry-run" in sys.argv
@@ -275,7 +271,7 @@ def _cli() -> None:
             print(f"  [{r['strategy']}] {r['agent']} — {r['strategy_desc']}")
     else:
         result = evolver.run_evolution_cycle()
-        print(f"=== SkillEvolver Evolution ===")
+        print("=== SkillEvolver Evolution ===")
         ready = [u for u in result if u.get("status") == "ready"]
         rejected = [u for u in result if u.get("status") == "rejected"]
         print(f"Ready: {len(ready)} | Rejected: {len(rejected)}")

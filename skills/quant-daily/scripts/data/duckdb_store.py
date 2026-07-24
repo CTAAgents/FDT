@@ -18,11 +18,11 @@ DuckDB 存储引擎 — futures-data-search 的本地数据库层
   - query_cache      API查询结果临时缓存（防重复请求）
 """
 
-import json
 import hashlib
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, date, timedelta
+import json
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import duckdb
@@ -495,7 +495,7 @@ def main():
             ("2026-06-26", "CU", "CU2609", "SHFE", 2, "中信期货", "short", 18000, -500),
         ]
         store.save_oi_ranking(test_oi)
-        print(f"[OK] OI排名写入: 4条")
+        print("[OK] OI排名写入: 4条")
 
         # 读取验证
         oi_data = store.get_latest_oi("CU")

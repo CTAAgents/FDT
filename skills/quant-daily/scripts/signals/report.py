@@ -140,11 +140,11 @@ def generate_markdown_report(
     }.get(data_source, data_source)
 
     lines = [
-        f"# 商品期货产业链分析报告（置信度优先）",
+        "# 商品期货产业链分析报告（置信度优先）",
         "",
         f"**日期**：{date_str}",
         f"**数据来源**：{source_label}",
-        f"**分析逻辑**：自下而上（品种信号→产业链验证→置信度排序）",
+        "**分析逻辑**：自下而上（品种信号→产业链验证→置信度排序）",
         "",
     ]
 
@@ -162,7 +162,7 @@ def generate_markdown_report(
                 "## 二、信号筛选统计",
                 "",
                 f"- 扫描品种总数：{sum(c['count'] for c in chain_results.values())}个",
-                f"- 有效交易机会：0个",
+                "- 有效交易机会：0个",
                 "",
                 "## 三、产业链概览（信号验证参考）",
                 "",
@@ -365,6 +365,15 @@ def generate_html_report(
     buy_c = len(buy_opps)
     sell_c = len(sell_opps)
     hold_c = total_symbols - buy_c - sell_c
+
+    # 置信度-盈亏比散点行
+    scatter_svg_rows = "".join(
+        _svg_scatter_row(d["label"], d["label"], d["y"], d["x"])
+        for d in scatter_data
+    ) if scatter_data else ""
+
+    # 产业链评分柱状图SVG
+    chain_bar_svg = _svg_bar_chart(chain_scores, chain_names) if chain_scores else ""
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8">

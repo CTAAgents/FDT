@@ -20,8 +20,8 @@
 import json
 import os
 import sys
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
 
 
 def load_json(path: str) -> dict:
@@ -325,5 +325,5 @@ if __name__ == "__main__":
     holds = sum(1 for s in all_s if s.get("direction") == "HOLD")
     print(f"\n统计: {len(all_s)}品种 | 多头{buys} / 空头{sells} / 中性{holds}")
     print(f"    {len(intermediate.get('chain_results', {}))}条产业链")
-    print(f"\n用法: python skills/futures-trading-analysis/scripts/phase3_generate_report.py")
-    print(f"  (假定 intermediate_data.json 和 debate_results.json 均在输出目录)")
+    print("\n用法: python skills/futures-trading-analysis/scripts/phase3_generate_report.py")
+    print("  (假定 intermediate_data.json 和 debate_results.json 均在输出目录)")

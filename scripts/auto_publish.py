@@ -5,6 +5,7 @@
 在每日辩论流水线完成后自动执行，无需人工介入。
 """
 from __future__ import annotations
+
 import os
 import re
 import subprocess
@@ -96,7 +97,7 @@ def run_sync() -> bool:
                     logger(f"  [stderr] {line.strip()}")
         return r.returncode == 0
     except subprocess.TimeoutExpired:
-        logger(f"⚠ 同步超时 (120s)")
+        logger("⚠ 同步超时 (120s)")
         return False
     except Exception as e:
         logger(f"⚠ 同步失败: {e}")
@@ -119,10 +120,10 @@ def main() -> int:
 
     # 2. 更新 changelog
     append_changelog(current, new_version)
-    logger(f"  ✅ README changelog 已更新")
+    logger("  ✅ README changelog 已更新")
 
     # 3. GitHub 推送
-    logger(f"  开始 GitHub 同步...")
+    logger("  开始 GitHub 同步...")
     ok = run_sync()
     logger(f"  {'✅ 推送成功' if ok else '⚠️ 推送失败'}")
 

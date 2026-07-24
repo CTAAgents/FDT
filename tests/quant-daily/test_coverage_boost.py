@@ -1,6 +1,8 @@
 """边缘情况与集成测试 — 针对覆盖率报告中缺失行"""
 
-import json, os, sys
+import json
+import os
+import sys
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "skills", "quant-daily", "scripts"))
@@ -13,14 +15,11 @@ for k in list(sys.modules.keys()):
     if k.startswith("scripts."):
         del sys.modules[k]
 
-import pytest
 import numpy as np
 from signals import debate_brief as db
+
 from debate import history as dh
 from ml import trainer as ato
-
-
-
 
 # ═══════════════════════════════════════════════════════════
 # debate_history.py 覆盖缺口 (90% → 目标 95%+)
@@ -65,7 +64,6 @@ class TestDebateHistoryGaps:
     def test_load_feedback_ioerror(self, temp_history_dir):
         """load_feedback 读取总结文件IO异常"""
         # 先通过直接写入模拟数据
-        from unittest.mock import mock_open
         import builtins
 
         real_open = builtins.open

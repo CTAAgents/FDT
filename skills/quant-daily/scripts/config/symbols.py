@@ -7,7 +7,7 @@
 更新品种时：只改此文件，所有入口（scan_all / full_scan_debate / collect_data）自动同步。
 """
 
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 # ── 主力非僵尸品种列表 (pid, name) ──
 # 覆盖：黑色、能化、有色、贵金属、油脂油料、农产品、建材化工、新能源、航运

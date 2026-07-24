@@ -1,14 +1,26 @@
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from fdt_pg.schema import (
-    Base, ScanSignals, ChainAnalysis, TechnicalScores, FundamentalScores,
-    JudgeDirection, DebateArguments, DebateVerdicts, TradingPlans,
-    RiskChecks, ExecutionFollowup, AgentProfiles, Calibration,
-    LogEntries, DebateIndex, OLAP_VIEWS
+    OLAP_VIEWS,
+    AgentProfiles,
+    Calibration,
+    ChainAnalysis,
+    DebateArguments,
+    DebateIndex,
+    DebateVerdicts,
+    ExecutionFollowup,
+    FundamentalScores,
+    JudgeDirection,
+    LogEntries,
+    RiskChecks,
+    ScanSignals,
+    TechnicalScores,
+    TradingPlans,
 )
 
 

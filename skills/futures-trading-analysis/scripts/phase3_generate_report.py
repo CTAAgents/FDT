@@ -21,10 +21,12 @@ v3.0 (2026-07-06):
   - bull_args/bear_args 增加基于信号数据的基础面和资金面维度
 """
 
-import argparse, sys, os, json, traceback
-from html import escape as h_escape
+import argparse
+import json
+import os
+import sys
 from datetime import datetime
-
+from html import escape as h_escape
 
 # ==================== CLI参数（优先）→ 环境变量 → 默认值 ====================
 parser = argparse.ArgumentParser(description="Phase 3: 辩论报告生成")
@@ -198,7 +200,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
         # 因子择时
         if fdir == "bear":
-            bear.append(f"因子择时共振(bear) — 辅助验证空头方向")
+            bear.append("因子择时共振(bear) — 辅助验证空头方向")
         elif conflict:
             bear.append("多因子分歧 — 空头信号 vs 因子择时非空，需警惕反向风险")
 
@@ -225,7 +227,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
         # 趋势衰竭
         if stage == "exhausted":
-            bull.append(f"⚠️ 阶段=exhausted — 空头趋势末端，反转概率上升，需密切监控")
+            bull.append("⚠️ 阶段=exhausted — 空头趋势末端，反转概率上升，需密切监控")
         # V型反转例外：ADX>60但价格已反转，不适用追高追空警示
         is_v_reversal = (stage == "reversal")
         if adx > 60 and not is_v_reversal:
@@ -235,7 +237,7 @@ def _generate_fallback_args(sym: str, v: dict, intermediate: dict) -> tuple:
 
         # 因子分歧
         if fdir == "bull":
-            bull.append(f"⚠️ 因子择时反向(bull) — 因子模型显示多头信号，与空头信号矛盾")
+            bull.append("⚠️ 因子择时反向(bull) — 因子模型显示多头信号，与空头信号矛盾")
 
         # 多因子分歧
         if conflict:
@@ -459,11 +461,12 @@ if os.path.exists(DEBATE_PATH):
     DATA_BENCHMARK = _raw_dr.get("data_benchmark", DATA_BENCHMARK)
     debate_results = adapt_debate_results(_raw_dr, intermediate)
     print(f"✓ 辩论结果: {len(debate_results)} 个品种")
-    
+
     # ── 加载证真/慎思辩论详情并注入 per-pid ──
     def _load_debate_args(report_dir: str) -> dict:
         """读取辩论详情文件，返回 {symbol: dict} 格式"""
-        import re, glob
+        import glob
+        import re
         result = {}
         # 尝试多种文件名模式（带日期/不带日期, p3_/p4_）
         PATTERNS = [
@@ -989,9 +992,9 @@ def _generate_fundamental_state(pid: str, chain_name: str, all_actionable: list)
     elif cci > 100:
         fundamentals["leading_signals"].append(f"CCI={cci:.0f}进入超买区")
     if stage == "exhausted":
-        fundamentals["leading_signals"].append(f"趋势阶段为exhausted，现有趋势接近末端")
+        fundamentals["leading_signals"].append("趋势阶段为exhausted，现有趋势接近末端")
     elif stage == "reversal":
-        fundamentals["leading_signals"].append(f"趋势阶段为reversal，K线形态可能出现反转")
+        fundamentals["leading_signals"].append("趋势阶段为reversal，K线形态可能出现反转")
 
     return fundamentals
 
@@ -1123,9 +1126,9 @@ def _generate_technical_analysis(pid: str, symbols_summary: list) -> dict:
         pattern_parts.append("反转潜在态势，价格穿越关键均线")
     if dc20:
         if "up" in dc20.lower():
-            pattern_parts.append(f"DC20向上突破")
+            pattern_parts.append("DC20向上突破")
         elif "down" in dc20.lower():
-            pattern_parts.append(f"DC20向下突破")
+            pattern_parts.append("DC20向下突破")
     if macd and macd != "none":
         pattern_parts.append(f"MACD: {macd}")
     tech["pattern"] = " | ".join(pattern_parts) if pattern_parts else "无明显识别形态"
@@ -1142,8 +1145,9 @@ def _init_risk_engine():
         risk_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, os.pardir, "skills", "debate-risk-manager", "scripts"))
         if risk_dir not in sys.path:
             sys.path.insert(0, risk_dir)
-        from risk_engine import select_stop_anchor as _sa, calculate_position as _cp
         from calc_position import calc_position_risk as _cpr
+        from risk_engine import calculate_position as _cp
+        from risk_engine import select_stop_anchor as _sa
         select_stop_anchor = _sa
         calculate_position = _cp
         calc_position_risk = _cpr
@@ -1211,7 +1215,7 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
                     # 保证金检查
                     margin_level = risk_result.get("margin_level", "green")
                     if margin_level == "red":
-                        flags.append(f"🔴 保证金占用超权益60%，追保风险高")
+                        flags.append("🔴 保证金占用超权益60%，追保风险高")
                         risk_level = "red"
                     # 止损比例检查
                     stop_level = risk_result.get("stop_level", "green")
@@ -1280,7 +1284,7 @@ def _generate_risk_review(strategies: list, all_actionable: list) -> list:
             adj = f"✅ 风控通过，按原计划执行(仓位{pos:.0f}%)"
 
         if not flags:
-            flags.append(f"✅ 风控明10项检查全部通过，风险可控")
+            flags.append("✅ 风控明10项检查全部通过，风险可控")
 
         reviews.append({
             "pid": pid,
@@ -1594,7 +1598,7 @@ if risk_reviews:
             <div style="color:#888;font-size:0.75em;margin-top:4px;border-top:1px solid #2a2d38;padding-top:4px;">计算引擎: debate-risk-manager/scripts/risk_engine.py + calc_position.py | 风控明 V4.1</div>
         </div>"""
     risk_html += "</div>"
-print(f"\n[精选策略] Top5策略（同链仓位≤50%·风控审核）:")
+print("\n[精选策略] Top5策略（同链仓位≤50%·风控审核）:")
 for r in risk_reviews:
     print(f"  {r['pid']}: {r['risk_level']} 止损距{r['stop_distance_pct']}")
 
@@ -1608,19 +1612,19 @@ for s in top5_strategies:
     chain_pos_summary[ch]["count"] += 1
     chain_pos_summary[ch]["total_pos"] += pos
 if any(v["count"] > 1 for v in chain_pos_summary.values()):
-    print(f"\n[同链仓位] 多品种链汇总:")
+    print("\n[同链仓位] 多品种链汇总:")
     for ch, info in sorted(chain_pos_summary.items(), key=lambda x: -x[1]["total_pos"]):
         if info["count"] > 1:
             print(f"  {ch}: {info['count']}品种 | 合并仓位 {info['total_pos']:.0f}%")
 
-print(f"\n[闫判官] 精选Top5可执行策略:")
+print("\n[闫判官] 精选Top5可执行策略:")
 for s in top5_strategies:
     icon = "🟢" if s["direction"] == "BUY" else "🔴"
     print(f"  {icon} #{top5_strategies.index(s)+1} {s['product_name']}({s['product_id']}) {s['direction']} 入场{s['entry']:.0f} 目标{s['target']:.0f} 止损{s['stop_loss']:.0f} RR={s['risk_reward']:.2f}")
 
 
 # ==================== Step 4: HTML报告生成 ====================
-print(f"\n[Step 4] 生成3份HTML报告...")
+print("\n[Step 4] 生成3份HTML报告...")
 
 
 # ==================== HTML CSS 公共部分 ====================
@@ -2030,7 +2034,7 @@ if os.environ.get("FDT_GENERATE_INTERMEDIATE_REPORTS", "").lower() == "true":
     print(f"📊 分析数据: {OUTPUT_JSON}")
 
 print(f"\n{'=' * 60}")
-print(f"✅ Phase 3 v3.0 完成！")
+print("✅ Phase 3 v3.0 完成！")
 print(f"📊 辩论报告: {OUTPUT_DEBATE}")
 print(f"🔴 信号: T1={len(T1_signals)}, T2={len(T2_signals)}, T3={len(T3_signals)}")
 print(f"🔗 产业链: {len(chain_results_agg)}")

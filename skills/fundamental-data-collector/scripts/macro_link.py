@@ -5,7 +5,6 @@
 走 WebSearch 获取最新宏观及外盘数据。
 """
 
-from typing import Dict, Optional
 
 
 def query_macro(symbol: str) -> dict:

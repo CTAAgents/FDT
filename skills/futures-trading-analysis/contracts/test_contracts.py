@@ -1,20 +1,16 @@
+
 import pytest
+
 from contracts import (
-    BullOutput,
     BearOutput,
-    RiskOutput,
-    TradingPlanOutput,
-    PhaseMeta,
-    DimensionItem,
-    VerdictItem,
-    OverallJudgment,
-    TradeAction,
+    BullOutput,
     DataCollectionOutput,
-    TechnicalOutput,
-    ChainAnalysisOutput,
+    PhaseMeta,
+    RiskOutput,
+    TradeAction,
+    TradingPlanOutput,
 )
 from contracts.migrations import apply_migration
-from datetime import datetime
 
 
 def make_meta():
@@ -409,7 +405,7 @@ class TestIntegrationMatrix:
     @pytest.mark.parametrize("plan_v", VERSIONS["trading_plan"])
     def test_pipeline_compatibility(self, bull_v, bear_v, risk_v, plan_v):
         """所有版本组合下编排层 parse_and_migrate 不报错"""
-        from contracts import BullOutput, BearOutput, RiskOutput, TradingPlanOutput
+        from contracts import BearOutput, BullOutput, RiskOutput, TradingPlanOutput
 
         # bull
         bull_data = make_mock_bull(bull_v)

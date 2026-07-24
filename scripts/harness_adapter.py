@@ -16,9 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from contracts.experience_schema import validate_execution_record
-
-
 # ── 安全边界（支持嵌套路径 "dimension.field"）──
 
 SAFETY_BOUNDS = {

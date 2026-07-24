@@ -4,10 +4,8 @@ Covers: 4 reflection types, accumulation buffer, batch integration.
 """
 
 import json
-from pathlib import Path
 
 import pytest
-from conftest import sample_trajectory
 
 
 class TestEmbodiSkillReflectorInit:
@@ -15,7 +13,7 @@ class TestEmbodiSkillReflectorInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.embodiskill_reflect import EmbodiSkillReflector, K_MAX_REFLECTIONS, B_REVISION, REFLECTION_TYPES
+        from scripts.embodiskill_reflect import B_REVISION, K_MAX_REFLECTIONS, REFLECTION_TYPES
         self.K = K_MAX_REFLECTIONS
         self.B = B_REVISION
         self.types = REFLECTION_TYPES
@@ -101,7 +99,7 @@ class TestEmbodiSkillBuffer:
 
     def test_buffer_writes_at_threshold(self, monkeypatch):
         """Buffer should write to file when reaching B_REVISION."""
-        from scripts.embodiskill_reflect import B_REVISION, EmbodiSkillReflector
+        from scripts.embodiskill_reflect import B_REVISION
         # Build B_REVISION reflections one sample at a time
         traj = [{"step_id": "P1", "agent_role": "A", "observation": "ok", "reward": 1.0}]
         for _ in range(B_REVISION):

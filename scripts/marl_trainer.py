@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("marl")
@@ -25,12 +26,11 @@ _logger = get_logger("marl")
     trainer.train(historical_debates, trade_results)
 """
 
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
 import json
 import os
-import random
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
 
 
 class MARLTrainer:

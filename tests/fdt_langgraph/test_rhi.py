@@ -2,21 +2,19 @@
 RHI 整合测试 — HarnessSpec + PairwiseEvaluator + HarnessOptimizer + RHI Graph + Global.
 """
 
-import json
-import os
-import tempfile
-from pathlib import Path
 
-from contracts.rhi_harness_spec import HarnessSpec, PairwisePreference, RHIHistory
-from scripts.rhi_pairwise_eval import (
-    evaluate_pairwise, compute_improvement_rate,
-    _score_quality_pass, _score_risk_pass, _score_signal_quality,
-)
+from contracts.rhi_harness_spec import HarnessSpec
 from scripts.rhi_harness_optimizer import (
-    build_optimizer_prompt, parse_optimizer_response,
     apply_config_delta,
+    build_optimizer_prompt,
+    parse_optimizer_response,
 )
-
+from scripts.rhi_pairwise_eval import (
+    _score_quality_pass,
+    _score_risk_pass,
+    _score_signal_quality,
+    compute_improvement_rate,
+)
 
 # ── HarnessSpec 基本测试 ──
 
@@ -223,9 +221,8 @@ def test_apply_config_delta_aux_rules():
 
 def test_global_rhi_scoring():
     """全局 Harness 评分功能。"""
-    from scripts.rhi_global_harness import _score_output
     # 无法直接测试 _read_claude_md，但可以测评分逻辑
-    sample_content = """
+    sample_content = r"""
 # FDT Project
 ## Harness 工程规范
 docs/harness contains all specs

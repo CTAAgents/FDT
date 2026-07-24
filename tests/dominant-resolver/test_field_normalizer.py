@@ -4,20 +4,17 @@ FieldNormalizer 字段标准化器测试 — 8 类不一致点的覆盖验证。
 
 from __future__ import annotations
 
-import pytest
-
 from futures_data_core.core.field_normalizer import (
-    CanonicalField,
-    normalize_kline_row,
-    normalize_kline_list,
-    normalize_signal_row,
-    normalize_signal_list,
-    normalize_verdict,
-    normalize_risk_check,
+    normalize_confidence_raw,
     normalize_direction_raw,
     normalize_direction_to_signal,
-    normalize_confidence_raw,
     normalize_grade_raw,
+    normalize_kline_list,
+    normalize_kline_row,
+    normalize_risk_check,
+    normalize_signal_list,
+    normalize_signal_row,
+    normalize_verdict,
 )
 
 

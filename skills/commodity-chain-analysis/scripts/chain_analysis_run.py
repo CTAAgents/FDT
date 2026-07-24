@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """链证源 — 辩论专家团产业链验证分析（完整6步流程）"""
 
-import sys, os, json
+import json
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -9,12 +11,11 @@ if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
 from scripts.chains import (
-    get_chain_for_symbol,
     CHAIN_PRODUCTS,
-    classify_chain,
-    cluster_chains,
     WITHIN_CHAIN_HIGH_CORRELATION,
     WITHIN_CHAIN_INDEPENDENT,
+    cluster_chains,
+    get_chain_for_symbol,
 )
 
 # ============================================================
@@ -129,7 +130,7 @@ def build_cluster_input(symbols):
 
 def main():
     dt_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"链证源 — 辩论专家团产业链验证分析报告")
+    print("链证源 — 辩论专家团产业链验证分析报告")
     print(f"执行时间: {dt_str}")
     print("=" * 70)
 
@@ -167,7 +168,7 @@ def main():
         print(f"     整体趋势: {info['overall_trend']}")
         print(f"     平均得分: {info['avg_score']}")
         print(f"     龙头: {info['leader']} (价格{info['leader_price']})")
-        print(f"     品种: ", end="")
+        print("     品种: ", end="")
         for m in info["members"]:
             m_dir = "BUY" if m["score"] > 0 else "SELL"
             print(f"{m['pid']}({m_dir} {m['score']}) ", end="")

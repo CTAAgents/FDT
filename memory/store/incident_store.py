@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..manager.schemas import CURRENT_SCHEMA_VERSION, IncidentEntry, validate_schema
+from ..manager.schemas import IncidentEntry, validate_schema
 
 logger = logging.getLogger(__name__)
 

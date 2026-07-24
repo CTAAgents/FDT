@@ -16,13 +16,11 @@
 """
 
 import json
-import sys
 import os
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
 from typing import Optional
-
 
 # ─── 工具函数 ───────────────────────────────────────────
 
@@ -672,7 +670,7 @@ def evolve_llm_hallucination(verdicts: list, profile: dict,
         factor_reason = f"幻觉率{hallucination_rate}%正常+样本充足, 缩放因子上调"
     else:
         new_factor = current_factor
-        factor_reason = f"置信度正常, 维持缩放因子"
+        factor_reason = "置信度正常, 维持缩放因子"
 
     if max_deviation > 50:
         new_threshold = min(0.15, current_threshold - 0.05)
@@ -682,7 +680,7 @@ def evolve_llm_hallucination(verdicts: list, profile: dict,
         threshold_reason = f"幻觉率{hallucination_rate}%正常, 放宽偏差阈值"
     else:
         new_threshold = current_threshold
-        threshold_reason = f"偏差阈值合理, 维持不变"
+        threshold_reason = "偏差阈值合理, 维持不变"
 
     reasons.extend([strategy_reason, factor_reason, threshold_reason])
 
@@ -923,7 +921,7 @@ def main() -> None:
     new_profiles = evolve_debaters(verdicts, current)
     profiles["辩手"] = new_profiles
 
-    print(f"\n🤖 辩手进化:")
+    print("\n🤖 辩手进化:")
     for name in ["证真", "慎思"]:
         p = new_profiles.get(name, {})
         if p:
@@ -945,7 +943,7 @@ def main() -> None:
     profiles["LLM幻觉进化器"] = llm_new
 
     print(f"\n{'='*50}")
-    print(f"🤖 LLM幻觉进化器 进化:")
+    print("🤖 LLM幻觉进化器 进化:")
     for log in llm_new.get("_evolution_log", []):
         sign = "+" if (isinstance(log["to"], (int, float)) and log["to"] > log["from"]) else ""
         print(f"  {log['action']}: {log['from']} → {sign}{log['to']}  ({log['reason']})")
@@ -974,7 +972,7 @@ def main() -> None:
     print(f"\n{'='*50}")
     print("🧬 技能层进化 (Skillevolver):")
     try:
-        from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
+        from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
         from scripts.skillevolver_evolution import SkillEvolver
 
         debate_json = script_dir / "data" / "debate_results.json"

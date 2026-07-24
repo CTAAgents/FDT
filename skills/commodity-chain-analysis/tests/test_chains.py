@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 """chains.py 单元测试 - 100%覆盖 + 跨链品种/全品种覆盖/边界条件。"""
 
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from scripts.chains import (
-    CHAIN_PRODUCTS,
-    DEBATE_UNITS,
     CHAIN_CORRELATION_MATRIX,
-    classify_chain,
-    select_leader,
-    cluster_chains,
-    get_all_products,
-    get_chain_for_symbol,
-    is_cross_chain_variety,
-    get_cross_chain_info,
-    get_secondary_chain,
-    get_all_chains_for_symbol,
-    get_dominant_chain,
+    CHAIN_PRODUCTS,
     CROSS_CHAIN_VARIETIES,
+    DEBATE_UNITS,
     WITHIN_CHAIN_HIGH_CORRELATION,
     WITHIN_CHAIN_INDEPENDENT,
+    classify_chain,
+    cluster_chains,
+    get_all_chains_for_symbol,
+    get_all_products,
+    get_chain_for_symbol,
+    get_cross_chain_info,
+    get_dominant_chain,
+    get_secondary_chain,
+    is_cross_chain_variety,
+    select_leader,
 )
 
 

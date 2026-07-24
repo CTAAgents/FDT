@@ -4,18 +4,13 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime
-from typing import Any
-
 import pytest
 
 from futures_data_core.core.dominant_resolver import (
     DominantResolver,
-    has_month_suffix,
     _safe_dt,
+    has_month_suffix,
 )
-
 
 # ── 辅助：模拟合约信息 ──────────────────────────────────
 

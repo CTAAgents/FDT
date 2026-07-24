@@ -1,7 +1,6 @@
 """
 EventDrivenStrategy 测试 — 事件日历 + 价格偏差
 """
-import pytest
 
 
 class TestEventDriven:
@@ -42,8 +41,8 @@ class TestEventDriven:
             assert "price_change_pct" in sig.meta
 
     def test_score_returns_scored_signals(self):
-        from strategies.event_driven_strategy import EventDrivenStrategy
         from strategies.base_v2 import RawSignal
+        from strategies.event_driven_strategy import EventDrivenStrategy
         s = EventDrivenStrategy()
         raw = RawSignal(symbol="RB", direction="bull", signal_type="ed.contrary",
                         raw_score=0.3, strategy_name="event_driven",

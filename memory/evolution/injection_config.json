@@ -1,0 +1,12 @@
+{
+  "active": true,
+  "agents": [
+    "judge",
+    "risk_manager",
+    "bullish_analyst",
+    "bearish_analyst",
+    "quality_assurance"
+  ],
+  "triggered_by": "apm_d2_degradation",
+  "activated_at": "2026-07-24T22:38:14.053824"
+}

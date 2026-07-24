@@ -20,10 +20,15 @@
   - reports/backtest/backtest_report_{symbol}_{YYYYMMDD}.html
 """
 
-import sys, os, json, math, time, random, warnings
-from datetime import datetime, timedelta
-from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+import json
+import math
+import os
+import random
+import sys
+import time
+import warnings
+from datetime import datetime
+from typing import Dict, List, Optional
 
 warnings.filterwarnings("ignore")
 
@@ -37,8 +42,8 @@ for p in [SKILL_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 
@@ -890,7 +895,7 @@ def main():
     # ── P0-2: 回测体系加固 — 额外检验模块 ──
     if any([args.stress_test, args.permutation_test, args.lookahead_check]):
         print(f"\n{'=' * 60}")
-        print(f"  额外检验模块")
+        print("  额外检验模块")
         print(f"{'=' * 60}")
 
     # 压力测试

@@ -15,10 +15,14 @@
   python backtest_v3_ml.py --symbols RB --days 365 --force-train  # 重新训练
 """
 
-import sys, os, json, math, time, warnings
+import json
+import math
+import os
+import sys
+import time
+import warnings
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from collections import defaultdict
 
 warnings.filterwarnings("ignore")
 
@@ -31,8 +35,8 @@ for p in [SKILL_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 

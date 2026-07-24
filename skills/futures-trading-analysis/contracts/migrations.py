@@ -1,6 +1,5 @@
 """子 skill 输出版本迁移工具，编排层在 parse_fence 后选择性调用"""
 
-from typing import Any
 
 
 def migrate_bull_v20_to_v21(data: dict) -> dict:

@@ -1,5 +1,4 @@
 """test G35 debate_only args"""
-import pytest
 
 
 def _build_missing_pid_scenario():

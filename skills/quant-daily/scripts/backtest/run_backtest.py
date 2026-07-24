@@ -23,9 +23,12 @@ quant-daily 完整回测引擎 v1.0
   python -m scripts.backtest.run_backtest --monte-carlo-only
 """
 
-import sys, os, json, time, random, math
+import json
+import os
+import random
+import sys
+import time
 from datetime import datetime
-from collections import defaultdict
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PARENT_SKILLS = os.path.dirname(SKILL_DIR)
@@ -36,13 +39,12 @@ for p in [SKILL_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from config.symbols import ALL_SYMBOLS
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
-from signals.scoring_system import calculate_composite_score, WL1, WL2, WL3, WL4
-from config.symbols import ALL_SYMBOLS
-
+from signals.scoring_system import WL1, WL2, WL3, WL4, calculate_composite_score
 
 # ============================================================
 # 阶段1: 数据采集 + 多时间截面评分
@@ -281,7 +283,7 @@ def full_report(obs, results_dir):
     print(f"  quant-daily 回测报告 (权重 {WL1}/{WL2}/{WL3}/{WL4})")
     print(f"  {report['timestamp']} | 观测: {len(obs)}")
     print(f"{'=' * 65}")
-    print(f"\n  等级分布:")
+    print("\n  等级分布:")
     for grade in ["STRONG", "WATCH", "WEAK", "NOISE"]:
         c = report["grade_distribution"][grade]
         pct = c / len(obs) * 100 if obs else 0
@@ -309,7 +311,7 @@ def full_report(obs, results_dir):
         )
 
     # 蒙提卡罗
-    print(f"\n  ── 蒙提卡罗基准 (1000次) ──")
+    print("\n  ── 蒙提卡罗基准 (1000次) ──")
     mc = benchmark_all_random(obs, forward_days=10, n_iterations=1000)
     report["monte_carlo"] = mc
 

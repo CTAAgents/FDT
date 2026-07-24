@@ -19,7 +19,7 @@ extract_knowledge.py、memory_writer.py 等）必须从这里 import，禁止各
 """
 
 import math
-from typing import Any,  Union
+from typing import Any, Union
 
 # 中文标签 -> 数值映射（系统唯一标准）
 CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8, "LOW": 0.4, "MEDIUM": 0.6, "HIGH": 0.8}

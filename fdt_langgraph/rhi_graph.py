@@ -15,21 +15,22 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from contracts.rhi_harness_spec import (
-    HarnessSpec, PairwisePreference, RHIHistory,
-)
-from scripts.rhi_pairwise_eval import (
-    evaluate_pairwise,
-    compute_improvement_rate,
-)
-from scripts.rhi_harness_optimizer import (
-    build_optimizer_prompt,
-    parse_optimizer_response,
-    apply_config_delta,
+    HarnessSpec,
+    PairwisePreference,
+    RHIHistory,
 )
 from fdt_langgraph.agents import FdtAgentExecutor
+from scripts.rhi_harness_optimizer import (
+    apply_config_delta,
+    build_optimizer_prompt,
+    parse_optimizer_response,
+)
+from scripts.rhi_pairwise_eval import (
+    compute_improvement_rate,
+    evaluate_pairwise,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ def node_rhi_step(state: dict) -> dict:
             new_harness = apply_config_delta(harness, delta)
             logger.info(f"[RHI] Harness 已更新 H{iteration}→H{next_iter}: {change_summary}")
         else:
-            logger.warning(f"[RHI] LLM Optimizer 返回无效 response，保持当前 Harness")
+            logger.warning("[RHI] LLM Optimizer 返回无效 response，保持当前 Harness")
 
     # 找出最优迭代
     best_iter = 0

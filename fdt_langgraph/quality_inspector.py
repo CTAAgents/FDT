@@ -14,14 +14,14 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
-from typing import Any
 
 from contracts.debate_quality_schema import (
-    ARGUMENT_RULES, VERDICT_RULES, RISK_RULES,
-    QualityReport, QualityIssue,
+    ARGUMENT_RULES,
+    RISK_RULES,
+    VERDICT_RULES,
+    QualityIssue,
+    QualityReport,
 )
-
 
 # ═══════════════════════════════════════════════════════════════
 #  P3 论据质检

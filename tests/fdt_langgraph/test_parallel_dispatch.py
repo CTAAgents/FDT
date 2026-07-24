@@ -1,7 +1,8 @@
+
 import pytest
-from fdt_langgraph.state import DebateState, create_initial_state
+
 from fdt_langgraph.graph import build_debate_graph
-from datetime import datetime
+from fdt_langgraph.state import DebateState, create_initial_state
 
 
 def create_test_state(mode="default") -> DebateState:
@@ -30,7 +31,7 @@ def test_graph_tournament_mode():
 
 @pytest.mark.asyncio
 async def test_trace_id_propagation():
-    from fdt_langgraph.nodes import node_scan, node_chain
+    from fdt_langgraph.nodes import node_chain, node_scan
 
     trace_id = "test-trace-propagation"
     state = create_initial_state(trace_id)
@@ -49,7 +50,7 @@ async def test_parallel_sources_all():
     state["dispatch_sources"] = ["chain", "technical", "fundamental"]
     state["selected_symbols"] = ["RB"]
 
-    from fdt_langgraph.nodes import node_chain, node_technical, node_fundamental
+    from fdt_langgraph.nodes import node_chain, node_fundamental, node_technical
 
     chain_result = await node_chain(state.copy())
     tech_result = await node_technical(state.copy())

@@ -28,7 +28,10 @@ Agent Tool Executor v1.0 — 辩论团队工具代理执行引擎
   - 禁止文件写入/系统调用
 """
 
-import importlib, json, time, traceback, sys, os
+import json
+import os
+import time
+import traceback
 
 # 白名单：允许调用的模块+函数
 ALLOWED_CALLS = {

@@ -23,12 +23,10 @@
       # indicators['rb'] = {'ADX':59.3, 'RSI':31.6, ...}
 """
 
-import urllib.request
 import json
-import os
-import sys
 import time
-from typing import Dict, List, Optional, Set
+import urllib.request
+from typing import Dict, List, Optional
 
 TQ_URL = "http://127.0.0.1:17709/"
 TQ_TIMEOUT = 15  # seconds
@@ -142,6 +140,7 @@ class TDXBridge:
         # 0. 优先委托 FDC TDXCollector（统一数据引擎）
         try:
             import asyncio as _asyncio
+
             from futures_data_core.collectors.tdx import TDXCollector as FdcTDX
 
             _fdc_tdx = FdcTDX()
@@ -226,6 +225,7 @@ class TDXBridge:
         # 2. 最终降级：FDC compute_indicators（numpy纯函数，零外部依赖）
         try:
             import asyncio as _asyncio
+
             from futures_data_core import get_kline as fdc_kline
             from futures_data_core.indicators.core import compute_indicators
 
@@ -502,7 +502,7 @@ if __name__ == "__main__":
     if bridge.available:
         # 测试单个
         r = bridge.get_single("SM")
-        print(f"\nSM 通达信指标:")
+        print("\nSM 通达信指标:")
         for k, v in r.items():
             print(f"  {k}: {v}")
 

@@ -3,8 +3,10 @@
 匹配 agent 升级后的结构化 Output JSON，链证源骨架→探源填肉→证真/慎思取用。
 """
 
-from pydantic import BaseModel, Field
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
 from .base import BaseSkillOutput
 
 

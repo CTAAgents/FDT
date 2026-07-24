@@ -11,9 +11,11 @@ quant-daily 内部子信号权重优化引擎 v1.0
   /loop 循环次数 30 python -m scripts.backtest.internal_optimize
 """
 
-import sys, os, json, time, copy
-from datetime import datetime
+import json
+import os
+import sys
 from collections import defaultdict
+from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PARENT_SKILLS = os.path.dirname(SKILL_DIR)
@@ -25,7 +27,6 @@ for p in [SKILL_DIR]:
         sys.path.insert(0, p)
 
 import pandas as pd
-import numpy as np
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 
@@ -73,7 +74,7 @@ def _load_data(days=200):
                 "kc": df["close"].tolist(),
                 "name": name,
             }
-        except Exception as e:
+        except Exception:
             pass
     return cache
 
@@ -98,8 +99,8 @@ def _score_all(cache):
 
 def optimize_loop(baseline_bl, cache, n_iterations=30):
     """迭代优化循环。每轮调整一个子信号乘数，评分全品种，记录最优。"""
-    from signals.scoring_system import INTERNAL_MULTIPLIERS
     import signals.scoring_system as ss
+    from signals.scoring_system import INTERNAL_MULTIPLIERS
 
     # 候选参数网格
     param_grid = {}
@@ -166,7 +167,7 @@ def optimize_loop(baseline_bl, cache, n_iterations=30):
         )
 
     print(f"\n{'=' * 60}")
-    print(f"  优化完成 | 最优:")
+    print("  优化完成 | 最优:")
     print(
         f"    STRONG={best['detail']['STRONG']} WATCH={best['detail']['WATCH']} "
         f"WEAK={best['detail']['WEAK']} NOISE={best['detail']['NOISE']}"
@@ -206,7 +207,6 @@ def main():
     args = parser.parse_args()
 
     from signals.scoring_system import INTERNAL_MULTIPLIERS
-    import signals.scoring_system as ss
 
     output_dir = args.output_dir or os.path.join(os.path.dirname(SKILL_DIR), "backtest", "results")
 

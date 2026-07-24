@@ -8,13 +8,13 @@
   HS_BASE_URL=https://hyzx.hsqh.net:5443
 """
 
-import requests
+import base64
+import json
 import os
 import time
-import json
-import base64
-from datetime import datetime
 from pathlib import Path
+
+import requests
 
 REQUESTS_AVAILABLE = True
 CACHE_DIR = Path(__file__).parent / "huishang_cache"

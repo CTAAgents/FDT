@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """
 明鉴秋 Agent 生命周期管理器 — 用完即走，及时释放硬件资源。
 
@@ -28,8 +29,6 @@ from __future__ import annotations
 """
 
 import json
-import os
-import subprocess
 import sys
 import time
 from datetime import datetime
@@ -176,7 +175,7 @@ def cmd_wait_and_shutdown(phase: str, timeout: int = 900) -> int:
 
     print(f"📋 shutdown 计划: {shutdown_plan_path}")
     print(f"   共 {len(shutdown_plan)} 个 Agent 待 shutdown")
-    print(f"   明鉴秋请执行: SendMessage(type='shutdown_request', recipient='<agent>')")
+    print("   明鉴秋请执行: SendMessage(type='shutdown_request', recipient='<agent>')")
     print(f"   活跃 Agent 剩余: {state['active_count']}")
     return 0
 
@@ -192,7 +191,7 @@ def cmd_shutdown(agents: list[str]) -> None:
         for agent in agents
     ]
     print(json.dumps(shutdown_plan, ensure_ascii=False, indent=2))
-    print(f"📋 明鉴秋请执行: SendMessage(type='shutdown_request', recipient='<agent>')", file=sys.stderr)
+    print("📋 明鉴秋请执行: SendMessage(type='shutdown_request', recipient='<agent>')", file=sys.stderr)
     # 更新状态
     state = _load_state()
     for phase, entries in state["phases"].items():

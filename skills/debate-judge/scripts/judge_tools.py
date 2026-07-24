@@ -17,8 +17,7 @@ v3.0 新增:
   evaluate_debate     — 基于结构化辩词的全流程评分
 """
 
-import json, math
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 
 def compute_total_score(scores: dict, weights: dict = None) -> dict:
@@ -163,6 +162,8 @@ def flip_proposition(
     bear_score = _rate_application(bear_reason, is_bull=False)
 
     # 双策略信号倾向
+    l1l4_signal = signal.get("l1l4", {})
+    factor_signal = signal.get("factor", {})
     l1_dir = (
         1
         if l1l4_signal.get("direction") in ("bull", "BUY")

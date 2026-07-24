@@ -8,9 +8,8 @@
 - 输出可作为技术Agent预测模型的额外输入特征
 """
 
-from typing import Dict, List, Optional, Tuple
 import math
-
+from typing import Dict, List, Optional, Tuple
 
 # ── 品种板块映射（与event_calendar共享） ──
 SECTOR_MAP = {

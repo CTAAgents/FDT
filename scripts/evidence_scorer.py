@@ -16,8 +16,8 @@
 """
 
 import re
-from datetime import datetime, date
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Any, Dict, List
 
 
 def _extract_claims(debater_output: dict) -> List[dict]:

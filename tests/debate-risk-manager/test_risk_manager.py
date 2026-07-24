@@ -1,32 +1,38 @@
 # -*- coding: utf-8 -*-
 """debate-risk-manager 测试 — 仓位计算/跳空模拟/逻辑审计"""
 
-import pytest
-import sys, os
+import os
+import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 try:
     from scripts.calc_position import (
+        account_profile,
+        calc_leverage,
+        calc_margin_per_lot,
+        calc_margin_usage,
+        calc_position_risk,
+        calc_stop_loss_pct,
         calculate_position_size,
         capped_position,
-        account_profile,
     )
     _HAS_MODULE = True
 except ImportError:
     _HAS_MODULE = False
     pytest.skip("module scripts.calc_position not available", allow_module_level=True)
 
+from scripts.audit_logic import (
+    assess_rebuttal_quality,
+    check_narrative_probability,
+    run_logic_audit,
+)
 from scripts.simulate_gap import (
+    calc_margin_call_scenario,
     get_gap_params,
     simulate_gap,
-    calc_margin_call_scenario,
-)
-from scripts.audit_logic import (
-    check_narrative_probability,
-    assess_rebuttal_quality,
-    run_logic_audit,
 )
 
 

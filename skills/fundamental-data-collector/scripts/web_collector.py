@@ -4,7 +4,6 @@
 当内置缓存数据不足或过时时，此模块提供联网采集框架。
 """
 
-from typing import Optional
 
 
 def query_web(keywords: str) -> str:

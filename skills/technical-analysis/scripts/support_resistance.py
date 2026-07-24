@@ -17,8 +17,6 @@ v2.1 新增辩论专用特征：
 """
 
 from typing import Dict, List, Optional, Tuple
-import math
-
 
 # ═══════════════════════════════════════════════════════════
 # ZigZag拐点检测

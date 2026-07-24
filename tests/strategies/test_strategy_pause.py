@@ -7,18 +7,17 @@
   - get_pipeline() 默认跳过禁用策略（仅 4 个活跃）
   - get_pipeline([显式名称]) 覆盖禁用（CLI --strategies 语义）
 """
-import pytest
 
 
 def _all_seven():
-    from strategies.registry_v2 import register_v2, clear_v2
-    from strategies.trend_following_strategy import TrendFollowingStrategy
-    from strategies.mean_reversion_strategy import MeanReversionStrategy
     from strategies.arbitrage_strategy import ArbitrageStrategy
-    from strategies.macro_regime_strategy import MacroRegimeStrategy
     from strategies.event_driven_strategy import EventDrivenStrategy
+    from strategies.macro_regime_strategy import MacroRegimeStrategy
+    from strategies.mean_reversion_strategy import MeanReversionStrategy
     from strategies.ml_signal_strategy import MlSignalStrategy
     from strategies.multi_factor_strategy import MultiFactorStrategy
+    from strategies.registry_v2 import clear_v2, register_v2
+    from strategies.trend_following_strategy import TrendFollowingStrategy
 
     clear_v2()
     for C in (TrendFollowingStrategy, MeanReversionStrategy, ArbitrageStrategy,
@@ -32,7 +31,6 @@ class TestPauseConfig:
         assert {"multi_factor", "ml_signal", "event_driven"} <= set(DISABLED_STRATEGIES)
 
     def test_base_enabled_default_true(self):
-        from strategies.base_v2 import BaseStrategyV2
         # 抽象类不可实例化，用子类验证默认 enabled
         from strategies.trend_following_strategy import TrendFollowingStrategy
         assert TrendFollowingStrategy().enabled is True

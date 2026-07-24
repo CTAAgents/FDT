@@ -14,11 +14,10 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 # ── 确保 FDC 可导入 ──
 _FDT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # skills/ ↑↑↑ → FDT 根
@@ -102,15 +101,14 @@ class MultiSourceAdapter:
         """获取技术指标。委托 FDC。"""
         self._deprecated("get_indicators")
         try:
+
             from futures_data_core.indicators.core import compute_indicators
-            import numpy as np
 
             result = compute_indicators(symbol)
             if result:
                 return {"success": True, **result}
         except Exception as e:
-            pass
-        return {"success": False, "error": f"FDC indicators unavailable: {e}" if 'e' in dir() else "unknown"}
+            return {"success": False, "error": f"FDC indicators unavailable: {e}"}
 
     def get_term_structure(self, variety: str) -> dict:
         """获取期限结构。委托 FDC。"""

@@ -11,11 +11,10 @@ v2 核心变化:
 from __future__ import annotations
 
 import os
-import sys
-import json
 import re
+import sys
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional, Any
+from typing import Any, Dict, List, Tuple
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -40,7 +39,7 @@ RULES_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "id": {
                         "type": "string",
-                        "pattern": "^C\d{2}$",
+                        "pattern": r"^C\d{2}$",
                         "description": "规则唯一标识，如 C01"
                     },
                     "name": {

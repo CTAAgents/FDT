@@ -8,10 +8,10 @@
 4. 错例进入 replay buffer → 定期用于模型 finetune
 """
 
-from typing import Dict, List, Optional
+import json
+import os
 from datetime import datetime, timedelta
-import json, os
-
+from typing import Dict, List, Optional
 
 TRADE_JOURNAL_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "trade_journal", "journal.json"
@@ -125,8 +125,8 @@ def close_trade(
                 t["annotation"] = ann_result.get("annotation")
                 t["annotation_detail"] = ann_result
                 _save_journal(journal)
-                t["annotation"] = ann.get("annotation")
-                t["annotation_detail"] = ann
+                t["annotation"] = ann_result.get("annotation")
+                t["annotation_detail"] = ann_result
 
             _save_journal(journal)
             t["_annotation_detail"] = t.pop("annotation_detail", t.get("annotation_detail"))

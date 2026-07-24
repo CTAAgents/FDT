@@ -18,8 +18,6 @@
 
 import json
 import os
-from datetime import datetime
-from typing import Any
 
 # ── 默认阈值 (可由 scan_all.py 注入覆盖) ──
 N_STABILITY_LOOKBACK = 5         # 回顾最近 N 次扫描

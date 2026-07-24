@@ -8,7 +8,6 @@
   4. output_audit 输出审计日志
 """
 
-import json
 import sys
 import tempfile
 from pathlib import Path
@@ -25,10 +24,10 @@ for k in list(sys.modules.keys()):
     if k.startswith("scripts."):
         del sys.modules[k]
 
+from scripts.output_audit import OutputAudit
+from scripts.output_feedback import OutputFeedback
 from scripts.output_metrics import OutputMetrics
 from scripts.output_versioning import OutputVersioning
-from scripts.output_feedback import OutputFeedback
-from scripts.output_audit import OutputAudit
 
 
 class TestOutputMetrics:

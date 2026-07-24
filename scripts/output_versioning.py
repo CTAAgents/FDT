@@ -18,10 +18,9 @@ output_versioning.py — 输出版本化管理 (D6 Output Phase 2)
 import hashlib
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

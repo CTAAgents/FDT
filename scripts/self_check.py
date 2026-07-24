@@ -209,7 +209,7 @@ def run_self_check(args: argparse.Namespace) -> int:
     workspace = args.workspace or os.getcwd()
 
     print(f"{'='*60}")
-    print(f"FDT Pre-flight 自检")
+    print("FDT Pre-flight 自检")
     print(f"{'='*60}\n")
 
     # 1. 路径归一化

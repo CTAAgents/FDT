@@ -15,18 +15,18 @@
 不依赖移动均线、MACD、RSI等滞后指标，直接以价格行为为核心。
 """
 
-import sys, os, math
+import os
+import sys
 from datetime import datetime
-from statistics import mean, stdev
 from typing import Optional
 
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
+from config.settings import SIGNAL_GRADE_THRESHOLDS, SYMBOL_CHAIN_MAP, get_tick_size, resolve_param
 from strategies.base import BaseStrategy, SignalResult
 from strategies.registry import register_strategy
-from config.settings import resolve_param, SYMBOL_CHAIN_MAP, SIGNAL_GRADE_THRESHOLDS, get_tick_size
 
 
 class ChannelBreakoutStrategy(BaseStrategy):

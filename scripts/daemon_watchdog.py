@@ -15,15 +15,13 @@ daemon_watchdog.py — Master Graph 守护进程看门狗
 """
 from __future__ import annotations
 
-import os
-import sys
-import subprocess
-import signal
 import logging
 import logging.handlers
-from pathlib import Path
+import os
+import subprocess
+import sys
 from datetime import datetime
-
+from pathlib import Path
 
 # 日志轮转：单文件上限 2MB，保留 5 个备份
 ROOT = Path(__file__).resolve().parent.parent
@@ -102,7 +100,7 @@ def start_daemon() -> bool:
 
     flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
 
-    _log(f"正在启动 Master Graph 守护进程...")
+    _log("正在启动 Master Graph 守护进程...")
 
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW

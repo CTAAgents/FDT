@@ -10,9 +10,9 @@
 向后兼容：根目录的旧文件保留为重导出存根，新代码应直接引用子包路径。
 """
 # ── 自优化增强模块（向后兼容导出） ──
-from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
-from scripts.skillevolver_evolution import SkillEvolver
+from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
 from scripts.embodiskill_reflect import EmbodiSkillReflector
+from scripts.skillevolver_evolution import SkillEvolver
 from scripts.verify_evolution import EvolutionVerifier
 
 __all__ = [

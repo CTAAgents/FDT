@@ -9,8 +9,6 @@ Pipeline no-filter 语义测试（G43 no-filter 透传验证）
 import sys
 from pathlib import Path
 
-import pytest
-
 # 确保 scripts/ 在 sys.path
 _SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
 if _SCRIPTS not in sys.path:

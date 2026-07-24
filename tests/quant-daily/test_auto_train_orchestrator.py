@@ -1,6 +1,9 @@
 """auto_train_orchestrator.py 单元测试"""
 
-import os, numpy as np, sys
+import os
+import sys
+
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from ml import trainer as ato

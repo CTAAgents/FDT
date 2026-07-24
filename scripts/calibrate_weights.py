@@ -16,12 +16,11 @@
 from __future__ import annotations
 
 import json
-import sys
 import os
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
-
+from typing import Optional
 
 # ─── 基础配置 ───────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("vector_memory")
@@ -24,11 +25,13 @@ _logger = get_logger("vector_memory")
     similar = vm.query(symbol="RB", regime="strong_trend", top_k=5)
 """
 
-import os, json, math, sqlite3, hashlib
-from datetime import datetime, timedelta, date
-from typing import Dict, List, Any, Optional
-from pathlib import Path
+import hashlib
+import json
+import sqlite3
 from collections import defaultdict
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List
 
 
 class VectorMemory:

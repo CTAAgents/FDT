@@ -16,11 +16,10 @@ enforce_structured_output.py — 结构化输出强制约束 (D3 Generation Phas
 
 import json
 import logging
-import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

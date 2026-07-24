@@ -13,19 +13,19 @@ FDT 周期发现引擎（v5.11.0）— 零硬编码周期 · 全参数化配置
 discover() 为纯函数：输入某品种「各周期已评分信号」，输出最优周期 + 执行风格。
 """
 
+import json
 import os
 import sys
-import json
 from datetime import datetime
 
 # 确保 scripts/ 在 path（本文件位于 scripts/signals/）
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.settings import (
+    EXEC_STYLE_MAP,
+    PERIOD_FITNESS_WEIGHTS,
     enabled_periods,
     period_meta,
-    PERIOD_FITNESS_WEIGHTS,
-    EXEC_STYLE_MAP,
 )
 from optimizer.knowledge_bridge import get_symbol_knowledge
 
@@ -169,6 +169,7 @@ if __name__ == "__main__":
     # Demo 入口: python period_fitness.py --demo cu lc
     # 用 run_scan 作为 scan_fn 真实扫描各启用周期（需 TqSdk 行情环境）
     import sys
+
     from config.settings import SYMBOL_CHAIN_MAP
     from scan_all import run_scan
 

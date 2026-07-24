@@ -19,10 +19,10 @@ Technical Indicator Calculator v2.2.0
   indicators = analyze_metal(ohlc_df, "黄金")
 """
 
-import numpy as np
-import pandas as pd
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 
 # ═══════════════════════════════════════════════════════════════
 # 核心：numpy向量化工具函数
@@ -173,17 +173,17 @@ def calculate_stoch(high, low, close, k_window=9, d_window=3):
     denom = highest_high - lowest_low
     denom = np.where(denom == 0, 1e-10, denom)
     rsv = 100.0 * ((close - lowest_low) / denom)
-    
+
     # TDX-style K/D smoothing (exponential,初始50)
     n = len(close)
     k = np.full(n, 50.0)
     d = np.full(n, 50.0)
-    
+
     # 找到第一个有效RSV的位置
     start = k_window - 1  # rolling window的起始位置
     if start >= n:
         return k, d
-    
+
     k[start] = rsv[start]  # 第一根有效K值
     for i in range(start + 1, n):
         k[i] = 2/3 * k[i-1] + 1/3 * rsv[i]
@@ -250,12 +250,12 @@ def calculate_adx(high, low, close, window=14):
     down_move = np.diff(low, prepend=low[0])
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    
+
     atr = _wilders_rma_numpy(tr, window)
     atr_safe = np.where(atr == 0, 1e-10, atr)
     plus_di = 100.0 * (_wilders_rma_numpy(plus_dm, window) / atr_safe)
     minus_di = 100.0 * (_wilders_rma_numpy(minus_dm, window) / atr_safe)
-    
+
     di_sum = plus_di + minus_di
     di_sum_safe = np.where(di_sum == 0, 1e-10, di_sum)
     dx = 100.0 * (np.abs(plus_di - minus_di) / di_sum_safe)
@@ -274,7 +274,7 @@ def calculate_sar(high, low, acceleration=0.02, maximum=0.20):
     ep = np.full(n, np.nan)
     af = np.full(n, acceleration)
     trend = np.full(n, 1)  # 1=多头，-1=空头
-    
+
     # 初始判断
     if high[0] <= high[1] and low[1] >= low[0]:
         trend[0] = 1
@@ -284,7 +284,7 @@ def calculate_sar(high, low, acceleration=0.02, maximum=0.20):
         trend[0] = -1
         sar[0] = high[0]
         ep[0] = low[0]
-    
+
     for i in range(1, min(2, n)):
         if trend[i-1] == 1:  # uptrend
             sar[i] = sar[i-1] + af[i-1] * (ep[i-1] - sar[i-1])
@@ -310,7 +310,7 @@ def calculate_sar(high, low, acceleration=0.02, maximum=0.20):
                 trend[i] = -1
                 ep[i] = min(ep[i-1], low[i])
                 af[i] = min(af[i-1] + acceleration, maximum)
-    
+
     for i in range(2, n):
         if trend[i-1] == 1:  # uptrend
             sar[i] = sar[i-1] + af[i-1] * (ep[i-1] - sar[i-1])
@@ -336,7 +336,7 @@ def calculate_sar(high, low, acceleration=0.02, maximum=0.20):
                 trend[i] = -1
                 ep[i] = min(ep[i-1], low[i])
                 af[i] = min(af[i-1] + acceleration, maximum)
-    
+
     return sar, trend
 
 def calculate_linearreg_slope(data, window=14):
@@ -359,19 +359,19 @@ def calculate_kama(data, window=10, fast=2, slow=30):
     kama = np.full(n, np.nan)
     if n < window:
         return kama
-    
+
     fastest = 2.0 / (fast + 1)
     slowest = 2.0 / (slow + 1)
-    
+
     kama[window - 1] = np.mean(data[:window])
-    
+
     for i in range(window, n):
         change = abs(data[i] - data[i - window])
         volatility = np.sum(np.abs(np.diff(data[i - window + 1:i + 1])))
         er = change / volatility if volatility > 0 else 0
         sc = (er * (fastest - slowest) + slowest) ** 2
         kama[i] = kama[i - 1] + sc * (data[i] - kama[i - 1])
-    
+
     return kama
 
 # --- 波动率类 ---
@@ -430,27 +430,27 @@ def calculate_supertrend(high, low, close, period=10, multiplier=3.0):
     n = len(close)
     atr = calculate_atr(high, low, close, period)
     hl2 = (high + low) / 2.0
-    
+
     upper_band = np.full(n, np.nan)
     lower_band = np.full(n, np.nan)
     supertrend = np.full(n, np.nan)
     direction = np.full(n, 0, dtype=np.int32)
-    
+
     upper_band[period - 1] = hl2[period - 1] + multiplier * atr[period - 1]
     lower_band[period - 1] = hl2[period - 1] - multiplier * atr[period - 1]
     supertrend[period - 1] = upper_band[period - 1]
     direction[period - 1] = -1  # 默认初始为空头
-    
+
     for i in range(period, n):
         # 计算上下轨（考虑连续性）
         ub = hl2[i] + multiplier * atr[i]
         lb = hl2[i] - multiplier * atr[i]
-        
+
         # 上轨：不能比前值更低
         upper_band[i] = ub if (ub < upper_band[i - 1] or close[i - 1] > upper_band[i - 1]) else upper_band[i - 1]
         # 下轨：不能比前值更高
         lower_band[i] = lb if (lb > lower_band[i - 1] or close[i - 1] < lower_band[i - 1]) else lower_band[i - 1]
-        
+
         # 判断趋势方向
         if close[i] <= upper_band[i]:
             direction[i] = -1
@@ -458,13 +458,13 @@ def calculate_supertrend(high, low, close, period=10, multiplier=3.0):
         else:
             direction[i] = 1
             supertrend[i] = lower_band[i] if (direction[i - 1] == -1) else supertrend[i - 1]
-        
+
         # 修正：趋势翻转时取对侧
         if direction[i] == 1 and direction[i - 1] == -1:
             supertrend[i] = lower_band[i]
         elif direction[i] == -1 and direction[i - 1] == 1:
             supertrend[i] = upper_band[i]
-    
+
     return supertrend, direction
 
 # --- 综合类 ---
@@ -475,11 +475,11 @@ def calculate_ultimate_oscillator(high, low, close, window1=7, window2=14, windo
     tr = np.maximum(high - low,
                     np.maximum(np.abs(high - np.concatenate([[close[0]], close[:-1]])),
                                np.abs(low - np.concatenate([[close[0]], close[:-1]]))))
-    
+
     avg1 = _rolling_sum_numpy(bp, window1) / np.where(_rolling_sum_numpy(tr, window1) == 0, 1e-10, _rolling_sum_numpy(tr, window1))
     avg2 = _rolling_sum_numpy(bp, window2) / np.where(_rolling_sum_numpy(tr, window2) == 0, 1e-10, _rolling_sum_numpy(tr, window2))
     avg3 = _rolling_sum_numpy(bp, window3) / np.where(_rolling_sum_numpy(tr, window3) == 0, 1e-10, _rolling_sum_numpy(tr, window3))
-    
+
     return 100.0 * ((4 * avg1 + 2 * avg2 + avg3) / 7)
 
 def calculate_bull_bear_power(high, low, close, window=13):
@@ -532,13 +532,13 @@ def calculate_vortex(high, low, close, window=14):
     vm_minus = np.full(n, np.nan)
     if n < 2:
         return vm_plus, vm_minus
-    
+
     # True Range
     prev_close = np.concatenate([[close[0]], close[:-1]])
     tr = np.maximum(high - low,
                     np.maximum(np.abs(high - prev_close),
                                np.abs(low - prev_close)))
-    
+
     # VM+ = sum(|high[i] - low[i-1]|) / sum(TR)
     # VM- = sum(|low[i] - high[i-1]|) / sum(TR)
     for i in range(window, n):
@@ -552,7 +552,7 @@ def calculate_vortex(high, low, close, window=14):
         if tr_sum > 0:
             vm_plus[i] = vm_plus_numer / tr_sum
             vm_minus[i] = vm_minus_numer / tr_sum
-    
+
     return vm_plus, vm_minus
 
 def calculate_hma(data, window=10):
@@ -566,7 +566,7 @@ def calculate_hma(data, window=10):
     half = int(window / 2)
     sqrt_n = int(math.sqrt(window))
     result = np.full(n, np.nan)
-    
+
     def _wma(arr, w):
         """加权移动平均"""
         if len(arr) < w:
@@ -576,7 +576,7 @@ def calculate_hma(data, window=10):
         for i in range(w - 1, len(arr)):
             out[i] = np.sum(arr[i - w + 1:i + 1] * weights) / weights.sum()
         return out
-    
+
     wma_half = _wma(data, half)
     wma_full = _wma(data, window)
     raw = np.full(n, np.nan)
@@ -595,7 +595,7 @@ def calculate_cmf(high, low, close, volume, window=21):
     hl_safe = np.where(hl == 0, 1e-10, hl)
     mfv = ((close - low) - (high - close)) / hl_safe
     mfv_vol = mfv * volume
-    
+
     cmf = np.full_like(close, np.nan)
     for i in range(window - 1, len(close)):
         if np.sum(volume[i - window + 1:i + 1]) > 0:
@@ -669,7 +669,7 @@ def detect_higher_high_lower_low(high, low, window=5):
     hl_count = 0
     lh_count = 0
     ll_count = 0
-    
+
     for i in range(window, n):
         prev_high = np.max(high[i - window:i])
         prev_low = np.min(low[i - window:i])
@@ -685,7 +685,7 @@ def detect_higher_high_lower_low(high, low, window=5):
         elif low[i] < prev_low:
             ll_count += 1
             hl_count = 0
-    
+
     if hh_count >= 2 and hl_count >= 2:
         pattern = 'HH'
     elif lh_count >= 2 and ll_count >= 2:
@@ -700,7 +700,7 @@ def detect_higher_high_lower_low(high, low, window=5):
         pattern = 'HL'
     else:
         pattern = 'neutral'
-    
+
     return hh_count, hl_count, pattern
 
 def detect_volume_price_divergence(close, volume, window=14):
@@ -720,7 +720,7 @@ def detect_volume_price_divergence(close, volume, window=14):
         price_high = np.max(price_slice)
         vol_low = np.min(vol_slice)
         vol_high = np.max(vol_slice)
-        
+
         if price_slice[-1] <= price_low * 0.99 and vol_slice[-1] <= vol_high * 0.8:
             divergence[i] = 1  # 多头背离：价跌量缩
         elif price_slice[-1] >= price_high * 1.01 and vol_slice[-1] <= vol_high * 0.8:
@@ -753,15 +753,15 @@ def calculate_mfi(high, low, close, volume, window=14):
     """
     typical_price = (high + low + close) / 3.0
     money_flow = typical_price * volume
-    
+
     delta = np.diff(typical_price, prepend=typical_price[0])
     pos_mf = np.where(delta > 0, money_flow, 0.0)
     neg_mf = np.where(delta < 0, money_flow, 0.0)
-    
+
     pos_sum = _rolling_sum_numpy(pos_mf, window)
     neg_sum = _rolling_sum_numpy(neg_mf, window)
     neg_sum_safe = np.where(neg_sum == 0, 1e-10, neg_sum)
-    
+
     mfi = 100.0 - (100.0 / (1.0 + pos_sum / neg_sum_safe))
     return mfi
 
@@ -779,7 +779,7 @@ def detect_doji(open_price, close, high, low, body_threshold=0.1, shadow_ratio=3
     range_safe = np.where(range_price == 0, 1e-10, range_price)
     upper_shadow = high - np.maximum(close, open_price)
     lower_shadow = np.minimum(close, open_price) - low
-    
+
     doji = np.where((body / range_safe) <= body_threshold, 1, 0)
     # 区分方向
     direction = np.where(close > open_price, 1, np.where(close < open_price, -1, 0))
@@ -797,17 +797,17 @@ def detect_hammer(open_price, close, high, low, body_ratio=0.3, shadow_ratio=2.0
     range_price = high - low
     upper_shadow = high - np.maximum(close, open_price)
     lower_shadow = np.minimum(close, open_price) - low
-    
+
     body_safe = np.where(body == 0, 1e-10, body)
     range_safe = np.where(range_price == 0, 1e-10, range_price)
-    
+
     is_hammer = np.where(
         (lower_shadow >= body * shadow_ratio) &
         (upper_shadow <= body * 0.5) &
         (body / range_safe <= body_ratio),
         1, 0
     )
-    
+
     # 锤子线（底部出现）= 空转多方向
     # 上吊线（顶部出现）= 多转空方向
     # 这里仅检测形态，方向判断需结合位置
@@ -822,10 +822,10 @@ def detect_engulfing(open_price, close, high, low):
     prev_close = np.concatenate([[close[0]], close[:-1]])
     prev_high = np.concatenate([[high[0]], high[:-1]])
     prev_low = np.concatenate([[low[0]], low[:-1]])
-    
+
     prev_body = np.abs(prev_close - prev_open)
     curr_body = np.abs(close - open_price)
-    
+
     # 多头吞没：前阴后阳，阳线吞没阴线
     bull = np.where(
         (prev_close < prev_open) &  # 前日阴线
@@ -834,7 +834,7 @@ def detect_engulfing(open_price, close, high, low):
         (close > prev_open),        # 收盘高于前日开盘
         1, 0
     )
-    
+
     # 空头吞没：前阳后阴，阴线吞没阳线
     bear = np.where(
         (prev_close > prev_open) &  # 前日阳线
@@ -843,7 +843,7 @@ def detect_engulfing(open_price, close, high, low):
         (close < prev_open),        # 收盘低于前日开盘
         -1, 0
     )
-    
+
     return bull + bear
 
 def calculate_tdx_compatible(high, low, close, open_price=None, volume=None):
@@ -1083,18 +1083,18 @@ def analyze_metal(data, name, has_volume=False):
     print(f"\n{'='*60}")
     print(f"{name} 技术指标分析 v2.0")
     print(f"{'='*60}")
-    
+
     # ⚠️ 重要：转换为正序（从旧到新）用于EMA/MACD计算
     df = data.iloc[::-1].reset_index(drop=True)
-    
+
     c = df['last'].values.astype(np.float64)
     h = df['high'].values.astype(np.float64)
     l = df['low'].values.astype(np.float64)
     o = df['open'].values.astype(np.float64) if 'open' in df.columns else c
     v = df['volume'].values.astype(np.float64) if 'volume' in df.columns else None
-    
+
     # ── 所有指标计算 ──
-    
+
     # 移动平均
     ma5 = calculate_ma(c, 5)
     ma10 = calculate_ma(c, 10)
@@ -1102,7 +1102,7 @@ def analyze_metal(data, name, has_volume=False):
     ma60 = calculate_ma(c, 60)
     ema12 = calculate_ema(c, 12)
     ema26 = calculate_ema(c, 26)
-    
+
     # 动量
     rsi = calculate_rsi(c)
     sk, sd = calculate_stoch(h, l, c)
@@ -1111,7 +1111,7 @@ def analyze_metal(data, name, has_volume=False):
     cci = calculate_cci(h, l, c)
     roc = calculate_roc(c)
     ppo_line, ppo_signal, ppo_hist = calculate_ppo(c)
-    
+
     # 趋势
     macd_line, signal_line, histogram = calculate_macd(c)
     adx, pdm, mdm = calculate_adx(h, l, c)
@@ -1119,90 +1119,90 @@ def analyze_metal(data, name, has_volume=False):
     lr_slope = calculate_linearreg_slope(c)
     lr_angle = calculate_linearreg_angle(c)
     kama = calculate_kama(c)
-    
+
     # 波动率
     atr = calculate_atr(h, l, c)
     natr = calculate_natr(h, l, c)
     highs, lows = calculate_highs_lows(h, l)
     bb_upper, bb_mid, bb_lower = calculate_bollinger_bands(c)
     st, st_dir = calculate_supertrend(h, l, c)
-    
+
     # 唐奇安通道
     dc_u, dc_m, dc_l = calculate_donchian(h, l, 20)
     dc55_u, dc55_m, dc55_l = calculate_donchian(h, l, 55)
     dc55_trend = calculate_donchian_trend(h, 55)
-    
+
     # 涡流指标
     vip, vim = calculate_vortex(h, l, c)
-    
+
     # 赫尔均线
     hma10 = calculate_hma(c, 10)
     hma20 = calculate_hma(c, 20)
-    
+
     # 布林带分析
     bbw = calculate_bb_width(c)
     bbpctb = calculate_bb_pctb(c)
     bbsq = calculate_bb_squeeze(c)
-    
+
     # 均线斜率
     ma20_slope = calculate_ma_slope(c, 20)
-    
+
     # 量价背离（需volume）
     vpd = detect_volume_price_divergence(c, v) if v is not None else np.full_like(c, 0, dtype=np.int32)
-    
+
     # HH/HL模式
     hhc, hlc, hl_pattern = detect_higher_high_lower_low(h, l)
-    
+
     # CMF（需volume）
     cmf = calculate_cmf(h, l, c, v) if v is not None else np.full_like(c, np.nan)
-    
+
     # 综合
     uo = calculate_ultimate_oscillator(h, l, c)
     bpwp, bpwn = calculate_bull_bear_power(h, l, c)
-    
+
     # K线形态
     doji = detect_doji(o, c, h, l)
     hammer = detect_hammer(o, c, h, l)
     engulfing = detect_engulfing(o, c, h, l)
-    
+
     # 成交量（如有数据）
     obv = calculate_obv(c, v) if v is not None else np.full_like(c, np.nan)
     mfi = calculate_mfi(h, l, c, v) if v is not None else np.full_like(c, np.nan)
-    
+
     # ── 打印输出 ──
     latest = df.iloc[-1]
     prev = df.iloc[-2]
     change = latest['last'] - prev['last']
     change_pct = change / prev['last'] * 100
-    
+
     print(f"最新价格: {latest['last']}")
     print(f"涨跌: {change:.2f} ({change_pct:.2f}%)")
     print(f"最高: {latest['high']}, 最低: {latest['low']}")
-    
-    print(f"\n移动平均线:")
+
+    print("\n移动平均线:")
     print(f"  MA5: {ma5[-1]:.2f}, MA10: {ma10[-1]:.2f}, MA20: {ma20[-1]:.2f}, MA60: {ma60[-1]:.2f}")
     print(f"  EMA12: {ema12[-1]:.2f}, EMA26: {ema26[-1]:.2f}")
-    
+
     ma_trend = "多头排列" if (ma5[-1] > ma10[-1] > ma20[-1] > ma60[-1]) else \
                "空头排列" if (ma5[-1] < ma10[-1] < ma20[-1] < ma60[-1]) else "震荡"
     print(f"  MA排列: {ma_trend}")
-    
-    print(f"\n动量指标:")
+
+    print("\n动量指标:")
     print(f"  RSI(14): {rsi[-1]:.2f}")
     print(f"  STOCH(9,6): K={sk[-1]:.2f}, D={sd[-1]:.2f}")
     print(f"  Williams %R(14): {wr[-1]:.2f}")
     print(f"  CCI(14): {cci[-1]:.2f}")
     print(f"  ROC(12): {roc[-1]:.2f}%")
     print(f"  PPO(12,26,9): {ppo_line[-1]:.2f} (信号: {ppo_signal[-1]:.2f}, 柱状: {ppo_hist[-1]:.2f})")
-    
-    print(f"\n趋势指标:")
+
+    print("\n趋势指标:")
     print(f"  MACD: {macd_line[-1]:.2f}, 信号: {signal_line[-1]:.2f}, 柱状: {histogram[-1]:.2f}")
     print(f"  ADX(14): {adx[-1]:.2f}, +DI: {pdm[-1]:.2f}, -DI: {mdm[-1]:.2f}")
     print(f"  SAR: {sar[-1]:.2f} ({'多头' if sar_trend[-1] == 1 else '空头'})")
     print(f"  LINEARREG_Slope: {lr_slope[-1]:.2f}, Angle: {lr_angle[-1]:.2f}°")
     print(f"  KAMA({10}): {kama[-1]:.2f}")
-    
-    print(f"\n波动率指标:")
+
+    print("\n波动率指标:")
     print(f"  ATR(14): {atr[-1]:.2f}")
     print(f"  NATR(14): {natr[-1]:.2f}%")
     print(f"  14日区间: {lows[-1]:.2f} ~ {highs[-1]:.2f}")
@@ -1218,74 +1218,74 @@ def analyze_metal(data, name, has_volume=False):
     if v is not None:
         print(f"  CMF(21): {cmf[-1]:.4f}")
         print(f"  量价背离: {'多头' if vpd[-1] == 1 else '空头' if vpd[-1] == -1 else '无'}")
-    
-    print(f"\n综合指标:")
+
+    print("\n综合指标:")
     print(f"  Ultimate Oscillator: {uo[-1]:.2f}")
     print(f"  Bull Power(13): {bpwp[-1]:.2f}, Bear Power(13): {bpwn[-1]:.2f}")
-    
-    print(f"\nK线形态:")
+
+    print("\nK线形态:")
     print(f"  Doji: {'是' if doji[-1] != 0 else '否'}")
     print(f"  Hammer: {'是' if hammer[-1] != 0 else '否'}")
     print(f"  Engulfing: {'多头吞没' if engulfing[-1] == 1 else '空头吞没' if engulfing[-1] == -1 else '无'}")
-    
+
     if v is not None:
-        print(f"\n成交量指标:")
+        print("\n成交量指标:")
         print(f"  OBV: {obv[-1]:.0f}")
         print(f"  MFI(14): {mfi[-1]:.2f}")
-    
+
     # ── 信号分析 ──
-    print(f"\n信号分析:")
+    print("\n信号分析:")
     if rsi[-1] < 30:
-        print(f"  RSI显示超卖状态")
+        print("  RSI显示超卖状态")
     elif rsi[-1] > 70:
-        print(f"  RSI显示超买状态")
+        print("  RSI显示超买状态")
     if cci[-1] < -100:
-        print(f"  CCI显示深度超卖")
+        print("  CCI显示深度超卖")
     elif cci[-1] > 100:
-        print(f"  CCI显示深度超买")
-    
+        print("  CCI显示深度超买")
+
     if macd_line[-1] > signal_line[-1]:
         if not np.isnan(macd_line[-2]) and macd_line[-2] < signal_line[-2]:
-            print(f"  MACD金叉形成（今日确认）")
+            print("  MACD金叉形成（今日确认）")
         else:
-            print(f"  MACD线在信号线上方（延续中）")
+            print("  MACD线在信号线上方（延续中）")
     else:
         if not np.isnan(macd_line[-2]) and macd_line[-2] > signal_line[-2]:
-            print(f"  MACD死叉形成（今日确认）")
+            print("  MACD死叉形成（今日确认）")
         else:
-            print(f"  MACD线在信号线下方（延续中）")
-    
+            print("  MACD线在信号线下方（延续中）")
+
     if histogram[-1] < 0:
         if abs(histogram[-1]) > abs(histogram[-2]):
-            print(f"  绿柱放大（空头动能增强）")
+            print("  绿柱放大（空头动能增强）")
         else:
-            print(f"  绿柱缩小（空头动能减弱）")
+            print("  绿柱缩小（空头动能减弱）")
     else:
         if histogram[-1] > histogram[-2]:
-            print(f"  红柱放大（多头动能增强）")
+            print("  红柱放大（多头动能增强）")
         else:
-            print(f"  红柱缩小（多头动能减弱）")
-    
+            print("  红柱缩小（多头动能减弱）")
+
     if adx[-1] > 25:
         print(f"  ADX强趋势，{'多头' if pdm[-1] > mdm[-1] else '空头'}主导")
     else:
-        print(f"  ADX弱趋势或震荡")
-    
+        print("  ADX弱趋势或震荡")
+
     if sar_trend[-1] == 1:
-        print(f"  SAR: 多头信号（价格在SAR上方）")
+        print("  SAR: 多头信号（价格在SAR上方）")
     else:
-        print(f"  SAR: 空头信号（价格在SAR下方）")
-    
+        print("  SAR: 空头信号（价格在SAR下方）")
+
     if lr_slope[-1] > 0:
         print(f"  线性回归斜率向上 ({lr_slope[-1]:.2f}/日)")
     else:
         print(f"  线性回归斜率向下 ({lr_slope[-1]:.2f}/日)")
-    
+
     if st_dir[-1] == 1:
-        print(f"  SUPERTREND: 多头（价格在下方运行）")
+        print("  SUPERTREND: 多头（价格在下方运行）")
     else:
-        print(f"  SUPERTREND: 空头（价格在上方运行）")
-    
+        print("  SUPERTREND: 空头（价格在上方运行）")
+
     return {
         # 移动平均
         'ma5': float(ma5[-1]), 'ma10': float(ma10[-1]), 'ma20': float(ma20[-1]), 'ma60': float(ma60[-1]),
@@ -1346,9 +1346,9 @@ def main():
     print("Technical Indicator Calculator v2.2.0")
     print("基于numpy向量化的45项技术指标引擎（覆盖commodity-trend-signal全部指标）")
     print("=" * 60)
-    
+
     data_dir = "C:/Users/yangd/logs/Temp"
-    
+
     # ── 黄金数据 ──
     gold_data = pd.DataFrame({
         'date': ['2026-06-26', '2026-06-25', '2026-06-24', '2026-06-23', '2026-06-22',
@@ -1366,7 +1366,7 @@ def main():
         'volume': [114770, 125000, 140000, 98000, 112000, 105000, 130000, 118000, 95000, 102000,
                    108000, 135000, 120000, 88000, 96000, 150000, 142000, 115000, 100000, 98000]
     })
-    
+
     silver_data = pd.DataFrame({
         'date': ['2026-06-26', '2026-06-25', '2026-06-24', '2026-06-23', '2026-06-22',
                  '2026-06-19', '2026-06-18', '2026-06-17', '2026-06-16', '2026-06-15',
@@ -1383,7 +1383,7 @@ def main():
         'volume': [24985, 28000, 35000, 22000, 26000, 24000, 31000, 27000, 20000, 23000,
                    25000, 32000, 28000, 18000, 21000, 38000, 35000, 26000, 22000, 20000]
     })
-    
+
     platinum_data = pd.DataFrame({
         'date': ['2026-06-26', '2026-06-25', '2026-06-24', '2026-06-23', '2026-06-22',
                  '2026-06-19', '2026-06-18', '2026-06-17', '2026-06-16', '2026-06-15',
@@ -1400,7 +1400,7 @@ def main():
         'volume': [15541, 17000, 20000, 14000, 16000, 15000, 19000, 16500, 12000, 14000,
                    16000, 21000, 18000, 11000, 13000, 24000, 22000, 17000, 14000, 13000]
     })
-    
+
     palladium_data = pd.DataFrame({
         'date': ['2026-06-26', '2026-06-25', '2026-06-24', '2026-06-23', '2026-06-22',
                  '2026-06-19', '2026-06-18', '2026-06-17', '2026-06-16', '2026-06-15',
@@ -1417,16 +1417,16 @@ def main():
         'volume': [4003, 4500, 5200, 3800, 4200, 4000, 5000, 4400, 3500, 3800,
                    4200, 5500, 4800, 3000, 3500, 6000, 5800, 4500, 3800, 3500]
     })
-    
+
     print(f"\n{'─'*40}")
     print("开始计算技术指标...")
     print(f"{'─'*40}\n")
-    
+
     gold_result = analyze_metal(gold_data, "COMEX黄金", has_volume=True)
     silver_result = analyze_metal(silver_data, "COMEX白银", has_volume=True)
     platinum_result = analyze_metal(platinum_data, "NYMEX铂金", has_volume=True)
     palladium_result = analyze_metal(palladium_data, "NYMEX钯金", has_volume=True)
-    
+
     results = {
         'version': '2.2.0',
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -1457,15 +1457,15 @@ def main():
             'indicators': palladium_result
         }
     }
-    
+
     import json
     import os
     output_path = os.path.join(data_dir, 'technical_indicators.json')
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    
+
     print(f"\n{'='*60}")
-    print(f"✅ v2.2.0 分析完成！")
+    print("✅ v2.2.0 分析完成！")
     print(f"   45项技术指标已保存到: {output_path}")
     print(f"   时间: {results['timestamp']}")
     print(f"{'='*60}")

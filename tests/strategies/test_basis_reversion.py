@@ -6,12 +6,10 @@
   - BasisReversionStrategy.score（方向符号 + grade + weight=0.7）
 """
 
-import json
 import os
+import sys
 import tempfile
 from pathlib import Path
-
-import sys
 
 # 确保 scripts/ 在 sys.path
 _SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
@@ -22,15 +20,11 @@ if "config" in sys.modules:
     del sys.modules["config"]
 
 import numpy as np
-import pytest
-
 from strategies.basis_reversion_strategy import (
     BasisReversionStrategy,
-    store_basis_snapshot,
     fetch_basis_history,
-    _basis_log_path,
+    store_basis_snapshot,
 )
-
 
 # ── 存储层测试 ──
 

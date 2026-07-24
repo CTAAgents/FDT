@@ -1,16 +1,26 @@
-import pytest
 import json
-from datetime import datetime
-from fdt_langgraph.state import DebateState, create_initial_state
+
+import pytest
+
 from fdt_langgraph.nodes import (
-    node_scan, node_judge_direction,
-    node_chain, node_technical, node_fundamental,
-    node_merge_research, node_verdict,
-    node_signal_output, node_risk_check, node_report,
-    node_bullish_v1, node_bearish_v1,
-    node_bearish_rebuttal, node_bullish_rebuttal,
-    node_bear_final, node_bull_final,
+    node_bear_final,
+    node_bearish_rebuttal,
+    node_bearish_v1,
+    node_bull_final,
+    node_bullish_rebuttal,
+    node_bullish_v1,
+    node_chain,
+    node_fundamental,
+    node_judge_direction,
+    node_merge_research,
+    node_report,
+    node_risk_check,
+    node_scan,
+    node_signal_output,
+    node_technical,
+    node_verdict,
 )
+from fdt_langgraph.state import create_initial_state
 
 
 async def _run_debate_sequence(state):

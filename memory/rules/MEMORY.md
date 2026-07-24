@@ -11,7 +11,7 @@
 
 - **规则**：凡对 FDT 的任何操作（代码/配置/记忆/辩论产物），必须写入 FDT 自身记忆系统（`memory/` 目录），绝不写入外部工作空间。
 - **背景**：FDT 是独立系统，脱离平台须能独立生存，记忆必须自包含。
-- **落点对照**（记忆系统重构 v9.25.0 后）：
+- **落点对照**（记忆系统重构 v10.0.0 后）：
   - 代码版本历史 → `docs/harness/07-operations.md`
   - 用户偏好/长期事实 → 本文件（`MEMORY.md`）
   - 辩论执行 → `journal/debate_journal.json`（通过 `MemoryManager.store_journal()`）

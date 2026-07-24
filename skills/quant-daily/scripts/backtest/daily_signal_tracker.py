@@ -26,9 +26,11 @@ CSV 格式 (signals.csv)：
   report()
 """
 
-import os, csv, json
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+import csv
+import json
+import os
+from datetime import datetime
+from typing import Dict, List
 
 # ── 路径 ──
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

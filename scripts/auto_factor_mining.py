@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from scripts.unified_logger import get_logger
 
 _logger = get_logger("factor_mining")
@@ -21,14 +22,13 @@ _logger = get_logger("factor_mining")
     best_factors = miner.get_top_factors(top_n=10)
 """
 
-from typing import Dict, List, Any, Optional, Callable
-from datetime import datetime, timedelta
-import itertools
 import json
-import math
 import os
 import random
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
+
 import numpy as np
 
 

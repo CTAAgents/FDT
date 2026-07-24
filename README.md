@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v9.25.0**
+**v10.1.0**
 
 ---
 
@@ -17,7 +17,7 @@
 ### 数据与策略管线
 - **NO_FUSION 策略管线** — trend_following 含 10 独立子信号，各自打分不融合；三层信号门禁（震荡市+去趋势+伪突破拦截）共 20+ 道校验
 - **FDC 数据注入 (P2.5)** — 预采集所有选中品种的结构化数据（K线/指标/期限结构/基差/仓单/基本面/持仓排名）
-- **5 级数据降级链** — TqSDK(0) → TDX/DataCore(1) → Web(2) → QMT(3)，每级独立熔断器
+- **AKShare 统一数据源** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据，8 工具覆盖行情/K线/快讯/资讯/财经日历
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型增量 UPSERT
 
@@ -104,8 +104,10 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ 数据层: FDC 统一数据引擎                          │
-│ TqSDK(0) → TDX/DataCore(1) → WebFallback(2) → QMT(3) │
+│ 数据层: AKShare 统一数据源                        │
+│ AKShare (唯一K线数据源, futures_hist_em)          │
+│       → field_normalizer → A2A                    │
+│       → data_source_adapter → Agent               │
 │ 采集: 日线120天K线 / 实时报价 / 持仓排名 / 仓单   │
 │       基差(100ppi) / 宏观(东方财富) / 跨期价差    │
 │       期限结构 / 基本面(F10) / 持仓排名            │
@@ -275,7 +277,7 @@ FDT 不仅用 AI 做交易决策，更用 AI **自动进化自身的工程规范
 | 维度 | FDT 实现 | 成熟度 |
 |------|----------|:------:|
 | **Context（上下文组装）** | `AGENTS.md` + 品种知识库 + Skill 渐进式披露 | ★★★★★ |
-| **Tool（工具交互）** | 5 级数据降级链（含自动熔断）+ 8 策略管线 + CTP 交易接口 | ★★★★★ |
+| **Tool（工具交互）** | AKShare 统一数据源（单源架构）+ 8 策略管线 + CTP 交易接口 | ★★★★★ |
 | **Generation（解码控制）** | 逐 Agent 解码配置 + 结构化输出 Pydantic+JSON Schema 双校验 + 内容安全过滤 | ★★★★★ |
 | **Orchestration（工作流拓扑）** | LangGraph 4 子图编排 + 4 种运行模式 + 条件路由 | ★★★★★ |
 | **Memory（跨调用状态持久化）** | PostgreSQL OLTP+OLAP + Checkpointer + 辩论日志 + 向量记忆 + 知识图谱 | ★★★★★ |
@@ -445,6 +447,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v10.0.0** | **FDC→AKShare 全面迁移** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源。新增 4 个 F10 模块。版本号 bump 9.26.0→10.0.0 |
 | **v9.23.0** | 六维控制空间高ROI提升：D3 Schema约束+enforce_structured_output全量接入、G01模型差异化路由、C01 Token预算控制、C03扫描信号表去重；langgraph默认模式 |
 | **v9.22.0** | RHI 完整落地：evolution_graph 集成 node_rhi 节点 + rhi_global_cli.py + 22 个 RHI 测试 |
 | **v9.21.0** | MemoHarness+RHI 整合：HarnessSpec 契约 + Pairwise Evaluator + Harness Optimizer + RHI 子图 |

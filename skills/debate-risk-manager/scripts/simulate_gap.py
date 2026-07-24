@@ -4,8 +4,8 @@
 期货特有风险的量化：跳空缺口可能导致止损无效，持仓亏损远超预期。
 """
 
-from typing import Dict, List, Optional
 from dataclasses import dataclass
+from typing import Dict, Optional
 
 
 @dataclass

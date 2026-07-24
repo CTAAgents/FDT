@@ -1,13 +1,16 @@
 """端到端报告层快速验证（v8.8.0）—— 绕过 LLM，直接验证报告生成"""
-import pytest
-import tempfile
 from pathlib import Path
 
-from fdt_langgraph.state import create_initial_state
+import pytest
+
 from fdt_langgraph.nodes import (
-    node_scan, node_merge_research, node_risk_check,
-    node_signal_output, node_report,
+    node_merge_research,
+    node_report,
+    node_risk_check,
+    node_scan,
+    node_signal_output,
 )
+from fdt_langgraph.state import create_initial_state
 
 
 @pytest.mark.asyncio
@@ -81,9 +84,10 @@ async def test_e2e_report_layer_fast():
         assert "明鉴秋" in html or "FDT" in html or "期货" in html, f"{label} 报告内容异常"
 
     # 验证 fdt_cli._print_phase_reports 输出格式
-    from fdt_cli import _print_phase_reports
     import io
     import sys
+
+    from fdt_cli import _print_phase_reports
     captured = io.StringIO()
     old_stdout = sys.stdout
     sys.stdout = captured

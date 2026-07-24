@@ -7,7 +7,6 @@ TrendFollowingStrategy v2 测试
 本测试据此断言：每个触发的子信号独立存在于结果中，且绝不存在 `trend_following.mixed`
 或 `trend_following.dc20+keltner+...` 这类融合 signal_type。
 """
-import pytest
 
 
 class TestTrendFollowingV2:
@@ -71,8 +70,8 @@ class TestTrendFollowingV2:
 
     def test_grade_mapping(self):
         """score() 根据强度映射 grade"""
-        from strategies.trend_following_strategy import TrendFollowingStrategy
         from strategies.base_v2 import RawSignal
+        from strategies.trend_following_strategy import TrendFollowingStrategy
         s = TrendFollowingStrategy()
         raw = RawSignal(symbol="RB", direction="bull", signal_type="tf.dc20",
                         raw_score=0.9, strategy_name="trend_following", meta={})
@@ -82,8 +81,8 @@ class TestTrendFollowingV2:
 
     def test_via_pipeline_no_fusion(self):
         """通过 StrategyPipeline：去融合后每个子信号独立透传，无融合 signal_type。"""
-        from strategies.trend_following_strategy import TrendFollowingStrategy
         from strategies.pipeline import StrategyPipeline
+        from strategies.trend_following_strategy import TrendFollowingStrategy
         tech = [{"symbol": "RB", "price": 3200,
                  "dc20_high": 3100, "dc20_low": 2900,
                  "dc55_high": 3150, "dc55_low": 2800,

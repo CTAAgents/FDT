@@ -1,15 +1,16 @@
-import os
-import sys
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fdt_pg.connection import PGConnection
-from fdt_pg.schema import Base, OLAP_VIEWS
-from sqlalchemy import text
 import logging
+
+from sqlalchemy import text
+
+from fdt_pg.connection import PGConnection
+from fdt_pg.schema import OLAP_VIEWS, Base
 
 logger = logging.getLogger(__name__)
 
@@ -95,13 +96,13 @@ def migrate_json_to_pg():
     logger.warning("migrate_json_to_pg() 当前仅打印不写入 — 待实现 INSERT 逻辑 (G74-⑤)")
 
     # G96: 实现 INSERT 写入逻辑
+
     from fdt_pg.connection import session_scope
     from fdt_pg.schema import (
-        ScanSignals, DebateVerdicts, ExecutionFollowup,
-        AgentProfiles, CalibrationStats, ValidationStats,
-        LogEntries, SchedulerLogs,
+        AgentProfiles,
+        DebateVerdicts,
+        ExecutionFollowup,
     )
-    from sqlalchemy import text
 
     # 迁移 debate_journal.json -> DebateVerdicts
     if journal_path.exists():

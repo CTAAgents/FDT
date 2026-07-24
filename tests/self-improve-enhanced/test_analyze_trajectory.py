@@ -3,8 +3,6 @@ Unit tests for scripts.analyze_trajectory — SkillAdaptor integration.
 Covers: TrajectoryAnalyzer.parse(), FaultAttributor.attribute(), classification.
 """
 
-import json
-from pathlib import Path
 
 import pytest
 from conftest import sample_debate_results, sample_trajectory
@@ -151,7 +149,7 @@ class TestTrajectoryAnalyzerIntegration:
 
     def test_analyze_to_attribute_pipeline(self, tmp_path):
         """End-to-end: parse debate_results → attribute faults."""
-        from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
+        from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
 
         analyzer = TrajectoryAnalyzer()
         attributor = FaultAttributor()

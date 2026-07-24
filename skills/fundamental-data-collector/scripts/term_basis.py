@@ -5,9 +5,8 @@
 或通过 futures-data-search 获取原始数据后计算。
 """
 
-import sys
 import os
-from typing import Dict, Optional
+from typing import Dict
 
 
 # 尝试从 futures-data-search 获取数据

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """fundamental-data-collector 测试 — 覆盖全部6个模块。"""
 
-import pytest
-import sys
 import os
+import sys
 import unittest
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 try:
-    from scripts.supply import query_supply, list_available_symbols
+    from scripts.supply import list_available_symbols, query_supply
     _HAS_MODULE = True
 except ImportError:
     _HAS_MODULE = False

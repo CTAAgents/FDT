@@ -14,7 +14,7 @@
   )
 """
 
-from typing import TypedDict, Optional, Literal
+from typing import Literal, Optional, TypedDict
 
 # ── 枚举类型 ──
 

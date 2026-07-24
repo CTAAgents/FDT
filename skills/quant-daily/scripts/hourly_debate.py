@@ -8,7 +8,9 @@
   python hourly_debate.py                  # 扫描+辩论+报告
 """
 
-import sys, os, json, shutil
+import os
+import shutil
+import sys
 from datetime import datetime
 
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +90,7 @@ def run_hourly_debate(dry_run: bool = False) -> dict:
     # ── 负向过滤 + 全量监控：任意方向性信号(|total|≥DEBATE_ENTRY_MIN_ABS)即进入辩论候选池 ──
     # 评分(grade)仅作优先级标签，不作为进入辩论的硬性门槛
     from config.settings import DEBATE_ENTRY_MIN_ABS, signal_passes_entry_gate
+    all_ranked = scan_result.get("all_ranked", [])
     # 去融合后：每(策略×子信号)独立门禁 = grade∈{STRONG,WATCH}（兼容旧 |total|≥阈值 兜底）
     candidates = [s for s in all_ranked if signal_passes_entry_gate(s, DEBATE_ENTRY_MIN_ABS)]
     strong = [s for s in candidates if s.get("grade") == "STRONG"]      # 高优先级
@@ -151,7 +154,7 @@ p {{ color: #999; font-size: 14px; margin: 0 0 4px 0; }}
 
 def _debate_report(result: dict, date_str: str) -> str:
     """有信号时的辩论报告（含知识库参考+信号分析+辩论论点）"""
-    from optimizer.knowledge_bridge import get_symbol_knowledge, get_knowledge_summary
+    from optimizer.knowledge_bridge import get_knowledge_summary, get_symbol_knowledge
 
     all_signals = result.get("strong", []) + result.get("watch", [])
     strong_count = len(result.get("strong", []))

@@ -111,7 +111,7 @@ def _run_langgraph_debate(workspace: str, scan_json: str, threshold: int, trace_
             for line in env_path.read_text(encoding="utf-8").splitlines():
                 if line.startswith("FDT_LLM_API_KEY="):
                     os.environ["FDT_LLM_API_KEY"] = line.split("=", 1)[1].strip()
-                    print(f"  ✓ 从 .env 加载 FDT_LLM_API_KEY")
+                    print("  ✓ 从 .env 加载 FDT_LLM_API_KEY")
                     break
 
         if not os.environ.get("FDT_LLM_API_KEY"):
@@ -120,9 +120,9 @@ def _run_langgraph_debate(workspace: str, scan_json: str, threshold: int, trace_
             print("   或创建 .env 文件: FDT_LLM_API_KEY=your-key")
 
     sys.path.insert(0, str(_ROOT))
-    from fdt_langgraph.state import create_initial_state
     from fdt_langgraph.graph import build_debate_graph_no_checkpoint
     from fdt_langgraph.health import run_health_check
+    from fdt_langgraph.state import create_initial_state
 
     # 读取扫描结果
     with open(scan_json, "r", encoding="utf-8") as f:
@@ -281,7 +281,7 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     # ── 模式1-2: 进入辩论阶段前自动自检 ──
     skip_check = getattr(args, "skip_self_check", False)
     if not skip_check:
-        print(f"\n🔍 自动自检...")
+        print("\n🔍 自动自检...")
         sc_py = str(_SCRIPTS / "self_check.py")
         sc_rc = subprocess.run(
             [py, sc_py, "--workspace", workspace],
@@ -295,7 +295,6 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
             return 2
 
     # ── 找到扫描生成的 JSON 文件
-    import glob
     today = _today_str()
     json_candidates = []
     # 兼容两种命名模式:
@@ -341,8 +340,8 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
 
     # 提示用户 spawn Agent
     print(f"\n{'='*60}")
-    print(f"⚡ 请根据 spawn_plan_*.json 手动 spawn 辩论 Agent")
-    print(f"   跑完所有 Agent 后，再执行:")
+    print("⚡ 请根据 spawn_plan_*.json 手动 spawn 辩论 Agent")
+    print("   跑完所有 Agent 后，再执行:")
     print(f"   python scripts/fdt_cli.py pipeline --mode finalize-only "
           f"--workspace {workspace}")
     print(f"{'='*60}")
@@ -355,7 +354,6 @@ def cmd_finalize_only(args: argparse.Namespace) -> int:
     py = sys.executable
 
     # 找最新的 scan JSON（按 mtime 排序，取最新）
-    import glob
     today = _today_str()
     json_pattern = str(Path(workspace) / f"scan_*_{today}.json")
     json_files = sorted(glob.glob(json_pattern), key=os.path.getmtime)
@@ -644,7 +642,7 @@ def main() -> int:
         if args.json:
             print(_json.dumps(data, ensure_ascii=False, indent=2))
         else:
-            print(f"📊 系统资源状态:")
+            print("📊 系统资源状态:")
             print(f"  CPU:   {data.get('cpu_pct', '?')}%")
             print(f"  内存:  {data.get('mem_pct', '?')}%")
             print(f"  磁盘:  {data.get('disk_pct', '?')}%")
@@ -670,8 +668,8 @@ def main() -> int:
         root_cli = str(_ROOT / "fdt_cli.py")
         sch_args = [py, root_cli, "daemon"]
         if action in ("stop", "status"):
-            print(f"⚠️  [DEPRECATED] daemon start/stop/status 已被 'fdt_cli.py daemon' 替代")
-            print(f"   请直接运行: python fdt_cli.py daemon")
+            print("⚠️  [DEPRECATED] daemon start/stop/status 已被 'fdt_cli.py daemon' 替代")
+            print("   请直接运行: python fdt_cli.py daemon")
             sch_args.append("--interval")
             sch_args.append("60")
         return _run(sch_args)
@@ -697,9 +695,9 @@ def main() -> int:
         import asyncio
         sys.path.insert(0, str(_ROOT))
         try:
-            from fdt_langgraph.state import create_initial_state
             from fdt_langgraph.graph import build_debate_graph_no_checkpoint
             from fdt_langgraph.health import run_health_check
+            from fdt_langgraph.state import create_initial_state
         except ImportError as e:
             print(f"⛔ LangGraph 模块不可用: {e}")
             return 1
@@ -712,7 +710,7 @@ def main() -> int:
             trace_id = f"fdt-{_today_str()}-{_now_hhmm()}-{os.getpid()}"
 
         print(f"{'='*60}")
-        print(f"🤖 FDT LangGraph 模式")
+        print("🤖 FDT LangGraph 模式")
         print(f"   Trace: {trace_id}")
         print(f"   Mode: {mode}")
         print(f"   Symbols: {symbols or 'auto'}")

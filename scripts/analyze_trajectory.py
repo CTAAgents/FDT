@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -322,8 +322,8 @@ class FaultAttributor:
 # ── CLI entry point ──────────────────────────────────────────────
 
 def _cli() -> None:
-    import sys
     import pprint
+    import sys
 
     source_arg = sys.argv[1] if len(sys.argv) > 1 else None
 

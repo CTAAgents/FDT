@@ -7,9 +7,11 @@
 评分逻辑直接内联自 channel_breakout_strategy.py。
 """
 
-import sys, os, json, shutil, math
+import json
+import os
+import shutil
+import sys
 from datetime import datetime
-from copy import deepcopy
 
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SCRIPTS_DIR)
@@ -18,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 # ── 安全导入（不触发 broken 的 import 链） ──
-from config.settings import resolve_param, SYMBOL_CHAIN_MAP, SIGNAL_GRADE_THRESHOLDS
+from config.settings import SIGNAL_GRADE_THRESHOLDS, SYMBOL_CHAIN_MAP, resolve_param
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.calc_core import calculate_tdx_compatible
 

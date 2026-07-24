@@ -1,7 +1,7 @@
 """Root test conftest — 添加 FDT 核心模块路径，预加载 config 包避免命名空间冲突。"""
-import sys
-import os
 import importlib.util
+import os
+import sys
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 

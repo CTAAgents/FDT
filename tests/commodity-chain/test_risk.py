@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """risk.py 单元测试 - 100%覆盖。"""
 
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

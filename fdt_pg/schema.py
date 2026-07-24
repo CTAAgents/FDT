@@ -1,10 +1,6 @@
-from sqlalchemy import (
-    Column, Integer, String, Float, Date, DateTime, JSON, Boolean,
-    ForeignKey, UniqueConstraint, Index, TEXT
-)
+from sqlalchemy import JSON, TEXT, Boolean, Column, Date, DateTime, Float, Index, Integer, String, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
-from datetime import datetime
 
 Base = declarative_base()
 

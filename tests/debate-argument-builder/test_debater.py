@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 """debate-argument-builder 测试"""
 
+import os
+import sys
+import unittest
+
 import pytest
-import sys, os, unittest, json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 try:
     from scripts.debater_tools import (
-        _find_report,
+        _FALLBACK_CHAIN_MAP,
         _find_recent,
-        team_outline,
+        _find_report,
         find_debate_report_path,
+        get_chain_context,
+        get_factor_decomp,
+        get_price_action,
+        team_outline,
     )
     _HAS_MODULE = True
 except ImportError:
@@ -98,7 +104,7 @@ class TestFindReport(unittest.TestCase):
     """报告查找测试"""
 
     def test_known_report_format(self):
-        from scripts.debater_tools import _find_report, _find_recent
+        from scripts.debater_tools import _find_recent
 
         # 测试 _find_recent 不崩溃
         tmp_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")

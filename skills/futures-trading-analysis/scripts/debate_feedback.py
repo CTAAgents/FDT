@@ -27,12 +27,12 @@
   python debate_feedback.py lessons # 输出经验教训（可嵌入Agent Prompt）
 """
 
-import os
 import json
+import os
 import re
 import sys
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _WS = os.environ.get("FDT_REPORT_WORKSPACE") or os.environ.get("FDT_DAILY_WORKSPACE") or os.path.join(os.path.expanduser("~"), "Documents", "FDT", "Reports")
@@ -372,12 +372,12 @@ class FeedbackRouter:
 
         lines = [
             f"📊 辩论反馈报告 ({len(history)}条/{days}天)",
-            f"",
+            "",
             f"按域分布: {json.dumps(by_domain, ensure_ascii=False)}",
             f"按严重度: 🔴高{by_severity['high']} 🟡中{by_severity['medium']} 🟢低{by_severity['low']}",
             f"已自动修复: {fixed_count}/{len(history)} ({100 * fixed_count // max(1, len(history))}%)",
-            f"",
-            f"最近5条:",
+            "",
+            "最近5条:",
         ]
 
         for entry in history[-5:]:
@@ -512,7 +512,6 @@ if __name__ == "__main__":
         print(get_known_issues_for_prompt())
     elif sys.argv[1] == "route":
         # 扫描Agent产出文件中的###FEEDBACK段并路由
-        import glob
 
         report_dir = WORKSPACE_DIR
         today = datetime.now().strftime("%Y-%m-%d")

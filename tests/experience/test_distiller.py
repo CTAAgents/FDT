@@ -7,8 +7,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 # 路径设置
 _work_root = Path(__file__).resolve().parents[1]
 if str(_work_root) not in sys.path:
@@ -189,8 +187,8 @@ class TestPersistence:
 class TestEndToEnd:
     def test_full_distillation_workflow(self, tmp_path):
         """完整蒸馏工作流：写入记录 → 蒸馏 → 保存"""
-        from scripts.pattern_distiller import distill_patterns, save_pattern
         from scripts.experience_recorder import write_record
+        from scripts.pattern_distiller import distill_patterns
 
         records_dir = tmp_path / "records"
         records_dir.mkdir()

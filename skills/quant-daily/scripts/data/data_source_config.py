@@ -12,11 +12,12 @@
         print('AKShare 可用')
 """
 
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
 
 
 class DataSource(Enum):

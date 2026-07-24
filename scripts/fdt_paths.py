@@ -13,10 +13,8 @@ FDT 路径解析器 — 系统底层基础设施
 """
 
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
-
 
 # ─── 自动检测FDT根目录 ───
 
@@ -33,7 +31,7 @@ def _detect_fdt_root() -> str:
     fdt_root = this_file.parent.parent
     if (fdt_root / "memory").exists() and (fdt_root / "agents").exists():
         return str(fdt_root)
-    
+
     # 方法2: 从CWD查找
     cwd = Path.cwd()
     for _ in range(10):
@@ -43,13 +41,13 @@ def _detect_fdt_root() -> str:
         if cwd.parent == cwd:
             break
         cwd = cwd.parent
-    
+
     # 方法3: 从HOME查找
     home = Path.home()
     candidate = home / ".fdt" / "plugins" / "marketplaces" / "my-experts" / "plugins" / "futures-debate-team"
     if candidate.exists():
         return str(candidate)
-    
+
     raise RuntimeError(
         "无法定位FDT根目录。请确认FDT安装在以下路径之一:\n"
         f"  - {(Path(__file__).resolve().parent.parent)}\n"
@@ -98,12 +96,12 @@ class FDTFiles:
     """FDT关键文件"""
     # 运行时产出
     DEBATE_RESULTS = os.path.join(FDTDirs.DATA, "debate_results.json")
-    
+
     # 系统记忆
     DEBATE_JOURNAL = os.path.join(FDTDirs.MEMORY, "debate_journal.json")
     DEBATE_INDEX = os.path.join(FDTDirs.DEBATES, "INDEX.md")
     INCIDENTS = os.path.join(FDTDirs.MEMORY, "incidents.md")
-    
+
     # 报告
     def debate_report(ts: str | None = None) -> str:
         """生成辩论报告路径"""
@@ -125,10 +123,10 @@ def mirror_report_to_workspace(fdt_report_path: str) -> str | None:
     ws_dir = workspace_commodities_dir()
     if not os.path.exists(ws_dir):
         os.makedirs(ws_dir, exist_ok=True)
-    
+
     fname = os.path.basename(fdt_report_path)
     ws_path = os.path.join(ws_dir, fname)
-    
+
     # 复制
     import shutil
     shutil.copy2(fdt_report_path, ws_path)
@@ -146,12 +144,12 @@ def validate_fdt_structure() -> dict:
         (FDTDirs.AGENTS, "agents/"),
         (FDTDirs.SKILLS, "skills/"),
     ]
-    
+
     missing = []
     for path, label in required:
         if not os.path.isdir(path):
             missing.append(label)
-    
+
     return {
         "fdt_root": FDT_ROOT,
         "complete": len(missing) == 0,
@@ -168,7 +166,7 @@ if __name__ == "__main__":
     print(f"  记忆目录: {FDTDirs.MEMORY}")
     print(f"  脚本目录: {FDTDirs.SCRIPTS}")
     print()
-    
+
     status = validate_fdt_structure()
     if status["complete"]:
         print("✅ FDT目录结构完整")

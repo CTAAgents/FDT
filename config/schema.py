@@ -16,9 +16,9 @@ FDT 配置 Schema 校验模块 v1.0
 
 from __future__ import annotations
 
-from typing import Any, Optional, Literal
-from pydantic import BaseModel, Field, model_validator
+from typing import Any, Literal, Optional
 
+from pydantic import BaseModel, Field, model_validator
 
 # ─────────────────────────────────────────────
 # settings.json 模型
@@ -391,18 +391,8 @@ if __name__ == "__main__":
     else:
         print("⚠️ team_config.json 未找到")
 
-    # 测试 data_sources.yaml
-    import yaml
-    ds_path = ROOT / "futures_data_core" / "config" / "data_sources.yaml"
-    if ds_path.exists():
-        data = yaml.safe_load(ds_path.read_text(encoding="utf-8"))
-        ds, err = safe_validate_data_sources(data)
-        if ds:
-            print(f"✅ data_sources.yaml 校验通过 ({len(ds.sources)} 个数据源)")
-        else:
-            print(f"❌ data_sources.yaml 校验失败: {err}")
-    else:
-        print("⚠️ data_sources.yaml 未找到")
+    # FDC 已退役，data_sources.yaml 不再使用
+    print("ℹ️ FDC 已退役，data_sources.yaml 跳过")
 
     # 测试 agent_profiles.json
     ap_path = ROOT / "memory" / "agent_profiles.json"

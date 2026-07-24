@@ -4,11 +4,11 @@
 仅压 grade（不重定义 signal_type），与原逻辑一致。历史不足时跳过，绝不误伤。
 """
 
-from . import register_validator
-from .base import demote
-
 import json
 import os
+
+from . import register_validator
+from .base import demote
 
 N_STABILITY_LOOKBACK = 5       # 回顾最近 N 次扫描
 MAX_INCONSISTENT_RATIO = 0.6   # 不一致比例超过此值则降级

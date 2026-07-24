@@ -8,10 +8,6 @@
   - 边界条件（空数据、短序列、全中性）
 """
 import numpy as np
-import pytest
-
-from futures_data_core.indicators.tdx_compat import calculate_keltner
-
 
 # ─── 辅助: 生成确定性 OHLC ───
 
@@ -158,7 +154,7 @@ class TestParamSpaceCompleteness:
             assert abs(diff - 0.25) < 1e-9
 
     def test_total_combinations(self):
-        from optimizer.keltner_wf import KELTNER_PERIOD_CANDIDATES, KELTNER_ATR_MULT_CANDIDATES
+        from optimizer.keltner_wf import KELTNER_ATR_MULT_CANDIDATES, KELTNER_PERIOD_CANDIDATES
         assert len(KELTNER_PERIOD_CANDIDATES) * len(KELTNER_ATR_MULT_CANDIDATES) == 54
 
 

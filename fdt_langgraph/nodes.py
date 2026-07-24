@@ -1,33 +1,39 @@
-import sys
+import asyncio
 import importlib.util
+import json
+import logging
 import os
 import re
-import logging
-import json
-import asyncio
+import sys
 import tempfile
 from pathlib import Path
+
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from .state import DebateState
+
+
 from .agents import FdtAgentExecutor
 from .llm_provider import parse_llm_output
-from .single_symbol_report import generate as _generate_single_symbol_report, generate_body as _generate_symbol_body
-from futures_data_core.core.field_normalizer import (
-    normalize_signal_list,
-    normalize_verdict,
-    normalize_risk_check,
-)
-from futures_data_core.core.data_quality import (
-    evaluate_f10_data,
-    evaluate_indicators,
-)
+from .single_symbol_report import generate_body as _generate_symbol_body
+from .state import DebateState
 
 _SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
 logger = logging.getLogger(__name__)
+
+# ── 辩论 context 截断工具（v9.25.3: 防止重试时 arguments 累积超长） ──
+_MAX_ARGS_CHARS = 3000  # 单轮次拼接的 arguments 最大字符数
+
+
+def _truncate_arguments_text(text: str, label: str = "") -> str:
+    """截断 arguments 拼接文本，避免 context 过大。"""
+    if len(text) <= _MAX_ARGS_CHARS:
+        return text
+    truncated = text[:_MAX_ARGS_CHARS]
+    logger.warning(f"[Context] {label} arguments 超长({len(text)} chars)，截断至 {_MAX_ARGS_CHARS}")
+    return truncated + f"\n\n[系统截断: {label} 已截断，原始 {len(text)} chars]"
 
 # ── 辩论协议常量 (G94: 从 debate_protocol_v2.py 内联) ──
 ATTACK_DIMENSIONS = [
@@ -60,12 +66,17 @@ def _ensure_llm_key():
 def _repair_json(text: str) -> str:
     """修复 LLM 输出的残缺 JSON 字符串，提高 json.loads 成功率。
 
-    处理 BOM、注释、单引号、尾随逗号、首尾非 JSON 文本包裹等问题。
+    处理 BOM、markdown code fence、注释、单引号、尾随逗号、
+    首尾非 JSON 文本包裹等问题。
     """
     if not text or not text.strip():
         return text
-    # 移除 BOM
     cleaned = text.strip().lstrip("\ufeff")
+    # 提取 markdown code fence 中的 JSON（如 ```json ... ```）
+    import re as _re
+    fence_match = _re.search(r"```(?:json)?\s*\n?(.*?)\n?```", cleaned, _re.DOTALL)
+    if fence_match:
+        cleaned = fence_match.group(1).strip()
     # 查找第一个 { 和最后一个 }
     start = cleaned.find("{")
     end = cleaned.rfind("}")
@@ -73,15 +84,15 @@ def _repair_json(text: str) -> str:
         return text
     cleaned = cleaned[start:end+1]
     # 移除 Python/js 风格的单行注释 // 和 #
-    cleaned = re.sub(r'(?m)^\s*//.*$', '', cleaned)
-    cleaned = re.sub(r'(?m)^\s*#.*$', '', cleaned)
+    cleaned = _re.sub(r'(?m)^\s*//.*$', '', cleaned)
+    cleaned = _re.sub(r'(?m)^\s*#.*$', '', cleaned)
     # 尝试将单引号替换为双引号（但跳过已转义的引号）
-    cleaned = re.sub(r"(?<!\\)'(?=[^:,\]\{\}\s])", '"', cleaned)
-    cleaned = re.sub(r"(?<=[:\],\{\}])\s*'\s*", '"', cleaned)
-    cleaned = re.sub(r"'\s*(?=[:\],\{\}])", '"', cleaned)
+    cleaned = _re.sub(r"(?<!\\)'(?=[^:,\]\{\}\s])", '"', cleaned)
+    cleaned = _re.sub(r"(?<=[:\],\{\}])\s*'\s*", '"', cleaned)
+    cleaned = _re.sub(r"'\s*(?=[:\],\{\}])", '"', cleaned)
     # 移除尾随逗号
-    cleaned = re.sub(r',\s*}', '}', cleaned)
-    cleaned = re.sub(r',\s*]', ']', cleaned)
+    cleaned = _re.sub(r',\s*}', '}', cleaned)
+    cleaned = _re.sub(r',\s*]', ']', cleaned)
     return cleaned
 
 
@@ -126,13 +137,23 @@ def _load_template_css() -> str:
     return ""
 
 
+def _load_template_html() -> str:
+    """从 docs/report-template/report_skeleton.html 加载 HTML 骨架"""
+    _PATH = Path(__file__).resolve().parent.parent / "docs" / "report-template" / "report_skeleton.html"
+    if _PATH.exists():
+        return _PATH.read_text(encoding="utf-8")
+    return "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='UTF-8'><title>{title}</title><style>{css}</style></head><body><main>{body_html}</main></body></html>"
+
+
 # 模块级缓存
 _TEMPLATE_CSS = _load_template_css()
+_TEMPLATE_HTML = _load_template_html()
 
 
 def _render_html(title: str, body_html: str, header_meta: list[tuple[str, str]] | None = None) -> str:
-    """统一 HTML 报告模板（暖灰商务风，参考 docs/report-template/）"""
+    """统一 HTML 报告模板（骨架从 report_skeleton.html + CSS 从 report_css.html 加载）"""
     from datetime import datetime as _dt
+    _now = _dt.now()
     meta_html = ""
     if header_meta:
         items = "".join(
@@ -147,37 +168,15 @@ def _render_html(title: str, body_html: str, header_meta: list[tuple[str, str]] 
         label = __import__("re").sub(r'<[^>]+>', '', m.group(2)).strip()[:16]
         nav_links += f'<a href="#{m.group(1)}">{label}</a>'
 
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{title} | {_dt.now().strftime('%Y-%m-%d')}</title>
-<style>
-{_TEMPLATE_CSS}
-</style></head>
-<body>
-
-<header class="report-header">
-  <div class="container">
-    <div class="badge">FDT 辩论报告</div>
-    <h1>{title}</h1>
-    <p class="subtitle">明鉴秋 · 报告层调度 | {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-    {meta_html}
-  </div>
-</header>
-
-<nav class="nav-bar"><div class="container">{nav_links}</div></nav>
-
-<main class="container">
-{body_html}
-</main>
-
-<footer>
-  <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
-  <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
-</footer>
-
-</body></html>"""
+    return _TEMPLATE_HTML.format(
+        title=title,
+        date=_now.strftime('%Y-%m-%d'),
+        datetime=_now.strftime('%Y-%m-%d %H:%M:%S'),
+        css=_TEMPLATE_CSS,
+        meta_html=meta_html,
+        nav_links=nav_links,
+        body_html=body_html,
+    )
 
 
 def _write_scan_report(trace_id: str, scan_results: dict, output_dir: Path) -> str:
@@ -454,7 +453,6 @@ def _import_from_skill(skill_dir: str, module_path: str, function_name: str):
 async def node_scan(state: DebateState) -> DebateState:
     import subprocess
     import sys
-    from pathlib import Path
 
     existing_results = state.get("scan_results", {})
     if existing_results and existing_results.get("all_ranked"):
@@ -524,7 +522,8 @@ async def node_scan(state: DebateState) -> DebateState:
     # v9.3.0: 标准化扫描信号输出字段（direction/total/grade/confidence 统一）
     _all_ranked = scan_results.get("all_ranked", [])
     if _all_ranked:
-        scan_results["all_ranked"] = normalize_signal_list(_all_ranked)
+        # field_normalizer 已随 FDC 退役；signal_list 直接传递，数据不变
+        scan_results["all_ranked"] = _all_ranked
 
     return {**state, "scan_results": scan_results, "scan_report_path": scan_report_path,
             "current_phase": "P1", "completed_phases": ["P1"]}
@@ -565,8 +564,8 @@ def node_freshness_gate(state: DebateState) -> DebateState:
     if r24_rejected or freshness.get("status") == "ALL_STALE":
         freshness_report["status"] = "ALL_STALE"
         freshness_report["summary"] = (
-            f"⛔ 数据新鲜度闸门阻断: 所有品种数据源均不可靠. "
-            f"请检查 TQ-Local/FDC 数据源连接."
+            "⛔ 数据新鲜度闸门阻断: 所有品种数据源均不可靠. "
+            "请检查 TQ-Local/FDC 数据源连接."
         )
         logger.warning(f"[P0b] {freshness_report['summary']}")
         for r in freshness_report["fail_reasons"][:3]:
@@ -599,66 +598,45 @@ def node_freshness_gate(state: DebateState) -> DebateState:
 
 
 async def node_judge_direction(state: DebateState) -> DebateState:
+    """P2: 闫判官协调数据源调度（不做品种筛选，v9.23.1）"""
     _ensure_llm_key()
     judge = FdtAgentExecutor("judge")
 
-    scan_summary = state.get("scan_results", {}).get("all_ranked", [])[:20]
-    
-    # ── P1角色矫正：构建 stats 优先的上下文 ──
-    # 统计特征段（主要判断依据）
-    stats_lines = []
-    for r in scan_summary:
-        sym = r.get("symbol", "?")
-        st = r.get("stats", {})
-        if st:
-            stats_lines.append(
-                f"  {sym}: 收盘={st.get('latest_close',0)} ({st.get('change_pct',0):+.2f}%), "
-                f"MA20={st.get('ma_20',0)}, MA60={st.get('ma_60',0)}, 排列={st.get('ma_align','?')}, "
-                f"ATR={st.get('atr_14',0)}, RSI={st.get('rsi_14','N/A')}, ADX={st.get('adx_14',25)}, "
-                f"+DI={st.get('di_plus',0)}, -DI={st.get('di_minus',0)}, "
-                f"量={st.get('volume',0)}(比20均={st.get('volume_ma20_ratio',0)}x), "
-                f"持仓={st.get('oi',0)}(增={st.get('oi_change',0)}), "
-                f"20日位={st.get('price_position_pct',50)}%, K线={st.get('n_bars',0)}根"
-            )
-        else:
-            stats_lines.append(f"  {sym}: 无stats数据")
-    
-    # 策略评分段（降级为参考）
-    legacy_lines = []
-    for r in scan_summary:
-        sym = r.get("symbol", "?")
-        legacy_lines.append(
-            f"  {sym}: total={r.get('total',0)}, direction={r.get('direction','?')}, grade={r.get('grade','?')}"
-        )
-    
-    stats_block = "\n".join(stats_lines) if stats_lines else "（无stats数据）"
-    legacy_block = "\n".join(legacy_lines) if legacy_lines else "（无策略评分）"
-    
-    context = f"""你是闫判官（FDT 辩论调度官）。你的职责是：
-1. 基于 P1 数技源的量化统计特征，识别值得进入辩论的品种
-2. 协调调度各数据源（链证源/观澜/探源/读心）为辩论做准备
-3. 你不做方向预判——多空方向由后续辩论阶段决定
+    scan_results = state.get("scan_results", {})
+    primary_from_scan = scan_results.get("primary_symbols", [])
 
-你收到的 stats 数据由数技源提供，是纯粹的统计事实，不包含方向性判断。
+    # ── 从 scan_all 读取预筛选品种列表 ──
+    if primary_from_scan:
+        selected_symbols = list(primary_from_scan)
+        logger.info(f"[Judge] 接收 scan_all 去重后品种 {len(selected_symbols)} 个")
+    else:
+        _all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
+        _candidates = sorted(
+            [r for r in _all_ranked if r.get("symbol")],
+            key=lambda x: abs(x.get("total", 0)), reverse=True,
+        )[:5]
+        selected_symbols = [c["symbol"] for c in _candidates]
+        logger.warning(f"[Judge] scan_all 未提供 primary_symbols，降级取 top5: {selected_symbols}")
 
---- 统计特征（品种筛选依据）---
-{stats_block}
+    # ── LLM 只决定 dispatch_sources ──
+    _summary_lines = "\n".join(
+        f"  {r.get('symbol','?')}: total={r.get('total',0)}, grade={r.get('grade','?')}"
+        for r in (scan_results.get("all_ranked", []) or [])[:10]
+    )
+    context = f"""你是闫判官（FDT 辩论调度官）。以下品种已由 P1 筛选完毕准备进入辩论：
 
---- 策略评分（仅供参考，不作为筛选依据）---
-{legacy_block}
+选定品种: {selected_symbols}
 
-注意：品种间的相关性已由 scan_all.py 程序化处理完毕（相同产品的不同月份合约只保留成交量最大的主辩论品种）。
-你收到的 symbols 已经是分组后的主辩论品种列表，不需要再次判断相关性。
+P1 扫描摘要:
+{_summary_lines}
 
-请以 JSON 格式返回：
-1. scan_direction: 始终返回 "neutral"（闫判官不做方向预判）
-2. confidence: 置信度 (0-1) — 对品种筛选的把握程度
-3. symbols: 推荐辩论的品种列表（从主辩论品种中筛选出值得辩论的）
-4. reason: 筛选理由（引用统计特征数据，而非策略评分）
-5. dispatch_sources: 需要哪些数据源（["chain","technical","fundamental"] 的子集）
+你的职责（仅两项）：
+1. dispatch_sources: 决定需要哪些数据源（从 ["chain","technical","fundamental"] 中选择）
+2. reason: 简要说明选择理由
 
-返回 JSON 格式：
-{{"scan_direction": "neutral", "confidence": 0.7, "symbols": ["CF2609", "SF"], "dispatch_sources": ["chain", "technical"], "reason": "CF2609/SF 统计特征显示价格处于20日区间低位，ADX偏高确认趋势延续"}}
+注意：你不做品种筛选。品种列表已由 scan_all.py 决定。
+返回 JSON：
+{{"scan_direction": "neutral", "confidence": 0.8, "dispatch_sources": ["chain", "technical"], "reason": "..."}}
 """
 
     context = _inject_memory_rules("judge", context)
@@ -666,61 +644,43 @@ async def node_judge_direction(state: DebateState) -> DebateState:
 
     output = result.get("output", "")
     parsed = parse_llm_output(output, agent_name="judge_direction",
-                              default={"scan_direction": "neutral", "symbols": []})
+                              default={"scan_direction": "neutral", "dispatch_sources": ["chain", "technical", "fundamental"]})
     if parsed.get("success"):
         verdict = parsed["data"]
     else:
-        verdict = {"scan_direction": "neutral", "symbols": [], "reason": output, "_parse_errors": parsed.get("errors", [])}
-
-    # v9.11.4: 闫判官不做方向预判，方向统一为 neutral
-    selected_symbols = verdict.get("symbols", [])
-    if not selected_symbols:
-        selected_symbols = state.get("selected_symbols", [])
-
-    # v9.13.0: 从 scan_all 读取程序化品种分组（相关性品种只选1个主辩论品种）
-    scan_results = state.get("scan_results", {})
-    associated_groups = {}
-    if isinstance(scan_results, dict):
-        associated_groups = scan_results.get("associated_groups", {}) or {}
-        # 从 scan_results 读取 primary_symbols 确保一致性
-        primary_from_scan = scan_results.get("primary_symbols", [])
-        if primary_from_scan:
-            # 只保留 LLM 选中的且是 primary 的品种
-            selected_symbols = [s for s in selected_symbols if s in primary_from_scan]
-            if not selected_symbols:
-                selected_symbols = [s for s in primary_from_scan if s in [r.get("symbol") for r in scan_results.get("all_ranked", [])]][:3]
-    if not isinstance(associated_groups, dict):
-        associated_groups = {}
-
-    scan_dir = "neutral"
-    scan_reason = verdict.get("reason", "")
+        verdict = {"scan_direction": "neutral", "dispatch_sources": ["chain", "technical", "fundamental"],
+                   "reason": output, "_parse_errors": parsed.get("errors", [])}
 
     dispatch_sources = verdict.get("dispatch_sources", ["chain", "technical", "fundamental"])
+    scan_reason = verdict.get("reason", f"scan_all 预筛选 {len(selected_symbols)} 个品种")
+
+    associated_groups = scan_results.get("associated_groups", {}) if isinstance(scan_results, dict) else {}
+    if not isinstance(associated_groups, dict):
+        associated_groups = {}
 
     new_phases = state["completed_phases"] + ["P2"]
     return {
         **state,
         "judge_direction": {
-            "direction": scan_dir,
-            "confidence": verdict.get("confidence", 0.5),
+            "direction": "neutral",
+            "confidence": verdict.get("confidence", 0.8),
             "symbols": selected_symbols,
             "reason": scan_reason,
             "audit": {},
         },
         "selected_symbols": selected_symbols,
-        "_original_symbols": list(selected_symbols),  # v9.13.0: 保存完整品种列表用于逐品种循环
-        "symbol_index": 0 if selected_symbols else -1, # v9.13.0: 从第一个品种开始
+        "_original_symbols": list(selected_symbols),
+        "symbol_index": 0 if selected_symbols else -1,
         "per_symbol_results": {},
         "associated_symbols": associated_groups,
         "dispatch_sources": dispatch_sources,
         "current_phase": "P2",
-        "completed_phases": new_phases
+        "completed_phases": new_phases,
     }
 
 
 async def node_prepare_data(state: DebateState) -> DebateState:
     """P2.5: FDC 数据准备 — 预采集所有选中品种的结构化数据供子 Agent 使用"""
-    import asyncio
     import os
     from datetime import datetime
 
@@ -757,13 +717,13 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     errors: dict[str, str] = {}
 
     try:
-        from data_source_adapter import get_kline
+        from data_adapter import get_kline as _da_get_kline
     except ImportError:
-        logger.warning("[FDC] futures_data_core 导入失败，降级无FDC模式")
+        logger.warning("[FDC] data_adapter 导入失败，降级无FDC模式")
         return {
             **state,
             "fdc_data": {},
-            "fdc_data_status": {"enabled": True, "collected": False, "errors": {"import": "futures_data_core not available"}},
+            "fdc_data_status": {"enabled": True, "collected": False, "errors": {"import": "data_adapter not available"}},
             "current_phase": "P2.5",
             "completed_phases": state["completed_phases"] + ["P2.5"]
         }
@@ -774,17 +734,21 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         data_grades: dict[str, str] = {}
 
         try:
-            kline_payload = await get_kline(symbol, period="daily", days=kline_days)
-            _raw_bars = kline_payload.data.get("bars", [])
-            # 🔴 DataCore 返回的 bars 是倒序（最新在前），但所有代码假设正序（最旧在前）
-            # 检查并反转：如果第一根 bar 的日期 > 最后一根，说明是倒序
+            kline_payload = await _da_get_kline(symbol, period="daily", days=kline_days)
+            # KlineResult.bars 是 KlineBar dataclass 列表，转为 dict 供下游兼容
+            _raw_bars = [
+                {"date": b.date, "open": b.open, "high": b.high, "low": b.low,
+                 "close": b.close, "volume": b.volume, "open_interest": b.open_interest}
+                for b in kline_payload.bars
+            ]
+            # 🔴 检查并反转：如果第一根 bar 的日期 > 最后一根，说明是倒序
             if _raw_bars and len(_raw_bars) > 1 and str(_raw_bars[0].get("date", "")) > str(_raw_bars[-1].get("date", "")):
                 _raw_bars.reverse()
 
             symbol_data["kline"] = {
                 "bars": _raw_bars,
                 "meta": {k: v for k, v in kline_payload.meta.items() if k != "sources"},
-                "summary": kline_payload.summary,
+                "summary": f"{_raw_bars[0]['date']}~{_raw_bars[-1]['date']} {len(_raw_bars)} bars" if _raw_bars else "",
             }
             data_grades["kline"] = kline_payload.meta.get("data_grade", "UNKNOWN")
 
@@ -792,8 +756,8 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             if bars and len(bars) >= 20:
                 import pandas as _pd
                 try:
-                    # 使用 legacy_numpy（含 TDX 桥接），与 scan_all.py 保持一致
-                    from futures_data_core.indicators.legacy_numpy import _compute_indicators_numpy
+                    # 使用 data_adapter 纯 numpy 指标，与 scan_all.py 保持一致
+                    from data_adapter.indicators import compute_indicators as _compute_indicators_numpy
                     _df = _pd.DataFrame({
                         "open": [float(b.get("open", 0)) for b in bars],
                         "high": [float(b.get("high", 0)) for b in bars],
@@ -826,18 +790,22 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         if f10_enabled and not error:
             try:
-                from data_source_adapter import get_term_structure, get_spread, get_basis, get_warrant, get_fundamental
+                # get_spread/get_term_structure/get_fundamental 已退役
+                async def _retired_fn(_sym):
+                    return {"data": {}, "summary": "数据源已退役", "data_grade": "UNAVAILABLE"}
+                from data_adapter import get_basis, get_warrant
 
-                for name, fn in [("term_structure", get_term_structure), ("spread", get_spread),
+                for name, fn in [("term_structure", _retired_fn), ("spread", _retired_fn),
                                  ("basis", get_basis), ("warrant", get_warrant),
-                                 ("fundamental", get_fundamental)]:
+                                 ("fundamental", _retired_fn)]:
                     try:
                         payload = await fn(symbol)
+                        _pd = payload if isinstance(payload, dict) else {"data": {}, "summary": "", "data_grade": "UNAVAILABLE"}
                         symbol_data[name] = {
-                            "data": payload.data,
-                            "summary": payload.summary,
+                            "data": _pd.get("data", {}),
+                            "summary": _pd.get("summary", ""),
                         }
-                        data_grades[name] = payload.meta.get("data_grade", "UNKNOWN")
+                        data_grades[name] = _pd.get("data_grade", "UNKNOWN")
                     except Exception as e:
                         logger.warning(f"[FDC] {symbol} {name} 失败: {e}")
                         data_grades[name] = "UNAVAILABLE"
@@ -854,27 +822,73 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         if position_ranking_enabled and not error:
             try:
-                from data_source_adapter import get_position_ranking
+                from data_adapter import get_position_ranking
                 pr_payload = await get_position_ranking(symbol)
+                _pr = pr_payload if isinstance(pr_payload, dict) else {"data": {}, "summary": "", "data_grade": "UNAVAILABLE"}
                 symbol_data["position_ranking"] = {
-                    "data": pr_payload.data,
-                    "summary": pr_payload.summary,
+                    "data": _pr.get("data", {}),
+                    "summary": _pr.get("summary", ""),
                 }
-                data_grades["position_ranking"] = pr_payload.meta.get("data_grade", "UNKNOWN")
+                data_grades["position_ranking"] = _pr.get("data_grade", "UNKNOWN")
             except Exception as e:
                 logger.warning(f"[FDC] {symbol} 持仓排名失败: {e}")
                 data_grades["position_ranking"] = "UNAVAILABLE"
 
-        # ── F10 数据质量评估（Data Governance Phase 2） ──
-        symbol_data["f10_quality"] = evaluate_f10_data(symbol, symbol_data)
-        # ── 技术指标质量评估 ──
-        symbol_data["indicator_quality"] = evaluate_indicators(symbol, symbol_data.get("indicators"))
+        # ── 资金流向（探源/观澜消费） ──
+        if not error:
+            try:
+                from data_adapter import get_fund_flow
+                ff_payload = await get_fund_flow(symbol)
+                _ff = ff_payload if isinstance(ff_payload, dict) else {"data": {}, "summary": "", "data_grade": "UNAVAILABLE"}
+                symbol_data["fund_flow"] = {
+                    "data": _ff.get("data", {}),
+                    "summary": _ff.get("summary", ""),
+                }
+                data_grades["fund_flow"] = _ff.get("data_grade", "UNKNOWN")
+            except Exception as e:
+                logger.warning(f"[FDC] {symbol} 资金流向失败: {e}")
+                data_grades["fund_flow"] = "UNAVAILABLE"
+
+        # ── 外盘数据（观澜消费 — 外盘技术面参考） ──
+        if not error:
+            try:
+                from data_adapter import get_foreign_hist
+                foreign_payload = await get_foreign_hist(symbol)
+                _fh = foreign_payload if isinstance(foreign_payload, dict) else {"data": {}, "summary": "", "data_grade": "UNAVAILABLE"}
+                symbol_data["foreign"] = {
+                    "data": _fh.get("data", {}),
+                    "summary": _fh.get("summary", ""),
+                }
+                data_grades["foreign"] = _fh.get("data_grade", "UNKNOWN")
+            except Exception as e:
+                logger.warning(f"[FDC] {symbol} 外盘数据失败: {e}")
+                data_grades["foreign"] = "UNAVAILABLE"
+
+        # ── F10 数据质量评估（Data Governance Phase 2）已随 FDC 退役 ──
+        symbol_data["f10_quality"] = {"available": False, "data_grade": "UNAVAILABLE", "note": "data_quality 已退役"}
+        symbol_data["indicator_quality"] = {"available": False, "data_grade": "UNAVAILABLE", "note": "data_quality 已退役"}
 
         symbol_data["data_grades"] = data_grades
         return symbol, symbol_data, error
 
     tasks = [collect_symbol_data(sym) for sym in symbols]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    # 45s 总体超时保护，防止某个品种的数据采集卡死
+    results = []
+    done, pending = await asyncio.wait(
+        [asyncio.ensure_future(t) for t in tasks],
+        timeout=45.0,
+    )
+    for fut in done:
+        try:
+            results.append(fut.result())
+        except asyncio.CancelledError:
+            logger.warning("[FDC] 数据采集任务被取消，跳过")
+        except Exception as e:
+            logger.warning(f"[FDC] 数据采集任务异常: {e}")
+    if pending:
+        for fut in pending:
+            fut.cancel()
+            logger.warning("[FDC] 数据采集超时(45s)，取消未完成的任务")
 
     for result in results:
         if isinstance(result, (Exception, BaseException)):
@@ -1045,6 +1059,46 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
         if grades:
             lines.append(f"  数据质量: K线={grades.get('kline','?')}, 指标={grades.get('indicators','?')}")
 
+        # ── 持仓排名（观澜消费 — 持仓结构/前20席位） ──
+        pr = sym_data.get("position_ranking", {})
+        pr_data = pr.get("data") if isinstance(pr, dict) and "error" not in str(pr.get("data", {})) else None
+        if pr_data and isinstance(pr_data, dict):
+            nl = pr_data.get("net_long", "")
+            t5l = pr_data.get("top5_long", "")
+            t5s = pr_data.get("top5_short", "")
+            parts = []
+            if nl != "" and nl is not None: parts.append(f"净多:{nl}")
+            if t5l: parts.append(f"前5多:{t5l}")
+            if t5s: parts.append(f"前5空:{t5s}")
+            if parts: lines.append(f"  持仓排名: {' | '.join(parts)}")
+
+        # ── 资金流向（观澜消费 — 多空比） ──
+        ff = sym_data.get("fund_flow", {})
+        ff_data = ff.get("data") if isinstance(ff, dict) and "error" not in str(ff.get("data", {})) else None
+        if ff_data and isinstance(ff_data, dict):
+            lr = ff_data.get("long_short_ratio")
+            oi = ff_data.get("total_oi")
+            lv = ff_data.get("long_volume")
+            sv = ff_data.get("short_volume")
+            ff_parts = []
+            if oi is not None: ff_parts.append(f"总持仓:{oi}")
+            if lv is not None: ff_parts.append(f"多头:{lv}")
+            if sv is not None: ff_parts.append(f"空头:{sv}")
+            if lr is not None: ff_parts.append(f"多空比:{lr}")
+            if ff_parts: lines.append(f"  资金流向: {' | '.join(ff_parts)}")
+
+        # ── 外盘数据（观澜消费 — 外盘技术面参考） ──
+        foreign = sym_data.get("foreign", {})
+        foreign_data = foreign.get("data") if isinstance(foreign, dict) and "error" not in str(foreign.get("data", {})) else None
+        if foreign_data and isinstance(foreign_data, dict):
+            fsym = foreign_data.get("foreign_symbol", "")
+            fclose = foreign_data.get("close", "")
+            fcp = foreign_data.get("change_pct", "")
+            if fsym:
+                fp = f"{fsym} {fclose}"
+                if fcp is not None: fp += f" ({fcp:+.2f}%)" if isinstance(fcp, (int, float)) else f" ({fcp})"
+                lines.append(f"  外盘: {fp}")
+
     # ── P1角色矫正：注入 stats 纯统计特征（观澜主要参考依据） ──
     if scan_results:
         all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
@@ -1107,7 +1161,8 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
         lines.append(f"\n【{symbol}】FDC 基本面数据")
         for field_name, label in [("term_structure", "期限结构"), ("basis", "基差"),
                                    ("spread", "价差"), ("warrant", "仓单"),
-                                   ("position_ranking", "持仓排名"), ("fundamental", "基本面")]:
+                                   ("position_ranking", "持仓排名"), ("fund_flow", "资金流向"),
+                                   ("fundamental", "基本面")]:
             field = sym_data.get(field_name, {})
             if field and "error" not in field:
                 lines.append(f"  {label}:")
@@ -1126,7 +1181,7 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
         grades = sym_data.get("data_grades", {})
         if grades:
             f10_grades = {k: v for k, v in grades.items() if k in
-                          ["term_structure", "basis", "spread", "warrant", "position_ranking", "fundamental"]}
+                          ["term_structure", "basis", "spread", "warrant", "position_ranking", "fund_flow", "fundamental"]}
             if f10_grades:
                 lines.append(f"  数据质量: {json.dumps(f10_grades, ensure_ascii=False)}")
         # ── Data Governance Phase 2: F10 质量详情 ──
@@ -1424,7 +1479,7 @@ async def _build_jin10_context(symbols: list[str], trace_id: str) -> tuple[str, 
     结构化列表用于质量评估（evaluate_jin10_context）。
     """
     try:
-        from data_source_adapter import jin10_available, jin10_search_flash
+        from data_adapter.sources.jin10_adapter import jin10_available, jin10_search_flash
     except ImportError:
         return "【金十精选快讯】jin10 MCP 适配层未加载\n", []
 
@@ -1508,7 +1563,7 @@ async def node_fundamental(state: DebateState) -> dict:
 }}
 
 注意：
-- 请充分利用 FDC 提供的期限结构、基差、仓单、持仓排名等结构化数据
+- 请充分利用 FDC 提供的期限结构、基差、仓单、持仓排名、资金流向等结构化数据
 - 金十精选快讯（上方 【金十精选快讯】 区块）可作为实时素材，引用时标注 [jin10]
 - 如需更多最新基本面数据，请使用 WebSearch/WebFetch 工具搜索
 - 每个品种的 leading_signals 为数组，包含1-3个关键信号"""
@@ -1577,8 +1632,8 @@ async def node_fundamental(state: DebateState) -> dict:
                             parts.append(f"{k}={v}")
                     return ", ".join(parts)[:120] if parts else None
                 return None
-            ts=_f10s("term_structure"); sp=_f10s("spread"); ba=_f10s("basis"); fu=_f10s("fundamental"); wa=_f10s("warrant")
-            available = [fn for fn in ["term_structure","spread","basis","warrant","fundamental"] if sym_data.get(fn) and "error" not in (sym_data.get(fn) if isinstance(sym_data.get(fn),dict) else {})]
+            ts=_f10s("term_structure"); sp=_f10s("spread"); ba=_f10s("basis"); fu=_f10s("fundamental"); wa=_f10s("warrant"); ff=_f10s("fund_flow")
+            available = [fn for fn in ["term_structure","spread","basis","warrant","fundamental","fund_flow"] if sym_data.get(fn) and "error" not in (sym_data.get(fn) if isinstance(sym_data.get(fn),dict) else {})]
             sd_parts = []
             if ts: sd_parts.append(f"期限结构: {ts}")
             if sp: sd_parts.append(f"价差: {sp}")
@@ -1605,6 +1660,12 @@ async def node_fundamental(state: DebateState) -> dict:
                     c = prd.get("top1_change","")
                     if t: leading.append(f"持仓第一: {t}")
                     if c and str(c)!="0": leading.append(f"持仓变化: {c}")
+            ffd = sym_data.get("fund_flow")
+            if ffd and isinstance(ffd,dict):
+                ffd_data = ffd.get("data")
+                if isinstance(ffd_data,dict):
+                    lr = ffd_data.get("long_short_ratio")
+                    if lr is not None: leading.append(f"多空比: {lr}")
             if not leading: leading = ["持仓数据暂缺"]
             per_symbol_fund[sym] = {"supply_demand":supply_demand,"inventory":inventory,"profit_margin":fu if fu else "利润和开工率数据待查","basis_term":basis_term,"leading_signals":leading}
 
@@ -1632,12 +1693,14 @@ async def node_sentiment(state: DebateState) -> dict:
     # ── 逐品种新闻质量评估（Data Governance Phase 2） ──
     news_quality = {}
     try:
-        from futures_data_core.core.data_quality import evaluate_jin10_context
         for sym in selected:
-            sym_flash = [f for f in jin10_flash if f["symbol"] == sym]
-            jin10_avail = "jin10" in str(jin10_ctx[:30]) and "未配置" not in jin10_ctx[:30]
-            news_quality[sym] = evaluate_jin10_context(sym, sym_flash, jin10_avail)
-    except ImportError:
+            news_quality[sym] = {
+                "symbol": sym,
+                "total_flash": len([f for f in jin10_flash if f["symbol"] == sym]),
+                "data_grade": "UNAVAILABLE",
+                "note": "evaluate_jin10_context 已退役",
+            }
+    except Exception:
         news_quality = {}
 
     context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态：
@@ -1785,9 +1848,14 @@ async def node_aggregate_results(state: DebateState) -> DebateState:
     combined_fund = {}
     combined_sent = {}
     combined_chain = None
+    combined_fdc = {}  # v9.23.1: 合并所有品种的 fdc_data，确保报告能提取 indicators
     for sym in original_symbols:
         sr = per_symbol.get(sym, {})
         rd = sr.get("research_data") or {}
+        # 合并每个品种的 fdc_data（用于报告的 indicators 提取）
+        sym_fdc = sr.get("fdc_data", {}) or {}
+        if isinstance(sym_fdc, dict):
+            combined_fdc.update(sym_fdc)
         if rd:
             t = rd.get("technical_data", {})
             if isinstance(t, dict):
@@ -1834,6 +1902,7 @@ async def node_aggregate_results(state: DebateState) -> DebateState:
         **state,
         "selected_symbols": original_symbols,
         "research_data": rebuilt_research,
+        "fdc_data": combined_fdc,  # v9.23.1: 保留所有品种的 fdc_data
         "technical_data": {"per_symbol": combined_tech} if combined_tech else {},
         "fundamental_data": {"per_symbol": combined_fund} if combined_fund else {},
         "verdict": combined_verdict,
@@ -2130,7 +2199,7 @@ async def node_bearish_rebuttal(state: DebateState) -> DebateState:
 {research_context}
 
 【多头立论 v1 论据 — 请逐条反驳】
-{bull_text}
+{_truncate_arguments_text(bull_text, "多头立论")}
 
 这是辩论的**空头反驳阶段（bearish_rebuttal）**——
 1. 对每个品种，逐条阅读多头的做多论据
@@ -2202,10 +2271,10 @@ async def node_bullish_rebuttal(state: DebateState) -> DebateState:
 {research_context}
 
 【空头立论 v1 论据】
-{bear_text}
+{_truncate_arguments_text(bear_text, "空头立论")}
 
 【空头反驳（对我的多头立论的质疑）】
-{bear_rebuttal_text}
+{_truncate_arguments_text(bear_rebuttal_text, "空头反驳")}
 
 这是辩论的**多头反驳阶段（bullish_rebuttal）**——
 1. 针对空头立论中的做空论据，用研究员数据正面反驳
@@ -2276,10 +2345,10 @@ async def node_bear_final(state: DebateState) -> DebateState:
 数技源参考方向: {judge_dir}
 
 【我方立论 v1 论据汇总】
-{bear_text}
+{_truncate_arguments_text(bear_text, "空头立论")}
 
 【我方反驳多头立论汇总】
-{rebuttal_text}
+{_truncate_arguments_text(rebuttal_text, "空头反驳")}
 
 这是辩论的**空头最终陈述阶段（bear_final）**——
 1. 整合空头所有论据（每条论据保持来源标注格式），给出完整的空头立场汇总
@@ -2347,10 +2416,10 @@ async def node_bull_final(state: DebateState) -> DebateState:
 数技源参考方向: {judge_dir}
 
 【我方立论 v1 论据汇总】
-{bull_text}
+{_truncate_arguments_text(bull_text, "多头立论")}
 
 【我方反驳空头论据及反驳汇总】
-{rebuttal_text}
+{_truncate_arguments_text(rebuttal_text, "多头反驳")}
 
 这是辩论的**多头最终陈述阶段（bull_final）**——
 1. 整合多头所有论据（每条论据保持来源标注格式），给出完整的做多立场汇总
@@ -2531,6 +2600,7 @@ async def node_verdict(state: DebateState) -> DebateState:
             "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}}
   }},
   "overall_direction": "bearish/neutral/bullish",
+  "overall_confidence": 0.75,
   "overall_reason": "总体摘要（总结哪方论证更优，是否推翻扫描方向）",
   "scan_overturned": true/false
 }}"""
@@ -2568,8 +2638,16 @@ async def node_verdict(state: DebateState) -> DebateState:
                         sv["entry_price"] = scan_price
                     validated_symbols[sym] = sv
 
+            # 计算 overall confidence：优先用 LLM 的 overall_confidence，回退到 per_symbol 均值
+            overall_conf = parsed_data.get("overall_confidence", None) if isinstance(parsed_data, dict) else None
+            if overall_conf is None and validated_symbols:
+                confs = [sv.get("confidence", 0.5) for sv in validated_symbols.values() if isinstance(sv, dict)]
+                overall_conf = sum(confs) / len(confs) if confs else 0.5
+            elif overall_conf is None:
+                overall_conf = 0.5
             overall = {
                 "direction": parsed.get("overall_direction", "neutral"),
+                "confidence": overall_conf,
                 "reason": parsed.get("overall_reason", output[:200]),
                 "per_symbol": validated_symbols,
             }
@@ -2617,10 +2695,18 @@ async def node_verdict(state: DebateState) -> DebateState:
                             sv["entry_price"] = scan_price
                         validated[sym] = sv
                 if validated:
+                    # 计算 fallback 路径的 overall confidence
+                    fb_conf = verdict_raw.get("overall_confidence", verdict_raw.get("confidence", None))
+                    if fb_conf is None and validated:
+                        fb_confs = [sv.get("confidence", 0.5) for sv in validated.values() if isinstance(sv, dict)]
+                        fb_conf = sum(fb_confs) / len(fb_confs) if fb_confs else 0.5
+                    elif fb_conf is None:
+                        fb_conf = 0.5
                     return {
                         **state,
                         "verdict": {
                             "direction": verdict_raw.get("direction", "neutral"),
+                            "confidence": fb_conf,
                             "reason": verdict_raw.get("reason", output[:200]),
                             "per_symbol": validated,
                         },
@@ -2639,8 +2725,7 @@ async def node_verdict(state: DebateState) -> DebateState:
         "per_symbol": {},
     }
 
-    # v9.3.0: 标准化裁决字段
-    verdict = normalize_verdict(verdict)
+    # v9.3.0: 标准化裁决字段（field_normalizer 已随 FDC 退役，直接传递）
 
     new_phases = state["completed_phases"] + ["P4_verdict"]
     return {
@@ -2839,7 +2924,7 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     不合格 + 重试未超限 → 退回重修；通过或超限 → 存入结果。
     品藻仅输出 PASS/FAIL，退回/跳过由 LangGraph 条件边决定。
     """
-    from fdt_langgraph.quality_inspector import validate_verdict, validate_risk
+    from fdt_langgraph.quality_inspector import validate_risk, validate_verdict
 
     symbols = state.get("selected_symbols", [])
     idx = state.get("symbol_index", -1)
@@ -2877,11 +2962,17 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
 
     # ── 质检裁决 ──
     verdict = state.get("verdict")
-    vr_report = validate_verdict(verdict) if verdict else {"status": "SKIP", "issues": [], "passed": 0, "failed": 1, "skipped": 0}
+    if verdict and isinstance(verdict, dict) and verdict.get("direction"):
+        vr_report = validate_verdict(verdict)
+    else:
+        vr_report = {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1}
 
     # ── 质检风控 ──
     risk = state.get("risk_check")
-    rr_report = validate_risk(risk) if risk else {"status": "SKIP", "issues": [], "passed": 0, "failed": 1, "skipped": 0}
+    if risk and isinstance(risk, dict) and (risk.get("risk_level") or risk.get("risk_color")):
+        rr_report = validate_risk(risk)
+    else:
+        rr_report = {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1}
 
     # ── 合并结果 ──
     all_issues = (vr_report.get("issues", []) if isinstance(vr_report, dict) else []) \
@@ -2944,8 +3035,6 @@ async def node_report(state: DebateState) -> DebateState:
     组装辩论结果 → HTML 辩论报告 → 核验完整性。
     品藻负责报告排版、验证和数据归档。
     """
-    import subprocess
-    import sys
     import tempfile
     from pathlib import Path
 
@@ -3464,8 +3553,6 @@ async def node_load_cache(state: DebateState) -> DebateState:
     logger.info(f"[LOAD_CACHE] 指定品种辩论模式: {symbols}")
 
     # 实时拉取每个品种的 K 线数据（复用 FDC 数据引擎）
-    import subprocess, sys as _sys
-    import json as _json
     from datetime import datetime as _dt
     _date_compact = _dt.now().strftime("%Y%m%d")
     _report_dir = _resolve_report_dir()
@@ -3484,8 +3571,9 @@ async def node_load_cache(state: DebateState) -> DebateState:
         if _qdaily_dir not in sys.path:
             sys.path.insert(0, _qdaily_dir)
 
-        from data_source_adapter import get_kline as _fdc_get_kline
         import asyncio as _asyncio
+
+        from data_adapter import get_kline as _fdc_get_kline
 
         for sym in symbols:
             try:
@@ -3493,8 +3581,13 @@ async def node_load_cache(state: DebateState) -> DebateState:
                 payload = await _fdc_get_kline(sym.lower(), period="daily", days=120)
 
                 meta = payload.meta
-                grade = meta.get("data_grade_label", "")
-                bars_raw = payload.data.get("bars", []) if hasattr(payload, "data") else []
+                grade = meta.get("data_grade", meta.get("data_grade_label", ""))
+                # KlineResult.bars 是 KlineBar 对象列表，转为 dict 供下游兼容
+                bars_raw = [
+                    {"date": b.date, "open": b.open, "high": b.high, "low": b.low,
+                     "close": b.close, "volume": b.volume, "open_interest": b.open_interest}
+                    for b in payload.bars
+                ] if hasattr(payload, "bars") else []
 
                 if grade in ("UNAVAILABLE", "STALE") or not bars_raw:
                     logger.warning(f"[LOAD_CACHE] {sym} 数据不可用: grade={grade}")

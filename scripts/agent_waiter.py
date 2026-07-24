@@ -11,11 +11,11 @@ File Transport Layer v1 实现:
 """
 from __future__ import annotations
 
-import os
-import json
-import time
-import sys
 import hashlib
+import json
+import os
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -143,7 +143,7 @@ def poll_file_ready(
         if os.path.exists(tmp_path):
             time.sleep(poll_interval)
             continue
-        
+
         # 检查正式文件
         if os.path.exists(filepath):
             try:
@@ -151,7 +151,7 @@ def poll_file_ready(
             except OSError:
                 time.sleep(poll_interval)
                 continue
-            
+
             if sz > 0:
                 if sz == last_size:
                     if stable_since is None:
@@ -161,9 +161,9 @@ def poll_file_ready(
                 else:
                     last_size = sz
                     stable_since = None
-        
+
         time.sleep(poll_interval)
-    
+
     return False
 
 
@@ -187,35 +187,35 @@ def wait_for_agent_output(
         Parsed JSON dict if success, None if timeout
     """
     print(f"[AgentWaiter] 等待 {agent_name} 产出: {filepath}", file=sys.stderr)
-    
+
     ready = poll_file_ready(filepath, timeout=timeout)
-    
+
     if not ready:
         print(f"[AgentWaiter] {agent_name} 超时({timeout}s), 触发D06降级", file=sys.stderr)
         return None
-    
+
     try:
         with open(filepath, encoding="utf-8") as f:
             content = f.read()
-        
+
         # ── D3 Generation: 结构化输出校验（非阻断，含重试信号） ──
         _validate_agent_output(content, agent_name, output_path=filepath)
-        
+
         # 尝试解析JSON fence
         import re
         m = re.search(r'```json\s*(.*?)```', content, re.DOTALL)
         if m:
             return json.loads(m.group(1))
-        
+
         # 尝试直接解析JSON
         try:
             return json.loads(content)
         except json.JSONDecodeError:
             pass
-        
+
         # 返回原始文本
         return {"raw_text": content, "agent": agent_name}
-        
+
     except Exception as e:
         print(f"[AgentWaiter] 读取{agent_name}产出失败: {e}", file=sys.stderr)
         return None
@@ -229,7 +229,9 @@ def _validate_agent_output(content: str, agent_name: str, output_path: str = "")
     """
     try:
         from scripts.enforce_structured_output import (
-            enforce_structured_output, get_agent_config, write_retry_signal,
+            enforce_structured_output,
+            get_agent_config,
+            write_retry_signal,
         )
         from scripts.generation_metrics import GenerationMetrics
 

@@ -29,29 +29,30 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
-from fdt_langgraph.master_state import create_master_state
 from fdt_langgraph.master_nodes import (
     node_check_time,
     node_dispatch,
-    route_after_dispatch,
-    route_after_task,
-    node_run_daily_debate,
-    node_run_update_dominant_mapping,
-    node_run_auto_publish,
     node_run_apm_scorecard,
+    node_run_auto_publish,
     node_run_cluster_failures,
+    node_run_d3_auto_light,
+    node_run_daily_debate,
+    node_run_data_collection,
     node_run_discipline_enforce,
-    node_run_self_optimize_evolve,
-    node_run_self_optimize_verify,
-    node_run_validate_and_evolve,
+    node_run_memory_maintenance,
     node_run_ml_training_check,
     node_run_self_optimize_analysis,
+    node_run_self_optimize_evolve,
+    node_run_self_optimize_verify,
+    node_run_update_dominant_mapping,
+    node_run_validate_and_evolve,
     node_run_vibench_baseline,
-    node_run_d3_auto_light,
-    node_run_data_collection,
+    route_after_dispatch,
+    route_after_task,
 )
+from fdt_langgraph.master_state import create_master_state
 
 logger = logging.getLogger(__name__)
 

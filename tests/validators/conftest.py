@@ -1,5 +1,6 @@
 """Validators 测试统一配置。"""
-import sys, os
+import os
+import sys
 
 # FDT 路径自举
 test_dir = os.path.dirname(os.path.abspath(__file__))

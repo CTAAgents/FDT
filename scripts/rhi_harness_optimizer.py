@@ -18,7 +18,8 @@ from datetime import datetime
 from typing import Optional
 
 from contracts.rhi_harness_spec import (
-    HarnessSpec, PairwisePreference, RHIHistory,
+    HarnessSpec,
+    PairwisePreference,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,6 @@ def parse_optimizer_response(response: str) -> tuple[Optional[dict], Optional[st
         (config_delta: dict | None, change_summary: str | None)
     """
     import json
-    import re
 
     if not response or not response.strip():
         return None, None

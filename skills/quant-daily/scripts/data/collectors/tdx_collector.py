@@ -19,13 +19,10 @@
 """
 
 import json
-import os
-import urllib.request
 import urllib.error
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
-import math
-
+import urllib.request
+from datetime import datetime
+from typing import Dict, List, Optional
 
 # ==================== 交易所后缀映射 ====================
 EXCHANGE_SUFFIX = {
@@ -1132,7 +1129,6 @@ def get_collector() -> TdxCollector:
 
 
 if __name__ == "__main__":
-    import time
 
     c = TdxCollector()
     if not c.is_available:

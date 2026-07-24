@@ -20,10 +20,9 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Optional
 
 from scripts.unified_logger import get_logger
 

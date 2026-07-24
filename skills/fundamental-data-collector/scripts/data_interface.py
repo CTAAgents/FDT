@@ -6,8 +6,8 @@
 1. 徽商智汇(恒生数据中心) DuckDB 本地缓存 → huishang_adapter
 """
 
-import json, os
-from typing import Optional, List, Dict
+import os
+from typing import Dict, List
 
 # ── 恒生期货数据中心(徽商智汇)数据 v1.0 ──
 
@@ -129,8 +129,8 @@ def format_fundamentals_summary(symbol: str) -> str:
         names = "、".join(t[:25] for t in items[:3])
         suffix = f"...等{len(items)}项" if len(items) > 3 else ""
         lines.append(f"  {cat}: {names}{suffix}")
-    lines.append(f"")
-    lines.append(f"  可用主题:")
+    lines.append("")
+    lines.append("  可用主题:")
     for t in info["huishang_topics"][:10]:
         lines.append(f"    · {t['name']} (来源:{t.get('source','?')})")
     if info["huishang_count"] > 10:

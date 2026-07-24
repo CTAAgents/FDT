@@ -1,7 +1,6 @@
 """
 MlSignalStrategy 测试 — ONNX 推理桥接 + 降级 fallback
 """
-import pytest
 
 
 class TestMlSignal:
@@ -28,8 +27,8 @@ class TestMlSignal:
 
     def test_score_fallback(self):
         """score 在传入信号时正常工作"""
-        from strategies.ml_signal_strategy import MlSignalStrategy
         from strategies.base_v2 import RawSignal
+        from strategies.ml_signal_strategy import MlSignalStrategy
         s = MlSignalStrategy()
         raw = RawSignal(symbol="RB", direction="bull", signal_type="ml.prob",
                         raw_score=0.7, strategy_name="ml_signal",

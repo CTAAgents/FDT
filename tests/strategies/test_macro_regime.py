@@ -1,7 +1,6 @@
 """
 MacroRegimeStrategy 测试
 """
-import pytest
 
 
 class TestMacroRegime:
@@ -49,8 +48,8 @@ class TestMacroRegime:
         assert cu.meta["sector"] == "有色"
 
     def test_score_weight_04(self):
-        from strategies.macro_regime_strategy import MacroRegimeStrategy
         from strategies.base_v2 import RawSignal
+        from strategies.macro_regime_strategy import MacroRegimeStrategy
         s = MacroRegimeStrategy()
         raw = RawSignal(symbol="RB", direction="bull", signal_type="macro.black",
                         raw_score=0.3, strategy_name="macro_regime", meta={})

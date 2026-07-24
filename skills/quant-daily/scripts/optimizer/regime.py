@@ -19,6 +19,7 @@ _MARKET_BASKET = ["rb", "sc", "cu", "au", "c", "MA", "TA"]
 def _fdc_kline(symbol: str, days: int = 400, period: str = "daily") -> dict:
     """从 FDC 同步获取 K 线数据"""
     import asyncio
+
     from futures_data_core import get_kline
 
     try:

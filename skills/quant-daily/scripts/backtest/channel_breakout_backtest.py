@@ -11,7 +11,10 @@
 用法：
   python -m scripts.backtest.three_signal_backtest --conf 50 --position 15 --stop-atr 2.0
 """
-import argparse, json, os, sys
+import argparse
+import json
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

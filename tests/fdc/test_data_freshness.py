@@ -1,8 +1,10 @@
 """测试数据新鲜度计算 — 支持 %Y%m%d 和 %Y-%m-%d 两种格式"""
 import sys
+
 sys.path.insert(0, r'D:\Programs\FDT')
 
 from datetime import date, timedelta
+
 from futures_data_core.core.data_quality import _calc_freshness_days
 
 

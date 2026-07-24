@@ -6,6 +6,7 @@ llm/cache, llm/token_budget
 """
 
 from __future__ import annotations
+
 import json
 import logging
 import os
@@ -14,23 +15,24 @@ import tempfile
 import time
 from datetime import date, datetime
 from pathlib import Path
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 import pytest
-from scripts.fingerprint import generate_fingerprint, apply_selection_gate, set_global_seed
-from scripts.portfolio_risk import PortfolioRisk
+
 from scripts.config_manager import ConfigManager
-from scripts.logutil import setup_logging, get_logger
 from scripts.fdt_version import get_fdt_version, get_fdt_version_tag
+from scripts.fingerprint import apply_selection_gate, generate_fingerprint, set_global_seed
 from scripts.health_check import run_health_check
-from scripts.run_reporter import RunReporter
-from scripts.record_verdicts import load_debate_results, load_followup, save_followup, build_record
-from scripts.notifier import _load_config, push_wecom_bot, push_smtp, _build_debate_summary
 from scripts.llm.cache import DebateCache
-from scripts.llm.token_budget import TokenBudget, BudgetExceeded
+from scripts.llm.token_budget import BudgetExceeded, TokenBudget
+from scripts.logutil import get_logger, setup_logging
+from scripts.notifier import _build_debate_summary, _load_config, push_smtp, push_wecom_bot
+from scripts.portfolio_risk import PortfolioRisk
+from scripts.record_verdicts import build_record, load_debate_results, load_followup
+from scripts.run_reporter import RunReporter
 
 
 class TestFingerprint:
@@ -643,7 +645,6 @@ class TestExecutionAgent:
 
 class TestAgentRunner:
     def test_load_agent_config_missing(self) -> None:
-        import yaml
         from pathlib import Path
         cfg_path = Path(__file__).resolve().parent.parent / "config" / "agents" / "nonexistent.yaml"
         assert not cfg_path.exists()  # 验证不存在的文件返回 None
@@ -924,9 +925,10 @@ class TestComplianceAgent:
 
     def test_get_audit_report_after_check(self) -> None:
         """审计报告 — check_all 后应有记录"""
-        from scripts.compliance_agent import ComplianceAgent
         from datetime import timedelta
+
         import scripts.compliance_agent as ca_mod
+        from scripts.compliance_agent import ComplianceAgent
         with tempfile.TemporaryDirectory() as tmp:
             agent = ComplianceAgent(log_dir=tmp)
             positions = [{"symbol": "RB", "lots": 100, "contract": "rb2601"}]
@@ -1237,8 +1239,9 @@ class TestEvidenceScorer:
 
     def test_score_single_claim_fresh_date(self) -> None:
         """一周内的日期应获得最高日期分。"""
-        from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
+
+        from scripts.evidence_scorer import score_single_claim
         fresh = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
         claim = {"evidence_value": "10", "evidence_date": fresh, "claim_id": "C1"}
         score = score_single_claim(claim)
@@ -1247,8 +1250,9 @@ class TestEvidenceScorer:
 
     def test_score_single_claim_medium_date(self) -> None:
         """8-30天内的日期应获得中等日期分。"""
-        from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
+
+        from scripts.evidence_scorer import score_single_claim
         medium = (datetime.now() - timedelta(days=15)).strftime("%Y-%m-%d")
         claim = {"evidence_value": "10", "evidence_date": medium, "claim_id": "C1"}
         score = score_single_claim(claim)
@@ -1257,8 +1261,9 @@ class TestEvidenceScorer:
 
     def test_score_single_claim_old_date(self) -> None:
         """超过30天的日期应获得低日期分。"""
-        from scripts.evidence_scorer import score_single_claim
         from datetime import timedelta
+
+        from scripts.evidence_scorer import score_single_claim
         old = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
         claim = {"evidence_value": "10", "evidence_date": old, "claim_id": "C1"}
         score = score_single_claim(claim)
@@ -1431,8 +1436,8 @@ class TestHealthServer:
                 assert stats["test_files"] >= 1
 
     def test_health_handler_degraded(self) -> None:
-        from scripts.health_server import HealthHandler, _check_components
-        from io import BytesIO
+
+        from scripts.health_server import _check_components
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.health_server.ROOT", Path(tmp)):
                 comps = _check_components()
@@ -1795,11 +1800,11 @@ class TestConfidenceUtils:
         assert normalize_confidence("0.75") == 0.75
 
     def test_normalize_confidence_none(self) -> None:
-        from scripts.confidence_utils import normalize_confidence, DEFAULT_CONFIDENCE
+        from scripts.confidence_utils import DEFAULT_CONFIDENCE, normalize_confidence
         assert normalize_confidence(None) == DEFAULT_CONFIDENCE
 
     def test_normalize_confidence_out_of_range(self) -> None:
-        from scripts.confidence_utils import normalize_confidence, DEFAULT_CONFIDENCE
+        from scripts.confidence_utils import DEFAULT_CONFIDENCE, normalize_confidence
         assert normalize_confidence(1.5) == DEFAULT_CONFIDENCE
         assert normalize_confidence(-0.5) == DEFAULT_CONFIDENCE
         assert normalize_confidence(float('inf')) == DEFAULT_CONFIDENCE
@@ -1818,8 +1823,9 @@ class TestConfidenceUtils:
 
 class TestFdtPaths:
     def test_detect_fdt_root_from_file(self) -> None:
-        from scripts.fdt_paths import FDT_ROOT
         import os
+
+        from scripts.fdt_paths import FDT_ROOT
         assert os.path.isdir(FDT_ROOT)
         assert os.path.exists(os.path.join(FDT_ROOT, "memory"))
 
@@ -1856,20 +1862,20 @@ class TestFdtPaths:
 
 class TestTraceId:
     def test_new_trace_format(self) -> None:
-        from scripts.trace_id import new_trace, current_trace
+        from scripts.trace_id import current_trace, new_trace
         tid = new_trace()
         assert "-" in tid
         assert len(tid.split("-")[1]) == 8
         assert current_trace() == tid
 
     def test_new_trace_with_prefix(self) -> None:
-        from scripts.trace_id import new_trace, current_trace
+        from scripts.trace_id import current_trace, new_trace
         tid = new_trace(prefix="daily")
         assert tid.startswith("daily-")
         assert current_trace() == tid
 
     def test_set_trace(self) -> None:
-        from scripts.trace_id import set_trace, current_trace
+        from scripts.trace_id import current_trace, set_trace
         set_trace("test-trace-123")
         assert current_trace() == "test-trace-123"
 
@@ -1887,20 +1893,21 @@ class TestTraceId:
         assert env["CUSTOM"] == "val"
 
     def test_trace_file_name(self) -> None:
-        from scripts.trace_id import trace_file_name, set_trace
+        from scripts.trace_id import set_trace, trace_file_name
         set_trace("abc123")
         fname = trace_file_name("debate_results")
         assert fname == "debate_results_abc123.json"
 
     def test_trace_file_name_no_trace(self) -> None:
-        from scripts.trace_id import trace_file_name, set_trace
+        from scripts.trace_id import set_trace, trace_file_name
         set_trace("no-trace")
         fname = trace_file_name("test")
         assert fname == "test.json"
 
     def test_trace_log_adapter(self) -> None:
-        from scripts.trace_id import TraceLogAdapter
         import logging
+
+        from scripts.trace_id import TraceLogAdapter
         logger = logging.getLogger("test_adapter")
         adapter = TraceLogAdapter(logger)
         msg = adapter._prepend("test message")
@@ -1909,7 +1916,7 @@ class TestTraceId:
 
 class TestUnifiedLogger:
     def test_get_logger_basic(self) -> None:
-        from scripts.unified_logger import get_logger, _loggers
+        from scripts.unified_logger import _loggers, get_logger
         tmp = tempfile.mkdtemp()
         try:
             logger = get_logger("test_module_unique_1234", log_dir=tmp)
@@ -1926,7 +1933,7 @@ class TestUnifiedLogger:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_get_logger_cached(self) -> None:
-        from scripts.unified_logger import get_logger, _loggers
+        from scripts.unified_logger import _loggers, get_logger
         tmp = tempfile.mkdtemp()
         try:
             logger1 = get_logger("cached_test_unique_5678", log_dir=tmp)
@@ -1943,7 +1950,7 @@ class TestUnifiedLogger:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_set_level(self) -> None:
-        from scripts.unified_logger import get_logger, set_level, _loggers
+        from scripts.unified_logger import _loggers, get_logger, set_level
         tmp = tempfile.mkdtemp()
         try:
             logger = get_logger("level_test_unique_9999", log_dir=tmp)
@@ -1960,8 +1967,9 @@ class TestUnifiedLogger:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_json_formatter(self) -> None:
-        from scripts.unified_logger import JSONFormatter
         import logging
+
+        from scripts.unified_logger import JSONFormatter
         formatter = JSONFormatter()
         record = logging.LogRecord(
             "test", logging.INFO, "path", 1, "test message", (), None
@@ -1984,7 +1992,7 @@ class TestFdtLlm:
         assert llm.config is not None
 
     def test_mock_mode(self) -> None:
-        from scripts.fdt_llm import FdtLlm, _get_mock_reply
+        from scripts.fdt_llm import _get_mock_reply
         reply = _get_mock_reply("test", "闫判官是期货分析师")
         assert "bear" in reply or "bull" in reply or "模拟" in reply
 
@@ -2264,8 +2272,9 @@ class TestPreCommitHarnessCheck:
 
 class TestDaemonWatchdog:
     def test_is_process_alive_current(self) -> None:
-        from scripts.daemon_watchdog import is_process_alive
         import os
+
+        from scripts.daemon_watchdog import is_process_alive
         assert is_process_alive(os.getpid()) is True
 
     @pytest.mark.skip(reason="Windows pytest env hang (#G70)")
@@ -2614,8 +2623,9 @@ class TestInferenceGate:
                 assert gate._timeout == 50
 
     def test_session_id_format(self) -> None:
-        from scripts.inference_gate import InferenceGate
         import re
+
+        from scripts.inference_gate import InferenceGate
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.inference_gate.AUDIT_DIR", Path(tmp)):
                 gate = InferenceGate()
@@ -2942,7 +2952,7 @@ class TestMemoryEnforcer:
         assert record["action"] == "debate_round_daily"
 
     def test_archive_to_journal_new(self) -> None:
-        from scripts.memory_enforcer import archive_to_journal, load_json, save_json
+        from scripts.memory_enforcer import archive_to_journal, save_json
         with tempfile.TemporaryDirectory() as tmp:
             journal_path = os.path.join(tmp, "debate_journal.json")
             with patch("scripts.memory_enforcer.FDTFiles") as mock_files:
@@ -3410,7 +3420,7 @@ class TestDebateProtocolV2:
 
 class TestAgentLifecycle:
     def test_state_init_and_cleanup(self) -> None:
-        from scripts.agent_lifecycle import _load_state, _save_state, _STATE_FILE
+        from scripts.agent_lifecycle import _load_state, _save_state
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
             old_dir = al._STATE_DIR
@@ -3431,7 +3441,7 @@ class TestAgentLifecycle:
                 al._STATE_FILE = old_file
 
     def test_cmd_register(self) -> None:
-        from scripts.agent_lifecycle import cmd_register, cmd_cleanup, _load_state
+        from scripts.agent_lifecycle import _load_state, cmd_cleanup, cmd_register
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
             old_dir = al._STATE_DIR
@@ -3465,7 +3475,7 @@ class TestAgentLifecycle:
                 al._STATE_FILE = old_file
 
     def test_cmd_report(self) -> None:
-        from scripts.agent_lifecycle import cmd_register, cmd_report, cmd_cleanup
+        from scripts.agent_lifecycle import cmd_cleanup, cmd_register, cmd_report
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
             old_dir = al._STATE_DIR
@@ -3484,7 +3494,7 @@ class TestAgentLifecycle:
                 al._STATE_FILE = old_file
 
     def test_cmd_shutdown(self) -> None:
-        from scripts.agent_lifecycle import cmd_register, cmd_shutdown, cmd_cleanup, _load_state
+        from scripts.agent_lifecycle import _load_state, cmd_cleanup, cmd_register, cmd_shutdown
         with tempfile.TemporaryDirectory() as tmp:
             import scripts.agent_lifecycle as al
             old_dir = al._STATE_DIR
@@ -3504,8 +3514,9 @@ class TestAgentLifecycle:
 
 class TestMemoryWriter:
     def test_write_and_read(self) -> None:
-        from scripts.memory_writer import MemoryWriter
         import shutil
+
+        from scripts.memory_writer import MemoryWriter
         tmp = tempfile.mkdtemp()
         try:
             mw = MemoryWriter(round_id="test_round", base_dir=tmp)
@@ -3520,8 +3531,9 @@ class TestMemoryWriter:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_merge_all(self) -> None:
-        from scripts.memory_writer import MemoryWriter
         import shutil
+
+        from scripts.memory_writer import MemoryWriter
         tmp = tempfile.mkdtemp()
         try:
             mw = MemoryWriter(round_id="test_merge", base_dir=tmp)
@@ -3538,8 +3550,9 @@ class TestMemoryWriter:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_validate_missing(self) -> None:
-        from scripts.memory_writer import MemoryWriter
         import shutil
+
+        from scripts.memory_writer import MemoryWriter
         tmp = tempfile.mkdtemp()
         try:
             mw = MemoryWriter(round_id="test_validate", base_dir=tmp)
@@ -3607,8 +3620,9 @@ class TestCalibrateWeights:
         assert get_rsi_range("bull", 50) == "RSI≤55"
 
     def test_compute_adjustments_min_samples(self) -> None:
-        from scripts.calibrate_weights import compute_adjustments
         from collections import defaultdict
+
+        from scripts.calibrate_weights import compute_adjustments
         dims = {
             "confidence": defaultdict(list),
             "direction": defaultdict(list),
@@ -4252,6 +4266,7 @@ class TestWebui:
     def test_connection_manager(self) -> None:
         import asyncio
         from unittest.mock import AsyncMock
+
         from scripts.webui import ConnectionManager
         mgr = ConnectionManager()
         assert len(mgr.connections) == 0

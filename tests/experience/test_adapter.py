@@ -7,8 +7,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 _work_root = Path(__file__).resolve().parents[1]
 if str(_work_root) not in sys.path:
     sys.path.insert(0, str(_work_root))
@@ -105,7 +103,7 @@ class TestCaseSearch:
 class TestConfigMerge:
     def test_delta_applied_correctly(self):
         """config_delta 正确应用到基准配置"""
-        from scripts.harness_adapter import apply_config_delta, DEFAULT_CONFIG
+        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         delta = {"d3_generation": {"debater_temp": 0.6}}
         result = apply_config_delta(DEFAULT_CONFIG, delta)
@@ -114,7 +112,7 @@ class TestConfigMerge:
 
     def test_multiple_deltas(self):
         """多维度 delta 同时应用"""
-        from scripts.harness_adapter import apply_config_delta, DEFAULT_CONFIG
+        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         delta = {
             "d3_generation": {"debater_temp": 0.5},
@@ -126,7 +124,7 @@ class TestConfigMerge:
 
     def test_empty_delta_returns_copy(self):
         """空 delta 返回基准配置的深拷贝"""
-        from scripts.harness_adapter import apply_config_delta, DEFAULT_CONFIG
+        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         result = apply_config_delta(DEFAULT_CONFIG, {})
         assert result == DEFAULT_CONFIG
@@ -169,7 +167,7 @@ class TestClamping:
 class TestShadowMode:
     def test_shadow_returns_base_config(self):
         """影子模式返回原始基准配置"""
-        from scripts.harness_adapter import adapt_harness, DEFAULT_CONFIG
+        from scripts.harness_adapter import DEFAULT_CONFIG, adapt_harness
 
         tc = {"adx_range": "low", "volatility_regime": "normal", "data_freshness_level": "fresh"}
         tmp_path = Path("nonexistent")
@@ -180,7 +178,7 @@ class TestShadowMode:
 
     def test_normal_mode_applies_adaptation(self):
         """普通模式应用适配"""
-        from scripts.harness_adapter import adapt_harness, DEFAULT_CONFIG
+        from scripts.harness_adapter import adapt_harness
 
         tc = {"adx_range": "low", "volatility_regime": "normal", "data_freshness_level": "fresh"}
         tmp_path = Path("nonexistent")
@@ -215,9 +213,9 @@ class TestAdaptationLog:
 class TestEndToEndAdaptation:
     def test_full_adaptation_workflow(self, tmp_path):
         """完整适配工作流：写入模式 → 写入案例 → 适配"""
+        from scripts.experience_recorder import write_record
         from scripts.harness_adapter import adapt_harness
         from scripts.pattern_distiller import save_pattern
-        from scripts.experience_recorder import write_record
 
         patterns_dir = tmp_path / "patterns"
         patterns_dir.mkdir()

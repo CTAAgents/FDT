@@ -21,11 +21,10 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
 import yaml
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-
 
 # ── 路径 ──────────────────────────────────────
 _SCRIPT_DIR = Path(__file__).parent
@@ -209,7 +208,7 @@ def seed_from_argument_patterns(force: bool = False) -> int:
         # 创建一个种子模式
         seed_pattern = {
             "pattern_id": f"{variety_code}-p000",
-            "name": f"种子模式（从 argument_patterns.md 导入）",
+            "name": "种子模式（从 argument_patterns.md 导入）",
             "first_observed": "2026-07-04",
             "last_used": "2026-07-04",
             "use_count": 1,
@@ -291,14 +290,14 @@ def update_variety_index() -> None:
     tmp = index_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(index_path)
-    print(f"  ✅ variety_index.json 已更新")
+    print("  ✅ variety_index.json 已更新")
 
 
 def main() -> None:
     force = "--force" in sys.argv
 
     print(f"\n{'='*50}")
-    print(f"品种知识库初始化脚本 v1.0.0")
+    print("品种知识库初始化脚本 v1.0.0")
     print(f"运行于: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print(f"{'='*50}\n")
 
@@ -365,7 +364,7 @@ def main() -> None:
     update_variety_index()
 
     print(f"\n{'='*50}")
-    print(f"✅ 初始化完成")
+    print("✅ 初始化完成")
     print(f"   品种目录: {len(all_codes)}")
     print(f"   profile.json: {profile_count} 新建")
     print(f"   drivers.md: {drivers_count} 新建")

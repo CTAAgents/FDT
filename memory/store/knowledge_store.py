@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..manager.schemas import CURRENT_SCHEMA_VERSION, KnowledgeEntry, validate_schema
+from ..manager.schemas import KnowledgeEntry, validate_schema
 
 logger = logging.getLogger(__name__)
 

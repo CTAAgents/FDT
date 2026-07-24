@@ -25,9 +25,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
-from pathlib import Path
-
 
 # ─── 新架构阶段映射（闫判官驱动，2026-07-14）─────────────────
 PHASE_BASE = {

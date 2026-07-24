@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # 确保 scripts/ 在 sys.path（与项目 pytest 配置一致）
 _SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
@@ -15,10 +14,11 @@ if _SCRIPTS not in sys.path:
 if "config" in sys.modules:
     del sys.modules["config"]
 
-from futures_data_core.indicators.tdx_compat import calculate_turtle_n
 from strategies.base_v2 import BaseStrategyV2, RawSignal, ScoredSignal
+from strategies.pipeline import StrategyFusion, StrategyPipeline
 from strategies.turtle_system import TurtleSystemOverlay
-from strategies.pipeline import StrategyPipeline, StrategyFusion
+
+from futures_data_core.indicators.tdx_compat import calculate_turtle_n
 
 
 # ───────────────────────────────────────────────────

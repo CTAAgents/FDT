@@ -1,11 +1,12 @@
 """debate-argument-builder auto-generated conftest"""
-import pytest, os, sys
+import os
+import sys
+
 from fdt_test_helpers import add_fdt_paths
 
 add_fdt_paths(__file__, ['skills/debate-argument-builder/scripts'])
 """统一 tests/ 目录版 — debate-argument-builder"""
 
-import sys, os
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKILL_DIR = os.path.join(PROJECT_ROOT, "skills", "debate-argument-builder")

@@ -1,7 +1,6 @@
 """
 ArbitrageStrategy 测试 — 跨期/跨品种/基差
 """
-import pytest
 
 
 class TestArbitrageStrategy:

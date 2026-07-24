@@ -16,9 +16,11 @@ quant-daily 历史回放评估框架 v1.0
   python -m scripts.backtest.evaluate --split --train-ratio 0.7
 """
 
-import sys, os, json, time, math
-from datetime import datetime
+import json
+import os
+import sys
 from collections import defaultdict
+from datetime import datetime
 
 # ── 路径自举 ──
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # scripts/
@@ -31,12 +33,10 @@ for p in [SKILL_DIR]:
         sys.path.insert(0, p)
 
 import pandas as pd
-import numpy as np
+from config.symbols import ALL_SYMBOLS
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 from signals.scoring_system import calculate_composite_score
-from config.symbols import ALL_SYMBOLS
-
 
 # ============================================================
 # 数据采集
@@ -448,7 +448,7 @@ def main():
         opt = optimize_weights(scores, forward_days=args.forward)
         if opt:
             print("\n=== 权重Top5 ===")
-            print(f"  L1  L2  L3  L4  STRONG WATCH WEAK NOISE  信噪比")
+            print("  L1  L2  L3  L4  STRONG WATCH WEAK NOISE  信噪比")
             print(f"  {'-' * 42}")
             for r in opt[:5]:
                 print(
@@ -458,7 +458,7 @@ def main():
                 )
             save_results({"mode": "optimize", "top5": opt[:5]}, output_dir)
 
-    print(f"\n[OK] 完成")
+    print("\n[OK] 完成")
 
 
 if __name__ == "__main__":

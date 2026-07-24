@@ -529,6 +529,22 @@ P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判
 - **覆盖节点**: 5 处 LLM 解析（node_judge_direction / node_technical / node_fundamental / node_verdict / node_risk_check）
 - **降级**: 解析失败时返回 caller 提供的 `default` 字典，不影响主流程
 
+### v10.1.0 新增：数据清洗层可观测性
+
+数据清洗层（`data_adapter/cleaning/`）提供结构化清洗报告，可观测性由 `CleaningReport` 和 `CleaningAction` 承载：
+
+- **位置**: `data_adapter/types.py`（CleaningReport / CleaningAction dataclass）
+- **报告结构**: `{"cleaning_id": str, "actions": [{"action": str, "field": str, "index": int, "reason": str}]}`
+- **指标**:
+  - `total_actions` — 本次清洗总动作数
+  - `removed_count` — 移除的 K 线/数据条数
+  - `fixed_count` — 修复的字段数
+- **覆盖管线**:
+  - K 线清洗（OHLC / 时间轴 / 离群值 / 复权 / 期货专项）
+  - 基本面清洗（缺失字段 / 值校验 / 新鲜度评分 / 口径变更 / 修订追踪）
+- **数据等级**: 清洗后 data_grade 自动降级（PRIMARY→STALE→DEGRADED→UNAVAILABLE），消费方可通过 `_cleaning` 键获取清洗报告详情
+- **新鲜度标签**: 基本面清洗产出 `freshness_level`（FRESH / STALE / STALE_WARNING / UNKNOWN）和 `freshness_days` 供下游消费
+
 ## 一致性元数据
 
 下表记录 `05-observability.md` 各章节与对应代码文件之间的断言关系，供自动校验使用：

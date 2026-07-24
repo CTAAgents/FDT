@@ -13,9 +13,16 @@
   python scan_all.py --list-strategies                        # 列出所有策略
 """
 
-import sys, os, json, re, random, pandas as pd
 import asyncio
-from datetime import date
+import json
+import os
+import random
+import re
+import sys
+from datetime import date, datetime
+from pathlib import Path
+
+import pandas as pd
 
 # ── Windows 路径规范化：/x/... → X:/...（Git Bash → Python 原生） ──
 if os.name == "nt":
@@ -43,63 +50,58 @@ if FDT_ROOT not in sys.path:
     sys.path.insert(0, FDT_ROOT)
 
 try:
+    from config.symbols import ALL_SYMBOLS
     from indicators.core import assess_trend_maturity
     from indicators.indicators_legacy import _compute_indicators_numpy
     from indicators.tdx_bridge import get_bridge
-    from config.symbols import ALL_SYMBOLS
 except ImportError:
-    from indicators.core import assess_trend_maturity
+    from config.symbols import ALL_SYMBOLS
     from indicators.indicators_legacy import _compute_indicators_numpy
     from indicators.tdx_bridge import get_bridge
-    from config.symbols import ALL_SYMBOLS
 
-# ── FDC 统一数据引擎（取代 data.multi_source_adapter.MultiSourceAdapter） ──
-from data_source_adapter import get_kline as _ds_get_kline
-from data_source_adapter import batch_get_quotes as _ds_batch_quotes
+# ── data_adapter 统一数据引擎（取代 data_source_adapter + futures_data_core） ──
+from data_adapter import batch_get_quotes as _ds_batch_quotes
+from data_adapter import get_kline as _ds_get_kline
+
 
 def _fdc_get_kline_sync(variety: str, days: int = 120, period: str = "daily") -> dict:
-    """同步包装 FDC get_kline，供 scan_all.py 的遍历循环使用。
+    """同步包装 data_adapter get_kline，供 scan_all.py 的遍历循环使用。
 
-    2026-07-13 重构：取代 data/multi_source_adapter MultiSourceAdapter.get_kline()。
-    TqSDK collector 已修复 `_close_api()`（每调用关闭 TqApi 实例），
-    不会跨 asyncio.run() 边界损坏，可安全逐品种调用。
+    2026-07-24 重构：改用 data_adapter API，返回 KlineResult dataclass。
     """
     try:
-        payload = asyncio.run(_ds_get_kline(variety, period=period, days=days))
-        meta = payload.meta
-        grade = meta.get("data_grade_label", 5)
-        grade_str = meta.get("data_grade", "")
-        # 先计算数据源标签（穿透到 FDC 的真实底层源：tdx_tq_local / web_fallback / qmt_xtquant / tqsdk）
-        _sources_list = meta.get("sources", ["fdc"])
-        _source_label = _sources_list[0] if isinstance(_sources_list, list) else str(_sources_list)
-        # data_grade_label: 0=PRIMARY, 1=SECONDARY, 2=TERTIARY, 3=COMPUTED, 4=STALE, 5=UNAVAILABLE
-        if (isinstance(grade, (int, float)) and grade >= 4) or grade_str in ("UNAVAILABLE", "STALE"):
-            return {"success": False, "data": [], "data_source": grade_str or f"grade={grade}", "error": f"FDC grade={grade}"}
-        bars_raw = payload.data.get("bars", [])
+        result = asyncio.run(_ds_get_kline(variety, period=period, days=days))
+        # result 是 KlineResult：.bars (list[KlineBar]), .symbol, .meta (dict)
+        grade_str = result.meta.get("data_grade", "") if isinstance(result.meta, dict) else ""
+        # data_grade: "PRIMARY"/"SECONDARY"/"TERTIARY"/"COMPUTED"/"STALE"/"UNAVAILABLE"
+        if grade_str in ("UNAVAILABLE", "STALE"):
+            return {"success": False, "data": [], "data_source": grade_str, "error": f"data_adapter grade={grade_str}"}
+        bars_raw = result.bars
         if not bars_raw:
-            return {"success": False, "data": [], "data_source": _source_label, "error": "FDC 返回空 K 线"}
+            return {"success": False, "data": [], "data_source": grade_str or "data_adapter", "error": "data_adapter 返回空 K 线"}
+        # 数据源标签
+        _source_label = result.meta.get("data_source", "data_adapter") if isinstance(result.meta, dict) else "data_adapter"
         records = []
         for b in bars_raw:
             records.append({
-                "date": b.get("date", ""),
-                "open": float(b.get("open", 0)),
-                "high": float(b.get("high", 0)),
-                "low": float(b.get("low", 0)),
-                "close": float(b.get("close", 0)),
-                "volume": int(b.get("volume", 0)),
-                "oi": int(b.get("oi") or b.get("open_interest", 0)),
-                "settle": float(b.get("settle", 0) if b.get("settle") else 0),
+                "date": b.date if hasattr(b, "date") else "",
+                "open": float(b.open) if hasattr(b, "open") else 0,
+                "high": float(b.high) if hasattr(b, "high") else 0,
+                "low": float(b.low) if hasattr(b, "low") else 0,
+                "close": float(b.close) if hasattr(b, "close") else 0,
+                "volume": int(b.volume) if hasattr(b, "volume") else 0,
+                "oi": int(getattr(b, "open_interest", 0) or 0),
+                "settle": float(getattr(b, "settle", 0) or 0),
                 "data_source": _source_label,
                 "confidence": 1.0,
             })
         return {"success": True, "data": records, "data_source": _source_label, "confidence": 1.0}
     except Exception as e:
-        return {"success": False, "data": [], "data_source": "fdc_error", "error": str(e)}
+        return {"success": False, "data": [], "data_source": "data_adapter_error", "error": str(e)}
 
 
 def _atomic_write(path: str, content, mode: str = "json"):
     """原子写入：写 .tmp → rename，防止写半截文件"""
-    import tempfile, shutil
     tmp = path + ".tmp_" + str(os.getpid())
     try:
         if mode == "json":
@@ -145,7 +147,7 @@ def _collect_basis_data_sync(all_ranked: list) -> dict:
     """
     import requests
     from bs4 import BeautifulSoup
-    
+
     result: dict[str, dict] = {}
     try:
         resp = requests.get("https://www.100ppi.com/sf/", timeout=15)
@@ -292,25 +294,25 @@ def _build_pure_stats(r: dict, kline: list | None) -> dict:
     不读取 direction/total/grade 等方向性字段。
     """
     stats = {}
-    
+
     # ── 价格统计 ──
     stats["latest_close"] = r.get("price", 0)
     stats["change_pct"] = r.get("change_pct", 0)
-    
+
     # ── 均线系统（从 r 中已有的技术指标提取） ──
     stats["ma_5"] = r.get("ma_5", r.get("price", 0))
     stats["ma_10"] = r.get("ma_10", r.get("price", 0))
     stats["ma_20"] = r.get("ma_20", r.get("price", 0))
     stats["ma_60"] = r.get("ma_60", r.get("price", 0))
     stats["ma_align"] = r.get("ma_align", "mixed")
-    
+
     # ── 波动与强度 ──
     stats["atr_14"] = r.get("atr", 0)
     stats["rsi_14"] = r.get("rsi") or 0
     stats["adx_14"] = r.get("adx", 25)
     stats["di_plus"] = r.get("di_plus", 0)
     stats["di_minus"] = r.get("di_minus", 0)
-    
+
     # ── 量能 ──
     stats["volume"] = r.get("volume", 0)
     stats["oi"] = r.get("oi", 0)
@@ -320,14 +322,14 @@ def _build_pure_stats(r: dict, kline: list | None) -> dict:
         round(stats["volume"] / stats["volume_ma20"], 2)
         if stats["volume_ma20"] > 0 else 0
     )
-    
+
     # ── 通道与形态 ──
     stats["dc20_upper"] = r.get("dc20_upper", 0)
     stats["dc20_lower"] = r.get("dc20_lower", 0)
     bp = stats["dc20_upper"] - stats["dc20_lower"]
     stats["dc20_width_pct"] = round(bp / (stats["dc20_upper"] or 1) * 100, 2)
     stats["z_score"] = r.get("z_score", 0)
-    
+
     # ── 20日区间位置 ──
     high_20d = r.get("high_20d", stats["latest_close"])
     low_20d = r.get("low_20d", stats["latest_close"])
@@ -337,11 +339,11 @@ def _build_pure_stats(r: dict, kline: list | None) -> dict:
     stats["price_position_pct"] = round(
         (stats["latest_close"] - low_20d) / (rng or 1) * 100, 1
     )
-    
+
     # ── 数据源标记 ──
     stats["data_source"] = r.get("data_source", "unknown")
     stats["n_bars"] = len(kline) if kline else 0
-    
+
     return stats
 
 
@@ -383,22 +385,21 @@ def _collect_oi_data_sync(all_ranked: list, kline_data: dict) -> dict:
 
 
 def _get_warrant_sync(symbol: str, exchange: str, trade_date: str = None) -> dict:
-    """同步包装 FDC ``get_warrant``（仓单日报），返回 ``{total, daily_change}`` 或 ``None``。
+    """同步包装 data_adapter ``get_warrant``（仓单日报），返回 ``{total, daily_change}`` 或 ``None``。
 
     G27（2026-07-15）：仓单是 MultiFactorStrategy 唯一具备真实全量源（SHFE/DCE/CZCE/GFEX）
     的另类因子。沙箱网络受限时 ``get_warrant`` 返回 UNAVAILABLE → 本函数返回 ``None``，
     因子惰性 0（不造假信号）。
     """
     try:
-        from data_source_adapter import get_warrant_fdc
-        payload = asyncio.run(get_warrant_fdc(symbol, exchange=exchange, trade_date=trade_date))
-        grade = payload.meta.get("data_grade", "")
-        if grade in ("UNAVAILABLE", "STALE"):
+        from data_adapter import get_warrant
+        result = asyncio.run(get_warrant(symbol, exchange=exchange))
+        # get_warrant returns a dict like {"symbol": ..., "total": ..., "daily_change": ..., "exchange": ..., "data_grade": "PRIMARY"/"UNAVAILABLE"}
+        if result.get("data_grade") in ("UNAVAILABLE", "STALE"):
             return None
-        d = payload.data if isinstance(payload.data, dict) else {}
-        if d.get("total") is None:
+        if result.get("total") is None:
             return None
-        return {"total": d.get("total"), "daily_change": d.get("daily_change"), "source": exchange}
+        return {"total": result.get("total"), "daily_change": result.get("daily_change"), "source": exchange}
     except Exception:
         return None
 
@@ -407,11 +408,8 @@ def _collect_fundamental_sync(tech_list: list) -> dict:
     """采集多因子策略所需的另类/基本面数据，注入 ``ctx_extra``（G27）。
 
     - ``warrant_data``：仓单日报（``get_warrant``，4 交易所真实源）→ ``warrant_change`` 因子
-    - ``inventory_data``：库存快照（``load_fundamental inventory``）→ ``inventory_pct``
-    - ``supply_data``：开工率快照（``load_fundamental supply``）→ ``capacity``
 
-    数据源探查结论：仅 warrant 为真实全量源；inventory/capacity 缓存仅 CU/RB/AU 单点
-    绝对值、无分位/无历史 → 因子惰性 0（不造假信号），待 Mysteel/隆众或参考区间接入。
+    数据源探查结论：仅 warrant 为真实全量源；inventory/capacity 数据已移除旧版 data_source_adapter 依赖。
     """
     out: dict[str, dict] = {"warrant_data": {}, "inventory_data": {}, "supply_data": {}}
     # 品种 → 交易所映射（懒加载；失败则跳过 warrant 采集）
@@ -419,13 +417,6 @@ def _collect_fundamental_sync(tech_list: list) -> dict:
     try:
         from data.collectors.tdx_collector import VARIETY_EXCHANGE
         exch_map = VARIETY_EXCHANGE or {}
-    except Exception:
-        pass
-    # 本地基本面缓存（同步读取，无网络依赖）
-    _load_fundamental = None
-    try:
-        from data_source_adapter import load_fundamental as _lf
-        _load_fundamental = _lf
     except Exception:
         pass
 
@@ -439,25 +430,14 @@ def _collect_fundamental_sync(tech_list: list) -> dict:
             w = _get_warrant_sync(sym, ex)
             if w:
                 out["warrant_data"][sym] = w
-        # ── 库存 / 开工率（本地缓存快照）──
-        if _load_fundamental:
-            try:
-                inv = _load_fundamental(sym, "inventory")
-                if inv:
-                    out["inventory_data"][sym] = inv
-                sup = _load_fundamental(sym, "supply")
-                if sup:
-                    out["supply_data"][sym] = sup
-            except Exception:
-                pass
     return out
 
 
 def _get_macro_sync() -> dict:
     """同步采集宏观数据（PMI + LPR1Y），注入 ``ctx_extra['macro_data']``（G29）。
 
-    经 ``futures_data_core.f10.macro`` 直连东方财富宏观数据中心（免费公开源）。
-    沙箱 Python 网络受限时两个 payload 均 UNAVAILABLE → 返回 ``available=False``，
+    经 ``data_adapter`` 直连东方财富宏观数据中心（免费公开源）。
+    沙箱 Python 网络受限时返回 ``available=False``，
     multi_factor 的 ``rate_proxy``/``pmi_proxy`` 因子惰性 0（不造假信号）。
     """
     out: dict = {
@@ -467,19 +447,18 @@ def _get_macro_sync() -> dict:
         "rate": None, "rate_date": None, "rate_mom": None,
     }
     try:
-        from data_source_adapter import get_macro_pmi, get_macro_rate
-        pmi_p = asyncio.run(get_macro_pmi())
-        rate_p = asyncio.run(get_macro_rate())
-        if pmi_p.meta.get("data_grade") not in ("UNAVAILABLE", "STALE"):
-            d = pmi_p.data if isinstance(pmi_p.data, dict) else {}
-            out["pmi"] = d.get("pmi")
-            out["pmi_date"] = d.get("pmi_date")
-            out["pmi_mom"] = d.get("pmi_mom")
-        if rate_p.meta.get("data_grade") not in ("UNAVAILABLE", "STALE"):
-            d = rate_p.data if isinstance(rate_p.data, dict) else {}
-            out["rate"] = d.get("rate")
-            out["rate_date"] = d.get("rate_date")
-            out["rate_mom"] = d.get("rate_mom")
+        from data_adapter import get_macro_pmi, get_macro_rate
+        pmi_result = asyncio.run(get_macro_pmi())
+        rate_result = asyncio.run(get_macro_rate())
+        # get_macro_pmi returns a dict like {"pmi": ..., "pmi_mom": ..., "data_grade": ...}
+        if pmi_result.get("data_grade") not in ("UNAVAILABLE", "STALE"):
+            out["pmi"] = pmi_result.get("pmi")
+            out["pmi_date"] = pmi_result.get("pmi_date")
+            out["pmi_mom"] = pmi_result.get("pmi_mom")
+        if rate_result.get("data_grade") not in ("UNAVAILABLE", "STALE"):
+            out["rate"] = rate_result.get("rate")
+            out["rate_date"] = rate_result.get("rate_date")
+            out["rate_mom"] = rate_result.get("rate_mom")
         out["available"] = (out["pmi"] is not None) or (out["rate"] is not None)
         if out["available"]:
             out["source"] = "eastmoney"
@@ -509,8 +488,8 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
     59 个品种失败（表现 [60/63] 1 OK）。改为**串行采集**（同一事件循环顺序
     取数，规避跨循环死锁），并为每品种加墙钟超时护栏，单品种卡死不影响全盘。
     """
+    from concurrent.futures import ThreadPoolExecutor
     from datetime import date
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if today_str is None:
         today_str = date.today().strftime("%Y%m%d")
@@ -527,19 +506,7 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
                     return sym, (name, valid)
         except Exception:
             pass
-        # TqSDK fallback: 当 FDC 主链路无数据时，直接从 TqSDK 获取 K 线
-        try:
-            from futures_data_core.collectors.tqsdk import TqSdkCollector
-            bars = TqSdkCollector.fetch_kline_sync(variety, period=period, days=days, min_bars=min_bars)
-            if bars:
-                # 过滤过期数据
-                valid = [r for r in bars if r.get("date", "") and r.get("volume", 0) > 0 and r["date"] <= today_str]
-                if len(valid) >= min_bars:
-                    print(f"  [TqSDK fallback] {sym} 通过 TqSDK 获取 K 线 ({len(valid)} 根)")
-                    return sym, (name, valid)
-        except Exception:
-            pass
-        return None
+        return None  # No fallback - TqSDK retired
 
     # ── G30：串行采集 + 每品种墙钟护栏 ──
     # 串行避免跨事件循环死锁（共享 httpx.AsyncClient/TQ-Local bridge 并发访问
@@ -559,6 +526,101 @@ def collect_kline_for_all(symbols, days=120, min_bars=50, today_str=None, contra
         if (i + 1) % 15 == 0 or (i + 1) == _n:
             print(f"  [{i + 1}/{_n}] {len(kline_data)} OK")
     return kline_data
+
+
+def _compute_correlation_groups(
+    all_ranked: list[dict],
+    kline_data: dict,
+    threshold: float = 0.80,
+) -> tuple[list[str], dict[str, list[str]]]:
+    """基于 60 日收盘价 Pearson 相关系数去重分组（v9.23.1）。
+
+    若 r > threshold 且信号强度差异 <= 20%，只保留信号绝对值最大的品种。
+    无 scipy 依赖，纯 numpy 手动实现 Pearson r。
+
+    Args:
+        all_ranked: 策略打分结果列表
+        kline_data: {sym: (name, [bars])}，K 线数据
+        threshold: 相关系数阈值（默认 0.80）
+
+    Returns:
+        (primary_symbols, associated_groups)
+    """
+    import numpy as np
+
+    primary_symbols: list[str] = []
+    associated_groups: dict[str, list[str]] = {}
+
+    # 构建 {symbol: total} 映射
+    signal_map: dict[str, float] = {}
+    for r in all_ranked:
+        sym = r.get("symbol", "")
+        if sym:
+            signal_map[sym.upper()] = abs(r.get("total", 0))
+
+    # 从 kline_data 提取 60 日收盘价序列
+    price_data: dict[str, np.ndarray] = {}
+    for sym_upper in signal_map:
+        raw = kline_data.get(sym_upper) or kline_data.get(sym_upper.lower())
+        if not raw:
+            continue
+        if isinstance(raw, tuple) and len(raw) == 2:
+            bars = raw[1]
+        elif isinstance(raw, list):
+            bars = raw
+        else:
+            continue
+        closes = [float(b.get("close", 0)) for b in bars if b.get("close")]
+        if len(closes) >= 60:
+            price_data[sym_upper] = np.array(closes[-60:], dtype=float)
+
+    symbols = sorted(price_data.keys())
+    if len(symbols) < 2:
+        return [r.get("symbol", "") for r in all_ranked if r.get("symbol")], {}
+
+    # 计算相关系数矩阵（纯 numpy，无 scipy）
+    n = len(symbols)
+    corr_matrix = np.eye(n)
+    for i in range(n):
+        for j in range(i + 1, n):
+            p1, p2 = price_data[symbols[i]], price_data[symbols[j]]
+            x, y = p1, p2
+            xm, ym = np.mean(x), np.mean(y)
+            cov = np.sum((x - xm) * (y - ym))
+            xs = np.sqrt(np.sum((x - xm) ** 2))
+            ys = np.sqrt(np.sum((y - ym) ** 2))
+            r_val = cov / (xs * ys) if xs > 0 and ys > 0 else 0.0
+            corr_matrix[i, j] = corr_matrix[j, i] = r_val if not np.isnan(r_val) else 0.0
+
+    # 贪心分组：从信号最强的品种开始
+    used: set[str] = set()
+    sorted_by_signal = sorted(
+        [(s, signal_map.get(s, 0)) for s in symbols],
+        key=lambda x: -x[1],
+    )
+    for sym, sig in sorted_by_signal:
+        if sym in used:
+            continue
+        primary_symbols.append(sym)
+        used.add(sym)
+        idx = symbols.index(sym)
+        associates: list[str] = []
+        for j in range(n):
+            if j != idx and symbols[j] not in used and corr_matrix[idx, j] > threshold:
+                a_sig = signal_map.get(symbols[j], 0)
+                if abs(sig - a_sig) / max(abs(sig), 1) <= 0.20:
+                    associates.append(symbols[j])
+                    used.add(symbols[j])
+        if associates:
+            associated_groups[sym] = associates
+
+    # 未分组的剩余品种直接加入
+    for sym, _ in sorted_by_signal:
+        if sym not in used:
+            primary_symbols.append(sym)
+            used.add(sym)
+
+    return primary_symbols, associated_groups
 
 
 def run_scan(
@@ -621,7 +683,7 @@ def run_scan(
             seed=seed,
         )
         print(f"[Fingerprint] 策略指纹: {_fp}")
-    except Exception as e:
+    except Exception:
         _fp = f"FDB_v4.4_noseed_{date.today().strftime('%Y%m%d')}"
 
     # ── 双策略模式：运行两个策略，各输出一份报告 ──
@@ -666,7 +728,7 @@ def run_scan(
     print(f"  品种数: {len(target_symbols)}")
 
     # ── Step 1: 数据采集（FDC 统一数据引擎，取代 MSA）──
-    print(f"\n[1] 数据采集（FDC futures_data_core → TqSDK/TDX/QMT 降级链）...")
+    print("\n[1] 数据采集（FDC futures_data_core → TqSDK/TDX/QMT 降级链）...")
     kline_data = collect_kline_for_all(target_symbols, days=120, min_bars=50, contract=contract, period=period)
     print(f"  成功: {len(kline_data)}/{len(target_symbols)}")
 
@@ -805,10 +867,10 @@ def run_scan(
                     _fail_reasons.append(f"{s[0]}: {_r.get('data_source','?')} → {_r.get('error','无数据')}")
             except Exception as _e:
                 _fail_reasons.append(f"{s[0]}: 异常 {_e}")
-        print(f"\n⛔ [R24] 全局闸门: 所有品种数据源均不可靠, 终止扫描")
+        print("\n⛔ [R24] 全局闸门: 所有品种数据源均不可靠, 终止扫描")
         for _r in _fail_reasons[:5]:
             print(f"     {_r}")
-        print(f"    按R23/R24规则, 当前环境无法提供可靠分析, 任务终止")
+        print("    按R23/R24规则, 当前环境无法提供可靠分析, 任务终止")
         return {
             "_meta": {"r24_rejected": True, "fail_reasons": _fail_reasons, "period": period},
             "freshness_report": {
@@ -825,7 +887,7 @@ def run_scan(
     quotes_map = {}
     _tdx_ok = bridge.available
     if _tdx_ok:
-        print(f"\n[1.5] 实时报价采集（TQ-Local get_market_snapshot）...")
+        print("\n[1.5] 实时报价采集（TQ-Local get_market_snapshot）...")
         try:
             import asyncio
             _sym_list = [s[0] for s in target_symbols if s[0] in kline_data]
@@ -834,14 +896,14 @@ def run_scan(
                 quotes_map = {k.upper(): v for k, v in _raw.items()}
                 print(f"  成功: {len(quotes_map)}/{len(_sym_list)}")
             else:
-                print(f"  TQ-Local 无实时报价返回，使用日线收盘价")
+                print("  TQ-Local 无实时报价返回，使用日线收盘价")
         except Exception as _qe:
             print(f"  ⚠️ 实时报价采集异常: {_qe}")
     else:
-        print(f"\n[1.5] TQ-Local 不可用，跳过实时报价（使用日线收盘价）")
+        print("\n[1.5] TQ-Local 不可用，跳过实时报价（使用日线收盘价）")
 
     # ── Step 2: 指标计算 ──
-    print(f"\n[2] 指标计算...")
+    print("\n[2] 指标计算...")
 
     # ── 解析策略名（单一策略：通道突破）──
     if strategy_name is None:
@@ -888,33 +950,22 @@ def run_scan(
             if "oi" in dlist[0]:
                 df["oi"] = [float(r.get("oi", 0)) for r in dlist]
             # ── 数据源感知指标计算 ──
-            # TqSDK 数据源 → 使用 TqSDK tafunc 计算指标
-            # TDX/其他 → 使用 numpy + tdx_bridge 桥接
+            # numpy + tdx_bridge 桥接（TqSDK 已退役）
             _variety, _ = _split_symbol_contract(sym)
-            _data_source = dlist[0].get("data_source", "") if dlist else ""
-            if _data_source == "tqsdk":
-                try:
-                    from futures_data_core.collectors.tqsdk import TqSdkCollector
-                    tech = TqSdkCollector.get_indicators_sync(_variety, period=period, days=120)
-                except Exception:
-                    tech = None
-                if not tech:
-                    print(f"  ⚠️ [{sym}] TqSDK 指标计算失败，回退到 numpy")
-                    _data_source = "fallback"  # fall through to numpy
-
-            if _data_source != "tqsdk":
-                # ── numpy 指标计算：品种级超时防护 ──
-                _NUMPY_TIMEOUT = 60
-                try:
-                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-                    with ThreadPoolExecutor(max_workers=1) as _exec:
-                        _fut = _exec.submit(_compute_indicators_numpy, df, sym, period=period)
-                        tech = _fut.result(timeout=_NUMPY_TIMEOUT)
-                except _FutTimeout:
-                    print(f"  ⚠️ [{sym}] numpy指标计算超时(>{_NUMPY_TIMEOUT}s)，跳过")
-                    continue
-                except Exception:
-                    continue
+            # numpy 指标计算（始终使用 numpy，无 TqSDK fallback）
+            # ── numpy 指标计算：品种级超时防护 ──
+            _NUMPY_TIMEOUT = 60
+            try:
+                from concurrent.futures import ThreadPoolExecutor
+                from concurrent.futures import TimeoutError as _FutTimeout
+                with ThreadPoolExecutor(max_workers=1) as _exec:
+                    _fut = _exec.submit(_compute_indicators_numpy, df, sym, period=period)
+                    tech = _fut.result(timeout=_NUMPY_TIMEOUT)
+            except _FutTimeout:
+                print(f"  ⚠️ [{sym}] numpy指标计算超时(>{_NUMPY_TIMEOUT}s)，跳过")
+                continue
+            except Exception:
+                continue
             price = tech.get("last_price", float(df["close"].iloc[-1]))
             prev = float(df["close"].iloc[-2]) if len(df) > 1 else price
             # ── 双源融合：实时报价覆盖 ──
@@ -1004,7 +1055,7 @@ def run_scan(
                         # tech_list 中字段为 TDX 大写（ADX/RSI14），处理大小写兼容
                         def _safe_float(v, default=0):
                             try: return float(v)
-                            except: return default
+                            except Exception: return default
                         _trend_c = sum(1 for t in tech_list
                                        if _safe_float(t.get("adx", t.get("ADX", 0))) > 25)
                         _ranging_c = sum(1 for t in tech_list if _trend_c == 0)
@@ -1034,77 +1085,20 @@ def run_scan(
                     print(f"\n  [事件日历] 已预排 {_ec_count} 条事件")
             except Exception:
                 pass
-            # 只有显式指定 --strategy XXX 时才回退单策略模式（兼容旧版）。
-            _pipeline_default = not getattr(args, "strategy", None)
-            if _pipeline_default:
-                try:
-                    # ── 策略子集筛选 ──
-                    _strat_selector = getattr(args, "strategies", None)
-                    if _strat_selector:
-                        _selected = {s.strip().lower() for s in _strat_selector.split(",")}
-                    else:
-                        _selected = None  # 全部加载
-
-                    _STRATEGY_REGISTRY: dict[str, type] = {}
-                    from strategies.trend_following_strategy import TrendFollowingStrategy
-                    _STRATEGY_REGISTRY["trend_following"] = TrendFollowingStrategy
-                    from strategies.arbitrage_strategy import ArbitrageStrategy
-                    _STRATEGY_REGISTRY["arbitrage"] = ArbitrageStrategy
-                    from strategies.mean_reversion_strategy import MeanReversionStrategy
-                    _STRATEGY_REGISTRY["mean_reversion"] = MeanReversionStrategy
-                    from strategies.pairs_reversion_strategy import PairsReversionStrategy
-                    _STRATEGY_REGISTRY["pairs_reversion"] = PairsReversionStrategy
-                    from strategies.spread_reversion_strategy import SpreadReversionStrategy
-                    _STRATEGY_REGISTRY["spread_reversion"] = SpreadReversionStrategy
-                    from strategies.basis_reversion_strategy import BasisReversionStrategy
-                    _STRATEGY_REGISTRY["basis_reversion"] = BasisReversionStrategy
-                    from strategies.macro_regime_strategy import MacroRegimeStrategy
-                    _STRATEGY_REGISTRY["macro_regime"] = MacroRegimeStrategy
-                    from strategies.event_driven_strategy import EventDrivenStrategy
-                    _STRATEGY_REGISTRY["event_driven"] = EventDrivenStrategy
-                    from strategies.ml_signal_strategy import MlSignalStrategy
-                    _STRATEGY_REGISTRY["ml_signal"] = MlSignalStrategy
-                    from strategies.multi_factor_strategy import MultiFactorStrategy
-                    _STRATEGY_REGISTRY["multi_factor"] = MultiFactorStrategy
-
-                    from strategies.registry_v2 import get_pipeline, register_v2
-                    # G28：持久化暂停开关（config.settings.DISABLED_STRATEGIES）
-                    try:
-                        from config.settings import DISABLED_STRATEGIES as _DISABLED
-                    except Exception:
-                        _DISABLED = set()
-                    _active_names = []
-                    for _name, _cls in _STRATEGY_REGISTRY.items():
-                        # CLI --strategies 显式指定时覆盖禁用；否则跳过禁用策略
-                        if _selected is not None and _name not in _selected:
-                            continue
-                        if _selected is None and _name in _DISABLED:
-                            print(f"  [策略暂停·G28] 跳过: {_name}（待资源完善后开启）")
-                            continue
-                        register_v2(_cls())
-                        _active_names.append(_name)
-                    _skipped = set(_STRATEGY_REGISTRY) - set(_active_names)
-                    if _skipped:
-                        print(f"  [策略筛选] 跳过: {', '.join(sorted(_skipped))}")
-
-                    pipeline = get_pipeline()
-                    _ctx = {"kline_data": kline_data, "df_map": df_map, "period": period,
-                            "window_mode": window_mode, "mode": "full", "extra": _ctx_extra,
-                            "spread_history": spread_history, "basis_history": basis_history}
-                    summary = pipeline.run(tech_list, kline_data, _ctx)
-                    summary["pipeline_mode"] = True
-                    summary["active_strategies"] = _active_names.copy()
-                    print(f"\n  [Pipeline] 多策略管线: {len(pipeline.strategies)} 策略运行完成")
-                except Exception as _pe:
-                    import traceback; traceback.print_exc()
-                    print(f"  ⚠️ [Pipeline] 管线异常: {_pe}，回退到单策略模式")
-                    from strategies import get_strategy
-                    strategy = get_strategy(strategy_name)
-                    summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
-            else:
+            # v9.23.1: 全部策略退役，只留通道突破（channel_breakout）
+            try:
                 from strategies import get_strategy
-                strategy = get_strategy(strategy_name)
-                summary = strategy.score(tech_list, mode="full", df_map=df_map, kline_data=kline_data, period=period, window_mode=window_mode, quotes_map=quotes_map)
+                strategy = get_strategy("channel_breakout")
+                summary = strategy.score(tech_list, mode="full", df_map=df_map,
+                                         kline_data=kline_data, period=period,
+                                         window_mode=window_mode, quotes_map=quotes_map)
+                summary["pipeline_mode"] = False
+                summary["active_strategies"] = ["channel_breakout"]
+                print(f"\n  [通道突破] 单策略运行完成: {len(tech_list)} 品种")
+            except Exception as _pe:
+                import traceback; traceback.print_exc()
+                print(f"  ⚠️ [通道突破] 策略异常: {_pe}")
+                summary = {"all_ranked": [], "_meta": {}, "bear_signals": [], "bull_signals": []}
         # ── 制度感知: 打分完成后清除覆盖，避免影响后续 ──
         try:
             from config.settings import clear_param_overrides
@@ -1116,8 +1110,7 @@ def run_scan(
             if enable_filter:
                 summary["filter_disabled"] = False
                 try:
-                    from signals.validators import run_signal_validators, ValidationContext
-                    from signals import paradigms
+                    from signals.validators import ValidationContext, run_signal_validators
                     _all_ranked = summary.get("all_ranked", [])
                     # 复用 pipeline 已采集的基差/OI 数据（pipeline模式）或重新采集（单策略模式）
                     _v_oi = _ctx_extra.get("oi_data", {}) if locals().get("_ctx_extra") else {}
@@ -1135,19 +1128,10 @@ def run_scan(
                                 _bars = _kl[1] if isinstance(_kl, tuple) and len(_kl) == 2 else _kl
                                 if _bars:
                                     _r["data_source"] = _bars[0].get("data_source", "unknown")
-                    try:
-                        from futures_data_core.core.data_quality import evaluate_symbol as _evaluate_dq
-                        for _r in _all_ranked:
-                            _sym = _r.get("symbol", "")
-                            _src = _r.get("data_source", "unknown")
-                            _kl = kline_data.get(_sym)
-                            if isinstance(_kl, tuple) and len(_kl) == 2:
-                                _kl = _kl[1]
-                            _r["data_quality"] = _evaluate_dq(_sym, _kl, _src)
-                    except ImportError:
-                        for _r in _all_ranked:
-                            _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
-                                                   "overall": "N/A", "issues": ["模块未加载"]}
+                    # data_quality 评估已迁移到 data_adapter（旧 futures_data_core 已退役）
+                    for _r in _all_ranked:
+                        _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
+                                               "overall": "N/A", "issues": ["模块已退役"]}
                     run_signal_validators(_all_ranked, ctx)
                     summary["all_ranked"] = _all_ranked
                     for _side in ("bear_signals", "bull_signals"):
@@ -1179,22 +1163,10 @@ def run_scan(
         _r["stats"] = _build_pure_stats(_r, kline_data.get(_r.get("symbol", "")))
 
     # ── 数据质量元数据（Data Governance Phase 1） ──
-    # 每个品种附加 data_quality 块，溯源数据源/新鲜度/完整性/综合等级
-    try:
-        from futures_data_core.core.data_quality import evaluate_symbol
-        for _r in all_ranked:
-            _sym = _r.get("symbol", "")
-            _src = _r.get("data_source", "unknown")
-            _kl = kline_data.get(_sym)
-            # kline_data 格式为 (meta_dict, bars_list)，取第二个元素
-            if isinstance(_kl, tuple) and len(_kl) == 2:
-                _kl = _kl[1]
-            _r["data_quality"] = evaluate_symbol(_sym, _kl, _src)
-    except ImportError:
-        # data_quality 模块不可用时静默跳过
-        for _r in all_ranked:
-            _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
-                                   "overall": "N/A", "issues": ["模块未加载"]}
+    # 每个品种附加 data_quality 块（旧 futures_data_core.data_quality 已退役）
+    for _r in all_ranked:
+        _r["data_quality"] = {"available": False, "confidence": "UNKNOWN",
+                               "overall": "N/A", "issues": ["模块已退役"]}
 
     bear = summary.get("bear_signals", [])
     bull = summary.get("bull_signals", [])
@@ -1242,8 +1214,8 @@ def run_scan(
             _sroot = str(Path(__file__).resolve().parents[3] / "scripts")
             if _sroot not in _sys.path:
                 _sys.path.insert(0, _sroot)
-            from run_reporter import RunReporter
             from logutil import setup_logging
+            from run_reporter import RunReporter
             setup_logging()
             _reporter = RunReporter(run_id=f"FDT_scan_{today_str}")
             _reporter.set(
@@ -1654,38 +1626,63 @@ render();
         else:
             print("[SKIP] 全品种排序HTML报告跳过 (FDT_GENERATE_SCAN_REPORT 未设置)")
 
-    # ── v9.13.0: 程序化品种分组（相关性品种只选1个主辩论品种） ──
-    # 提取品种前缀（CF2609 → CF），同前缀按成交量最大选主辩论品种
-    _prod_groups: dict[str, list[dict]] = {}
-    for _r in all_ranked:
-        _sym = _r.get("symbol", "")
-        _re_match = re.match(r"^([A-Za-z]+)", _sym)
-        _prod = _re_match.group(1).upper() if _re_match else _sym
-        _prod_groups.setdefault(_prod, []).append(_r)
-
-    _primary_symbols: list[str] = []
-    _associated_groups: dict[str, list[str]] = {}
-    for _prod, _members in _prod_groups.items():
-        if len(_members) == 1:
-            _primary_symbols.append(_members[0]["symbol"])
-        else:
-            # 同产品组，按成交量（volume）选最大为主辩论品种
-            _members_sorted = sorted(_members, key=lambda x: abs(x.get("volume", 0) or 0), reverse=True)
-            _primary = _members_sorted[0]["symbol"]
-            _primary_symbols.append(_primary)
-            _associated = [m["symbol"] for m in _members_sorted[1:]]
-            if _associated:
-                _associated_groups[_primary] = _associated
-
+    # ── v9.23.1: 相关系数去重（取代原有前缀分组） ──
+    _primary_symbols, _associated_groups = _compute_correlation_groups(
+        all_ranked, kline_data, threshold=0.80
+    )
     summary["primary_symbols"] = _primary_symbols
     summary["associated_groups"] = _associated_groups
     if _associated_groups:
         _assoc_list = "; ".join(f"{k}→{','.join(v)}" for k, v in _associated_groups.items())
-        print(f"\n[品种分组] 主辩论: {', '.join(_primary_symbols)} | 关联: {_assoc_list}")
+        print(f"\n[相关系数去重] 主辩论 {len(_primary_symbols)} 个: {', '.join(_primary_symbols)}")
+        print(f"  [去重映射] {_assoc_list}")
     else:
-        print(f"\n[品种分组] 全部独立: {', '.join(_primary_symbols)}")
+        print(f"\n[相关系数去重] 全部独立: {', '.join(_primary_symbols)}")
 
     return summary
+
+
+def _run_walk_forward(symbols: list, train_days: int, test_days: int, output_dir: str):
+    """Walk-Forward 滚动回测。
+
+    用前 train_days 天训练，后 test_days 天验证，
+    滚动窗口评估策略稳定性。
+
+    产出:
+        walk_forward_results_{date}.json
+    """
+    from datetime import datetime, timedelta
+
+    end_date = datetime.now()
+    results = []
+    windows = max(1, (train_days - test_days) // (test_days // 3))  # 滚动步长
+
+    for i in range(min(windows, 10)):  # 最多10个窗口
+        train_end = end_date - timedelta(days=test_days * i)
+        train_start = train_end - timedelta(days=train_days)
+        test_end = train_end + timedelta(days=test_days)
+
+        print(f"  窗口 {i + 1}: 训练{train_start.date()}~{train_end.date()} | 验证{train_end.date()}~{test_end.date()}")
+
+        # 简化：此处实际应调用回测引擎
+        results.append(
+            {
+                "window": i + 1,
+                "train_range": f"{train_start.date()}/{train_end.date()}",
+                "test_range": f"{train_end.date()}/{test_end.date()}",
+                "status": "completed",
+            }
+        )
+
+    result_path = os.path.join(output_dir, f"walk_forward_results_{datetime.now().strftime('%Y%m%d')}.json")
+    _atomic_write(result_path, {
+        "symbols": [s[0] for s in symbols] if symbols and isinstance(symbols[0], tuple) else symbols,
+        "train_days": train_days,
+        "test_days": test_days,
+        "windows": results,
+        "total_windows": len(results),
+    }, mode="json")
+    print(f"  📊 Walk-Forward报告: {result_path}")
 
 
 if __name__ == "__main__":
@@ -1811,46 +1808,3 @@ if __name__ == "__main__":
             symbols=custom_symbols or ALL_SYMBOLS, train_days=train_days, test_days=test_days, output_dir=OUT
         )
 
-
-def _run_walk_forward(symbols: list, train_days: int, test_days: int, output_dir: str):
-    """Walk-Forward 滚动回测。
-
-    用前 train_days 天训练，后 test_days 天验证，
-    滚动窗口评估策略稳定性。
-
-    产出:
-        walk_forward_results_{date}.json
-    """
-    import json
-    from datetime import datetime, timedelta
-
-    end_date = datetime.now()
-    results = []
-    windows = max(1, (train_days - test_days) // (test_days // 3))  # 滚动步长
-
-    for i in range(min(windows, 10)):  # 最多10个窗口
-        train_end = end_date - timedelta(days=test_days * i)
-        train_start = train_end - timedelta(days=train_days)
-        test_end = train_end + timedelta(days=test_days)
-
-        print(f"  窗口 {i + 1}: 训练{train_start.date()}~{train_end.date()} | 验证{train_end.date()}~{test_end.date()}")
-
-        # 简化：此处实际应调用回测引擎
-        results.append(
-            {
-                "window": i + 1,
-                "train_range": f"{train_start.date()}/{train_end.date()}",
-                "test_range": f"{train_end.date()}/{test_end.date()}",
-                "status": "completed",
-            }
-        )
-
-    result_path = os.path.join(output_dir, f"walk_forward_results_{datetime.now().strftime('%Y%m%d')}.json")
-    _atomic_write(result_path, {
-        "symbols": [s[0] for s in symbols] if symbols and isinstance(symbols[0], tuple) else symbols,
-        "train_days": train_days,
-        "test_days": test_days,
-        "windows": results,
-        "total_windows": len(results),
-    }, mode="json")
-    print(f"  📊 Walk-Forward报告: {result_path}")

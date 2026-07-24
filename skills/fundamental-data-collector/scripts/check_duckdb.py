@@ -1,5 +1,8 @@
 """检查 DuckDB 中 huishang 相关表的数据"""
-import duckdb, os, sys
+import os
+import sys
+
+import duckdb
 
 db = os.path.expanduser("~/.skills/futures_data.duckdb")
 if not os.path.exists(db):

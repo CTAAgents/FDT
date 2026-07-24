@@ -20,16 +20,14 @@ if "config" in sys.modules:
     del sys.modules["config"]
 
 import numpy as np
-
 from strategies.spread_reversion_strategy import (
     SpreadReversionStrategy,
+    _build_spread_series,
     _fit_ou_half_life,
     _rolling_z,
-    _build_spread_series,
     fetch_spread_history,
     kalman_filter_ou,
 )
-
 
 # ───────────────────────────────────────────────────────────
 # OU 半衰期

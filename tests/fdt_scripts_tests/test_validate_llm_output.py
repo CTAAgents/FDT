@@ -23,15 +23,13 @@ for k in list(sys.modules.keys()):
         del sys.modules[k]
 
 import pytest
+
 from scripts.validate_llm_output import (
-    validate_price_deviation,
+    batch_validate,
     validate_confidence,
+    validate_price_deviation,
     validate_score_range,
     validate_single_verdict,
-    batch_validate,
-    PRICE_DEVIATION_THRESHOLD,
-    CONFIDENCE_MIN,
-    CONFIDENCE_MAX,
 )
 
 

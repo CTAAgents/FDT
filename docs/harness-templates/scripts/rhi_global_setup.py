@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import shutil
 import sys
 from datetime import datetime
@@ -90,8 +89,8 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         logger.info(f"[deploy] 已创建 {history_file}")
 
     print(f"\n=== ✅ RHI 已部署到 {target} ===")
-    print(f"  用法: python scripts/rhi_global_setup.py step")
-    print(f"        python scripts/rhi_global_setup.py status")
+    print("  用法: python scripts/rhi_global_setup.py step")
+    print("        python scripts/rhi_global_setup.py status")
     return 0
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -112,7 +111,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         "content_length": len(claude.read_text(encoding="utf-8")),
     })
     history_file.write_text(json.dumps(history, indent=2), encoding="utf-8")
-    print(f"\n=== ✅ RHI 初始化完成 ===")
+    print("\n=== ✅ RHI 初始化完成 ===")
     print(f"  项目: {root}")
     print(f"  首版评分: {score['score']:.3f}")
     return 0
@@ -127,7 +126,7 @@ def cmd_step(args: argparse.Namespace) -> int:
     rhi_dir = root / ".rhi"
     history_file = rhi_dir / "history.json"
     if not history_file.exists():
-        logger.error(f"未初始化，请先运行 init")
+        logger.error("未初始化，请先运行 init")
         return 1
     history = json.loads(history_file.read_text(encoding="utf-8"))
     max_iters = args.max_iters or 5
@@ -176,7 +175,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     history = json.loads(history_file.read_text(encoding="utf-8")) if history_file.exists() else {}
     versions = history.get("versions", [])
     prefs = history.get("preferences", [])
-    print(f"\n=== 📊 RHI 状态 ===")
+    print("\n=== 📊 RHI 状态 ===")
     print(f"  项目: {root}")
     print(f"  评分: {score['score']:.3f}")
     print(f"  版本: {len(versions)} | 迭代: {len(prefs)} | 改进率: {history.get('improvement_rate', 0):.3f}")

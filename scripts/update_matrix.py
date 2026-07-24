@@ -12,10 +12,10 @@ update_matrix.py — 品种×策略族适应性矩阵更新脚本
 依赖: numpy (可选，用于 EMA 计算)
 """
 
+import argparse
 import json
 import os
 import sys
-import argparse
 from datetime import datetime
 
 MATRIX_PATH = os.path.join(os.path.dirname(__file__), "..", "memory",

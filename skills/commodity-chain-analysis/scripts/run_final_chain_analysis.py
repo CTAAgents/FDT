@@ -4,7 +4,10 @@
 若不传日期，自动使用今天日期。
 """
 
-import sys, os, json, math, statistics, glob
+import glob
+import json
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,12 +16,12 @@ if SKILL_DIR not in sys.path:
 
 from chains import (
     CHAIN_PRODUCTS,
-    get_chain_for_symbol,
-    is_cross_chain_variety,
-    get_dominant_chain,
-    get_all_chains_for_symbol,
-    classify_chain,
     WITHIN_CHAIN_INDEPENDENT,
+    classify_chain,
+    get_all_chains_for_symbol,
+    get_chain_for_symbol,
+    get_dominant_chain,
+    is_cross_chain_variety,
 )
 
 DATE_STR = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y-%m-%d")
@@ -348,7 +351,7 @@ def main():
         strategy_lines.append("")
         # 期限结构
         back_count = sum(1 for m in d["members"] if True)  # placeholder
-        strategy_lines.append(f"- **期限结构**: 全链Contango为主（远月升水，反映需求端悲观预期）")
+        strategy_lines.append("- **期限结构**: 全链Contango为主（远月升水，反映需求端悲观预期）")
         strategy_lines.append("---\n")
 
     # ========== 报告2: 产业链分析报告 ==========

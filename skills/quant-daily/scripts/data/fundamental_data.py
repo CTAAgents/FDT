@@ -19,27 +19,22 @@
   - delivery: 交割参考 (历史交割量/交割率)
 """
 
-import sys
 import os
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Optional, Any
-from collections import defaultdict
-
-import pandas as pd
+import sys
+from datetime import datetime
+from typing import Dict, List, Optional
 
 # 确保可以导入本地模块
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from data.warehouse_receipt import (
-    WarehouseReceipt, EXCHANGE_MAP, generate_debate_brief as warehouse_brief
-)
-from data.spot_100ppi import (
-    fetch_ppi_data, calculate_basis, PPI_SYMBOL_MAP as PPI_MAP
-)
+from data.spot_100ppi import fetch_ppi_data
+from data.warehouse_receipt import EXCHANGE_MAP, WarehouseReceipt
+
+from futures_data_core import get_position_ranking as fdc_get_position_ranking
 
 # FDC futures_data_core 替代 AKShare（仓单/库存/交割/持仓排名）
 from futures_data_core import get_warrant as fdc_get_warrant
-from futures_data_core import get_position_ranking as fdc_get_position_ranking
+
 
 # ============================================================
 # P0: 仓单日报采集
@@ -111,11 +106,12 @@ def fetch_inventory(symbols: List[str], days: int = 60) -> Dict[str, dict]:
     Returns:
         {symbol: {latest_stock, stock_change, trend_30d, data_source}}
     """
-    print(f"[fundamental] 采集库存数据...")
+    print("[fundamental] 采集库存数据...")
     results = {}
 
     # FDC futures_data_core 库存查询（替代原AKShare futures_inventory_em）
     import asyncio
+
     from futures_data_core import get_fundamental as fdc_get_fundamental
 
     async def _fetch_inv_one(sym: str) -> dict:
@@ -153,7 +149,7 @@ def fetch_position_ranking(symbols: List[str]) -> Dict[str, dict]:
     """
     import asyncio
 
-    print(f"[fundamental] 采集持仓排名(FDC)...")
+    print("[fundamental] 采集持仓排名(FDC)...")
     results = {}
 
     async def _fetch_one(sym: str) -> tuple:
@@ -203,10 +199,11 @@ def fetch_position_ranking(symbols: List[str]) -> Dict[str, dict]:
 # ============================================================
 def fetch_delivery_stats(symbols: List[str]) -> Dict[str, dict]:
     """获取历史交割数据作为参考（FDC替代原AKShare futures_delivery_*）。"""
-    print(f"[fundamental] 采集交割统计...")
+    print("[fundamental] 采集交割统计...")
     results = {}
 
     import asyncio
+
     from futures_data_core import get_fundamental as fdc_get_fundamental
 
     async def _fetch_delivery_one(sym: str) -> dict:

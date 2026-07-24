@@ -19,12 +19,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -61,7 +60,7 @@ def push_wecom_bot(msg: str, config: dict) -> bool:
         with urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode())
             if result.get("errcode") == 0:
-                print(f"✅ [wecom_bot] 推送成功")
+                print("✅ [wecom_bot] 推送成功")
                 return True
             else:
                 print(f"⚠️  [wecom_bot] 推送返回错误: {result}")
@@ -88,10 +87,10 @@ def push_smtp(msg: str, config: dict, attach_path: str | None = None) -> bool:
 
     try:
         import smtplib
+        from email import encoders
+        from email.mime.base import MIMEBase
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
-        from email.mime.base import MIMEBase
-        from email import encoders
 
         m = MIMEMultipart()
         m["From"] = user
@@ -130,7 +129,7 @@ def _build_debate_summary(workspace: str) -> str:
 
         verdicts = data.get("verdicts", {})
         lines = [f"## FDT 辩论报告 {datetime.now().strftime('%Y-%m-%d')}"]
-        lines.append(f"")
+        lines.append("")
         lines.append(f"> 辩论品种: {len(verdicts)}")
 
         executable = []
@@ -144,10 +143,10 @@ def _build_debate_summary(workspace: str) -> str:
                 executable.append(sym.upper())
 
         if executable:
-            lines.append(f"")
+            lines.append("")
             lines.append(f"**可执行**: {', '.join(executable)}")
 
-        lines.append(f"")
+        lines.append("")
         lines.append(f"[详情](file:///{results_path})")
         return "\n".join(lines)
     except Exception as e:

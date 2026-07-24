@@ -30,9 +30,8 @@ import logging.handlers
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
-
 
 # ── 自动检测 FDT 根目录 ──
 

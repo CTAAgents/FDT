@@ -3,20 +3,20 @@
 覆盖率目标：25% → 85%+
 """
 import os
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from langgraph.graph import StateGraph
-from fdt_langgraph.state import DebateState, create_initial_state
+
 from fdt_langgraph.graph import (
-    build_debate_graph,
-    build_debate_graph_no_checkpoint,
     _get_checkpointer,
     _get_p3_node_names,
-    _register_per_symbol_loop,
     _register_direct_debate_loop,
+    _register_per_symbol_loop,
+    build_debate_graph,
+    build_debate_graph_no_checkpoint,
     calculate_divergence,
-    route_after_merge_research,
 )
+from fdt_langgraph.state import DebateState, create_initial_state
 
 
 class TestGetCheckpointer:

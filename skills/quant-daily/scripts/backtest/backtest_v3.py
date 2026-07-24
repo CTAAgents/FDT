@@ -14,10 +14,14 @@
   python backtest_v3.py --symbols RB --days 365 --no-journal  # 不写trade_journal
 """
 
-import sys, os, json, math, time, warnings
+import json
+import math
+import os
+import sys
+import time
+import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
-from collections import defaultdict
+from typing import Dict, List
 
 warnings.filterwarnings("ignore")
 
@@ -30,15 +34,16 @@ for p in [SKILL_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import pandas as pd
-import numpy as np
 import warnings
+
+import numpy as np
+import pandas as pd
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 
 # 可选依赖：trade_journal（用于PnL反馈）
 try:
-    from feedback.trade_journal import record_trade, close_trade, annotate_prediction, get_performance_summary
+    from feedback.trade_journal import annotate_prediction, close_trade, get_performance_summary, record_trade
 
     HAVE_JOURNAL = True
 except ImportError:

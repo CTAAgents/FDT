@@ -9,28 +9,29 @@
   python analyze_targets.py --symbols SA,RB,FU       # 自定义
 """
 
-import sys, os, json, math
-from datetime import date, datetime
+import json
+import os
+import sys
+from datetime import date
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
+from config.symbols import ALL_SYMBOLS
 from data.multi_source_adapter import MultiSourceAdapter
-from indicators.core import assess_trend_maturity
 from signals.scoring_system import calculate_composite_score
-from config.symbols import ALL_SYMBOLS, SYMBOL_DETAILS
 
 try:
     from indicators.indicators_legacy import _compute_indicators_numpy
 except ImportError:
-    from indicators.calc_core import calculate_tdx_compatible as _compute_indicators_numpy
-
-import pandas as pd
-import numpy as np
+    pass
 
 # ── CLI 参数 ──
 import argparse
+
+import numpy as np
+import pandas as pd
 
 parser = argparse.ArgumentParser(description="目标品种量化分析")
 parser.add_argument("--symbols", "-s", help="品种代码(逗号分隔)，如: PK,RB,B,UR", default="PK,RB,B,UR")
@@ -116,30 +117,31 @@ for sym in TARGETS:
         # Use calc_core's calculate_tdx_compatible for full 45-field output
         from indicators.calc_core import (
             calculate_adx,
-            calculate_rsi,
-            calculate_cci,
-            calculate_macd,
-            calculate_ma as _sma_numpy,
-            calculate_ema as _ema_numpy,
+            calculate_atr,
+            calculate_bb_pctb,
+            calculate_bb_squeeze,
+            calculate_bb_width,
             calculate_bollinger_bands,
+            calculate_cci,
+            calculate_cmf,
             calculate_donchian,
             calculate_donchian_trend,
-            calculate_vortex,
             calculate_hma,
-            calculate_cmf,
-            calculate_obv,
-            calculate_atr,
+            calculate_kama,
             calculate_ma_slope,
-            calculate_bb_squeeze,
-            calculate_bb_pctb,
-            calculate_supertrend,
-            calculate_bb_width,
-            calculate_williams_r,
+            calculate_macd,
+            calculate_obv,
             calculate_roc,
+            calculate_rsi,
             calculate_stoch,
+            calculate_supertrend,
+            calculate_vortex,
+            calculate_williams_r,
             detect_higher_high_lower_low,
             detect_volume_price_divergence,
-            calculate_kama,
+        )
+        from indicators.calc_core import (
+            calculate_ma as _sma_numpy,
         )
 
         c = df["close"].values.astype(np.float64)

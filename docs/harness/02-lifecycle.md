@@ -229,7 +229,8 @@ fdt_cli.py main()
 
 > **v9.12.0 变更 — Data Governance Phase 2 数据质量门禁**: 信号验证器管道新增 V8 `data_quality` 验证器（注册为 `__global__` 列表级闸门），在 P0-4 伪信号过滤之前运行。该验证器读取 `all_ranked[].data_quality` 元数据（由 FDC 在验证器之前注入），依据 `overall` 等级触发阻断：D级→直接降级 NOISE（数据不可靠）、C级→标记 `_dq_penalty`（信号保留但可靠性存疑）、web_fallback 源→标记 `_dq_web_fallback`（低优先级）。数据源已穿透到 FDC 真实底层源（tdx_tq_local / web_fallback / qmt_xtquant / tqsdk），从 kline_data 自动传播到 all_ranked 条目。
 >
-> > **补充 — F10/技术指标/新闻质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。`node_sentiment` 新增 `evaluate_jin10_context()` 评估快讯数量/新鲜度/时效分布。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade。
+> > **补充 — F10/技术指标/新闻质量评估（增量）**: `node_prepare_data` (P2.5) 新增 `evaluate_f10_data()` 和 `evaluate_indicators()` 评估。
+`_build_fdc_technical_context` 将 K线/技术指标/持仓排名/资金流向/外盘数据注入观澜 context，供 P3 技术面分析消费。`node_sentiment` 新增 `evaluate_jin10_context()` 评估快讯数量/新鲜度/时效分布。F10 逐字段（基差/期限结构/仓单/持仓排名/基本面）检查可用性、数值合理性、A2A grade。
 
 > > **v9.14.0 变更 — Data Governance Phase 3 辩论输出质量治理 + 品藻角色拆分 + Generation 解码控制成熟度提升**: 新增 `node_quality_inspect` 节点（品藻质检），在 P4 裁决→P5 风控之后运行，校验 Schema 合规性。不合格+重试<2次→退回重修；通过或超限→存入 `store_per_symbol_result`。重试硬上限 2 次，熔断直接跳过。新增 `contracts/debate_quality_schema.py`（ARGUMENT/VERDICT/RISK 三套 Schema）和 `fdt_langgraph/quality_inspector.py`（纯函数质检器）。state 新增 `quality_report`/`rework_counters`/`phase_timings` 字段。`route_after_quality_inspect` 条件边实现退回/放行路由。**品藻拆分**：将质检+报告职责从明鉴秋剥离，成立独立角色品藻（`agents/futures-quality-assurance.md`），P3.5+P6 由品藻执行。明鉴秋保留调度/编排职责。**Generation 解码控制**：FdtAgentExecutor 运行时加载 decode_config.yaml；agent_waiter 接入 enforce_structured_output 自动校验；check_report_integrity 接入 content_filter；apm_scorecard D3 fallback via generation_metrics；retry_with_temperature_escalation 升温重试闭环。
 
@@ -402,7 +403,7 @@ FDT 的 Agent 不是常驻进程，而是按需 spawn 的 LLM 子任务。生命
 | `discipline_enforce` | time | 周一 08:45 | D4 纪律钳制 |
 | `validate_and_evolve` | data | — | 验证→校准→进化管道 |
 
-### 4.2 记忆系统维护（v9.25.0 新增）
+### 4.2 记忆系统维护（v10.0.0 新增）
 
 `memory_maintenance` 任务每天 04:00 执行，调用 `MemoryManager.run_maintenance()`：
 

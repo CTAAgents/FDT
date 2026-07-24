@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,7 +26,6 @@ from .schemas import (
     JournalEntry,
     KnowledgeEntry,
     MaintenanceReport,
-    validate_schema,
 )
 
 logger = logging.getLogger(__name__)

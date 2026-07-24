@@ -20,12 +20,10 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-
+from typing import Any, Dict, List, Optional
 
 # ── 路径 ──────────────────────────────────────
 _SCRIPT_DIR = Path(__file__).parent

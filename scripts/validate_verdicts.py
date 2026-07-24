@@ -18,11 +18,11 @@
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
 
 # 数据质量评估
 try:
@@ -69,7 +69,7 @@ def _get_qdaily_adapter():
         from data.multi_source_adapter import MultiSourceAdapter
         _ADAPTER = MultiSourceAdapter()
         return _ADAPTER
-    except Exception as e:
+    except Exception:
         _ADAPTER_AVAILABLE = False
         return None
 
@@ -554,14 +554,14 @@ def main() -> None:
                   f"{s['target_hit_ratio']:6.1f}%  {s['stop_hit_rate']:5.1f}%  {s['avg_pnl']:+.2f}%")
 
     print(f"\n{'─'*50}")
-    print(f"  按产业链:")
+    print("  按产业链:")
     print(f"  {'产业链':10s} {'准确率':>8s} {'胜率':>6s} {'均盈':>8s}")
     for key, s in sorted(stats["by_chain"].items(), key=lambda x: -x[1]['accuracy']):
         print(f"  {key:10s} {s['accuracy']:6.1f}%  {s['profit_ratio']:5.1f}%  {s['avg_pnl']:+.2f}%")
 
     # 数据质量分组输出
     print(f"\n{'─'*50}")
-    print(f"  按数据质量等级:")
+    print("  按数据质量等级:")
     print(f"  {'等级':6s} {'数量':>4s} {'准确率':>8s} {'胜率':>6s} {'均盈':>8s}")
     for grade in ["A", "B", "C", "D", "N/A"]:
         s = stats["by_data_quality"].get(grade)
@@ -570,7 +570,7 @@ def main() -> None:
                   f"{s['profit_ratio']:5.1f}%  {s['avg_pnl']:+.2f}%")
 
     print(f"\n{'─'*50}")
-    print(f"  按数据源:")
+    print("  按数据源:")
     print(f"  {'数据源':12s} {'数量':>4s} {'准确率':>8s} {'均盈':>8s}")
     for key, s in sorted(stats["by_source"].items(), key=lambda x: -x[1]['total']):
         if s["total"] > 0:

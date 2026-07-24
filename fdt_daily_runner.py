@@ -6,9 +6,9 @@ Pipeline 模块通过 subprocess 调用（fdt_daily_runner.py → pipeline/runne
 不在 Python 导入图中可见。以下顶级导入建立显式依赖边以供工具分析和审计。
 """
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 
 FDT_ROOT = r"D:\Programs\FDT"
 REPORT_ROOT = r"D:\FDTWorkspace"

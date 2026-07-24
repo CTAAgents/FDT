@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -22,7 +23,7 @@ class TestMcpClientInit:
 
     def test_import_mcp_client(self):
         """测试导入 McpHttpClient。"""
-        from futures_data_core.mcp_client import McpHttpClient, McpError, MCP_PROTOCOL_VERSION
+        from futures_data_core.mcp_client import MCP_PROTOCOL_VERSION, McpHttpClient
         assert MCP_PROTOCOL_VERSION == "2025-11-25"
         client = McpHttpClient(
             server_url="https://mcp.example.com/mcp",
@@ -90,6 +91,7 @@ class TestDataSourceAdapter:
         """未设置 token 时 jin10_available 返回 False。"""
         monkeypatch.delenv("JIN10_MCP_TOKEN", raising=False)
         import importlib
+
         import data_source_adapter
         importlib.reload(data_source_adapter)
         # 单例缓存，重置
@@ -256,7 +258,7 @@ class TestSentimentAnalyst:
 
     def test_sentiment_contract_import(self):
         """验证情绪契约可以正常导入。"""
-        from contracts import SentimentStateVector, SentimentEvent, SymbolSentiment
+        from contracts import SentimentEvent, SentimentStateVector, SymbolSentiment
 
         assert SentimentStateVector.__name__ == "SentimentStateVector"
         assert SentimentEvent.__name__ == "SentimentEvent"
@@ -344,7 +346,6 @@ class TestSentimentAnalyst:
         mocker.patch("fdt_langgraph.nodes._ensure_llm_key", return_value=None)
 
         # mock FdtAgentExecutor 实例，让 run() 返回一个 awaitable
-        import asyncio
         mock_agent_instance = mocker.MagicMock()
         mock_agent_instance.run = mocker.AsyncMock(return_value={"output": "mock情绪分析结果"})
 

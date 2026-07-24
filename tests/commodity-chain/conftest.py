@@ -1,5 +1,6 @@
 """commodity-chain auto-generated conftest"""
-import pytest, os, sys
+import os
+import sys
 
 # 直接添加路径，不依赖 fdt_test_helpers（避免命名空间冲突）
 _FDT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

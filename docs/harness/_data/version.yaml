@@ -1,12 +1,36 @@
 # FDT 版本配置 — 结构化数据（文档引用源）
 # version 字段必须与 pyproject.toml 一致。
-# v9.20.2 | 2026-07-23
+# v10.1.0 | 2026-07-24
 
-version: "9.20.2"
+version: "10.1.0"
 version_source: "pyproject.toml"
 runtime_reader: "scripts/fdt_paths.py::get_fdt_version()"
 
 changelog:
+  v10_1_0:
+    date: "2026-07-24"
+    type: "minor"
+    summary: "数据清洗层 Phase 3 — 基本面清洗"
+    items:
+      - "新增 data_adapter/cleaning/fundamental.py — 5 道基本面清洗（缺失检查/值校验/新鲜度/口径变更/修订追踪）"
+      - "clean_fundamental() / clean_fundamental_data() 管线集成"
+      - "20 个 Phase 3 测试用例，全量 66 清洗测试通过"
+      - "期货专项清洗交割月正则修复（RB2610 误判为主力连续）"
+      - "删除无用常量 _MAIN_CONTINUOUS_SUFFIXES"
+      - "文档同步：01-architecture.md / 03-configuration.md / 06-testing.md"
+  v10_0_0:
+    date: "2026-07-24"
+    type: "major"
+    summary: "FDC→AKShare 全面迁移 + 记忆系统全面重构"
+    items:
+      - "废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源"
+      - "新增 4 个 F10 模块"
+      - "MemoryManager 统一入口替换 26 处散落直写"
+      - "6 个僵尸脚本/目录清除（~1300 行死代码）"
+      - "检索断层修复（VectorRetriever 整合 VectorMemory）"
+      - "维护自动化（Cleaner/Archiver/Decay/Checker）"
+      - "自进化规则注入（G30 关闭）"
+      - "master_graph 每日 04:00 自动维护"
   v9_20_2:
     date: "2026-07-23"
     type: "bugfix"

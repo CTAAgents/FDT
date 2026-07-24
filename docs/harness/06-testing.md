@@ -321,7 +321,7 @@ python scripts/run_benchmark.py --replay
 | 指标 | v5.6 初始 | v5.7 最终 | v8.8.6 当前 |
 |:-----|:--------:|:--------:|:-----------:|
 | 测试文件数 | 23 | 26 | **60+ 文件 / 16 目录**（含 `fdt_langgraph` 10文件 + `strategies` 19文件 + `validators` 4文件） |
-| Harness 测试用例 | 0 | 43 | fdt_langgraph 累计 **115+ 用例**（test_agents 58 + test_nodes 21 + test_reports 12 + test_parallel_dispatch 9 + test_e2e 18 + test_state 2 + test_pg 12 + test_benchmark 10 + test_health 9 + test_integration_ab 18） |
+| Harness 测试用例 | 0 | 43 | fdt_langgraph 累计 **120+ 用例**（test_agents 58 + test_nodes 21 + test_reports 12 + test_parallel_dispatch 9 + test_e2e 18 + test_state 2 + test_pg 12 + test_benchmark 10 + test_health 9 + test_integration_ab 18） |
 | 覆盖率范围 | quant-daily/signals | skills+pipeline+scheduler+scripts | 4x 扩展（`pyproject.toml` 已配置） |
 | 测试目录数 | 8 | 11 | **16** |
 | conftest.py 数 | — | 8 | **16** |
@@ -495,7 +495,7 @@ python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-rep
 | 指标 | 数量 |
 |:-----|:-----|
 | 测试文件数 | 12 |
-| 测试用例总数 | 558 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 231 其他) |
+| 测试用例总数 | 595 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 66 data_adapter/cleaning + 222 其他) |
 | 测试通过率 | 100% |
 | conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
 | LangGraph 节点覆盖率 | 96% (nodes.py) |

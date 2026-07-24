@@ -103,5 +103,6 @@ def set_default(name: str):
 # channel_breakout = 默认（唐奇安DC20/DC55 + 布林带）
 # three_signal = 三类信号（突破/回踩/跳空）可选
 # 注：多策略已迁出独立 skill
-from . import channel_breakout_strategy  # noqa: F401, E402
-from . import three_signal_strategy  # noqa: F401, E402  # 三类信号（可选）
+from . import (
+    channel_breakout_strategy,  # noqa: F401, E402
+)

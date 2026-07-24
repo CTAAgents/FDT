@@ -12,7 +12,7 @@
 import os
 import sys
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 # ============================================================
 # 现货价格映射：品种代码 → AKShare symbol + 现货名称
@@ -519,7 +519,7 @@ def main():
 
     result = compute_term_basis(FUTURES_SYMBOLS)
 
-    print(f"\n--- 期限结构 ---")
+    print("\n--- 期限结构 ---")
     for pid_lower, entry in sorted(result.items()):
         if entry["term_type"] != "unknown":
             sig = "📈" if entry["term_signal"] > 0 else ("📉" if entry["term_signal"] < 0 else "➡️")
@@ -529,7 +529,7 @@ def main():
                 f"斜率{entry['term_slope']:.2%})"
             )
 
-    print(f"\n--- 基差（正=期货低估,负=期货高估）---")
+    print("\n--- 基差（正=期货低估,负=期货高估）---")
     for pid_lower, entry in sorted(result.items()):
         if entry["spot_price"] is not None:
             sig = "🟢" if entry["basis_signal"] > 0 else ("🔴" if entry["basis_signal"] < 0 else "⚪")

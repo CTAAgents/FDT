@@ -17,14 +17,17 @@
   确保所有品种的基差在统一单位(元/吨)下可比.
 """
 
+import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List
 
 # FDC futures_data_core — 统一数据引擎
 from futures_data_core import (
     get_basis as fdc_get_basis,
+)
+from futures_data_core import (
     get_term_structure as fdc_get_term_structure,
 )
 from futures_data_core.f10.basis import get_basis_batch as fdc_get_basis_batch
@@ -437,6 +440,7 @@ def _get_term_structure_from_duckdb(symbols: List[dict], trade_date: str) -> Dic
     如 DuckDB 不可用或为空，自动降级到 FDC futures_data_core。
     """
     import asyncio
+
     import duckdb
 
     # 通过已知路径查找 futures-data-search 的 exchange-collector DuckDB。
@@ -729,16 +733,16 @@ async def compute_term_basis(
                 entry["basis_rate"] = round(basis_rate_raw, 4)
 
             # 基差信号：现货>期货=低估利多, 现货<期货=高估利空
-            if basis_rate > 0.03:
+            if basis_rate_raw > 0.03:
                 entry["basis_signal"] = 0.6  # 期货低估，利多
                 entry["basis_score"] = 6
-            elif basis_rate > 0.01:
+            elif basis_rate_raw > 0.01:
                 entry["basis_signal"] = 0.3
                 entry["basis_score"] = 3
-            elif basis_rate < -0.03:
+            elif basis_rate_raw < -0.03:
                 entry["basis_signal"] = -0.6  # 期货高估，利空
                 entry["basis_score"] = -6
-            elif basis_rate < -0.01:
+            elif basis_rate_raw < -0.01:
                 entry["basis_signal"] = -0.3
                 entry["basis_score"] = -3
             else:
@@ -758,7 +762,6 @@ async def compute_term_basis(
 # ============================================================
 async def main():
     """独立运行：打印期限结构和基差概览。"""
-    import asyncio
 
     print(f"\n{'=' * 60}")
     print("期限结构与基差分析")
@@ -770,7 +773,7 @@ async def main():
 
     result = await compute_term_basis(FUTURES_SYMBOLS)
 
-    print(f"\n--- 期限结构 ---")
+    print("\n--- 期限结构 ---")
     for pid_lower, entry in sorted(result.items()):
         if entry["term_type"] != "unknown":
             sig = "📈" if entry["term_signal"] > 0 else ("📉" if entry["term_signal"] < 0 else "➡️")
@@ -780,7 +783,7 @@ async def main():
                 f"斜率{entry['term_slope']:.2%})"
             )
 
-    print(f"\n--- 基差（正=期货低估,负=期货高估）---")
+    print("\n--- 基差（正=期货低估,负=期货高估）---")
     for pid_lower, entry in sorted(result.items()):
         if entry["spot_price"] is not None:
             sig = "🟢" if entry["basis_signal"] > 0 else ("🔴" if entry["basis_signal"] < 0 else "⚪")

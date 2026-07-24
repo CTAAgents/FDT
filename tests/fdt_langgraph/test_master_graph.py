@@ -3,13 +3,16 @@
 import sys
 from datetime import datetime
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from fdt_langgraph.master_state import create_master_state
 from fdt_langgraph.master_nodes import (
-    node_check_time, node_dispatch,
-    route_after_dispatch, route_after_task,
+    node_check_time,
+    node_dispatch,
+    route_after_dispatch,
+    route_after_task,
 )
+from fdt_langgraph.master_state import create_master_state
 
 
 class TestMasterState:

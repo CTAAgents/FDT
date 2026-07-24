@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """链证源 — 最终报告合成（含基本面验证）"""
 
-import sys, os, json
+import json
+import os
+import sys
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
-from scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS
+from scripts.chains import CHAIN_PRODUCTS
 
 
 def get_chain_members(chain_name):

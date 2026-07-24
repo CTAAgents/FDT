@@ -13,11 +13,9 @@ Keltner 通道参数鲁棒性分析器
   - JSON 详细数据（含完整得分网格）
 """
 
-import sys
-import os
 import json
-import math
-from collections import defaultdict
+import os
+import sys
 
 import numpy as np
 
@@ -25,10 +23,9 @@ _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _SCRIPTS_DIR)
 
 from optimizer.keltner_wf import (
-    KELTNER_PERIOD_CANDIDATES,
     KELTNER_ATR_MULT_CANDIDATES,
+    KELTNER_PERIOD_CANDIDATES,
     _evaluate_params,
-    walk_forward_keltner,
 )
 from scan_all import _fdc_get_kline_sync
 
@@ -174,7 +171,7 @@ def analyze_robustness(symbol: str, snapshots: list, verbose: bool = True):
 def run_robustness_analysis(symbols: list, output_path: str = None, verbose: bool = True):
     """对多个品种运行鲁棒性分析。"""
     print(f"\n{'=' * 80}")
-    print(f"  Keltner 通道参数鲁棒性分析")
+    print("  Keltner 通道参数鲁棒性分析")
     print(f"  参数空间: {len(KELTNER_PERIOD_CANDIDATES)} × {len(KELTNER_ATR_MULT_CANDIDATES)} = {len(KELTNER_PERIOD_CANDIDATES)*len(KELTNER_ATR_MULT_CANDIDATES)} 种组合")
     print(f"{'=' * 80}")
 
@@ -196,7 +193,7 @@ def run_robustness_analysis(symbols: list, output_path: str = None, verbose: boo
 
     # ── 全局统计 ──
     print(f"\n{'=' * 80}")
-    print(f"  鲁棒性汇总")
+    print("  鲁棒性汇总")
     print(f"{'=' * 80}")
     print(f"  分析品种: {len(results)}")
     print(f"  平均 robustness_score: {np.mean([r['robustness_score'] for r in results]):.3f}")
@@ -208,7 +205,7 @@ def run_robustness_analysis(symbols: list, output_path: str = None, verbose: boo
     robust_high = sum(1 for r in results if r['robustness_score'] >= 0.85)
     robust_mid = sum(1 for r in results if 0.6 <= r['robustness_score'] < 0.85)
     robust_low = sum(1 for r in results if r['robustness_score'] < 0.6)
-    print(f"\n  鲁棒性分级:")
+    print("\n  鲁棒性分级:")
     print(f"    高(≥0.85): {robust_high} 品种")
     print(f"    中(0.6~0.85): {robust_mid} 品种")
     print(f"    低(<0.6): {robust_low} 品种")
@@ -216,7 +213,7 @@ def run_robustness_analysis(symbols: list, output_path: str = None, verbose: boo
     # 平原度分级
     plateau_high = sum(1 for r in results if r['plateau_ratio'] >= 0.15)
     plateau_low = sum(1 for r in results if r['plateau_ratio'] < 0.15)
-    print(f"\n  平原度分级:")
+    print("\n  平原度分级:")
     print(f"    宽阔(≥15%组合在top-90%): {plateau_high} 品种")
     print(f"    狭窄(<15%): {plateau_low} 品种")
 

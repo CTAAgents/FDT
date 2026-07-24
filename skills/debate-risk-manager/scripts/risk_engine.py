@@ -12,10 +12,8 @@
 契约：对接 technical-analysis 的 support_resistance.py v2.1 输出
 """
 
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-import math
-from typing import Sequence
+from typing import Dict, List, Optional, Sequence
 
 # 交易摩擦模块
 _TRANSACTION_COST_CACHE = {}

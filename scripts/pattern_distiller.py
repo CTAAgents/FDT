@@ -18,7 +18,6 @@ from typing import Optional
 
 from contracts.experience_schema import validate_distilled_pattern
 
-
 # ── 常量 ──
 
 MIN_SAMPLE_COUNT = 5       # 模式最少支撑案例数

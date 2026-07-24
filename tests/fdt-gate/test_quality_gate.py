@@ -15,10 +15,8 @@ PROJECT_ROOT 改为相对路径推导，可随专家团整体迁移/同步。
 """
 
 import json
-import os
 import re
 import subprocess
-import pytest
 import sys
 from pathlib import Path
 

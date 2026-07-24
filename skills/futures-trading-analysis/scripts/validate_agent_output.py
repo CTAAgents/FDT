@@ -19,9 +19,9 @@ L1 Agent产出校验器 — SKILL层适配（v1.1 · 单一来源收敛）
   P5_PLAN / P5_RISK             : flat dict
 """
 
+import importlib.util
 import os
 import sys
-import importlib.util
 
 # ── 加载唯一真实来源（canonical），用独立模块名避免与主模块名 shadowing ──
 _CANON_FILE = os.path.abspath(

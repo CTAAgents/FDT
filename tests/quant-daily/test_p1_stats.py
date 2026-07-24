@@ -1,7 +1,7 @@
 """P1角色矫正（v9.6.8）测试 — stats产出 / 数据质量闸门 / audit偏离度"""
 
-import sys, os
-import pytest
+import os
+import sys
 
 # ── 路径自举 ──
 SKILL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -20,8 +20,8 @@ if "config" in sys.modules:
     del sys.modules["config"]
 
 # ── 导入被测函数 ──
-from scan_all import _build_pure_stats, _calc_volume_ma20
 from run_debate import select_triggers
+from scan_all import _build_pure_stats, _calc_volume_ma20
 
 
 # ═══════════════════════════════════════

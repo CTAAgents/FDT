@@ -17,9 +17,8 @@ import logging
 import os
 import subprocess
 import sys
-from datetime import datetime, date, timezone
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -313,28 +312,24 @@ node_run_auto_publish = _make_script_node(
 # ── 3b. 有特殊逻辑的任务节点 ──
 
 def node_run_data_collection(state: dict) -> dict:
-    """数据采集: 更新主力合约映射（内联 — 委托给 node_run_update_dominant_mapping）。"""
+    """数据采集: 更新主力合约映射（AKShare 单源）。"""
     state["current_task"] = "data_collection"
     started = datetime.now().isoformat()
     try:
-        from futures_data_core.core.dominant_resolver import DominantResolver
-        from futures_data_core.collectors.tdx import TDXCollector
+        import akshare as ak
+        import pandas as pd
 
-        resolver = DominantResolver()
-        collector = TDXCollector()
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        available = loop.run_until_complete(collector.check_available())
-        if not available:
-            loop.close()
-            ok, msg = False, "TDX 数据源不可用，跳过"
+        df = ak.futures_contract_detail_em()
+        if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
+            code_col = next((c for c in ["合约代码", "code", "contract"] if c in df.columns), None)
+            if code_col:
+                contracts = df[code_col].dropna().astype(str).unique().tolist()
+                ok = True
+                msg = f"AKShare 获取 {len(contracts)} 个合约"
+            else:
+                ok, msg = True, "AKShare 数据可用，无合约代码列"
         else:
-            mapping = resolver.refresh_all(collector)
-            loop.close()
-            switch_count = len([v for v in mapping.values() if v.get("switched")])
-            ok, msg = True, f"已更新 {len(mapping)} 品种, {switch_count} 换月事件"
+            ok, msg = False, "AKShare 合约数据为空"
     except Exception as exc:
         ok, msg = False, str(exc)
 
@@ -345,33 +340,24 @@ def node_run_data_collection(state: dict) -> dict:
     _set_triggered("data_collection")
     state["task_index"] = state.get("task_index", 0) + 1
     state["phase"] = "dispatch"
-    logger.info(f"[Master] data_collection: {'✅' if ok else '❌'} {msg[:80]}")
+    logger.info(f"[Master] data_collection: {'OK' if ok else 'FAIL'} {msg[:80]}")
     return state
 
 
 def node_run_update_dominant_mapping(state: dict) -> dict:
-    """更新主力合约映射（内联 Python — 对应老 scheduler/tasks.py）。"""
+    """更新主力合约映射（AKShare 单源）。"""
     state["current_task"] = "update_dominant_mapping"
     started = datetime.now().isoformat()
     try:
-        from futures_data_core.core.dominant_resolver import DominantResolver
-        from futures_data_core.collectors.tdx import TDXCollector
+        import akshare as ak
+        import pandas as pd
 
-        resolver = DominantResolver()
-        collector = TDXCollector()
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        available = loop.run_until_complete(collector.check_available())
-        if not available:
-            loop.close()
-            ok, msg = False, "TDX 数据源不可用，跳过"
+        df = ak.futures_contract_detail_em()
+        if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
+            ok = True
+            msg = f"AKShare 获取合约列表: {len(df)} 行"
         else:
-            mapping = resolver.refresh_all(collector)
-            loop.close()
-            switch_count = len([v for v in mapping.values() if v.get("switched")])
-            ok, msg = True, f"已更新 {len(mapping)} 品种, {switch_count} 换月事件"
+            ok, msg = False, "AKShare 合约数据为空"
     except Exception as exc:
         ok, msg = False, str(exc)
 
@@ -382,7 +368,7 @@ def node_run_update_dominant_mapping(state: dict) -> dict:
     _set_triggered("update_dominant_mapping")
     state["task_index"] = state.get("task_index", 0) + 1
     state["phase"] = "dispatch"
-    logger.info(f"[Master] update_dominant_mapping: {'✅' if ok else '❌'} {msg[:80]}")
+    logger.info(f"[Master] update_dominant_mapping: {'OK' if ok else 'FAIL'} {msg[:80]}")
     return state
 
 
@@ -393,9 +379,9 @@ def node_run_daily_debate(state: dict) -> dict:
 
     os.environ["FDT_RUN_EVOLUTION"] = "true"
 
-    from fdt_langgraph.state import create_initial_state
-    from fdt_langgraph.graph import build_debate_graph_no_checkpoint as build_debate_graph
     from fdt_langgraph.evolution_graph import run_evolution
+    from fdt_langgraph.graph import build_debate_graph_no_checkpoint as build_debate_graph
+    from fdt_langgraph.state import create_initial_state
 
     trace_id = f"master-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     try:
@@ -417,7 +403,7 @@ def node_run_daily_debate(state: dict) -> dict:
             logger.info(f"[Master] 自进化完成: steps={ev_steps}")
             debate_msg += f" → 进化: {ev_steps}"
         else:
-            logger.warning(f"[Master] 自进化返回 None，跳过进化步骤")
+            logger.warning("[Master] 自进化返回 None，跳过进化步骤")
             debate_msg += " → 进化: None"
 
     except Exception as e:

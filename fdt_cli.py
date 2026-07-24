@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fdt_langgraph.state import DebateState, create_initial_state
 from fdt_langgraph.graph import build_debate_graph_no_checkpoint as build_debate_graph
+from fdt_langgraph.state import DebateState, create_initial_state
 from fdt_pg.connection import PGConnection
 
 logging.basicConfig(
@@ -53,7 +53,7 @@ async def run_debate(mode: str = "default", run_evolution: bool = False) -> Deba
                 ev_decisions = ev_state.get("decisions", {})
                 logger.info(f"Evolution completed: phase={ev_phase}, "
                             f"errors={ev_errors}, decisions={ev_decisions}")
-                print(f"\n=== 🔄 自进化闭环完成 ===")
+                print("\n=== 🔄 自进化闭环完成 ===")
                 print(f"  阶段: {ev_phase}")
                 for step, result_data in ev_state.get("step_results", {}).items():
                     icon = "✅" if result_data.get("success") else "❌"
@@ -61,7 +61,7 @@ async def run_debate(mode: str = "default", run_evolution: bool = False) -> Deba
                 print("=" * 40 + "\n")
             else:
                 logger.warning("Evolution returned None state, skipping evolution display")
-                print(f"\n=== ⚠️ 自进化闭环返回空状态 ===")
+                print("\n=== ⚠️ 自进化闭环返回空状态 ===")
                 print("=" * 40 + "\n")
         except Exception as e:
             logger.error(f"Evolution failed: {e}")
@@ -153,7 +153,7 @@ def main():
         logger.info("Running self-evolution standalone (APM-driven)...")
         from fdt_langgraph.evolution_graph import run_evolution as run_ev
         ev_state = run_ev()
-        print(f"\n=== 🔄 自进化闭环完成 ===")
+        print("\n=== 🔄 自进化闭环完成 ===")
         print(f"  Phase: {ev_state.get('phase')}")
         print(f"  APM Scores: {ev_state.get('apm_scores', {})}")
         for step, result_data in ev_state.get("step_results", {}).items():
@@ -166,13 +166,13 @@ def main():
         from fdt_langgraph.master_graph import run_master_once
         result = run_master_once()
         tasks = result.get("task_results", {})
-        print(f"\n=== 📋 Master 调度完成 ===")
+        print("\n=== 📋 Master 调度完成 ===")
         if tasks:
             for name, r in tasks.items():
                 icon = "✅" if r.get("success") else "❌"
                 print(f"  {icon} {name}: {r.get('summary', '')[:80]}")
         else:
-            print(f"  无到期任务 (当前时间无匹配的调度)")
+            print("  无到期任务 (当前时间无匹配的调度)")
 
 
 if __name__ == "__main__":

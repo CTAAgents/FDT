@@ -6,8 +6,6 @@ V2 volume_confirm OI+量比联合增强测试
 2. 量比<0.8 但 OI 暴增>15% → 撤销降级（undemote）
 3. 量比>1.5 且 OI 萎缩<-10% → 降级
 """
-import pytest
-from unittest.mock import MagicMock, patch
 from dataclasses import dataclass, field
 
 

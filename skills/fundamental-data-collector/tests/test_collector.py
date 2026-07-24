@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """fundamental-data-collector 测试 — 覆盖全部6个模块。"""
 
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from scripts.supply import query_supply, list_available_symbols
 from scripts.demand import query_demand
 from scripts.inventory import query_inventory
 from scripts.margin import query_margin
+from scripts.supply import list_available_symbols, query_supply
 from scripts.term_basis import query_term
 from scripts.web_collector import query_web
 

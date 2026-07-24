@@ -280,64 +280,114 @@ def _build_body_sections(state: dict) -> str:
     fund_from_debate = _extract_agent_output(state, "fundamental:探源", sym, sym_upper)
     sent_from_debate = _extract_agent_output(state, "sentiment:读心", sym, sym_upper)
 
+    # ── 模板颜色变量 ──
+    var_green = "var(--green)"  # #2d7d4f
+    var_red = "var(--red)"      # #c44536
+    var_yellow = "var(--yellow)"  # #c49a2b
+    var_accent2 = "var(--accent2)"  # #2b6c7e
+
     # ── 构建各章节 ──
     sections: list[tuple[str, str, str]] = []
 
-    # P1
+    # P1 数据总览 — metrics-summary 三列卡片
     if p1_valid:
+        chg = stats.get("change_pct", 0) or 0 if stats else 0
+        chg_cls = "chg-up" if chg >= 0 else "chg-down"
+        price_latest = _fmt(stats.get("latest_close")) if stats else _fmt(latest_close)
+        stats_rows = (
+            f'<div class="metrics-summary">\n'
+            f'<div class="metric-card"><div class="symbol">{sym_upper}</div>'
+            f'<div class="price" style="color:{var_green if chg>=0 else var_red}">{price_latest}</div>'
+            f'<div class="detail">涨跌幅 <span class="{chg_cls}">{_fmt_pct(chg)}</span></div></div>\n'
+            f'<div class="metric-card"><div class="symbol">趋势</div>'
+            f'<div class="price" style="font-size:1.2rem;">{_esc(stats.get("ma_align", "—"))}</div>'
+            f'<div class="detail">ADX={_fmt(stats.get("adx_14"),1)} | RSI={_fmt(stats.get("rsi_14"),1)}</div></div>\n'
+            f'<div class="metric-card"><div class="symbol">波动</div>'
+            f'<div class="price" style="font-size:1.2rem;">ATR {_fmt(stats.get("atr_14"))}</div>'
+            f'<div class="detail">量比 {_fmt(stats.get("volume_ma20_ratio"),2)}x | 20日位置 {_fmt(stats.get("price_position_pct"),1)}%</div></div>\n'
+            f'</div>\n'
+        )
         if stats:
-            stats_rows = (
-                f'<div class="kv"><span class="k">收盘价</span><span class="v">{_fmt(stats.get("latest_close"))}</span></div>\n'
-                f'<div class="kv"><span class="k">涨跌幅</span><span class="v" style="color:{"#16a34a" if (stats.get("change_pct", 0) or 0) >= 0 else "#dc2626"};">{_fmt_pct(stats.get("change_pct"))}</span></div>\n'
-                f'<div class="kv"><span class="k">MA20</span><span class="v">{_fmt(stats.get("ma_20"))}</span></div>\n'
-                f'<div class="kv"><span class="k">MA60</span><span class="v">{_fmt(stats.get("ma_60"))}</span></div>\n'
-                f'<div class="kv"><span class="k">ATR14</span><span class="v">{_fmt(stats.get("atr_14"))}</span></div>\n'
-                f'<div class="kv"><span class="k">RSI14</span><span class="v">{_fmt(stats.get("rsi_14"), 1)}</span></div>\n'
-                f'<div class="kv"><span class="k">ADX14</span><span class="v">{_fmt(stats.get("adx_14"), 1)}</span></div>\n'
-                f'<div class="kv"><span class="k">量比20</span><span class="v">{_fmt(stats.get("volume_ma20_ratio"), 2)}x</span></div>\n'
-                f'<div class="kv"><span class="k">MA排列</span><span class="v">{_esc(stats.get("ma_align", "—"))}</span></div>\n'
-                f'<div class="kv"><span class="k">20日位置</span><span class="v">{_fmt(stats.get("price_position_pct"), 1)}%</span></div>'
+            stats_rows += (
+                f'<div class="info-grid">\n'
+                f'<div class="info-card"><div class="head">关键指标</div>'
+                f'<div class="info-item"><span class="k">MA20</span><span class="v">{_fmt(stats.get("ma_20"))}</span></div>'
+                f'<div class="info-item"><span class="k">MA60</span><span class="v">{_fmt(stats.get("ma_60"))}</span></div>'
+                f'<div class="info-item"><span class="k">RSI14</span><span class="v">{_fmt(stats.get("rsi_14"),1)}</span></div>'
+                f'<div class="info-item"><span class="k">ADX14</span><span class="v">{_fmt(stats.get("adx_14"),1)}</span></div>'
+                f'<div class="info-item"><span class="k">ATR14</span><span class="v">{_fmt(stats.get("atr_14"))}</span></div>'
+                f'</div>\n'
+                f'<div class="info-card"><div class="head">量价持仓</div>'
+                f'<div class="info-item"><span class="k">持仓</span><span class="v">{_fmt(stats.get("oi"))}</span></div>'
+                f'<div class="info-item"><span class="k">持仓变化</span><span class="v">{_fmt(stats.get("oi_change"))}</span></div>'
+                f'<div class="info-item"><span class="k">量比20</span><span class="v">{_fmt(stats.get("volume_ma20_ratio"),2)}x</span></div>'
+                f'<div class="info-item"><span class="k">20日位置</span><span class="v">{_fmt(stats.get("price_position_pct"),1)}%</span></div>'
+                f'<div class="info-item"><span class="k">K线</span><span class="v">{_fmt(stats.get("n_bars"))}根</span></div>'
+                f'</div>\n'
+                f'</div>\n'
             )
         elif indicators:
-            stats_rows = (
-                f'<div class="kv"><span class="k">收盘价</span><span class="v">{_fmt(latest_close)}</span></div>\n'
-                f'<div class="kv"><span class="k">RSI</span><span class="v">{_fmt(indicators.get("RSI14", indicators.get("rsi_14")), 1)}</span></div>\n'
-                f'<div class="kv"><span class="k">ADX</span><span class="v">{_fmt(indicators.get("ADX", indicators.get("adx")), 1)}</span></div>\n'
-                f'<div class="kv"><span class="k">MACD_DIF</span><span class="v">{_fmt(indicators.get("MACD_DIF", indicators.get("macd_dif")), 1)}</span></div>\n'
-                f'<div class="kv"><span class="k">ATR14</span><span class="v">{_fmt(indicators.get("ATR14", indicators.get("atr_14")), 1)}</span></div>'
+            stats_rows += (
+                f'<div class="info-grid">\n'
+                f'<div class="info-card"><div class="head">FDC 原始指标</div>'
+                f'<div class="info-item"><span class="k">收盘价</span><span class="v">{_fmt(latest_close)}</span></div>'
+                f'<div class="info-item"><span class="k">RSI</span><span class="v">{_fmt(indicators.get("RSI14", indicators.get("rsi_14")),1)}</span></div>'
+                f'<div class="info-item"><span class="k">ADX</span><span class="v">{_fmt(indicators.get("ADX", indicators.get("adx")),1)}</span></div>'
+                f'<div class="info-item"><span class="k">MACD_DIF</span><span class="v">{_fmt(indicators.get("MACD_DIF", indicators.get("macd_dif")),1)}</span></div>'
+                f'<div class="info-item"><span class="k">ATR14</span><span class="v">{_fmt(indicators.get("ATR14", indicators.get("atr_14")),1)}</span></div>'
+                f'</div>\n'
+                f'</div>\n'
             )
         else:
-            stats_rows = '<div style="color:#888;">无统计数据</div>'
+            stats_rows = '<div class="callout">无统计数据</div>'
         sections.append(
-            (
-                "P1 数技源 · 统计特征",
-                f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;font-size:0.82em;">{stats_rows}</div>',
-                "#3b82f6",
-            )
+            ("P1 数技源 · 数据总览", stats_rows, "#c44536"),
         )
 
-    # P2 观澜
+    # P2 观澜 — info-grid 展示技术面
     if isinstance(tech_sym, dict) and tech_sym.get("analysis"):
-        tech_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(tech_sym["analysis"])}</div>'
+        tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术分析</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_sym["analysis"])}</div></div></div>'
     elif isinstance(tech_sym, dict) and tech_sym.get("summary"):
-        tech_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(tech_sym["summary"])}</div>'
+        tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术摘要</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_sym["summary"])}</div></div></div>'
+    # v9.23.1: 渲染 node_technical fallback 产生的结构化字段 (trend/key_levels/volume_price/divergence/pattern/score)
+    elif isinstance(tech_sym, dict) and tech_sym.get("trend"):
+        tech_items = [
+            ("趋势判断", tech_sym.get("trend", "")),
+            ("关键价位", tech_sym.get("key_levels", "")),
+            ("量价关系", tech_sym.get("volume_price", "")),
+            ("MACD背离", tech_sym.get("divergence", "")),
+            ("技术形态", tech_sym.get("pattern", "")),
+        ]
+        score_val = tech_sym.get("score")
+        score_html = f'<span style="font-size:1.3rem;font-weight:700;">{score_val}</span>' if score_val else ""
+        tech_inner = "".join(
+            f'<div class="info-item"><span class="k">{label}</span><span class="v">{_esc(str(val))}</span></div>'
+            for label, val in tech_items
+        )
+        if score_val:
+            score_html = f'<div class="info-card"><div class="head">综合评分</div><div style="font-size:1.3rem;font-weight:700;text-align:center;">{score_val}</div></div>'
+        tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术面（FDC自主计算）</div>{tech_inner}</div>{score_html}</div>'
     elif tech_from_debate:
-        tech_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(tech_from_debate)}</div>'
+        tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">辩论引用</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_from_debate)}</div></div></div>'
     elif indicators:
+        rsi_v = _fmt(indicators.get("RSI14", indicators.get("rsi_14")), 1)
+        adx_v = _fmt(indicators.get("ADX", indicators.get("adx")), 1)
+        macd_v = _fmt(indicators.get("MACD_DIF", indicators.get("macd_dif")), 1)
+        atr_v = _fmt(indicators.get("ATR14", indicators.get("atr_14")), 1)
         tech_html = (
-            f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">\n'
-            f'RSI={_fmt(indicators.get("RSI14", indicators.get("rsi_14")), 1)} |\n'
-            f'ADX={_fmt(indicators.get("ADX", indicators.get("adx")), 1)} |\n'
-            f'MACD_DIF={_fmt(indicators.get("MACD_DIF", indicators.get("macd_dif")), 1)} |\n'
-            f'ATR14={_fmt(indicators.get("ATR14", indicators.get("atr_14")), 1)}\n'
-            f'<br><span style="color:#888;">（FDC 原始指标，LLM 分析未返回结构化数据）</span>\n'
-            f'</div>'
+            f'<div class="info-grid">\n'
+            f'<div class="info-card"><div class="head">RSI</div><div style="font-size:1.2rem;font-weight:700;">{rsi_v}</div></div>\n'
+            f'<div class="info-card"><div class="head">ADX</div><div style="font-size:1.2rem;font-weight:700;">{adx_v}</div></div>\n'
+            f'<div class="info-card"><div class="head">MACD_DIF</div><div style="font-size:1.2rem;font-weight:700;">{macd_v}</div></div>\n'
+            f'<div class="info-card"><div class="head">ATR14</div><div style="font-size:1.2rem;font-weight:700;">{atr_v}</div></div>\n'
+            f'</div>\n'
+            f'<div class="callout">FDC 原始指标 — LLM 分析未返回结构化数据</div>\n'
         )
     else:
-        tech_html = '<div style="color:#888;">无技术分析数据</div>'
-    sections.append(("P2 观澜 · 技术面", tech_html, "#06b6d4"))
+        tech_html = '<div class="callout">无技术分析数据</div>'
+    sections.append(("P2 观澜 · 技术面", tech_html, var_accent2))
 
-    # P2 探源
+    # P2 探源 — info-grid 展示基本面
     fund_parts = []
     if isinstance(fund_sym, dict):
         for k, label in (
@@ -351,121 +401,113 @@ def _build_body_sections(state: dict) -> str:
             if v:
                 if isinstance(v, list):
                     v = "; ".join(str(x) for x in v)
-                fund_parts.append(f'<b style="color:#aaa;">{label}</b>: {_esc(v)}')
+                fund_parts.append(f'<div class="info-item"><span class="k">{label}</span><span class="v">{_esc(v)}</span></div>')
     if fund_parts:
-        fund_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{"<br>".join(fund_parts)}</div>'
+        fund_html = f'<div class="info-grid"><div class="info-card"><div class="head">探源基本面</div>{"".join(fund_parts)}</div></div>'
     elif fund_from_debate:
-        fund_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(fund_from_debate)}</div>'
+        fund_html = f'<div class="info-grid"><div class="info-card"><div class="head">辩论引用</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(fund_from_debate)}</div></div></div>'
     else:
-        fund_html = '<div style="color:#888;">无基本面数据（FDC 全维度 UNAVAILABLE，LLM 未返回结构化数据）</div>'
-    sections.append(("P2 探源 · 基本面", fund_html, "#f59e0b"))
+        fund_html = '<div class="callout">无基本面数据（FDC 全维度 UNAVAILABLE，LLM 未返回结构化数据）</div>'
+    sections.append(("P3 探源 · 基本面", fund_html, var_yellow))
 
-    # P2 读心
+    # P2 读心 — info-card 展示情绪
     if isinstance(sentiment_data, dict) and sentiment_data:
         score = sentiment_data.get("overall_score", 0)
-        sent_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">情绪评分: {score} | {_esc(sentiment_data.get("summary", ""))}</div>'
+        score_color = var_green if score > 0 else var_red if score < 0 else var_yellow
+        sent_html = (
+            f'<div class="info-grid">\n'
+            f'<div class="info-card"><div class="head">情绪评分</div>'
+            f'<div style="font-size:1.8rem;font-weight:800;color:{score_color};">{score}</div></div>\n'
+            f'<div class="info-card"><div class="head">摘要</div>'
+            f'<div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(sentiment_data.get("summary", ""))}</div></div>\n'
+            f'</div>\n'
+        )
     elif sent_from_debate:
-        sent_html = f'<div style="color:#ccc;font-size:0.85em;line-height:1.8;">{_esc(sent_from_debate)}</div>'
+        sent_html = f'<div class="info-grid"><div class="info-card"><div class="head">辩论引用</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(sent_from_debate)}</div></div></div>'
     else:
-        sent_html = '<div style="color:#888;">无情绪数据</div>'
-    sections.append(("P2 读心 · 新闻情绪", sent_html, "#ec4899"))
+        sent_html = '<div class="callout">无情绪数据</div>'
+    sections.append(("P3 读心 · 新闻情绪", sent_html, var_accent2))
 
-    # P3 辩论
+    # P3 辩论 — debate-round 组件
     debate_html = ""
-    if bull_v1 or bear_v1:
+    debate_rounds = [
+        ("bull_v1", "🟢 多头立论", var_red, "#c44536"),
+        ("bear_v1", "🔴 空头立论", var_accent2, "#2b6c7e"),
+        ("bear_rebut", "🔴 空头反驳", var_accent2, "#2b6c7e"),
+        ("bull_rebut", "🟢 多头反驳", var_red, "#c44536"),
+        ("bear_final", "🔴 空头终述", var_accent2, "#2b6c7e"),
+        ("bull_final", "🟢 多头终述", var_red, "#c44536"),
+    ]
+    args_map = {"bull_v1": bull_v1, "bear_v1": bear_v1, "bear_rebut": bear_rebut, "bull_rebut": bull_rebut, "bear_final": bear_final, "bull_final": bull_final}
 
-        def _args_block(args, label, color):
-            if not args:
-                return ""
-            items = "".join(
-                f'<div class="arg-box" style="border-left-color:{color};">{_esc(a)}</div>'
-                for a in args
-            )
-            return f'<div style="margin-top:6px;"><div style="color:{color};font-size:0.75em;font-weight:bold;margin-bottom:4px;">{label}</div>{items}</div>'
+    def _debate_round_html(label, args, color, num_cls):
+        if not args:
+            return ""
+        import re
+        items = "".join(
+            f'<div class="arg-item"><div class="arg-claim">{_esc(re.sub(r"\[\w+:", "[", a))}</div></div>'
+            for a in args
+        )
+        num_tag = f'<span class="num {num_cls}">{"B" if "bull" in label.lower() else "S"}</span>'
+        return f'<div class="debate-round"><div class="round-title">{num_tag} {label}</div><div class="round-body">{items}</div></div>'
 
-        debate_html = _args_block(bull_v1, "🟢 多头立论", "#16a34a")
-        debate_html += _args_block(bear_v1, "🔴 空头立论", "#dc2626")
-        debate_html += _args_block(bear_rebut, "🔴 空头反驳", "#dc2626")
-        debate_html += _args_block(bull_rebut, "🟢 多头反驳", "#16a34a")
-        debate_html += _args_block(bear_final, "🔴 空头终述", "#dc2626")
-        debate_html += _args_block(bull_final, "🟢 多头终述", "#16a34a")
-    else:
-        debate_html = '<div style="color:#888;">无辩论论据（fast 模式跳过辩论）</div>'
+    for key, label, _, num_cls in debate_rounds:
+        debate_html += _debate_round_html(label, args_map.get(key, []), _, num_cls)
+    if not debate_html:
+        debate_html = '<div class="callout">无辩论论据（fast 模式跳过辩论）</div>'
     sections.append(("P3 六阶段辩论 · 多空攻防", debate_html, "#6366f1"))
 
-    # P4 终裁
-    rr_color = "#16a34a" if rr >= 2 else "#d97706" if rr >= 1 else "#dc2626"
-
-    # 市价确认：入场价 = 当前市价，不存在"等待特定价格"的概念
+    # P4 终裁 — verdict-box 组件
+    rr_color = var_green if rr >= 2 else var_yellow if rr >= 1 else var_red
     current_price = latest_close if latest_close > 0 else (float(scan_item.get("price", 0) or 0) if scan_item else 0)
-    entry_market = current_price if current_price > 0 else entry_p  # 优先用当前市价
+    action_hint = f"当前市价 {_fmt(current_price)}，以 market order 执行" if current_price > 0 else ""
     if entry_p > 0 and current_price > 0 and entry_p != current_price:
-        entry_p = current_price  # 强制对齐到市价，杜绝挂单价偏差
+        entry_p = current_price
     entry_p = current_price if current_price > 0 else entry_p
 
-    action_label = "✅ 市价入场 · 以当前市场价格立即成交"
-    action_color = "var(--green)"
-    action_cls = ""
-    action_hint = f"当前市价 {_fmt(current_price)}，以 market order 执行" if current_price > 0 else ""
-
     verdict_html = (
-        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">\n'
-        f'<div class="card" style="border-left:3px solid {dir_color};margin-bottom:0;">\n'
-        f'<div class="kv-row"><span class="k">裁决方向</span><span class="v" style="color:{dir_color};font-size:1.1em;">{dir_cn}</span></div>\n'
-        f'<div class="kv-row"><span class="k">置信度</span><span class="v">{verdict_conf:.0%}</span></div>\n'
-        f'<div class="kv-row"><span class="k">盈亏比</span><span class="v" style="color:{rr_color};">{rr:.2f}:1</span></div>\n'
-        f'</div>\n'
-        f'<div class="card" style="border-left:3px solid #6366f1;margin-bottom:0;">\n'
-        f'<div class="kv-row"><span class="k">当前价</span><span class="v" style="font-weight:800;">{_fmt(current_price)}</span></div>\n'
-        f'<div class="kv-row"><span class="k">市价入场</span><span class="v">{_fmt(entry_p)}</span></div>\n'
-        f'<div class="kv-row"><span class="k">目标价</span><span class="v">{_fmt(target_p)}</span></div>\n'
-        f'<div class="kv-row"><span class="k">止损价</span><span class="v" style="color:#dc2626;">{_fmt(stop_p)}</span></div>\n'
-        f'<div class="kv-row"><span class="k">仓位</span><span class="v">{pos_pct:.1f}%</span></div>\n'
+        f'<div class="verdict-box">\n'
+        f'<div class="vh"><div class="vd">{dir_cn}</div>'
+        f'<div class="vc">置信度 <strong>{verdict_conf:.0%}</strong>'
+        f'<div class="vb"><div class="f" style="width:{verdict_conf*100}%;background:{dir_color};"></div></div></div></div>\n'
+        f'<div class="sg">\n'
+        f'<div class="si"><div class="l">入场价</div><div class="v">{_fmt(entry_p)}</div><div class="w">市价</div></div>\n'
+        f'<div class="si"><div class="l">目标价</div><div class="v">{_fmt(target_p)}</div><div class="w">→ {dir_cn}</div></div>\n'
+        f'<div class="si"><div class="l">止损价</div><div class="v" style="color:var(--red);">{_fmt(stop_p)}</div><div class="w">风险控制</div></div>\n'
+        f'<div class="si"><div class="l">仓位</div><div class="v">{pos_pct:.1f}%</div><div class="w">建议比例</div></div>\n'
+        f'<div class="si"><div class="l">盈亏比</div><div class="v" style="color:{rr_color};">{rr:.2f}:1</div><div class="w">{action_hint}</div></div>\n'
         f'</div>\n'
         f'</div>\n'
-        f'<div class="risk-box" style="margin-top:8px;"><strong style="color:{action_color};">{action_label}</strong>'
-        f'<p class="text-sm" style="margin-top:4px;color:var(--muted);">{action_hint}</p></div>'
-        f'<div style="margin-top:8px;color:#666;font-size:0.8em;line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:4px;">{_esc(verdict_reason)}</div>'
+        f'<div class="callout">{_esc(verdict_reason)}</div>\n'
     )
     sections.append(("P4 闫判官 · 终裁与交易参数", verdict_html, dir_color))
 
-    # P5 风控
+    # P5 风控 — risk-box 组件
+    risk_cls = "danger" if risk_color_label in ("red", "红灯") else "warn" if risk_color_label in ("yellow", "黄灯") else ""
     risk_status = "✅ 审核通过" if risk_approved else "❌ 阻断"
-    risk_status_color = "#16a34a" if risk_approved else "#dc2626"
     risk_html = (
-        f'<div style="margin-bottom:10px;">\n'
-        f'<span style="font-weight:bold;color:{risk_status_color};font-size:1.05em;">{risk_status}</span>\n'
-        f'<span style="color:#888;margin-left:12px;font-size:0.85em;">风险等级: {risk_level} | 风险颜色: {risk_color_label}</span>\n'
-        f'</div>'
+        f'<div class="risk-box {risk_cls}">\n'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">\n'
+        f'<span style="font-weight:700;font-size:1.05em;">{risk_status}</span>\n'
+        f'<span class="text-sm text-muted">风控等级: <span class="tag {"tag-high" if risk_color_label in ("red","红灯") else "tag-mid" if risk_color_label in ("yellow","黄灯") else "tag-low"}">{risk_level}</span></span>\n'
+        f'</div>\n'
     )
     if risk_blocking:
-        risk_html += (
-            f'<div style="margin:8px 0;padding:8px 12px;background:#1a0a0a;border-radius:6px;'
-            f'border-left:3px solid #dc2626;color:#dc2626;font-size:0.85em;line-height:1.6;">\n'
-            f'<b>阻断原因:</b> {_esc(risk_blocking)}\n'
-            f'</div>'
-        )
+        risk_html += f'<div style="margin-top:8px;color:var(--red);font-size:0.85em;line-height:1.6;"><b>阻断原因:</b> {_esc(risk_blocking)}</div>\n'
     if risk_warnings:
-        risk_html += '<div style="margin-top:6px;">'
         for w in risk_warnings:
-            risk_html += (
-                f'<div style="color:#ef4444;font-size:0.8em;margin:3px 0;padding:5px 10px;'
-                f'background:#14161f;border-radius:4px;">⚠ {_esc(w)}</div>'
-            )
-        risk_html += "</div>"
+            risk_html += f'<div class="text-sm text-muted" style="margin-top:4px;">⚠ {_esc(w)}</div>\n'
     if risk_notes:
-        risk_html += (
-            f'<div style="color:#d97706;font-size:0.82em;margin-top:8px;padding:6px 10px;'
-            f'background:#14161f;border-radius:4px;">📝 {_esc(risk_notes)}</div>'
-        )
-    sections.append(("P5 风控明 · 风险审核", risk_html, risk_status_color))
+        risk_html += f'<div style="margin-top:6px;color:var(--yellow);font-size:0.82em;">📝 {_esc(risk_notes)}</div>\n'
+    risk_html += '</div>\n'
+    sections.append(("P5 风控明 · 风险审核", risk_html, var_yellow if "warn" in risk_cls else var_green))
 
     # ── 组装 body ──
     section_ids = {
-        "P1 数技源 · 统计特征": "p1-stats",
+        "P1 数技源 · 数据总览": "p1-stats",
         "P2 观澜 · 技术面": "p2-tech",
-        "P2 探源 · 基本面": "p2-fund",
-        "P2 读心 · 新闻情绪": "p2-sent",
+        "P3 探源 · 基本面": "p3-fund",
+        "P3 读心 · 新闻情绪": "p3-sent",
         "P3 六阶段辩论 · 多空攻防": "p3-debate",
         "P4 闫判官 · 终裁与交易参数": "p4-verdict",
         "P5 风控明 · 风险审核": "p5-risk",
@@ -474,12 +516,13 @@ def _build_body_sections(state: dict) -> str:
     for stitle, shtml, _ in sections:
         sid = section_ids.get(stitle, "")
         phase = sid.split("-")[0] if sid else ""
-        label = stitle.split("·")[-1].strip() if "·" in stitle else stitle
-        badge = f'<span class="phase-badge {phase}">{phase.upper()}</span>' if phase else ""
+        color_map = {"p1": "p1", "p2": "p2", "p3": "p3", "p4": "p4", "p5": "p5"}
+        badge_cls = color_map.get(phase, phase)
+        badge = f'<span class="phase-badge {badge_cls}">{phase.upper()}</span>' if phase else ""
         body_html += (
             f'<section id="{sid}">\n'
-            f'<h2>{badge} {label}</h2>\n'
-            f'<div class="card">{shtml}</div>\n'
+            f'<h2>{badge} {stitle.split("·")[-1].strip()}</h2>\n'
+            f'{shtml}\n'
             f'</section>\n'
         )
 

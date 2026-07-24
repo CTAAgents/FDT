@@ -24,7 +24,7 @@ _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR.parent) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR.parent))
 
-from scripts.analyze_trajectory import TrajectoryAnalyzer, FaultAttributor
+from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
 from scripts.embodiskill_reflect import EmbodiSkillReflector
 from scripts.skillevolver_evolution import SkillEvolver
 from scripts.verify_evolution import EvolutionVerifier

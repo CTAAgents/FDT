@@ -8,8 +8,6 @@ price/last_price 统一注入 ScoredSignal.price。
 import sys
 from pathlib import Path
 
-import pytest
-
 # 确保 scripts/ 在 sys.path
 _SCRIPTS = str(Path(__file__).resolve().parents[2] / "skills" / "quant-daily" / "scripts")
 if _SCRIPTS not in sys.path:

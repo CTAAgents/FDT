@@ -21,10 +21,8 @@ _logger = get_logger("market_game")
     # → {"fake_breakout_risk": 0.7, "sucking_type": "bull_trap", "confidence": 0.65}
 """
 
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 import json
-import math
+from typing import Any, Dict, List
 
 
 class MarketGameAgent:

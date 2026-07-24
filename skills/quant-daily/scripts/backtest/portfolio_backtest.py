@@ -10,14 +10,16 @@
   python portfolio_backtest.py --ma60-entry --output results_ma60
   python portfolio_backtest.py --output results_noma60
 """
-import argparse, json, os, sys
+import argparse
+import json
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, SKILL_DIR)
 
 import pandas as pd
-import numpy as np
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
 

@@ -41,7 +41,7 @@ def validate_atr_vol_timing(r, context):
     if not (atr and price):
         return
     atr_pct = atr / price * 100
-    
+
     # ── 基差联合判断 ──
     basis_info = (context.extra or {}).get("basis_data", {}).get(r.get("symbol", "").upper(), {})
     basis_pct = basis_info.get("basis_pct", 0)
@@ -52,7 +52,7 @@ def validate_atr_vol_timing(r, context):
             r["_strangle_compressed"] = True
             r["_override_reason"] = f"基差走阔(basis_pct={basis_pct:+.2f}%)弹簧压缩覆写降级"
         return
-    
+
     # 高波 + 基差收缩 → 过热，降级
     if atr_pct > ATR_PCT_HIGH and basis_pct < BASIS_SHRINK_THRESHOLD:
         demote(r, f"高波({atr_pct:.2f}%)+基差收缩(basis_pct={basis_pct:+.2f}%)→过热信号")

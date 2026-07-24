@@ -1,6 +1,6 @@
-import pytest
-from fdt_langgraph.state import DebateState, create_initial_state
 from datetime import datetime
+
+from fdt_langgraph.state import DebateState, create_initial_state
 
 
 def test_debate_state_defaults():

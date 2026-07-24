@@ -44,7 +44,7 @@ def generate_scenarios(base_plan: dict = None, market_data: dict = None) -> dict
             "action": "按止损止盈计划执行，不做额外调整",
         },
         "bear_case": {
-            "scenario": f"逻辑失效，行情反向运行",
+            "scenario": "逻辑失效，行情反向运行",
             "condition": f"突发宏观事件/政策转向/产业链断裂/{opposite}资金大规模进场",
             "pnl_est": f"单品种触发止损出场，总回撤约{position_pct}%×止损幅度的等效损失",
             "action": "触发止损后停止该品种交易，等待下一次辩论",
@@ -67,4 +67,4 @@ if __name__ == "__main__":
     }
     result = generate_scenarios(plan)
     print(json.dumps(result["scenarios"], indent=2, ensure_ascii=False)[:500])
-    print(f"\n[OK] 情景分析通过")
+    print("\n[OK] 情景分析通过")

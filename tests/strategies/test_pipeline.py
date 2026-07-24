@@ -38,8 +38,8 @@ class TestTopoSort:
         assert names.index("a") < names.index("c")
 
     def test_circular_detection(self):
-        from strategies.pipeline import _topo_sort
         from strategies.base_v2 import BaseStrategyV2
+        from strategies.pipeline import _topo_sort
         class CircularA(BaseStrategyV2):
             @property
             def name(self): return "circ_a"
@@ -205,6 +205,7 @@ class TestSubSignalMerge:
             ("bear", -100, 100.0, "STRONG", "trend_following.dual_thrust"),
         ]
         import importlib
+
         import strategies.pipeline as _pipeline_mod
         importlib.reload(_pipeline_mod)
         from strategies.pipeline import StrategyPipeline

@@ -1,7 +1,8 @@
 # 01 — Harness 架构总览
 
-> **v9.25.0** (2026-07-24): 记忆系统全面重构 — MemoryManager 统一管理层（manager/store/retrieval/maintenance 四层架构），替换散落直写；G30 自进化规则注入接入 evolution_graph。详见 `docs/designs/memory-system-overhaul.md`。
-> **v9.23.1** (2026-07-24): 数据源优先级变更 — TqSDK=0(第一), TDX/DataCore=1(第二), WebFallback=2, QMT=3。详见 `docs/harness/03-configuration.md#5-数据源配置`。
+> **v10.0.0** (2026-07-24): 数据层重构 — FDC 退役，`data_adapter/` 数据适配层上线。AKShare 为唯一 K 线数据源，多源降级链全部废除。数据结构: AKShare → data_adapter → 下游消费者（scan_all / P2.5 / 辩论闭环）。
+>
+> 清洗层 (data_adapter/cleaning/) 作为数据源的中间件，对原始 K 线执行 OHLC 校验、零成交量剔除、去重、时间轴标准化、3σ 毛刺修复、前复权处理、**期货专项清洗（交割月过滤 + 涨跌停封板标记）**。通过环境变量 FDT_DATA_CLEANING_ENABLED 控制开关（默认开启）。每道清洗产出的清洗报告附着在 KlineResult.cleaning 中透传下游。
 
 ## 1. 分层架构
 
@@ -32,7 +33,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 
 | 层 | 职责 | 核心组件 |
 |:--|:-----|:---------|
-| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、Data-Core F10 桥接(统一F10数据入口，自动降级到原有采集器)、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), `_datacore_bridge` (Data-Core F10 桥接器), `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
+| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、**Data Adapter Layer（数据源插座，统一数据源接口，可插拔）**、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), **`data_adapter/` (数据适配层，AKShare唯一实现，12个统一接口)**, `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
 | **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层逐品种 body 合并（v9.12.0+）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路，v9.22.0 新增 rhi 分支：improve→calibrate→evolve→rhi→ml→complete） + RHI 递归 Harness 自改进（v9.21.0+，轨迹局部 pairwise 比较优化三层 Harness 规范） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（逐品种 body 生成器，v9.12.0+ 统一入口）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+）, `fdt_langgraph/rhi_graph.py`（RHI 自改进，v9.21.0+） |
@@ -249,7 +250,8 @@ scan → judge_direction → prepare_one_symbol(品种0)
     │  · 处理: evaluate_f10_data + evaluate_indicators — 每品种F10/指标质量评估(levels/等级/问题摘要)
     │  · 处理: _build_jin10_context() 按品种中文关键词搜索金十快讯，去重后格式化
     │  · 输出: fdc_data (含 f10_quality + indicator_quality) 注入 state，格式化文本注入 context
-    │  · 数据流: FDC → node_prepare_data → _build_fdc_fundamental_context → node_fundamental context
+    │  · 数据流: node_prepare_data → _build_fdc_fundamental_context → node_fundamental context（探源）
+│  · 数据流: node_prepare_data → _build_fdc_technical_context → node_technical context（观澜，含持仓排名/资金流向/外盘）
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
     │
     ▼

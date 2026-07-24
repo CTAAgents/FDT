@@ -5,10 +5,12 @@ Memory Writer 集成测试 — G8
 覆盖: Journal/Index/Record 三类写入、并发安全、必需字段校验。
 """
 
-import sys, json, threading
+import json
+import sys
+import threading
 from pathlib import Path
+
 import pytest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))

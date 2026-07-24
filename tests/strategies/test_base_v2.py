@@ -8,7 +8,7 @@ class TestRawSignal:
     """RawSignal 数据契约测试"""
 
     def _signal(self, raw_score=-30, **kw):
-        import sys, os; p = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "skills", "quant-daily", "scripts"); sys.path.insert(0, p)
+        import sys; import os; p = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "skills", "quant-daily", "scripts"); sys.path.insert(0, p)
         from strategies.base_v2 import RawSignal
         base = dict(symbol="RB", direction="bear", signal_type="test.a",
                      raw_score=raw_score, strategy_name="test")

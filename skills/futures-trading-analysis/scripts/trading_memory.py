@@ -13,9 +13,10 @@
 持久化路径: data/trading_memory/{symbol}.json
 """
 
-import json, os
+import json
+import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 MEMORY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "trading_memory")
 

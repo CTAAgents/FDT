@@ -13,13 +13,14 @@ P0-2: 回测体系全面加固 — 置换检验
     python permutation_test.py --symbols RB --days 365 --iterations 2000
 """
 
-import sys, os, json, math, random
-from datetime import datetime
-from typing import Dict, List, Any
-from collections import defaultdict
+import json
+import math
+import os
+import random
+import sys
+from typing import Any, Dict, List
 
 import numpy as np
-import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

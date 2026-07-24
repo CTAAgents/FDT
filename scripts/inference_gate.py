@@ -34,13 +34,13 @@ inference_gate.py — IGP 推理门控模块 v1.0.0
   gate.save_audit()
 """
 
-import time
 import json
 import threading
-from pathlib import Path
-from typing import Optional, Callable
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Callable, Optional
 
 # ── 配置 ──────────────────────────────────────
 

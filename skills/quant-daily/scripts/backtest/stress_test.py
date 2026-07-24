@@ -17,16 +17,15 @@ P0-2: 回测体系全面加固 — 压力测试
     python stress_test.py --all-scenarios --symbols RB
 """
 
-import sys, os, json, math
-from datetime import datetime, timedelta
-from typing import Dict, List, Any
-from collections import defaultdict
+import json
+import math
+import os
+import sys
+from typing import Any, Dict, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
-import numpy as np
-
 
 # ── 预定义极端场景 ──
 STRESS_SCENARIOS = {

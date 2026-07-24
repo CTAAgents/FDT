@@ -16,16 +16,14 @@
 import json
 import os
 import sys
-from copy import deepcopy
 from datetime import datetime
 from typing import Optional
 
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _SCRIPTS_DIR)
 
-from optimizer.data_tracker import get_training_data
 from config.settings import CHANNEL_BREAKOUT_CONFIG
-
+from optimizer.data_tracker import get_training_data
 
 # ─── 可优化参数空间定义 ───
 # 每个条目: (section, key, 候选值列表, 中文名, 是否方向感知)
@@ -241,7 +239,7 @@ def optimize_symbol(
     current_key = f"current={current_stats['win_rate']:.0%}"
 
     if verbose:
-        print(f"\n  ── 优化结果 ──")
+        print("\n  ── 优化结果 ──")
         print(f"  当前: 胜率={current_stats['win_rate']:.0%}  "
               f"盈亏比={current_stats['avg_pnl']:.2f}  "
               f"样本={current_stats['count']}")

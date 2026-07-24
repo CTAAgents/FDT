@@ -14,8 +14,7 @@
   PASS / FAIL / SKIP
 """
 
-from typing import TypedDict, Optional, Literal, Any
-
+from typing import Literal, TypedDict
 
 # ── 质量报告 ──
 

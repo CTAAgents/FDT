@@ -5,10 +5,9 @@
     from contracts import BullOutput, BearOutput, RiskOutput, apply_migration, ...
 """
 
-import sys
 import importlib.util
+import sys
 from pathlib import Path
-
 
 _real = (
     Path(__file__).resolve().parent.parent

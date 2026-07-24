@@ -1,0 +1,617 @@
+# AKShare 期货数据字段字典 v10.0.0
+#
+# 用途：下游 Agent/模块参考文档，使各消费方能最大化利用 AKShare 数据。
+# 真相源：AKShare 官方文档 https://akshare.akfamily.xyz/
+# 更新规则：新增 AKShare 接口时同步更新本文件。
+#
+# 版本历史：
+#   v10.0.0 (2026-07-24): 初版，覆盖 19 个已集成 + 13 个可接入接口
+#
+# ── 结构说明 ──────────────────────────────────────────────
+# category:   数据分类
+# interface:  AKShare 函数名
+# description: 数据内容说明
+# fields:     原始 AKShare 返回字段（列名） → 类型说明
+# fdt_mapping:→ FDT 规范字段映射（从 field_normalizer.py CanonicalField）
+# consumer:   当前消费方（模块/Agent）
+# status:     集成状态 (integrated / available / planned)
+
+akshare_futures_data:
+  # ═════════════════════════════════════════════════════════
+  # 1. K 线数据
+  # ═════════════════════════════════════════════════════════
+  - category: "K线数据 (Kline)"
+    interface: "futures_hist_em"
+    description: >
+      东方财富期货历史K线。主力连续合约或具体合约。
+      参数: symbol(品种代码+"0"), period(daily/weekly/monthly),
+            start_date, end_date, adjust(""=不复权/"1"=前复权/"2"=后复权)
+    akshare_fields:
+      日期: "str YYYY-MM-DD — 交易日"
+      开盘: "float — 开盘价"
+      最高: "float — 最高价"
+      最低: "float — 最低价"
+      收盘: "float — 收盘价"
+      成交量: "int — 成交量（手）"
+      成交额: "float — 成交额（元）"
+      持仓量: "int — 持仓量（手）"
+    fdt_mapping:
+      date: "日期 → CanonicalField.DATE"
+      open: "开盘 → CanonicalField.OPEN"
+      high: "最高 → CanonicalField.HIGH"
+      low: "最低 → CanonicalField.LOW"
+      close: "收盘 → CanonicalField.CLOSE"
+      volume: "成交量 → CanonicalField.VOLUME"
+      amount: "成交额 → CanonicalField.AMOUNT"
+      oi: "持仓量 → CanonicalField.OI（统一字段名）"
+    consumer:
+      - "akshare_provider.py AKShareKlineProvider.get_kline()"
+      - "collectors/akshare.py AKShareCollector.get_kline()"
+      - "下游: P1 数技源 scan_all (技术指标计算)"
+      - "下游: P3 观澜 技术面分析"
+      - "下游: P3 探源 基本面分析（价格基准）"
+      - "下游: P5 风控 价格验证"
+    status: "integrated"
+    notes:
+      - "AKShare 返回按日期降序，_parse_df 解析后在 _build_payload 统一转为升序"
+      - "主力连续不处理换月跳空，需要复权时设 adjust='1'"
+      - "测试: tests/futures_data_core/test_akshare_modules.py"
+
+  # ═════════════════════════════════════════════════════════
+  # 2. 行情快照
+  # ═════════════════════════════════════════════════════════
+  - category: "行情快照 (Quote)"
+    interface: "futures_zh_realtime"
+    description: >
+      国内期货实时行情快照（全市场），返回所有合约的当前行情。
+      无参数，返回全市场 DataFrame。
+    akshare_fields:
+      symbol: "str — 品种代码"
+      代码: "str — 合约代码"
+      最新价: "float — 当前价格"
+      开盘: "float — 开盘价"
+      最高: "float — 当日最高"
+      最低: "float — 当日最低"
+      昨结算: "float — 昨结算价"
+      持仓量: "int — 持仓量"
+      成交量: "int — 成交量（手）"
+      买一价: "float — 买一价"
+      卖一价: "float — 卖一价"
+    fdt_mapping:
+      last_price: "最新价 → quote.last_price"
+      open: "开盘 → quote.open"
+      high: "最高 → quote.high"
+      low: "最低 → quote.low"
+      volume: "成交量 → quote.volume"
+      settlement: "昨结算 → quote.settlement（未使用，可扩展）"
+    consumer:
+      - "akshare_provider.py AKShareKlineProvider.get_quote()"
+      - "下游: P3 观澜 实时价格参考"
+      - "下游: P5 风控 入场价校验"
+    status: "integrated"
+    notes:
+      - "全市场数据量大，使用时应按品种过滤"
+      - "列名中英文混用，get_quote 中通过多个候选列名滑动匹配"
+
+  # ═════════════════════════════════════════════════════════
+  # 3. 合约信息
+  # ═════════════════════════════════════════════════════════
+  - category: "合约信息 (Contract Info)"
+    interface: "futures_comm_info"
+    description: >
+      期货品种交易信息：保证金率、合约乘数、最小变动价位、涨跌停等。
+    akshare_fields:
+      合约名称: "str — 中文品名（如'精对苯二甲酸'）"
+      合约代码: "str — 品种代码（如'TA'）"
+      交易所: "str — 交易所简称"
+      合约乘数: "int — 每手吨数/克数"
+      保证金率: "float — 保证金比例"
+      最小变动价位: "float — 最小变动价位"
+      上市日期: "str — 上市日期"
+    fdt_mapping:
+      product_name: "合约名称 → contract_info.product_name"
+      exchange: "交易所 → contract_info.exchange"
+      multiplier: "合约乘数 → contract_info.multiplier"
+      margin_rate: "保证金率 → contract_info.margin_rate（风控用）"
+      price_tick: "最小变动价位 → contract_info.price_tick"
+    consumer:
+      - "f10/contract_info.py get_contract_info()"
+      - "下游: P5 风控明 保证金/仓位计算"
+      - "下游: P4 闫判官 交易参数计算"
+    status: "integrated"
+
+  - category: "合约信息 (Contract Info)"
+    interface: "futures_contract_detail_em"
+    description: >
+      东方财富合约详情：到期日、最后交易日、上市日等。
+    akshare_fields:
+      品种: "str — 品种名称"
+      合约代码: "str — 合约代码（如'CF2609'）"
+      上市日期: "str — 上市日期"
+      最后交易日: "str — 最后交易日"
+      交割日期: "str — 交割日期"
+    fdt_mapping:
+      contract_code: "合约代码 → contract_info.contract_code"
+      last_trade_date: "最后交易日 → contract_info.last_trade_date"
+      delivery_date: "交割日期 → contract_info.delivery_date"
+    consumer:
+      - "f10/contract_info.py get_contract_info()"
+      - "akshare_provider.py AKShareKlineProvider.get_all_active_contracts()"
+      - "下游: P2 闫判官 品种选择"
+    status: "integrated"
+    notes:
+      - "get_all_active_contracts 用此接口查询活跃合约列表"
+      - "可用于期限结构分析的合约筛选"
+
+  # ═════════════════════════════════════════════════════════
+  # 4. 仓单数据
+  # ═════════════════════════════════════════════════════════
+  - category: "仓单数据 (Warrant)"
+    interface: "futures_shfe_warehouse_receipt"
+    description: "SHFE 上期所仓单日报"
+    akshare_fields:
+      品种: "str — 品种名称"
+      仓库: "str — 交割仓库"
+      仓单量: "int — 仓单数量（手）"
+      日变动: "int — 日增减"
+    fdt_mapping:
+      total: "仓单量汇总 → warrant.total"
+      daily_change: "日变动汇总 → warrant.daily_change"
+    consumer:
+      - "f10/warrant.py get_warrant()"
+      - "下游: P3 探源 供需分析（库存替代指标）"
+      - "下游: P3 链证源 产业链库存分析"
+    status: "integrated"
+    notes:
+      - "4 个交易所的仓单接口共享同一入口 get_warrant(exchange=...)"
+      - "汇总逻辑: summarize_warrant() 纯函数，按品种汇总仓单总量和日变动"
+
+  - category: "仓单数据 (Warrant)"
+    interface: "futures_warehouse_receipt_czce"
+    description: "CZCE 郑商所仓单日报"
+    akshare_fields:
+      品种代码: "str — 品种代码"
+      品种名称: "str — 品种名称"
+      仓单数量: "int — 仓单数量（张）"
+      仓单变动: "int — 日变动"
+    fdt_mapping:
+      total: "仓单数量 → warrant.total"
+      daily_change: "仓单变动 → warrant.daily_change"
+    consumer:
+      - "f10/warrant.py get_warrant(exchange='CZCE')"
+    status: "integrated"
+
+  - category: "仓单数据 (Warrant)"
+    interface: "futures_warehouse_receipt_dce"
+    description: "DCE 大商所仓单日报"
+    consumer:
+      - "f10/warrant.py get_warrant(exchange='DCE')"
+    status: "integrated"
+
+  - category: "仓单数据 (Warrant)"
+    interface: "futures_gfex_warehouse_receipt"
+    description: "GFEX 广期所仓单日报"
+    consumer:
+      - "f10/warrant.py get_warrant(exchange='GFEX')"
+    status: "integrated"
+
+  # ═════════════════════════════════════════════════════════
+  # 5. 库存数据
+  # ═════════════════════════════════════════════════════════
+  - category: "库存数据 (Inventory)"
+    interface: "futures_inventory_em"
+    description: >
+      东方财富期货库存数据（国内交易所库存，替代原有数据源）。
+    akshare_fields:
+      日期: "str — 日期"
+      品种: "str — 品种名称"
+      库存: "float — 库存量"
+      增减: "float — 日增减"
+    fdt_mapping:
+      inventory: "库存 → inventory.value"
+      change: "增减 → inventory.daily_change"
+    consumer:
+      - "f10/inventory.py"
+      - "下游: P3 探源 供需分析"
+    status: "integrated"
+
+  - category: "库存数据 (Inventory)"
+    interface: "futures_comex_inventory"
+    description: >
+      COMEX 期货库存数据（贵金属：黄金、白银等）。
+    consumer:
+      - "f10/inventory.py"
+      - "下游: P3 探源 外盘库存参考（黄金/白银品种）"
+    status: "integrated"
+
+  # ═════════════════════════════════════════════════════════
+  # 6. 持仓排名
+  # ═════════════════════════════════════════════════════════
+  - category: "持仓排名 (Position Ranking)"
+    interface: "futures_dce_position_rank"
+    description: "DCE 大商所会员持仓排名"
+    akshare_fields:
+      品种: "str — 品种代码"
+      会员简称: "str — 期货公司"
+      持买单量: "int — 持买单量（手）"
+      持卖单量: "int — 持卖单量（手）"
+    fdt_mapping:
+      long_volume: "持买单量 → position.long_volume"
+      short_volume: "持卖单量 → position.short_volume"
+      top5_long: "前5多头汇总 → position.top5_long"
+      top5_short: "前5空头汇总 → position.top5_short"
+      net_long: "净多差 → position.net_long"
+    consumer:
+      - "f10/position.py get_position_ranking()"
+      - "下游: P3 探源 资金面分析（多空力量对比）"
+      - "下游: P3 观澜 持仓结构/前20席位分析"
+      - "下游: P3 空头分析员/多头分析员 辩论论据"
+    status: "integrated"
+    notes:
+      - "3 个交易所的持仓排名共享统一入口 get_position_ranking(symbol)"
+      - "返回结构包含 long[] / short[] 详细列表和 top5/top10 汇总"
+
+  - category: "持仓排名 (Position Ranking)"
+    interface: "futures_gfex_position_rank"
+    description: "GFEX 广期所会员持仓排名"
+    consumer:
+      - "f10/position.py get_position_ranking()"
+    status: "integrated"
+
+  - category: "持仓排名 (Position Ranking)"
+    interface: "futures_stock_shfe_js"
+    description: "SHFE 上期所会员持仓排名"
+    akshare_fields:
+      品种: "str — 品种代码"
+      会员简称: "str — 期货公司"
+      持买: "int — 持买量"
+      持卖: "int — 持卖量"
+    consumer:
+      - "f10/position.py get_position_ranking()"
+    status: "integrated"
+
+  # ═════════════════════════════════════════════════════════
+  # 7. 资金流向
+  # ═════════════════════════════════════════════════════════
+  - category: "资金流向 (Fund Flow)"
+    interface: "futures_hold_pos_sina"
+    description: >
+      新浪财经期货持仓/资金流向数据。
+    akshare_fields:
+      品种: "str — 品种名称"
+      持仓量: "int — 总持仓量"
+      多头持仓: "int — 多头持仓量"
+      空头持仓: "int — 空头持仓量"
+    fdt_mapping:
+      total_oi: "持仓量 → fund_flow.total_oi"
+      long_pos: "多头持仓 → fund_flow.long_position"
+      short_pos: "空头持仓 → fund_flow.short_position"
+    consumer:
+      - "f10/fund_flow.py"
+      - "下游: P3 探源 资金面分析"
+      - "下游: P3 观澜 多空比/资金流"
+    status: "integrated"
+
+  # ═════════════════════════════════════════════════════════
+  # 8. 外盘数据
+  # ═════════════════════════════════════════════════════════
+  - category: "外盘数据 (Foreign)"
+    interface: "futures_foreign_hist"
+    description: >
+      外盘期货历史K线（美豆、美原油、伦铜、美黄金等）。
+      参数: symbol（外盘品种代码如"CU"、"GC"、"CL"、"S"）
+    akshare_fields:
+      日期: "str — 交易日"
+      开盘: "float — 开盘价"
+      最高: "float — 最高价"
+      最低: "float — 最低价"
+      收盘: "float — 收盘价"
+      成交量: "int — 成交量"
+    fdt_mapping:
+      date: "日期 → foreign.date"
+      open: "开盘 → foreign.open"
+      high: "最高 → foreign.high"
+      low: "最低 → foreign.low"
+      close: "收盘 → foreign.close"
+      volume: "成交量 → foreign.volume"
+    consumer:
+      - "f10/foreign.py"
+      - "下游: P3 链证源 产业链上下游内外盘联动"
+      - "下游: P3 观澜 外盘技术面参考"
+    status: "integrated"
+    notes:
+      - "外盘品种代码需用 AKShare 的英文代码而非 FDT 代码"
+      - "日志表明 some 品种 symbol 映射可能失败，需维护 symbol → 外盘代码映射表"
+
+  # ═════════════════════════════════════════════════════════
+  # 9. 现货/基差
+  # ═════════════════════════════════════════════════════════
+  - category: "现货/基差 (Spot/Basis)"
+    interface: "futures_spot_price_daily"
+    description: >
+      国内现货每日报价（生意社数据源）。
+    akshare_fields:
+      商品名称: "str — 商品名称"
+      现货价格: "float — 当前现货价格"
+      价格: "float — 价格"
+    fdt_mapping:
+      spot_price: "现货价格 → basis.spot_price"
+      symbol_cn: "商品名称 → basis.product_name_cn"
+    consumer:
+      - "f10/basis.py"
+      - "下游: P3 探源 基差分析"
+      - "下游: P3 链证源 产业链利润分析"
+    status: "integrated"
+    notes:
+      - "现货品种 → FDT 品种代码映射在 basis.py _AK_SYMBOL_MAP 硬编码，约 25 个品种"
+      - "列名动态变化，代码中通过候选列名滑动匹配"
+
+  # ═════════════════════════════════════════════════════════
+  # 10. 宏观经济数据
+  # ═════════════════════════════════════════════════════════
+  - category: "宏观经济 (Macro)"
+    interface: "macro_china_pmi"
+    description: "中国 PMI 数据（制造业/非制造业）"
+    akshare_fields:
+      日期: "str — 月份"
+      制造业-指数: "float — 制造业 PMI"
+      非制造业-指数: "float — 非制造业 PMI"
+    fdt_mapping:
+      manufacturing_pmi: "制造业PMI → macro.manufacturing_pmi"
+      non_manufacturing_pmi: "非制造业PMI → macro.non_manufacturing_pmi"
+    consumer:
+      - "f10/macro.py"
+      - "下游: P3 探源 宏观因子评估"
+    status: "integrated"
+
+  - category: "宏观经济 (Macro)"
+    interface: "macro_china_lpr"
+    description: "中国 LPR 利率数据（1年期/5年期）"
+    akshare_fields:
+      TRADE_DATE: "str — 日期"
+      LPR1Y: "float — 1年期LPR"
+      LPR5Y: "float — 5年期LPR"
+    fdt_mapping:
+      lpr_1y: "LPR1Y → macro.lpr_1y"
+      lpr_5y: "LPR5Y → macro.lpr_5y"
+    consumer:
+      - "f10/macro.py"
+      - "下游: P3 探源 宏观因子评估"
+    status: "integrated"
+
+  # ═════════════════════════════════════════════════════════
+  # 11. 已有调用但未实际消费的 A2A 数据
+  # ═════════════════════════════════════════════════════════
+  - category: "基差/期限结构 (已有调用)"
+    interface: "futures_spot_price"
+    description: >
+      详细现货价接口（commodity-chain-analysis 中使用）。
+      参数: date, vars_list
+    akshare_fields:
+      symbol: "str — 品种代码"
+      near_contract_price: "float — 近月合约价"
+      dominant_contract_price: "float — 主力合约价"
+    consumer:
+      - "skills/commodity-chain-analysis/scripts/term_basis.py"
+      - "skills/quant-daily/scripts/signals/term_basis.py"
+    status: "integrated"
+    notes:
+      - "已被 term_basis 模块调用，数据直接用于期限结构策略信号"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 以下为 AKShare 可用但 FDT 尚未消费的接口
+  # 标记 status=available，供后续扩展参考
+  # ═══════════════════════════════════════════════════════════════
+  - category: "外盘 (待接入)"
+    interface: "futures_foreign_commodity_realtime"
+    description: >
+      外盘期货实时行情（CME/CBOT/LME/ICE等）。
+      可用于：内外盘联动分析、夜盘方向预判。
+    potential_consumer:
+      - "P3 观澜 — 外盘技术面增强"
+      - "P3 探源 — 内外盘基本面对比"
+      - "P4 闫判官 — 方向判断的全球背景"
+    status: "available"
+
+  - category: "全球K线 (待接入)"
+    interface: "futures_global_hist_em"
+    description: >
+      东方财富全球期货历史K线，覆盖主要交易所（CME/LME/TOCOM等）。
+      可用于：跨市场分析、套利品种分析。
+    potential_consumer:
+      - "f10/foreign.py — 替代现有的 futures_foreign_hist（更全面的外盘数据）"
+      - "P3 链证源 — 全球产业链价格"
+    status: "available"
+
+  - category: "全球现货 (待接入)"
+    interface: "futures_global_spot_em"
+    description: >
+      东方财富全球现货价格数据。
+      可用于：全球基差、贸易流分析。
+    potential_consumer:
+      - "f10/basis.py — 扩展基差分析到全球市场"
+    status: "available"
+
+  - category: "手续费规则 (待接入)"
+    interface: "futures_fees_info"
+    description: >
+      期货手续费规则（开仓/平今/平昨手续费）。
+      可用于：交易成本计算、策略净收益评估。
+    potential_consumer:
+      - "P5 风控明 — 成本核算"
+      - "P4 闫判官 — 交易参数优化"
+    status: "available"
+    priority: "P2"
+
+  - category: "交易规则 (待接入)"
+    interface: "futures_rule"
+    description: >
+      期货交易规则（涨跌停、交易时间、限仓等）。
+      可用于：风控规则增强。
+    potential_consumer:
+      - "P5 风控明 — 涨跌停/限仓检查"
+    status: "available"
+    priority: "P2"
+
+  - category: "分钟K线 (待接入)"
+    interface: "futures_zh_minute_sina"
+    description: >
+      新浪财经期货分钟K线（1分钟/5分钟等）。
+      可用于：日内分析、短线信号。
+    potential_consumer:
+      - "collectors/akshare.py — 丰富K线周期"
+      - "P3 观澜 — 日内技术分析"
+    status: "available"
+    priority: "P2"
+    notes:
+      - "需要评估分钟K线在辩论系统中的使用场景"
+
+  - category: "日K线(Sina) (待接入)"
+    interface: "futures_zh_daily_sina"
+    description: >
+      新浪财经期货日K线（备选降级源）。
+      目前 AKShareProvider 已通过直爬新浪 JSONP 接口实现降级。
+    potential_consumer:
+      - "作为 futures_hist_em 的备选降级路径"
+    status: "available"
+    notes:
+      - "当前已通过 _fetch_sina_kline 直爬实现相同功能"
+
+  - category: "前日现货价 (待接入)"
+    interface: "futures_spot_price_previous"
+    description: >
+      前一交易日现货价格。
+      可与 futures_spot_price_daily 互为补充。
+    potential_consumer:
+      - "f10/basis.py"
+    status: "available"
+    priority: "P3"
+
+  - category: "期转现数据 (待接入)"
+    interface: "futures_to_spot_czce / dce / shfe"
+    description: >
+      期转现数据（各交易所）。
+      可用于：期现价差分析。
+    potential_consumer:
+      - "f10/basis.py — 期现套利分析"
+      - "P3 链证源 — 基差深度分析"
+    status: "available"
+    priority: "P3"
+
+  - category: "生猪产业链 (待接入)"
+    interface: "futures_hog_core / cost / supply"
+    description: >
+      生猪产业链数据（核心指标/养殖成本/供给数据）。
+      可用于：生猪品种深度基本面分析。
+    potential_consumer:
+      - "新建 f10/hog.py"
+      - "P3 探源 — 生猪基本面分析"
+    status: "available"
+    priority: "P3"
+    notes:
+      - "生猪为重要品种，产业链数据丰富，P3 探源可直接使用"
+
+  - category: "商品指数 (待接入)"
+    interface: "futures_index_ccidx"
+    description: >
+      中诚商品指数。
+      可用于：商品市场整体走势研判。
+    potential_consumer:
+      - "f10/macro.py — 扩展宏观指标"
+    status: "available"
+    priority: "P3"
+
+  - category: "期货新闻 (待接入)"
+    interface: "futures_news_shmet"
+    description: >
+      上海金属网期货新闻。
+      可用于：有色金属品种新闻情绪。
+    potential_consumer:
+      - "P3 读心 — 新闻情绪分析补充源"
+    status: "available"
+    priority: "P3"
+    notes:
+      - "已有金十 MCP 作为主要新闻源，此接口作为有色金属专项补充"
+
+  - category: "衍生品数据 (待接入)"
+    interface: "futures_derivative"
+    description: >
+      期货衍生品数据（期权等）。
+      可用于：波动率分析、期权隐含信息。
+    potential_consumer:
+      - "新建 f10/derivative.py"
+    status: "available"
+    priority: "P3"
+
+  # ═════════════════════════════════════════════════════════
+  # 消费指引 — 按 Agent 维度汇总
+  # ═════════════════════════════════════════════════════════
+consumer_guide:
+  P1_数技源:
+    description: "10通道突破扫描（scan_all.py）"
+    akshare_interfaces:
+      - "futures_hist_em — K线基础数据 → 计算技术指标(MA/ATR/RSI/ADX/量能比/通道位置)"
+    max_consume: "已满（仅需 K线）"
+
+  P3_观澜:
+    description: "技术面分析（AKShare增强）"
+    akshare_interfaces:
+      - "futures_hist_em — 主力连续K线 → 技术指标计算"
+      - "futures_zh_realtime — 实时行情快照"
+      - "futures_foreign_hist — [已接入] 外盘K线 → 外盘技术面"
+      - "futures_dce/gfex/sufe_position_rank — [已接入] 持仓排名 → 持仓结构/前20席位"
+      - "futures_hold_pos_sina — [已接入] 资金流向 → 多空比/资金流"
+      - "futures_zh_minute_sina — [待接入] 分钟K线 → 日内分析"
+      - "futures_global_hist_em — [待接入] 全球K线 → 跨市场分析"
+    max_consume: "约 75%（可扩展分钟K线/全球K线）"
+
+  P3_探源:
+    description: "基本面分析（WebSearch + FDC）"
+    akshare_interfaces:
+      - "futures_hist_em — K线 → 价格基准"
+      - "futures_zh_realtime — 实时行情 → 价格参考"
+      - "futures_inventory_em — 国内库存 → 供需分析"
+      - "futures_spot_price_daily — 现货价格 → 基差分析"
+      - "futures_hold_pos_sina — 持仓资金流向"
+      - "futures_dce/gfex/sufe_position_rank — 会员持仓排名 → 多空力量"
+      - "futures_shfe/czce/dce/gfex_warehouse_receipt — 仓单 → 交割库存"
+      - "macro_china_pmi/lpr — 宏观因子"
+      - "futures_foreign_hist — 外盘 → 内外盘联动"
+      - "futures_hog_* — [待接入] 生猪产业链 → 深度基本面"
+      - "futures_to_spot_* — [待接入] 期转现 → 期现套利分析"
+      - "futures_spot_price_previous — [待接入] 前日现货价"
+    max_consume: "约 75%（待接入接口可补充产业链深度）"
+
+  P3_链证源:
+    description: "产业链分析（P1.5独立阶段）"
+    akshare_interfaces:
+      - "futures_hist_em — K线 → 上下游价格基"
+      - "futures_spot_price_daily — 现货 → 基差"
+      - "futures_inventory_em — 库存 → 产业链库存状态"
+      - "futures_foreign_hist — 外盘 → 内外盘价差"
+      - "futures_spot_price — 详细现货价 → 期限结构"
+      - "futures_global_hist_em — [待接入] 全球K线"
+      - "futures_global_spot_em — [待接入] 全球现货"
+    max_consume: "约 50%（待接入接口可补全球产业链）"
+
+  P3_读心:
+    description: "新闻情绪分析（金十MCP）"
+    akshare_interfaces:
+      - "futures_news_shmet — [待接入] 金属新闻情绪补充源"
+    max_consume: "当前以金十MCP为主，AKShare新闻作补充"
+
+  P4_闫判官:
+    description: "终裁（含交易参数计算）"
+    akshare_interfaces:
+      - "futures_comm_info — 保证金率/合约乘数 → 仓位计算"
+      - "futures_fees_info — [待接入] 手续费规则 → 成本核算"
+      - "futures_rule — [待接入] 交易规则 → 限仓/涨跌停检查"
+    max_consume: "约 30%（有待接入接口补充）"
+
+  P5_风控明:
+    description: "风控审核（green/yellow/red）"
+    akshare_interfaces:
+      - "futures_comm_info — 合约乘数/保证金率 → 风险敞口"
+      - "futures_zh_realtime — 实时行情 → 入场价验证"
+      - "futures_rule — [待接入] 限仓/涨跌停规则"
+    max_consume: "约 30%（待接入接口可补规则）"

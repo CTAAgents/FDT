@@ -22,24 +22,24 @@ v2.15.0+ 新增：
   python analyze_chain.py --symbols ALL --correlation-window 90 --correlation-threshold 0.85
 """
 
-import sys, os, json, math, statistics
+import json
+import math
+import os
+import sys
 from datetime import datetime
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
-from chains import (
-    get_chain_for_symbol,
-    CHAIN_PRODUCTS,
-    classify_chain,
-    cluster_chains,
-    WITHIN_CHAIN_HIGH_CORRELATION,
-    WITHIN_CHAIN_INDEPENDENT,
-)
-
 # ── CLI ──
 import argparse
+
+from chains import (
+    CHAIN_PRODUCTS,
+    WITHIN_CHAIN_INDEPENDENT,
+    get_chain_for_symbol,
+)
 
 parser = argparse.ArgumentParser(description="产业链分析 — 辩论专家团 P2 链证源")
 parser.add_argument("--symbols", "-s", help="品种代码(逗号分隔)，如: PK,RB,B,UR", default=None)
@@ -325,7 +325,7 @@ def run_analysis(symbols_data: list) -> dict:
                 print(f"  🔄 自动获取K线数据: {len(price_series)}/{len(fetch_symbols)}个品种")
         else:
             if not args.json_only:
-                print(f"  ⚠️ 无可用数据源，跳过动态相关性检测")
+                print("  ⚠️ 无可用数据源，跳过动态相关性检测")
 
     for chain, items in chain_groups.items():
         if len(items) <= 1:
@@ -386,7 +386,7 @@ def run_analysis(symbols_data: list) -> dict:
                         print(f"    ? {sym_a}↔{sym_b}: 缺少价格数据({missing}), 跳过")
 
     if not redundant_pairs and not args.json_only:
-        print(f"  本次未检出同链高相关冗余品种")
+        print("  本次未检出同链高相关冗余品种")
 
     # 删除/废弃旧逻辑（已完全替换为动态相关性）
 

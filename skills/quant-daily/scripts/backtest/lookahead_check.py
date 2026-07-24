@@ -20,13 +20,12 @@ P0-2: 回测体系全面加固 — 前视偏差检测
     python lookahead_check.py --auto-detect --data-dir ./data
 """
 
-import sys, os, json, re
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
-from collections import defaultdict
+import json
+import os
+import sys
+from typing import Any, Dict, List
 
 import pandas as pd
-import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

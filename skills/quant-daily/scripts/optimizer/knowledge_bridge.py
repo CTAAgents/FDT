@@ -10,7 +10,9 @@
   summary = get_knowledge_summary(["rb", "sc", "MA"])
 """
 
-import os, re, json
+import json
+import os
+import re
 
 KNOWLEDGE_DIR = os.path.expanduser("~/.skills/Knowledge")
 METHOD_DIR = os.path.join(KNOWLEDGE_DIR, "method")
@@ -37,7 +39,7 @@ def get_symbol_knowledge(symbol: str) -> dict:
         "h_overfit": False,
         "optimized_params": {},
     }
-    
+
     # 从周期适配指南中找分类
     guide = _read_kb_file("2026-07-07_62品种交易周期适配指南.md")
     if guide:
@@ -59,7 +61,7 @@ def get_symbol_knowledge(symbol: str) -> dict:
                     if len(cells) >= 3 and cells[2].lower() == sym_lower:
                         result["cycle_category"] = cat_label
                         break
-    
+
     # 从训练测试表中找准确率
     detail = _read_kb_file("2026-07-07_62品种日线60分钟训练测试详表.md")
     if detail:
@@ -74,7 +76,7 @@ def get_symbol_knowledge(symbol: str) -> dict:
                 if "过拟合" in cells[6]: result["daily_overfit"] = True
                 if "过拟合" in cells[9]: result["h_overfit"] = True
                 break
-    
+
     # 从optimized_params.json查优化参数（键名用小写）
     params_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -92,7 +94,7 @@ def get_symbol_knowledge(symbol: str) -> dict:
                     break
         except Exception:
             pass
-    
+
     return result
 
 
@@ -106,7 +108,7 @@ def get_knowledge_summary(symbols: list) -> str:
     """
     lines = []
     lines.append("【知识库参考】以下为回测优化结果供参考：")
-    
+
     for sym in symbols:
         k = get_symbol_knowledge(sym)
         parts = [f"{sym}"]
@@ -124,7 +126,7 @@ def get_knowledge_summary(symbols: list) -> str:
         if k["optimized_params"].get("daily") or k["optimized_params"].get("60m"):
             parts.append("有优化参数")
         lines.append("  - " + " | ".join(parts))
-    
+
     return "\n".join(lines)
 
 
@@ -139,9 +141,9 @@ def handle_knowledge_request(request: str) -> str:
     明鉴秋收到后调用此函数，返回格式化文本。
     """
     import re
-    
+
     request_lower = request.lower()
-    
+
     # 提取符号列表（大小写不敏感）
     symbols = re.findall(r'\b([a-zA-Z]{2,4})\b', request)
     valid_symbols = []
@@ -149,7 +151,7 @@ def handle_knowledge_request(request: str) -> str:
         su = s.upper()
         if su in SYMBOL_CHAIN_MAP:
             valid_symbols.append(su)
-    
+
     if not valid_symbols:
         # 尝试理解意图
         if "适合60" in request or "60分钟" in request:
@@ -161,7 +163,7 @@ def handle_knowledge_request(request: str) -> str:
         if "全部" in request or "所有" in request:
             return get_knowledge_summary(list(SYMBOL_CHAIN_MAP.keys())[:10]) + "\n  ...(共62品种, 可用 knowledge_bridge.py <symbol1> <symbol2> 查询具体品种)"
         return "请指定品种代码，如: 知识库: rb, sc, MA"
-    
+
     return get_knowledge_summary(valid_symbols)
 
 
@@ -192,5 +194,5 @@ if __name__ == "__main__":
         print(f"  日线测试: {k['daily_test_accuracy']}%  60m测试: {k['h_test_accuracy']}%")
         print(f"  过拟合: 日线={k['daily_overfit']} 60m={k['h_overfit']}")
         print(f"  优化参数: {json.dumps(k['optimized_params'], ensure_ascii=False)}")
-    print(f"\n--- 辩论摘要 ---")
+    print("\n--- 辩论摘要 ---")
     print(get_knowledge_summary(symbols))

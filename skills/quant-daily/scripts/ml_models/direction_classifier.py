@@ -19,8 +19,10 @@
     result = ensemble.predict(rule_output, ml_output)
 """
 
-from typing import Dict, List, Optional, Tuple, Any
-import json, os, math
+import json
+import math
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 
@@ -293,7 +295,6 @@ class EnsemblePredictor:
             {"prob": float, "direction": int, "confidence": float,
              "vote_details": {"rule": float, "ml": float, "sentiment": float, "freshness": float}}
         """
-        import math
 
         # 基础双路
         votes = {

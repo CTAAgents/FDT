@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import asyncio
 import logging
 import os
 import sys
@@ -8,12 +7,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-from fdt_langgraph.state import DebateState, create_initial_state
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from pydantic import BaseModel
+
 from fdt_langgraph.graph import build_debate_graph_no_checkpoint
+from fdt_langgraph.state import create_initial_state
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("fdt_api")

@@ -10,15 +10,13 @@
 
 from pathlib import Path
 
-import pytest
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 import sys
+
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fdt_langgraph.quality_inspector import validate_verdict, validate_risk
-from contracts.debate_quality_schema import VERDICT_RULES, RISK_RULES
-
+from contracts.debate_quality_schema import VERDICT_RULES
+from fdt_langgraph.quality_inspector import validate_verdict
 
 # ============================================================
 # validate_verdict — 裁决数据质检

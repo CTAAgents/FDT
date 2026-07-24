@@ -1,5 +1,9 @@
 """fdt-gate auto-generated conftest"""
-import pytest, os, sys, importlib
+import importlib
+import os
+import sys
+
+import pytest
 from fdt_test_helpers import add_fdt_paths
 
 add_fdt_paths(__file__)
@@ -39,7 +43,8 @@ def modules():
 
 @pytest.fixture(scope="module")
 def clamped(modules):
-    import copy, json
+    import copy
+    import json
     from pathlib import Path
     fu = json.loads(
         (Path(PROJECT_ROOT) / "memory" / "execution_followup.json").read_text(encoding="utf-8")

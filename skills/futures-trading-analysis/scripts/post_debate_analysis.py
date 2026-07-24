@@ -7,14 +7,16 @@
 依赖数据：从 debate_results.json + p_judge_final.json 提取
 """
 
-import json, os, datetime
+import datetime
+import json
+import os
 
 
 def _load_json(filepath: str) -> dict:
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
-    except:
+    except Exception:
         return {}
 
 
@@ -99,7 +101,7 @@ def update_agent_performance(round_id: str, judge_verdict: dict) -> str:
             entry_lines.append(f"- {dim}: 正{data['long']} vs 反{data['short']} (weight={data.get('weight', '?')})")
 
     if not os.path.exists(perf_path):
-        header = f"# Agent 表现跟踪\n\n## 辩论记录\n记录格式：辩论ID → 各维度评分\n"
+        header = "# Agent 表现跟踪\n\n## 辩论记录\n记录格式：辩论ID → 各维度评分\n"
         with open(perf_path, "w", encoding="utf-8") as f:
             f.write(header)
     else:

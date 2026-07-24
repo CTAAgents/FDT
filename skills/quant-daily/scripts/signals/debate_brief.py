@@ -14,7 +14,9 @@ quant-daily 职责边界：
   - 不分类、不推荐、不指定辩论标的
 """
 
-import json, os, sys, logging
+import json
+import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -911,7 +913,7 @@ if __name__ == "__main__":
         with open(sel_path, "w", encoding="utf-8") as f:
             json.dump(selection, f, ensure_ascii=False, indent=2)
         sm = selection["_meta"]
-        print(f"\n辩论品种精选:")
+        print("\n辩论品种精选:")
         print(f"  候选: {sm['total_candidates']}个, 覆盖{sm['chains_covered']}条产业链")
         print(f"  分歧: {sm['divergence_count']}个, 共识空头: {sm['consensus_bear_count']}个")
         print(f"  → {sel_path}")

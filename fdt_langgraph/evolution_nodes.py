@@ -16,12 +16,13 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from fdt_langgraph.evolution_state import (
-    EvolutionState, APM_DEGENERATE_THRESHOLDS,
-    CALIBRATE_MIN_VALIDATED, EVOLVE_MIN_SAMPLES, ML_TRAIN_MIN_SAMPLES,
-    STATE_ACTIVE, STATE_DEGENERATE, STATE_FALLBACK,
+    APM_DEGENERATE_THRESHOLDS,
+    CALIBRATE_MIN_VALIDATED,
+    EVOLVE_MIN_SAMPLES,
+    ML_TRAIN_MIN_SAMPLES,
+    EvolutionState,
 )
 
 logger = logging.getLogger(__name__)
@@ -205,7 +206,7 @@ def node_decide_actions(state: EvolutionState) -> EvolutionState:
         has_gaps = any(v for v in gap.values() if isinstance(v, list) and v)
         if has_gaps:
             decisions["need_inject_rules"] = True
-            logger.info(f"[Evolution] G30 触发: Checker 发现记忆缺口")
+            logger.info("[Evolution] G30 触发: Checker 发现记忆缺口")
     except Exception:
         pass
     # APM D2 退化也触发规则注入

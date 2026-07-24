@@ -4,8 +4,8 @@
 本测试固化 scan_all 输出的三源合并逻辑，防止回归。
 """
 
-import sys
 import os
+import sys
 import unittest
 
 SKILL_SCRIPTS = os.path.join(

@@ -1,4 +1,5 @@
 import pytest
+
 from futures_data_core.core.dominant_resolver import DominantResolver
 
 

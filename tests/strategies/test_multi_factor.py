@@ -9,7 +9,6 @@ MultiFactorStrategy G27/G29 测试 — 因子数据源接入。
   - _calc_rate_proxy（G29）：LPR1Y 动量优先 / 水平分；无数据→惰性0
   - compute()：ctx_extra 注入 warrant_data 后因子被消费（不再恒为0）
 """
-import pytest
 
 
 def _mfs():

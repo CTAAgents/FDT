@@ -1,8 +1,8 @@
 """debate_brief.py 核心函数单元测试"""
 
 import json
-import pytest
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "skills", "quant-daily", "scripts"))
 

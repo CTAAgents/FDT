@@ -25,8 +25,6 @@ import argparse
 import json
 import logging
 import os
-import shutil
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -200,7 +198,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     else:
         logger.info(f"[init] 已有 {len(history['versions'])} 个版本记录")
 
-    print(f"\n=== ✅ RHI Harness 初始化完成 ===")
+    print("\n=== ✅ RHI Harness 初始化完成 ===")
     print(f"  项目: {project_root}")
     print(f"  评分: {score['score']:.3f}")
     print(f"  文件: {claude_path}")
@@ -219,7 +217,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     versions = history.get("versions", [])
     prefs = history.get("preferences", [])
 
-    print(f"\n=== 📊 RHI Harness 状态 ===")
+    print("\n=== 📊 RHI Harness 状态 ===")
     print(f"  项目: {project_root}")
     print(f"  CLAUDE.md: {'✅ 存在' if claude_path.exists() else '❌ 不存在'}")
     print(f"  当前评分: {score['score']:.3f}")
@@ -247,7 +245,7 @@ def cmd_step(args: argparse.Namespace) -> int:
     claude_path = project_root / "CLAUDE.md"
 
     if not claude_path.exists():
-        logger.error(f"[step] CLAUDE.md 不存在，请先运行 init")
+        logger.error("[step] CLAUDE.md 不存在，请先运行 init")
         return 1
 
     history = _load_history(project_root)
@@ -364,7 +362,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         print("\n📭 无 RHI 历史记录\n")
         return 0
 
-    print(f"\n=== 📜 RHI Harness 优化历史 ===")
+    print("\n=== 📜 RHI Harness 优化历史 ===")
     for v in versions:
         ts = v.get("timestamp", "")[:19]
         score = v.get("score", 0)
@@ -403,20 +401,20 @@ python3 "{HERE / 'rhi_global_cli.py'}" "$@"
     if sys.platform != "win32":
         entry_path.chmod(0o755)
 
-    print(f"\n=== 📦 RHI Global CLI 已安装 ===")
+    print("\n=== 📦 RHI Global CLI 已安装 ===")
     print(f"  入口: {entry_path}")
     print(f"  存储: {GLOBAL_RHI_DIR}")
     print()
-    print(f"  用法: rhi-global init [--project PATH]")
-    print(f"        rhi-global status [--project PATH]")
-    print(f"        rhi-global step [--project PATH]")
-    print(f"        rhi-global history [--project PATH]")
+    print("  用法: rhi-global init [--project PATH]")
+    print("        rhi-global status [--project PATH]")
+    print("        rhi-global step [--project PATH]")
+    print("        rhi-global history [--project PATH]")
     print()
 
     # 提示添加 PATH
     if sys.platform == "win32":
         if str(bin_dir) not in os.environ.get("PATH", ""):
-            print(f"  ℹ️ 请将以下目录添加到 PATH:")
+            print("  ℹ️ 请将以下目录添加到 PATH:")
             print(f"     {bin_dir}")
             print()
     return 0

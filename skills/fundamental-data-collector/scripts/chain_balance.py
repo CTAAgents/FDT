@@ -5,7 +5,6 @@
 调用 supply.py + demand.py 的数据进行差额推算。
 """
 
-from typing import Dict, Optional
 
 
 def query_chain_balance(symbol: str) -> dict:
@@ -24,8 +23,8 @@ def query_chain_balance(symbol: str) -> dict:
 
     # 尝试从supply+demand模块获取实时数据
     try:
-        from fundamental_data_collector.scripts.supply import query_supply
         from fundamental_data_collector.scripts.demand import query_demand
+        from fundamental_data_collector.scripts.supply import query_supply
 
         supply_data = query_supply(sym)
         demand_data = query_demand(sym)

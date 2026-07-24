@@ -3,7 +3,6 @@
 测试: D5 Memory 记忆治理层 + D2 Tool 工具治理层
 """
 
-import json
 import sys
 import tempfile
 from pathlib import Path
@@ -20,13 +19,13 @@ for k in list(sys.modules.keys()):
     if k.startswith("scripts."):
         del sys.modules[k]
 
-from scripts.build_knowledge_graph import KnowledgeGraph
-from scripts.memory_retriever import MemoryRetriever
 from scripts.memory_cleaner import MemoryCleaner
-from fdt_langgraph.tools.registry import ToolRegistry
-from scripts.tool_metrics import ToolMetrics
-from scripts.tool_circuit_breaker import CircuitBreaker
+from scripts.memory_retriever import MemoryRetriever
 
+from fdt_langgraph.tools.registry import ToolRegistry
+from scripts.build_knowledge_graph import KnowledgeGraph
+from scripts.tool_circuit_breaker import CircuitBreaker
+from scripts.tool_metrics import ToolMetrics
 
 # ============================================================
 # D5 Memory Phase 2: 知识图谱

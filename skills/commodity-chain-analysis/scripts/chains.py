@@ -9,7 +9,7 @@ v2.14.0 优化内容：
 - 保留 bc(国际铜) / pt(铂金) 作为额外品种
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 # ============================================================
 # 产业链品种映射（主链）

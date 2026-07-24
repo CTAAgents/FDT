@@ -17,9 +17,12 @@ quant-daily 权重网格搜索 v1.0
   python -m scripts.backtest.optimize_weights --symbols RB,HC,I,AU,AG
 """
 
-import sys, os, json, time
-from datetime import datetime
+import json
+import os
+import sys
+import time
 from collections import defaultdict
+from datetime import datetime
 
 # ── 路径自举 ──
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,11 +35,9 @@ for p in [SKILL_DIR]:
         sys.path.insert(0, p)
 
 import pandas as pd
-import numpy as np
+from config.symbols import ALL_SYMBOLS
 from data.multi_source_adapter import MultiSourceAdapter
 from indicators.indicators_legacy import _compute_indicators_numpy
-from config.symbols import ALL_SYMBOLS
-
 
 # ============================================================
 # 权重组合生成
@@ -202,7 +203,6 @@ def run_optimization(symbols=None, days=120):
     cache = collect_and_cache(adapter, sel_symbols, days=days)
     print(f"  缓存: {len(cache)} 品种 ({time.time() - t0:.0f}s)")
 
-    import signals.scoring_system as ss
 
     # 基准
     print("Phase 2: 基准评分 (40/30/20/10)...")
@@ -226,7 +226,7 @@ def run_optimization(symbols=None, days=120):
     results.sort(key=lambda x: x.get("STRONG", 0) * 1.5 + x.get("WATCH", 0), reverse=True)
 
     print(f"\n{'=' * 50}")
-    print(f"=== TOP 10 ===")
+    print("=== TOP 10 ===")
     print(f"{'L1':>3} {'L2':>3} {'L3':>3} {'L4':>3}  S  W  WK  N  得分")
     for r in results[:10]:
         sc = r.get("STRONG", 0) * 1.5 + r.get("WATCH", 0)
@@ -342,7 +342,7 @@ def run_cross_validation(days=120):
 
     # 输出
     print(f"\n{'=' * 55}")
-    print(f"=== 交叉验证结果 ===")
+    print("=== 交叉验证结果 ===")
     print(
         f"{'L1':>3} {'L2':>3} {'L3':>3} {'L4':>3}  "
         f"{'S总':>3} {'W总':>3}  {'S工':>3} {'W工':>3} {'S农':>3} {'W农':>3}  {'★':>3}"
@@ -360,7 +360,7 @@ def run_cross_validation(days=120):
     # 基准
     bl_i = score_with_cache(cache_ind, 40, 30, 20, 10)
     bl_a = score_with_cache(cache_agr, 40, 30, 20, 10)
-    print(f"\nBaseline 40/30/20/10:")
+    print("\nBaseline 40/30/20/10:")
     print(f"  工业品: {bl_i}")
     print(f"  农产品: {bl_a}")
     print(f"  Time: {time.time() - t0:.0f}s")

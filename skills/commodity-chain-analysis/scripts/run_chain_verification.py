@@ -4,9 +4,9 @@
 调用 commodity-chain-analysis 模块执行完整分析
 """
 
-import sys
-import os
 import json
+import os
+import sys
 from datetime import datetime
 
 # 添加 skill 路径
@@ -14,7 +14,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SKILL_DIR not in sys.path:
     sys.path.insert(0, SKILL_DIR)
 
-from scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS, classify_chain, cluster_chains
+from scripts.chains import CHAIN_PRODUCTS, cluster_chains, get_chain_for_symbol
 
 
 def get_chain_members(chain_name):
@@ -22,8 +22,6 @@ def get_chain_members(chain_name):
     return CHAIN_PRODUCTS.get(chain_name, [])
 
 
-from scripts.chain_verifier import chain_verification
-from scripts.config import CONFIG_MANAGER
 
 # ============================================================
 # 输入数据（来自技研锋和数聚石）
@@ -435,7 +433,7 @@ def main():
         if term == "contango" and direction == "BUY":
             notes.append(f"⚠️期限结构矛盾: Contango结构做多不利 (展仓成本{s.get('term_pct', '?')}%)")
         elif term == "back" and direction == "SELL":
-            notes.append(f"⚠️期限结构矛盾: Back结构做空不利 (现货紧张)")
+            notes.append("⚠️期限结构矛盾: Back结构做空不利 (现货紧张)")
 
         if ver["aligned"]:
             notes.append(f"✅产业链一致: {chain}{ver['chain_trend']}同向")

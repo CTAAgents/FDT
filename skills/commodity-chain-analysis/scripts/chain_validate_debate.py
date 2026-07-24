@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """辩论专家团产业链验证 — 链证源执行脚本"""
 
-import sys, os, json
+import json
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS
 from scripts.chain_verifier import chain_verification
+from scripts.chains import CHAIN_PRODUCTS, get_chain_for_symbol
 
 
 def get_chain_members(chain_name):
@@ -132,7 +134,7 @@ for pid, dz in z_data.items():
     else:
         status = "正常"
         print(f"  {pid:<4}: Z={z:<6} 正常范围")
-    print(f"     ⚠️ Z分数仅用于异常预警，不得作为左侧预判或均值回归交易依据")
+    print("     ⚠️ Z分数仅用于异常预警，不得作为左侧预判或均值回归交易依据")
     z_status[pid] = {"z_score": z, "status": status}
 
 # ======== Step 5: 组合级产业链聚合（同链高相关冗余检测） ========
@@ -201,7 +203,7 @@ for chain_name, group in chain_groups.items():
     non_flagged = [c[0] for c in group["candidates"] if not redundancy_map[c[0]]["redundant"]]
     if len(non_flagged) == len(group["candidates"]):
         if len(group["candidates"]) > 1:
-            print(f"  ✓ 无高相关冗余排除（所有品种保留独立）")
+            print("  ✓ 无高相关冗余排除（所有品种保留独立）")
     elif len(non_flagged) >= 2:
         print(f"  ✓ 保留品种: {non_flagged}（可多品种组合）")
 

@@ -7,8 +7,7 @@ v2.0 改进：
 - 均线排列支持4种状态（新增"多头但发散/收敛"）
 """
 
-from typing import Dict, Optional, List
-
+from typing import Dict, Optional
 
 # ── 多时间框架分析 ──
 

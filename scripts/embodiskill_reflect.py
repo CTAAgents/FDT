@@ -231,7 +231,6 @@ class EmbodiSkillReflector:
 
 def _cli() -> None:
     import sys
-    import pprint
 
     reflector = EmbodiSkillReflector()
 

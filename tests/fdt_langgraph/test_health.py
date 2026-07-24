@@ -7,17 +7,17 @@
 - 边界条件（空状态、None值、超时等）
 - run_health_check() 便捷函数
 """
-import pytest
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fdt_langgraph.state import create_initial_state, DebateState
 from fdt_langgraph.health import HealthChecker, get_health_checker, run_health_check
-
+from fdt_langgraph.state import DebateState, create_initial_state
 
 # =============================================================================
 # 基础功能测试

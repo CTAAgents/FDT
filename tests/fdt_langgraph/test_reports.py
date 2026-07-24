@@ -3,18 +3,21 @@
 覆盖 P1/P3/P5/P6/P6a 五个阶段报告的生成与降级路径。
 """
 import os
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from fdt_langgraph.state import create_initial_state
 from fdt_langgraph.nodes import (
-    node_scan, node_merge_research, node_risk_check, node_signal_output,
-    _resolve_report_dir, _write_scan_report, _write_verdict_report,
-    _write_research_report, _write_signal_report,
+    _resolve_report_dir,
+    _write_research_report,
+    _write_scan_report,
+    _write_signal_report,
+    _write_verdict_report,
+    node_merge_research,
+    node_scan,
 )
+from fdt_langgraph.state import create_initial_state
 
 
 def create_test_state(trace_id: str = "test-trace-reports") -> dict:
@@ -171,7 +174,6 @@ async def test_signal_report_written(workspace_tmp):
             "signal": state["verdict"],
             "risk_check": state["risk_check"],
         }
-        from fdt_langgraph.nodes import node_signal_output as nsig
         # 直接复制 node_signal_output 报告生成部分逻辑
         from fdt_langgraph.nodes import _write_signal_report
         path = _write_signal_report(state["trace_id"], state["signal_output"],

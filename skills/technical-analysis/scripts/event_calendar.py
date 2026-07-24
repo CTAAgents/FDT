@@ -11,10 +11,8 @@
 event_type 支持：FOMC/NFP/USDA/EIA/CPI/PBOC/交割日/主力换月日
 """
 
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
-import json, os, math
-
+from typing import Dict, List, Optional
 
 # ── 固定事件模板（每年更新一次） ──
 # 格式：每月第几周的周几发生哪类事件
@@ -59,7 +57,6 @@ SECTOR_MAP = {
 def _get_nth_weekday(year: int, month: int, nth: int, weekday: int) -> Optional[str]:
     """获取某月第n个周x的日期。weekday: 0=周一, 6=周日, nth从1开始"""
     from calendar import monthcalendar
-    import calendar
 
     cal = monthcalendar(year, month)
     # 找到该月所有指定weekday的日期
@@ -164,7 +161,7 @@ def get_upcoming_events(symbol: str, days: int = 7) -> List[Dict]:
     Returns:
         [{"event_type": str, "date": str, "days_until": int, "impact": str}, ...]
     """
-    from datetime import date, timedelta
+    from datetime import date
 
     today = date.today()
     end_date = today + timedelta(days=days)

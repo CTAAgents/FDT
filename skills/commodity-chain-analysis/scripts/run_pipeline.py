@@ -5,20 +5,20 @@
 运行完整管道：产业链聚类 → 产业链验证 → 期限结构 → 多空辩论 → 风险评估
 """
 
-import sys
-import os
 import json
-import time
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from scripts.chains import CHAIN_PRODUCTS, get_chain_for_symbol, classify_chain, select_leader
 from scripts.chain_verifier import chain_verification
-from scripts.term_basis import compute_term_basis
-from scripts.debate import bull_argument, bear_argument, research_manager_decision
+from scripts.chains import CHAIN_PRODUCTS, classify_chain, get_chain_for_symbol, select_leader
+from scripts.debate import bear_argument, bull_argument, research_manager_decision
 from scripts.risk import aggressive_risk_assessment, conservative_risk_assessment, neutral_risk_assessment
+from scripts.term_basis import compute_term_basis
 
 
 def run_pipeline(symbols_data: list = None):
@@ -313,7 +313,7 @@ def run_pipeline(symbols_data: list = None):
 if __name__ == "__main__":
     result = run_pipeline()
     if result:
-        print(f"\n管道执行完成:")
+        print("\n管道执行完成:")
         print(f"  产业链数: {len(result['chain_results'])}")
         print(f"  验证品种: {len(result['verification_results'])}")
         print(f"  期限结构: {len(result['term_structure_results'])}")

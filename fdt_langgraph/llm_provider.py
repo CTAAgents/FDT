@@ -80,8 +80,8 @@ class FdtLlm:
             return _get_mock_reply(prompt, system)
         if not self.api_key:
             return "⚠️ 未配置 API Key（设置 FDT_LLM_API_KEY 或 OPENAI_API_KEY）"
-        import urllib.request
         import urllib.error
+        import urllib.request
         messages = []
         if system:
             messages.append({"role": "system", "content": system})

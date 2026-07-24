@@ -20,7 +20,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

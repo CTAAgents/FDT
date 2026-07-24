@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """逻辑审计模块 — 叙事概率检查、rebuttal 质量评估、尾端风险识别。"""
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 def check_narrative_probability(

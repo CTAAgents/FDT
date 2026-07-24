@@ -1,6 +1,7 @@
 """debate_history.py 单元测试"""
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from debate import history as dh

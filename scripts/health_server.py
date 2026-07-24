@@ -17,10 +17,10 @@ FDT 健康检查服务器 — G12
 
 import json
 import os
-import time
 import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 ROOT = Path(__file__).resolve().parent.parent
 START_TIME = time.time()
@@ -115,8 +115,8 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def main(port=8910):
     print(f"🏥 FDT 健康检查服务器启动: http://127.0.0.1:{port}")
-    print(f"   /health  — 存活检查 + 组件状态")
-    print(f"   /metrics — APM 评分 + 测试统计")
+    print("   /health  — 存活检查 + 组件状态")
+    print("   /metrics — APM 评分 + 测试统计")
     server = HTTPServer(("127.0.0.1", port), HealthHandler)
 
     stop_event = threading.Event()

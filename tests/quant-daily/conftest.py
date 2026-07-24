@@ -1,5 +1,10 @@
 """quant-daily auto-generated conftest"""
-import pytest, os, sys, tempfile, shutil
+import os
+import shutil
+import sys
+import tempfile
+
+import pytest
 from fdt_test_helpers import add_fdt_paths
 
 # FDT_ROOT 优先（确保 from scripts.unified_logger 解析到 FDT_ROOT/scripts/）

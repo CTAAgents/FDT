@@ -3,7 +3,8 @@
 供观澜（技术面研究员）读取本 skill 的技术指标数据。
 """
 
-import json, os
+import json
+import os
 from typing import Optional
 
 

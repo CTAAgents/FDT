@@ -13,9 +13,9 @@
   python -m scripts.optimizer.run --backtest --auto-write             # 优化后自动写入
 """
 
-import sys, os, json, math
-from datetime import datetime
-from copy import deepcopy
+import math
+import os
+import sys
 from typing import Optional
 
 import numpy as np
@@ -24,19 +24,19 @@ import pandas as pd
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _SCRIPTS_DIR)
 
-from config.symbols import ALL_SYMBOLS, SYMBOL_DETAILS
 from config.settings import (
-    SYMBOL_CHAIN_MAP,
     CHANNEL_BREAKOUT_CONFIG,
-    set_param_overrides,
-    clear_param_overrides,
     DEBATE_ENTRY_MIN_ABS,
+    SYMBOL_CHAIN_MAP,
+    clear_param_overrides,
+    set_param_overrides,
 )
+from config.symbols import ALL_SYMBOLS
+from indicators.calc_core import calculate_tdx_compatible
+
 # MultiSourceAdapter 已废弃 — scan_all.py 直调 FDC
 from scan_all import collect_kline_for_all
-from indicators.calc_core import calculate_tdx_compatible
 from strategies.registry import get_strategy
-
 
 # ─── 可优化参数空间（与 param_optimizer.py 保持同步）───
 # 格式: (section, key, 候选值列表, 中文名)
@@ -227,7 +227,6 @@ def _build_tech(close, high, low, volume, open_price, symbol, name):
 def load_historical_data(symbols_with_names: list, period: str = "daily", days: int = DAYS_OF_DATA) -> dict:
     """加载多品种历史K线数据"""
     print(f"  [加载数据] {period} | 品种: {len(symbols_with_names)} | {days}天")
-    from scan_all import collect_kline_for_all
     kline_data = collect_kline_for_all(symbols_with_names, days=days, min_bars=MIN_BARS, period=period)
     print(f"  [完成] {len(kline_data)}/{len(symbols_with_names)} 品种数据就绪")
     return kline_data

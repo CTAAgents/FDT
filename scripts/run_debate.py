@@ -35,22 +35,23 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-import re
+from typing import Any
 
 # ── B/C 工程化依赖（guarded，缺失不阻断核心流程）──
 try:
-    from scripts.llm.token_budget import TokenBudget, BudgetExceeded
     from scripts.llm.cache import DebateCache
+    from scripts.llm.token_budget import BudgetExceeded, TokenBudget
 except Exception:
     TokenBudget = DebateCache = BudgetExceeded = None
 
 try:
+    from scripts.logutil import get_logger, setup_logging
     from scripts.run_reporter import RunReporter
-    from scripts.logutil import setup_logging, get_logger
 except Exception:
     RunReporter = setup_logging = get_logger = None
 
@@ -1191,7 +1192,7 @@ def run_validate(workspace: str, scan_path: str | None = None) -> int:
     print(f"🔴 信号复查: {' '.join(cmd)}")
     ret = subprocess.call(cmd, timeout=300)
     if ret != 0:
-        print(f"⛔ 信号复查失败，中止管道 — 修复后重新 assemble")
+        print("⛔ 信号复查失败，中止管道 — 修复后重新 assemble")
     return ret
 
 
@@ -1336,16 +1337,17 @@ def main() -> None:
     # langgraph 模式：直接走 LangGraph 图编排，不需要 scan 文件
     if args.cmd == "langgraph":
         import asyncio as _asyncio
-        from scripts.trace_id import new_trace as _new_trace
-        from fdt_langgraph.state import create_initial_state as _create_state
+
         from fdt_langgraph.graph import build_debate_graph_no_checkpoint as _build_graph
         from fdt_langgraph.health import run_health_check as _health_check
+        from fdt_langgraph.state import create_initial_state as _create_state
+        from scripts.trace_id import new_trace as _new_trace
 
         trace_id = args.trace_id or _new_trace("lg")
         mode = args.mode
         symbols = args.symbols.split(",") if args.symbols else []
 
-        print(f"🤖 LangGraph 模式启动")
+        print("🤖 LangGraph 模式启动")
         print(f"   Trace: {trace_id}")
         print(f"   Mode:  {mode}")
         print(f"   Symbols: {symbols or '(自动)'}")
@@ -1362,7 +1364,7 @@ def main() -> None:
         try:
             result = _asyncio.run(_lg_run())
             health = _health_check(state=result)
-            print(f"\n✅ LangGraph 流水线完成")
+            print("\n✅ LangGraph 流水线完成")
             print(f"   健康状态: {health.get('overall_status', 'unknown')}")
             print(f"   报告路径: {result.get('report_path', 'N/A')}")
             print(f"   当前阶段: {result.get('current_phase', 'N/A')}")
@@ -1452,7 +1454,8 @@ def main() -> None:
         # ── 资源感知：动态调整并发数 ──
         if getattr(args, 'check_resources', False):
             try:
-                import subprocess as _sp, json as _json
+                import json as _json
+                import subprocess as _sp
                 watchdog = _FDT_ROOT / "scripts" / "resource_watchdog.py"
                 for ph_name, ph_info in plan.get("execution_phases", {}).items():
                     r = _sp.run(
@@ -1497,7 +1500,7 @@ def main() -> None:
             missing = sym_set - {s.upper() for s in resolved_symbols}
             if missing:
                 print(f"⚠️ 以下品种不在配置中，跳过: {', '.join(sorted(missing))}")
-            src_desc = f"指定品种"
+            src_desc = "指定品种"
         else:
             print("⛔ 必须指定 --symbols / --chain / --all 之一")
             sys.exit(1)

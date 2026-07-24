@@ -9,7 +9,6 @@
 """
 
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -26,15 +25,14 @@ for k in list(sys.modules.keys()):
     if k.startswith("scripts."):
         del sys.modules[k]
 
-from scripts.enforce_structured_output import (
-    enforce_structured_output,
-    auto_fix_json,
-    validate_required_fields,
-    load_decode_config,
-)
 from scripts.content_filter import ContentFilter
+from scripts.enforce_structured_output import (
+    auto_fix_json,
+    enforce_structured_output,
+    load_decode_config,
+    validate_required_fields,
+)
 from scripts.generation_metrics import GenerationMetrics
-
 
 # ============================================================
 # Phase 1: decode_config.yaml 配置加载

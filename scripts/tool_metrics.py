@@ -17,7 +17,6 @@ tool_metrics.py — 工具调用日志与效能追踪 (D2 Tool Phase 3)
 
 import json
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -134,7 +133,7 @@ class ToolMetrics:
 
         lines = [
             "=" * 60,
-            f"📊 Tool Performance Report (last 7 days)",
+            "📊 Tool Performance Report (last 7 days)",
             f"   Total calls: {total}",
             f"   Active tools: {len(stats)}",
             "=" * 60,

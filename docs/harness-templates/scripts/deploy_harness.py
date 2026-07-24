@@ -1,9 +1,14 @@
-import os, shutil, subprocess, sys
+import os
+import shutil
+import subprocess
+import sys
 
 STARTER_KIT = r"D:\HarnessStarterKit"
 
 
 def deploy(project_root):
+    result = {"deployed_files": [], "skipped_files": [], "warnings": []}
+
     # 确保 rhi_global_setup.py 也在部署范围内
     _rhi_setup_src = os.path.join(STARTER_KIT, "scripts", "rhi_global_setup.py")
     _rhi_setup_dst = os.path.join(project_root, "scripts", "rhi_global_setup.py")
@@ -12,15 +17,13 @@ def deploy(project_root):
         shutil.copy2(_rhi_setup_src, _rhi_setup_dst)
         result.setdefault("deployed_files", []).append("scripts/rhi_global_setup.py")
 
-    result = {"deployed_files": [], "skipped_files": [], "warnings": []}
-    
     has_claude = os.path.exists(os.path.join(project_root, "CLAUDE.md"))
     has_harness = os.path.exists(os.path.join(project_root, "docs", "harness"))
-    
+
     if has_claude and has_harness:
         result["warnings"].append("已有规范")
         return result
-    
+
     # 1. CLAUDE.md
     dst = os.path.join(project_root, "CLAUDE.md")
     if not os.path.exists(dst):
@@ -28,7 +31,7 @@ def deploy(project_root):
         result["deployed_files"].append("CLAUDE.md")
     else:
         result["skipped_files"].append("CLAUDE.md")
-    
+
     # 2. docs/harness/
     hdir = os.path.join(project_root, "docs", "harness")
     os.makedirs(hdir, exist_ok=True)
@@ -40,7 +43,7 @@ def deploy(project_root):
             result["deployed_files"].append(f"docs/harness/{f}")
         else:
             result["skipped_files"].append(f"docs/harness/{f}")
-    
+
     # 2b. docs/harness/_data/
     data_dir = os.path.join(hdir, "_data")
     os.makedirs(data_dir, exist_ok=True)
@@ -49,7 +52,7 @@ def deploy(project_root):
     if not os.path.exists(dst_data):
         shutil.copy2(src_data, dst_data)
         result["deployed_files"].append("docs/harness/_data/version.yaml")
-    
+
     # 3. scripts/
     sdir = os.path.join(project_root, "scripts")
     if os.path.isdir(sdir):
@@ -61,7 +64,7 @@ def deploy(project_root):
                 result["deployed_files"].append(f"scripts/{script_name}")
             else:
                 result["skipped_files"].append(f"scripts/{script_name}")
-    
+
     return result
 
 def verify(project_root):
