@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **项目版本**: v9.23.0 | **文档版本**: v9.23.0 | **最后更新**: 2026-07-24 | **定位**: 理解项目的技术基础文档
+> **项目版本**: v9.25.0 | **文档版本**: v9.25.0 | **最后更新**: 2026-07-24 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -44,7 +44,7 @@
 
 ### 1.3 当前版本
 
-**v9.23.0** — 六维控制空间高ROI提升：D3 Schema约束（enforce_structured_output全量接入5处LLM解析节点）、G01模型差异化路由（5个辅助Agent降配至deepseek-chat）、C01 Token预算控制（_build_debate_context集成TokenBudget）、C03扫描信号表去重（_build_scan_signal_table共享函数）；langgraph默认模式（subparsers required=False）。
+**v9.25.0** — 记忆系统全面重构：MemoryManager 统一管理层替换散落直写；G30 自进化规则注入；数据源优先级重构（TqSDK 第一数据源）。
 
 **v9.22.0** — RHI 完整落地：evolution_graph 集成 node_rhi 节点 + 全局 CLI（`scripts/rhi_global_cli.py`），22 个 RHI 测试全部通过。支持任何项目 `rhi-global init/status/step/history/install`。
 
