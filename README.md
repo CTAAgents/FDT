@@ -462,3 +462,11 @@ python scripts/verify_doc_consistency.py
 | **v9.5.0** | Loop Engineering 体系化：Loop Contract + 三层循环架构 |
 | **v9.3.0** | 主力合约统一解析 + DataCore 集成 + 字段标准化 |
 | **v9.0.0** | 六阶段攻防辩论：多头立论→空头结辩，来源可追溯 |
+
+## v10.2.0 更新
+- 修复 DeepSeek API 模型名 (`deepseek-v4-flash`)
+- Phase Badge 颜色修正 (P3黄/P5绿/新增P1.5蓝/P3.5紫)
+- 导航栏去重、中立交易参数显示 "—（待触发）"
+- 新增 P1.5 链证源、P3.5 品藻质检可视化章节
+- 技术指标数据源 ⚠ 标注
+- 修复 `_build_market_fundamental_context` 变量名 bug

@@ -1009,3 +1009,10 @@ class NewsSentimentVector:
 | `fdt_langgraph/hooks.py::HookManager` | §2.7 Hook链 | pre_hook/post_hook/safety_hook 三层 | `grep -n "class HookManager"` |
 | `fdt_langgraph/master_graph.py::run_master_daemon()` | §2.8 Master Graph | 60s 心跳检查的统一编排 | `grep -n "def run_master_daemon"` |
 | `config/schema.py` / `contracts/` | §3.1 配置校验 | Pydantic v2 模型 + JSON Schema | `grep -n "class.*Config\|class.*Settings" config/schema.py` |
+
+## v10.2.0 变更记录
+- 2026-07-25: 重构 FDC 数据上下文构建函数体系
+  - `_build_fdc_technical_context` / `_build_fdc_fundamental_context` → `_build_market_*` 别名
+  - 新增 `_build_market_technical_context` / `_build_market_fundamental_context` 实现函数
+  - 消除 `fdc_data` 变量名未定义 bug（原引用已不存在的局部变量名）
+  - 数据源适配层: AKShare 替代 FDC 作为默认数据源

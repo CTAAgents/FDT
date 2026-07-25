@@ -81,13 +81,18 @@ def _extract_args_from_list(lst: list, symbol_upper: str) -> list:
 
 
 def _nav_items(body_html: str) -> str:
-    """从 body HTML 中提取带 id 的 section 标题，生成导航栏链接"""
+    """从 body HTML 中提取带 id 的 section 标题，生成导航栏链接（自动去重）"""
+    seen = set()
     links = []
     for m in re.finditer(r'<section[^>]*?id="([^"]+)"[^>]*>.*?<h2[^>]*>(.*?)</h2>', body_html, re.DOTALL):
+        href = m.group(1)
+        if href in seen:
+            continue
+        seen.add(href)
         label = re.sub(r'<[^>]+>', '', m.group(2)).strip()
         label = re.sub(r'<span[^>]*>.*?</span>\s*', '', label)  # 去掉 phase-badge
         label = label[:16]
-        links.append(f'<a href="#{m.group(1)}">{label}</a>')
+        links.append(f'<a href="#{href}">{label}</a>')
     return ''.join(links)
 
 
@@ -344,6 +349,21 @@ def _build_body_sections(state: dict) -> str:
             ("P1 数技源 · 数据总览", stats_rows, "#c44536"),
         )
 
+    # P1.5 链证源 — 产业链分析
+    chain_analysis = state.get("chain_analysis") or {}
+    if isinstance(chain_analysis, dict) and any(chain_analysis.values()):
+        chain_text = str(chain_analysis.get("summary", chain_analysis.get("analysis", "")))
+        if not chain_text:
+            chain_text = str(chain_analysis)[:2000]
+        chain_html = (
+            f'<div class="card">'
+            f'<div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(chain_text)}</div>'
+            f'</div>'
+        )
+    else:
+        chain_html = '<div class="callout">链证源产业链分析未触发或数据不可用</div>'
+    sections.append(("P1.5 链证源 · 产业链分析", chain_html, "#2563eb"))
+
     # P2 观澜 — info-grid 展示技术面
     if isinstance(tech_sym, dict) and tech_sym.get("analysis"):
         tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术分析</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_sym["analysis"])}</div></div></div>'
@@ -366,7 +386,8 @@ def _build_body_sections(state: dict) -> str:
         )
         if score_val:
             score_html = f'<div class="info-card"><div class="head">综合评分</div><div style="font-size:1.3rem;font-weight:700;text-align:center;">{score_val}</div></div>'
-        tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术面（FDC自主计算）</div>{tech_inner}</div>{score_html}</div>'
+        tech_html = (f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术面（FDC自主计算）</div>{tech_inner}</div>{score_html}</div>'
+            f'<div class="callout" style="margin-top:8px;font-size:0.78rem;">⚠ 技术指标来源：FDC 本地计算为主，RSI/ADX 等指标来自网络 API，可能存在偏差</div>')
     elif tech_from_debate:
         tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">辩论引用</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_from_debate)}</div></div></div>'
     elif indicators:
@@ -381,7 +402,7 @@ def _build_body_sections(state: dict) -> str:
             f'<div class="info-card"><div class="head">MACD_DIF</div><div style="font-size:1.2rem;font-weight:700;">{macd_v}</div></div>\n'
             f'<div class="info-card"><div class="head">ATR14</div><div style="font-size:1.2rem;font-weight:700;">{atr_v}</div></div>\n'
             f'</div>\n'
-            f'<div class="callout">FDC 原始指标 — LLM 分析未返回结构化数据</div>\n'
+            f'<div class="callout">原始指标 — LLM 分析未返回结构化数据</div>\n'
         )
     else:
         tech_html = '<div class="callout">无技术分析数据</div>'
@@ -457,7 +478,56 @@ def _build_body_sections(state: dict) -> str:
         debate_html = '<div class="callout">无辩论论据（fast 模式跳过辩论）</div>'
     sections.append(("P3 六阶段辩论 · 多空攻防", debate_html, "#6366f1"))
 
+    # P3.5 品藻质检 — 可视化展示
+    qr = state.get("quality_report") or {}
+    if qr and isinstance(qr, dict) and qr.get("status"):
+        qr_status = qr.get("status", "SKIP")
+        qr_symbol = qr.get("symbol", sym)
+        qr_details = qr.get("details", {})
+        if qr_status == "PASS":
+            qr_color = var_green
+            qr_icon = "✅"
+            qr_label = "通过"
+        elif qr_status == "FAIL":
+            qr_color = var_red
+            qr_icon = "❌"
+            qr_label = "未通过"
+        else:
+            qr_color = var_yellow
+            qr_icon = "⏭"
+            qr_label = "跳过"
+        # 统计明细
+        vd = qr_details.get("verdict", {})
+        rd = qr_details.get("risk", {})
+        qr_items = []
+        for name, d in [("裁决校验", vd), ("风控校验", rd)]:
+            if isinstance(d, dict):
+                passed = d.get("passed", 0)
+                failed = d.get("failed", 0)
+                skipped = d.get("skipped", 0)
+                issues = d.get("issues", [])
+                qr_items.append(
+                    f'<div class="info-item">'
+                    f'<span class="k">{name}</span>'
+                    f'<span class="v">✅ {passed} / ❌ {failed} / ⏭ {skipped}'
+                    f'{" ⚠ " + _esc(str(issues[0])) if issues else ""}</span>'
+                    f'</div>'
+                )
+        qr_html = (
+            f'<div class="card" style="border-left:4px solid {qr_color};">'
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            f'<span style="font-size:1.1rem;">{qr_icon}</span>'
+            f'<span style="font-weight:700;">品藻质检: {qr_label}</span>'
+            f'</div>'
+            f'{"".join(qr_items)}'
+            f'</div>'
+        )
+    else:
+        qr_html = '<div class="callout">品藻质检未执行</div>'
+    sections.append(("P3.5 品藻 · 辩论质检", qr_html, var_accent2))
+
     # P4 终裁 — verdict-box 组件
+    is_neutral = dir_cn == "观望"
     rr_color = var_green if rr >= 2 else var_yellow if rr >= 1 else var_red
     current_price = latest_close if latest_close > 0 else (float(scan_item.get("price", 0) or 0) if scan_item else 0)
     action_hint = f"当前市价 {_fmt(current_price)}，以 market order 执行" if current_price > 0 else ""
@@ -465,17 +535,24 @@ def _build_body_sections(state: dict) -> str:
         entry_p = current_price
     entry_p = current_price if current_price > 0 else entry_p
 
+    # 观望方向不显示具体交易参数
+    entry_display = "—（待触发）" if is_neutral else _fmt(entry_p)
+    target_display = "—（待触发）" if is_neutral else _fmt(target_p)
+    stop_display = "—（待触发）" if is_neutral else _fmt(stop_p)
+    pct_display = "—" if is_neutral else f"{pos_pct:.1f}%"
+    rr_display = "—" if is_neutral else f"{rr:.2f}:1"
+
     verdict_html = (
         f'<div class="verdict-box">\n'
         f'<div class="vh"><div class="vd">{dir_cn}</div>'
         f'<div class="vc">置信度 <strong>{verdict_conf:.0%}</strong>'
         f'<div class="vb"><div class="f" style="width:{verdict_conf*100}%;background:{dir_color};"></div></div></div></div>\n'
         f'<div class="sg">\n'
-        f'<div class="si"><div class="l">入场价</div><div class="v">{_fmt(entry_p)}</div><div class="w">市价</div></div>\n'
-        f'<div class="si"><div class="l">目标价</div><div class="v">{_fmt(target_p)}</div><div class="w">→ {dir_cn}</div></div>\n'
-        f'<div class="si"><div class="l">止损价</div><div class="v" style="color:var(--red);">{_fmt(stop_p)}</div><div class="w">风险控制</div></div>\n'
-        f'<div class="si"><div class="l">仓位</div><div class="v">{pos_pct:.1f}%</div><div class="w">建议比例</div></div>\n'
-        f'<div class="si"><div class="l">盈亏比</div><div class="v" style="color:{rr_color};">{rr:.2f}:1</div><div class="w">{action_hint}</div></div>\n'
+        f'<div class="si"><div class="l">入场价</div><div class="v">{entry_display}</div><div class="w">{"待触发" if is_neutral else "市价"}</div></div>\n'
+        f'<div class="si"><div class="l">目标价</div><div class="v">{target_display}</div><div class="w">→ {dir_cn}</div></div>\n'
+        f'<div class="si"><div class="l">止损价</div><div class="v" style="color:var(--red);">{stop_display}</div><div class="w">{"待触发" if is_neutral else "风险控制"}</div></div>\n'
+        f'<div class="si"><div class="l">仓位</div><div class="v">{pct_display}</div><div class="w">建议比例</div></div>\n'
+        f'<div class="si"><div class="l">盈亏比</div><div class="v" style="color:{rr_color};">{rr_display}</div><div class="w">{action_hint}</div></div>\n'
         f'</div>\n'
         f'</div>\n'
         f'<div class="callout">{_esc(verdict_reason)}</div>\n'
@@ -505,10 +582,12 @@ def _build_body_sections(state: dict) -> str:
     # ── 组装 body ──
     section_ids = {
         "P1 数技源 · 数据总览": "p1-stats",
+        "P1.5 链证源 · 产业链分析": "p1_5-chain",
         "P2 观澜 · 技术面": "p2-tech",
         "P3 探源 · 基本面": "p3-fund",
         "P3 读心 · 新闻情绪": "p3-sent",
         "P3 六阶段辩论 · 多空攻防": "p3-debate",
+        "P3.5 品藻 · 辩论质检": "p3_5-quality",
         "P4 闫判官 · 终裁与交易参数": "p4-verdict",
         "P5 风控明 · 风险审核": "p5-risk",
     }
@@ -516,8 +595,8 @@ def _build_body_sections(state: dict) -> str:
     for stitle, shtml, _ in sections:
         sid = section_ids.get(stitle, "")
         phase = sid.split("-")[0] if sid else ""
-        color_map = {"p1": "p1", "p2": "p2", "p3": "p3", "p4": "p4", "p5": "p5"}
-        badge_cls = color_map.get(phase, phase)
+        phase = phase.replace("_", ".")  # p1_5 → p1.5, p3_5 → p3.5
+        badge_cls = sid.split("-")[0] if sid else ""  # CSS class uses underscore: p1_5
         badge = f'<span class="phase-badge {badge_cls}">{phase.upper()}</span>' if phase else ""
         body_html += (
             f'<section id="{sid}">\n'

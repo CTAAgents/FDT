@@ -764,6 +764,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
                         "low": [float(b.get("low", 0)) for b in bars],
                         "close": [float(b.get("close", 0)) for b in bars],
                         "volume": [float(b.get("volume", 0)) for b in bars],
+                        "open_interest": [float(b.get("open_interest", b.get("oi", 0))) for b in bars],
                     })
                     ind_result = _compute_indicators_numpy(_df, symbol, period="daily")
                     # 统一转纯值（numpy → float/list）
@@ -941,12 +942,61 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
 
 async def node_chain(state: DebateState) -> dict:
+    """链证源产业链分析节点（P3 四源之一）。
+    
+    导入 commodity-chain-analysis 的 analyze_chain 模块，提供产业链聚类和冗余分析。
+    如分析失败，返回基于品种映射的基础产业链信息作为 fallback。
+    """
     try:
-        analyze_chain = _import_from_skill("commodity-chain-analysis", "scripts/chains", "analyze_chain")
-        chain_data = analyze_chain(state["selected_symbols"]) if state["selected_symbols"] else {}
-    except Exception as e:
-        chain_data = {"error": str(e)}
-    return {"chain_analysis": chain_data}
+        # 先尝试从 analyze_chain.py 导入 run_analysis
+        skill_mod = _import_from_skill("commodity-chain-analysis", "scripts.analyze_chain", "run_analysis")
+        from skills.commodity_chain_analysis.scripts.chains import lookup_symbol_names, build_symbols_data
+    except Exception:
+        try:
+            # fallback: 直接使用 chains.py 的映射工具
+            from skills.commodity_chain_analysis.scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS
+            symbols = state.get("selected_symbols", [])
+            fallback = {}
+            for sym in symbols:
+                chain = get_chain_for_symbol(sym)
+                fallback[sym.upper()] = {
+                    "chain": chain or "未归类",
+                    "chain_members": CHAIN_PRODUCTS.get(chain, []) if chain else [],
+                    "term_structure": "待计算",
+                    "basis": "待计算",
+                    "chain_trend": "待计算",
+                    "chain_consistency": 0,
+                    "redundant": False,
+                    "notes": ["基础产业链映射（因 analyze_chain 未加载，分析精度受限）"],
+                }
+            return {"chain_analysis": fallback, "_source": "fallback_chain_mapping"}
+        except Exception as e2:
+            return {"chain_analysis": {"error": f"链证源加载失败: {e2}"}, "_source": "error"}
+    
+    # 正常导入成功：构建品种数据并执行分析
+    symbols = state.get("selected_symbols", [])
+    from skills.commodity_chain_analysis.scripts.chains import lookup_symbol_names, build_symbols_data
+    symbols_list = lookup_symbol_names(symbols)
+    symbols_data = build_symbols_data(symbols_list)
+    
+    # 补充扫描数据中的价格信息
+    scan_results = state.get("scan_results", {})
+    all_ranked = scan_results.get("all_ranked", []) if isinstance(scan_results, dict) else []
+    for item in all_ranked:
+        sym = item.get("symbol", "").upper()
+        for sd in symbols_data:
+            if sd["product_id"].upper() == sym:
+                sd["last_price"] = item.get("price", 0)
+                direction = item.get("direction", "neutral")
+                sd["direction"] = {"bull": "BUY", "bear": "SELL"}.get(direction, "NEUTRAL")
+                sd["score"] = abs(item.get("total", 0))
+                break
+    
+    chain_data = skill_mod(symbols_data) if symbols_data else {}
+    # 提取 structured chain_results
+    result = chain_data.get("chain_results", {}) if isinstance(chain_data, dict) else chain_data
+    result["_source"] = "analyze_chain"
+    return {"chain_analysis": result}
 
 
 def _inject_memory_rules(agent_name: str, context: str) -> str:
@@ -1010,15 +1060,20 @@ def _build_scan_signal_table(all_ranked: list, symbols: list, header_suffix: str
 
 
 def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_results: dict | None = None) -> str:
-    if not fdc_data:
-        return "（FDC 数据暂不可用，基于扫描数据进行分析）"
+    """[别名] 同 _build_market_technical_context"""
+    return _build_market_technical_context(symbols, fdc_data, scan_results)
+
+
+def _build_market_technical_context(symbols: list[str], market_data: dict, scan_results: dict | None = None) -> str:
+    if not market_data:
+        return "（市场技术数据暂不可用，基于扫描数据进行分析）"
     lines = []
     for symbol in symbols:
-        sym_data = fdc_data.get(symbol) or fdc_data.get(symbol.upper()) or fdc_data.get(symbol.lower())
+        sym_data = market_data.get(symbol) or market_data.get(symbol.upper()) or market_data.get(symbol.lower())
         if not sym_data:
             lines.append(f"\n【{symbol}】无 FDC 数据")
             continue
-        lines.append(f"\n【{symbol}】FDC 技术数据")
+        lines.append(f"\n【{symbol}】市场技术数据")
         kline = sym_data.get("kline", {})
         if kline and kline.get("bars"):
             bars = kline["bars"]
@@ -1029,7 +1084,9 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
                 change_pct = (float(latest.get("close", 0)) - float(prev.get("close", 0))) / float(prev.get("close", 1)) * 100
             lines.append(f"  最新价: {latest.get('close')} ({change_pct:+.2f}%)")
             lines.append(f"  最高/最低: {latest.get('high')} / {latest.get('low')}")
-            lines.append(f"  成交量: {latest.get('volume')}, 持仓量: {latest.get('oi') or latest.get('open_interest')}")
+            vol = latest.get('volume', 0) or 0
+            oi = latest.get('open_interest') or latest.get('oi') or 0
+            lines.append(f"  成交量: {float(vol):.0f}, 持仓量: {float(oi):.0f}")
             lines.append(f"  K线数量: {len(bars)}根")
             if len(bars) >= 20:
                 recent_closes = [float(b.get("close", 0)) for b in bars[-20:]]
@@ -1040,12 +1097,14 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
                 highs = [float(b.get("high", 0)) for b in bars[-20:]]
                 lows = [float(b.get("low", 0)) for b in bars[-20:]]
                 lines.append(f"  20日区间: 支撑={min(lows):.2f}, 阻力={max(highs):.2f}")
+            # 量价数据可用标识（即便无衍生指标）
+            lines.append("  量价数据状态: ✅ 可用（含成交量、持仓量、K线形态）")
         else:
             lines.append("  K线数据: 不可用")
         indicators = sym_data.get("indicators", {})
         if indicators and indicators.get("available"):
             avail = indicators["available"]
-            lines.append(f"  技术指标: {len(avail)}组可用")
+            lines.append(f"  技术指标状态: ✅ {len(avail)}组可用")
             values = indicators.get("values", {})
             if values:
                 latest_ind = {}
@@ -1062,7 +1121,7 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
                         else:
                             lines.append(f"    - {name}: {val}")
         else:
-            lines.append("  技术指标: 不可用")
+            lines.append("  技术指标状态: ⚠️ 衍生指标暂不可用（K线/量价数据仍然可用）")
         grades = sym_data.get("data_grades", {})
         if grades:
             lines.append(f"  数据质量: K线={grades.get('kline','?')}, 指标={grades.get('indicators','?')}")
@@ -1158,15 +1217,20 @@ def _build_fdc_technical_context(symbols: list[str], fdc_data: dict, scan_result
 
 
 def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_results: dict | None = None) -> str:
-    if not fdc_data:
-        return "（FDC 基本面数据暂不可用）"
+    """[别名] 同 _build_market_fundamental_context"""
+    return _build_market_fundamental_context(symbols, fdc_data, scan_results)
+
+
+def _build_market_fundamental_context(symbols: list[str], market_data: dict, scan_results: dict | None = None) -> str:
+    if not market_data:
+        return "（市场基本面数据暂不可用）"
     lines = []
     for symbol in symbols:
-        sym_data = fdc_data.get(symbol) or fdc_data.get(symbol.upper()) or fdc_data.get(symbol.lower())
+        sym_data = market_data.get(symbol) or market_data.get(symbol.upper()) or market_data.get(symbol.lower())
         if not sym_data:
-            lines.append(f"\n【{symbol}】无 FDC 数据")
+            lines.append(f"\n【{symbol}】无市场数据")
             continue
-        lines.append(f"\n【{symbol}】FDC 基本面数据")
+        lines.append(f"\n【{symbol}】市场基本面数据")
         for field_name, label in [("term_structure", "期限结构"), ("basis", "基差"),
                                    ("spread", "价差"), ("warrant", "仓单"),
                                    ("position_ranking", "持仓排名"), ("fund_flow", "资金流向"),
@@ -1218,7 +1282,7 @@ def _build_fdc_fundamental_context(symbols: list[str], fdc_data: dict, scan_resu
 
     # ── Phase 3.7: 清洗质量警告注入（探源 Agent 数据质量感知） ──
     for symbol in symbols:
-        sym_data = fdc_data.get(symbol) or fdc_data.get(symbol.upper()) or fdc_data.get(symbol.lower())
+        sym_data = market_data.get(symbol) or market_data.get(symbol.upper()) or market_data.get(symbol.lower())
         if not sym_data:
             continue
         quality_warnings = []
@@ -1275,18 +1339,23 @@ async def node_technical(state: DebateState) -> dict:
 市场方向判断: {direction}
 待分析品种: {selected}
 
-【FDC 结构化技术数据（P2.5 预采集）】
+【市场技术数据（AKShare 实时源，P2.5 预采集）】
 {fdc_tech_context}
 
 请以 JSON 格式返回逐品种分析，格式如下：
 {{"per_symbol": {{
-    "RB": {{"trend": "趋势判断（方向+强度+阶段）", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合情况", "divergence": "背离分析", "pattern": "技术形态", "score": 75}},
+    "RB": {{"trend": "趋势判断（方向+强度+阶段）", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合情况（必须分析成交量与持仓量变化）", "divergence": "背离分析", "pattern": "技术形态", "score": 75}},
     "CU": {{"trend": "趋势判断", "key_levels": "支撑阻力位", "volume_price": "量价配合", "divergence": "背离", "pattern": "形态", "score": 60}}
   }},
   "summary": "总体技术面摘要"
 }}
 
-注意：请充分利用 FDC 提供的 K线和技术指标数据进行分析。在趋势/形态/量价等分析中，请以 FDC "关键指标最新值"部分列出的具体数值作为依据，确保引用值与 FDC 数据一致。score为0-100的综合技术评分。"""
+注意：
+- **成交量（volume）和持仓量（OI）数据始终可用**，务必分析量价配合关系（放量/缩量、增仓/减仓方向）
+- 衍生技术指标（RSI/ADX/MACD等）如标注"不可用"则基于均线和K线形态做定性分析
+- 趋势判断需结合均线排列（MA5/MA10/MA20）和20日区间（支撑/阻力）
+- 量价分析必须包含：成交量变化方向 vs 价格变化方向是否一致
+- score为0-100的综合技术评分"""
 
     tech_result = await technical.run(context, state["trace_id"])
     tech_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
@@ -1513,7 +1582,13 @@ async def _build_jin10_context(symbols: list[str], trace_id: str) -> tuple[str, 
         return "【金十精选快讯】jin10 MCP 适配层未加载\n", []
 
     if not jin10_available():
-        return "【金十精选快讯】金十 MCP 未配置（JIN10_MCP_TOKEN 缺失）\n", []
+        # 金十 MCP 不可用时，返回 WebSearch 指引（读心/探源 Agent 可用 WebSearch 自行补充）
+        guide = "\n【金十实时快讯】金十 MCP 暂不可用。请使用 WebSearch 搜索以下关键词补充新闻素材：\n"
+        for sym in symbols:
+            keywords = _SYMBOL_TO_KEYWORDS.get(sym.upper(), _SYMBOL_DEFAULT_KEYWORDS)
+            guide += f"  {sym}: 搜索 \"{' '.join(keywords[:3])}\" 相关新闻\n"
+        guide += "\n引用时标注 [sentiment:web]\n"
+        return guide, []
 
     lines = []
     lines.append("\n【金十精选快讯（实时快讯，作为基本面分析素材）】")
@@ -1570,7 +1645,7 @@ async def node_fundamental(state: DebateState) -> dict:
     fdc_status = state.get("fdc_data_status", {})
 
     scan_results = state.get("scan_results", {})
-    fdc_fund_context = _build_fdc_fundamental_context(selected, fdc_data, scan_results)
+    fdc_fund_context = _build_market_fundamental_context(selected, fdc_data, scan_results)
     jin10_context, _ = await _build_jin10_context(selected, state.get("trace_id", ""))
 
     context = f"""作为基本面研究员（探源），请分析以下品种的基本面状态：
@@ -1578,7 +1653,7 @@ async def node_fundamental(state: DebateState) -> dict:
 市场方向判断: {direction}
 待分析品种: {selected}
 
-【FDC 结构化基本面数据（P2.5 预采集 F10）】
+【市场基本面数据（AKShare 实时源，P2.5 预采集）】
 {fdc_fund_context}
 
 {jin10_context}
@@ -1591,10 +1666,13 @@ async def node_fundamental(state: DebateState) -> dict:
   "summary": "总体基本面摘要"
 }}
 
-注意：
-- 请充分利用 FDC 提供的期限结构、基差、仓单、持仓排名、资金流向等结构化数据
-- 金十精选快讯（上方 【金十精选快讯】 区块）可作为实时素材，引用时标注 [jin10]
-- 如需更多最新基本面数据，请使用 WebSearch/WebFetch 工具搜索
+重要注意事项：
+- 上方【市场基本面数据】区域中的数据为预采集数据，部分字段可能标记"不可用"
+- **请务必使用 WebSearch 搜索以下内容补充基本面数据**：
+  - 每个品种的供需/库存/开工率最新数据
+  - 搜索关键词建议："{selected[0] if selected else ''} 供需 库存 2026年"
+- 金十快讯区域（如可用）可作为实时素材，引用时标注 [jin10]
+- WebSearch 获取的数据引用时标注 [fundamental:web]
 - 每个品种的 leading_signals 为数组，包含1-3个关键信号"""
 
     fund_result = await fundamental.run(context, state["trace_id"])
@@ -1750,6 +1828,7 @@ divergence(情绪与基本面的偏离度，0时不填)。
 注意：
 - 不下多空结论，只输出情绪评分
 - 事件类型：policy / supply_demand / macro / geopolitics / other
+- **如果上方金十快讯区域提示"使用 WebSearch"，说明金十数据不可用。请务必调用 WebSearch 搜索品种相关新闻，并注明 [sentiment:web]**
 - 越近的快讯权重越高（<1h:1.0, 1-4h:0.7, 4-24h:0.4, >24h:0.1）
 - 情绪偏离度 > 0.3 时标注（这是辩论最有价值的素材）"""
 
@@ -2807,10 +2886,12 @@ async def node_risk_check(state: DebateState) -> DebateState:
 
 裁决: {verdict}
 
-请以JSON格式返回风控审核结果，含风险等级判断：
+请以JSON格式返回风控审核结果，含风险等级判断和定性点评：
 {{"approved": true, "risk_level": "low/medium/high", "risk_color": "green/yellow/red",
   "max_position": 2, "warnings": ["警告1", "警告2"],
-  "entry_price_check": true, "stop_loss_check": true, "position_pct_check": true}}"""
+  "entry_price_check": true, "stop_loss_check": true, "position_pct_check": true,
+  "risk_commentary": "定性点评（100-300字，说明为什么给这个风险评级、最关注什么矛盾、裁决是否合理）",
+  "key_concerns": ["最关注的风险点1", "风险点2", "风险点3"]}}"""
     # ── 调用风险经理 LLM ──
     context = _inject_memory_rules("risk_manager", context)
     try:
@@ -3444,7 +3525,12 @@ async def node_report(state: DebateState) -> DebateState:
         for sym in _selected:
             try:
                 sym_body = _generate_symbol_body(state, sym)
-                all_bodies.append(f'<hr class="sep"><h2 style="margin-top:16px;">品种: {sym.upper()}</h2>\n' + sym_body)
+                all_bodies.append(
+                    f'<section id="sym-{sym.lower()}">'
+                    f'<h2><span class="phase-badge p3">{sym.upper()}</span> 辩论分析</h2>\n'
+                    + sym_body
+                    + '</section>'
+                )
             except Exception as e:
                 logger.warning(f"[REPORT] 品种 {sym} 报告段生成失败: {e}")
         final_body = "\n".join(all_bodies)

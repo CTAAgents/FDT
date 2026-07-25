@@ -520,3 +520,14 @@ FDT 多个循环之间通过 handoff 消息协作，不共享状态：
 | `fdt_langgraph/nodes.py node_quality_inspect` | §3.6 P3.5 | 品藻质检节点 | `grep -n "def node_quality_inspect"` |
 | `fdt_langgraph/master_state.py _get_default_schedules()` | §4 Master 调度 | 13 个自动化任务定义 | `grep -n "def _get_default_schedules"` |
 | `scripts/validate_verdicts.py` / `calibrate_weights.py` / `evolve_agents.py` | §5 自进化 | 自进化三步脚本链 | `ls scripts/validate_verdicts.py scripts/calibrate_weights.py scripts/evolve_agents.py` |
+
+## 报告阶段扩展（v10.2.0）
+| 阶段 | 新增内容 | 说明 |
+|:-----|:---------|:-----|
+| P1.5 | 链证源产业链分析 | 独立阶段，位于 P1 之后 P2 之前 |
+| P3.5 | 品藻辩论质检可视化 | 位于 P3 辩论之后 P4 裁决之前 |
+| P6 | 品种分隔符重构 | `<hr>` 改为 `<section>` 包裹，带 phase-badge |
+
+## DeepSeek 模型变更（v10.2.0）
+- model: `deepseek-chat` → `deepseek-v4-flash`
+- 环境变量 `FDT_LLM_MODEL` 可用于覆盖默认模型名
