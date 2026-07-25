@@ -75,7 +75,8 @@ class FdtLlm:
 
     def chat(self, prompt: str, system: str | None = None,
              temperature: float | None = None,
-             max_tokens: int | None = None) -> str:
+             max_tokens: int | None = None,
+             response_format: dict | None = None) -> str:
         if MOCK_MODE:
             return _get_mock_reply(prompt, system)
         if not self.api_key:
@@ -90,6 +91,8 @@ class FdtLlm:
                    "temperature": temperature or self.config["temperature"],
                    "max_tokens": max_tokens or self.config["max_tokens"],
                    "stream": False}
+        if response_format:
+            payload["response_format"] = response_format
         url = f"{self.config['api_base'].rstrip('/')}/chat/completions"
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, method="POST")

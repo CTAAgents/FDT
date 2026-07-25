@@ -959,7 +959,7 @@ def generate_intermediate_data(scan: dict, workspace: str, data_benchmark: str) 
         "ap": "苹果", "CJ": "红枣", "lc": "碳酸锂",
         "rr": "畜牧", "lh": "畜牧", "jd": "畜牧",
         # 其他
-        "sp": "纸浆", "ps": "聚苯乙烯",
+        "sp": "纸浆", "op": "造纸", "ps": "聚苯乙烯",
     }
 
     def _get_chain(sym: str) -> str:

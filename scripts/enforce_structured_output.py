@@ -103,7 +103,7 @@ def validate_with_pydantic(
         return errors
 
 
-def validate_required_fields(data: dict, required_fields: list[str]) -> list[str]:
+def validate_required_fields(data: dict, required_fields: list[str], core_fields: list[str] | None = None) -> list[str]:
     """校验必填字段"""
     errors = []
     for field in required_fields:
@@ -220,6 +220,16 @@ def enforce_structured_output(
     else:
         # 无 Schema 时默认标记为有效
         result["schema_valid"] = True
+
+    # Step 4.5: Core fields demotion — if core fields exist pass despite required field errors
+    core_fields = val_config.get("core_fields", [])
+    if result["errors"] and core_fields:
+        core_missing = [f for f in core_fields if f not in data or data[f] is None]
+        if not core_missing:
+            logger.warning(f"[{agent_name}] core_fields 均存在, required 校验失败降级为警告: {result['errors']}")
+            for e in result["errors"]:
+                result["warnings"].append(f"required_demoted: {e}")
+            result["errors"] = []
 
     # Step 5: 判定结果
     result["success"] = len(result["errors"]) == 0

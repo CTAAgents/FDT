@@ -534,6 +534,7 @@ python scripts/auto_publish.py
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v10.1.1** | 2026-07-25 | **链证源导入修复 + 新闻情绪解析 + 报告模板对齐** — ① 修复 commodity-chain-analysis 目录名含连字符导致的 ModuleNotFoundError（`_import_skill_module` importlib 按文件路径加载；修正从 analyze_chain.py 而非 chains.py 导入 `lookup_symbol_names`/`build_symbols_data`）；② 修复新闻情绪模块空数据（`node_sentiment()` 新增 `parse_llm_output` 调用；`decode_config.yaml` 补充 `news_sentiment_analyst` 条目）；③ 新增交易信号汇总章节（`_build_signal_summary_html` 渲染品种/方向/置信度/入出场价/仓位/盈亏比表格）；④ 报告模板对齐（`debate-round` 外层添加 `debate-box.bull`/`.bear` 容器，红蓝左边框区分多空）。|
 | **v9.24.0** | 2026-07-23 | **差距修复集中收官** — 关闭全部 15 项开放差距：G-6D-01~G-6D-08(六维控制空间)、GAP-AP01-001(AGENTS.md瘦身)、GAP-HOOK-001(pre-commit hook)、G17(准入自动化)、G18(调度权强制)、G124(ReportAggregator)。VectorMemory 接入辩论流程、ToolMetrics 反哺调度决策、AGENTS.md全部≤300行。 |
 | **v9.26.0** | 2026-07-24 | **AKShare 升至第一K线数据源 + 数据源优先级重排** — 新增 `collectors/akshare.py`（AKShareCollector），通过 `akshare.futures_hist_em()` 获取东方财富期货K线，设为第一数据源（priority=0）。数据源链调整为：AKShare（第一）→ TDX TQ-Local（第二）→ TqSDK（第三）→ DataCore → WebFallback → QMT。`data_sources.yaml` 同步更新。|
 
@@ -569,7 +570,10 @@ python scripts/auto_publish.py
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.0.1） | `grep "^version" pyproject.toml` |
+| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.1.1） | `grep "^version" pyproject.toml` |
+| `fdt_langgraph/nodes.py node_chain()` | §6.2 v10.1.1 | 链证源使用 `_import_skill_module` 按文件路径加载（兼容目录名含连字符） | `grep -n "def node_chain\|_import_skill_module" fdt_langgraph/nodes.py` |
+| `fdt_langgraph/nodes.py node_sentiment()` | §6.2 v10.1.1 | 新闻情绪使用 `parse_llm_output` 解析结构化情绪评分 | `grep -n "def node_sentiment\|parse_llm_output.*sentiment" fdt_langgraph/nodes.py` |
+| `docs/report-template/report_css.html` | §6.2 v10.1.1 | 新增 `debate-box.bull`/`.bear` 样式 | `grep -n "debate-box" docs/report-template/report_css.html` |
 | `futures_data_core/core/akshare_provider.py get_kline()` | §6.2 v10.0.1 | K线数据源新浪优先，东方财富降级备选 | `grep -n "_fetch_sina_kline\|futures_hist_em" futures_data_core/core/akshare_provider.py` |
 | `multi_source_adapter.py _wrap_kline()` | §6.2 v9.25.1 | K线数据统一升序（最旧→最新），`_wrap_kline` 出口处 | `grep -n "def _wrap_kline\|# 统一K线.*升序\|normalized_bars.*reverse" multi_source_adapter.py` |
 | `collectors/akshare.py AKShareCollector` | §6.2 v10.0.0 | AKShare 唯一K线数据源，通过 `futures_hist_em` 获取 | `grep -n "class AKShareCollector\|def _to_akshare_symbol\|futures_hist_em" collectors/akshare.py` |

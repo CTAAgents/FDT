@@ -79,7 +79,10 @@ tbody tr:hover{background:rgba(196,69,54,0.03)}
 .tag-low{background:rgba(43,108,126,0.12);color:#2b6c7e}
 
 /* debate rounds */
-.debate-round{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
+.debate-box{border-left:4px solid var(--accent2);border-radius:var(--radius);margin-bottom:14px;background:linear-gradient(135deg,rgba(43,108,126,0.04),transparent)}
+.debate-box.bull{border-left-color:var(--accent);background:linear-gradient(135deg,rgba(196,69,54,0.04),transparent)}
+.debate-box.bear{border-left-color:var(--accent2);background:linear-gradient(135deg,rgba(43,108,126,0.04),transparent)}
+.debate-round{background:var(--bg2);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
 .round-title{display:flex;align-items:center;gap:8px;padding:12px 16px;font-weight:700;font-size:0.85rem}
 .round-title .num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#fff;flex-shrink:0}
 .round-title .num.nb{background:var(--accent)}

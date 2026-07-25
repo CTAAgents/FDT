@@ -322,7 +322,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--active", type=int, default=0,
         help="当前活跃（未回收）Agent 数",
+
+        parser.add_argument(
+            "--quick", action="store_true",
+            help="快速模式：跳过资源扫描，返回默认并发数",
+        )
     )
     args = parser.parse_args()
-    result = compute_safe_concurrent(args.phase, args.active)
+    result = compute_safe_concurrent(args.phase, args.active, args.quick)
     print(json.dumps(result, ensure_ascii=False))

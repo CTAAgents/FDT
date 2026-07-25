@@ -450,6 +450,26 @@ def _import_from_skill(skill_dir: str, module_path: str, function_name: str):
     return getattr(mod, function_name)
 
 
+def _import_skill_module(skill_dir: str, module_path: str):
+    """用 importlib 加载技能模块（兼容目录名含连字符的情况）。
+
+    与 _import_from_skill 的区别：返回整个模块对象而非单个函数，
+    适用于需要从同一模块加载多个函数/常量的场景。
+    """
+    full_path = _SKILLS_DIR / skill_dir / (module_path.replace("/", "\\") + ".py")
+    spec = importlib.util.spec_from_file_location(module_path.replace("/", "."), full_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"无法加载模块: {full_path}")
+    mod = importlib.util.module_from_spec(spec)
+    old_argv = sys.argv
+    sys.argv = [str(full_path)]
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.argv = old_argv
+    return mod
+
+
 async def node_scan(state: DebateState) -> DebateState:
     import subprocess
     import sys
@@ -966,11 +986,16 @@ async def node_chain(state: DebateState) -> dict:
     try:
         # 先尝试从 analyze_chain.py 导入 run_analysis
         skill_mod = _import_from_skill("commodity-chain-analysis", "scripts.analyze_chain", "run_analysis")
-        from skills.commodity_chain_analysis.scripts.chains import lookup_symbol_names, build_symbols_data
+        # lookup_symbol_names 和 build_symbols_data 都在 analyze_chain.py 中
+        ac_mod = _import_skill_module("commodity-chain-analysis", "scripts.analyze_chain")
+        lookup_symbol_names = ac_mod.lookup_symbol_names
+        build_symbols_data = ac_mod.build_symbols_data
     except Exception:
         try:
-            # fallback: 直接使用 chains.py 的映射工具
-            from skills.commodity_chain_analysis.scripts.chains import get_chain_for_symbol, CHAIN_PRODUCTS
+            # fallback: 用 importlib 加载 chains.py 的映射工具
+            chains_mod = _import_skill_module("commodity-chain-analysis", "scripts.chains")
+            get_chain_for_symbol = chains_mod.get_chain_for_symbol
+            CHAIN_PRODUCTS = chains_mod.CHAIN_PRODUCTS
             symbols = state.get("selected_symbols", [])
             fallback = {}
             for sym in symbols:
@@ -991,7 +1016,6 @@ async def node_chain(state: DebateState) -> dict:
     
     # 正常导入成功：构建品种数据并执行分析
     symbols = state.get("selected_symbols", [])
-    from skills.commodity_chain_analysis.scripts.chains import lookup_symbol_names, build_symbols_data
     symbols_list = lookup_symbol_names(symbols)
     symbols_data = build_symbols_data(symbols_list)
     
@@ -1850,10 +1874,36 @@ divergence(情绪与基本面的偏离度，0时不填)。
 
     result = await sentiment_agent.run(context, state["trace_id"])
 
+    # ── 解析 LLM 结构化输出（v9.26.0 修复：此前缺失 parse_llm_output 调用） ──
+    output_raw = result.get("output", "") if isinstance(result, dict) else ""
+    parsed = parse_llm_output(output_raw, agent_name="news_sentiment_analyst")
+    per_symbol_sentiment = {}
+    overall_score = 0.0
+    summary_text = ""
+    if parsed.get("success") and isinstance(parsed.get("data"), dict):
+        data = parsed["data"]
+        per_symbol_sentiment = data.get("per_symbol", {})
+        overall_score = data.get("overall_sentiment", data.get("composite_score", 0)) or 0
+        summary_text = data.get("summary", "")
+        if isinstance(overall_score, dict):
+            overall_score = sum(overall_score.values()) / max(len(overall_score), 1)
+        overall_score = round(float(overall_score), 2)
+    else:
+        # fallback: 尝试从原始 dict 中提取
+        per_symbol_sentiment = result.get("per_symbol", {}) if isinstance(result, dict) else {}
+        overall_score = result.get("overall_score", result.get("overall_sentiment", 0)) or 0
+        summary_text = result.get("summary", "")
+        if isinstance(overall_score, dict):
+            overall_score = sum(overall_score.values()) / max(len(overall_score), 1)
+        overall_score = round(float(overall_score), 2)
+
     return {
         "sentiment_data": {
             "raw": result,
             "news_quality": news_quality,
+            "overall_score": overall_score,
+            "summary": summary_text,
+            "per_symbol": per_symbol_sentiment,
         }
     }
 
@@ -1878,6 +1928,14 @@ async def node_prepare_one_symbol(state: DebateState) -> DebateState:
     # 合并新旧 fdc_data（保留已积累的其他品种数据）
     new_fdc = result.get("fdc_data", {}) or {}
     result["fdc_data"] = {**existing_fdc, **new_fdc}
+    # ── 辩论论据逐品种隔离：进入新品种前清空上一品种论据 ──
+    result["bullish_arguments"] = []
+    result["bearish_arguments"] = []
+    result["bearish_rebuttal_arguments"] = []
+    result["bullish_rebuttal_arguments"] = []
+    result["bear_final_arguments"] = []
+    result["bull_final_arguments"] = []
+    result["debate_round"] = 0
     return result
 
 
@@ -3156,6 +3214,100 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     }
 
 
+def _build_signal_summary_html(verdicts: dict, risk_check: dict) -> str:
+    """构建交易信号汇总 HTML（追加在品种辨析段之后）。
+
+    Args:
+        verdicts: 逐品种裁决 dict（key 为品种代码，value 含 direction/confidence/entry_price 等）
+        risk_check: 风控审核数据
+
+    Returns:
+        信号汇总 HTML 片段，无可执行信号时返回空字符串。
+    """
+    # 筛选可执行信号
+    actionable = []
+    for sym, v in verdicts.items():
+        if v.get("direction") in ("BUY", "SELL"):
+            actionable.append({
+                "symbol": sym.upper(),
+                "direction": "做多" if v["direction"] == "BUY" else "做空",
+                "dir_cls": "bull" if v["direction"] == "BUY" else "bear",
+                "confidence": v.get("confidence", 0),
+                "entry": v.get("entry_price", 0),
+                "target": v.get("target_price", 0),
+                "stop": v.get("stop_loss_price", 0),
+                "position": v.get("position_size", 0),
+                "rr": v.get("risk_reward_ratio", 0),
+            })
+    if not actionable:
+        return ""
+
+    # 排序：置信度降序
+    actionable.sort(key=lambda x: x["confidence"], reverse=True)
+
+    # 风险汇总
+    rc = risk_check or {}
+    risk_color = rc.get("risk_color", "unknown")
+    risk_label = {"green": "绿灯", "yellow": "黄灯", "red": "红灯"}.get(risk_color, risk_color)
+    rows_html = ""
+    for s in actionable:
+        pct_display = f"{s['position']:.1f}%" if s['position'] > 0 else "—"
+        rr_display = f"{s['rr']:.2f}:1" if s['rr'] > 0 else "—"
+        rows_html += (
+            f'<tr>'
+            f'<td><strong>{s["symbol"]}</strong></td>'
+            f'<td><span class="tag tag-{s["dir_cls"]}">{s["direction"]}</span></td>'
+            f'<td>{s["confidence"]:.0%}</td>'
+            f'<td>{s["entry"]:.1f}</td>'
+            f'<td>{s["target"]:.1f}</td>'
+            f'<td style="color:var(--red);">{s["stop"]:.1f}</td>'
+            f'<td>{pct_display}</td>'
+            f'<td>{rr_display}</td>'
+            f'</tr>\n'
+        )
+
+    risk_color_cls = "danger" if risk_color == "red" else "warn" if risk_color == "yellow" else ""
+
+    html = f'''
+<section id="signal-summary">
+<h2><span class="phase-badge p5">汇总</span> 最终交易建议</h2>
+<div class="card" style="border-left:4px solid var(--accent2);margin-bottom:16px;">
+<div style="font-size:0.85rem;color:var(--muted);line-height:1.6;padding:8px 0;">
+  以下信号基于 P1 策略扫描 → P2 方向判定 → P3 四源研究 → P4 闫判官终裁 → P5 风控审核的完整流水线产生。
+  fast 模式跳过 P3 六阶段辩论，置信度可能偏低。
+</div>
+</div>
+<div class="card">
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+<thead>
+<tr style="background:var(--rule);">
+  <th style="padding:8px 10px;text-align:left;">品种</th>
+  <th style="padding:8px 10px;text-align:left;">方向</th>
+  <th style="padding:8px 10px;text-align:center;">置信度</th>
+  <th style="padding:8px 10px;text-align:right;">入场价</th>
+  <th style="padding:8px 10px;text-align:right;">目标价</th>
+  <th style="padding:8px 10px;text-align:right;">止损价</th>
+  <th style="padding:8px 10px;text-align:center;">仓位</th>
+  <th style="padding:8px 10px;text-align:center;">盈亏比</th>
+</tr>
+</thead>
+<tbody>
+{rows_html}
+</tbody>
+</table>
+</div>
+</div>
+<div class="risk-box {risk_color_cls}" style="margin-top:12px;">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+  <span style="font-weight:700;font-size:1em;">风控状态: <span class="tag tag-{"high" if risk_color=="red" else "mid" if risk_color=="yellow" else "low"}">{risk_label}</span></span>
+  <span class="text-sm text-muted">共 {len(actionable)} 个可执行信号</span>
+</div>
+</div>
+</section>'''
+    return html
+
+
 async def node_report(state: DebateState) -> DebateState:
     """品藻报告节点（P6）。
 
@@ -3550,10 +3702,14 @@ async def node_report(state: DebateState) -> DebateState:
                 )
             except Exception as e:
                 logger.warning(f"[REPORT] 品种 {sym} 报告段生成失败: {e}")
-        final_body = "\n".join(all_bodies)
+        # v9.26.0: 在品种 body 后追加交易信号汇总章节
+        signal_summary_html = _build_signal_summary_html(verdicts, risk_check)
+        final_body_with_summary = "\n".join(all_bodies) + "\n" + signal_summary_html
+        all_signals = [v for v in verdicts.values() if v.get("direction") in ("BUY", "SELL")]
+        title_suffix = f" · {len(all_signals)} 信号" if all_signals else " · 无交易信号"
         report_html = _render_html(
-            f"多品种辩论报告 · {', '.join(s.upper() for s in _selected)}",
-            final_body,
+            f"多品种辩论报告 · {', '.join(s.upper() for s in _selected)}{title_suffix}",
+            final_body_with_summary,
             meta_pairs,
         )
         report_path = output_dir / f"debate_report_{state['trace_id']}.html"

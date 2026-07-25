@@ -228,5 +228,35 @@
     "decisions": {},
     "step_results": {},
     "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-25T09:40:19.212316",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-25T09:47:15.170156",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
+  },
+  {
+    "trace_id": null,
+    "source_trace_id": null,
+    "started_at": null,
+    "completed_at": "2026-07-25T10:21:02.717362",
+    "apm_scores": {},
+    "decisions": {},
+    "step_results": {},
+    "errors": []
   }
 ]

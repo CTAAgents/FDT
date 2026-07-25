@@ -461,16 +461,22 @@ def _build_body_sections(state: dict) -> str:
     ]
     args_map = {"bull_v1": bull_v1, "bear_v1": bear_v1, "bear_rebut": bear_rebut, "bull_rebut": bull_rebut, "bear_final": bear_final, "bull_final": bull_final}
 
+    def _clean_arg(a):
+        import re
+        return _esc(re.sub(r"\[\w+:", "[", a))
+
     def _debate_round_html(label, args, color, num_cls):
         if not args:
             return ""
         import re
         items = "".join(
-            f'<div class="arg-item"><div class="arg-claim">{_esc(re.sub(r"\[\w+:", "[", a))}</div></div>'
+            f'<div class="arg-item"><div class="arg-claim">{_clean_arg(a)}</div></div>'
             for a in args
         )
-        num_tag = f'<span class="num {num_cls}">{"B" if "bull" in label.lower() else "S"}</span>'
-        return f'<div class="debate-round"><div class="round-title">{num_tag} {label}</div><div class="round-body">{items}</div></div>'
+        is_bull = "bull" in label.lower()
+        box_cls = "debate-box bull" if is_bull else "debate-box bear"
+        num_tag = f'<span class="num {num_cls}">{"B" if is_bull else "S"}</span>'
+        return f'<div class="{box_cls}"><div class="debate-round"><div class="round-title">{num_tag} {label}</div><div class="round-body">{items}</div></div></div>'
 
     for key, label, _, num_cls in debate_rounds:
         debate_html += _debate_round_html(label, args_map.get(key, []), _, num_cls)
