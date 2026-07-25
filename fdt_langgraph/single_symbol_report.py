@@ -152,8 +152,10 @@ def _render_html(title: str, body_html: str, header_meta: list | None = None) ->
 </main>
 
 <footer>
-  <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
-  <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
+  <div class="container">
+    <p>FDT 期货辩论团队 · 明鉴秋报告层</p>
+    <p style="color:var(--red);margin-top:4px;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
+  </div>
 </footer>
 
 </body></html>"""
@@ -232,11 +234,45 @@ def _build_body_sections(state: dict) -> str:
             last_bar = kline_bars[-1] if kline_bars else {}
             latest_close = float(last_bar.get("close", 0) or 0)
             latest_vol = int(last_bar.get("volume", 0) or 0)
-            latest_oi = int(last_bar.get("oi", 0) or 0)
+            latest_oi = int(last_bar.get("open_interest", last_bar.get("oi", 0)) or 0)
             kline_info = f"最新收盘={_fmt(latest_close)} | 成交量={latest_vol:,} | 持仓={latest_oi:,} | K线数={len(kline_bars)}"
         ind_raw = fdc_sym.get("indicators", {})
         if isinstance(ind_raw, dict):
             indicators = ind_raw.get("values", {})
+
+    # 量价持仓 fallback：当 scan 未提供有效 stats 时从 K 线数据推导
+    stats_source = stats.get("_source", "") if stats else ""
+    stats_bar_count = stats.get("n_bars", 0) if stats else 0
+    if (not stats or stats_bar_count <= 5) and isinstance(fdc_sym, dict) and kline_bars and stats_source != "kline_fallback":
+        try:
+            closes = [float(b.get("close", 0) or 0) for b in kline_bars if b.get("close")]
+            volumes = [int(b.get("volume", 0) or 0) for b in kline_bars if b.get("volume")]
+            ois = [int(b.get("open_interest", 0) or 0) for b in kline_bars if b.get("open_interest") is not None]
+            n = len(kline_bars)
+            if closes:
+                lookback = min(20, n)
+                recent_closes = closes[-lookback:]
+                price_min, price_max = min(recent_closes), max(recent_closes)
+                price_pos = ((latest_close - price_min) / (price_max - price_min) * 100) if price_max > price_min else 50
+            else:
+                price_pos = 50
+            if volumes:
+                vol_ma20 = sum(volumes[-min(20, len(volumes)):]) / min(20, len(volumes))
+                vol_ratio = latest_vol / vol_ma20 if vol_ma20 > 0 else 1.0
+            else:
+                vol_ratio = 1.0
+            oi_change = (ois[-1] - ois[-2]) if len(ois) >= 2 else 0
+            stats = {
+                "oi": ois[-1] if ois else 0,
+                "oi_change": oi_change,
+                "volume_ma20_ratio": round(vol_ratio, 2),
+                "price_position_pct": round(price_pos, 1),
+                "n_bars": n,
+                "latest_close": latest_close,
+                "_source": "kline_fallback",
+            }
+        except Exception:
+            pass
 
     # P1 有效性
     p1_valid = bool(stats) or bool(indicators)

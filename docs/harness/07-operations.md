@@ -369,96 +369,101 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 | 成本增加 > 30% | 24小时内回滚 |
 | 数据不一致 | 立即回滚 |
 
+
 ## 6. 版本管理
 
 ### 6.1 版本号规范
 
-| 位置 | 当前版本 | 格式 |
-|:-----|:---------|:-----|
-| `pyproject.toml` | **9.25.1** | **唯一版本源** |
-| `fdt_cli.py` | 动态 | 从 pyproject.toml 读取，不再硬编码 |
-| `README.md` | **v9.15.0** | 与 pyproject.toml 同步 |
+| 位置 | 说明 |
+|:-----|:-----|
+| `pyproject.toml` version | **FDT 唯一版本真相源**（硬规定，§6.2 版本历史以此为准） |
+| `docs/harness/07-operations.md §6.2` | 版本历史记录，与 pyproject.toml 同步更新 |
+| `README.md` 版本历史 | 同步展示，不视为独立版本源 |
 
-### 6.2 版本历史
+### 6.2 版本历史（降序排列，最新在上）
 
-| 版本 | 日期 | 里程碑 |
-|:-----|:-----|:-------|
+| 版本 | 日期 | 变更 |
+|:-----|:-----|:-----|
+| **v10.1.5** | 2026-07-25 | **链证源模块路径修复 + 导航栏过滤 + 量价持仓 K线 fallback + footer 对齐** — ① 修复 `_import_skill_module`/`_import_from_skill` 中模块路径 `.` 未转为 `\\` 导致 `scripts.chains.py` 找不到的问题；② 导航栏 `_render_html()` 过滤只保留 `sym-*` 和 `signal-summary` 两类锚点；③ 量价持仓数据当 scan stats 不足时从 K 线 `open_interest` 字段推导 fallback；④ `report_skeleton.html` footer 添加 `.container` 包裹与头部对齐。 |
+| **v10.1.4** | 2026-07-25 | **FDT 自动辩论引擎稳定性修复 × 5** — ① single_symbol_report.py f-string 反斜杠修复(Python 3.12兼容)；② enforce_structured_output 校验降级（core_fields通过时required缺失降级为warning）；③ llm_provider.py JSON mode API支持(response_format参数)+ decode_config.yaml 12 Agent core_fields配置；④ nodes.py 辩论论据逐品种隔离（fix_4: prepare_one_symbol清空上一品种6种论据）+ 单品种内 _trim_arguments 120K字符裁剪(方案1)；⑤ run_debate.py op→造纸产业链映射 + resource_watchdog --quick 模式。 |
+| **v10.1.3** | 2026-07-25 | **导航栏简化** — 报告头部导航栏只保留品种链接(sym-*)和汇总链接(signal-summary)，隐藏 P1~P5 详细阶段菜单项。 |
+| **v10.1.2** | 2026-07-25 | **FDT_BYPASS_FRESHNESS_GATE 绕过开关** — P0b 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE=true` 环境变量，非交易时段可强制绕过新鲜度检查直接进入辩论链。docs/harness/03-configuration.md 同步更新。 |
+| **v10.1.1** | 2026-07-25 | **链证源导入修复 + 新闻情绪解析 + 报告模板对齐** — ① 修复 commodity-chain-analysis 目录名含连字符导致的 ModuleNotFoundError（`_import_skill_module` importlib 按文件路径加载；修正从 analyze_chain.py 而非 chains.py 导入 `lookup_symbol_names`/`build_symbols_data`）；② 修复新闻情绪模块空数据（`node_sentiment()` 新增 `parse_llm_output` 调用；`decode_config.yaml` 补充 `news_sentiment_analyst` 条目）；③ 新增交易信号汇总章节（`_build_signal_summary_html` 渲染品种/方向/置信度/入出场价/仓位/盈亏比表格）；④ 报告模板对齐（`debate-round` 外层添加 `debate-box.bull`/`.bear` 容器，红蓝左边框区分多空）。 |
 | **v10.1.0** | 2026-07-24 | **Phase 3 — 基本面清洗** — 新增 `data_adapter/cleaning/fundamental.py`（5 道清洗：缺失字段检查/值有效性校验/新鲜度评分/口径变更检测/修订版追踪），`clean_fundamental()` / `clean_fundamental_data()` 管线集成。期货专项清洗交割月正则修复（RB2610 误判为主力连续）。20 个 Phase 3 测试，全量 66 清洗测试全部通过。文档同步：01-architecture / 03-configuration / 06-testing。版本号 bump 10.0.1→10.1.0 |
 | **v10.0.1** | 2026-07-24 | **K线数据源新浪优先 + FDC CancelledError 修复** — ① `akshare_provider.py` K线数据源顺序从东方财富优先翻转为新浪财经优先（新浪 ~1s vs 东方财富 ~37s 失败），大幅降低 FDC 数据注入超时概率；② `nodes.py` 捕获 `asyncio.CancelledError` 防止 F10 采集超时引发整节点崩溃；③ AKShare 版本兼容修复：`futures_hist_em()` 移除 `adjust=""` 参数（AKShare 1.18.64 不支持）。版本号 bump 10.0.0→10.0.1 |
 | **v10.0.0** | 2026-07-24 | **FDC→AKShare 全面迁移 + 全量数据集成** — 废除TqSDK/TDX/QMT/DataCore/WebFallback多源降级链，删除17个文件(~3500行)。AKShare为唯一K线数据源。新增4个F10模块(inventory/fund_flow/foreign/contract_info)，覆盖20+AKShare期货函数。版本号bump 9.26.0→10.0.0 |
-| v9.18.0 | 2026-07-23 | **Master Orchestrator Graph — 全量自动化迁移至 LangGraph**：① 新增 `fdt_langgraph/master_state.py/master_nodes.py/master_graph.py` — Master Orchestrator LangGraph，统一编排所有自动化任务（日常辩论/数据采集/APM评分/自动发布），纯 Python datetime 调度判断，零第三方依赖；② `fdt_cli.py` daemon 模式从 APScheduler 替换为 `run_master_daemon()`；③ 新增 `fdt_cli.py master` 子命令单次检查；④ 移除 APScheduler 依赖；⑤ 18 个测试用例全绿。版本号 bump 9.17.0→9.18.0 |
-| v9.17.0 | 2026-07-23 | **自进化闭环 LangGraph Evolution Graph**... | 新增 `fdt_langgraph/evolution_state.py` — APM-CS 五轴驱动的自进化状态契约；② 新增 `fdt_langgraph/evolution_nodes.py` — 8 个自进化节点函数（collect_metrics/apm_eval/decide_actions/improve/calibrate/evolve/ml_train/complete），基于 APM 五轴评分(D1-D5)条件触发改进步骤；③ 新增 `fdt_langgraph/evolution_graph.py` — LangGraph 进化子图，辩论完成后自动触发，`FDT_RUN_EVOLUTION` 环境变量开关；④ `fdt_cli.py` 新增 `--evolve` 标志和 `evolve` 子命令；⑤ 25 个测试用例全绿。版本号 bump 9.16.0→9.17.0 |
-| v9.16.0 | 2026-07-23 | **D2/D5/D6 工程成熟度提升**：① D6 Output: `check_report_integrity` 接入 `OutputMetrics.score_output()`、`node_report` 接入 `OutputVersioning.save_output()`、`node_quality_inspect` 接入 `OutputAudit.log_output()`；② D2 Tool: `FdtAgentExecutor.execute()` 接入 `ToolMetrics.record_call()`；③ D5 Memory: `memory_cleaner` 增强（debate_journal 压缩+generation_metrics 清理）；④ `scheduler/tasks.py` 注册 `apm_scorecard` 定时任务。版本号 bump 9.15.0→9.16.0 |
-| v9.15.0 | 2026-07-23 | **Generation Phase 4 — 解码参数反馈闭环（升温重试）**：① `enforce_structured_output.py` 新增 `retry_with_temperature_escalation()`；② 新增 `write_retry_signal()` 信号文件机制；③ `agent_waiter.py` 校验失败时自动写入重试信号文件。版本号 bump 9.14.0→9.15.0 |
-| v9.24.0 | 2026-07-23 | **数据源体系重构 — TqSDK 第一 + 统一标准化层 + 新鲜度自动降级**：① **TqSDK 升至第一数据源** — `tqsdk.priority` 从 98 改为 -1，`_default_collectors` 重排为 TqSDK→DataCore→TDX→WebFallback→QMT；② **统一 K 线标准化层** — `_wrap_kline` 接入 `normalize_kline_row`，所有采集器数据统一日期格式/字段名；③ **新鲜度自动降级** — 末根 K 线 > 7 天视为过期，自动继续下一源，防止过期货数据阻断；④ **数据质量日期解析修复** — `_calc_freshness_days` 支持 `%Y%m%d` 和 `%Y-%m-%d` 两种格式；⑤ **伪突破过滤配置化** — `ENABLE_PSEUDO_BREAKOUT_FILTER = False` 配置开关；⑥ **P2 闫判官结构化输出修正** — 新增 `judge_direction` decode 配置，required_fields 匹配 P2 产出格式。版本号 bump 9.23.0→9.24.0 |
-| v9.23.0 | 2026-07-23 | **六维高 ROI 提升批**：① **G02 Schema 硬件约束** — `agents.py` 将 `response_format` 从 YAML 注入 httpx payload，LLM API 级 JSON 约束；② **G01 模型差异化路由** — YAML `model` 字段生效，裁决组(4 Agent)用 `deepseek-v4-flash`，研究组(5 Agent)用 `deepseek-chat`；③ **C01 Token 预算控制** — `_build_debate_context()` 出口集成 TokenBudget，`FDT_CONTEXT_MAX_TOKENS` 环境变量控制上限；④ **C03 扫描信号表去重** — 提取 `_build_scan_signal_table()` 共享函数，消除 2 处 20 行重复代码。版本号 bump 9.22.6→9.23.0 |
-| v9.22.6 | 2026-07-23 | **OutputMetrics 硬约束 (G8)**：`validate_verdict()` 接入 `OutputMetrics.score_output()`，评分 < 60 追加 FAIL issue，< 40 强制阻断（error 级）。版本号 bump 9.22.5→9.22.6 |
-| v9.22.5 | 2026-07-23 | (预留 G7 — ToolMetrics 反哺调度，因架构不匹配暂缓) |
-| v9.22.4 | 2026-07-23 | **Vector Memory 接入探源上下文 (G6)**：`_build_fdc_fundamental_context()` 追加 `【品种历史模式】` 区块，通过 `VectorMemory.query()` 查询最多 3 个品种的历史记忆注入基本面分析师上下文。版本号 bump 9.22.3→9.22.4 |
-| v9.22.3 | 2026-07-23 | **Context 按品种过滤 (G5)**：`_build_debate_context()` 新增 `current_symbol` 参数，辩论上下文仅包含当前品种数据，消除全品种注入的 prompt 膨胀；4 处辩论节点调用处传入当前品种。版本号 bump 9.22.2→9.22.3 |
-| v9.22.2 | 2026-07-23 | **LLM 输出解析统一封装 (G4)**：`llm_provider.py` 新增 `parse_llm_output()` 函数，统一封装 5 处 LLM 输出解析调用（node_judge_direction / node_technical / node_fundamental / node_verdict / node_risk_check），消除 nodes.py 中所有手动 `json.loads` 和 inline `enforce_structured_output` 调用；新增 6 个单元测试全部通过。版本号 bump 9.22.1→9.22.2 |
-| v9.22.1 | 2026-07-23 | **D3 Generation 全量接入 enforce_structured_output**：`node_risk_check` LLM 输出解析从手动 `json.loads` 替换为 `enforce_structured_output(agent_name="risk_manager")`，覆盖 5 处 LLM 解析节点全量接入。版本号 bump 9.22.0→9.22.1 |
-| v9.22.0 | 2026-07-23 | **RHI 完整落地 — evolution_graph 集成 + 全局 CLI（G114 完成）**：① **RHI 接入自进化闭环** — `evolution_nodes.py` 新增 `node_rhi` 节点，decide_actions 新增 `need_rhi` 决策，evolution_graph 路由优先级 improve→calibrate→evolve→rhi→ml→complete，`FDT_RHI=true` 环境变量开关；② **全局 Harness CLI** — `scripts/rhi_global_cli.py` 独立 CLI 工具，任何项目可 `rhi-global init/status/step/history/install`，自动创建 CLAUDE.md 最小模板 + 四维评分 + 改进率收敛；③ 22 个 RHI 测试用例全部通过。版本号 bump 9.21.0→9.22.0 |
-| v9.21.0 | 2026-07-23 | **MemoHarness+RHI 整合 — 自适应 Harness 优化框架（G114-G115）**：① **G21 设计文档升级** — 更新为 MemoHarness(六维控制空间+双层经验库) 和 RHI(轨迹局部 pairwise 比较) 的统一方案；② **HarnessSpec 契约** (`contracts/rhi_harness_spec.py`) — RHI 三层规范：Agent Candidates/Workflow(Contract+Hop)/Auxiliary Rules + MemoHarness 六维快照；③ **Pairwise Evaluator** (`scripts/rhi_pairwise_eval.py`) — 四维对比评分(质检通过率/风控/信号/报告完整性)，O(1)时间复杂度；④ **Harness Optimizer** (`scripts/rhi_harness_optimizer.py`) — LLM 基于偏好历史更新 Harness，workflow-first；⑤ **RHI LangGraph 子图** (`fdt_langgraph/rhi_graph.py`) — 可与 evolution_graph 集成，停止条件(ε=0.3, max_iter=5)；⑥ **全局 Harness RHI** (`scripts/rhi_global_harness.py`) — CLAUDE.md 自优化；⑦ 22 个测试用例全部通过。版本号 bump 9.20.1→9.21.0 |
-| v9.20.2 | 2026-07-23 | README 版本号对齐。
-| v9.20.0 | 2026-07-23 | **v9.19.0 生产运行问题修复批（G109-G111）**：① **Evolution NoneType 修复（G109）** — `master_nodes.py` 中 `ev_state.get()` 增加 None 防护；② **质检缺字段容错（G110）** — `quality_inspector.py` 增加 `symbol`/`stop_loss`/`target1` 等缺失字段的自动填充和更友好的质检反馈；③ **LLM 解析回退增强（G111）** — `nodes.py` 观澜/探源 LLM 输出解析增加 JSON 修复逻辑（截断/单引号/注释清理），提高解析成功率；④ **FDC N/A 指标兜底** — `node_risk_check` 对 N/A 指标增加更清晰的阻断原因说明，帮助快速定位数据源问题；⑤ **报告路径去重** — `_resolve_report_dir()` 检查 workspace 是否已含日期后缀，避免嵌套；⑥ **analyze_trajectory import 修复** — `self_improve.py` 增加项目根目录 sys.path 插入。版本号 bump 9.19.0→9.20.0 |
-| v9.19.0 | 2026-07-23 | **LangGraph 迁移收尾 · G108 关闭**：① `pipeline/runner.py`/`quality_filter.py`/`__init__.py` 退役；② `FDT_USE_LANGGRAPH` A/B 切换机制清理；③ Master Graph `run_master_daemon()` 心跳文件 `_write_heartbeat()` 落地（`memory/logs/master_heartbeat.log`）；④ `daemon_watchdog` 确认使用 `master_heartbeat.log` 检测存活；⑤ `node_run_data_collection` dangling 引用修复（内联 TDX collector + DominantResolver）；⑥ 外部脚本归档（15 个 subprocess 评估为"有意识保留"）；⑦ 17 处 Harness 文档旧引用全量清理（01/02/03/04/05/07 + designs）；⑧ G108 关闭。版本号 bump 9.18.0→9.19.0 |
-| v9.13.0 | 2026-07-23 | **品藻角色拆分 + Data Governance Phase 3 收尾**：① 质检+报告职责从明鉴秋剥离，成立独立角色**品藻**（`agents/futures-quality-assurance.md`）；② P3.5 质检和 P6 报告汇编由品藻执行，明鉴秋专注调度/编排；③ 更新 `quality_inspector.py`/`nodes.py` 归属标注；④ 新增 `02-lifecycle.md` P3.5 阶段规格行；⑤ 更新 `01-architecture.md` 数据流图全部 [report] 引用为品藻；⑥ 更新 `agents/futures-debate-team-team-lead.md` 九大角色表新增品藻（第10个）；⑦ 更新 README 十 Agent 列表。版本号 bump 9.12.0→9.13.0 |
-| v9.8.0 | 2026-07-22 | Phase B: 模式蒸馏层（Gt）上线 — pattern_distiller + pattern_reviewer + staging 机制 + G101 关闭 |
-| v9.9.0 | 2026-07-22 | Phase C: 案例适配层（W(x_j)）上线 — harness_adapter + Shadow 模式 + 安全边界 + G102 关闭 |
-| v9.7.0 | 2026-07-22 | Phase A: 经验记录层（Et）上线 — ExecutionRecord Schema + experience_recorder + C14 正确性优先规则 + G100/G103 关闭 |
-| v9.4.3 | 2026-07-20 | **G91 Phase 4.8 同品种多子信号合并方向覆盖 bug 修复（P0）**：① `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器，将"逐个两两平均"改为正确的"简单平均"，消除后序信号权重偏高问题；② grade 升级时不再覆盖 `direction`，direction 完全由最终平均 `total` 符号决定；③ 修复 SC 场景方向错误（4 看多 vs 2 看空，原错误输出 bear，修复后正确输出 bull）；④ 新增 `TestSubSignalMerge` 4 用例（SC 场景/全看空/平衡/grade 升级）。版本号 bump 9.4.2→9.4.3 |
-| v9.4.2 | 2026-07-20 | **G89 debate_only 信号多空论据丢失修复 + G90 信号排序改为交易可靠性优先**：① G89 修复 `phase3_generate_report.py` 补充逻辑遗漏 `bull_args`/`bear_args` 字段（`missing_pids` 品种从 `debate_results` 复制论据）；② G89 修复 `fdt_langgraph/nodes.py` `node_report` 中 LLM 辩论遗漏品种论据时，从 judge reasoning 生成 `[裁决摘要]` 最小 fallback；③ G90 将 T1/T2/T3 信号排序从纯置信度改为 `置信度 × 盈亏比`（隐含胜率 × 潜在盈亏比）；④ 辩论详情模块 `SYMBOL_KEYS` 从字母序改为可靠性排序；⑤ 新增 `tests/quant-daily/test_g35_debate_only_args.py` 3 用例全绿；⑥ 同步更新 `06-testing.md` 测试计数 6→9。版本号 bump 9.4.1→9.4.2 |
-| v9.4.1 | 2026-07-20 | **G88 K 线数据链路根因修复（P0）**：① 修复 `MultiSourceAdapter.get_kline()` 入口处的"自动主力解析" bug — 之前 `DominantResolver` 在 `memory/dominant_map.json` 不存在时返回 `f"{variety}00"`（如 `RB00`），这种合约代码在 WebFallback/TqSDK 等所有采集器中均识别失败，导致 K 线返回空、整个数据链路断裂；改由各采集器内部根据自身能力处理 symbol 转换（如 TqSdk 的 `_resolve_continuous` 将 `RB` 转为 `KQ.m@SHFE.rb`），避免平台无关的后备代码污染降级链；② 修复 `tests/dominant-resolver/test_fdc_fallback.py` 的 `_mock_datacore_unavailable` fixture — 改用 `sys.modules["datacore"] = None`（Python 标准约定的"不可导入"信号）替代 `del sys.modules["datacore"]`，避免 `import datacore.fdc_compat` 触发真实包 `__init__.py` 加载导致 Prometheus Counter 重复注册；③ 移除 `multi_source_adapter.py` 中未使用的 `has_month_suffix` 导入。验证：`get_kline("RB")` 恢复返回 30 根 web_fallback K 线；`compute_indicators` 返回 16 个标准指标键名（MA/EMA/RSI/MACD/BOLL 等），类型正确（MA 为 ndarray，BOLL 为 tuple）；F10 子块结构正常（term_structure/spread/basis/warrant/fundamental 均 success=True）。测试 122 passed, 1 skipped。版本号 bump 9.4.0→9.4.1 |
-| v9.4.0 | 2026-07-20 | **G87 Data-Core F10 全面集成**：① 新增 `futures_data_core/core/_datacore_bridge.py` — 集中式 F10 桥接器，封装 `try_datacore_first()` + `_dc_result_to_a2a()` 模板方法；② 改造 6 个 F10 模块（term_structure/spread/basis/warrant/fundamental/position）入口 — 每模块 +3 行 Data-Core 优先检查，自动降级原有实现；③ `compute_indicators` 优先路由 Data-Core 版；④ 新增 2 个测试文件（test_datacore_bridge.py 24 用例 + test_fdc_fallback.py 12 用例）覆盖全部桥接路径和降级兼容性；⑤ 更新 4 篇 Harness 文档（01-architecture / 04-resilience / 06-testing / 07-operations）；版本号 bump 9.3.0→9.4.0 |
-| v9.3.0 | 2026-07-19 | **G86 主力合约统一解析 + DataCore 集成 + 字段标准化**：① 新增 `futures_data_core/core/dominant_resolver.py` — 统一主力合约判定与换月追踪；② 改造 `MultiSourceAdapter.get_kline()` — 无合约后缀时自动解析为实际主力合约代码；③ 新增 `get_contract_kline()` / `get_all_active_contracts()` 入口确保 F10 基差/期限结构不受影响；④ 废弃 `skills/quant-daily/scripts/data/dominant_mapping.py`；⑤ 激活调度器主力映射更新任务；⑥ 新增 `DataCoreCollector` — 封装 `datacore.fdc_compat` 为 FDT BaseCollector，配置为采集器链最高优先级(0)；⑦ 更新 `data_sources.yaml` 降级链为 DataCore→TDX→WebFallback→QMT→TqSDK；⑧ 新增 `futures_data_core/core/field_normalizer.py` — 统一规范 8 类子 Agent 数据栏位（direction/oi/confidence/entry_price/grade 等），覆盖 14 个不一致点；⑨ 在 `nodes.py` 的 4 个关键数据边界（scan/judge/verdict/risk_check）集成标准化层 |
-| v9.2.0 | 2026-07-18 | **Loop Engineering 剥离**... |
-| v9.1.0 | 2026-07-18 | **G85 本地数据增量缓存与指定品种辩论模式**：① 新增 `fdt_cache/` — 本地 SQLite 增量缓存层，按品种+数据类型持久化 K 线/基本面/基差数据，减少重复 I/O 和网络开销；② 新增**指定品种辩论模式** — 当设置 `FDT_DIRECT_DEBATE=true` 和 `FDT_DEBATE_SYMBOLS=SF,SM,SC` 时，跳过 P1 扫描阶段，直接从 `fdt_cache/` 加载缓存数据进入 P2→P3→P4→P5→P6 流程；③ 新增 3 个环境变量 `FDT_DIRECT_DEBATE`/`FDT_DEBATE_SYMBOLS`/`FDT_CACHE_DIR`；④ 更新 5 篇 Harness 文档（01-architecture / 02-lifecycle / 03-configuration / 06-testing / 07-operations）。版本号 bump 9.0.0→9.1.0 |
-| v9.0.0 | 2026-07-18 | **辩论流程重大重构：正反方→多空头模式**：① 辩论模式重构——正反方模式→多空头攻防模式，多头只论证做多，空头只论证做空；② 六阶段辩论——多头立论→空头立论→空头反驳多头→多头反驳空头→空头最终陈述→多头最终陈述→闫判官裁决；③ 分析师中立化——技术面/基本面/产业链分析师客观供弹，辩手只能使用分析师提供的资料；④ 来源可追溯——辩论上下文中每条数据均携带来源标记（`[scan]/[technical:观澜]/[fundamental:探源]/[chain:链证源]`）；⑤ 闫判官独立裁决——明确强调可推翻数技源方向，裁决输出增加 `overturn_scan` 标记。涉及 `fdt_langgraph/state.py`（新增 bearish_rebuttal_arguments 等字段）、`fdt_langgraph/nodes.py`（重写 8 个辩论节点，新增 4 个节点，删除旧 opposition 模式）、`fdt_langgraph/graph.py`（新增 6 节点辩论图，删除旧路由函数）、`config/agents/bullish_analyst.yaml`（消除内部矛盾指令）、`config/agents/bearish_analyst.yaml`（补全缺失内容）、`docs/business_flow.md`（更新多空头六阶段流程描述）。版本号 bump 8.10.0→9.0.0 |
-| v8.9.4 | 2026-07-18 | **数据源配置文档同步（G78）**：修正 `docs/harness/03-configuration.md` 中数据源降级链描述与代码实际不一致的问题——原文档仍写 "TDX→TqSDK→东方财富→AKShare"，代码已演进为 "TDX→WebFallback→QMT→TqSDK"（2026-07-15 调整 Web 前置于 TqSDK 以规避 close 挂死）。① `03-configuration.md §5` 全面重写：降级链图示更新、新增数据源能力矩阵（K线/快照/指标/Tick/F10/超时）、数据源选择逻辑表补齐 QMT/WebFallback/缓存兜底；② `futures_data_core/config/data_sources.yaml` 补充 `web_fallback`（priority=1）和 `qmt_xtquant`（priority=2）配置项，TqSDK priority 从 1 修正为 98（与代码一致），新增超时/置信度等参数；③ 移除所有 AKShare 残留描述（主链中已不存在）；④ 同步更新 `03-configuration.md §1.2` 中 data_sources.yaml 路径（从 skills 目录改为 futures_data_core/config/）及 §2.3 pyproject.toml 示例版本号。版本号 bump 8.9.3→8.9.4 |
-| v8.9.2 | 2026-07-18 | **深度辩论模式 Bug 修复（G77）+ 报告按需生成**：① 修复 `graph.py` `_register_p3_nodes()` `deep_research` 模式 P3 节点全被跳过导致辩论/裁决/报告无法执行的 P0 级 Bug；② `scan_all.py` 和 `nodes.py` 中 P1 扫描/排序报告改为按需生成（`FDT_GENERATE_SCAN_REPORT` 环境变量控制），默认不生成；③ 全量测试通过，辩论报告正常产出至 `D:\\FDTWorkspace\\{date}\\`。版本号 bump 8.9.1→8.9.2 |
-| v8.9.1 | 2026-07-17 | **逐Agent LLM 配置**：每个子 Agent 可独立配置不同的 LLM（API Key / Base URL / Model），通过 `FDT_LLM_<AGENT_NAME>_*` 环境变量覆盖全局默认值；`agents.py` 新增 `_normalize_env_name()` / `_resolve_llm_config()` 方法，动态解析运行时环境变量；新增 16 个测试用例覆盖完整配置链（名称归一化 / 优先级 / 回退链 / 实际调用）；同步更新 `03-configuration.md §3.3`。版本号 bump 8.9.0→8.9.1 |
-| v8.9.0 | 2026-07-17 | **辩论模式重构 + 测试覆盖增强 + 技术选型文档**：① P4 从「证真+慎思并行一次调用」拆分为「串行三步骤交叉质询」——`node_bullish_v1`（多头立论 v1）→ `node_bearish_v1`（空头质疑 opposition v1）→ `node_bullish_rebuttal`（多头反驳 rebuttal v2，max=1）；② `DebateState` 新增 `debate_round` 轮次计数器 + `Annotated[list, operator.add]` reducer 自动追加多轮辩论产物；③ `graph.py` 新增 `route_after_bullish_v1`/`route_after_bearish_v1`/`route_after_rebuttal` 条件边 + `MAX_DEBATE_ROUNDS=2` 常量；④ 新增 `docs/TECH_STACK_DECISIONS.md` 技术选型文档（8项关键技术决策记录）；⑤ **测试覆盖增强**：新增 3 个测试文件（`test_graph.py` 19用例 → graph.py 覆盖率 25%→93%；`test_agents.py` 56用例 → agents.py 71%→97%；`test_health.py` 42用例 → health.py 0%→100%）；⑥ 修复 state.py 初始化 `bullish_arguments={}`→`[]` 及 `node_verdict`/`node_report` reducer 兼容问题；⑦ 修复 G71 类型注解：为 scripts/ 中 12 个关键公共函数补充类型注解；⑧ 同步更新 12 项检查清单、Harness 文档。版本号 bump 8.8.9→8.9.0 |
-| v8.8.9 | 2026-07-17 | **基差数据近月代理降级（G76）**：100ppi.com 启用 HW_CHECK 反爬导致基差数据全面断裂。新增 `_collect_basis_via_nearmonth()` 降级函数，通过 TdxCollector 获取近月合约价格作为现货代理，计算 `basis = near_price - main_contract_price`。方向性信号已恢复，`data_source` 标注 `near_month_proxy`，下游验证器（atr_vol_timing/p0_4_raw_kline）自动兼容。同步更新 `04-resilience.md §8.1`（降级原理与边界）、`08-gap-analysis.md`（G76 登记关闭）。版本号 bump 8.8.8→8.8.9 |
-| v8.8.8 | 2026-07-17 | **cov-5 测试覆盖（P1/P2 模块）+ G71 类型注解收口**：① 新增 61 个测试用例覆盖 compliance_agent (19)/enforce_discipline (14)/evidence_scorer (14)/pre_commit_harness_check (24)/inference_gate (20)—全部通过；② G71 为 evolve_agents(11个)/extract_knowledge(4个)/run_debate(8个) 共 23 个函数补充类型注解；③ G72 导入组织 18 个文件全部闭合。累计 scripts/ 测试 **474 用例**，覆盖 **68 模块**。版本号 bump 8.8.7→8.8.8 |
-| v8.8.5 | 2026-07-17 | **LangGraph 管线 Bug 修复（P0/P1/P2）**：① G70 `node_scan` 修复——改从文件读取扫描结果而非解析 stdout，scan_all 数据正确流入全管线；② G71 `node_report` 修复——逐品种基于扫描数据生成差异化方向/价格/仓位，报告含6个差异化信号（4BUY/2SELL）；③ G72 `node_signal_output` 修复——新增逐品种信号清单（abs>=60），按评分排序输出最强信号；④ 配套修复 `fdt_daily_runner.py` 禁用均值回归（加 `mean_reversion` 到 `DISABLED_STRATEGIES`）、LangGraph 模式启用、工作空间设置；⑤ `runner.py` 全品种传递。同步更新 `08-gap-analysis.md` G70-G72。版本号 bump 8.8.4→8.8.5 |
-|
-| v8.8.4 | 2026-07-17 | **P1/P2 Bug 修复批**：① G67 `compute_indicators()` API 不匹配修复（`node_prepare_data` 传 OHLCV dict 替代四个独立数组）；② G68 裁决/信号报告 None 格式化修复（`or 0` 模式防御 None）；③ G69 subprocess runner `debate_brief.py` 补全 l1l4/factor 两个必需位置参数；④ `fdt_daily_runner.py` 添加 `mean_reversion` 到 `DISABLED_STRATEGIES`，切换 LangGraph 模式，设置 `FDT_DAILY_WORKSPACE`；⑤ `runner.py` 传递全部品种而非限 10 个。同步更新 `08-gap-analysis.md`。版本号 bump 8.8.3→8.8.4 |
-| v8.8.3 | 2026-07-17 | **Keltner 鲁棒参数训练（鲁棒评分加权）**：① 修改 `keltner_wf.py` 评分函数为鲁棒性加权（`0.1×峰值 + 0.9×3×3邻域均值`），优先选择参数平原广阔的组合；② 对63个品种完成全品种训练，`period=40, atr_mult=1.5` 被验证为最鲁棒的全局参数（25/63品种选该组合，信号加权均值 period=37.0, atr_mult=1.62，全局平均训练准确率61%/测试准确率21%）；③ 新增 `keltner_robustness.py` 鲁棒性分析器；④ 固定参数 `(40, 1.5)` 在10个代表性品种上的平均峰值得分51.4与邻域均值51.5几乎一致，验证了参数平原的广阔性（邻域平坦）；版本号 bump 8.8.2→8.8.3 |
-| v8.8.2 | 2026-07-17 | **cov-4 批量测试覆盖（第二阶段·收官）**：扩展 `scripts/test_scripts.py` 新增 44 个测试用例，覆盖 4 个 scripts/ 模块（run_debate/fdt_cli/extract_knowledge/webui），累计 scripts/ 测试 **413 用例**，覆盖 **63 模块**（**412 passed / 1 skipped**）；修复 `extract_knowledge.py` 的 `confidence_utils` 导入 fallback；同步更新 `docs/harness/06-testing.md` / `08-gap-analysis.md`；G65 关闭；版本号 bump 8.8.1→8.8.2 |
-| v8.8.1 | 2026-07-17 | **Keltner 通道参数 Walk-Forward 优化**：① 新增 `keltner_wf.py` 参数训练脚本，对 `period`（10/15/20/25/30/40）和 `atr_mult`（1.5~3.5，步长0.25）共54种组合进行网格搜索；② 对61个品种完成Walk-Forward训练+测试分割（70%训练/30%测试）；③ 众数参数：period=40, atr_mult=1.5；④ 更新 `TREND_G30_CONFIG.keltner`（20→40, 2.25→1.5）和 `legacy_numpy.py` Keltner计算参数；⑤ 新增 `tests/quant-daily/test_keltner_wf.py` 17个单元测试全部通过；版本号 bump 8.8.0→8.8.1 |
-| v8.8.0 | 2026-07-17 | **明鉴秋报告层调度增强**：① `state.py` 新增 4 个阶段报告字段（`scan_report_path` / `research_report_path` / `verdict_report_path` / `signal_report_path`）；② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`），覆盖 P1/P3/P5/P6/P6a 五个阶段；③ P6 `node_report` 修复 fallback 路径，输出到用户指定工作空间（`FDT_REPORT_WORKSPACE` / `FDT_DAILY_WORKSPACE`）而非 `/tmp`；④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出各阶段报告路径；⑤ 新增 `tests/fdt_langgraph/test_reports.py` 12 个测试用例全部通过；⑥ 同步更新 Harness 文档（01-architecture / 02-lifecycle §2.4 / 04-resilience §9.5.1 / 06-testing §2.1）；版本号 bump 8.7.1→8.8.0 |
-| v8.7.1 | 2026-07-17 | **cov-4 批量测试覆盖（第一阶段）**：扩展 `scripts/test_scripts.py` 新增 57 个测试用例，覆盖 16 个 scripts/ 根目录及子目录模块（logutil/fdt_version/health_check/run_reporter/record_verdicts/notifier/llm.cache/llm.token_budget/spawn_resource_check/model_registry/debate_archiver/ops_monitor/auto_publish/auto_train/market_game_agent/marl_trainer），累计 scripts/ 测试 69 用例；**总测试 69 passed**；版本号 bump 8.7.0→8.7.1；同步更新 `docs/harness/06-testing.md` / `07-operations.md` / `08-gap-analysis.md` |
-| v8.7.0 | 2026-07-17 | **架构精简 v2**：删除策略师子 Agent（策执远），将其职责合并到闫判官（直接输出完整交易参数）和风控明（复验止盈止损/盈亏比）；删除 `node_trading_plan` 节点、`trading_strategist.yaml` 配置；更新 LangGraph 流程为 verdict→risk_check→report→signal_output→END；同步更新 `execution_modes_flowchart.md` v4.6、`agent-protocol.md` v4.1、Harness 文档；版本号 bump 8.6.0→8.7.0 |
-| v8.6.0 | 2026-07-17 | **架构精简 v1**：明鉴秋职责聚焦流程调度（P1-P5 阶段、自进化、记忆归档），删除 L1-L4 评分模块；新增 `node_report`（报告生成）和 `node_signal_output`（CTP 信号输出）；修复探源 Agent（产出 FundamentalStateVector）和观澜 Agent（产出 TechnicalOutput）的 LLM 推理生成逻辑；更新 LangGraph 架构为 risk_check→report→signal_output→END；同步更新 Harness 文档；版本号 bump 8.5.4→8.6.0 |
-| v8.5.4 | 2026-07-17 | **cov-3 候选模块覆盖**：新增 4 个测试文件（test_unified_logger.py/test_fdt_version.py/test_config_manager.py/test_fdt_llm.py）共 144 个用例，覆盖率 91%/100%/92%/71%；解决 `tests/conftest.py` sys.path 遮蔽问题；累计 scripts 测试 7 文件/322 用例全绿；同步更新 pyproject.toml、07-operations.md、06-testing.md、08-gap-analysis.md；G65 Phase B 关闭 |
-| v8.5.3 | 2026-07-17 | **cov-2 候选模块覆盖**：新增 178 个测试用例，覆盖 test_fdt_paths.py（84%）/test_trace_id.py（94%）/test_confidence_utils.py（87%）；累计 13 文件/339 用例（161 langgraph + 178 scripts）；同步更新版本号和文档；G65 Phase A 关闭 |
-| v8.5.0 | 2026-07-17 | **G65 测试覆盖扩展**：启动 scripts/ 模块测试覆盖率提升专项，目标消除 0% 覆盖率模块；cov-1/2/3 阶段规划 |
-| v8.4.0 | 2026-07-16 | **G52-G55 生产集成完成**：① G52 `pipeline/runner.py` 集成 LangGraph A/B 切换（`run_langgraph_pipeline()` + `FDT_USE_LANGGRAPH` 环境变量）；② G53 `scripts/run_debate.py` 添加 `langgraph` 子命令（支持 `--mode`/`--symbols`/`--trace-id`）；③ G54 `fdt_langgraph/graph.py` Checkpointer 支持 PG + SQLite 降级（`_get_checkpointer()` + `FDT_CHECKPOINTER=pg` 切换）；④ G55 新增 `tests/fdt_langgraph/test_integration_ab.py` 18 个集成测试验证 A/B 切换机制等价性；**总测试数：99 passed, 1 warning in 5.08s**（8 文件 / 99 用例）；新增 3 个环境变量 `FDT_USE_LANGGRAPH`/`FDT_LANGGRAPH_MODE`/`FDT_CHECKPOINTER`；三级降级路径（LangGraph import 失败→subprocess / PG Checkpointer 失败→SQLite / A/B 默认 false 零风险） |
-| v8.3.0 | 2026-07-16 | **LangGraph 迁移完成**：DebateState TypedDict(19字段+create_initial_state工厂)、10个异步节点函数、按需并行拓扑图(闫判官→链证源/观澜/探源并行→merge_research)、PostgreSQL OLTP+OLAP 混合架构(14表+3视图)、独立 CLI/FastAPI 双入口；更新9篇Harness文档；**21个pytest测试用例全部通过**(节点96%/State 100%/Graph 77%/Agents 65%)；移除外部平台依赖；P1 可插拔多策略扫描、P3 三源平行关系无先后次序 |
-| v8.2.0 | 2026-07-16 | Harness 工程规范全面固化：用户规则 + 项目记忆 + harness-checker 技能 + commit前12项检查清单 + Git Hook 强制检查 |
-| v6.3.2 | 2026-07-14 | P0-4 多因子增强：select_triggers disable_filter 读 _raw_total；V1 OI/基差覆写；V2 OI+量比联合；V3 基差+低波联合；numpy 60s 品种级超时；finalize-only glob mtime 排序；G19 新登记(9 测试全绿)；阈值常量 G20/100ppi 降级 G21 待后续 |
-| v6.3.1 | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
-| v6.3.0 | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；technical-analysis 和 fundamental-data-collector 独立运行 |
-| v6.2.0 | — | A2A Agent-to-Agent 协议文件桥（agent-card.json + a2a_results.json）+ validate_final_signals 置信度归一 |
-| v6.1.0 | — | 信号验证门（validate_final_signals.py）+ 行动对账（execute/hold/wait）+ 方向-价格一致性检查 |
-| v6.0.0 | — | FDC 数据引擎合并：QMT(0) 主源，TDX/TqSDK 降级，移除 AKShare/EastMoney 直连 |
-| v5.7.0 | 2026-07-10 | 驾驭工程（Harness Engineering）落地：**经 07-14 复核 G14 实际未落地、G16 重构后失效，原「4.7/5.0 全部完成」声明需修正** |
-| v5.6.0 | 2026-07-09 | 5层鲁棒性架构 (L1-L5) |
-| v5.5.0 | 2026-07-09 | OmniOpt 分类法集成 (F1-F5) |
-| v5.4.0 | 2026-07-07 | 可观测性与自改进里程碑 |
-| v5.3.0 | 2026-07-07 | 通道突破策略里程碑 |
-| v5.2.0 | 2026-07-06 | 架构重构 (通道突破主信号源) |
-| v5.1 | 2026-07-06 | Phase 1 独立化 (scheduler/bootstrap) |
-| v5.0 | 2026-07-06 | 自进化闭环里程碑 |
-| v4.5 | 2026-07-06 | Bridgewater 方法论落地 |
-| v4.4 | 2026-07-05 | P0+P1 全面实施 |
-| v4.2 | 2026-07-05 | P3 全量实现 |
-| **v9.18.0 → v9.18.1** | 2026-07-23 | **scheduler/ 整体退役** — 老调度器包（`scheduler/engine.py`/`triggers.py`/`tasks.py`）全部删除；`scripts/scheduler.py` 删除；`tests/scheduler/` 删除；7 个外部引用文件更新（daemon_watchdog/dashboard/webui/health/fdt_cli/quality-gate）；Master Graph 为唯一调度入口。文档同步更新。 |
-| v9.6.8 → v9.6.9 | 2026-07-22 | **单品种报告层落地** — 新增 `fdt_langgraph/single_symbol_report.py`（单品种精简报告生成器）；`node_report` 增加单品种分支，自动跳过无效 P1/P2，从辩论论据回退提取 Agent 输出；浮点数截断到合理精度；风控阻断原因明确展示；修复 PS 交易所映射（CZCE→GFEX）；修复 `asyncio.run()` 事件循环冲突；修复 `node_judge_direction` 覆盖用户指定品种问题 |
-| v9.6.8 | 2026-07-21 | P1角色矫正：数技源输出stats纯统计特征，闫判官去锚定，select_triggers改为数据质量闸门 |
+| **v9.26.0** | 2026-07-24 | **AKShare 升至第一K线数据源 + 数据源优先级重排** — 新增 `collectors/akshare.py`（AKShareCollector），通过 `akshare.futures_hist_em()` 获取东方财富期货K线，设为第一数据源（priority=0）。数据源链调整为：AKShare（第一）→ TDX TQ-Local（第二）→ TqSDK（第三）→ DataCore → WebFallback → QMT。`data_sources.yaml` 同步更新。 |
+| **v9.24.2** | 2026-07-24 | **TqSDK 数据采集修复 + 辩论图降级路径 None 安全加固** — ① 修复 `tqsdk.py::_pump()` 中 `wait_update` 参数名 `timeout→deadline`（TqSDK 3.10.1 API 签名），TqSDK 数据采集从"始终为空"恢复为正常（G26 P0 关闭）；② 修复 `node_signal_output()` P0b 阻断后 `signal_output=None` 崩溃（G27 P0 关闭）；③ 修复 `_resolve_report_dir()` 跨日子目录生成（G28 P1 关闭）；④ 修复 `scan_all.py` summary 未初始化 NameError 隐患（G29 P1 关闭）。文档同步：08-gap-analysis.md 新增 G26-G29 登记。版本号 bump 9.24.1→9.24.2 |
+| **v9.24.1** | 2026-07-23 | **P0b 数据新鲜度闸门落地 + D05 Spawn铁律移除** — ① 修复 scan_all.py `_fdc_get_kline_sync` data_grade_label 整数 vs 字符串比较 bug（`grade >= 4` 正确检测 UNAVAILABLE/STALE）；② scan_all.py R24 全局闸门输出嵌入结构化 `freshness_report`（status/valid_symbols/fail_reasons）；③ 新增 `node_freshness_gate()` P0b 节点，在 scan→judge_direction 之间实施新鲜度检查；④ graph.py 新增 `_route_after_freshness()` 条件路由：ALL_STALE/NO_VALID_SYMBOLS → D06 aggregate_results（跳过 P2-P5 辩论链）；⑤ `fdt_cli.py _print_phase_reports()` 输出新鲜度状态；⑥ `resilience.md` 新增 D06 降级规则；⑦ `state.py` 新增 `freshness_report` 字段。⑧ **D05 Spawn铁律移除**：当前系统所有 Agent 通过 FdtAgentExecutor 直调 LLM API，不再使用 TAE SDK spawn。清理 12+ 文件的 spawn_mode/spawn_note/D05 引用。 |
+| **v9.24.0** | 2026-07-23 | **数据源体系重构 — TqSDK 第一 + 统一标准化层 + 新鲜度自动降级**：① **TqSDK 升至第一数据源** — `tqsdk.priority` 从 98 改为 -1，`_default_collectors` 重排为 TqSDK→DataCore→TDX→WebFallback→QMT；② **统一 K 线标准化层** — `_wrap_kline` 接入 `normalize_kline_row`，所有采集器数据统一日期格式/字段名；③ **新鲜度自动降级** — 末根 K 线 > 7 天视为过期，自动继续下一源，防止过期货数据阻断；④ **数据质量日期解析修复** — `_calc_freshness_days` 支持 `%Y%m%d` 和 `%Y-%m-%d` 两种格式；⑤ **伪突破过滤配置化** — `ENABLE_PSEUDO_BREAKOUT_FILTER = False` 配置开关；⑥ **P2 闫判官结构化输出修正** — 新增 `judge_direction` decode 配置，required_fields 匹配 P2 产出格式。版本号 bump 9.23.0→9.24.0 |
+| **v9.23.0** | 2026-07-23 | **六维高 ROI 提升批**：① **G02 Schema 硬件约束** — `agents.py` 将 `response_format` 从 YAML 注入 httpx payload，LLM API 级 JSON 约束；② **G01 模型差异化路由** — YAML `model` 字段生效，裁决组(4 Agent)用 `deepseek-v4-flash`，研究组(5 Agent)用 `deepseek-chat`；③ **C01 Token 预算控制** — `_build_debate_context()` 出口集成 TokenBudget，`FDT_CONTEXT_MAX_TOKENS` 环境变量控制上限；④ **C03 扫描信号表去重** — 提取 `_build_scan_signal_table()` 共享函数，消除 2 处 20 行重复代码。版本号 bump 9.22.6→9.23.0 |
+| **v9.22.6** | 2026-07-23 | **OutputMetrics 硬约束 (G8)**：`validate_verdict()` 接入 `OutputMetrics.score_output()`，评分 < 60 追加 FAIL issue，< 40 强制阻断（error 级）。版本号 bump 9.22.5→9.22.6 |
+| **v9.22.5** | 2026-07-23 | (预留 G7 — ToolMetrics 反哺调度，因架构不匹配暂缓) |
+| **v9.22.4** | 2026-07-23 | **Vector Memory 接入探源上下文 (G6)**：`_build_fdc_fundamental_context()` 追加 `【品种历史模式】` 区块，通过 `VectorMemory.query()` 查询最多 3 个品种的历史记忆注入基本面分析师上下文。版本号 bump 9.22.3→9.22.4 |
+| **v9.22.3** | 2026-07-23 | **Context 按品种过滤 (G5)**：`_build_debate_context()` 新增 `current_symbol` 参数，辩论上下文仅包含当前品种数据，消除全品种注入的 prompt 膨胀；4 处辩论节点调用处传入当前品种。版本号 bump 9.22.2→9.22.3 |
+| **v9.22.2** | 2026-07-23 | **LLM 输出解析统一封装 (G4)**：`llm_provider.py` 新增 `parse_llm_output()` 函数，统一封装 5 处 LLM 输出解析调用（node_judge_direction / node_technical / node_fundamental / node_verdict / node_risk_check），消除 nodes.py 中所有手动 `json.loads` 和 inline `enforce_structured_output` 调用；新增 6 个单元测试全部通过。版本号 bump 9.22.1→9.22.2 |
+| **v9.22.1** | 2026-07-23 | **D3 Generation 全量接入 enforce_structured_output**：`node_risk_check` LLM 输出解析从手动 `json.loads` 替换为 `enforce_structured_output(agent_name="risk_manager")`，覆盖 5 处 LLM 解析节点全量接入。版本号 bump 9.22.0→9.22.1 |
+| **v9.22.0** | 2026-07-23 | **RHI 完整落地 — evolution_graph 集成 + 全局 CLI（G114 完成）**：① **RHI 接入自进化闭环** — `evolution_nodes.py` 新增 `node_rhi` 节点，decide_actions 新增 `need_rhi` 决策，evolution_graph 路由优先级 improve→calibrate→evolve→rhi→ml→complete，`FDT_RHI=true` 环境变量开关；② **全局 Harness CLI** — `scripts/rhi_global_cli.py` 独立 CLI 工具，任何项目可 `rhi-global init/status/step/history/install`，自动创建 CLAUDE.md 最小模板 + 四维评分 + 改进率收敛；③ 22 个 RHI 测试用例全部通过。版本号 bump 9.21.0→9.22.0 |
+| **v9.21.0** | 2026-07-23 | **MemoHarness+RHI 整合 — 自适应 Harness 优化框架（G114-G115）**：① **G21 设计文档升级** — 更新为 MemoHarness(六维控制空间+双层经验库) 和 RHI(轨迹局部 pairwise 比较) 的统一方案；② **HarnessSpec 契约** (`contracts/rhi_harness_spec.py`) — RHI 三层规范：Agent Candidates/Workflow(Contract+Hop)/Auxiliary Rules + MemoHarness 六维快照；③ **Pairwise Evaluator** (`scripts/rhi_pairwise_eval.py`) — 四维对比评分(质检通过率/风控/信号/报告完整性)，O(1)时间复杂度；④ **Harness Optimizer** (`scripts/rhi_harness_optimizer.py`) — LLM 基于偏好历史更新 Harness，workflow-first；⑤ **RHI LangGraph 子图** (`fdt_langgraph/rhi_graph.py`) — 可与 evolution_graph 集成，停止条件(ε=0.3, max_iter=5)；⑥ **全局 Harness RHI** (`scripts/rhi_global_harness.py`) — CLAUDE.md 自优化；⑦ 22 个测试用例全部通过。版本号 bump 9.20.1→9.21.0 |
+| **v9.20.2** | 2026-07-23 | **Harness 文档一致性三层保障体系** — Layer 1: 10 篇文档追加结构化一致性元数据表格；Layer 2: `scripts/verify_doc_consistency.py` 自动校验脚本，解析元数据并执行检验命令；Layer 3: `docs/harness/_data/` YAML 数据文件分离易变配置。C15 规则纳入 pre-commit。51 测试全绿，81 条断言通过。 |
+| **v9.20.0** | 2026-07-23 | **v9.19.0 生产运行问题修复批（G109-G111）**：① **Evolution NoneType 修复（G109）** — `master_nodes.py` 中 `ev_state.get()` 增加 None 防护；② **质检缺字段容错（G110）** — `quality_inspector.py` 增加 `symbol`/`stop_loss`/`target1` 等缺失字段的自动填充和更友好的质检反馈；③ **LLM 解析回退增强（G111）** — `nodes.py` 观澜/探源 LLM 输出解析增加 JSON 修复逻辑（截断/单引号/注释清理），提高解析成功率；④ **FDC N/A 指标兜底** — `node_risk_check` 对 N/A 指标增加更清晰的阻断原因说明，帮助快速定位数据源问题；⑤ **报告路径去重** — `_resolve_report_dir()` 检查 workspace 是否已含日期后缀，避免嵌套；⑥ **analyze_trajectory import 修复** — `self_improve.py` 增加项目根目录 sys.path 插入。版本号 bump 9.19.0→9.20.0 |
+| **v9.19.0** | 2026-07-23 | **LangGraph 迁移收尾 · G108 关闭**：① `pipeline/runner.py`/`quality_filter.py`/`__init__.py` 退役；② `FDT_USE_LANGGRAPH` A/B 切换机制清理；③ Master Graph `run_master_daemon()` 心跳文件 `_write_heartbeat()` 落地（`memory/logs/master_heartbeat.log`）；④ `daemon_watchdog` 确认使用 `master_heartbeat.log` 检测存活；⑤ `node_run_data_collection` dangling 引用修复（内联 TDX collector + DominantResolver）；⑥ 外部脚本归档（15 个 subprocess 评估为"有意识保留"）；⑦ 17 处 Harness 文档旧引用全量清理（01/02/03/04/05/07 + designs）；⑧ G108 关闭。版本号 bump 9.18.0→9.19.0 |
+| **v9.18.0** | 2026-07-23 | **Master Orchestrator Graph — 全量自动化迁移至 LangGraph**：① 新增 `fdt_langgraph/master_state.py/master_nodes.py/master_graph.py` — Master Orchestrator LangGraph，统一编排所有自动化任务（日常辩论/数据采集/APM评分/自动发布），纯 Python datetime 调度判断，零第三方依赖；② `fdt_cli.py` daemon 模式从 APScheduler 替换为 `run_master_daemon()`；③ 新增 `fdt_cli.py master` 子命令单次检查；④ 移除 APScheduler 依赖；⑤ 18 个测试用例全绿。版本号 bump 9.17.0→9.18.0 |
+| **v9.17.0** | 2026-07-23 | **自进化闭环 LangGraph Evolution Graph**... |
+| **v9.16.0** | 2026-07-23 | **D2/D5/D6 工程成熟度提升**：① D6 Output: `check_report_integrity` 接入 `OutputMetrics.score_output()`、`node_report` 接入 `OutputVersioning.save_output()`、`node_quality_inspect` 接入 `OutputAudit.log_output()`；② D2 Tool: `FdtAgentExecutor.execute()` 接入 `ToolMetrics.record_call()`；③ D5 Memory: `memory_cleaner` 增强（debate_journal 压缩+generation_metrics 清理）；④ `scheduler/tasks.py` 注册 `apm_scorecard` 定时任务。版本号 bump 9.15.0→9.16.0 |
+| **v9.15.0** | 2026-07-23 | **Generation Phase 4 — 解码参数反馈闭环（升温重试）**：① `enforce_structured_output.py` 新增 `retry_with_temperature_escalation()`；② 新增 `write_retry_signal()` 信号文件机制；③ `agent_waiter.py` 校验失败时自动写入重试信号文件。版本号 bump 9.14.0→9.15.0 |
+| **v9.13.0** | 2026-07-23 | **品藻角色拆分 + Data Governance Phase 3 收尾**：① 质检+报告职责从明鉴秋剥离，成立独立角色**品藻**（`agents/futures-quality-assurance.md`）；② P3.5 质检和 P6 报告汇编由品藻执行，明鉴秋专注调度/编排；③ 更新 `quality_inspector.py`/`nodes.py` 归属标注；④ 新增 `02-lifecycle.md` P3.5 阶段规格行；⑤ 更新 `01-architecture.md` 数据流图全部 [report] 引用为品藻；⑥ 更新 `agents/futures-debate-team-team-lead.md` 九大角色表新增品藻（第10个）；⑦ 更新 README 十 Agent 列表。版本号 bump 9.12.0→9.13.0 |
+| **v9.12.0** | 2026-07-23 | Data Governance Phase 2 — 数据源溯源穿透修复 + 策略层质量门禁: ① scan_all.py/multi_source_adapter.py per-bar data_source 修复 meta.sources 穿透; ② 新增 data_quality 验证器(D级降级/C级标记/兜底源标记); ③ 注册为 __global__ 列表级闸门, 所有信号统一受检; ④ scan_all.py 执行顺序调整(data_quality 注入提前到 validators 之前); ⑤ 数据源从 kline_data 溯源传播到 all_ranked |
+| **v9.11.3** | 2026-07-22 | 修复G107续: 辩论报告探源从fdc_data补充+过滤无意义f10占位数据+修复nodes.py引号混用 |
+| **v9.11.2** | 2026-07-22 | 修复G107: 观澜/探源FDC回退模板丰富化，利用已有指标数据替代占位文本 |
+| **v9.11.1** | 2026-07-22 | 修复G103: node_verdict FDC指标key映射 (RSI14/ADX/CCI20)；修复G104: scan_all _calc_volume_ma20类型守卫 |
+| **v9.9.0** | 2026-07-22 | Phase C: 案例适配层（W(x_j)）上线 — harness_adapter + Shadow 模式 + 安全边界 + G102 关闭 |
+| **v9.8.0** | 2026-07-22 | Phase B: 模式蒸馏层（Gt）上线 — pattern_distiller + pattern_reviewer + staging 机制 + G101 关闭 |
+| **v9.7.0** | 2026-07-22 | Phase A: 经验记录层（Et）上线 — ExecutionRecord Schema + experience_recorder + C14 正确性优先规则 + G100/G103 关闭 |
+| **v9.6.9** | 2026-07-22 | **单品种报告层落地** — 新增 `fdt_langgraph/single_symbol_report.py`（单品种精简报告生成器）；`node_report` 增加单品种分支，自动跳过无效 P1/P2，从辩论论据回退提取 Agent 输出；浮点数截断到合理精度；风控阻断原因明确展示；修复 PS 交易所映射（CZCE→GFEX）；修复 `asyncio.run()` 事件循环冲突；修复 `node_judge_direction` 覆盖用户指定品种问题 |
+| **v9.6.8** | 2026-07-21 | P1角色矫正：数技源输出stats纯统计特征，闫判官去锚定，select_triggers改为数据质量闸门 |
+| **v9.4.3** | 2026-07-20 | **G91 Phase 4.8 同品种多子信号合并方向覆盖 bug 修复（P0）**：① `pipeline.py` Phase 4.8 引入 `_merge_acc` 累积器，将"逐个两两平均"改为正确的"简单平均"，消除后序信号权重偏高问题；② grade 升级时不再覆盖 `direction`，direction 完全由最终平均 `total` 符号决定；③ 修复 SC 场景方向错误（4 看多 vs 2 看空，原错误输出 bear，修复后正确输出 bull）；④ 新增 `TestSubSignalMerge` 4 用例（SC 场景/全看空/平衡/grade 升级）。版本号 bump 9.4.2→9.4.3 |
+| **v9.4.2** | 2026-07-20 | **G89 debate_only 信号多空论据丢失修复 + G90 信号排序改为交易可靠性优先**：① G89 修复 `phase3_generate_report.py` 补充逻辑遗漏 `bull_args`/`bear_args` 字段（`missing_pids` 品种从 `debate_results` 复制论据）；② G89 修复 `fdt_langgraph/nodes.py` `node_report` 中 LLM 辩论遗漏品种论据时，从 judge reasoning 生成 `[裁决摘要]` 最小 fallback；③ G90 将 T1/T2/T3 信号排序从纯置信度改为 `置信度 × 盈亏比`（隐含胜率 × 潜在盈亏比）；④ 辩论详情模块 `SYMBOL_KEYS` 从字母序改为可靠性排序；⑤ 新增 `tests/quant-daily/test_g35_debate_only_args.py` 3 用例全绿；⑥ 同步更新 `06-testing.md` 测试计数 6→9。版本号 bump 9.4.1→9.4.2 |
+| **v9.4.1** | 2026-07-20 | **G88 K 线数据链路根因修复（P0）**：① 修复 `MultiSourceAdapter.get_kline()` 入口处的"自动主力解析" bug — 之前 `DominantResolver` 在 `memory/dominant_map.json` 不存在时返回 `f"{variety}00"`（如 `RB00`），这种合约代码在 WebFallback/TqSDK 等所有采集器中均识别失败，导致 K 线返回空、整个数据链路断裂；改由各采集器内部根据自身能力处理 symbol 转换（如 TqSdk 的 `_resolve_continuous` 将 `RB` 转为 `KQ.m@SHFE.rb`），避免平台无关的后备代码污染降级链；② 修复 `tests/dominant-resolver/test_fdc_fallback.py` 的 `_mock_datacore_unavailable` fixture — 改用 `sys.modules["datacore"] = None`（Python 标准约定的"不可导入"信号）替代 `del sys.modules["datacore"]`，避免 `import datacore.fdc_compat` 触发真实包 `__init__.py` 加载导致 Prometheus Counter 重复注册；③ 移除 `multi_source_adapter.py` 中未使用的 `has_month_suffix` 导入。验证：`get_kline("RB")` 恢复返回 30 根 web_fallback K 线；`compute_indicators` 返回 16 个标准指标键名（MA/EMA/RSI/MACD/BOLL 等），类型正确（MA 为 ndarray，BOLL 为 tuple）；F10 子块结构正常（term_structure/spread/basis/warrant/fundamental 均 success=True）。测试 122 passed, 1 skipped。版本号 bump 9.4.0→9.4.1 |
+| **v9.4.0** | 2026-07-20 | **G87 Data-Core F10 全面集成**：① 新增 `futures_data_core/core/_datacore_bridge.py` — 集中式 F10 桥接器，封装 `try_datacore_first()` + `_dc_result_to_a2a()` 模板方法；② 改造 6 个 F10 模块（term_structure/spread/basis/warrant/fundamental/position）入口 — 每模块 +3 行 Data-Core 优先检查，自动降级原有实现；③ `compute_indicators` 优先路由 Data-Core 版；④ 新增 2 个测试文件（test_datacore_bridge.py 24 用例 + test_fdc_fallback.py 12 用例）覆盖全部桥接路径和降级兼容性；⑤ 更新 4 篇 Harness 文档（01-architecture / 04-resilience / 06-testing / 07-operations）；版本号 bump 9.3.0→9.4.0 |
+| **v9.3.0** | 2026-07-19 | **G86 主力合约统一解析 + DataCore 集成 + 字段标准化**：① 新增 `futures_data_core/core/dominant_resolver.py` — 统一主力合约判定与换月追踪；② 改造 `MultiSourceAdapter.get_kline()` — 无合约后缀时自动解析为实际主力合约代码；③ 新增 `get_contract_kline()` / `get_all_active_contracts()` 入口确保 F10 基差/期限结构不受影响；④ 废弃 `skills/quant-daily/scripts/data/dominant_mapping.py`；⑤ 激活调度器主力映射更新任务；⑥ 新增 `DataCoreCollector` — 封装 `datacore.fdc_compat` 为 FDT BaseCollector，配置为采集器链最高优先级(0)；⑦ 更新 `data_sources.yaml` 降级链为 DataCore→TDX→WebFallback→QMT→TqSDK；⑧ 新增 `futures_data_core/core/field_normalizer.py` — 统一规范 8 类子 Agent 数据栏位（direction/oi/confidence/entry_price/grade 等），覆盖 14 个不一致点；⑨ 在 `nodes.py` 的 4 个关键数据边界（scan/judge/verdict/risk_check）集成标准化层 |
+| **v9.2.0** | 2026-07-18 | **Loop Engineering 剥离**... |
+| **v9.1.0** | 2026-07-18 | **G85 本地数据增量缓存与指定品种辩论模式**：① 新增 `fdt_cache/` — 本地 SQLite 增量缓存层，按品种+数据类型持久化 K 线/基本面/基差数据，减少重复 I/O 和网络开销；② 新增**指定品种辩论模式** — 当设置 `FDT_DIRECT_DEBATE=true` 和 `FDT_DEBATE_SYMBOLS=SF,SM,SC` 时，跳过 P1 扫描阶段，直接从 `fdt_cache/` 加载缓存数据进入 P2→P3→P4→P5→P6 流程；③ 新增 3 个环境变量 `FDT_DIRECT_DEBATE`/`FDT_DEBATE_SYMBOLS`/`FDT_CACHE_DIR`；④ 更新 5 篇 Harness 文档（01-architecture / 02-lifecycle / 03-configuration / 06-testing / 07-operations）。版本号 bump 9.0.0→9.1.0 |
+| **v9.0.0** | 2026-07-18 | **辩论流程重大重构：正反方→多空头模式**：① 辩论模式重构——正反方模式→多空头攻防模式，多头只论证做多，空头只论证做空；② 六阶段辩论——多头立论→空头立论→空头反驳多头→多头反驳空头→空头最终陈述→多头最终陈述→闫判官裁决；③ 分析师中立化——技术面/基本面/产业链分析师客观供弹，辩手只能使用分析师提供的资料；④ 来源可追溯——辩论上下文中每条数据均携带来源标记（`[scan]/[technical:观澜]/[fundamental:探源]/[chain:链证源]`）；⑤ 闫判官独立裁决——明确强调可推翻数技源方向，裁决输出增加 `overturn_scan` 标记。涉及 `fdt_langgraph/state.py`（新增 bearish_rebuttal_arguments 等字段）、`fdt_langgraph/nodes.py`（重写 8 个辩论节点，新增 4 个节点，删除旧 opposition 模式）、`fdt_langgraph/graph.py`（新增 6 节点辩论图，删除旧路由函数）、`config/agents/bullish_analyst.yaml`（消除内部矛盾指令）、`config/agents/bearish_analyst.yaml`（补全缺失内容）、`docs/business_flow.md`（更新多空头六阶段流程描述）。版本号 bump 8.10.0→9.0.0 |
+| **v8.9.4** | 2026-07-18 | **数据源配置文档同步（G78）**：修正 `docs/harness/03-configuration.md` 中数据源降级链描述与代码实际不一致的问题——原文档仍写 "TDX→TqSDK→东方财富→AKShare"，代码已演进为 "TDX→WebFallback→QMT→TqSDK"（2026-07-15 调整 Web 前置于 TqSDK 以规避 close 挂死）。① `03-configuration.md §5` 全面重写：降级链图示更新、新增数据源能力矩阵（K线/快照/指标/Tick/F10/超时）、数据源选择逻辑表补齐 QMT/WebFallback/缓存兜底；② `futures_data_core/config/data_sources.yaml` 补充 `web_fallback`（priority=1）和 `qmt_xtquant`（priority=2）配置项，TqSDK priority 从 1 修正为 98（与代码一致），新增超时/置信度等参数；③ 移除所有 AKShare 残留描述（主链中已不存在）；④ 同步更新 `03-configuration.md §1.2` 中 data_sources.yaml 路径（从 skills 目录改为 futures_data_core/config/）及 §2.3 pyproject.toml 示例版本号。版本号 bump 8.9.3→8.9.4 |
+| **v8.9.2** | 2026-07-18 | **深度辩论模式 Bug 修复（G77）+ 报告按需生成**：① 修复 `graph.py` `_register_p3_nodes()` `deep_research` 模式 P3 节点全被跳过导致辩论/裁决/报告无法执行的 P0 级 Bug；② `scan_all.py` 和 `nodes.py` 中 P1 扫描/排序报告改为按需生成（`FDT_GENERATE_SCAN_REPORT` 环境变量控制），默认不生成；③ 全量测试通过，辩论报告正常产出至 `D:\\FDTWorkspace\\{date}\\`。版本号 bump 8.9.1→8.9.2 |
+| **v8.9.1** | 2026-07-17 | **逐Agent LLM 配置**：每个子 Agent 可独立配置不同的 LLM（API Key / Base URL / Model），通过 `FDT_LLM_<AGENT_NAME>_*` 环境变量覆盖全局默认值；`agents.py` 新增 `_normalize_env_name()` / `_resolve_llm_config()` 方法，动态解析运行时环境变量；新增 16 个测试用例覆盖完整配置链（名称归一化 / 优先级 / 回退链 / 实际调用）；同步更新 `03-configuration.md §3.3`。版本号 bump 8.9.0→8.9.1 |
+| **v8.9.0** | 2026-07-17 | **辩论模式重构 + 测试覆盖增强 + 技术选型文档**：① P4 从「证真+慎思并行一次调用」拆分为「串行三步骤交叉质询」——`node_bullish_v1`（多头立论 v1）→ `node_bearish_v1`（空头质疑 opposition v1）→ `node_bullish_rebuttal`（多头反驳 rebuttal v2，max=1）；② `DebateState` 新增 `debate_round` 轮次计数器 + `Annotated[list, operator.add]` reducer 自动追加多轮辩论产物；③ `graph.py` 新增 `route_after_bullish_v1`/`route_after_bearish_v1`/`route_after_rebuttal` 条件边 + `MAX_DEBATE_ROUNDS=2` 常量；④ 新增 `docs/TECH_STACK_DECISIONS.md` 技术选型文档（8项关键技术决策记录）；⑤ **测试覆盖增强**：新增 3 个测试文件（`test_graph.py` 19用例 → graph.py 覆盖率 25%→93%；`test_agents.py` 56用例 → agents.py 71%→97%；`test_health.py` 42用例 → health.py 0%→100%）；⑥ 修复 state.py 初始化 `bullish_arguments={}`→`[]` 及 `node_verdict`/`node_report` reducer 兼容问题；⑦ 修复 G71 类型注解：为 scripts/ 中 12 个关键公共函数补充类型注解；⑧ 同步更新 12 项检查清单、Harness 文档。版本号 bump 8.8.9→8.9.0 |
+| **v8.8.9** | 2026-07-17 | **基差数据近月代理降级（G76）**：100ppi.com 启用 HW_CHECK 反爬导致基差数据全面断裂。新增 `_collect_basis_via_nearmonth()` 降级函数，通过 TdxCollector 获取近月合约价格作为现货代理，计算 `basis = near_price - main_contract_price`。方向性信号已恢复，`data_source` 标注 `near_month_proxy`，下游验证器（atr_vol_timing/p0_4_raw_kline）自动兼容。同步更新 `04-resilience.md §8.1`（降级原理与边界）、`08-gap-analysis.md`（G76 登记关闭）。版本号 bump 8.8.8→8.8.9 |
+| **v8.8.8** | 2026-07-17 | **cov-5 测试覆盖（P1/P2 模块）+ G71 类型注解收口**：① 新增 61 个测试用例覆盖 compliance_agent (19)/enforce_discipline (14)/evidence_scorer (14)/pre_commit_harness_check (24)/inference_gate (20)—全部通过；② G71 为 evolve_agents(11个)/extract_knowledge(4个)/run_debate(8个) 共 23 个函数补充类型注解；③ G72 导入组织 18 个文件全部闭合。累计 scripts/ 测试 **474 用例**，覆盖 **68 模块**。版本号 bump 8.8.7→8.8.8 |
+| **v8.8.5** | 2026-07-17 | **LangGraph 管线 Bug 修复（P0/P1/P2）**：① G70 `node_scan` 修复——改从文件读取扫描结果而非解析 stdout，scan_all 数据正确流入全管线；② G71 `node_report` 修复——逐品种基于扫描数据生成差异化方向/价格/仓位，报告含6个差异化信号（4BUY/2SELL）；③ G72 `node_signal_output` 修复——新增逐品种信号清单（abs>=60），按评分排序输出最强信号；④ 配套修复 `fdt_daily_runner.py` 禁用均值回归（加 `mean_reversion` 到 `DISABLED_STRATEGIES`）、LangGraph 模式启用、工作空间设置；⑤ `runner.py` 全品种传递。同步更新 `08-gap-analysis.md` G70-G72。版本号 bump 8.8.4→8.8.5 |
+| **v8.8.4** | 2026-07-17 | **P1/P2 Bug 修复批**：① G67 `compute_indicators()` API 不匹配修复（`node_prepare_data` 传 OHLCV dict 替代四个独立数组）；② G68 裁决/信号报告 None 格式化修复（`or 0` 模式防御 None）；③ G69 subprocess runner `debate_brief.py` 补全 l1l4/factor 两个必需位置参数；④ `fdt_daily_runner.py` 添加 `mean_reversion` 到 `DISABLED_STRATEGIES`，切换 LangGraph 模式，设置 `FDT_DAILY_WORKSPACE`；⑤ `runner.py` 传递全部品种而非限 10 个。同步更新 `08-gap-analysis.md`。版本号 bump 8.8.3→8.8.4 |
+| **v8.8.3** | 2026-07-17 | **Keltner 鲁棒参数训练（鲁棒评分加权）**：① 修改 `keltner_wf.py` 评分函数为鲁棒性加权（`0.1×峰值 + 0.9×3×3邻域均值`），优先选择参数平原广阔的组合；② 对63个品种完成全品种训练，`period=40, atr_mult=1.5` 被验证为最鲁棒的全局参数（25/63品种选该组合，信号加权均值 period=37.0, atr_mult=1.62，全局平均训练准确率61%/测试准确率21%）；③ 新增 `keltner_robustness.py` 鲁棒性分析器；④ 固定参数 `(40, 1.5)` 在10个代表性品种上的平均峰值得分51.4与邻域均值51.5几乎一致，验证了参数平原的广阔性（邻域平坦）；版本号 bump 8.8.2→8.8.3 |
+| **v8.8.2** | 2026-07-17 | **cov-4 批量测试覆盖（第二阶段·收官）**：扩展 `scripts/test_scripts.py` 新增 44 个测试用例，覆盖 4 个 scripts/ 模块（run_debate/fdt_cli/extract_knowledge/webui），累计 scripts/ 测试 **413 用例**，覆盖 **63 模块**（**412 passed / 1 skipped**）；修复 `extract_knowledge.py` 的 `confidence_utils` 导入 fallback；同步更新 `docs/harness/06-testing.md` / `08-gap-analysis.md`；G65 关闭；版本号 bump 8.8.1→8.8.2 |
+| **v8.8.1** | 2026-07-17 | **Keltner 通道参数 Walk-Forward 优化**：① 新增 `keltner_wf.py` 参数训练脚本，对 `period`（10/15/20/25/30/40）和 `atr_mult`（1.5~3.5，步长0.25）共54种组合进行网格搜索；② 对61个品种完成Walk-Forward训练+测试分割（70%训练/30%测试）；③ 众数参数：period=40, atr_mult=1.5；④ 更新 `TREND_G30_CONFIG.keltner`（20→40, 2.25→1.5）和 `legacy_numpy.py` Keltner计算参数；⑤ 新增 `tests/quant-daily/test_keltner_wf.py` 17个单元测试全部通过；版本号 bump 8.8.0→8.8.1 |
+| **v8.8.0** | 2026-07-17 | **明鉴秋报告层调度增强**：① `state.py` 新增 4 个阶段报告字段（`scan_report_path` / `research_report_path` / `verdict_report_path` / `signal_report_path`）；② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`），覆盖 P1/P3/P5/P6/P6a 五个阶段；③ P6 `node_report` 修复 fallback 路径，输出到用户指定工作空间（`FDT_REPORT_WORKSPACE` / `FDT_DAILY_WORKSPACE`）而非 `/tmp`；④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出各阶段报告路径；⑤ 新增 `tests/fdt_langgraph/test_reports.py` 12 个测试用例全部通过；⑥ 同步更新 Harness 文档（01-architecture / 02-lifecycle §2.4 / 04-resilience §9.5.1 / 06-testing §2.1）；版本号 bump 8.7.1→8.8.0 |
+| **v8.7.1** | 2026-07-17 | **cov-4 批量测试覆盖（第一阶段）**：扩展 `scripts/test_scripts.py` 新增 57 个测试用例，覆盖 16 个 scripts/ 根目录及子目录模块（logutil/fdt_version/health_check/run_reporter/record_verdicts/notifier/llm.cache/llm.token_budget/spawn_resource_check/model_registry/debate_archiver/ops_monitor/auto_publish/auto_train/market_game_agent/marl_trainer），累计 scripts/ 测试 69 用例；**总测试 69 passed**；版本号 bump 8.7.0→8.7.1；同步更新 `docs/harness/06-testing.md` / `07-operations.md` / `08-gap-analysis.md` |
+| **v8.7.0** | 2026-07-17 | **架构精简 v2**：删除策略师子 Agent（策执远），将其职责合并到闫判官（直接输出完整交易参数）和风控明（复验止盈止损/盈亏比）；删除 `node_trading_plan` 节点、`trading_strategist.yaml` 配置；更新 LangGraph 流程为 verdict→risk_check→report→signal_output→END；同步更新 `execution_modes_flowchart.md` v4.6、`agent-protocol.md` v4.1、Harness 文档；版本号 bump 8.6.0→8.7.0 |
+| **v8.6.0** | 2026-07-17 | **架构精简 v1**：明鉴秋职责聚焦流程调度（P1-P5 阶段、自进化、记忆归档），删除 L1-L4 评分模块；新增 `node_report`（报告生成）和 `node_signal_output`（CTP 信号输出）；修复探源 Agent（产出 FundamentalStateVector）和观澜 Agent（产出 TechnicalOutput）的 LLM 推理生成逻辑；更新 LangGraph 架构为 risk_check→report→signal_output→END；同步更新 Harness 文档；版本号 bump 8.5.4→8.6.0 |
+| **v8.5.4** | 2026-07-17 | **cov-3 候选模块覆盖**：新增 4 个测试文件（test_unified_logger.py/test_fdt_version.py/test_config_manager.py/test_fdt_llm.py）共 144 个用例，覆盖率 91%/100%/92%/71%；解决 `tests/conftest.py` sys.path 遮蔽问题；累计 scripts 测试 7 文件/322 用例全绿；同步更新 pyproject.toml、07-operations.md、06-testing.md、08-gap-analysis.md；G65 Phase B 关闭 |
+| **v8.5.3** | 2026-07-17 | **cov-2 候选模块覆盖**：新增 178 个测试用例，覆盖 test_fdt_paths.py（84%）/test_trace_id.py（94%）/test_confidence_utils.py（87%）；累计 13 文件/339 用例（161 langgraph + 178 scripts）；同步更新版本号和文档；G65 Phase A 关闭 |
+| **v8.5.0** | 2026-07-17 | **G65 测试覆盖扩展**：启动 scripts/ 模块测试覆盖率提升专项，目标消除 0% 覆盖率模块；cov-1/2/3 阶段规划 |
+| **v8.4.0** | 2026-07-16 | **G52-G55 生产集成完成**：① G52 `pipeline/runner.py` 集成 LangGraph A/B 切换（`run_langgraph_pipeline()` + `FDT_USE_LANGGRAPH` 环境变量）；② G53 `scripts/run_debate.py` 添加 `langgraph` 子命令（支持 `--mode`/`--symbols`/`--trace-id`）；③ G54 `fdt_langgraph/graph.py` Checkpointer 支持 PG + SQLite 降级（`_get_checkpointer()` + `FDT_CHECKPOINTER=pg` 切换）；④ G55 新增 `tests/fdt_langgraph/test_integration_ab.py` 18 个集成测试验证 A/B 切换机制等价性；**总测试数：99 passed, 1 warning in 5.08s**（8 文件 / 99 用例）；新增 3 个环境变量 `FDT_USE_LANGGRAPH`/`FDT_LANGGRAPH_MODE`/`FDT_CHECKPOINTER`；三级降级路径（LangGraph import 失败→subprocess / PG Checkpointer 失败→SQLite / A/B 默认 false 零风险） |
+| **v8.3.0** | 2026-07-16 | **LangGraph 迁移完成**：DebateState TypedDict(19字段+create_initial_state工厂)、10个异步节点函数、按需并行拓扑图(闫判官→链证源/观澜/探源并行→merge_research)、PostgreSQL OLTP+OLAP 混合架构(14表+3视图)、独立 CLI/FastAPI 双入口；更新9篇Harness文档；**21个pytest测试用例全部通过**(节点96%/State 100%/Graph 77%/Agents 65%)；移除外部平台依赖；P1 可插拔多策略扫描、P3 三源平行关系无先后次序 |
+| **v8.2.0** | 2026-07-16 | Harness 工程规范全面固化：用户规则 + 项目记忆 + harness-checker 技能 + commit前12项检查清单 + Git Hook 强制检查 |
+| **v6.3.2** | 2026-07-14 | P0-4 多因子增强：select_triggers disable_filter 读 _raw_total；V1 OI/基差覆写；V2 OI+量比联合；V3 基差+低波联合；numpy 60s 品种级超时；finalize-only glob mtime 排序；G19 新登记(9 测试全绿)；阈值常量 G20/100ppi 降级 G21 待后续 |
+| **v6.3.1** | 2026-07-14 | 技术债 §2/§3 迁移收尾：修复链分析 build_symbol_map 数技源+观澜+探源合并 KeyError + factor_timing NaN 防护 |
+| **v6.3.0** | 2026-07-14 | 数技源信号+分析师能力架构落地：scan_all 仅留 channel_breakout；technical-analysis 和 fundamental-data-collector 独立运行 |
+| **v5.7.0** | 2026-07-10 | 驾驭工程（Harness Engineering）落地：**经 07-14 复核 G14 实际未落地、G16 重构后失效，原「4.7/5.0 全部完成」声明需修正** |
+| **v5.6.0** | 2026-07-09 | 5层鲁棒性架构 (L1-L5) |
+| **v5.5.0** | 2026-07-09 | OmniOpt 分类法集成 (F1-F5) |
+| **v5.4.0** | 2026-07-07 | 可观测性与自改进里程碑 |
+| **v5.3.0** | 2026-07-07 | 通道突破策略里程碑 |
+| **v5.2.0** | 2026-07-06 | 架构重构 (通道突破主信号源) |
 
-### 5.3 自动发布
+---
+
+## 7. 自动发布
 
 ```bash
 # 手动触发
@@ -474,9 +479,11 @@ python scripts/auto_publish.py
 3. Git commit + push
 4. 通知 (webhook)
 
-## 6. 同步与备份
+---
 
-### 6.1 GitHub 同步
+## 8. 同步与备份
+
+### 8.1 GitHub 同步
 
 | 项 | 内容 |
 |:---|:-----|
@@ -485,86 +492,26 @@ python scripts/auto_publish.py
 | 范围 | 仅 `futures-debate-team/` 目录 |
 | 手动 | `python "C:\Users\yangd\quant-bare\sync_experts_to_github.py"` |
 
-### 6.2 Agent 备份
+### 8.2 Agent 备份
 
 | 项 | 内容 |
 |:---|:-----|
 | 备份目录 | `agents/backups/` |
 | 备份时机 | 修改 Agent .md 文件前 |
-| 备份方式 | `cp -r agents/ agents/backups/{date}/` |
+| 备份方式 | `cp -r agents/ agents/backups/$(date +%Y%m%d)/` |
 | 恢复方式 | 从备份目录复制回 `agents/` |
 
-### 6.3 记忆备份
+### 8.3 记忆备份
 
 | 项 | 内容 |
 |:---|:-----|
-| 关键文件 | `memory/debate_journal.json`, `memory/execution_followup.json`, `memory/agent_profiles.json`, `memory/calibration.json` |
-| 备份方式 | Git 版本控制 (sync_experts_to_github.py) |
-| 恢复方式 | `git checkout {commit} -- memory/` |
+| 备份目录 | `memory/` |
+| 备份方式 | 版本控制 (git) |
+| 自动备份 | Master Graph 每日 04:00 memory_cleaner 任务包含 memory 归档 |
 
+### 8.4 备份恢复验证
 
----
-
-## 上线四步评估流程
-
-所有新循环或循环重大变更上线前，必须通过四步评估：
-
-### 1. 影子模式 (Shadow)
-- 循环只读运行，连续 N 轮（建议 ≥5）人工抽查
-- 评估分诊准确率、漏放率、误杀率
-- 产出：Shadow 模式评估报告
-
-### 2. 金标准任务集 (Golden Tasks)
-- 5-20 个已知答案的任务（含正例与陷阱负例）
-- 所有任务必须通过才能进入下一步
-- 金标准任务集本身也是回归测试用例
-
-### 3. 验证器质量度量
-- 漏放率（false pass）为硬指标，必须 ≈ 0
-- 误杀率（false block）为效率指标，目标 < 20%
-- 不达标则必须升级验证档位
-
-### 4. 金丝雀 (Canary)
-- 真实环境小范围放量（例如单品种、单时间段）
-- 观察 24-48 小时，确认无异常后全量上线
-
----
-
-## 版本历史
-
-| 版本 | 日期 | 变更 |
-|:-----|:-----|:-----|
-| **v10.1.3** | 2026-07-25 | **导航栏简化** — 报告头部导航栏只保留品种链接(sym-*)和汇总链接(signal-summary)，隐藏 P1~P5 详细阶段菜单项。|
-| **v10.1.2** | 2026-07-25 | **FDT_BYPASS_FRESHNESS_GATE 绕过开关** — P0b 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE=true` 环境变量，非交易时段可强制绕过新鲜度检查直接进入辩论链。docs/harness/03-configuration.md 同步更新。|
-| **v10.1.1** | 2026-07-25 | **链证源导入修复 + 新闻情绪解析 + 报告模板对齐** — ① 修复 commodity-chain-analysis 目录名含连字符导致的 ModuleNotFoundError（`_import_skill_module` importlib 按文件路径加载；修正从 analyze_chain.py 而非 chains.py 导入 `lookup_symbol_names`/`build_symbols_data`）；② 修复新闻情绪模块空数据（`node_sentiment()` 新增 `parse_llm_output` 调用；`decode_config.yaml` 补充 `news_sentiment_analyst` 条目）；③ 新增交易信号汇总章节（`_build_signal_summary_html` 渲染品种/方向/置信度/入出场价/仓位/盈亏比表格）；④ 报告模板对齐（`debate-round` 外层添加 `debate-box.bull`/`.bear` 容器，红蓝左边框区分多空）。|
-| **v9.24.0** | 2026-07-23 | **差距修复集中收官** — 关闭全部 15 项开放差距：G-6D-01~G-6D-08(六维控制空间)、GAP-AP01-001(AGENTS.md瘦身)、GAP-HOOK-001(pre-commit hook)、G17(准入自动化)、G18(调度权强制)、G124(ReportAggregator)。VectorMemory 接入辩论流程、ToolMetrics 反哺调度决策、AGENTS.md全部≤300行。 |
-| **v9.26.0** | 2026-07-24 | **AKShare 升至第一K线数据源 + 数据源优先级重排** — 新增 `collectors/akshare.py`（AKShareCollector），通过 `akshare.futures_hist_em()` 获取东方财富期货K线，设为第一数据源（priority=0）。数据源链调整为：AKShare（第一）→ TDX TQ-Local（第二）→ TqSDK（第三）→ DataCore → WebFallback → QMT。`data_sources.yaml` 同步更新。|
-
-| **v10.0.0** | 2026-07-24 | **FDC→AKShare 全面迁移 + 记忆系统全面重构** — ① 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源。新增 4 个 F10 模块。② MemoryManager 统一入口消灭 26 处散落直写；6 个僵尸脚本/目录清除（~1300 行死代码）；检索断层修复（`VectorRetriever` 整合 VectorMemory）；维护自动化（`Cleaner`/`Archiver`/`Decay`/`Checker`）；`check_memory_gaps.py` 最终实现；master_graph 每日 04:00 自动维护。详见 [memory-system-overhaul.md](../designs/memory-system-overhaul.md)。 |
-| **v9.24.2** | 2026-07-24 | **TqSDK 数据采集修复 + 辩论图降级路径 None 安全加固** — ① 修复 `tqsdk.py::_pump()` 中 `wait_update` 参数名 `timeout→deadline`（TqSDK 3.10.1 API 签名），TqSDK 数据采集从"始终为空"恢复为正常（G26 P0 关闭）；② 修复 `node_signal_output()` P0b 阻断后 `signal_output=None` 崩溃（G27 P0 关闭）；③ 修复 `_resolve_report_dir()` 跨日子目录生成（G28 P1 关闭）；④ 修复 `scan_all.py` summary 未初始化 NameError 隐患（G29 P1 关闭）。文档同步：08-gap-analysis.md 新增 G26-G29 登记。版本号 bump 9.24.1→9.24.2 |
-| **v9.24.1** | 2026-07-23 | **P0b 数据新鲜度闸门落地 + D05 Spawn铁律移除** — ① 修复 scan_all.py `_fdc_get_kline_sync` data_grade_label 整数 vs 字符串比较 bug（`grade >= 4` 正确检测 UNAVAILABLE/STALE）；② scan_all.py R24 全局闸门输出嵌入结构化 `freshness_report`（status/valid_symbols/fail_reasons）；③ 新增 `node_freshness_gate()` P0b 节点，在 scan→judge_direction 之间实施新鲜度检查；④ graph.py 新增 `_route_after_freshness()` 条件路由：ALL_STALE/NO_VALID_SYMBOLS → D06 aggregate_results（跳过 P2-P5 辩论链）；⑤ `fdt_cli.py _print_phase_reports()` 输出新鲜度状态；⑥ `resilience.md` 新增 D06 降级规则；⑦ `state.py` 新增 `freshness_report` 字段。⑧ **D05 Spawn铁律移除**：当前系统所有 Agent 通过 FdtAgentExecutor 直调 LLM API，不再使用 TAE SDK spawn。清理 12+ 文件的 spawn_mode/spawn_note/D05 引用。|
-| **v9.20.2** | 2026-07-23 | **Harness 文档一致性三层保障体系** — Layer 1: 10 篇文档追加结构化一致性元数据表格；Layer 2: `scripts/verify_doc_consistency.py` 自动校验脚本，解析元数据并执行检验命令；Layer 3: `docs/harness/_data/` YAML 数据文件分离易变配置。C15 规则纳入 pre-commit。51 测试全绿，81 条断言通过。 |
-| 9.12.0 | 2026-07-23 | Data Governance Phase 2 — 数据源溯源穿透修复 + 策略层质量门禁: ① scan_all.py/multi_source_adapter.py per-bar data_source 修复 meta.sources 穿透; ② 新增 data_quality 验证器(D级降级/C级标记/兜底源标记); ③ 注册为 __global__ 列表级闸门, 所有信号统一受检; ④ scan_all.py 执行顺序调整(data_quality 注入提前到 validators 之前); ⑤ 数据源从 kline_data 溯源传播到 all_ranked |
-| v9.13.0 | 2026-07-23 | **逐品种独立辩论循环** — per-symbol loop: 每个品种独立走完整数据链（prepare_one_symbol→四源→辩论→裁决→风控→store→route）；scan_all.py 程序化品种分组（同产品代码按成交量选主辩论品种）；闫判官不再判断相关性；新增 per_symbol_results/associated_symbols/symbol_index 状态字段 |
-| 9.11.3 | 2026-07-22 | 修复G107续: 辩论报告探源从fdc_data补充+过滤无意义f10占位数据+修复nodes.py引号混用 |
-| 9.11.2 | 2026-07-22 | 修复G107: 观澜/探源FDC回退模板丰富化，利用已有指标数据替代占位文本 |
-| 9.11.1 | 2026-07-22 | 修复G103: node_verdict FDC指标key映射 (RSI14/ADX/CCI20)；修复G104: scan_all _calc_volume_ma20类型守卫 |
-（Harness 文档）
-
-| 版本 | 日期 | 变更 |
-|:-----|:-----|:-----|
-
-| **v9.10.1 → v9.11.0** | 2026-07-22 | **新闻情绪分析因子（读心）落地 — 第四分析因子 P3 并行**：① 新增 `contracts/sentiment_state.py` 契约（SentimentStateVector / SymbolSentiment / SentimentEvent，事件类型分类 policy/supply_demand/macro/geopolitics/other，来源标记 jin10/web）；② 新增 `agents/futures-news-sentiment-analyst.md` 读心 Agent（情绪分析 4 维度框架 + 时效加权 + 偏离度评估 + 数据质量铁律 R01-R04）；③ `nodes.py` 新增 `node_sentiment()` async 节点（金十快讯+WebSearch 多源输入，SentimentStateVector 输出），`_build_debate_context` 追加 `[sentiment:读心]` 区块，`_build_data_sources` 追加 sentiment 来源标记，`_write_research_report` 追加情绪分析报告章节；④ `graph.py` 注册 sentiment 节点，P3 四源（链证源/观澜/探源/读心）并联到 merge_research；⑤ `state.py` 新增 `sentiment_data` 字段；⑥ 8 个情绪分析单元测试（契约验证 / context注入 / data_sources / node_sentiment mock / graph注册）全绿；25 个金十相关测试用例全绿。 |
-| **v9.10.0 → v9.10.1** | 2026-07-22 | **金十快讯精选注入探源 — 实时快讯作为基本面分析素材**：① `nodes.py` 新增 `_SYMBOL_TO_KEYWORDS` 品种→中文关键词映射(覆盖41个品种)、`_build_jin10_context()` async 函数按品种自动搜索金十快讯、去重后按品种分组格式化、注入 `node_fundamental` 的 context 的【金十精选快讯】区块；② `futures-fundamental-researcher.md` 更新数据来源 §2（金十 MCP 实时快讯）、新增 R07 金十快讯引用规范；③ `01-architecture.md` 更新 P2.5 数据流（金十快讯精选作为 FDC 预采集的扩展）；④ 新增 4 个单元测试(品种映射覆盖 / mock context / 去重验证)；17 个金十相关测试用例全绿。 |
-| **v9.9.0 → v9.10.0** | 2026-07-21 | **金十数据 MCP 接入 — 标准 MCP 协议财经数据源集成**：① 新增 `futures_data_core/mcp_client.py` 通用 MCP HTTP 客户端（支持 Streamable HTTP / SSE 格式、`mcp-session-id` 会话管理、`initialize` → `notifications/initialized` 标准握手、`structuredContent` 优先解析、cursor 分页）；② 新增 `futures_data_core/f10/jin10_mcp.py` 金十数据采集器（8 个工具：`get_quote` / `get_kline` / `list_flash` / `search_flash` / `list_news` / `search_news` / `get_news` / `list_calendar`，1 个资源 `quote://codes`）；③ `data_source_adapter.py` 新增金十数据适配层（`jin10_available` / `jin10_list_flash` / `jin10_search_flash` / `jin10_list_news` / `jin10_search_news` / `jin10_get_news` / `jin10_get_quote` / `jin10_get_kline` / `jin10_list_calendar`）；④ `fdt_langgraph/web_crawl_tool.py` 新增 9 个 LangChain tool 封装，供子 Agent 直接调用；⑤ `01-architecture.md` 更新 L1 基础设施层，新增 MCP 数据接入层组件；⑥ `03-configuration.md` 新增环境变量 `JIN10_MCP_URL` / `JIN10_MCP_TOKEN` / `FDT_MCP_TIMEOUT`；⑦ 13 个测试用例（7 单元 + 6 集成）全绿。 |
-| **v9.6.5 → v9.6.6** | 2026-07-20 | **G? 合约映射动态化修复 — 替换硬编码 2509 为主力合约动态解析**：① `phase3_generate_report.py` 删除硬编码 `DOMINANT_MONTH_MAP`（所有品种写死为 2509/2510/2512），替换为 `_resolve_dominant_months()` 函数—管道运行时优先通过 TQ-Local `get_stock_list` 查询活跃合约列表动态解析当前主力合约月份；TQ-Local 不可用时通过 `datetime.now().year % 100` + 品种典型月份模板自动推算（如 2609/2610/2612）；② fallback 默认值从 `"2509"` 改为 `f"{year}09"` 动态年份；③ 修复后报告中的合约代码从 `I2509.DCE` 变为 `I2609.DCE` 等正确主力合约。| **v9.6.4 → v9.6.5** | 2026-07-20 | **G93-G96 LangGraph 迁移全部完成 + config schema 扩展** — G93: coordinator.py→graph.py Profile切换；G94: debate_protocol_v2.py→nodes.py 常量内联；G95: agent_runner.py→agents.py run_single()；G96: deploy.py INSERT 写入逻辑。3 旧文件删除，16 迁移测试通过，D2/D3/D5/D6 四维升至 ★★★★★。新增 `DataSourcesConfig` + `AgentProfilesData` Pydantic 校验，覆盖全部 4 个配置文件。
-| **v9.6.3 → v9.6.4** | 2026-07-20 | **Harness 工程升级计划完成** — Phase D 全部完成：① `harness-rules.yaml` 添加 10 条反模式检测规则（AP01-AP10）；② `01-architecture.md` 添加 Hook 链架构规范（pre_hook/post_hook/safety_hook 三层扩展）；③ `06-testing.md` 添加验证器质量度量（漏放率/误杀率硬指标 + 质量等级 + 告警规则）；④ `03-configuration.md` 添加成本工程规范（Token 估算公式 + 缓存 TTL 耦合策略 + 降本手段排序 + 成本监控指标）；⑤ `07-operations.md` 添加上线四步评估流程（影子模式→金标准比对→验证器验收→金丝雀发布）；G21/G22 设计文档已存在（`docs/designs/g21-harness-adaptive-optimization.md` / `docs/designs/g22-multi-loop-collaboration.md`） |
-| **v9.6.2 → v9.6.3** | 2026-07-20 | **G92 Phase B/C 完成 — LLM 幻觉校准与进化闭环** — Phase B：`calibrate_weights.py` 扩展 `--hallucination-stats` 参数，新增 `hallucination_adjustment` 全局修正项（幻觉率>10%→-3分，>5%→-1分，<2%→+1分）；Phase C：`evolve_agents.py` 新增 `evolve_llm_hallucination()` 函数，接收 `--hallucination-patterns` 参数，调整价格引用策略（strict_scan/scan_first/hybrid）、置信度缩放因子、偏差阈值；新增 `LLM幻觉进化器` Agent 配置；更新 `08-gap-analysis.md` G92 Phase B/C 状态标记为已完成 |
-| **v9.6.1 → v9.6.2** | 2026-07-20 | **G92 Phase A 完成 — LLM 幻觉检测层落地** — 新增 `scripts/validate_llm_output.py`（价格偏差/置信度/评分三维校验）；新增 `tests/scripts/test_validate_llm_output.py`（18 测试用例全绿）；更新 `05-observability.md` 新增 §8.6 LLM 幻觉率指标表；更新 `08-gap-analysis.md` G92 Phase A 状态标记为已完成 |
-| **v9.6.0 → v9.6.1** | 2026-07-20 | **G71 完全关闭 + 循环契约补全** — 8 文件手工注解补全 + ml-training/health-check 两份 Loop Contract |
-| **v9.6.6 → v9.6.7** | 2026-07-21 | **Harness 文档整理 + 入口文档同步检查扩展** — ① `harness-starter-kit/` 迁移到 `docs/harness-templates/`；② 设计文档（G21/G22）、流程文档（agent-protocol.md/business_flow.md/execution_modes_flowchart.md）归入 `docs/harness/` 统一管理；③ 旧规范归档到 `docs/archive/`；④ C12 检查规则扩展为 `README.md|CODE_WIKI.md`，根目录三大入口文档（CLAUDE.md/CODE_WIKI.md/README.md）纳入同步检查机制，随项目全生命周期更新；⑤ README.md 更新项目结构、技术文档链接、版本历史。 |
-| **v9.5.0 → v9.6.0** | 2026-07-20 | **Harness 工程全面升级** — 规范引擎化（harness-rules.yaml + pre-commit v2）、类型注解全量补充（580 函数）、5 个缺失规范维度补充、10 条反模式检测规则、G21/G22 设计文档 |
-| **v9.4.2 → v9.5.0** | 2026-07-20 | **Loop Engineering 体系化** — 新增 Loop Contract 规范与 daily-debate 首份契约；架构文档添加 Loop Engineering 视角；README 增加 Harness & Loop Engineering 专章；差距分析登记 G20/G21/G22 |
+每季度执行一次恢复演练，验证备份的可用性和完整性。
 
 ---
 

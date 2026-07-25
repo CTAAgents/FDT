@@ -35,6 +35,30 @@ def _truncate_arguments_text(text: str, label: str = "") -> str:
     logger.warning(f"[Context] {label} arguments 超长({len(text)} chars)，截断至 {_MAX_ARGS_CHARS}")
     return truncated + f"\n\n[系统截断: {label} 已截断，原始 {len(text)} chars]"
 
+# ── 辩论论据裁剪：单品种内6轮辩论后统一压缩 ──
+_TRIM_MAX_ARG_CHARS = 120000  # 总字符阈值
+
+def _trim_arguments(state: dict) -> dict:
+    """裁剪辩论论据列表，保留最新内容，丢弃最早超限部分。"""
+    import logging as _lg
+    for key in ["bullish_arguments", "bearish_arguments",
+                "bullish_rebuttal_arguments", "bearish_rebuttal_arguments",
+                "bear_final_arguments", "bull_final_arguments"]:
+        raw = state.get(key, [])
+        if not raw:
+            continue
+        total = sum(len(str(x)) for x in raw)
+        if total <= _TRIM_MAX_ARG_CHARS:
+            continue
+        trimmed = list(raw)
+        while total > _TRIM_MAX_ARG_CHARS and len(trimmed) > 1:
+            removed = trimmed.pop(0)
+            total -= len(str(removed))
+        state[key] = trimmed
+        _lg.getLogger(__name__).info(
+            f"[TrimArgs] {key}: {len(raw)}\u2192{len(trimmed)} \u9879, {total} chars")
+    return state
+
 # ── 辩论协议常量 (G94: 从 debate_protocol_v2.py 内联) ──
 ATTACK_DIMENSIONS = [
     "data_lag",        # 数据滞后
@@ -162,11 +186,14 @@ def _render_html(title: str, body_html: str, header_meta: list[tuple[str, str]] 
         )
         meta_html = f'<div class="meta">{items}</div>'
 
-    # 从 body 提取 nav 项
+    # 从 body 提取 nav 项 — 仅保留品种(sym-*)和汇总(signal-summary)
     nav_links = ""
     for m in __import__("re").finditer(r'<section[^>]*?id="([^"]+)"[^>]*>.*?<h2[^>]*>(.*?)</h2>', body_html, __import__("re").DOTALL):
+        href = m.group(1)
+        if not href.startswith("sym-") and href != "signal-summary":
+            continue
         label = __import__("re").sub(r'<[^>]+>', '', m.group(2)).strip()[:16]
-        nav_links += f'<a href="#{m.group(1)}">{label}</a>'
+        nav_links += f'<a href="#{href}">{label}</a>'
 
     return _TEMPLATE_HTML.format(
         title=title,
@@ -436,7 +463,9 @@ def _write_signal_report(trace_id: str, signal_output: dict, output_dir: Path,
 
 
 def _import_from_skill(skill_dir: str, module_path: str, function_name: str):
-    full_path = _SKILLS_DIR / skill_dir / (module_path.replace("/", "\\") + ".py")
+    # module_path 是 Python 模块路径（如 "scripts.analyze_chain"），需转为 OS 路径
+    os_path = module_path.replace(".", "\\").replace("/", "\\")
+    full_path = _SKILLS_DIR / skill_dir / (os_path + ".py")
     spec = importlib.util.spec_from_file_location(module_path.replace("/", "."), full_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"无法加载模块: {full_path}")
@@ -456,7 +485,9 @@ def _import_skill_module(skill_dir: str, module_path: str):
     与 _import_from_skill 的区别：返回整个模块对象而非单个函数，
     适用于需要从同一模块加载多个函数/常量的场景。
     """
-    full_path = _SKILLS_DIR / skill_dir / (module_path.replace("/", "\\") + ".py")
+    # module_path 是 Python 模块路径（如 "scripts.analyze_chain"），需转为 OS 路径
+    os_path = module_path.replace(".", "\\").replace("/", "\\")
+    full_path = _SKILLS_DIR / skill_dir / (os_path + ".py")
     spec = importlib.util.spec_from_file_location(module_path.replace("/", "."), full_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"无法加载模块: {full_path}")
@@ -2572,6 +2603,7 @@ async def node_bear_final(state: DebateState) -> DebateState:
         output = result.get("output", "")
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
+    state = _trim_arguments(state)
     new_round = state.get("debate_round", 0) + 1
     new_phases = state["completed_phases"] + ["P3_bear_final"]
     return {
@@ -2643,6 +2675,7 @@ async def node_bull_final(state: DebateState) -> DebateState:
         output = result.get("output", "")
         per_symbol = {sym: {"arguments": [output[:200]] if output else [], "confidence": 0.5} for sym in symbols}
 
+    state = _trim_arguments(state)
     new_round = state.get("debate_round", 0) + 1
     new_phases = state["completed_phases"] + ["P3_bull_final"]
     return {
