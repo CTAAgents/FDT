@@ -27,7 +27,7 @@ def _get_expert_root() -> str:
         return env
     # 基于脚本位置推算
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # futures-trading-analysis/scripts/ → 向上4层到skills/ → 再向上到futures-debate-team/
+    # futures-trading-analysis/scripts/ → 向上4层到skills/ → 再向上到fdt/
     candidate = os.path.normpath(os.path.join(script_dir, os.pardir, os.pardir, os.pardir))
     if os.path.isdir(os.path.join(candidate, "agents")):
         return candidate

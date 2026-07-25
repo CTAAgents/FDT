@@ -16,18 +16,18 @@
   ├── SKILL.md                    # 主技能文档（协调器指令）
   ├── README.md                   # 技能使用说明
   └── agents/                     # 12个期货版Agent
-      ├── futures-market-analyst.md
-      ├── futures-fundamentals-analyst.md
-      ├── futures-news-analyst.md
-      ├── futures-sentiment-analyst.md
-      ├── futures-bull-researcher.md
-      ├── futures-bear-researcher.md
-      ├── futures-research-manager.md
-      ├── futures-trader.md
-      ├── futures-aggressive-risk-analyst.md
-      ├── futures-conservative-risk-analyst.md
-      ├── futures-neutral-risk-analyst.md
-      └── futures-risk-manager.md
+      ├── market-analyst.md
+      ├── fundamentals-analyst.md
+      ├── news-analyst.md
+      ├── sentiment-analyst.md
+      ├── bull-researcher.md
+      ├── bear-researcher.md
+      ├── research-manager.md
+      ├── trader.md
+      ├── aggressive-risk-analyst.md
+      ├── conservative-risk-analyst.md
+      ├── neutral-risk-analyst.md
+      └── risk-manager.md
   ```
 
 ### 2. 技能文档编写

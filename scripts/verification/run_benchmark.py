@@ -133,7 +133,7 @@ def build_seed(followup_path: str, benchmarks_dir: str, cost_bps: float = 2.0) -
         "total_cases": len(cases),
         "skipped_unknown": skipped,
         "replay_status": "ACTIVE — debate_journal.json 已升级 schema 捕获 debate_record(含 pro_args/con_args/verdict/held_out_judge), 回放引擎可消费",
-        "replay_unlock_condition": "持续积累 debate_record（每轮辩论由 futures-judge-heldout 产出 held_out_judge）",
+        "replay_unlock_condition": "持续积累 debate_record（每轮辩论由 judge-heldout 产出 held_out_judge）",
         "cases": cases,
     }
 

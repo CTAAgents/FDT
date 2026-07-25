@@ -18,7 +18,7 @@ triggers:
 
 ## 定位
 
-独立 skill，专门为 **futures-debate-team** 的 **基本面研究员（探源）** Agent 提供数据工具。
+独立 skill，专门为 **fdt** 的 **基本面研究员（探源）** Agent 提供数据工具。
 
 > 探源的输出是 **"基本面状态向量"** —— 结构化的多维数据快照，被闫判官（选辩论品种）、多头分析员（挑利多）、空头分析员（挑利空）三方消费。
 
@@ -145,7 +145,7 @@ python skills/fundamental-data-collector/scripts/run_all.py --mode factor_timing
 
 ## 探源 Agent 接口
 
-当 `futures-debate-team` 的 **探源** Agent 加载本 skill 时，按以下方式使用：
+当 `fdt` 的 **探源** Agent 加载本 skill 时，按以下方式使用：
 
 ### 工具调用规范
 

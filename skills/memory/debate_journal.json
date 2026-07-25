@@ -2,7 +2,7 @@
   "entries": [
     {
       "timestamp": "2026-07-06T09:52:50.567247",
-      "agent": "futures-chain-analyst-1",
+      "agent": "chain-analyst-1",
       "type": "chain_analysis",
       "phase": "P0-②",
       "summary": {
@@ -87,12 +87,12 @@
       ],
       "note": "历史回填：论据由 verdict 条目的真实信号字段重建，held_out_judge 为确定性种子rubric（非 live LLM judge）",
       "action": "debate_record",
-      "agent": "futures-debate-team-team-lead",
+      "agent": "fdt-team-lead",
       "timestamp": "2026-07-07 17:15:43"
     },
     {
       "timestamp": "2026-07-08T08:28:00",
-      "agent": "futures-technical-researcher",
+      "agent": "technical-researcher",
       "type": "research_snapshot",
       "phase": "P2",
       "summary": {

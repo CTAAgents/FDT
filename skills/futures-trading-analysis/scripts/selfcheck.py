@@ -65,12 +65,12 @@ def check_debate_scripts(scripts_dir: str) -> tuple:
 def check_agent_defs(agents_dir: str) -> tuple:
     """检查Agent定义文件"""
     required = [
-        "futures-technical-researcher.md",
-        "futures-fundamental-researcher.md",
-        "futures-affirmative-debater.md",
-        "futures-opposition-debater.md",
-        "futures-judge.md",
-        "futures-debate-team-team-lead.md",
+        "technical-researcher.md",
+        "fundamental-researcher.md",
+        "affirmative-debater.md",
+        "opposition-debater.md",
+        "judge.md",
+        "fdt-team-lead.md",
     ]
     missing = []
     for r in required:
@@ -131,7 +131,7 @@ def run_selfcheck(workspace: str, fdt_root: str = None, fdt_root_explicit: bool 
     # F2修复（2026-07-11）：显式提供的 --fdt-root 必须指向真实FDT根目录，
     # 否则视为假阳性（此前即便给了错误路径也可能因巧合匹配子目录而通过）。
     if fdt_root_explicit:
-        sentinel_agent = os.path.join(agents_dir, "futures-judge.md")
+        sentinel_agent = os.path.join(agents_dir, "judge.md")
         sentinel_script = os.path.join(scripts_dir, "validate_agent_output.py")
         if not (os.path.exists(sentinel_agent) and os.path.exists(sentinel_script)):
             errors.append(

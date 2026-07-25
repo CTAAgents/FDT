@@ -38,6 +38,24 @@ CLUSTERS_PATH = MEMORY_DIR / "failure_clusters.json"
 OUTPUT_PATH = MEMORY_DIR / "apm_scorecard.json"
 
 
+# ── 冷启动检测：前置文件不存在时生成零值种子 ──
+REQUIRED_FILES = [FOLLOWUP_PATH, JOURNAL_PATH]
+_missing = [f for f in REQUIRED_FILES if not f.exists()]
+if _missing:
+    output = {
+        "scores": {f"D{i}": 0.0 for i in range(1, 6)},
+        "details": {f"D{i}_status": "cold_start" for i in range(1, 6)},
+        "generated_at": datetime.now().isoformat(),
+        "cold_start": True,
+        "note": f"缺少依赖文件: {_missing}，已自动生成零值种子",
+    }
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+    print(f"APM: cold start — 零值种子已生成 (缺少 {len(_missing)} 个依赖文件)")
+    import sys
+    sys.exit(0)
+
 # ── 工具函数 ──
 
 def load_json(path: Path) -> Dict:
@@ -684,7 +702,7 @@ def main() -> None:
                     "score": None,
                     "status": "ready",
                     "reason": "机制已就位（schema 升级 + held-out judge + held_out_judge 字段）。尚无带 held_out_judge 的 debate_record。",
-                    "action_required": "每轮辩论由 futures-judge-heldout 产出 held_out_judge，首条即点亮 D1",
+                    "action_required": "每轮辩论由 judge-heldout 产出 held_out_judge，首条即点亮 D1",
                 }
             ),
             "D2_Acuity": (

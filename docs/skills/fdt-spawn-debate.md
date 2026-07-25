@@ -473,7 +473,7 @@ Agent(
     model="default",
     max_turns=8,
     prompt=f"""
-你是外部一致性裁判（futures-judge-heldout）。
+你是外部一致性裁判（judge-heldout）。
 你独立审计辩论裁决的一致性，不重新撰写论据。
 
 先用Read工具读以下三个文件：
@@ -579,11 +579,11 @@ FDT_ROOT = <项目根目录>
 SIGNAL_DIR = C:\Users\yangd\Documents\Signal
 REPORT_SCRIPT = {FDT_ROOT}/skills/futures-trading-analysis/scripts/phase3_generate_report.py
 AGENTS_DIR = {FDT_ROOT}/agents/
-   ├── futures-bullish-analyst.md  (多头分析员)
-   ├── futures-bearish-analyst.md  (空头分析员)
-   ├── futures-judge.md            (闫判官)
-   ├── futures-judge-heldout.md    (一致性裁判)
-   └── futures-risk-manager.md     (风控明)
+   ├── bullish-analyst.md  (多头分析员)
+   ├── bearish-analyst.md  (空头分析员)
+   ├── judge.md            (闫判官)
+   ├── judge-heldout.md    (一致性裁判)
+   └── risk-manager.md     (风控明)
 ```
 
 ## 已知故障与预防

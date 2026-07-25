@@ -55,15 +55,15 @@ class TestMemoryWriter:
     def test_validate_no_errors_on_good_data(self, writer):
         """完整数据 validate 通过——使用标准 Agent ID"""
         expected = [
-            "futures-datatech",
-            "futures-technical-researcher",
-            "futures-fundamental-researcher",
-            "futures-chain-analyst",
-            "futures-affirmative-debater",
-            "futures-opposition-debater",
-            "futures-trading-strategist",
-            "futures-risk-manager",
-            "futures-judge",
+            "datatech",
+            "technical-researcher",
+            "fundamental-researcher",
+            "chain-analyst",
+            "affirmative-debater",
+            "opposition-debater",
+            "trading-strategist",
+            "risk-manager",
+            "judge",
         ]
         for agent in expected:
             writer.write(agent, {"type": "research_output", "subject": "RB"})

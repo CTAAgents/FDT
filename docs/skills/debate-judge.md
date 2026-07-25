@@ -133,7 +133,7 @@ from typing import Literal, Optional
 class PhaseMeta(BaseModel):
     """每条 phase 输出的元数据"""
     phase: str                     # "P3b"
-    agent_id: str                  # "futures-judge"
+    agent_id: str                  # "judge"
     variant: str                   # "judge"
     trace_id: str                  # 整条辩论链一致的跟踪 ID
     depends_on: list[str]          # ["P3_bull", "P3_bear"]

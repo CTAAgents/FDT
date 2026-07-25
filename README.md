@@ -1,8 +1,8 @@
-# Futures Debate Team — 期货交易辩论专家团
+# Full-market Debate Team (FDT) — 全市场辩论专家团
 
-一套 **13-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
+一套 **13-Agent 多角色交叉质询的 CTA 决策系统**，支持**商品期货 / 股指期货 / 国债期货 / ETF** 多市场辩论。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v10.5.0**
+**v0.10.6**
 
 ---
 
@@ -17,7 +17,8 @@
 ### 数据与策略管线
 - **NO_FUSION 策略管线** — trend_following 含 10 独立子信号，各自打分不融合；三层信号门禁（震荡市+去趋势+伪突破拦截）共 20+ 道校验
 - **FDC 数据注入 (P2.5)** — 预采集所有选中品种的结构化数据（K线/指标/期限结构/基差/仓单/基本面/持仓排名）
-- **AKShare 统一数据源** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源
+- **多市场支持 (v0.10.6)** — `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF，按市场类型路由到不同的分析管线
+- **AKShare 统一数据源** — AKShare 为唯一 K 线数据源，同时支持期货 `futures_hist_em` 和 ETF `fund_etf_hist_em`
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据，8 工具覆盖行情/K线/快讯/资讯/财经日历
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型增量 UPSERT
 - **多因子整合层 (P2.5)** — 7 因子数据适配器（波动率/跨品种价差/期限结构/多空持仓/技术评分），纯代码计算 + LLM 赋意（L1 边界），注入 `node_verdict` 信号一致性看板
@@ -171,9 +172,9 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 | Agent | 职责 | 不做什么 |
 |:------|:------|:---------|
 | **数技源** | 跑 trend_following（10 子信号）管线产信号 | 不下方向结论 |
-| **观澜** | 技术面分析（LLM 推理生成 TechnicalOutput） | 不判断多空 |
-| **探源** | 基本面分析（LLM 推理生成 FundamentalStateVector，含结构化元数据注入 Phase 3.1） | 不判断多空 |
-| **链证源** | 产业链关联分析 | 不下交易结论 |
+| **观澜** | 技术面分析（LLM + 市场感知参数，按品种市场类型注入不同上下文） | 不判断多空 |
+| **探源** | 基本面分析（LLM，按品种市场类型注入不同分析指令：商品→供需/库存，股指→宏观/估值，国债→货币/利率，ETF→指数/持仓） | 不判断多空 |
+| **链证源** | 产业链关联分析（仅商品期货触发，股指/国债/ETF 跳过） | 不下交易结论 |
 | **读心** | 新闻情绪分析（LLM，金十+Web 多源） | 不判断多空 |
 | **多头分析员** | 独立列举 ≥3 条做多论据 | 禁止自行搜索 |
 | **空头分析员** | 独立列举 ≥3 条做空论据 | 禁止自行搜索 |
@@ -381,6 +382,7 @@ FDT/
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
 ├── data_adapter/              # 数据适配层（AKShare多接口统一封装 + 多因子计算）
+│   ├── instrument_classifier.py  # 品种分类器（商品/股指/国债/ETF 自动识别，v0.10.6）
 │   ├── factors/               # P2.5 多因子整合器（波动率/价差/期限结构/持仓/技术评分）
 │   ├── news/                  # 新闻数据层（NewsRouter 多源聚合）
 │   └── cleaning/              # 数据清洗管线
@@ -468,6 +470,8 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v0.10.6** | **全市场辩论扩展 Phase 0-3** — 新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6 |
+| **v10.5.0** | **Phase A-F 优化方案全部落地** — 裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0 |
 | **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。新增 `_compute_stop_target()` / `_clamp_position()` / `technical_score.py`，LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
 | **v10.3.0** | **P2.5 多因子注入** — 零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（波动率/跨品种价差/期限结构/多空持仓/因子看板），四维度注入 `node_technical`/`node_fundamental`/`node_verdict`。18 测试通过。 |
 | **v10.2.0** | **JSON解析加固 + DCE重试 + 期限结构链路恢复** — 数据适配层新增 term_structure/spread 接口(AKShare合约序列计算)；全局JSON解析 try-raw-JSON-first避免apostrophe误伤；DCE持仓排名3次指数退避重试+5min缓存；fundamental_researcher 正则 per_symbol 兜底+ is_partial 标记 |

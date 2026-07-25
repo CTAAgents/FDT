@@ -48,16 +48,16 @@ EXPLORATION_STRATEGIES: Dict[str, Dict[str, str]] = {
 
 # ── Agent role → file-id mapping ──
 ROLE_TO_FILE_ID: Dict[str, str] = {
-    "明鉴秋": "futures-debate-team-team-lead",
-    "数技源": "futures-datatech",
-    "链证源": "futures-chain-analyst",
-    "闫判官": "futures-judge",
-    "观澜": "futures-technical-researcher",
-    "探源": "futures-fundamental-researcher",
-    "证真": "futures-affirmative-debater",
-    "慎思": "futures-opposition-debater",
-    "闫判官": "futures-judge",
-    "风控明": "futures-risk-manager",
+    "明鉴秋": "fdt-team-lead",
+    "数技源": "datatech",
+    "链证源": "chain-analyst",
+    "闫判官": "judge",
+    "观澜": "technical-researcher",
+    "探源": "fundamental-researcher",
+    "证真": "bullish-analyst",
+    "慎思": "bearish-analyst",
+    "闫判官": "judge",
+    "风控明": "risk-manager",
 }
 
 

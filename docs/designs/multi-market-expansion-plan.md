@@ -1,7 +1,7 @@
 # FDT 全市场辩论扩展 — Phase 0~3 实施计划
 
 > 基于 [multi-market-expansion-feasibility.md](multi-market-expansion-feasibility.md) 的 Phase 0-3 详细设计
-> 创建: 2026-07-26 | 目标版本: v10.6.0
+> 创建: 2026-07-26 | 目标版本: v0.10.6
 > 关联文档: [01-architecture.md](../harness/01-architecture.md), [delegation-protocol.md](delegation-protocol.md)
 
 ---
@@ -286,5 +286,5 @@ AKShare 提供以下 ETF 相关函数（可直接复用现有 `akshare_source.py
 ## 8. 版本计划
 
 - v10.5.x: 本设计文档 + 品种分类器 + State 扩展 (Step 1-2)
-- v10.6.0: Agent Prompt 注入 + 链证源跳过 + ETF 数据 (Step 3-6)
+- v0.10.6: Agent Prompt 注入 + 链证源跳过 + ETF 数据 (Step 3-6)
 - v10.6.1: 测试 + 调试 + 首批品种辩论验证 (Step 7)

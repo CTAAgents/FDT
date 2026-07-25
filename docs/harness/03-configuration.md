@@ -46,7 +46,7 @@
 
 ```json
 {
-  "agent": "futures-debate-team-team-lead",  // 主 Agent ID
+  "agent": "fdt-team-lead",  // 主 Agent ID
   "seed": null,                              // 随机种子 (null=不固定)
   "selection_threshold": 0.65,               // 品种选择阈值
   "mode": "dry-run",                         // 运行模式: dry-run/live
@@ -99,7 +99,7 @@
 
 ```toml
 [project]
-name = "futures-debate-team"
+name = "fdt"
 version = "9.0.0"   # 唯一版本源（经 scripts/fdt_paths.py:get_fdt_version() 运行时读取）
 requires-python = ">=3.10"
 dependencies = [
@@ -340,17 +340,17 @@ FDT_LLM_<AGENT_NAME>_MODEL      # 逐Agent 模型名
 
 | Agent 注册名 | 对应文件 | 默认角色 |
 |:-------------|:---------|:---------|
-| `futures-affirmative-debater` | `agents/futures-affirmative-debater.md` | 正方辩手 |
-| `futures-chain-analyst` | `agents/futures-chain-analyst.md` | 产业链分析师（链证源） |
-| `futures-datatech` | `agents/futures-datatech.md` | 数技源 |
-| `futures-debate-team-team-lead` | `agents/futures-debate-team-team-lead.md` | 明鉴秋（调度） |
-| `futures-fundamental-researcher` | `agents/futures-fundamental-researcher.md` | 基本面研究员（探源） |
-| `futures-judge-deputy` | `agents/futures-judge-deputy.md` | 副裁官 |
-| `futures-judge-heldout` | `agents/futures-judge-heldout.md` | 独立裁官 |
-| `futures-judge` | `agents/futures-judge.md` | 闫判官 |
-| `futures-opposition-debater` | `agents/futures-opposition-debater.md` | 反方辩手 |
-| `futures-risk-manager` | `agents/futures-risk-manager.md` | 风控明 |
-| `futures-technical-researcher` | `agents/futures-technical-researcher.md` | 技术面研究员（观澜） |
+| `affirmative-debater` | `agents/affirmative-debater.md` | 正方辩手 |
+| `chain-analyst` | `agents/chain-analyst.md` | 产业链分析师（链证源） |
+| `datatech` | `agents/datatech.md` | 数技源 |
+| `fdt-team-lead` | `agents/fdt-team-lead.md` | 明鉴秋（调度） |
+| `fundamental-researcher` | `agents/fundamental-researcher.md` | 基本面研究员（探源） |
+| `judge-deputy` | `agents/judge-deputy.md` | 副裁官 |
+| `judge-heldout` | `agents/judge-heldout.md` | 独立裁官 |
+| `judge` | `agents/judge.md` | 闫判官 |
+| `opposition-debater` | `agents/opposition-debater.md` | 反方辩手 |
+| `risk-manager` | `agents/risk-manager.md` | 风控明 |
+| `technical-researcher` | `agents/technical-researcher.md` | 技术面研究员（观澜） |
 
 **各节点实际使用的 Agent 映射**（`fdt_langgraph/nodes.py` 内）：
 
@@ -631,3 +631,17 @@ python -m pytest tests/strategies/ --tb=short -q -o "addopts="
 | `memory/agent_profiles.json` | §2 记忆级配置 | `evolve_agents.py` 写入 | `grep -n "agent_profiles" scripts/evolve_agents.py` |
 | `futures_data_core/config/data_sources.yaml` | §2 数据源 | 数据源降级链定义 | `grep -n "sources\|priority"` |
 | `fdt_langgraph/graph.py FDT_DIRECT_DEBATE / FDT_DEBATE_SYMBOLS` | §3 环境变量 | 直接辩论模式切换 | `grep -n "FDT_DIRECT_DEBATE\|FDT_DEBATE_SYMBOLS"` |
+
+
+### 2.12 数据适配层品种映射配置（v0.10.6 新增）
+
+品种映射数据维护在代码层，而非独立配置文件：
+
+| 映射表 | 文件路径 | 用途 | 维护规则 |
+|:-------|:---------|:-----|:---------|
+| `_AK_SPOT_MAP` | `data_adapter/sources/akshare_source.py:45` | 品种→AKShare 现货列名，用于基差计算 | 新品种上市后必须添加，列名与 `ak.futures_spot_price_daily()` 输出中"商品名称"一致 |
+| `SYMBOL_TO_KEYWORDS` | `data_adapter/news/sources/jin10_source.py:13` | 品种→金十搜索中文关键词，用于新闻情绪数据采集 | 关键词需覆盖品种的常见中文别名（如烧碱/液碱、双胶纸/胶版印刷纸） |
+| `_FOREIGN_MAP` | `data_adapter/sources/akshare_source.py:31` | 品种→外盘代码映射 | 仅适用于有外盘关联的品种（LME/COMEX/CBOT 等） |
+| `_WARRANT_FN_MAP` | `data_adapter/sources/akshare_source.py:60` | 交易所→仓单函数映射 | 按品种交易所选择对应函数 |
+
+**新增品种时检查清单**：① `_AK_SPOT_MAP` ② `SYMBOL_TO_KEYWORDS` ③ 期限结构合约数量（需 >= 2 个活跃合约） ④ 持仓排名/仓单函数（按交易所映射）

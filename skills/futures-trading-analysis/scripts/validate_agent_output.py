@@ -8,7 +8,7 @@ L1 Agent产出校验器 — SKILL层适配（v1.1 · 单一来源收敛）
 主校验器 scripts/validate_agent_output.py 严重分歧 → L2 门禁语义错乱。
 
 现改为【薄适配层】：唯一真实校验逻辑位于
-  C:/.../futures-debate-team/scripts/validate_agent_output.py
+  C:/.../fdt/scripts/validate_agent_output.py
 本模块通过 importlib 加载该 canonical 模块并适配其返回结构
 （{valid, error, line, col, normalized_confidence} → {pass, grade, errors, warnings}），
 供 L2 debate_orchestrator.py 的 `from validate_agent_output import validate, SCHEMAS` 使用。

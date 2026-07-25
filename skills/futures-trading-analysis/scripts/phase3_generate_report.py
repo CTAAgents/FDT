@@ -2001,7 +2001,7 @@ def build_debate_report():
 
     <div class="footer">
         <p>商品期货深度分析报告 | {REPORT_DATE}</p>
-        <p>数据源: {data_source_used} | 辩论: 专家团(futures-debate-team) | 技术指标: {indicator_source}</p>
+        <p>数据源: {data_source_used} | 辩论: 专家团(fdt) | 技术指标: {indicator_source}</p>
         <p style="color:#ef4444;">⚠️ 投资有风险，入市需谨慎。仅供参考，不构成投资建议。</p>
     </div>
     </div></body></html>"""

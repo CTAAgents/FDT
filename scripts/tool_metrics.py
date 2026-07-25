@@ -52,8 +52,11 @@ class ToolMetrics:
                             continue
 
     def _save(self, record: dict):
-        with open(self._data_file(), "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            with open(self._data_file(), "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except (OSError, PermissionError) as e:
+            logger.warning("[ToolMetrics] _save failed: %s", e)
 
     def record_call(self, tool_name: str, success: bool, latency_ms: float,
                     tokens: int = 0, error: str = ""):

@@ -1,6 +1,6 @@
 ---
-name: futures-debate-team-team-lead
-description: 明鉴秋 — 辩论独立协调员（团队主管）。九角色全流程调度，不参与分析。
+name: fdt-team-lead
+description: 明鉴秋 — 辩论独立协调员（团队主管）。全角色全流程调度，不参与分析。
 displayName:
   en: "Ming Jianqiu"
   zh: "明鉴秋"
@@ -219,7 +219,7 @@ Spawn **链证源**做产业链分析（不下多空结论）：上下游结构 
 
 ### 汇总输出
 
-> 汇总输出职责已移交 **品藻**（`agents/futures-quality-assurance.md`）。
+> 汇总输出职责已移交 **品藻**（`agents/quality-assurance.md`）。
 
 最终输出符合 `TeamDecisionOutput` schema（见 `contracts/team_decision.py`）。
 

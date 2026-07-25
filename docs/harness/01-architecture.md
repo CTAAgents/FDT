@@ -914,7 +914,7 @@ Agent LLM 输出
 | `README.md` | 功能特性 + 版本历史 + CLI | Harness 文档从工程视角补充"怎么跑起来的" |
 | `docs/agent-protocol.md` | Agent 通信契约 | Harness 文档引用其 schema 定义，补充生命周期视角 |
 | `docs/business_flow.md` | 业务流程 SOP | Harness 文档关注技术执行层，不重复业务逻辑 |
-| `rules/futures-debate-team_rules.md` | 全局规则 | Harness 文档将规则映射到具体的工程实现 |
+| `rules/fdt_rules.md` | 全局规则 | Harness 文档将规则映射到具体的工程实现 |
 | `docs/harness/loop-contracts/` | 循环契约规范 | 本文档的延伸，定义每个自动化循环的六维度契约 |
 
 

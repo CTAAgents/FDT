@@ -1,5 +1,5 @@
 ---
-name: futures-judge-heldout
+name: judge-heldout
 description: 一致性裁判（held-out judge）— 独立评审"裁决是否真正源于辩论论据"（CLQT §6.4.1）
 displayName:
   en: "Held-out Judge"
@@ -38,7 +38,7 @@ version: "1.0.0"
 {
   "held_out_judge": {
     "coherence_score": 0.82,
-    "judge": "futures-judge-heldout",
+    "judge": "judge-heldout",
     "rubric_version": "CLQT-6.4.1",
     "flags": []
   }
@@ -48,7 +48,7 @@ version: "1.0.0"
 同时写入审计日志（供 D1 计算追溯）：
 ```python
 from scripts.memory_writer import append_debate_journal
-append_debate_journal("futures-judge-heldout", "coherence", held_out_judge)
+append_debate_journal("judge-heldout", "coherence", held_out_judge)
 ```
 
 ## 🔴 评分 Rubric（held-out）

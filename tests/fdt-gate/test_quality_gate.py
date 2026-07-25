@@ -33,8 +33,8 @@ CHANGED_PY = [
     "scripts/run_benchmark.py",
 ]
 CHANGED_MD = [
-    "agents/futures-judge-heldout.md",
-    "agents/futures-debate-team-team-lead.md",
+    "agents/judge-heldout.md",
+    "agents/fdt-team-lead.md",
 ]
 
 # 全局结果收集（供 test_gates_all_pass 汇总五个门禁）

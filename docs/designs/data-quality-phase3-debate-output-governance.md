@@ -216,8 +216,8 @@ HTML 生成 ❌                                      HTML 生成(接管) ✓
 | 步骤 | 改动文件 | 内容 |
 |:-----|:---------|:-----|
 | 1 | `docs/designs/data-quality-phase3-debate-output-governance.md` | 更新 §7 角色边界分析（品藻方案） |
-| 2 | `agents/futures-quality-assurance.md` | **新增** — 品藻角色定义（质检+报告双职责） |
-| 3 | `agents/futures-debate-team-team-lead.md` | 更新明鉴秋角色定义 — 移除质检/报告职责，保留调度 |
+| 2 | `agents/quality-assurance.md` | **新增** — 品藻角色定义（质检+报告双职责） |
+| 3 | `agents/fdt-team-lead.md` | 更新明鉴秋角色定义 — 移除质检/报告职责，保留调度 |
 | 4 | `docs/harness/02-lifecycle.md` | 更新流程图（P3.5→品藻）+ 阶段规格表 |
 | 5 | `docs/harness/01-architecture.md` | 更新数据流（品藻接管质检+报告） |
 | 6 | `fdt_langgraph/quality_inspector.py` | 更新文件头注释（明鉴秋→品藻） |

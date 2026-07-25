@@ -654,21 +654,22 @@ def _build_body_sections(state: dict) -> str:
     if abs(verdict_conf - calibrated_conf) > 0.05:
         conf_display += f' <span style="font-size:0.75rem;color:var(--yellow);">(原始{verdict_conf:.0%})</span>'
 
-    verdict_html = (
-        f'<div class="verdict-box">\n'
-        f'<div class="vh"><div class="vd">{dir_cn}</div>'
-        f'<div class="vc">置信度 <strong>{conf_display}</strong>'
-        f'<div class="vb"><div class="f" style="width:{calibrated_conf*100}%;background:{dir_color};"></div></div></div></div>\n'
-        f'<div class="sg">\n'
-        f'<div class="si"><div class="l">入场价</div><div class="v">{entry_display}</div><div class="w">{"待触发" if is_neutral else "市价"}</div></div>\n'
-        f'<div class="si"><div class="l">目标价</div><div class="v">{target_display}</div><div class="w">→ {dir_cn}</div></div>\n'
-        f'<div class="si"><div class="l">止损价</div><div class="v" style="color:var(--red);">{stop_display}</div><div class="w">{"待触发" if is_neutral else "风险控制"}</div></div>\n'
-        f'<div class="si"><div class="l">仓位</div><div class="v">{pct_display}</div><div class="w">建议比例</div></div>\n'
-        f'<div class="si"><div class="l">盈亏比</div><div class="v" style="color:{rr_color};">{rr_display}</div><div class="w">{action_hint}</div></div>\n'
-        f'</div>\n'
-        f'</div>\n'
-        f'<div class="callout">{_esc(verdict_reason)}</div>\n'
-    )
+    verdict_html = ''.join([
+        '<div class="verdict-box">',
+        '<div class="vh"><div class="vd">' + dir_cn + '</div>'
+        '<div class="vc">置信度 <strong>' + f'{verdict_conf:.0%}' + '</strong>'
+        '<div class="vb"><div class="f" style="width:' + f'{verdict_conf*100}%' + ';background:' + dir_color + ';"></div></div></div></div>',
+        '<div class="sg">',
+        '<div class="si"><div class="l">入场价</div><div class="v">' + entry_display + '</div><div class="w">' + ('待触发' if is_neutral else '市价') + '</div></div>',
+        '<div class="si"><div class="l">目标价</div><div class="v">' + target_display + '</div><div class="w">→ ' + dir_cn + '</div></div>',
+        '<div class="si"><div class="l">止损价</div><div class="v" style="color:var(--red);">' + stop_display + '</div><div class="w">' + ('待触发' if is_neutral else '风险控制') + '</div></div>',
+        '<div class="si"><div class="l">仓位</div><div class="v">' + pct_display + '</div><div class="w">建议比例</div></div>',
+        '<div class="si"><div class="l">盈亏比</div><div class="v" style="color:' + rr_color + ';">' + rr_display + '</div><div class="w">' + action_hint + '</div></div>',
+        '</div>',
+        '</div>',
+        '<div class="callout">' + _esc(verdict_reason) + '</div>',
+    ])
+
     # ── Phase B: 裁决溯源树 — 标注每个交易参数的 Agent 来源 ──
     trace_items = []
     if entry_p > 0 and not is_neutral:

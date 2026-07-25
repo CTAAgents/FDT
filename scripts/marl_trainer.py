@@ -38,12 +38,12 @@ class MARLTrainer:
 
     # 各角色的默认权重
     DEFAULT_WEIGHTS = {
-        "futures-technical-researcher": {"trend": 1.0, "volume": 1.0, "support_resistance": 1.0},
-        "futures-fundamental-researcher": {"inventory": 1.0, "margin": 1.0, "basis": 1.0},
-        "futures-affirmative-debater": {"evidence_depth": 1.0, "logic": 1.0},
-        "futures-opposition-debater": {"evidence_depth": 1.0, "logic": 1.0},
-        "futures-risk-manager": {"conservatism": 1.0, "leverage": 1.0},
-        "futures-judge": {
+        "technical-researcher": {"trend": 1.0, "volume": 1.0, "support_resistance": 1.0},
+        "fundamental-researcher": {"inventory": 1.0, "margin": 1.0, "basis": 1.0},
+        "affirmative-debater": {"evidence_depth": 1.0, "logic": 1.0},
+        "opposition-debater": {"evidence_depth": 1.0, "logic": 1.0},
+        "risk-manager": {"conservatism": 1.0, "leverage": 1.0},
+        "judge": {
             "technical_weight": 0.25,
             "fundamental_weight": 0.25,
             "chain_weight": 0.25,

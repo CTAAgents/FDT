@@ -13,9 +13,9 @@
 1. fdt-spawn-debate/SKILL.md: 核心规则表新增#11 ADX角色反转铁律
 2. fdt-spawn-debate/SKILL.md: 闫判官spawn模板新增ADX角色反转规则段
 3. fdt-spawn-debate/SKILL.md: spawn模板新增监控条件编写规则
-4. futures-judge.md: 新增"ADX角色反转铁律"段（P0不可违反）
-5. futures-trading-strategist.md: Constraints新增ADX监控约束
-6. futures-debate-team-team-lead.md: 新增"ADX角色反转·spawn注入铁律"
+4. judge.md: 新增"ADX角色反转铁律"段（P0不可违反）
+5. trading-strategist.md: Constraints新增ADX监控约束
+6. fdt-team-lead.md: 新增"ADX角色反转·spawn注入铁律"
 
 **预防**: 每次spawn前，明鉴秋自检prompt是否包含"ADX角色反转"关键词。不包含→拒绝spawn，先修复。
 ---
@@ -198,12 +198,12 @@
 
 ### 关联文件
 - `memory/judgment_revisions.md` — R06-R10完整定义
-- `agents/futures-judge.md` — v1.0→v2.0
-- `agents/futures-affirmative-debater.md` — 新增"论据质量铁律"
-- `agents/futures-opposition-debater.md` — 新增"论据质量铁律"
-- `agents/futures-fundamental-researcher.md` — 新增"数据质量铁律"
-- `agents/futures-technical-researcher.md` — 新增"数据质量铁律"
-- `agents/futures-debate-team-team-lead.md` — 新增"反馈自动归档"+"记忆路由"
+- `agents/judge.md` — v1.0→v2.0
+- `agents/affirmative-debater.md` — 新增"论据质量铁律"
+- `agents/opposition-debater.md` — 新增"论据质量铁律"
+- `agents/fundamental-researcher.md` — 新增"数据质量铁律"
+- `agents/technical-researcher.md` — 新增"数据质量铁律"
+- `agents/fdt-team-lead.md` — 新增"反馈自动归档"+"记忆路由"
 
 ---
 
@@ -295,22 +295,22 @@ Bug③ 终于拿到60m数据(AKShare分钟,1022根)
 
 ### 事件摘要
 BU+EC完整辩论中，闫判官连续spawn 5次均无法写入p5_judge.json：
-- v1(subagent_type: futures-judge): 55s后卡死，未写文件
-- v2(subagent_type: futures-judge精简): 27s后卡死
-- v3(subagent_type: futures-judge独立阅卷): 45s后卡死
-- v4(subagent_type: futures-judge数据全覆盖): 27s后卡死
+- v1(subagent_type: judge): 55s后卡死，未写文件
+- v2(subagent_type: judge精简): 27s后卡死
+- v3(subagent_type: judge独立阅卷): 45s后卡死
+- v4(subagent_type: judge数据全覆盖): 27s后卡死
 - v5(subagent_type: general-purpose长prompt): 被手动停止
 
 ### 诊断
 - ✅ general-purpose + 最小prompt测试: Write工具正常工作 → 写入p5_judge_test.json成功
-- ❌ subagent_type: futures-judge: 连续4次全部失败
+- ❌ subagent_type: judge: 连续4次全部失败
 
 ### 根因
-`subagent_type: "futures-judge"` 作为expert agent spawn时，MD frontmatter中声明的`allowed-tools`可能未被平台正确加载，导致Write工具不可用。与"expert-manager铁律"吻合：自定义专家spawn时Tools为空。
+`subagent_type: "judge"` 作为expert agent spawn时，MD frontmatter中声明的`allowed-tools`可能未被平台正确加载，导致Write工具不可用。与"expert-manager铁律"吻合：自定义专家spawn时Tools为空。
 
 ### 修复（P0·立即生效）
-1. **闫判官Agent MD** (`agents/futures-judge.md`): 新增"Spawn方式"段，标注必须用general-purpose
-2. **团队主管MD** (`agents/futures-debate-team-team-lead.md`): 更新D01-D04辩论铁律，所有辩论Agent统一用general-purpose spawn
+1. **闫判官Agent MD** (`agents/judge.md`): 新增"Spawn方式"段，标注必须用general-purpose
+2. **团队主管MD** (`agents/fdt-team-lead.md`): 更新D01-D04辩论铁律，所有辩论Agent统一用general-purpose spawn
 3. **辩论流程铁律D05新增**: "辩论Agent必须spawn为general-purpose，不得使用expert subagent_type。角色prompt注入替代expert自动加载。"
 
 ### 预防

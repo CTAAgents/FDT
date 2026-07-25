@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **项目版本**: v10.4.0 | **文档版本**: v10.4.0 | **最后更新**: 2026-07-25 | **定位**: 理解项目的技术基础文档
+> **项目版本**: v0.10.6 | **文档版本**: v0.10.6 | **最后更新**: 2026-07-26 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -23,7 +23,7 @@
 
 ### 1.1 项目定位
 
-**FDT (Futures Debate Team)** 是一套基于 **LangGraph** 构建的 **13-Agent 多角色交叉质询的 CTA 决策系统**（11 核心 + 2 辅助评估 Agent）。通过多 Agent 辩论制衡机制，实现期货市场的智能分析与交易信号生成。
+**FDT (Full-market Debate Team)** 是一套基于 **LangGraph** 构建的 **13-Agent 多角色交叉质询的 CTA 决策系统**（11 核心 + 2 辅助评估 Agent）。通过多 Agent 辩论制衡机制，实现全市场（商品期货/股指期货/国债期货/ETF）的智能分析与交易信号生成。
 
 ### 1.2 核心特性
 
@@ -44,9 +44,9 @@
 
 ### 1.3 当前版本
 
-**v10.4.0** — 代码-推理边界硬切割 Phase 1~4 全部落地：entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。LLM 只做语义推理，价格/参数由代码精确计算。新增 `_compute_stop_target()` / `_clamp_position()` / `technical_score.py`。36 新测试通过。
+**v0.10.6** — 全市场辩论扩展 Phase 0-3：新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6。
 
-**v10.3.0** — P2.5 多因子注入：零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（7 模块），覆盖波动率/跨品种价差/期限结构/多空持仓/因子看板。四维度注入技术面/基本面/裁决 prompt。
+**v10.5.0** — Phase A-F 优化方案全部落地：裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0。
 
 ---
 
@@ -276,6 +276,7 @@ FDT 包含 **4 个独立 LangGraph 子图**，复用 `state.py` / `agents.py` / 
 | `risk_check` | Optional[dict] | P5 风控审核 |
 | `signal_output` | Optional[dict] | P6a CTP 信号输出 |
 | `current_phase` | str | 当前阶段 (P0-P6) |
+| `market_type` | Optional[str] | 品种市场类型（commodity_futures/index_futures/bond_futures/etf, v0.10.6） |
 | `symbol_index` | int | 当前品种索引（-1=未开始） |
 | `per_symbol_results` | dict | {symbol: {research, debate, verdict, risk}} |
 | `quality_report` | Optional[dict] | 质检报告 (v9.14.0) |
@@ -1365,6 +1366,7 @@ FDT/
 ├── skills/                      # 10 个子技能实现
 ├── tests/                       # 1400+ 测试用例
 ├── data_adapter/                 # 数据适配层（多因子 + 新闻 + 清洗）
+│   ├── instrument_classifier.py  # 品种分类器（商品/股指/国债/ETF，v0.10.6）
 │   ├── factors/                  # P2.5 多因子整合器（7 模块）
 │   │   ├── __init__.py           # FactorCollector 统一入口
 │   │   ├── types.py              # 7 种因子数据类定义
@@ -1609,10 +1611,10 @@ python scripts/rhi_global_cli.py install
 | Agent | 职责 | 不做什么 |
 |:------|:------|:---------|
 | **数技源** | 跑 trend_following（10 子信号）管线产信号 | 不下方向结论 |
-| **观澜** | 技术面分析（LLM 推理生成 TechnicalOutput） | 不判断多空 |
-| **探源** | 基本面分析（LLM 推理生成 FundamentalStateVector） | 不判断多空 |
-| **链证源** | 产业链关联分析 | 不下交易结论 |
-| **读心** | 新闻情绪分析（LLM 推理生成 SentimentStateVector） | 不判断多空 |
+| **观澜** | 技术面分析（LLM + 市场感知参数，按品种市场类型注入不同上下文） | 不判断多空 |
+| **探源** | 基本面分析（LLM，按品种市场类型注入不同分析指令：商品→供需/库存，股指→宏观/估值，国债→货币/利率，ETF→指数/持仓） | 不判断多空 |
+| **链证源** | 产业链关联分析（仅商品期货触发，股指/国债/ETF 跳过） | 不下交易结论 |
+| **读心** | 新闻情绪分析（LLM，金十+Web 多源） | 不判断多空 |
 | **多头分析员** | 独立列举 ≥3 条做多论据 | 禁止自行搜索 |
 | **空头分析员** | 独立列举 ≥3 条做空论据 | 禁止自行搜索 |
 | **闫判官** | P2 初判 + P5 终裁（含完整交易参数） | 不独立分析行情 |
@@ -1660,6 +1662,8 @@ python scripts/rhi_global_cli.py install
 
 | 版本 | 核心变更 |
 |:------|:---------|
+| **v0.10.6** | **全市场辩论扩展 Phase 0-3** — 新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6 |
+| **v10.5.0** | **Phase A-F 优化方案全部落地** — 裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0 |
 | **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
 | **v10.3.0** | **P2.5 多因子注入** — 零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（波动率/跨品种价差/期限结构/多空持仓/因子看板）。 |
 | **v9.22.0** | **RHI 完整落地** — evolution_graph 集成 node_rhi 节点 + `rhi_global_cli.py` + 22 个 RHI 测试 |
@@ -1683,4 +1687,4 @@ python scripts/rhi_global_cli.py install
 
 ---
 
-*文档版本: v10.4.0 | 最后更新: 2026-07-25 | 作者: FDT Contributors*
+*文档版本: v0.10.6 | 最后更新: 2026-07-26 | 作者: FDT Contributors*

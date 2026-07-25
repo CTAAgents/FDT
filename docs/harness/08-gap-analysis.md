@@ -150,7 +150,7 @@
 
 | GAP ID | 描述 | 优先级 | 状态 | 说明 |
 |:-------|:-----|:------|:-----|:-----|
-| GAP-AP01-001 | AP01反模式：futures-judge.md(195行)/futures-debate-team-team-lead.md(210行)≤300行 | P1 | ✅ **已关闭（本次会话）** | judge.md(195行)/team-lead.md(210行)≤300行 |
+| GAP-AP01-001 | AP01反模式：judge.md(195行)/fdt-team-lead.md(210行)≤300行 | P1 | ✅ **已关闭（本次会话）** | judge.md(195行)/team-lead.md(210行)≤300行 |
 | GAP-HOOK-001 | pre_commit_harness_check.py 已接入 Git pre-commit hook | P2 | ✅ **已关闭（本次会话）** | .pre-commit-config.yaml 已创建 |
 
 ### 4.5 六维控制空间差距（2026-07-23 登记）
@@ -202,6 +202,19 @@
 | **G109** | **node_judge_direction 越权做品种筛选**（v10.0.0 已修复） | 闫判官职责应是协调数据源调度，但当前节点让 LLM 从 62 个品种中选辩论品种。 | P0 | 移除 LLM 选品种逻辑，直接从 `scan_results.primary_symbols` 读取预筛选品种。LLM 只决定 `dispatch_sources`。 | `fdt_langgraph/nodes.py` `node_judge_direction()` | ✅ **v10.0.0 已关闭** |
 
 | **G111** | **FDC 退役后数据链路断裂**（v10.0.0 已修复） | FDC（futures_data_core）已正式退役，data_adapter/ 包已创建（6 文件，12 统一接口），scan_all.py 和 nodes.py P2.5 全面接入，FDC 目录已物理删除。 | P0 | 创建 `data_adapter/` 包，含 DataSource 抽象基类、AKShareSource 实现（12个统一接口）、路由入口。scan_all.py 和 nodes.py P2.5 全面接入，完成后物理删除 `futures_data_core/` 目录。 | `data_adapter/` (新建) , `skills/quant-daily/scripts/scan_all.py`, `fdt_langgraph/nodes.py` | ✅ **v10.0.0 已关闭** |
+
+### GAP-20260726 系列 — 品种映射缺失 + 稳定性修复批（v0.10.6）
+
+| GAP ID | 描述 | 优先级 | 根因 | 状态 |
+|:-------|:-----|:------:|:-----|:----:|
+| **GAP-001** | **`_nodes_verdict.py` f-string 花括号未转义** — `如果{条件A}则看多` 中的 `{条件A}` 在 Python f-string 中被解析为变量名，触发 `NameError`，导致 verdict 节点崩溃 | P0 | f-string 中字面花括号需要双写 `{{条件A}}` | ✅ **已修复（v0.10.6）** |
+| **GAP-002** | **`single_symbol_report.py` f-string + `\\n` 语法错误** — `f'<div>\\n'` 在 Python 3.12 多行 `(...)` 表达式中报 `SyntaxError` | P0 | Python 3.12 f-string 对此类字符序列的解析策略与旧版本不同 | ✅ **已修复（v0.10.6）** — 重写为 `''.join([...])` 拼接 |
+| **GAP-003** | **`graph.py` P3 条件边命名冲突** — for 循环中对同一源节点注册多条未命名条件边，LangGraph v1.2.9 报 `Branch with name None already exists` | P0 | LangGraph v1.2.9 不支持同源同名条件边注册 | ✅ **已修复（v0.10.6）** — 改为单条路由函数 `_route_p3_nodes()` |
+| **GAP-004** | **`data_adapter` 品种映射缺失（基差 + 新闻关键词）** — `_AK_SPOT_MAP` 缺 SH/SM/SF/OP，`SYMBOL_TO_KEYWORDS` 缺 SH/OP | P1 | FDC→AKShare 迁移时未覆盖新品种映射 | ✅ **已修复（v0.10.6）** |
+| **GAP-005** | **JIN10_MCP_TOKEN 未配置** — 金十 MCP 新闻源不可用，所有品种新闻情绪为空 | P1 | `.env` 中未配置金十 Token | ❌ **开放** — 需用户配置 `JIN10_MCP_TOKEN` |
+| **GAP-006** | **多品种辩论 state 隔离缺失** — arguments 跨品种累积（峰值 64MB），LLM 调用严重膨胀 | P2 | `node_debate` 未按品种隔离论据列表 | ❌ **开放** |
+| **GAP-007** | **DCE 持仓排名 zip 损坏 — AKShare 源临时故障** | P1 | 外部依赖暂时故障 | ⏳ **监控中** |
+| **GAP-008** | **`_nodes_utils.py` `import tempfile` 缺失** | P2 | 代码重构遗漏 | ✅ **已修复（v0.10.6）** |
 
 ## 一致性元数据
 

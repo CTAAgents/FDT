@@ -1,5 +1,5 @@
 ---
-name: futures-quality-assurance
+name: quality-assurance
 description: 品藻 — 辩论输出质量治理与报告汇编。纯函数质检 + HTML 报告生成。
 displayName:
   en: "Quality Assurance Officer"

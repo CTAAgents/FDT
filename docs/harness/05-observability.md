@@ -105,7 +105,7 @@ apm_scorecard.py
 | 评分卡主逻辑 | `scripts/apm_scorecard.py` | 五轴计算 + 输出 |
 | D2 成本感知 PnL | `scripts/verification/validate_verdicts.py` | `COST_BPS=2.0` 参数 |
 | D4 纪律钳制 | `scripts/enforce_discipline.py` | R13/R14/R-resonance 仓位上限 |
-| held-out judge | `agents/futures-judge-heldout.md` | D1 一致性审计 Agent |
+| held-out judge | `agents/judge-heldout.md` | D1 一致性审计 Agent |
 | 种子回填 | `scripts/memory_writer.py` | `compute_heldout_coherence()` 确定性 rubric |
 
 ## 3. 统一日志框架
@@ -298,7 +298,7 @@ self_improve.py (自改进脚手架)
       "axis": "D2",
       "finding": "Acuity net=0.15, 低于阈值0.20",
       "suggestion": "增加噪音信号过滤, 提高信息信号权重",
-      "affected_agents": ["futures-judge"],
+      "affected_agents": ["judge"],
       "status": "pending_review"
     }
   ]

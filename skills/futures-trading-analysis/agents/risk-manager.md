@@ -1,5 +1,5 @@
 ---
-name: futures-risk-manager
+name: risk-manager
 description: >-
   风险主管：裁判三方风险辩论，输出最终风险调整后决策。
 color: "#1E40AF"

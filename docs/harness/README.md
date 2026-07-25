@@ -1,6 +1,6 @@
 # FDT Harness 工程文档
 
-> 从 Agent/LLM Harness 工程范式视角，对期货交易辩论专家团（Futures Debate Team, FDT）的编排层、配置注入、生命周期管理、错误恢复和可观测性进行系统性梳理。
+> 从 Agent/LLM Harness 工程范式视角，对全市场辩论专家团（Full-market Debate Team, FDT）的编排层、配置注入、生命周期管理、错误恢复和可观测性进行系统性梳理。
 
 ## 文档索引
 

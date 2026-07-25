@@ -31,7 +31,7 @@ class ConfigManager:
     def _load(self) -> Dict[str, Any]:
         """加载 settings.json。"""
         if not self.path.exists():
-            return {"agent": "futures-debate-team-team-lead", "mode": "dry-run"}
+            return {"agent": "fdt-team-lead", "mode": "dry-run"}
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 return json.load(f)

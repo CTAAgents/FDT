@@ -235,16 +235,16 @@ Futures-Debate-Team v4.4 — 自动生成</p>
     def _render_agent_status(self) -> str:
         """渲染Agent状态表格。"""
         agents = [
-            "futures-datatech",
-            "futures-chain-analyst",
-            "futures-technical-researcher",
-            "futures-fundamental-researcher",
-            "futures-affirmative-debater",
-            "futures-opposition-debater",
-            "futures-trading-strategist",
-            "futures-risk-manager",
-            "futures-judge",
-            "futures-debate-team-team-lead",
+            "datatech",
+            "chain-analyst",
+            "technical-researcher",
+            "fundamental-researcher",
+            "affirmative-debater",
+            "opposition-debater",
+            "trading-strategist",
+            "risk-manager",
+            "judge",
+            "fdt-team-lead",
         ]
         rows = ""
         for agent in agents:

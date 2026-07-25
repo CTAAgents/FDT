@@ -233,7 +233,7 @@
 
 ### 修改文件清单
 
-- `agents/futures-debate-team-team-lead.md`: 删"闫判官全权主持"段 → 明鉴秋全程调度 + 轮询就绪 + poll_file_ready()
+- `agents/fdt-team-lead.md`: 删"闫判官全权主持"段 → 明鉴秋全程调度 + 轮询就绪 + poll_file_ready()
 - `skills/futures-trading-analysis/SKILL.md`: spawn协议prompt模板加"禁止向其他Agent发送消息"约束 + S01-S04铁律表
 
 ---

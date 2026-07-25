@@ -22,18 +22,18 @@ futures-trading-analysis/
 ├── SKILL.md                    # 主技能文档（协调器指令）
 ├── README.md                   # 技能使用说明
 └── agents/                     # 12个期货版Agent
-    ├── futures-market-analyst.md
-    ├── futures-fundamentals-analyst.md
-    ├── futures-news-analyst.md
-    ├── futures-sentiment-analyst.md
-    ├── futures-bull-researcher.md
-    ├── futures-bear-researcher.md
-    ├── futures-research-manager.md
-    ├── futures-trader.md
-    ├── futures-aggressive-risk-analyst.md
-    ├── futures-conservative-risk-analyst.md
-    ├── futures-neutral-risk-analyst.md
-    └── futures-risk-manager.md
+    ├── market-analyst.md
+    ├── fundamentals-analyst.md
+    ├── news-analyst.md
+    ├── sentiment-analyst.md
+    ├── bull-researcher.md
+    ├── bear-researcher.md
+    ├── research-manager.md
+    ├── trader.md
+    ├── aggressive-risk-analyst.md
+    ├── conservative-risk-analyst.md
+    ├── neutral-risk-analyst.md
+    └── risk-manager.md
 ```
 
 ## 核心功能
@@ -45,39 +45,39 @@ futures-trading-analysis/
 ### 2. 12个专业Agent
 
 **Phase 1 - 数据收集（4个分析师）**
-1. **futures-market-analyst**：期货技术分析，持仓量、期限结构、基差、虚实比
-2. **futures-fundamentals-analyst**：期货基本面，供需平衡表、库存周期、产能利用率
-3. **futures-news-analyst**：期货新闻，天气/地缘事件、行业政策、产业链动态
-4. **futures-sentiment-analyst**：期货情绪，CFTC持仓、仓单变化、虚实比
+1. **market-analyst**：期货技术分析，持仓量、期限结构、基差、虚实比
+2. **fundamentals-analyst**：期货基本面，供需平衡表、库存周期、产能利用率
+3. **news-analyst**：期货新闻，天气/地缘事件、行业政策、产业链动态
+4. **sentiment-analyst**：期货情绪，CFTC持仓、仓单变化、虚实比
 
 **Phase 2 - 投资辩论（3个辩论角色）**
-5. **futures-affirmative-debater(证真)**：辩护方，从研究员快照中拣选支持证据
-6. **futures-opposition-debater(慎思)**：质疑方，从研究员快照中挑出矛盾漏洞
-7. **futures-research-manager**：期货研究主管，裁决维度：供需平衡表、库存周期、期限结构
+5. **affirmative-debater(证真)**：辩护方，从研究员快照中拣选支持证据
+6. **opposition-debater(慎思)**：质疑方，从研究员快照中挑出矛盾漏洞
+7. **research-manager**：期货研究主管，裁决维度：供需平衡表、库存周期、期限结构
 
 **Phase 3 - 交易决策（1个交易员）**
-8. **futures-trader**：期货交易员，新增：合约选择、移仓换月、保证金管理、虚实比检查
+8. **trader**：期货交易员，新增：合约选择、移仓换月、保证金管理、虚实比检查
 
 **Phase 4 - 风险评估（4个风险角色）**
-9. **futures-aggressive-risk-analyst**：激进风险，趋势延续论据、错失成本量化
-10. **futures-conservative-risk-analyst**：保守风险，期货特有尾部风险（逼仓、政策突变）
-11. **futures-neutral-risk-analyst**：中性风险，跨期套利、产业链对冲等温和策略
-12. **futures-risk-manager**：风险主管，期货特有风险调整
+9. **aggressive-risk-analyst**：激进风险，趋势延续论据、错失成本量化
+10. **conservative-risk-analyst**：保守风险，期货特有尾部风险（逼仓、政策突变）
+11. **neutral-risk-analyst**：中性风险，跨期套利、产业链对冲等温和策略
+12. **risk-manager**：风险主管，期货特有风险调整
 
 ### 3. 5阶段工作流
 
 ```
 Phase 1: 数据收集【并行】
-  futures-market-analyst + futures-fundamentals-analyst + futures-news-analyst + futures-sentiment-analyst
+  market-analyst + fundamentals-analyst + news-analyst + sentiment-analyst
       ↓
 Phase 2: 投资辩论【顺序】
-  futures-bull-researcher → futures-bear-researcher → futures-research-manager
+  bull-researcher → bear-researcher → research-manager
       ↓
 Phase 3: 交易决策
-  futures-trader → FINAL TRANSACTION PROPOSAL
+  trader → FINAL TRANSACTION PROPOSAL
       ↓
 Phase 4: 风险评估【并行+顺序】
-  futures-aggressive-risk-analyst + futures-conservative-risk-analyst + futures-neutral-risk-analyst → futures-risk-manager
+  aggressive-risk-analyst + conservative-risk-analyst + neutral-risk-analyst → risk-manager
       ↓
 Phase 5: 最终报告
   整合所有阶段产出，生成结构化商品期货分析报告

@@ -1,6 +1,6 @@
 # Agent 通信协议 v3.0
 
-> 定义 futures-debate-team 10角色间的结构化通信契约。每个 Agent 的输入/输出必须符合对应的 schema。
+> 定义 fdt 10角色间的结构化通信契约。每个 Agent 的输入/输出必须符合对应的 schema。
 > 解决 "telephone effect"——信息在 Agent 间传递时因格式混搭导致的失真。
 
 ## 📐 协议标准层次

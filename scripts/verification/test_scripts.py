@@ -555,7 +555,7 @@ class TestMARLTrainer:
                 trade_results=[{"symbol": "RB", "pnl": 500, "direction": "long"}],
             )
             w = t.get_weights()
-            assert "futures-technical-researcher" in w
+            assert "technical-researcher" in w
 
     def test_get_training_summary_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

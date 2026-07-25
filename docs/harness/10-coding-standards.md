@@ -67,11 +67,16 @@
 
 ## 5. 版本号纪律
 
+> 版本号格式：**v0.MAJOR.MINOR**（前导 0 表示系统仍在持续迭代阶段）
+
 | 规则 | 说明 |
 |:-----|:------ |
 | **pyproject.toml 是唯一真相源** | 所有文档读 `get_fdt_version()`（`scripts/fdt_paths.py` 导出），不允许在任何文档中硬编码版本字符串 |
-| **每次代码变更（非纯文档）必须 bump** | patch（修复/微调）、minor（新功能）、major（不兼容） |
-| **版本历史追加** | `docs/harness/07-operations.md §5.2` 每发版追加一行，格式：`vX.Y.Z \| 日期 \| 变更摘要` |
+| **MAJOR 门槛（0.x.y→0.y.z）** | 架构级重构、破坏性变更（如彻底换数据源、重写辩论流程）。**预留，当前尚未使用** |
+| **MINOR 门槛（0.x.Y→0.x.Z）** | **有意义的完整能力交付** — 一个新模块、一个新 Agent、一个新市场类型、一个完整 Phase。不得为单次 bug 修复或微调触发 |
+| **PATCH（0.x.y）** | Bug 修复、参数调优、测试补充、纯重构、纯文档变更。**多项同类修复合并为一次 bump**，避免当日多次版本号变更 |
+| **不触发 bump 的场景** | 纯文档更正、README 更新、注释修改、仅新增测试无生产代码变化 |
+| **版本历史追加** | `docs/harness/07-operations.md §6.2` 每发版追加一行，格式：`v0.X.Y \| 日期 \| 变更摘要` |
 
 ---
 
@@ -311,3 +316,29 @@ FDT 当前仅处理**商品期货**（黑色/有色/能化/农产品/软商品�
 ---
 
 *版本 v1.2 | 2026-07-23 | 新增 §11 一致性元数据*
+
+
+### §11. Python 3.12 f-string 兼容规则（v0.10.6 新增 — P0 硬约束）
+
+```python
+# ❌ 禁止 — Python 3.12 f-string 多行括号中 \n 语法错误
+verdict_html = (
+    f'<div class="box">\n'
+    f'<div class="item">{var}</div>\n'
+)
+
+# ✅ 推荐 — 使用 ''.join() 拼接
+verdict_html = ''.join([
+    '<div class="box">',
+    '<div class="item">' + var + '</div>',
+    '</div>',
+])
+
+# ❌ 禁止 — f-string 中字面花括号作为文本，Python 解析为变量引用
+f'如果{条件A}则看多'
+
+# ✅ 正确 — 双写花括号
+f'如果{{条件A}}则看多'
+```
+
+**检查方式**：`grep -rn "f'.*\\n'" fdt_langgraph/` | grep -v test | grep -v __pycache__

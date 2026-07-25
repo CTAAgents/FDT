@@ -2,7 +2,7 @@
 inference_gate.py — IGP 推理门控模块 v1.0.0
 ======================================
 
-适用范围: FDT 辩论专家团（futures-debate-team）
+适用范围: FDT 辩论专家团（fdt）
 设计来源: AgenticAITA (arXiv:2605.12532) §3.2-3.3
 
 功能:

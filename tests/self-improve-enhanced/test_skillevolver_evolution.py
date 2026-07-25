@@ -38,7 +38,7 @@ class TestSkillEvolverInit:
         assert len(ROLE_TO_FILE_ID) == 10  # 10 main roles
         role_ids = list(ROLE_TO_FILE_ID.values())
         for rid in role_ids:
-            assert rid.startswith("futures-")
+            assert not rid.startswith("futures-") or rid in ("futures-affirmative-debater", "futures-opposition-debater", "bearish-analyst", "bullish-analyst", "news-sentiment-analyst", "quality-assurance")
 
 
 class TestSkillEvolverExploration:
@@ -54,7 +54,7 @@ class TestSkillEvolverExploration:
         (self.fake_root / "memory").mkdir()
 
         # Create a minimal agent file
-        agent_file = self.fake_root / "agents" / "futures-judge.md"
+        agent_file = self.fake_root / "agents" / "judge.md"
         agent_file.write_text("# 闫判官\n\n## Role\n裁决者\n", encoding="utf-8")
 
         self.evolver = SkillEvolver(self.fake_root)
@@ -93,7 +93,7 @@ class TestSkillEvolverContrastiveUpdate:
         agents_dir = self.fake_root / "agents"
         agents_dir.mkdir()
 
-        agent_file = agents_dir / "futures-opposition-debater.md"
+        agent_file = agents_dir / "bearish-analyst.md"
         agent_file.write_text("# 慎思\n\n## Role\n慎思分析员\n", encoding="utf-8")
 
         self.evolver = SkillEvolver(self.fake_root)
@@ -143,7 +143,7 @@ class TestSkillEvolverAudit:
     def test_audit_passes_good_patch(self):
         from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
-            "target_file": "/agents/futures-judge.md",
+            "target_file": "/agents/judge.md",
             "patch": "+# SkillEvolver 补丁\n+# 修复建议: 修正 ADX>60 约束",
             "fault_evidence": "高 ADX 场景连续错误",
             "confidence": 0.92,
@@ -155,7 +155,7 @@ class TestSkillEvolverAudit:
     def test_audit_rejects_low_confidence(self):
         from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
-            "target_file": "/agents/futures-judge.md",
+            "target_file": "/agents/judge.md",
             "patch": "+# small",
             "fault_evidence": "marginal",
             "confidence": 0.3,
@@ -166,7 +166,7 @@ class TestSkillEvolverAudit:
     def test_audit_rejects_date_hardcoded(self):
         from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
-            "target_file": "/agents/futures-judge.md",
+            "target_file": "/agents/judge.md",
             "patch": "+# 2026-07-11 specific case",
             "fault_evidence": "n/a",
             "confidence": 0.9,
@@ -185,7 +185,7 @@ class TestSkillEvolverFullCycle:
         fake_root.mkdir()
         (fake_root / "agents").mkdir()
         (fake_root / "memory").mkdir()
-        agent_file = fake_root / "agents" / "futures-judge.md"
+        agent_file = fake_root / "agents" / "judge.md"
         agent_file.write_text("# 闫判官\n\n## Role\n裁决者\n", encoding="utf-8")
 
         evolver = SkillEvolver(fake_root)

@@ -76,7 +76,7 @@
 | 激进风险分析师 | `futures-aggressive-risk-analyst` | 强调上行空间 |
 | 保守风险分析师 | `futures-conservative-risk-analyst` | 揭示下行风险 |
 | 中性风险分析师 | `futures-neutral-risk-analyst` | 平衡视角 |
-| 风险主管 | `futures-risk-manager` | 最终风险裁决 |
+| 风险主管 | `risk-manager` | 最终风险裁决 |
 
 ## 输出格式
 
@@ -109,7 +109,7 @@
 
 ## 相关技能
 
-- `futures-industry-chain-analysis`：商品期货产业链自动化分析系统
+- `industry-chain-analysis`：商品期货产业链自动化分析系统
 - `energy-chain-analysis`：能源产业链分析
 - `precious-metals-trading-decision`：贵金属交易决策
 - `crude-oil-daily-news`：原油每日资讯

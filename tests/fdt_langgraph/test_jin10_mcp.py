@@ -359,7 +359,7 @@ class TestSentimentAnalyst:
         """验证读心 Agent MD 文件存在。"""
         from pathlib import Path
 
-        md_path = Path(__file__).parent.parent.parent / "agents" / "futures-news-sentiment-analyst.md"
+        md_path = Path(__file__).parent.parent.parent / "agents" / "news-sentiment-analyst.md"
         assert md_path.exists(), "读心 Agent MD 文件不存在"
         content = md_path.read_text(encoding="utf-8")
         assert "读心" in content

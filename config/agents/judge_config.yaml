@@ -1,5 +1,5 @@
 # judge_config.yaml
-# 闫判官运行时配置（从 agents/futures-judge.md 提取）
+# 闫判官运行时配置（从 agents/judge.md 提取）
 version: "2.0"
 description: "闫判官运行时配置 — 评分模型、裁决修正、自校准、收敛控制"
 

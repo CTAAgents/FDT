@@ -176,7 +176,7 @@ async def node_verdict(state: DebateState) -> DebateState:
 **新增要求（Phase B 最小关键证据集）：**
 - 每个品种的 `reason` 中需包含 **核心推理路径**：明确标注哪些关键论据最终决定了裁决方向
 - 在 `reason` 末尾附加 **如果-那么推理链**（If X then bull; If Y then bear; X>Y → final），格式为:
-  `【推理链】如果{条件A}则看多；如果{条件B}则看空；{条件A}>{条件B}→最终方向`
+  `【推理链】如果{{条件A}}则看多；如果{{条件B}}则看空；{{条件A}}>{{条件B}}→最终方向`
 - 可选输出 `key_evidence_points` 数组，列出 2-4 条对方向判断最具影响力的证据
 
 {{"per_symbol": {{

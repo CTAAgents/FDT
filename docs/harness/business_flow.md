@@ -1,4 +1,4 @@
-# 期货辩论专家团 — 业务逻辑流程（v2.1 · 单辩论通道 + 六阶段流水线）
+# 全市场辩论专家团 — 业务逻辑流程（v2.1 · 单辩论通道 + 六阶段流水线）
 
 > 本文档为专家团完整业务流程的**规范参考**，所有 Agent MD 和 pipeline 执行逻辑以此为准。
 > **v2.0 变更 (2026-07-23)**：移除双通道架构（通道A直接推荐已废除），所有通道突破品种必须辩论。P2 闫判官不做方向预判，只负责品种筛选与协调调度。
@@ -35,7 +35,7 @@ P6 报告输出（品藻）
 
 ### 执行者
 
-数技源 Agent（`futures-datatech`），由明鉴秋 spawn 执行 `scan_all.py`。
+数技源 Agent（`datatech`），由明鉴秋 spawn 执行 `scan_all.py`。
 
 ### 步骤
 
@@ -81,7 +81,7 @@ P6 报告输出（品藻）
 
 #### 执行者
 
-闫判官 Agent（`futures-judge`），由明鉴秋 spawn。
+闫判官 Agent（`judge`），由明鉴秋 spawn。
 
 #### 调度权归属
 
@@ -125,10 +125,10 @@ P6 报告输出（品藻）
 
 | 分析师 | Agent | 职责 | 超时 | 降级 |
 |:-------|:------|:-----|:----|:-----|
-| **链证源** | `futures-chain-analyst` | 产业链分析（不下多空结论） | 300s | 跳过 |
-| **观澜** | `futures-technical-researcher` | 技术面分析 | 420s | 跳过 |
-| **探源** | `futures-fundamental-researcher` | 基本面分析 | 420s | 跳过 |
-| **读心** | `futures-news-sentiment-analyst` | 新闻情绪分析 | 420s | 跳过 |
+| **链证源** | `chain-analyst` | 产业链分析（不下多空结论） | 300s | 跳过 |
+| **观澜** | `technical-researcher` | 技术面分析 | 420s | 跳过 |
+| **探源** | `fundamental-researcher` | 基本面分析 | 420s | 跳过 |
+| **读心** | `news-sentiment-analyst` | 新闻情绪分析 | 420s | 跳过 |
 
 #### 链证源 — 产业链分析
 
@@ -179,8 +179,8 @@ P6 报告输出（品藻）
 
 | 角色 | Agent | 动作 |
 |:-----|:------|:-----|
-| 多头分析员 | `futures-bullish-analyst` | 列举做多论据，反驳空头质疑 |
-| 空头分析员 | `futures-bearish-analyst` | 列举做空论据，反驳多头质疑 |
+| 多头分析员 | `bullish-analyst` | 列举做多论据，反驳空头质疑 |
+| 空头分析员 | `bearish-analyst` | 列举做空论据，反驳多头质疑 |
 
 **分析师中立供弹**：四源提供的数据作为辩论素材，辩手只能使用分析师提供的资料，不能自行搜集数据。
 
@@ -227,7 +227,7 @@ verdict — 闫判官终裁（基于全部六轮辩论）
 
 ### 执行者
 
-闫判官 Agent（`futures-judge`），基于六轮辩论论据做出最终裁决。
+闫判官 Agent（`judge`），基于六轮辩论论据做出最终裁决。
 
 ### 裁决输出
 
@@ -260,7 +260,7 @@ verdict — 闫判官终裁（基于全部六轮辩论）
 
 ### 执行者
 
-风控明 Agent（`futures-risk-manager`），独立审查闫判官裁决。
+风控明 Agent（`risk-manager`），独立审查闫判官裁决。
 
 ### 审核红线
 
@@ -295,8 +295,8 @@ verdict — 闫判官终裁（基于全部六轮辩论）
 
 | 角色 | Agent | 职责 |
 |:-----|:------|:-----|
-| **品藻** | `futures-quality-inspector` | 报告排版、数据合并、HTML 生成、完整性校验 |
-| **明鉴秋** | `futures-debate-team-team-lead` | 调度协调、辩论结束后触发记忆写入与进化闭环 |
+| **品藻** | `quality-inspector` | 报告排版、数据合并、HTML 生成、完整性校验 |
+| **明鉴秋** | `fdt-team-lead` | 调度协调、辩论结束后触发记忆写入与进化闭环 |
 
 ### 合并输出结构
 

@@ -39,7 +39,7 @@ class BacktestConfig(BaseModel):
 
 class Settings(BaseModel):
     """settings.json 顶层模型"""
-    agent: str = Field(default="futures-debate-team-team-lead", description="团队主管 Agent ID")
+    agent: str = Field(default="fdt-team-lead", description="团队主管 Agent ID")
     seed: Optional[int] = Field(default=None, ge=0, description="随机种子（null=不固定）")
     selection_threshold: float = Field(
         default=0.65, ge=0.0, le=1.0,

@@ -277,13 +277,16 @@ flow:
 
     # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──
     p3_nodes = _get_p3_node_names(mode)
+    def _route_p3_nodes(s, nodes=p3_nodes):
+        for n in nodes:
+            if not _should_skip_p3_source(s, n):
+                return n
+        return "merge_research"
+    # Phase D R01: 单条条件边路由到首个不跳过的 P3 源（LangGraph v1.2.9 不支持同源多条未命名边）
+    path_map: dict[str, str] = {n: n for n in p3_nodes}
+    path_map["merge_research"] = "merge_research"
+    graph.add_conditional_edges("prepare_one_symbol", _route_p3_nodes, path_map)
     for node_name in p3_nodes:
-        # Phase D R01: 条件跳过 — 源准确率过低时直接路由到 merge_research
-        graph.add_conditional_edges(
-            "prepare_one_symbol",
-            lambda s, n=node_name: node_name if not _should_skip_p3_source(s, n) else "merge_research",
-            {node_name: node_name, "merge_research": "merge_research"},
-        )
         graph.add_edge(node_name, "merge_research")
 
     # ── 辩论链条 ──
