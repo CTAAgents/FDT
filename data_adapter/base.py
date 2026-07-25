@@ -141,6 +141,30 @@ class DataSource(ABC):
         ...
 
     @abstractmethod
+    async def get_term_structure(self, symbol: str) -> dict:
+        """获取期限结构数据（从合约序列计算）。
+
+        Args:
+            symbol: 品种代码。
+
+        Returns:
+            dict 含 near_contract / near_price / far_contract / far_price / slope / term_type / contracts。
+        """
+        ...
+
+    @abstractmethod
+    async def get_spread(self, symbol: str) -> dict:
+        """获取跨期价差数据。
+
+        Args:
+            symbol: 品种代码。
+
+        Returns:
+            dict 含 spreads（逐月价差列表）。
+        """
+        ...
+
+    @abstractmethod
     async def get_macro_pmi(self) -> dict:
         """获取 PMI 宏观数据。
 

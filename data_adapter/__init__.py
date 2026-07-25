@@ -94,6 +94,16 @@ async def get_basis(symbol: str) -> dict:
     return await _get_source().get_basis(symbol)
 
 
+async def get_term_structure(symbol: str) -> dict:
+    """获取期限结构数据（从合约序列计算）。"""
+    return await _get_source().get_term_structure(symbol)
+
+
+async def get_spread(symbol: str) -> dict:
+    """获取跨期价差数据。"""
+    return await _get_source().get_spread(symbol)
+
+
 async def get_macro_pmi() -> dict:
     """获取 PMI 宏观数据。"""
     return await _get_source().get_macro_pmi()

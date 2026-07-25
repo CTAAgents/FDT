@@ -175,15 +175,20 @@ def enforce_structured_output(
         "schema_valid": False,
     }
 
-    # Step 1: 自动修复 + JSON 解析
-    fixed_text = auto_fix_json(raw_output)
+    # Step 1: 尝试原始解析（可能已是合法 JSON，避免误伤撇号）
     try:
-        data = json.loads(fixed_text)
+        data = json.loads(raw_output.strip())
         result["data"] = data
-    except json.JSONDecodeError as e:
-        result["errors"].append(f"json_parse: {e}")
-        result["success"] = False
-        return result
+    except json.JSONDecodeError:
+        # Step 1b: 自动修复 + 重新解析
+        fixed_text = auto_fix_json(raw_output)
+        try:
+            data = json.loads(fixed_text)
+            result["data"] = data
+        except json.JSONDecodeError as e:
+            result["errors"].append(f"json_parse: {e}")
+            result["success"] = False
+            return result
 
     # Step 2: 必填字段校验
     required_fields = val_config.get("required_fields", [])

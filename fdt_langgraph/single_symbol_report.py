@@ -337,6 +337,17 @@ def _build_body_sections(state: dict) -> str:
     # ── 构建各章节 ──
     sections: list[tuple[str, str, str]] = []
 
+    # ── 技术指标取值辅助：从 stats 或 indicators 取（兼容两种字段命名） ──
+    def _val(key_stats, key_ind, decimals=0):
+        v = stats.get(key_stats) if stats else None
+        if v is not None:
+            return _fmt(v, decimals) if decimals else _fmt(v)
+        if indicators:
+            v2 = indicators.get(key_ind, indicators.get(key_stats))
+            if v2 is not None:
+                return _fmt(v2, decimals) if decimals else _fmt(v2)
+        return "—"
+
     # P1 数据总览 — metrics-summary 三列卡片
     if p1_valid:
         chg = stats.get("change_pct", 0) or 0 if stats else 0
@@ -349,9 +360,9 @@ def _build_body_sections(state: dict) -> str:
             f'<div class="detail">涨跌幅 <span class="{chg_cls}">{_fmt_pct(chg)}</span></div></div>\n'
             f'<div class="metric-card"><div class="symbol">趋势</div>'
             f'<div class="price" style="font-size:1.2rem;">{_esc(stats.get("ma_align", "—"))}</div>'
-            f'<div class="detail">ADX={_fmt(stats.get("adx_14"),1)} | RSI={_fmt(stats.get("rsi_14"),1)}</div></div>\n'
+            f'<div class="detail">ADX={_val("adx_14","ADX",1)} | RSI={_val("rsi_14","RSI14",1)}</div></div>\n'
             f'<div class="metric-card"><div class="symbol">波动</div>'
-            f'<div class="price" style="font-size:1.2rem;">ATR {_fmt(stats.get("atr_14"))}</div>'
+            f'<div class="price" style="font-size:1.2rem;">ATR {_val("atr_14","ATR14")}</div>'
             f'<div class="detail">量比 {_fmt(stats.get("volume_ma20_ratio"),2)}x | 20日位置 {_fmt(stats.get("price_position_pct"),1)}%</div></div>\n'
             f'</div>\n'
         )
@@ -359,11 +370,11 @@ def _build_body_sections(state: dict) -> str:
             stats_rows += (
                 f'<div class="info-grid">\n'
                 f'<div class="info-card"><div class="head">关键指标</div>'
-                f'<div class="info-item"><span class="k">MA20</span><span class="v">{_fmt(stats.get("ma_20"))}</span></div>'
-                f'<div class="info-item"><span class="k">MA60</span><span class="v">{_fmt(stats.get("ma_60"))}</span></div>'
-                f'<div class="info-item"><span class="k">RSI14</span><span class="v">{_fmt(stats.get("rsi_14"),1)}</span></div>'
-                f'<div class="info-item"><span class="k">ADX14</span><span class="v">{_fmt(stats.get("adx_14"),1)}</span></div>'
-                f'<div class="info-item"><span class="k">ATR14</span><span class="v">{_fmt(stats.get("atr_14"))}</span></div>'
+                f'<div class="info-item"><span class="k">MA20</span><span class="v">{_val("ma_20", "MA20")}</span></div>'
+                f'<div class="info-item"><span class="k">MA60</span><span class="v">{_val("ma_60", "MA60")}</span></div>'
+                f'<div class="info-item"><span class="k">RSI14</span><span class="v">{_val("rsi_14", "RSI14", 1)}</span></div>'
+                f'<div class="info-item"><span class="k">ADX14</span><span class="v">{_val("adx_14", "ADX", 1)}</span></div>'
+                f'<div class="info-item"><span class="k">ATR14</span><span class="v">{_val("atr_14", "ATR14")}</span></div>'
                 f'</div>\n'
                 f'<div class="info-card"><div class="head">量价持仓</div>'
                 f'<div class="info-item"><span class="k">持仓</span><span class="v">{_fmt(stats.get("oi"))}</span></div>'
@@ -395,14 +406,47 @@ def _build_body_sections(state: dict) -> str:
     # P1.5 链证源 — 产业链分析
     chain_analysis = state.get("chain_analysis") or {}
     if isinstance(chain_analysis, dict) and any(chain_analysis.values()):
+        # 如果有文本 summary，优先展示
         chain_text = str(chain_analysis.get("summary", chain_analysis.get("analysis", "")))
-        if not chain_text:
-            chain_text = str(chain_analysis)[:2000]
-        chain_html = (
-            f'<div class="card">'
-            f'<div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(chain_text)}</div>'
-            f'</div>'
-        )
+        if chain_text:
+            chain_html = (
+                f'<div class="card">'
+                f'<div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(chain_text)}</div>'
+                f'</div>'
+            )
+        else:
+            # 结构化渲染：按品种逐个渲染为 info-card
+            chain_cards = ""
+            for sym_key, sym_data in chain_analysis.items():
+                if sym_key.startswith("_") or not isinstance(sym_data, dict):
+                    continue
+                ch_name = sym_data.get("chain", "—")
+                term = sym_data.get("term_structure", "—")
+                basis = sym_data.get("basis", "—")
+                trend = sym_data.get("chain_trend", "—")
+                cons = sym_data.get("chain_consistency", "—")
+                members = sym_data.get("chain_members", [])
+                members_str = ", ".join(members) if members else "—"
+                notes = sym_data.get("notes", [])
+
+                card = f'<div class="info-card"><div class="head">{_esc(sym_key)}</div>'
+                card += f'<div class="info-item"><span class="k">产业链</span><span class="v">{_esc(ch_name)}</span></div>'
+                card += f'<div class="info-item"><span class="k">期限结构</span><span class="v">{_esc(str(term))}</span></div>'
+                card += f'<div class="info-item"><span class="k">基差</span><span class="v">{_esc(str(basis))}</span></div>'
+                card += f'<div class="info-item"><span class="k">链趋势</span><span class="v">{_esc(str(trend))}</span></div>'
+                card += f'<div class="info-item"><span class="k">一致性</span><span class="v">{_esc(str(cons))}%</span></div>'
+                if sym_data.get("redundant"):
+                    card += f'<div class="info-item"><span class="k">冗余排除</span><span class="v">→ {_esc(str(sym_data.get("redundant_with", "")))}</span></div>'
+                if notes:
+                    notes_html = "".join(f"<li>{_esc(str(n))}</li>" for n in notes[:3])
+                    card += f'<div class="info-item" style="flex-wrap:wrap;"><span class="k">备注</span><ul style="font-size:0.75rem;margin:2px 0;padding-left:14px;color:var(--muted);">{notes_html}</ul></div>'
+                card += "</div>"
+                chain_cards += card
+
+            if chain_cards:
+                chain_html = f'<div class="info-grid">{chain_cards}</div>'
+            else:
+                chain_html = '<div class="callout">链证源产业链分析未触发或数据不可用</div>'
     else:
         chain_html = '<div class="callout">链证源产业链分析未触发或数据不可用</div>'
     sections.append(("P1.5 链证源 · 产业链分析", chain_html, "#2563eb"))
@@ -430,7 +474,7 @@ def _build_body_sections(state: dict) -> str:
         if score_val:
             score_html = f'<div class="info-card"><div class="head">综合评分</div><div style="font-size:1.3rem;font-weight:700;text-align:center;">{score_val}</div></div>'
         tech_html = (f'<div class="info-grid"><div class="info-card"><div class="head">观澜技术面（FDC自主计算）</div>{tech_inner}</div>{score_html}</div>'
-            f'<div class="callout" style="margin-top:8px;font-size:0.78rem;">⚠ 技术指标来源：FDC 本地计算为主，RSI/ADX 等指标来自网络 API，可能存在偏差</div>')
+            f'<div class="callout" style="margin-top:8px;font-size:0.78rem;">⚠ 技术指标来源：数据适配层(TA-Lib/numpy)计算，RSI/ADX/ATR 等为本地计算值</div>')
     elif tech_from_debate:
         tech_html = f'<div class="info-grid"><div class="info-card"><div class="head">辩论引用</div><div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">{_esc(tech_from_debate)}</div></div></div>'
     elif indicators:

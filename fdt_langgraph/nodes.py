@@ -92,12 +92,23 @@ def _repair_json(text: str) -> str:
 
     处理 BOM、markdown code fence、注释、单引号、尾随逗号、
     首尾非 JSON 文本包裹等问题。
+
+    先尝试原始解析（避免 auto_fix_json 的单引号替换误伤撇号），
+    失败后再依次应用修复步骤。
     """
     if not text or not text.strip():
         return text
     cleaned = text.strip().lstrip("\ufeff")
-    # 提取 markdown code fence 中的 JSON（如 ```json ... ```）
     import re as _re
+
+    # Step 0: 尝试原始解析（可能已是合法 JSON，避免误伤撇号）
+    try:
+        json.loads(cleaned)
+        return cleaned
+    except json.JSONDecodeError:
+        pass
+
+    # Step 1: 提取 markdown code fence 中的 JSON（如 ```json ... ```）
     fence_match = _re.search(r"```(?:json)?\s*\n?(.*?)\n?```", cleaned, _re.DOTALL)
     if fence_match:
         cleaned = fence_match.group(1).strip()
@@ -110,13 +121,19 @@ def _repair_json(text: str) -> str:
     # 移除 Python/js 风格的单行注释 // 和 #
     cleaned = _re.sub(r'(?m)^\s*//.*$', '', cleaned)
     cleaned = _re.sub(r'(?m)^\s*#.*$', '', cleaned)
-    # 尝试将单引号替换为双引号（但跳过已转义的引号）
+    # 移除尾随逗号（在单引号替换之前，避免逗号干扰）
+    cleaned = _re.sub(r',\s*}', '}', cleaned)
+    cleaned = _re.sub(r',\s*]', ']', cleaned)
+    # 尝试将单引号替换为双引号（但只替换确为 JSON 定界符的单引号）
+    # 先尝试解析，如果已经是合法 JSON 则跳过
+    try:
+        json.loads(cleaned)
+        return cleaned
+    except json.JSONDecodeError:
+        pass
     cleaned = _re.sub(r"(?<!\\)'(?=[^:,\]\{\}\s])", '"', cleaned)
     cleaned = _re.sub(r"(?<=[:\],\{\}])\s*'\s*", '"', cleaned)
     cleaned = _re.sub(r"'\s*(?=[:\],\{\}])", '"', cleaned)
-    # 移除尾随逗号
-    cleaned = _re.sub(r',\s*}', '}', cleaned)
-    cleaned = _re.sub(r',\s*]', ']', cleaned)
     return cleaned
 
 
@@ -869,14 +886,16 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         if f10_enabled and not error:
             try:
-                # get_spread/get_term_structure/get_fundamental 已退役
-                async def _retired_fn(_sym):
-                    return {"data": {}, "summary": "数据源已退役", "data_grade": "UNAVAILABLE"}
-                from data_adapter import get_basis, get_warrant
+                from data_adapter import get_basis, get_warrant, get_term_structure, get_spread
 
-                for name, fn in [("term_structure", _retired_fn), ("spread", _retired_fn),
+                # fundamental 无固定数据源，提示 agent 通过 WebSearch 获取
+                async def _fundamental_websearch(_sym):
+                    return {"data": {}, "summary": "利润/供需等基本面数据请通过 WebSearch 获取行业机构公开数据",
+                            "data_grade": "UNAVAILABLE"}
+
+                for name, fn in [("term_structure", get_term_structure), ("spread", get_spread),
                                  ("basis", get_basis), ("warrant", get_warrant),
-                                 ("fundamental", _retired_fn)]:
+                                 ("fundamental", _fundamental_websearch)]:
                     try:
                         payload = await fn(symbol)
                         _pd = payload if isinstance(payload, dict) else {"data": {}, "summary": "", "data_grade": "UNAVAILABLE"}
@@ -1326,7 +1345,7 @@ def _build_market_fundamental_context(symbols: list[str], market_data: dict, sca
                                    ("position_ranking", "持仓排名"), ("fund_flow", "资金流向"),
                                    ("fundamental", "基本面")]:
             field = sym_data.get(field_name, {})
-            if field and "error" not in field:
+            if field and "error" not in field and field.get("data_grade") != "UNAVAILABLE":
                 lines.append(f"  {label}:")
                 f_data = field.get("data", {})
                 if isinstance(f_data, dict):
@@ -1335,6 +1354,10 @@ def _build_market_fundamental_context(symbols: list[str], market_data: dict, sca
                         lines.append(f"    {key}: {val}")
                 if field.get("summary"):
                     lines.append(f"    摘要: {field['summary']}")
+            elif field_name == "position_ranking":
+                lines.append(f"  {label}: AKShare 数据不可用，请通过 WebSearch 搜索该品种的持仓排名数据（交易所官网或行业网站）")
+            elif field_name == "fundamental":
+                lines.append(f"  {label}: 无固定数据源，请通过 WebSearch/WebFetch 获取行业机构公开数据（供需/库存/利润/政策等）")
             else:
                 lines.append(f"  {label}: 不可用")
         f10_summary = sym_data.get("f10_summary", {})
@@ -1801,6 +1824,48 @@ async def node_fundamental(state: DebateState) -> dict:
         except Exception as e:
             logger.warning(f"[FUND] _repair_json 回退失败: {e}")
 
+    # Last-resort: regex per_symbol extraction from raw output
+    if not llm_parse_ok and output:
+        logger.warning("[FUND] 尝试正则提取 per_symbol 数据")
+        try:
+            extracted = {}
+            for sym in selected:
+                sk = sym.upper()
+                # 匹配 "SYM": { 后找到匹配的闭合大括号
+                ms = list(re.finditer(rf'"{sk}"\s*:\s*(\{{)', output))
+                for m in ms:
+                    depth = 0
+                    start_i = m.start(1)
+                    for i in range(start_i, len(output)):
+                        if output[i] == "{":
+                            depth += 1
+                        elif output[i] == "}":
+                            depth -= 1
+                            if depth == 0:
+                                obj_str = output[start_i:i + 1]
+                                break
+                    else:
+                        continue
+                    try:
+                        obj = json.loads(obj_str)
+                    except json.JSONDecodeError:
+                        try:
+                            obj = json.loads(_repair_json(obj_str))
+                        except (json.JSONDecodeError, Exception):
+                            continue
+                    if isinstance(obj, dict):
+                        extracted[sym] = obj
+                        break
+            if extracted:
+                for sym_key in extracted:
+                    if isinstance(extracted[sym_key], dict):
+                        extracted[sym_key]["is_partial"] = True
+                per_symbol_fund.update(extracted)
+                llm_parse_ok = True
+                logger.info(f"[FUND] 正则提取成功(partial): {list(extracted.keys())}")
+        except Exception as e:
+            logger.warning(f"[FUND] 正则提取失败: {e}")
+
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
         for sym in selected:
@@ -1900,7 +1965,7 @@ async def node_sentiment(state: DebateState) -> dict:
     except Exception:
         news_quality = {}
 
-    context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态：
+    context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态。
 
 待分析品种: {selected}
 
@@ -1910,10 +1975,26 @@ async def node_sentiment(state: DebateState) -> dict:
 如需补充验证，可使用 WebSearch/WebFetch 搜索行业网站新闻或政策原文，
 引用时标注 [sentiment:web]。
 
-请按 SentimentStateVector schema 输出结构化情绪状态向量。
-每品种包含：overall_sentiment(-1~1)、sentiment_breakdown(按事件类型拆分)、
-hot_volume、key_events(含事件类型/内容/情绪评分/时间/来源/置信度)、
-divergence(情绪与基本面的偏离度，0时不填)。
+输出格式要求（JSON，顶级字段必须包含 per_symbol 和 summary）：
+
+```json
+{{
+  "per_symbol": {{
+    "品种代码1": {{
+      "overall_sentiment": -0.3,
+      "sentiment_breakdown": {{"policy": 0.0, "supply_demand": -0.5, "macro": 0.0, "geopolitics": 0.0, "other": 0.0}},
+      "hot_volume": 1500,
+      "key_events": [
+        {{"type": "supply_demand", "content": "事件描述", "score": -0.5, "time": "2026-07-25", "source": "jin10", "confidence": 0.8}}
+      ],
+      "divergence": 0.15
+    }},
+    "品种代码2": {{...}}
+  }},
+  "summary": "整体情绪总结",
+  "composite_score": -0.2
+}}
+```
 
 注意：
 - 不下多空结论，只输出情绪评分

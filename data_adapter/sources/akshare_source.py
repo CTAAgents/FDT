@@ -8,10 +8,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import re
+import time
+import zipfile
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -81,6 +84,10 @@ class AKShareSource(DataSource):
       - 其他 → ``dict``（含 ``data`` / ``summary`` / ``data_grade``）
     """
     _CLEANING_ENABLED = os.environ.get("FDT_DATA_CLEANING_ENABLED", "true").lower() == "true"
+
+    # ── 持仓排名缓存（类级别，5分钟 TTL） ──
+    _pos_rank_cache: dict[str, tuple[float, dict]] = {}
+    _POS_RANK_CACHE_TTL = 300  # 5 分钟
 
     # ──────────────────────────────────────────────
     # K 线
@@ -459,119 +466,157 @@ class AKShareSource(DataSource):
     # ──────────────────────────────────────────────
 
     async def get_position_ranking(self, symbol: str) -> dict:
-        """获取持仓排名。
+        """获取持仓排名（带缓存 + 重试）。
+
+        Cache: 5 分钟 TTL 类级别缓存。
+        Retry: 针对 zipfile.BadZipFile 和网络异常，最多 3 次，指数退避。
 
         Returns:
             dict 含 ``net_long`` / ``long_volume`` / ``short_volume`` /
             ``top5_long`` / ``top5_short`` / ``long`` / ``short``。
         """
         bare = symbol.upper()
-        try:
-            import akshare as ak
-            import pandas as pd
+        now = time.time()
 
-            # 交易所判断：尝试 SHFE → DCE → GFEX
-            for exchange, fn_name in _POSITION_FN_MAP.items():
-                try:
-                    fn = getattr(ak, fn_name, None)
-                    if fn is None:
+        # ── 缓存命中 ──
+        cached = self._pos_rank_cache.get(bare)
+        if cached and (now - cached[0]) < self._POS_RANK_CACHE_TTL:
+            logger.debug("[AKShareSource] 持仓排名缓存命中: %s", bare)
+            return cached[1]
+
+        # ── 实际获取（含重试） ──
+        import akshare as ak
+        import pandas as pd
+
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                # 交易所判断：尝试 SHFE → DCE → GFEX
+                for exchange, fn_name in _POSITION_FN_MAP.items():
+                    try:
+                        fn = getattr(ak, fn_name, None)
+                        if fn is None:
+                            continue
+
+                        result = fn()
+                        # 兼容 dict 返回（GFEX 等接口）
+                        if isinstance(result, dict):
+                            frames = []
+                            for variety, frame in result.items():
+                                if isinstance(frame, pd.DataFrame) and not frame.empty:
+                                    frame = frame.copy()
+                                    frames.append(frame)
+                            df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+                        else:
+                            df = result
+                        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+                            continue
+                    except zipfile.BadZipFile as e:
+                        logger.warning("[AKShareSource] %s zip 损坏(attempt %d/%d): %s",
+                                       exchange, attempt, max_retries, e)
+                        if attempt < max_retries:
+                            await asyncio.sleep(2 ** attempt)  # 指数退避 2s,4s,8s
+                        raise  # 抛到外层统一重试
+                    except Exception as inner_e:
+                        logger.warning("[AKShareSource] get_position_ranking 跳过 %s(attempt %d/%d): %s",
+                                       exchange, attempt, max_retries, inner_e)
                         continue
 
-                    result = fn()
-                    # 兼容 dict 返回（GFEX 等接口）
-                    if isinstance(result, dict):
-                        frames = []
-                        for variety, frame in result.items():
-                            if isinstance(frame, pd.DataFrame) and not frame.empty:
-                                frame = frame.copy()
-                                frames.append(frame)
-                        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+                    sym_col = self._find_column(
+                        df, ["品种", "品种代码", "symbol", "variety", "商品名称"],
+                    )
+                    if sym_col:
+                        mask = df[sym_col].astype(str).str.upper().str.contains(bare, na=False)
+                        filtered = df[mask]
                     else:
-                        df = result
-                    if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+                        filtered = df
+
+                    if filtered.empty:
                         continue
-                except Exception as inner_e:
-                    logger.warning("[AKShareSource] get_position_ranking 跳过 %s: %s", exchange, inner_e)
-                    continue
 
-                sym_col = self._find_column(
-                    df, ["品种", "品种代码", "symbol", "variety", "商品名称"],
-                )
-                if sym_col:
-                    mask = df[sym_col].astype(str).str.upper().str.contains(bare, na=False)
-                    filtered = df[mask]
-                else:
-                    filtered = df
+                    long_col = self._find_column(
+                        filtered, ["持买单量", "持买", "long", "long_open_interest", "多头持仓"],
+                    )
+                    short_col = self._find_column(
+                        filtered, ["持卖单量", "持卖", "short", "short_open_interest", "空头持仓"],
+                    )
+                    name_col = self._find_column(
+                        filtered, ["会员简称", "会员", "member", "broker", "abbr"],
+                    )
 
-                if filtered.empty:
-                    continue
+                    if not long_col and not short_col:
+                        continue
 
-                long_col = self._find_column(
-                    filtered, ["持买单量", "持买", "long", "long_open_interest", "多头持仓"],
-                )
-                short_col = self._find_column(
-                    filtered, ["持卖单量", "持卖", "short", "short_open_interest", "空头持仓"],
-                )
-                name_col = self._find_column(
-                    filtered, ["会员简称", "会员", "member", "broker", "abbr"],
-                )
+                    long_list = []
+                    short_list = []
+                    for _, row in filtered.iterrows():
+                        member = str(row.get(name_col, "")) if name_col else ""
+                        if long_col:
+                            try:
+                                lots = int(float(row.get(long_col, 0) or 0))
+                                if lots > 0:
+                                    long_list.append({
+                                        "rank": len(long_list) + 1,
+                                        "member": member,
+                                        "lots": lots,
+                                    })
+                            except (ValueError, TypeError):
+                                pass
+                        if short_col:
+                            try:
+                                lots = int(float(row.get(short_col, 0) or 0))
+                                if lots > 0:
+                                    short_list.append({
+                                        "rank": len(short_list) + 1,
+                                        "member": member,
+                                        "lots": lots,
+                                    })
+                            except (ValueError, TypeError):
+                                pass
 
-                if not long_col and not short_col:
-                    continue
+                    long_vol = sum(x["lots"] for x in long_list)
+                    short_vol = sum(x["lots"] for x in short_list)
 
-                long_list = []
-                short_list = []
-                for _, row in filtered.iterrows():
-                    member = str(row.get(name_col, "")) if name_col else ""
-                    if long_col:
-                        try:
-                            lots = int(float(row.get(long_col, 0) or 0))
-                            if lots > 0:
-                                long_list.append({
-                                    "rank": len(long_list) + 1,
-                                    "member": member,
-                                    "lots": lots,
-                                })
-                        except (ValueError, TypeError):
-                            pass
-                    if short_col:
-                        try:
-                            lots = int(float(row.get(short_col, 0) or 0))
-                            if lots > 0:
-                                short_list.append({
-                                    "rank": len(short_list) + 1,
-                                    "member": member,
-                                    "lots": lots,
-                                })
-                        except (ValueError, TypeError):
-                            pass
+                    result_dict = {
+                        "data": {
+                            "symbol": bare.lower(),
+                            "exchange": exchange,
+                            "total_oi": None,
+                            "long_volume": long_vol,
+                            "short_volume": short_vol,
+                            "net_long": long_vol - short_vol,
+                            "top5_long": sum(x["lots"] for x in long_list[:5]),
+                            "top5_short": sum(x["lots"] for x in short_list[:5]),
+                            "long": long_list,
+                            "short": short_list,
+                            "data_source": f"akshare_{exchange.lower()}",
+                        },
+                        "summary": f"{bare} 持仓排名（{exchange}）",
+                        "data_grade": "PRIMARY",
+                    }
 
-                long_vol = sum(x["lots"] for x in long_list)
-                short_vol = sum(x["lots"] for x in short_list)
+                    # 写入缓存
+                    self._pos_rank_cache[bare] = (time.time(), result_dict)
+                    return result_dict
 
-                return {
-                    "data": {
-                        "symbol": bare.lower(),
-                        "exchange": exchange,
-                        "total_oi": None,
-                        "long_volume": long_vol,
-                        "short_volume": short_vol,
-                        "net_long": long_vol - short_vol,
-                        "top5_long": sum(x["lots"] for x in long_list[:5]),
-                        "top5_short": sum(x["lots"] for x in short_list[:5]),
-                        "long": long_list,
-                        "short": short_list,
-                        "data_source": f"akshare_{exchange.lower()}",
-                    },
-                    "summary": f"{bare} 持仓排名（{exchange}）",
-                    "data_grade": "PRIMARY",
-                }
+                # 所有交易所均不可用
+                return self._unavailable_dict(f"持仓排名不可用({bare})")
 
-            return self._unavailable_dict(f"持仓排名不可用({bare})")
+            except zipfile.BadZipFile:
+                # 内层已 wait，本次循环继续重试
+                if attempt >= max_retries:
+                    logger.error("[AKShareSource] %s 持仓排名重试 %d 次后仍然失败", bare, max_retries)
+                    return self._unavailable_dict(f"DCE zip 损坏(重试{max_retries}次)")
+                continue
+            except Exception as e:
+                logger.error("[AKShareSource] get_position_ranking 异常(%s attempt %d/%d): %s",
+                             symbol, attempt, max_retries, e)
+                if attempt >= max_retries:
+                    return self._unavailable_dict(f"get_position_ranking 失败: {str(e)[:80]}")
+                await asyncio.sleep(2 ** attempt)
+                continue
 
-        except Exception as e:
-            logger.error("[AKShareSource] get_position_ranking 异常(%s): %s", symbol, e)
-            return self._unavailable_dict(f"get_position_ranking 失败: {str(e)[:80]}")
+        return self._unavailable_dict(f"持仓排名不可用({bare})")
 
     # ──────────────────────────────────────────────
     # 资金流向
@@ -697,6 +742,124 @@ class AKShareSource(DataSource):
     # ──────────────────────────────────────────────
     # 基差
     # ──────────────────────────────────────────────
+
+    # ──────────────────────────────────────────────
+    # 期限结构（从合约序列计算）
+    # ──────────────────────────────────────────────
+
+    async def get_term_structure(self, symbol: str) -> dict:
+        """获取期限结构数据。
+
+        从行情快照提取同一品种所有合约月份的价格，
+        计算期限结构斜率，判定 backwardation / contango。
+
+        Returns:
+            dict 含 contracts / near_contract / near_price / far_price / slope / term_type。
+        """
+        bare = symbol.upper()
+        try:
+            return await self._compute_term_structure(bare)
+        except Exception as e:
+            logger.error("[AKShareSource] get_term_structure 异常(%s): %s", symbol, e)
+            return self._unavailable_dict(f"get_term_structure 失败: {str(e)[:80]}")
+
+    async def get_spread(self, symbol: str) -> dict:
+        """获取跨期价差数据。
+
+        从期限结构中提取逐月价差，价差 = 远月价格 - 近月价格。
+
+        Returns:
+            dict 含 spreads（逐月价差列表）。
+        """
+        bare = symbol.upper()
+        try:
+            ts = await self._compute_term_structure(bare)
+            if ts.get("data_grade") != "PRIMARY":
+                return self._unavailable_dict("期限结构不可用，无法计算价差")
+            data = ts.get("data", {})
+            contracts = data.get("contracts", [])
+            spreads = []
+            for i in range(len(contracts) - 1):
+                sp = contracts[i + 1]["price"] - contracts[i]["price"]
+                spreads.append({
+                    "near": contracts[i]["contract"],
+                    "near_price": contracts[i]["price"],
+                    "far": contracts[i + 1]["contract"],
+                    "far_price": contracts[i + 1]["price"],
+                    "spread": round(sp, 2),
+                })
+            return {
+                "data": {"symbol": bare, "spreads": spreads},
+                "summary": f"{bare} 跨期价差: {spreads[0]['spread'] if spreads else 'N/A'}",
+                "data_grade": "PRIMARY" if spreads else "UNAVAILABLE",
+            }
+        except Exception as e:
+            logger.error("[AKShareSource] get_spread 异常(%s): %s", symbol, e)
+            return self._unavailable_dict(f"get_spread 失败: {str(e)[:80]}")
+
+    async def _compute_term_structure(self, bare: str) -> dict:
+        """计算期限结构的内部方法。"""
+        import akshare as ak
+        import pandas as pd
+        import re
+
+        df = ak.futures_zh_realtime()
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+            return self._unavailable_dict("行情数据为空")
+
+        # 找到代码列和价格列
+        sym_col = self._find_column(df, ["symbol", "代码", "合约代码"])
+        if not sym_col:
+            return self._unavailable_dict("无法识别代码列")
+
+        # 匹配品种前缀（如 RB2401 → 匹配 RB 开头的所有合约）
+        pattern = re.compile(rf"^{bare}(\d+)", re.IGNORECASE)
+        matched_rows = []
+        for _, row in df.iterrows():
+            code = str(row.get(sym_col, "")).strip().upper()
+            m = pattern.match(code)
+            if m:
+                matched_rows.append((code, int(m.group(1)), row))
+
+        if len(matched_rows) < 2:
+            return self._unavailable_dict(f"{bare} 合约数量不足({len(matched_rows)})")
+
+        # 按合约月份排序
+        matched_rows.sort(key=lambda x: x[1])
+
+        price_col = self._find_column(df, ["current_price", "最新价", "现价", "price", "last_price"])
+        if not price_col:
+            return self._unavailable_dict("无法识别价格列")
+
+        contracts = []
+        for code, month, row in matched_rows:
+            price = self._safe_float_df(row, [price_col])
+            if price and price > 0:
+                contracts.append({"contract": code, "month": month, "price": price})
+
+        if len(contracts) < 2:
+            return self._unavailable_dict(f"{bare} 有效合约数量不足({len(contracts)})")
+
+        near = contracts[0]
+        far = contracts[-1]
+        slope = (far["price"] - near["price"]) / near["price"] if near["price"] > 0 else 0
+        term_type = "backwardation" if slope < -0.02 else ("contango" if slope > 0.02 else "flat")
+
+        return {
+            "data": {
+                "symbol": bare,
+                "contracts": contracts,
+                "near_contract": near["contract"],
+                "near_price": near["price"],
+                "far_contract": far["contract"],
+                "far_price": far["price"],
+                "slope": round(slope, 4),
+                "term_type": term_type,
+                "contract_count": len(contracts),
+            },
+            "summary": f"{bare} {term_type} (近{near['price']}→远{far['price']}, 斜率{slope:.2%})",
+            "data_grade": "PRIMARY",
+        }
 
     async def get_basis(self, symbol: str) -> dict:
         """获取基差数据（现货 - 期货）。

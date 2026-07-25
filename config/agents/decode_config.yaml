@@ -1,12 +1,5 @@
-# FDT 逐Agent解码配置
-# 版本: 1.0 | 2026-07-20
-# 定义每个 Agent 的 LLM 生成参数，实现精细化解码控制
-# Schema: docs/schemas/decode_config.json
-
-schema_version: "1.0"
-
+schema_version: '1.0'
 agents:
-  # ── 裁决组 ──
   judge:
     display_name: 闫判官
     model: deepseek-v4-flash
@@ -17,17 +10,22 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/VerdictItem.json"
-    strategy: "低温度确保裁决一致性"
+      type: structured_output
+      schema_ref: docs/schemas/VerdictItem.json
+    strategy: 低温度确保裁决一致性
     retry_config:
       max_retries: 3
       temperature_multiplier: 1.5
     validation_config:
-      pydantic_model: "contracts.VerdictItem"
-      json_schema: "docs/schemas/VerdictItem.json"
-      required_fields: ["per_symbol", "overall_direction", "overall_reason"]
-
+      pydantic_model: contracts.VerdictItem
+      json_schema: docs/schemas/VerdictItem.json
+      required_fields:
+      - per_symbol
+      - overall_direction
+      - overall_reason
+      core_fields:
+      - overall_direction
+      - overall_reason
   judge_direction:
     display_name: 闫判官初判
     model: deepseek-v4-flash
@@ -38,14 +36,17 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "低温度确保筛选一致性，不做方向预判"
+      type: structured_output
+    strategy: 低温度确保筛选一致性，不做方向预判
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["scan_direction", "symbols"]
-
+      required_fields:
+      - scan_direction
+      - symbols
+      core_fields:
+      - symbols
   judge_deputy:
     display_name: 闫判官副手
     model: deepseek-v4-flash
@@ -56,15 +57,18 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/StructuredDebate.json"
-    strategy: "低温度确保准确提取论点树"
+      type: structured_output
+      schema_ref: docs/schemas/StructuredDebate.json
+    strategy: 低温度确保准确提取论点树
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["arguments", "confidence"]
-
+      required_fields:
+      - arguments
+      - confidence
+      core_fields:
+      - arguments
   judge_heldout:
     display_name: 一致性裁判
     model: deepseek-v4-flash
@@ -75,15 +79,17 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "最低温度确保审计一致性"
+      type: structured_output
+    strategy: 最低温度确保审计一致性
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["consistency_score", "issues"]
-
-  # ── 辩论组 ──
+      required_fields:
+      - consistency_score
+      - issues
+      core_fields:
+      - consistency_score
   bullish_analyst:
     display_name: 证真（多头分析员）
     model: deepseek-chat
@@ -94,17 +100,22 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/ArgumentOutput.json"
-    strategy: "中等温度允许创造性发现多头逻辑"
+      type: structured_output
+      schema_ref: docs/schemas/ArgumentOutput.json
+    strategy: 中等温度允许创造性发现多头逻辑
     retry_config:
       max_retries: 3
       temperature_multiplier: 1.5
     validation_config:
-      pydantic_model: "contracts.ArgumentOutput"
-      json_schema: "docs/schemas/ArgumentOutput.json"
-      required_fields: ["role", "variant", "dimensions", "summary_4_risk"]
-
+      pydantic_model: contracts.ArgumentOutput
+      json_schema: docs/schemas/ArgumentOutput.json
+      required_fields:
+      - role
+      - variant
+      - dimensions
+      - summary_4_risk
+      core_fields:
+      - dimensions
   bearish_analyst:
     display_name: 慎思（空头分析员）
     model: deepseek-chat
@@ -115,18 +126,22 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/ArgumentOutput.json"
-    strategy: "中等温度允许创造性发现空头逻辑"
+      type: structured_output
+      schema_ref: docs/schemas/ArgumentOutput.json
+    strategy: 中等温度允许创造性发现空头逻辑
     retry_config:
       max_retries: 3
       temperature_multiplier: 1.5
     validation_config:
-      pydantic_model: "contracts.ArgumentOutput"
-      json_schema: "docs/schemas/ArgumentOutput.json"
-      required_fields: ["role", "variant", "dimensions", "summary_4_risk"]
-
-  # ── 研究组 ──
+      pydantic_model: contracts.ArgumentOutput
+      json_schema: docs/schemas/ArgumentOutput.json
+      required_fields:
+      - role
+      - variant
+      - dimensions
+      - summary_4_risk
+      core_fields:
+      - dimensions
   chain_analyst:
     display_name: 链证源（产业链分析师）
     model: deepseek-chat
@@ -137,16 +152,21 @@ agents:
     frequency_penalty: 0.1
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/ChainAnalysisOutput.json"
-    strategy: "较低温度确保产业链事实准确"
+      type: structured_output
+      schema_ref: docs/schemas/ChainAnalysisOutput.json
+    strategy: 较低温度确保产业链事实准确
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      json_schema: "docs/schemas/ChainAnalysisOutput.json"
-      required_fields: ["commodity", "chain_position", "bargaining_power"]
-
+      json_schema: docs/schemas/ChainAnalysisOutput.json
+      required_fields:
+      - commodity
+      - chain_position
+      - bargaining_power
+      core_fields:
+      - commodity
+      - chain_position
   technical_researcher:
     display_name: 观澜（技术面研究员）
     model: deepseek-chat
@@ -157,14 +177,17 @@ agents:
     frequency_penalty: 0.1
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "较低温度确保技术指标准确"
+      type: structured_output
+    strategy: 较低温度确保技术指标准确
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["per_symbol", "summary"]
-
+      required_fields:
+      - per_symbol
+      - summary
+      core_fields:
+      - per_symbol
   fundamental_researcher:
     display_name: 探源（基本面研究员）
     model: deepseek-chat
@@ -175,14 +198,17 @@ agents:
     frequency_penalty: 0.1
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "较低温度确保供需/库存数据准确"
+      type: structured_output
+    strategy: 较低温度确保供需/库存数据准确
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["per_symbol", "summary"]
-
+      required_fields:
+      - per_symbol
+      - summary
+      core_fields:
+      - per_symbol
   news_sentiment_analyst:
     display_name: 读心（新闻情绪分析师）
     model: deepseek-chat
@@ -193,15 +219,17 @@ agents:
     frequency_penalty: 0.1
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "较低温度确保情绪评分准确"
+      type: structured_output
+    strategy: 较低温度确保情绪评分准确
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["per_symbol", "summary"]
-
-  # ── 风控组 ──
+      required_fields:
+      - per_symbol
+      - summary
+      core_fields:
+      - per_symbol
   risk_manager:
     display_name: 风控明
     model: deepseek-v4-flash
@@ -212,18 +240,23 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-      schema_ref: "docs/schemas/RiskOutput.json"
-    strategy: "低温度确保风控一致性"
+      type: structured_output
+      schema_ref: docs/schemas/RiskOutput.json
+    strategy: 低温度确保风控一致性
     retry_config:
       max_retries: 2
       temperature_multiplier: 1.5
     validation_config:
-      pydantic_model: "contracts.RiskOutput"
-      json_schema: "docs/schemas/RiskOutput.json"
-      required_fields: ["approved", "risk_color", "max_position", "warnings"]
-
-  # ── 主管组 ──
+      pydantic_model: contracts.RiskOutput
+      json_schema: docs/schemas/RiskOutput.json
+      required_fields:
+      - approved
+      - risk_color
+      - max_position
+      - warnings
+      core_fields:
+      - approved
+      - risk_color
   debate_team_team_lead:
     display_name: 明鉴秋（团队主管）
     model: deepseek-v4-flash
@@ -234,10 +267,14 @@ agents:
     frequency_penalty: 0.0
     stop_sequences: []
     response_format:
-      type: "structured_output"
-    strategy: "中等偏低温度确保汇总质量"
+      type: structured_output
+    strategy: 中等偏低温度确保汇总质量
     retry_config:
       max_retries: 3
       temperature_multiplier: 1.5
     validation_config:
-      required_fields: ["summary", "trading_plan"]
+      required_fields:
+      - summary
+      - trading_plan
+      core_fields:
+      - summary

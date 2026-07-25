@@ -221,7 +221,7 @@ def _assess_risk_level(
     return "green", "proceed"
 
 
-def compute_safe_concurrent(phase: str = "phase3", active_count: int = 0) -> dict:
+def compute_safe_concurrent(phase: str = "phase3", active_count: int = 0, quick: bool = False) -> dict:
     """根据系统资源动态计算安全并发数。
 
     Args:
@@ -234,6 +234,19 @@ def compute_safe_concurrent(phase: str = "phase3", active_count: int = 0) -> dic
          "py_processes": int, "active_count": int, "reason": str}
     """
     base = PHASE_BASE.get(phase, 4)
+
+    if quick:
+        return {
+            "safe_concurrent": base,
+            "risk_level": "green",
+            "recommendation": "proceed",
+            "cpu_pct": 0.0,
+            "mem_pct": 0.0,
+            "disk_pct": 0.0,
+            "py_processes": 0,
+            "active_count": active_count,
+            "reason": f"Quick: 跳过资源扫描, 基础并发={base}",
+        }
 
     # ── 读取系统资源 ──
     cpu_pct = _get_cpu_pct()
@@ -322,11 +335,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--active", type=int, default=0,
         help="当前活跃（未回收）Agent 数",
-
-        parser.add_argument(
-            "--quick", action="store_true",
-            help="快速模式：跳过资源扫描，返回默认并发数",
-        )
+    )
+    parser.add_argument(
+        "--quick", action="store_true",
+        help="快速模式：跳过资源扫描，返回默认并发数",
     )
     args = parser.parse_args()
     result = compute_safe_concurrent(args.phase, args.active, args.quick)
