@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **项目版本**: v10.0.0 | **文档版本**: v10.0.0 | **最后更新**: 2026-07-24 | **定位**: 理解项目的技术基础文档
+> **项目版本**: v10.4.0 | **文档版本**: v10.4.0 | **最后更新**: 2026-07-25 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -44,9 +44,9 @@
 
 ### 1.3 当前版本
 
-**v10.0.0** — 记忆系统全面重构：MemoryManager 统一管理层替换散落直写；G30 自进化规则注入；FDC→AKShare 全面迁移，AKShare 为唯一 K 线数据源。
+**v10.4.0** — 代码-推理边界硬切割 Phase 1~4 全部落地：entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。LLM 只做语义推理，价格/参数由代码精确计算。新增 `_compute_stop_target()` / `_clamp_position()` / `technical_score.py`。36 新测试通过。
 
-**v9.22.0** — RHI 完整落地：evolution_graph 集成 node_rhi 节点 + 全局 CLI（`scripts/rhi_global_cli.py`），22 个 RHI 测试全部通过。支持任何项目 `rhi-global init/status/step/history/install`。
+**v10.3.0** — P2.5 多因子注入：零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（7 模块），覆盖波动率/跨品种价差/期限结构/多空持仓/因子看板。四维度注入技术面/基本面/裁决 prompt。
 
 ---
 
@@ -83,6 +83,18 @@
 │                     适配层 (Adapter)                          │
 │  data_source_adapter.py — FDC ↔ Data-Core 统一接口           │
 │  支持 fdc/datacore 两种数据源动态切换                         │
+├──────────────────────────────────────────────────────────────┤
+│                     因子层 (Multi-Factor, P2.5)                │
+│  data_adapter/factors/ — 多因子整合器                        │
+│    ├── volatility.py         — 波动率/HV/偏度/ATR (纯计算)    │
+│    ├── cross_spread.py       — 跨品种价差/Z-Score (纯计算)    │
+│    ├── term_structure.py     — 期限结构/基差 (AKShare 采集)   │
+│    ├── holding_sentiment.py  — 多空持仓/前20排名 (AKShare)    │
+│    ├── technical_score.py    — 技术基准评分 (4维度加权, L1)   │
+│    ├── dashboard.py          — 信号一致性看板 + 分歧度指标    │
+│    └── types.py              — 7 种因子数据类定义             │
+│  data_adapter/news/ — 新闻数据层 (NewsRouter 多源聚合+降级)   │
+│  data_adapter/cleaning/ — 数据清洗管线                       │
 ├──────────────────────────────────────────────────────────────┤
 │                     数据层 (Data)                             │
 │  futures_data_core/ — 期货数据核心引擎                        │
@@ -242,6 +254,11 @@ FDT 包含 **4 个独立 LangGraph 子图**，复用 `state.py` / `agents.py` / 
 | `dispatch_sources` | list | 需要的数据源列表 |
 | `fdc_data` | dict | P2.5 FDC 预采集数据 |
 | `fdc_data_status` | Optional[FdcDataStatus] | FDC 数据采集状态 |
+| `factor_term_structure` | dict | P2.5 期限结构因子（品种→TermStructureResult） |
+| `factor_holding_sentiment` | dict | P2.5 多空持仓因子（品种→HoldingSentimentResult） |
+| `factor_volatility` | dict | P2.5 波动率因子（品种→VolatilityResult） |
+| `factor_cross_spread` | list[CrossSpreadResult] | P2.5 跨品种价差因子 |
+| `factor_dashboard` | Optional[FactorDashboardResult] | P2.5 多因子信号一致性看板 |
 | `chain_analysis` | Optional[dict] | P3 产业链分析结果 |
 | `technical_data` | dict | P3 技术面分析结果 |
 | `fundamental_data` | dict | P3 基本面分析结果 |
@@ -386,6 +403,25 @@ scan → judge_direction → prepare_one_symbol
 | `_build_fdc_fundamental_context()` | FDC 基本面数据上下文（期限结构/基差/价差/仓单/持仓排名） |
 | `NewsRouter.build_prompt_context()` | 新闻上下文（多源聚合，自动降级） |
 | `_build_debate_context()` | 辩论上下文（整合多空论据） |
+
+**代码-推理边界函数 (v10.4.0)**:
+
+| 函数 | 级别 | 说明 |
+|:------|:----:|:------|
+| `_compute_stop_target(direction, entry_price, atr)` | L0 | stop_loss/target = ATR × multiplier 精确计算 |
+| `_clamp_position(symbol, llm_pct, max_pct=20)` | L0 | 仓位钳制上限，非法值默认 3% |
+| `compute_technical_score(symbol, indicators)` | L1 | 4 维度加权评分（趋势40%/动量30%/量价20%/波动率10%） |
+
+**因子采集函数 (P2.5)**:
+
+| 函数 | 类型 | 说明 |
+|:------|:----:|:------|
+| `FactorCollector.collect_term_structure()` | 采集 | 期限结构/基差（AKShare） |
+| `FactorCollector.collect_holding_sentiment()` | 采集 | 多空持仓/前20排名（AKShare） |
+| `FactorCollector.compute_volatility()` | 计算 | HV/偏度/ATR（numpy） |
+| `FactorCollector.compute_cross_spreads()` | 计算 | 跨品种价差/Z-Score（numpy） |
+| `FactorCollector.build_dashboard()` | 聚合 | 信号一致性看板 + 分歧度指标 |
+| `format_dashboard_for_prompt()` | 格式化 | 因子看板 → LLM prompt 文本表格 |
 
 **辩论协议常量**:
 
@@ -1118,8 +1154,14 @@ fdt_pg / fdt_cache / memory
   ├── P1: scan_all.py → trend_following(10子信号)扫描 → stats+scan_results+scan_summary
   ├── P2: 闫判官 → 基于 stats 选品种，direction=neutral → judge_direction + selected_symbols
   ├── 逐品种循环开始:
-  │   ├── P2.5: prepare_one_symbol → 提取品种，FDC 数据准备
-  │   ├── P3: 四源并行 → chain_analysis + technical_data + fundamental_data + sentiment_data
+  │   ├── P2.5: prepare_one_symbol → FDC 数据准备 + FactorCollector 因子采集
+  │   │   │      ├── 期限结构因子 (term_structure, AKShare)
+  │   │   │      ├── 多空持仓因子 (holding_sentiment, AKShare)
+  │   │   │      ├── 波动率因子 (volatility, numpy 纯计算)
+  │   │   │      ├── 跨品种价差因子 (cross_spread, numpy 纯计算)
+  │   │   │      └── 技术基准评分 (technical_score, 4维度加权)
+  │   │   │      └── 因子看板 (dashboard, 分歧度+共振度)
+  │   ├── P3: 四源并行 → chain_analysis + technical_data(含基准评分) + fundamental_data(含持仓因子) + sentiment_data
   │   ├── P4: 六阶段辩论 → bullish/bearish/rebuttal/final_arguments
   │   ├── P5: 闫判官裁决 + 风控审核 → verdict + risk_check
   │   ├── P5.5: 质检 → PASS→store, FAIL+重试<2→重修
@@ -1322,6 +1364,18 @@ FDT/
 ├── scripts/                     # 80+ 辅助脚本（含 RHI 工具链）
 ├── skills/                      # 10 个子技能实现
 ├── tests/                       # 1400+ 测试用例
+├── data_adapter/                 # 数据适配层（多因子 + 新闻 + 清洗）
+│   ├── factors/                  # P2.5 多因子整合器（7 模块）
+│   │   ├── __init__.py           # FactorCollector 统一入口
+│   │   ├── types.py              # 7 种因子数据类定义
+│   │   ├── volatility.py         # 波动率因子（纯 numpy 计算）
+│   │   ├── cross_spread.py       # 跨品种价差因子（纯 numpy 计算）
+│   │   ├── term_structure.py     # 期限结构因子（AKShare 采集）
+│   │   ├── holding_sentiment.py  # 多空持仓因子（AKShare 采集）
+│   │   ├── technical_score.py    # 技术基准评分（4 维度加权，L1）
+│   │   └── dashboard.py          # 信号一致性看板 + 分歧度
+│   ├── news/                     # 新闻数据层
+│   └── cleaning/                 # 数据清洗管线
 ├── fdt_cli.py                   # CLI 入口
 ├── fdt_api.py                   # FastAPI 入口
 ├── data_source_adapter.py       # 统一数据入口封装
@@ -1606,6 +1660,8 @@ python scripts/rhi_global_cli.py install
 
 | 版本 | 核心变更 |
 |:------|:---------|
+| **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
+| **v10.3.0** | **P2.5 多因子注入** — 零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（波动率/跨品种价差/期限结构/多空持仓/因子看板）。 |
 | **v9.22.0** | **RHI 完整落地** — evolution_graph 集成 node_rhi 节点 + `rhi_global_cli.py` + 22 个 RHI 测试 |
 | **v9.21.0** | **MemoHarness+RHI 整合** — HarnessSpec 契约 + Pairwise Evaluator + Harness Optimizer + RHI 子图 |
 | **v9.20.2** | **文档一致性三层保障** — 结构化元数据 + verify_doc_consistency.py + _data/*.yaml |
@@ -1627,4 +1683,4 @@ python scripts/rhi_global_cli.py install
 
 ---
 
-*文档版本: v9.22.0 | 最后更新: 2026-07-23 | 作者: FDT Contributors*
+*文档版本: v10.4.0 | 最后更新: 2026-07-25 | 作者: FDT Contributors*

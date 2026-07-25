@@ -20,6 +20,7 @@
 - **AKShare 统一数据源** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据，8 工具覆盖行情/K线/快讯/资讯/财经日历
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型增量 UPSERT
+- **多因子整合层 (P2.5)** — 7 因子数据适配器（波动率/跨品种价差/期限结构/多空持仓/技术评分），纯代码计算 + LLM 赋意（L1 边界），注入 `node_verdict` 信号一致性看板
 
 ### 质量与安全
 - **辩论输出质量治理** — 不合格输出退回重修（最多 2 次），含 Schema 校验
@@ -118,6 +119,22 @@ curl http://localhost:8000/api/v1/debate/fdt-20260717-100000-12345
 │ 各策略独立打分，方向冲突不融合，全部送给辩论        │
 │ 三层门禁: 震荡市(ADX+BB+KF) + 去趋势(Hurst+VR)   │
 │          + P0-4 伪突破 19 种校验模式               │
+└──────────────────────┬───────────────────────────┘
+                       ↓
+┌──────────────────────────────────────────────────┐
+│ 因子层 (P2.5): data_adapter/factors/              │
+│  ┌─ 波动率 ── 跨品种价差 ── 期限结构 ─┐           │
+│  │               (纯代码精确计算)        │           │
+│  └─ 多空持仓 ── 技术基准评分 (L1±10) ─┘           │
+│  → 信号一致性看板 (分歧度/共振度)                  │
+│  → 注入四源 prompt + 闫判官裁决上下文               │
+└──────────────────────┬───────────────────────────┘
+                       ↓
+┌──────────────────────────────────────────────────┐
+│ 代码-推理边界 (L0 硬约束)                           │
+│  ┌─ entry_price: 代码强制覆写为市价               │
+│  ├─ stop_loss/target: ATR × multiplier 精确计算   │
+│  └─ position_pct: 钳制 ≤20%                      │
 └──────────────────────┬───────────────────────────┘
                        ↓
 ┌──────────────────────────────────────────────────┐
@@ -363,7 +380,10 @@ FDT/
 ├── tests/                     # 1124 测试用例
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
-├── data_adapter/              # 数据适配层（AKShare多接口统一封装）
+├── data_adapter/              # 数据适配层（AKShare多接口统一封装 + 多因子计算）
+│   ├── factors/               # P2.5 多因子整合器（波动率/价差/期限结构/持仓/技术评分）
+│   ├── news/                  # 新闻数据层（NewsRouter 多源聚合）
+│   └── cleaning/              # 数据清洗管线
 ├── data_source_adapter.py     # 统一数据入口封装（legacy）
 ├── pyproject.toml             # 项目配置（版本号真相源）
 ├── CLAUDE.md                  # 编码行为准则
@@ -448,6 +468,8 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。新增 `_compute_stop_target()` / `_clamp_position()` / `technical_score.py`，LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
+| **v10.3.0** | **P2.5 多因子注入** — 零新增 Agent，FDT 第二层升级为多因子整合器。新增 `data_adapter/factors/`（波动率/跨品种价差/期限结构/多空持仓/因子看板），四维度注入 `node_technical`/`node_fundamental`/`node_verdict`。18 测试通过。 |
 | **v10.2.0** | **JSON解析加固 + DCE重试 + 期限结构链路恢复** — 数据适配层新增 term_structure/spread 接口(AKShare合约序列计算)；全局JSON解析 try-raw-JSON-first避免apostrophe误伤；DCE持仓排名3次指数退避重试+5min缓存；fundamental_researcher 正则 per_symbol 兜底+ is_partial 标记 |
 | **v10.0.0** | **FDC→AKShare 全面迁移** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源。新增 4 个 F10 模块。版本号 bump 9.26.0→10.0.0 |
 | **v9.23.0** | 六维控制空间高ROI提升：D3 Schema约束+enforce_structured_output全量接入、G01模型差异化路由、C01 Token预算控制、C03扫描信号表去重；langgraph默认模式 |
