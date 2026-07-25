@@ -171,6 +171,20 @@ checks:
       (3) position_pct 必须由代码钳制上限，LLM 输出后做 min(llm, max) 校验；
       (4) 技术指标(RSI/ATR/HV/偏度等)必须由代码计算后注入 prompt，禁止 LLM 自行计算。
 
+  # ── C17: T3 验证增强（Phase E — 偏差跟踪 + 策略一致性） ─────────
+  - id: C17
+    name: "T3 验证 — 连续偏差跟踪"
+    severity: "P1"
+    type: "process_check"
+    scope: "memory/tracking/bias_tracker.py"
+    trigger_pattern: "bias|tracking|consistency"
+    message: >
+      T3 验证层要求：
+      (1) 每轮辩论后必须记录偏差到 BiasTracker；
+      (2) 裁决方向与事后实际走势配对，计算滚动偏差率；
+      (3) 同一品种在不同波动率区间的裁决一致性可查询；
+      (4) 偏差率 > 15% 或方向变动率 > 30% 时应触发 evolution_graph 告警。
+
 anti_patterns:
   - id: AP01
     name: "巨型 Prompt"

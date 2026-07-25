@@ -316,6 +316,25 @@ def _build_market_fundamental_context(symbols: list[str], market_data: dict, sca
     except Exception:
         pass
 
+    # ── Phase A: 历史准确率注入（P4/P5 context） ──
+    try:
+        from memory.manager import get_memory
+        memory = get_memory()
+        for symbol in symbols:
+            acc = memory.retrieve_accuracy(symbol=symbol)
+            if acc.get("with_outcome", 0) >= 3:
+                lines.append(f"\n📊【{symbol}】系统历史判断准确率")
+                lines.append(f"  总裁决: {acc['total_verdicts']}次 | 已跟踪: {acc['with_outcome']}次 | "
+                             f"正确: {acc['correct']}次 | 准确率: {acc['accuracy']:.1%}")
+                cal = acc.get("calibration")
+                if cal and cal.get("buckets"):
+                    lines.append("  置信度校准:")
+                    for b in cal["buckets"]:
+                        if b["count"] > 0:
+                            lines.append(f"    置信度{b['bucket_label']}%: {b['count']}次 → 准确率{b['accuracy']:.0%}")
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 

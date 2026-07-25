@@ -1162,6 +1162,24 @@ def run_scan(
     for _r in all_ranked:
         _r["stats"] = _build_pure_stats(_r, kline_data.get(_r.get("symbol", "")))
 
+    # ── Phase B: 附加 Top-N 关键指标（供下游裁决溯源使用） ──
+    for _r in all_ranked:
+        _indicator_ranks = []
+        sub = {k: float(v) if v is not None else 0.0 for k, v in _r.items()
+               if k in ("dc20", "dc55", "bb", "vol_score") and v is not None}
+        if sub:
+            ranked = sorted(sub.items(), key=lambda x: abs(x[1]), reverse=True)
+            _indicator_ranks = [
+                {"name": name, "score": round(score, 2), "impact": "bull" if score > 0 else "bear"}
+                for name, score in ranked[:3]
+            ]
+        # 同时加入 RSI/ADX 等常规指标作为补充
+        for _key, _label in [("rsi", "RSI14"), ("adx", "ADX"), ("ma_align", "均线排列")]:
+            val = _r.get(_key)
+            if val is not None and val != "":
+                _indicator_ranks.append({"name": _label, "score": val, "impact": "neutral"})
+        _r["top_n_indicators"] = _indicator_ranks[:5]  # 最多 5 条
+
     # ── 数据质量元数据（Data Governance Phase 1） ──
     # 每个品种附加 data_quality 块（旧 futures_data_core.data_quality 已退役）
     for _r in all_ranked:

@@ -148,6 +148,48 @@ def route_after_quality_inspect(state: DebateState) -> str:
     return "store_per_symbol_result"
 
 
+def _should_skip_p3_source(state: DebateState, source_name: str) -> bool:
+    """Phase D R01: 检查 P3 源是否应主动跳过（连续 N 轮准确率 < 40%）"""
+    try:
+        from pathlib import Path
+        from memory.verdict.verdict_db import VerdictDB
+        import os
+
+        vdb = VerdictDB(Path(os.getcwd()) / "memory")
+        current_sym = _get_current_symbol(state)
+        if not current_sym:
+            return False
+
+        accuracy_threshold = float(os.environ.get("FDT_DELEGATION_ACCURACY_THRESHOLD", "0.4"))
+        consecutive_rounds = int(os.environ.get("FDT_DELEGATION_CONSECUTIVE_ROUNDS", "5"))
+
+        # 查询该品种的历史裁决准确率
+        acc = vdb.query(symbol=current_sym, limit=500)
+        with_outcome = [r for r in acc if r.get("outcome_actual") in ("correct", "wrong")]
+        if len(with_outcome) < consecutive_rounds:
+            return False
+
+        # 取最近 N 轮
+        recent = with_outcome[-consecutive_rounds:]
+        correct = sum(1 for r in recent if r.get("outcome_actual") == "correct")
+        accuracy = correct / len(recent)
+
+        should_skip = accuracy < accuracy_threshold
+        if should_skip:
+            logger.info(f"[Delegation R01] {current_sym} {source_name} 跳过: "
+                        f"近{consecutive_rounds}轮准确率={accuracy:.1%} < {accuracy_threshold:.0%}")
+            state.setdefault("delegation_log", []).append({
+                "rule": "r01_skip_p3_source",
+                "symbol": current_sym,
+                "source": source_name,
+                "accuracy": round(accuracy, 3),
+                "trigger": f"近{consecutive_rounds}轮准确率={accuracy:.1%}",
+            })
+        return should_skip
+    except Exception:
+        return False
+
+
 def _get_current_symbol(state: DebateState) -> str:
     """获取当前处理的品种代码。
 
@@ -236,7 +278,12 @@ flow:
     # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──
     p3_nodes = _get_p3_node_names(mode)
     for node_name in p3_nodes:
-        graph.add_edge("prepare_one_symbol", node_name)
+        # Phase D R01: 条件跳过 — 源准确率过低时直接路由到 merge_research
+        graph.add_conditional_edges(
+            "prepare_one_symbol",
+            lambda s, n=node_name: node_name if not _should_skip_p3_source(s, n) else "merge_research",
+            {node_name: node_name, "merge_research": "merge_research"},
+        )
         graph.add_edge(node_name, "merge_research")
 
     # ── 辩论链条 ──

@@ -172,11 +172,19 @@ async def node_verdict(state: DebateState) -> DebateState:
 请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
 **再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
 **stop_loss_price 和 target_price 由系统根据 ATR 自动计算，LLM 无需输出这些字段。**
+
+**新增要求（Phase B 最小关键证据集）：**
+- 每个品种的 `reason` 中需包含 **核心推理路径**：明确标注哪些关键论据最终决定了裁决方向
+- 在 `reason` 末尾附加 **如果-那么推理链**（If X then bull; If Y then bear; X>Y → final），格式为:
+  `【推理链】如果{条件A}则看多；如果{条件B}则看空；{条件A}>{条件B}→最终方向`
+- 可选输出 `key_evidence_points` 数组，列出 2-4 条对方向判断最具影响力的证据
+
 {{"per_symbol": {{
-    "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）",
+    "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）。【推理链】如果需求走弱则看空；如果库存去化则看多；需求走弱>库存去化→看空",
             "overturn_scan": true, "overturn_reason": "推翻数技源方向的理由",
             "entry_price": <从价格参考表取当前收盘价>,
-            "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}}
+            "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0,
+            "key_evidence_points": ["需求数据连续3周回落（探源）", "空头立论引用库存高位（空头分析员）"]}}
   }},
   "overall_direction": "bearish/neutral/bullish",
   "overall_confidence": 0.75,

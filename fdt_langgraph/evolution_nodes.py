@@ -198,6 +198,27 @@ def node_decide_actions(state: EvolutionState) -> EvolutionState:
         and validated_count >= 1
     )   # FDT_RHI=true 且有样本 → 递归 Harness 自改进
 
+    # ── Phase C: 校准偏差检测 — 置信度校准误差超阈值时触发校准 ──
+    calibration_error = None
+    try:
+        from memory.verdict.verdict_db import VerdictDB
+        from memory.verdict.calibrate import compute_calibration, compute_calibration_error
+        _vdb = VerdictDB(PROJECT_ROOT / "memory")
+        for sym in _vdb.list_symbols():
+            recs = _vdb.query(symbol=sym, limit=500)
+            if len([r for r in recs if r.get("outcome_actual") in ("correct", "wrong")]) >= 10:
+                buckets = compute_calibration(recs)
+                ece = compute_calibration_error(buckets)
+                if ece > 0.15:  # 校准误差 > 15% 触发
+                    calibration_error = ece
+                    logger.info(f"[Evolution] Phase C 校准偏差触发: {sym} ECE={ece:.4f} > 0.15")
+                    break
+    except Exception:
+        pass
+    if calibration_error is not None and calibration_error > 0.15:
+        decisions["need_calibrate"] = True
+        logger.info(f"[Evolution] 校准偏差 {calibration_error:.4f} > 0.15 → 触发 calibrate_weights")
+
     # ── 检查记忆规则注入需求（G30） ──
     decisions["need_inject_rules"] = False
     try:

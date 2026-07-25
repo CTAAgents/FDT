@@ -53,6 +53,48 @@ class IncidentEntry(TypedDict):
     prevention: str
 
 
+class VerdictRecord(TypedDict, total=False):
+    """裁决结果记录 — 与事后实际走势配对"""
+    trace_id: str
+    timestamp: str
+    symbol: str
+    direction: Literal["bull", "bear", "neutral"]
+    confidence: float
+    grade: Literal["STRONG", "WATCH"]
+    entry_price: NotRequired[float]
+    target_price: NotRequired[float]
+    stop_loss_price: NotRequired[float]
+    position_pct: NotRequired[float]
+    risk_color: NotRequired[str]
+    risk_approved: NotRequired[bool]
+    outcome: NotRequired[str]
+    outcome_actual: NotRequired[str]
+    outcome_pnl: NotRequired[float]
+    days_to_outcome: NotRequired[int]
+    regime: NotRequired[str]
+    schema_version: str
+
+
+class CalibrationBucket(TypedDict):
+    """置信度校准桶"""
+    bucket_label: str
+    low: float
+    high: float
+    count: int
+    correct: int
+    accuracy: float
+
+
+class CalibrationResult(TypedDict):
+    """校准结果"""
+    timestamp: str
+    symbol: str
+    buckets: list[CalibrationBucket]
+    total_verdicts: int
+    overall_accuracy: float
+    calibration_error: float
+
+
 class MaintenanceReport(TypedDict):
     """维护报告"""
     timestamp: str
@@ -78,11 +120,14 @@ SCHEMA_MAP = {
     "KnowledgeEntry": KnowledgeEntry,
     "ExperienceEntry": ExperienceEntry,
     "IncidentEntry": IncidentEntry,
+    "VerdictRecord": VerdictRecord,
+    "CalibrationBucket": CalibrationBucket,
+    "CalibrationResult": CalibrationResult,
     "MaintenanceReport": MaintenanceReport,
     "GapReport": GapReport,
 }
 
-CURRENT_SCHEMA_VERSION = "2.0"
+CURRENT_SCHEMA_VERSION = "2.1"
 
 
 def validate_schema(data: dict, schema_name: str) -> None:

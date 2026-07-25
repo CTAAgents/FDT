@@ -286,6 +286,21 @@ def _build_body_sections(state: dict) -> str:
     verdict_dir = sym_verdict.get("direction", verdict.get("direction", "neutral"))
     verdict_conf = float(sym_verdict.get("confidence", verdict.get("confidence", 0.5)) or 0.5)
     verdict_reason = sym_verdict.get("reason", verdict.get("reason", ""))
+
+    # ── Phase C: 校准后置信度计算 ──
+    calibrated_conf = verdict_conf
+    try:
+        from memory.verdict.calibrate import calibrate_confidence as _cal_conf
+        from memory.verdict.verdict_db import VerdictDB
+        _vdb = VerdictDB(Path(__file__).parent.parent / "memory")
+        _records = _vdb.query(symbol=sym_upper, limit=500)
+        if len([r for r in _records if r.get("outcome_actual") in ("correct", "wrong")]) >= 10:
+            from memory.verdict.calibrate import compute_calibration
+            _buckets = compute_calibration(_records)
+            _calibrated = _cal_conf(verdict_conf * 100, _buckets)
+            calibrated_conf = _calibrated / 100.0
+    except Exception:
+        pass  # 校准失败则使用原始置信度
     entry_p = float(sym_verdict.get("entry_price", 0) or 0)
     target_p = float(sym_verdict.get("target_price", 0) or 0)
     stop_p = float(sym_verdict.get("stop_loss_price", 0) or 0)
@@ -635,11 +650,15 @@ def _build_body_sections(state: dict) -> str:
     pct_display = "—" if is_neutral else f"{pos_pct:.1f}%"
     rr_display = "—" if is_neutral else f"{rr:.2f}:1"
 
+    conf_display = f"{calibrated_conf:.0%}"
+    if abs(verdict_conf - calibrated_conf) > 0.05:
+        conf_display += f' <span style="font-size:0.75rem;color:var(--yellow);">(原始{verdict_conf:.0%})</span>'
+
     verdict_html = (
         f'<div class="verdict-box">\n'
         f'<div class="vh"><div class="vd">{dir_cn}</div>'
-        f'<div class="vc">置信度 <strong>{verdict_conf:.0%}</strong>'
-        f'<div class="vb"><div class="f" style="width:{verdict_conf*100}%;background:{dir_color};"></div></div></div></div>\n'
+        f'<div class="vc">置信度 <strong>{conf_display}</strong>'
+        f'<div class="vb"><div class="f" style="width:{calibrated_conf*100}%;background:{dir_color};"></div></div></div></div>\n'
         f'<div class="sg">\n'
         f'<div class="si"><div class="l">入场价</div><div class="v">{entry_display}</div><div class="w">{"待触发" if is_neutral else "市价"}</div></div>\n'
         f'<div class="si"><div class="l">目标价</div><div class="v">{target_display}</div><div class="w">→ {dir_cn}</div></div>\n'
@@ -650,6 +669,44 @@ def _build_body_sections(state: dict) -> str:
         f'</div>\n'
         f'<div class="callout">{_esc(verdict_reason)}</div>\n'
     )
+    # ── Phase B: 裁决溯源树 — 标注每个交易参数的 Agent 来源 ──
+    trace_items = []
+    if entry_p > 0 and not is_neutral:
+        trace_items.append(
+            f'<div class="ti"><span class="ts">入场价 {_fmt(entry_p)}</span>'
+            f'<span class="ta">数技源实时市价 → 闫判官确认</span></div>'
+        )
+    if target_p > 0 and not is_neutral:
+        trace_items.append(
+            f'<div class="ti"><span class="ts">目标价 {_fmt(target_p)}</span>'
+            f'<span class="ta">多头/空头论据支撑区间 → 闫判官综合判定</span></div>'
+        )
+    evidence_points = sym_verdict.get("key_evidence_points", [])
+    if evidence_points:
+        for ep in evidence_points[:3]:
+            trace_items.append(
+                f'<div class="ti"><span class="ts">方向判定</span>'
+                f'<span class="ta">{_esc(ep)}</span></div>'
+            )
+    elif not is_neutral:
+        trace_items.append(
+            f'<div class="ti"><span class="ts">方向判定 <strong>{dir_cn}</strong></span>'
+            f'<span class="ta">辩论六阶段攻防 → 闫判官终裁</span></div>'
+        )
+    if risk_level:
+        trace_items.append(
+            f'<div class="ti"><span class="ts">风控 {risk_level}</span>'
+            f'<span class="ta">风控明独立审核 {"✅ 通过" if risk_approved else "❌ 阻断"}</span></div>'
+        )
+    if trace_items:
+        verdict_html += (
+            f'<div class="traceability-tree" style="margin-top:12px;padding:12px;'
+            f'background:var(--rule);border-radius:6px;">'
+            f'<div style="font-weight:600;font-size:0.85rem;margin-bottom:8px;color:var(--muted);">'
+            f'📊 交易参数溯源</div>'
+            + "\n".join(trace_items) +
+            f'</div>\n'
+        )
     sections.append(("P4 闫判官 · 终裁与交易参数", verdict_html, dir_color))
 
     # P5 风控 — risk-box 组件

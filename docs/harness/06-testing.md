@@ -64,9 +64,10 @@ tests/
 ├── fundamental-data-collector/   # 基本面采集 (1个测试)
 │   ├── conftest.py
 │   └── test_collector.py         # 供需/库存/利润
-├── memory/                        # 记忆写入 (9个测试)
+├── memory/                        # 记忆写入 + 裁决数据库 (14个测试, v10.5.0)
 │   ├── conftest.py
-│   └── test_writer.py             # Journal/Index/Record 原子性+去重
+│   ├── test_writer.py             # Journal/Index/Record 原子性+去重 (9个)
+│   └── test_verdict.py            # Phase A: 裁决数据库 + 置信度校准 (13个, v10.5.0 新增)
 ├── pipeline/                      # 流水线 (10个测试)
 │   ├── conftest.py
 │   └── test_runner.py             # 6阶段主流程+失败不阻断+trace注入

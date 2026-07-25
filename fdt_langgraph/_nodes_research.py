@@ -166,8 +166,8 @@ async def node_technical(state: DebateState) -> dict:
 
 ```json
 {{"per_symbol": {{
-    "RB": {{"trend": "趋势判断", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合", "divergence": "背离分析", "pattern": "技术形态", "score": 75}},
-    "CU": {{"trend": "趋势判断", "key_levels": "支撑阻力位", "volume_price": "量价配合", "divergence": "背离", "pattern": "形态", "score": 60}}
+    "RB": {{"trend": "趋势判断", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合", "divergence": "背离分析", "pattern": "技术形态", "score": 75, "disagreements": ["与数技源ADX方向不一致：ADX显示趋势疲惫，但数技源评分偏多", "MACD顶背离信号与均线多头排列矛盾"]}},
+    "CU": {{"trend": "趋势判断", "key_levels": "支撑阻力位", "volume_price": "量价配合", "divergence": "背离", "pattern": "形态", "score": 60, "disagreements": []}}
   }},
   "summary": "总体技术面摘要"
 }}
@@ -178,7 +178,8 @@ async def node_technical(state: DebateState) -> dict:
 - 衍生技术指标（RSI/ADX/MACD等）如标注"不可用"则基于均线和K线形态做定性分析
 - 趋势判断需结合均线排列（MA5/MA10/MA20）和20日区间（支撑/阻力）
 - 量价分析必须包含：成交量变化方向 vs 价格变化方向是否一致
-- **score 请参考上方【基准技术评分】中的数值，在 ±10 范围内调整**（基准评分来自代码精确计算）"""
+- **score 请参考上方【基准技术评分】中的数值，在 ±10 范围内调整**（基准评分来自代码精确计算）
+- **Phase B: 请在 disagreement 字段标注与数技源扫描判断不一致的关键分歧点**（如有），例如"ADX显示趋势疲惫但数技源总分偏多"""
 
     tech_result = await technical.run(context, state["trace_id"])
     tech_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
@@ -488,8 +489,8 @@ async def node_fundamental(state: DebateState) -> dict:
 
 ```json
 {{"per_symbol": {{
-    "RB": {{"supply_demand": "供需平衡分析", "inventory": "库存周期定位", "profit_margin": "利润与开工率", "basis_term": "基差与期限结构", "macro_external": "宏观与外盘联动", "leading_signals": ["领先信号1", "信号2"]}},
-    "CU": {{"supply_demand": "...", "inventory": "...", "profit_margin": "...", "basis_term": "...", "macro_external": "...", "leading_signals": [...]}}
+    "RB": {{"supply_demand": "供需平衡分析", "inventory": "库存周期定位", "profit_margin": "利润与开工率", "basis_term": "基差与期限结构", "macro_external": "宏观与外盘联动", "leading_signals": ["领先信号1", "信号2"], "key_turning_points": [{"data": "库存数据连续3周去化", "impact": "bull", "note": "关键转折：由累库转为去库"}]}},
+    "CU": {{"supply_demand": "...", "inventory": "...", "profit_margin": "...", "basis_term": "...", "macro_external": "...", "leading_signals": [...], "key_turning_points": []}}
   }},
   "summary": "总体基本面摘要"
 }}
@@ -502,7 +503,8 @@ async def node_fundamental(state: DebateState) -> dict:
   - 搜索关键词建议："{selected[0] if selected else ''} 供需 库存 2026年"
 - 金十快讯区域（如可用）可作为实时素材，引用时标注 [jin10]
 - WebSearch 获取的数据引用时标注 [fundamental:web]
-- 每个品种的 leading_signals 为数组，包含1-3个关键信号"""
+- 每个品种的 leading_signals 为数组，包含1-3个关键信号
+- **Phase B: `key_turning_points` 字段标注对方向具有边际影响的关键转折数据**，包含数据描述、影响方向和说明（如"库存由累库转去库"）"""
 
     fund_result = await fundamental.run(context, state["trace_id"])
     fund_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False

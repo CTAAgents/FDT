@@ -127,6 +127,31 @@ class MemoryManager:
             return {}
 
     # ═══════════════════════════════════════════════════
+    # 裁决数据库 + 校准方法
+    # ═══════════════════════════════════════════════════
+
+    def retrieve_accuracy(
+        self,
+        symbol: str | None = None,
+        direction: str | None = None,
+    ) -> dict:
+        """查询历史裁决准确率（Phase A）
+
+        返回示例:
+            {"symbol": "RB", "total_verdicts": 45, "with_outcome": 30,
+             "correct": 18, "accuracy": 0.6, "calibration": {...}}
+        """
+        return self._vector_retriever.query_accuracy(symbol=symbol, direction=direction)
+
+    def retrieve_calibration(self, symbol: str | None = None) -> dict:
+        """查询置信度校准曲线（Phase A）"""
+        return self._vector_retriever.query_accuracy_by_confidence(symbol=symbol)
+
+    def store_verdict(self, record: dict) -> str:
+        """存储裁决记录"""
+        return self._vector_retriever.store_verdict(record)
+
+    # ═══════════════════════════════════════════════════
     # 维护方法
     # ═══════════════════════════════════════════════════
 
