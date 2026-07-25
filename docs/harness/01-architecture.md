@@ -60,7 +60,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 | 原有组件 | LangGraph 对应 | 状态 |
 |:---------|:--------------|:-----|
 | `coordinator.py` | `fdt_langgraph/graph.py` | ✅ **G93 — 已迁移**（已删除，由 `build_debate_graph_with_profile()` 替代） |
-| `debate_protocol_v2.py` | `fdt_langgraph/nodes.py` | ✅ **G94 — 已迁移**（已删除，常量内联到 `nodes.py`） |
+| `debate_protocol_v2.py` | `fdt_langgraph/_nodes_utils.py` | ✅ **G94 — 已迁移**（已删除，常量内联到 `_nodes_utils.py`） |
 | `agent_runner.py` | `fdt_langgraph/agents.py` | ✅ **G95 — 已迁移**（已删除，由 `DebateAgentExecutor.run_single()` 替代） |
 | S04 轮询 | Checkpointer + 状态传递 | 已替代 |
 | 文件传递 | DebateState 内存传递 | 已替代 |

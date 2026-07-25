@@ -178,11 +178,13 @@ FDT 以 **双层循环** 组织所有自动行为，每循环持有明确契约�
 #### LangGraph 图编排（Graph Engineering）
 FDT 的所有编排逻辑落地为 **三张编译 LangGraph 子图**，通过状态机模式驱动：
 
-| 子图 | 入口 | 节点数 | 模式 |
-|:-----|:-----|:------:|:----:|
-| `debate_graph` | `fdt_cli.py run` | ~20 | 串行 + 条件路由 + fan-out/fan-in 并行 |
-| `evolution_graph` | `fdt_cli.py evolve` / 辩论后自动 | ~8 | 串行 + 条件分支决策 |
-| `master_graph` | `fdt_cli.py daemon` | ~13 | 调度判断 + 子图 fork |
+| 子图模块 | 节点来源 | 说明 |
+|:---------|:---------|:------|
+| `debate_graph` | `fdt_langgraph/_nodes_*.py` (8 模块) | 4298行单文件拆分为按阶段分组的 8 个模块 |
+| 节点模块 | `fdt_langgraph/nodes.py` (98行) | 薄重导出层，外部导入零侵入 |
+| `evolution_graph` | `fdt_langgraph/evolution_nodes.py` | ~8 节点 |
+| `master_graph` | `fdt_langgraph/master_nodes.py` | ~13 节点 |
+
 
 - **状态机基元**：State (TypedDict) → Node (函数) → Edge (条件/无条件)
 - **并行模式**：P3 四源通过 fan-out 派发 → fan-in merge，逐品种隔离
