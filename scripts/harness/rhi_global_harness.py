@@ -19,12 +19,12 @@ from datetime import datetime
 from pathlib import Path
 
 from contracts.rhi_harness_spec import PairwisePreference
-from scripts.rhi_pairwise_eval import compute_improvement_rate
+from scripts.harness.rhi_pairwise_eval import compute_improvement_rate
 
 logger = logging.getLogger(__name__)
 
 # ── 全局 Harness 配置 ──
-PROJECT_ROOT = Path(os.environ.get("FDT_PROJECT_ROOT", str(Path(__file__).parent.parent)))
+PROJECT_ROOT = Path(os.environ.get("FDT_PROJECT_ROOT", str(Path(__file__).parent.parent.parent)))
 CLAUDE_MD_PATH = PROJECT_ROOT / "CLAUDE.md"
 RHI_MEMORY_DIR = PROJECT_ROOT / "memory" / "rhi" / "global"
 MEMORY_FILE = RHI_MEMORY_DIR / "global_rhi_history.json"

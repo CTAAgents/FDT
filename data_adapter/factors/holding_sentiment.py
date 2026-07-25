@@ -204,8 +204,21 @@ async def _collect_gfex_rankings(
         import akshare as ak
         import pandas as pd
 
-        df = ak.futures_gfex_position_rank()
-        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+        raw = ak.futures_gfex_position_rank()
+        if raw is None:
+            return
+
+        # 兼容 dict 返回（多品种分组）和 DataFrame 返回
+        if isinstance(raw, dict):
+            frames = []
+            for variety, frame in raw.items():
+                if isinstance(frame, pd.DataFrame) and not frame.empty:
+                    frames.append(frame)
+            df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        else:
+            df = raw
+
+        if isinstance(df, pd.DataFrame) and df.empty:
             return
 
         inst_col = _find_column(df, ["instrument", "合约", "品种", "code"])

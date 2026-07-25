@@ -112,8 +112,8 @@
 | **G111** | **观澜/探源 LLM 输出解析率低**（v9.20.0 已修复） | LLM 返回仅 99/117 字符的短输出，`json.loads(output[start:end])` 失败导致回退到 FDC 数据。LLM 未提供有效的 per_symbol 结构化数据，影响辩论质量。 | P1 | 解析前增加 JSON 修复逻辑（BOM/注释/单引号/截断清理）；Agent prompt 明确强调输出格式 | `fdt_langgraph/nodes.py` + `agents/*` ✅ v9.20.0 |
 | **G112** | **evolve_agents.py extract_knowledge 未保护导致 main() 崩溃**（v9.20.1 已修复） | `extract_knowledge_from_validated_verdicts()` 在 `main()` 中直接调用而无 `try/except` 包裹，函数内部异常传播到 `main()` 导致整个进化脚本崩溃，返回值 None，下游 `fdt_cli.py` 捕获 `AttributeError`。 | P1 | 包裹 `try/except`，非阻断异常打印日志后继续执行技能层进化 | `scripts/evolve_agents.py` ✅ v9.20.1 |
 | **G113** | **fdt_cli.py run_debate() ev_state None 无保护**（v9.20.1 已修复） | G112 导致 `run_ev()` 返回 None，`ev_state.get("phase")` 在 None 上调用抛出 `AttributeError`。虽被 `except Exception` 兜住，但日志 `[ERROR] Evolution failed` 过于刺眼且掩盖根因。 | P2 | `ev_state` 使用时先判断 None，None 时友好提示 | `fdt_cli.py` ✅ v9.20.1 |
-| **G114** | **RHI 递归 Harness 自改进框架**（v9.21.0 已实现） | FDT 自进化闭环只优化 Agent 参数和 ML 权重，不优化 Harness 配置本身。RHI 三层规范 (Agent/Workflow/Rules) 提供结构化 Harness 表示，Pairwise Evaluator 进行 O(1) 轨迹局部比较，Harness Optimizer 基于偏好历史更新。 | P1 | 整合 RHI 循环到 evolution_graph.py | `contracts/rhi_harness_spec.py` + `scripts/rhi_pairwise_eval.py` + `scripts/rhi_harness_optimizer.py` + `fdt_langgraph/rhi_graph.py` ✅ v9.21.0 |
-| **G115** | **全局 Harness RHI 自优化**（v9.21.0 已实现） | CLAUDE.md 作为项目全局 Harness prompt，手工维护无法随项目演进自动优化。RHI 全局 Harness 模块通过 pairwise 质量评分迭代优化 CLAUDE.md 内容。 | P2 | 将 CLAUDE.md 作为 RHI 优化对象，每次迭代比较前后版本质量 | `scripts/rhi_global_harness.py` ✅ v9.21.0 |
+| **G114** | **RHI 递归 Harness 自改进框架**（v9.21.0 已实现） | FDT 自进化闭环只优化 Agent 参数和 ML 权重，不优化 Harness 配置本身。RHI 三层规范 (Agent/Workflow/Rules) 提供结构化 Harness 表示，Pairwise Evaluator 进行 O(1) 轨迹局部比较，Harness Optimizer 基于偏好历史更新。 | P1 | 整合 RHI 循环到 evolution_graph.py | `contracts/rhi_harness_spec.py` + `scripts/harness/rhi_pairwise_eval.py` + `scripts/harness/rhi_harness_optimizer.py` + `fdt_langgraph/rhi_graph.py` ✅ v9.21.0 |
+| **G115** | **全局 Harness RHI 自优化**（v9.21.0 已实现） | CLAUDE.md 作为项目全局 Harness prompt，手工维护无法随项目演进自动优化。RHI 全局 Harness 模块通过 pairwise 质量评分迭代优化 CLAUDE.md 内容。 | P2 | 将 CLAUDE.md 作为 RHI 优化对象，每次迭代比较前后版本质量 | `scripts/harness/rhi_global_harness.py` ✅ v9.21.0 |
 | **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |
 | **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | `10-coding-standards.md` ✅ `harness-rules.yaml` ✅ |
 
@@ -132,7 +132,7 @@
 
 | # | 差距 | 现状 | 影响 | 改进建议 | 涉及文件 |
 |:-:|:-----|:-----|:-----|:---------|:---------|
-| G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，已实现自动化 | 效率低 | 增加准入自动化脚本 | ✅ **已关闭（本次会话）** — `scripts/advancement_check.py` 已创建 |
+| G17 | 准入评估未自动化 | `docs/harness/09-advancement-plan.md` 定义了 4 步准入，已实现自动化 | 效率低 | 增加准入自动化脚本 | ✅ **已关闭（本次会话）** — `scripts/verification/advancement_check.py` 已创建 |
 | GAP-P1-001 | P1 数技源角色越界：产出 total/direction/grade 方向性预判，与观澜（P3）技术分析职责重叠 | P1 | v9.6.8 | 已关闭 | P1角色矫正：stats 纯统计特征产出，total/direction/grade 降级为内部参考，select_triggers 改为数据质量闸门 |
 | **G28** | **_resolve_report_dir 跨日子目录生成**（v9.24.2 已修复） | `_resolve_report_dir()` 用 `datetime.now()` 日期匹配 workspace 目录名。当 workspace 为昨日（如 `20260723`）但当前时刻已过午夜（`20260724`），目录名不匹配 → 生成额外子目录（`.../20260723/2026-07-24/`）。 | P1 | 改用正则 `^\d{8}$` 匹配任意日期格式目录名。 | `fdt_langgraph/nodes.py` ✅ v9.24.2 |
 | **G29** | **scan_all.py summary 未初始化 NameError 隐患**（v9.24.2 已修复） | 当 `target_symbols` 为空时 `for` 循环体不执行，`summary` 变量未定义，`summary.get("all_ranked", [])` 抛出 `NameError`。 | P1 | `for` 循环前预初始化 `summary = {}`。 | `skills/quant-daily/scripts/scan_all.py` ✅ v9.24.2 |
@@ -174,7 +174,7 @@
 |:--|:--|:--:|:--:|:--:|
 | G100 | Et 经验记录基础设施缺失 — 缺少 contracts/experience_schema.py 和 scripts/experience_recorder.py | P1 | Phase A | **已关闭** |
 | G101 | Gt 模式蒸馏引擎缺失 — 缺少 scripts/pattern_distiller.py 和 staging 确认流程 | P2 | Phase B | **已关闭** |
-| G102 | W(x_j) 案例适配引擎缺失 — 缺少 scripts/harness_adapter.py 和四步上线评估 | P2 | Phase C | **已关闭** |
+| G102 | W(x_j) 案例适配引擎缺失 — 缺少 scripts/harness/harness_adapter.py 和四步上线评估 | P2 | Phase C | **已关闭** |
 | G103 | 正确性优先原则未写入机读规则 — harness-rules.yaml 缺少 C14 规则 | P1 | Phase A | **已关闭** |
 | G124 | **单品种报告 vs 全量模板功能差距** | `single_symbol_report.py` 仅覆盖单品种场景，已通过 `fdt_langgraph/report_aggregator.py` 实现全量模板覆盖 | 中 | ✅ **已关闭（本次会话）** | 2026-07-22 — `fdt_langgraph/report_aggregator.py` 已创建 |
 
@@ -207,12 +207,12 @@
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `scripts/validate_agent_output.py` | §2.1 L1 | 产出校验活跃状态 | `grep -n "def " validate_agent_output.py` |
+| `scripts/verification/validate_agent_output.py` | §2.1 L1 | 产出校验活跃状态 | `grep -n "def " validate_agent_output.py` |
 | `scripts/agent_waiter.py wait_for_agent_output()` | §2.2 S04 | 轮询重试+降级活跃 | `grep -n "def wait_for_agent_output" agent_waiter.py` |
 | `scripts/daemon_watchdog.py` | §2.2 看门狗 | 健康检查活跃 | `grep -n "def " daemon_watchdog.py` |
 | `scripts/apm_scorecard.py` | §3 D1-D5 | 五轴评分活跃 | `grep -n "def " apm_scorecard.py` |
 | `scripts/enforce_discipline.py` | §3 D4 | 纪律钳制活跃 | `grep -n "def " enforce_discipline.py` |
-| `scripts/validate_verdicts.py` | §3 裁决验证 | 裁决验证活跃 | `grep -n "def " validate_verdicts.py` |
+| `scripts/verification/validate_verdicts.py` | §3 裁决验证 | 裁决验证活跃 | `grep -n "def " validate_verdicts.py` |
 | `scripts/calibrate_weights.py` | §3 校准 | 权重校准活跃 | `grep -n "def " calibrate_weights.py` |
 | `scripts/evolve_agents.py` | §3 进化 | Agent 进化活跃 | `grep -n "def " evolve_agents.py` |
 | `contracts/migrations.py` | G14 | 26 条迁移路径已修复 | `grep -n "def apply_migration" contracts/migrations.py` |

@@ -11,6 +11,7 @@ from fdt_langgraph.agents import FdtAgentExecutor
 from fdt_langgraph.state import DebateState
 from fdt_langgraph._nodes_utils import _ensure_llm_key, _inject_memory_rules, _trim_arguments, _truncate_arguments_text
 from fdt_langgraph._nodes_context import _build_debate_context
+from fdt_langgraph._nodes_prepare import node_prepare_data
 
 logger = logging.getLogger(__name__)
 

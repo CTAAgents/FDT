@@ -11,9 +11,9 @@
 """
 # ── 自优化增强模块（向后兼容导出） ──
 from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
-from scripts.embodiskill_reflect import EmbodiSkillReflector
-from scripts.skillevolver_evolution import SkillEvolver
-from scripts.verify_evolution import EvolutionVerifier
+from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
+from scripts.harness.skillevolver_evolution import SkillEvolver
+from scripts.verification.verify_evolution import EvolutionVerifier
 
 __all__ = [
     "TrajectoryAnalyzer",

@@ -20,7 +20,7 @@ if str(_contracts_dir) not in sys.path:
 class TestPatternMatching:
     def test_exact_condition_match(self):
         """条件完全匹配时返回 True"""
-        from scripts.harness_adapter import _matches_conditions
+        from scripts.harness.harness_adapter import _matches_conditions
 
         tc = {"adx_range": "low", "volatility_regime": "normal"}
         pc = {"adx_range": ["low"], "volatility_regime": ["normal"]}
@@ -28,7 +28,7 @@ class TestPatternMatching:
 
     def test_partial_condition_no_match(self):
         """部分条件不匹配时返回 False"""
-        from scripts.harness_adapter import _matches_conditions
+        from scripts.harness.harness_adapter import _matches_conditions
 
         tc = {"adx_range": "high", "volatility_regime": "normal"}
         pc = {"adx_range": ["low"], "volatility_regime": ["normal"]}
@@ -36,7 +36,7 @@ class TestPatternMatching:
 
     def test_missing_condition_field(self):
         """任务条件缺少字段时返回 False"""
-        from scripts.harness_adapter import _matches_conditions
+        from scripts.harness.harness_adapter import _matches_conditions
 
         tc = {"adx_range": "low"}
         pc = {"adx_range": ["low"], "volatility_regime": ["normal"]}
@@ -48,7 +48,7 @@ class TestPatternMatching:
 class TestCaseSearch:
     def test_finds_similar_cases(self, tmp_path):
         """检索相似度 >= 阈值的案例"""
-        from scripts.harness_adapter import search_similar_cases
+        from scripts.harness.harness_adapter import search_similar_cases
 
         records_dir = tmp_path / "records"
         records_dir.mkdir()
@@ -74,7 +74,7 @@ class TestCaseSearch:
 
     def test_filters_below_threshold(self, tmp_path):
         """相似度低于阈值的不返回"""
-        from scripts.harness_adapter import search_similar_cases
+        from scripts.harness.harness_adapter import search_similar_cases
 
         records_dir = tmp_path / "records"
         records_dir.mkdir()
@@ -103,7 +103,7 @@ class TestCaseSearch:
 class TestConfigMerge:
     def test_delta_applied_correctly(self):
         """config_delta 正确应用到基准配置"""
-        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
+        from scripts.harness.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         delta = {"d3_generation": {"debater_temp": 0.6}}
         result = apply_config_delta(DEFAULT_CONFIG, delta)
@@ -112,7 +112,7 @@ class TestConfigMerge:
 
     def test_multiple_deltas(self):
         """多维度 delta 同时应用"""
-        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
+        from scripts.harness.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         delta = {
             "d3_generation": {"debater_temp": 0.5},
@@ -124,7 +124,7 @@ class TestConfigMerge:
 
     def test_empty_delta_returns_copy(self):
         """空 delta 返回基准配置的深拷贝"""
-        from scripts.harness_adapter import DEFAULT_CONFIG, apply_config_delta
+        from scripts.harness.harness_adapter import DEFAULT_CONFIG, apply_config_delta
 
         result = apply_config_delta(DEFAULT_CONFIG, {})
         assert result == DEFAULT_CONFIG
@@ -137,7 +137,7 @@ class TestConfigMerge:
 class TestClamping:
     def test_temperature_clamped_high(self):
         """temperature 超过上限被修正"""
-        from scripts.harness_adapter import clamp_config
+        from scripts.harness.harness_adapter import clamp_config
 
         config = {"d3_generation": {"debater_temp": 1.0}}
         clamped = clamp_config(config)
@@ -147,7 +147,7 @@ class TestClamping:
 
     def test_temperature_clamped_low(self):
         """temperature 低于下限被修正"""
-        from scripts.harness_adapter import clamp_config
+        from scripts.harness.harness_adapter import clamp_config
 
         config = {"d3_generation": {"debater_temp": 0.0}}
         clamped = clamp_config(config)
@@ -155,7 +155,7 @@ class TestClamping:
 
     def test_normal_value_not_clamped(self):
         """正常范围内的值不被修正"""
-        from scripts.harness_adapter import clamp_config
+        from scripts.harness.harness_adapter import clamp_config
 
         config = {"d3_generation": {"debater_temp": 0.5}}
         clamped = clamp_config(config)
@@ -167,7 +167,7 @@ class TestClamping:
 class TestShadowMode:
     def test_shadow_returns_base_config(self):
         """影子模式返回原始基准配置"""
-        from scripts.harness_adapter import DEFAULT_CONFIG, adapt_harness
+        from scripts.harness.harness_adapter import DEFAULT_CONFIG, adapt_harness
 
         tc = {"adx_range": "low", "volatility_regime": "normal", "data_freshness_level": "fresh"}
         tmp_path = Path("nonexistent")
@@ -178,7 +178,7 @@ class TestShadowMode:
 
     def test_normal_mode_applies_adaptation(self):
         """普通模式应用适配"""
-        from scripts.harness_adapter import adapt_harness
+        from scripts.harness.harness_adapter import adapt_harness
 
         tc = {"adx_range": "low", "volatility_regime": "normal", "data_freshness_level": "fresh"}
         tmp_path = Path("nonexistent")
@@ -192,7 +192,7 @@ class TestShadowMode:
 class TestAdaptationLog:
     def test_log_written_to_file(self, tmp_path):
         """适配日志写入文件"""
-        from scripts.harness_adapter import log_adaptation
+        from scripts.harness.harness_adapter import log_adaptation
 
         result = {
             "matched_patterns": ["P001"],
@@ -214,7 +214,7 @@ class TestEndToEndAdaptation:
     def test_full_adaptation_workflow(self, tmp_path):
         """完整适配工作流：写入模式 → 写入案例 → 适配"""
         from scripts.experience_recorder import write_record
-        from scripts.harness_adapter import adapt_harness
+        from scripts.harness.harness_adapter import adapt_harness
         from scripts.pattern_distiller import save_pattern
 
         patterns_dir = tmp_path / "patterns"

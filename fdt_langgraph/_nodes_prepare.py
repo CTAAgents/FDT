@@ -18,6 +18,8 @@ from fdt_langgraph._nodes_utils import _ensure_llm_key, _inject_memory_rules, _r
 
 logger = logging.getLogger(__name__)
 
+_SKILLS_DIR = Path(__file__).parent.parent / "skills"
+
 async def node_scan(state: DebateState) -> DebateState:
     import subprocess
     import sys
@@ -227,7 +229,7 @@ P1 扫描摘要:
 
 注意：你不做品种筛选。品种列表已由 scan_all.py 决定。
 返回 JSON：
-{{"scan_direction": "neutral", "confidence": 0.8, "dispatch_sources": ["chain", "technical"], "reason": "..."}}
+{{"scan_direction": "neutral", "confidence": 0.8, "dispatch_sources": ["chain", "technical"], "reason": "...", "symbols": {selected_symbols}}}
 """
 
     context = _inject_memory_rules("judge", context)

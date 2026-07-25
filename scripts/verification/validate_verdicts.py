@@ -480,7 +480,7 @@ def main() -> None:
     COST_BPS = args.cost_bps
 
     if args.followup is None:
-        followup_path = Path(__file__).parent.parent / "memory" / "execution_followup.json"
+        followup_path = Path(__file__).parent.parent.parent / "memory" / "execution_followup.json"
     else:
         followup_path = Path(args.followup)
 

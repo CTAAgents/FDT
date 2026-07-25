@@ -103,7 +103,7 @@ apm_scorecard.py
 | 组件 | 文件 | 说明 |
 |:-----|:-----|:-----|
 | 评分卡主逻辑 | `scripts/apm_scorecard.py` | 五轴计算 + 输出 |
-| D2 成本感知 PnL | `scripts/validate_verdicts.py` | `COST_BPS=2.0` 参数 |
+| D2 成本感知 PnL | `scripts/verification/validate_verdicts.py` | `COST_BPS=2.0` 参数 |
 | D4 纪律钳制 | `scripts/enforce_discipline.py` | R13/R14/R-resonance 仓位上限 |
 | held-out judge | `agents/futures-judge-heldout.md` | D1 一致性审计 Agent |
 | 种子回填 | `scripts/memory_writer.py` | `compute_heldout_coherence()` 确定性 rubric |
@@ -252,9 +252,9 @@ run_benchmark.py --replay
 ### 5.2 CLI 接口
 
 ```bash
-python scripts/run_benchmark.py --build    # 构建测试集
-python scripts/run_benchmark.py --run      # 运行基准
-python scripts/run_benchmark.py --replay   # 回放历史
+python scripts/verification/run_benchmark.py --build    # 构建测试集
+python scripts/verification/run_benchmark.py --run      # 运行基准
+python scripts/verification/run_benchmark.py --replay   # 回放历史
 ```
 
 ## 6. 自改进脚手架
@@ -437,7 +437,7 @@ logger.error(f"[trace_id={trace_id}] PG connection failed: {error}")
 
 ### 9.6 LLM 幻觉率指标（v9.6.2+）
 
-> **来源**: `scripts/validate_llm_output.py` — LLM 输出质量校验器，检测和度量数值型幻觉
+> **来源**: `scripts/verification/validate_llm_output.py` — LLM 输出质量校验器，检测和度量数值型幻觉
 
 **触发条件**: 每次 Pipeline 执行后自动运行，或通过 CLI 手动触发
 
@@ -481,16 +481,16 @@ logger.error(f"[trace_id={trace_id}] PG connection failed: {error}")
 
 ```bash
 # 校验单次辩论
-python scripts/validate_llm_output.py --scan full_scan_summary.json --verdict verdict.json
+python scripts/verification/validate_llm_output.py --scan full_scan_summary.json --verdict verdict.json
 
 # 批量校验历史裁决
-python scripts/validate_llm_output.py --history memory/debates/
+python scripts/verification/validate_llm_output.py --history memory/debates/
 
 # 指定输出文件
-python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --stats my_stats.json
+python scripts/verification/validate_llm_output.py --scan scan.json --verdict verdict.json --stats my_stats.json
 
 # 自定义阈值
-python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --threshold 0.15
+python scripts/verification/validate_llm_output.py --scan scan.json --verdict verdict.json --threshold 0.15
 ```
 
 ### 9.7 监控文件位置
@@ -570,8 +570,8 @@ P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判
 | `scripts/enforce_discipline.py` | §2.4 D4 | R13/R14/R-resonance 仓位上限钳制 | `grep -n "def capped_position\|R13\|R14\|R-resonance"` |
 | `scripts/unified_logger.py get_logger()` | §3 统一日志 | 日志写入 logs/fdb_{date}.log | `grep -n "def get_logger\|fdb_"` |
 | `scripts/cluster_failures.py` | §4 失败聚类 | `--min-cases` / `--min-winrate` 参数 | `grep -n "min-cases\|min-winrate\|def main" cluster_failures.py` |
-| `scripts/run_benchmark.py --replay` | §5 ViBench | 20 金标准案例方向一致性 ≥95% | `grep -n "benchmark\|replay\|golden" run_benchmark.py` |
+| `scripts/verification/run_benchmark.py --replay` | §5 ViBench | 20 金标准案例方向一致性 ≥95% | `grep -n "benchmark\|replay\|golden" run_benchmark.py` |
 | `scripts/output_versioning.py save_output()` | §7 D6 | D6 输出版本化 | `grep -n "class OutputVersioning\|def save_output"` |
 | `scripts/output_audit.py log()` | §7 D6 | output_audit 审计日志 | `grep -n "class OutputAudit\|def log"` |
-| `scripts/validate_llm_output.py` | §8 LLM 幻觉检测 | `--scan` / `--verdict` / `--history` / `--threshold` 参数 | `grep -n "def main\|add_argument.*threshold" validate_llm_output.py` |
+| `scripts/verification/validate_llm_output.py` | §8 LLM 幻觉检测 | `--scan` / `--verdict` / `--history` / `--threshold` 参数 | `grep -n "def main\|add_argument.*threshold" validate_llm_output.py` |
 | `scripts/tool_circuit_breaker.py` | §2.6 熔断 | CLOSED / OPEN / HALF_OPEN 状态机 | `grep -n "CLOSED\|OPEN\|HALF_OPEN\|class.*CircuitBreaker"` |

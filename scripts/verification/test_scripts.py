@@ -1517,13 +1517,13 @@ class TestReplayHarness:
 
 class TestSkillEvolver:
     def test_init(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             evolver = SkillEvolver(fdt_root=tmp)
             assert evolver.root == Path(tmp)
 
     def test_explore_strategies_dry_run(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             agents = Path(tmp) / "agents"
             agents.mkdir()
@@ -1534,32 +1534,32 @@ class TestSkillEvolver:
             assert result[0]["strategy"] in ["greedy", "exploratory", "imitative", "adversarial"]
 
     def test_contrastive_update_no_faults(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             evolver = SkillEvolver(fdt_root=tmp)
             result = evolver._contrastive_update([])
             assert result == []
 
     def test_audit_skills(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{"patch": "this is a long fix patch that should pass the audit check", "confidence": 0.8}]
         result = SkillEvolver._audit_skills(updates)
         assert result[0]["status"] == "ready"
 
     def test_audit_skills_rejected(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{"patch": "2026-07 fix", "confidence": 0.5}]
         result = SkillEvolver._audit_skills(updates)
         assert result[0]["status"] == "rejected"
 
     def test_generate_patch(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         patch = SkillEvolver._generate_patch("content", {"fix_suggestion": {"content_hint": "add check"}})
         assert patch is not None
         assert "add check" in patch
 
     def test_generate_patch_no_hint(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         patch = SkillEvolver._generate_patch("content", {})
         assert patch is None
 
@@ -3127,33 +3127,33 @@ class TestVectorMemory:
 
 class TestSkillevolverEvolution:
     def test_init(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
             assert se.root == Path(tmp)
             assert se.agents_dir == Path(tmp) / "agents"
 
     def test_exploration_strategies(self) -> None:
-        from scripts.skillevolver_evolution import EXPLORATION_STRATEGIES
+        from scripts.harness.skillevolver_evolution import EXPLORATION_STRATEGIES
         assert "greedy" in EXPLORATION_STRATEGIES
         assert "exploratory" in EXPLORATION_STRATEGIES
         assert "prompt_modifier" in EXPLORATION_STRATEGIES["greedy"]
 
     def test_role_to_file_id(self) -> None:
-        from scripts.skillevolver_evolution import ROLE_TO_FILE_ID
+        from scripts.harness.skillevolver_evolution import ROLE_TO_FILE_ID
         assert "闫判官" in ROLE_TO_FILE_ID
         assert "观澜" in ROLE_TO_FILE_ID
         assert "探源" in ROLE_TO_FILE_ID
 
     def test_run_evolution_cycle_empty(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
             result = se.run_evolution_cycle(faults=[], dry_run=True)
             assert isinstance(result, list)
 
     def test_run_evolution_cycle_with_faults(self) -> None:
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         with tempfile.TemporaryDirectory() as tmp:
             se = SkillEvolver(fdt_root=tmp)
             faults = [{"fault_agent": "观澜", "fault_type": "skill_defect"}]
@@ -3163,7 +3163,7 @@ class TestSkillevolverEvolution:
 
 class TestVerifyEvolution:
     def test_verify_empty(self) -> None:
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
             result = verifier.verify("base", "evo", [])
@@ -3173,7 +3173,7 @@ class TestVerifyEvolution:
             assert "verdict" in result
 
     def test_verify_with_cases(self) -> None:
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
             cases = [{"test": True}]
@@ -3184,14 +3184,14 @@ class TestVerifyEvolution:
             assert result["verdict"] in ("approved", "rejected")
 
     def test_load_vibench_not_found(self) -> None:
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             verifier = EvolutionVerifier(fdt_root=tmp)
             cases = verifier._load_vibench()
             assert cases == []
 
-    def test_load_vibench_list(self) -> None:
-        from scripts.verify_evolution import EvolutionVerifier
+    def test_load_vibench_dict_cases(self) -> None:
+        from scripts.verification.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             bench = Path(tmp) / "benchmarks"
             bench.mkdir()
@@ -3202,7 +3202,7 @@ class TestVerifyEvolution:
             assert len(loaded) == 2
 
     def test_load_vibench_dict_cases(self) -> None:
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         with tempfile.TemporaryDirectory() as tmp:
             bench = Path(tmp) / "benchmarks"
             bench.mkdir()

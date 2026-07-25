@@ -340,7 +340,7 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 |:-----|:-----|
 | **目标** | 对比影子模式与生产模式的结果差异 |
 | **比对维度** | 品种选择、方向判定、交易参数、置信度 |
-| **工具** | `scripts/run_benchmark.py --replay` |
+| **工具** | `scripts/verification/run_benchmark.py --replay` |
 | **验收条件** | 方向一致性 ≥ 95%，价格偏差 ≤ 5% |
 
 ### 5.4 Step 3: 验证器验收
@@ -349,7 +349,7 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 |:-----|:-----|
 | **目标** | 通过质量门禁验证新代码的正确性 |
 | **验证项** | 漏放率 ≤ 1%，误杀率 ≤ 5% |
-| **工具** | `scripts/validate_llm_output.py` + 门禁测试 |
+| **工具** | `scripts/verification/validate_llm_output.py` + 门禁测试 |
 | **验收条件** | 所有验证器质量指标达标 |
 
 ### 5.5 Step 4: 金丝雀发布
@@ -384,6 +384,8 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v10.4.2** | 2026-07-26 | **scripts/ 目录结构化整理（verification/ + harness/ 子目录）** — P1 级整理：① 创建 `scripts/verification/`（12 个验证脚本：validate_*×6 + verify_*×4 + test_scripts + advancement_check + pre_commit_harness_check + self_check + run_benchmark）；② 创建 `scripts/harness/`（10 个 Harness/RHI 脚本：rhi_global_*×3 + rhi_harness_optimizer + rhi_pairwise_eval + harness_adapter + replay_harness + self_improve + skillevolver_evolution + embodiskill_reflect）；③ 更新全部 16 篇 docs/harness 文档路径引用 + 2 个 YAML 契约（harness-rules.yaml + self-evolve.contract.yaml）+ 8 个生产/测试文件的 import 路径；④ 删除 3 个空壳子目录（analysis/ops/reporting）；⑤ §8 同步与备份更新为当前 Git 工作流。版本号 bump 10.4.1→10.4.2 |
+| **v10.4.1** | 2026-07-26 | **执行稳定性修复批（3个_SKILLS_DIR + re import + GFEX dict + TECH regex回退）** — ① 修复 `_nodes_prepare.py` 缺少 `_SKILLS_DIR` 定义导致 P1 阶段崩溃；② 修复 `_nodes_debate.py` 缺少 `from _nodes_prepare import node_prepare_data` 导致 P2 逐品种数据准备崩溃；③ 修复 `_nodes_research.py` 缺少 `import re` 导致 P3 探源基本面分析崩溃；④ 修复 `_nodes_output.py` 缺少 `_SKILLS_DIR` 定义导致 P6 报告生成崩溃；⑤ 修复 `judge_direction` user prompt 未包含 `symbols` 字段导致 `enforce_structured_output` 校验失败（prompt 模板注入 `selected_symbols`）；⑥ 修复 `technical_researcher` 缺少正则提取回退链，追加与 fundamental_researcher 同级的 regex per_symbol 提取 + 评分钳制；⑦ 修复 `holding_sentiment.py` 中 `_collect_gfex_rankings` 未兼容 `ak.futures_gfex_position_rank()` dict 返回类型导致的 `'dict' object has no attribute 'columns'` 错误。版本号 bump 10.4.0→10.4.1 |
 | **v10.4.0** | 2026-07-25 | **代码-推理边界硬切割（Phase 1~4 全部实施）** — ① Phase 1(entry_price P0): 已在 v10.3.0 中实现 LLM 输出后强制覆写；② Phase 2(stop_loss/target P1): 新增 `_compute_stop_target()` 函数，LLM prompt 移除 stop_loss/target 计算要求，改为代码从 ATR 精确计算（L0 硬约束）；③ Phase 3(仓位 P1): 新增 `_clamp_position()` 函数，LLM 输出后钳制仓位至上限(20%)；④ Phase 4(技术评分 P2): 新增 `data_adapter/factors/technical_score.py`（4 维度加权评分：趋势 40%/动量 30%/量价 20%/波动率 10%），`node_technical` prompt 注入代码计算的基准评分，LLM 在 ±10 范围内调整；⑤ 测试 36 个全部通过（`test_code_reasoning_boundary.py` 22 个 + `test_technical_score.py` 14 个）。版本号 bump 10.3.0→10.4.0 |
 | **v10.3.0** | 2026-07-25 | **P2.5 多因子注入 — 零新增 Agent，把 FDT 第二层升级为多因子整合器** — ① 新增 `data_adapter/factors/` 数据适配层（7 文件）：`types.py`（5 种因子数据类型）、`volatility.py`（波动率/HV/偏度/ATR，纯计算）、`cross_spread.py`（跨品种价差/Z-Score，纯计算）、`term_structure.py`（期限结构，AKShare）、`holding_sentiment.py`（多空持仓/前20排名，AKShare）、`dashboard.py`（因子一致性看板 + 分歧度指标）；② `nodes.py` 4 处注入：`node_prepare_data()` 新增 FactorCollector 采集 → state 注入、`node_technical` prompt 追加波动率因子区块、`node_fundamental` prompt 追加多空持仓因子区块、`node_verdict` prompt 追加多因子信号一致性看板；③ 18 个单元测试全部通过（覆盖波动率/跨品种价差/因子看板）；④ 设计文档 `docs/designs/p25-multifactor-injection.md` 含可行性评估（排除社区情绪，资金流更名为多空持仓）。版本号 bump 10.2.1→10.3.0 |
 | **v10.2.1** | 2026-07-25 | **新闻数据层清理 + _build_jin10_context 全面替换为 NewsRouter** — ① 删除 `nodes.py` 中 `_SYMBOL_TO_KEYWORDS`/`_SYMBOL_DEFAULT_KEYWORDS`/`_build_jin10_context` 旧代码（~120行）；② `node_fundamental`/`node_sentiment` 均通过 `NewsRouter`（`data_adapter/news`）获取多源聚合新闻数据，关键字映射迁移至 `data_adapter/news/sources/jin10_source.py`；③ 测试文件 `test_jin10_mcp.py` 中 `TestBuildJin10Context` → `TestNewsRouter`（4 个测试，覆盖 prompt_context / quality_report / keyword_mapping）；④ 文档同步：`01-architecture.md` 2处、`CODE_WIKI.md` 1处；⑤ 4 个新测试全部通过，7 个旧测试因 `futures_data_core` 模块缺失为已知失败。版本号 bump 10.2.0→10.2.1 |
@@ -406,9 +408,9 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 | **v9.22.3** | 2026-07-23 | **Context 按品种过滤 (G5)**：`_build_debate_context()` 新增 `current_symbol` 参数，辩论上下文仅包含当前品种数据，消除全品种注入的 prompt 膨胀；4 处辩论节点调用处传入当前品种。版本号 bump 9.22.2→9.22.3 |
 | **v9.22.2** | 2026-07-23 | **LLM 输出解析统一封装 (G4)**：`llm_provider.py` 新增 `parse_llm_output()` 函数，统一封装 5 处 LLM 输出解析调用（node_judge_direction / node_technical / node_fundamental / node_verdict / node_risk_check），消除 nodes.py 中所有手动 `json.loads` 和 inline `enforce_structured_output` 调用；新增 6 个单元测试全部通过。版本号 bump 9.22.1→9.22.2 |
 | **v9.22.1** | 2026-07-23 | **D3 Generation 全量接入 enforce_structured_output**：`node_risk_check` LLM 输出解析从手动 `json.loads` 替换为 `enforce_structured_output(agent_name="risk_manager")`，覆盖 5 处 LLM 解析节点全量接入。版本号 bump 9.22.0→9.22.1 |
-| **v9.22.0** | 2026-07-23 | **RHI 完整落地 — evolution_graph 集成 + 全局 CLI（G114 完成）**：① **RHI 接入自进化闭环** — `evolution_nodes.py` 新增 `node_rhi` 节点，decide_actions 新增 `need_rhi` 决策，evolution_graph 路由优先级 improve→calibrate→evolve→rhi→ml→complete，`FDT_RHI=true` 环境变量开关；② **全局 Harness CLI** — `scripts/rhi_global_cli.py` 独立 CLI 工具，任何项目可 `rhi-global init/status/step/history/install`，自动创建 CLAUDE.md 最小模板 + 四维评分 + 改进率收敛；③ 22 个 RHI 测试用例全部通过。版本号 bump 9.21.0→9.22.0 |
-| **v9.21.0** | 2026-07-23 | **MemoHarness+RHI 整合 — 自适应 Harness 优化框架（G114-G115）**：① **G21 设计文档升级** — 更新为 MemoHarness(六维控制空间+双层经验库) 和 RHI(轨迹局部 pairwise 比较) 的统一方案；② **HarnessSpec 契约** (`contracts/rhi_harness_spec.py`) — RHI 三层规范：Agent Candidates/Workflow(Contract+Hop)/Auxiliary Rules + MemoHarness 六维快照；③ **Pairwise Evaluator** (`scripts/rhi_pairwise_eval.py`) — 四维对比评分(质检通过率/风控/信号/报告完整性)，O(1)时间复杂度；④ **Harness Optimizer** (`scripts/rhi_harness_optimizer.py`) — LLM 基于偏好历史更新 Harness，workflow-first；⑤ **RHI LangGraph 子图** (`fdt_langgraph/rhi_graph.py`) — 可与 evolution_graph 集成，停止条件(ε=0.3, max_iter=5)；⑥ **全局 Harness RHI** (`scripts/rhi_global_harness.py`) — CLAUDE.md 自优化；⑦ 22 个测试用例全部通过。版本号 bump 9.20.1→9.21.0 |
-| **v9.20.2** | 2026-07-23 | **Harness 文档一致性三层保障体系** — Layer 1: 10 篇文档追加结构化一致性元数据表格；Layer 2: `scripts/verify_doc_consistency.py` 自动校验脚本，解析元数据并执行检验命令；Layer 3: `docs/harness/_data/` YAML 数据文件分离易变配置。C15 规则纳入 pre-commit。51 测试全绿，81 条断言通过。 |
+| **v9.22.0** | 2026-07-23 | **RHI 完整落地 — evolution_graph 集成 + 全局 CLI（G114 完成）**：① **RHI 接入自进化闭环** — `evolution_nodes.py` 新增 `node_rhi` 节点，decide_actions 新增 `need_rhi` 决策，evolution_graph 路由优先级 improve→calibrate→evolve→rhi→ml→complete，`FDT_RHI=true` 环境变量开关；② **全局 Harness CLI** — `scripts/harness/rhi_global_cli.py` 独立 CLI 工具，任何项目可 `rhi-global init/status/step/history/install`，自动创建 CLAUDE.md 最小模板 + 四维评分 + 改进率收敛；③ 22 个 RHI 测试用例全部通过。版本号 bump 9.21.0→9.22.0 |
+| **v9.21.0** | 2026-07-23 | **MemoHarness+RHI 整合 — 自适应 Harness 优化框架（G114-G115）**：① **G21 设计文档升级** — 更新为 MemoHarness(六维控制空间+双层经验库) 和 RHI(轨迹局部 pairwise 比较) 的统一方案；② **HarnessSpec 契约** (`contracts/rhi_harness_spec.py`) — RHI 三层规范：Agent Candidates/Workflow(Contract+Hop)/Auxiliary Rules + MemoHarness 六维快照；③ **Pairwise Evaluator** (`scripts/harness/rhi_pairwise_eval.py`) — 四维对比评分(质检通过率/风控/信号/报告完整性)，O(1)时间复杂度；④ **Harness Optimizer** (`scripts/harness/rhi_harness_optimizer.py`) — LLM 基于偏好历史更新 Harness，workflow-first；⑤ **RHI LangGraph 子图** (`fdt_langgraph/rhi_graph.py`) — 可与 evolution_graph 集成，停止条件(ε=0.3, max_iter=5)；⑥ **全局 Harness RHI** (`scripts/harness/rhi_global_harness.py`) — CLAUDE.md 自优化；⑦ 22 个测试用例全部通过。版本号 bump 9.20.1→9.21.0 |
+| **v9.20.2** | 2026-07-23 | **Harness 文档一致性三层保障体系** — Layer 1: 10 篇文档追加结构化一致性元数据表格；Layer 2: `scripts/verification/verify_doc_consistency.py` 自动校验脚本，解析元数据并执行检验命令；Layer 3: `docs/harness/_data/` YAML 数据文件分离易变配置。C15 规则纳入 pre-commit。51 测试全绿，81 条断言通过。 |
 | **v9.20.0** | 2026-07-23 | **v9.19.0 生产运行问题修复批（G109-G111）**：① **Evolution NoneType 修复（G109）** — `master_nodes.py` 中 `ev_state.get()` 增加 None 防护；② **质检缺字段容错（G110）** — `quality_inspector.py` 增加 `symbol`/`stop_loss`/`target1` 等缺失字段的自动填充和更友好的质检反馈；③ **LLM 解析回退增强（G111）** — `nodes.py` 观澜/探源 LLM 输出解析增加 JSON 修复逻辑（截断/单引号/注释清理），提高解析成功率；④ **FDC N/A 指标兜底** — `node_risk_check` 对 N/A 指标增加更清晰的阻断原因说明，帮助快速定位数据源问题；⑤ **报告路径去重** — `_resolve_report_dir()` 检查 workspace 是否已含日期后缀，避免嵌套；⑥ **analyze_trajectory import 修复** — `self_improve.py` 增加项目根目录 sys.path 插入。版本号 bump 9.19.0→9.20.0 |
 | **v9.19.0** | 2026-07-23 | **LangGraph 迁移收尾 · G108 关闭**：① `pipeline/runner.py`/`quality_filter.py`/`__init__.py` 退役；② `FDT_USE_LANGGRAPH` A/B 切换机制清理；③ Master Graph `run_master_daemon()` 心跳文件 `_write_heartbeat()` 落地（`memory/logs/master_heartbeat.log`）；④ `daemon_watchdog` 确认使用 `master_heartbeat.log` 检测存活；⑤ `node_run_data_collection` dangling 引用修复（内联 TDX collector + DominantResolver）；⑥ 外部脚本归档（15 个 subprocess 评估为"有意识保留"）；⑦ 17 处 Harness 文档旧引用全量清理（01/02/03/04/05/07 + designs）；⑧ G108 关闭。版本号 bump 9.18.0→9.19.0 |
 | **v9.18.0** | 2026-07-23 | **Master Orchestrator Graph — 全量自动化迁移至 LangGraph**：① 新增 `fdt_langgraph/master_state.py/master_nodes.py/master_graph.py` — Master Orchestrator LangGraph，统一编排所有自动化任务（日常辩论/数据采集/APM评分/自动发布），纯 Python datetime 调度判断，零第三方依赖；② `fdt_cli.py` daemon 模式从 APScheduler 替换为 `run_master_daemon()`；③ 新增 `fdt_cli.py master` 子命令单次检查；④ 移除 APScheduler 依赖；⑤ 18 个测试用例全绿。版本号 bump 9.17.0→9.18.0 |
@@ -442,10 +444,10 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 | **v8.8.5** | 2026-07-17 | **LangGraph 管线 Bug 修复（P0/P1/P2）**：① G70 `node_scan` 修复——改从文件读取扫描结果而非解析 stdout，scan_all 数据正确流入全管线；② G71 `node_report` 修复——逐品种基于扫描数据生成差异化方向/价格/仓位，报告含6个差异化信号（4BUY/2SELL）；③ G72 `node_signal_output` 修复——新增逐品种信号清单（abs>=60），按评分排序输出最强信号；④ 配套修复 `fdt_daily_runner.py` 禁用均值回归（加 `mean_reversion` 到 `DISABLED_STRATEGIES`）、LangGraph 模式启用、工作空间设置；⑤ `runner.py` 全品种传递。同步更新 `08-gap-analysis.md` G70-G72。版本号 bump 8.8.4→8.8.5 |
 | **v8.8.4** | 2026-07-17 | **P1/P2 Bug 修复批**：① G67 `compute_indicators()` API 不匹配修复（`node_prepare_data` 传 OHLCV dict 替代四个独立数组）；② G68 裁决/信号报告 None 格式化修复（`or 0` 模式防御 None）；③ G69 subprocess runner `debate_brief.py` 补全 l1l4/factor 两个必需位置参数；④ `fdt_daily_runner.py` 添加 `mean_reversion` 到 `DISABLED_STRATEGIES`，切换 LangGraph 模式，设置 `FDT_DAILY_WORKSPACE`；⑤ `runner.py` 传递全部品种而非限 10 个。同步更新 `08-gap-analysis.md`。版本号 bump 8.8.3→8.8.4 |
 | **v8.8.3** | 2026-07-17 | **Keltner 鲁棒参数训练（鲁棒评分加权）**：① 修改 `keltner_wf.py` 评分函数为鲁棒性加权（`0.1×峰值 + 0.9×3×3邻域均值`），优先选择参数平原广阔的组合；② 对63个品种完成全品种训练，`period=40, atr_mult=1.5` 被验证为最鲁棒的全局参数（25/63品种选该组合，信号加权均值 period=37.0, atr_mult=1.62，全局平均训练准确率61%/测试准确率21%）；③ 新增 `keltner_robustness.py` 鲁棒性分析器；④ 固定参数 `(40, 1.5)` 在10个代表性品种上的平均峰值得分51.4与邻域均值51.5几乎一致，验证了参数平原的广阔性（邻域平坦）；版本号 bump 8.8.2→8.8.3 |
-| **v8.8.2** | 2026-07-17 | **cov-4 批量测试覆盖（第二阶段·收官）**：扩展 `scripts/test_scripts.py` 新增 44 个测试用例，覆盖 4 个 scripts/ 模块（run_debate/fdt_cli/extract_knowledge/webui），累计 scripts/ 测试 **413 用例**，覆盖 **63 模块**（**412 passed / 1 skipped**）；修复 `extract_knowledge.py` 的 `confidence_utils` 导入 fallback；同步更新 `docs/harness/06-testing.md` / `08-gap-analysis.md`；G65 关闭；版本号 bump 8.8.1→8.8.2 |
+| **v8.8.2** | 2026-07-17 | **cov-4 批量测试覆盖（第二阶段·收官）**：扩展 `scripts/verification/test_scripts.py` 新增 44 个测试用例，覆盖 4 个 scripts/ 模块（run_debate/fdt_cli/extract_knowledge/webui），累计 scripts/ 测试 **413 用例**，覆盖 **63 模块**（**412 passed / 1 skipped**）；修复 `extract_knowledge.py` 的 `confidence_utils` 导入 fallback；同步更新 `docs/harness/06-testing.md` / `08-gap-analysis.md`；G65 关闭；版本号 bump 8.8.1→8.8.2 |
 | **v8.8.1** | 2026-07-17 | **Keltner 通道参数 Walk-Forward 优化**：① 新增 `keltner_wf.py` 参数训练脚本，对 `period`（10/15/20/25/30/40）和 `atr_mult`（1.5~3.5，步长0.25）共54种组合进行网格搜索；② 对61个品种完成Walk-Forward训练+测试分割（70%训练/30%测试）；③ 众数参数：period=40, atr_mult=1.5；④ 更新 `TREND_G30_CONFIG.keltner`（20→40, 2.25→1.5）和 `legacy_numpy.py` Keltner计算参数；⑤ 新增 `tests/quant-daily/test_keltner_wf.py` 17个单元测试全部通过；版本号 bump 8.8.0→8.8.1 |
 | **v8.8.0** | 2026-07-17 | **明鉴秋报告层调度增强**：① `state.py` 新增 4 个阶段报告字段（`scan_report_path` / `research_report_path` / `verdict_report_path` / `signal_report_path`）；② `nodes.py` 新增报告层调度函数（`_resolve_report_dir` / `_render_html` / `_write_*_report`），覆盖 P1/P3/P5/P6/P6a 五个阶段；③ P6 `node_report` 修复 fallback 路径，输出到用户指定工作空间（`FDT_REPORT_WORKSPACE` / `FDT_DAILY_WORKSPACE`）而非 `/tmp`；④ `fdt_cli.py` 新增 `_print_phase_reports()` 统一输出各阶段报告路径；⑤ 新增 `tests/fdt_langgraph/test_reports.py` 12 个测试用例全部通过；⑥ 同步更新 Harness 文档（01-architecture / 02-lifecycle §2.4 / 04-resilience §9.5.1 / 06-testing §2.1）；版本号 bump 8.7.1→8.8.0 |
-| **v8.7.1** | 2026-07-17 | **cov-4 批量测试覆盖（第一阶段）**：扩展 `scripts/test_scripts.py` 新增 57 个测试用例，覆盖 16 个 scripts/ 根目录及子目录模块（logutil/fdt_version/health_check/run_reporter/record_verdicts/notifier/llm.cache/llm.token_budget/spawn_resource_check/model_registry/debate_archiver/ops_monitor/auto_publish/auto_train/market_game_agent/marl_trainer），累计 scripts/ 测试 69 用例；**总测试 69 passed**；版本号 bump 8.7.0→8.7.1；同步更新 `docs/harness/06-testing.md` / `07-operations.md` / `08-gap-analysis.md` |
+| **v8.7.1** | 2026-07-17 | **cov-4 批量测试覆盖（第一阶段）**：扩展 `scripts/verification/test_scripts.py` 新增 57 个测试用例，覆盖 16 个 scripts/ 根目录及子目录模块（logutil/fdt_version/health_check/run_reporter/record_verdicts/notifier/llm.cache/llm.token_budget/spawn_resource_check/model_registry/debate_archiver/ops_monitor/auto_publish/auto_train/market_game_agent/marl_trainer），累计 scripts/ 测试 69 用例；**总测试 69 passed**；版本号 bump 8.7.0→8.7.1；同步更新 `docs/harness/06-testing.md` / `07-operations.md` / `08-gap-analysis.md` |
 | **v8.7.0** | 2026-07-17 | **架构精简 v2**：删除策略师子 Agent（策执远），将其职责合并到闫判官（直接输出完整交易参数）和风控明（复验止盈止损/盈亏比）；删除 `node_trading_plan` 节点、`trading_strategist.yaml` 配置；更新 LangGraph 流程为 verdict→risk_check→report→signal_output→END；同步更新 `execution_modes_flowchart.md` v4.6、`agent-protocol.md` v4.1、Harness 文档；版本号 bump 8.6.0→8.7.0 |
 | **v8.6.0** | 2026-07-17 | **架构精简 v1**：明鉴秋职责聚焦流程调度（P1-P5 阶段、自进化、记忆归档），删除 L1-L4 评分模块；新增 `node_report`（报告生成）和 `node_signal_output`（CTP 信号输出）；修复探源 Agent（产出 FundamentalStateVector）和观澜 Agent（产出 TechnicalOutput）的 LLM 推理生成逻辑；更新 LangGraph 架构为 risk_check→report→signal_output→END；同步更新 Harness 文档；版本号 bump 8.5.4→8.6.0 |
 | **v8.5.4** | 2026-07-17 | **cov-3 候选模块覆盖**：新增 4 个测试文件（test_unified_logger.py/test_fdt_version.py/test_config_manager.py/test_fdt_llm.py）共 144 个用例，覆盖率 91%/100%/92%/71%；解决 `tests/conftest.py` sys.path 遮蔽问题；累计 scripts 测试 7 文件/322 用例全绿；同步更新 pyproject.toml、07-operations.md、06-testing.md、08-gap-analysis.md；G65 Phase B 关闭 |
@@ -490,31 +492,24 @@ python scripts/auto_publish.py
 
 | 项 | 内容 |
 |:---|:-----|
-| 脚本 | `C:\Users\yangd\quant-bare\sync_experts_to_github.py` |
-| 自动化 | 每日 10:00 自动检测变更并推送 |
-| 范围 | 仅 `futures-debate-team/` 目录 |
-| 手动 | `python "C:\Users\yangd\quant-bare\sync_experts_to_github.py"` |
+| 同步方式 | Git push（手动或通过 `gh` CLI） |
+| 自动化 | Master Graph daemon 模式无内置自动推送，通过 CI/CD 或手动执行 |
+| 排除文件 | `.env`、`*.log`、`__pycache__/`、`D:\FDTWorkspace\` |
+| 手动 | `git add -A && git commit -m "..." && git push` |
 
-### 8.2 Agent 备份
-
-| 项 | 内容 |
-|:---|:-----|
-| 备份目录 | `agents/backups/` |
-| 备份时机 | 修改 Agent .md 文件前 |
-| 备份方式 | `cp -r agents/ agents/backups/$(date +%Y%m%d)/` |
-| 恢复方式 | 从备份目录复制回 `agents/` |
-
-### 8.3 记忆备份
+### 8.2 项目备份
 
 | 项 | 内容 |
 |:---|:-----|
-| 备份目录 | `memory/` |
-| 备份方式 | 版本控制 (git) |
-| 自动备份 | Master Graph 每日 04:00 memory_cleaner 任务包含 memory 归档 |
+| 代码仓库 | Git 管理，远程 origin 保护所有 `.py`/`.md`/`.yaml` 文件 |
+| 报告产物 | `D:\FDTWorkspace\{date}\` 报告和信号文件为非版本控制输出，按需归档 |
+| 数据库 | PostgreSQL 16+ 每日 pg_dump（如已配置 PGConnection） |
 
-### 8.4 备份恢复验证
+### 8.3 恢复方式
 
-每季度执行一次恢复演练，验证备份的可用性和完整性。
+- **代码恢复**: `git checkout` + `git pull` 还原至任意历史版本
+- **数据恢复**: 从 PostgreSQL dump 恢复（如已配置）
+- **完整重建**: `pip install -r requirements.txt` + `fdt_cli.py db init`
 
 ---
 
@@ -522,7 +517,7 @@ python scripts/auto_publish.py
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.4.0） | `grep "^version" pyproject.toml` |
+| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.4.2） | `grep "^version" pyproject.toml` |
 | `fdt_langgraph/nodes.py _compute_stop_target()` | §6.2 v10.4.0 | stop_loss/target 代码精确计算（L0），LLM 不可修改 | `grep -n "def _compute_stop_target" fdt_langgraph/nodes.py` |
 | `fdt_langgraph/nodes.py _clamp_position()` | §6.2 v10.4.0 | 仓位钳制（L0），LLM 输出超限被强制上限 | `grep -n "def _clamp_position" fdt_langgraph/nodes.py` |
 | `data_adapter/factors/technical_score.py compute_technical_score()` | §6.2 v10.4.0 | 技术评分代码化（L1），4 维度加权评分，LLM 在 ±10 范围调整 | `grep -n "def compute_technical_score" data_adapter/factors/technical_score.py` |
@@ -545,4 +540,4 @@ python scripts/auto_publish.py
 | `scripts/dashboard.py --watch` | §4 运维工具 | APM-CS 五轴 HTML 看板 | `grep -n "def main\|--watch\|dashboard" dashboard.py` |
 | `scripts/health_server.py --port 9000` | §4 | /health + /metrics HTTP 端点 | `grep -n "def main\|/health\|/metrics" health_server.py` |
 | `scripts/auto_publish.py` | §6.3 发布 | Git 标签 + GitHub Release | `grep -n "def publish\|release\|auto_publish"` |
-| `scripts/run_benchmark.py --replay` | §5.2 金标准 | 方向一致性 ≥95% | `grep -n "consistency\|accuracy\|95" run_benchmark.py"` |
+| `scripts/verification/run_benchmark.py --replay` | §5.2 金标准 | 方向一致性 ≥95% | `grep -n "consistency\|accuracy\|95" run_benchmark.py"` |

@@ -22,7 +22,7 @@ import yaml
 FDT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(FDT_ROOT))
 
-from scripts.harness_adapter import (
+from scripts.harness.harness_adapter import (
     DEFAULT_CONFIG,
     adapt_harness,
     log_adaptation,

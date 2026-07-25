@@ -4,12 +4,12 @@ RHI 整合测试 — HarnessSpec + PairwiseEvaluator + HarnessOptimizer + RHI Gr
 
 
 from contracts.rhi_harness_spec import HarnessSpec
-from scripts.rhi_harness_optimizer import (
+from scripts.harness.rhi_harness_optimizer import (
     apply_config_delta,
     build_optimizer_prompt,
     parse_optimizer_response,
 )
-from scripts.rhi_pairwise_eval import (
+from scripts.harness.rhi_pairwise_eval import (
     _score_quality_pass,
     _score_risk_pass,
     _score_signal_quality,
@@ -232,7 +232,7 @@ project_memory is available
 Knowledge base at D:\Knowledge
     """
     # 注入模拟内容
-    import scripts.rhi_global_harness as rhi_global
+    import scripts.harness.rhi_global_harness as rhi_global
     original_read = rhi_global._read_claude_md
     rhi_global._read_claude_md = lambda: sample_content
 

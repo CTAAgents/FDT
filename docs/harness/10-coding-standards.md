@@ -304,7 +304,7 @@ FDT 当前仅处理**商品期货**（黑色/有色/能化/农产品/软商品�
 | `fdt_langgraph/agents.py FdtAgentExecutor` | §10 D3 Generation | D3 结构化输出控制 | `grep -n "class FdtAgentExecutor\|response_format\|json_object"` |
 | `scripts/enforce_structured_output.py retry_with_temperature_escalation()` | §10 D3 | 温度递增重试 | `grep -n "def retry_with_temperature\|temperature_escalation"` |
 | `contracts/` | §3 契约优先 | Pydantic / TypedDict 定义 | `ls contracts/*.py` |
-| `scripts/pre_commit_harness_check.py` | §2 检查清单 | 12 项检查自动化 | `grep -n "check\|C0[1-9]\|C1[0-2]" harness-rules.yaml` |
+| `scripts/verification/pre_commit_harness_check.py` | §2 检查清单 | 12 项检查自动化 | `grep -n "check\|C0[1-9]\|C1[0-2]" harness-rules.yaml` |
 | `docs/harness/` | §1 修改顺序 | 8 维影响面扫描 | `ls docs/harness/0*.md \| wc -l` (应有 10 个) |
 | `docs/harness/loop-contracts/` | §3 契约优先 | Loop Contract 规范 | `ls docs/harness/loop-contracts/*.yaml` |
 

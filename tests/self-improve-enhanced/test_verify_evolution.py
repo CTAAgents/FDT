@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for scripts.verify_evolution — Autoresearch-style A/B verification.
 Covers: expert panel, scoring, verdict logic, ViBench loading.
 """
@@ -14,7 +14,7 @@ class TestEvolutionVerifierInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.verify_evolution import FDT_EXPERT_PANEL, MIN_SCORE, EvolutionVerifier
+        from scripts.verification.verify_evolution import FDT_EXPERT_PANEL, MIN_SCORE, EvolutionVerifier
         self.panel = FDT_EXPERT_PANEL
         self.min_score = MIN_SCORE
         self.verifier = EvolutionVerifier  # class ref
@@ -45,7 +45,7 @@ class TestEvolutionVerifierScoring:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         self.verifier = EvolutionVerifier()
 
     def test_verify_returns_expected_keys(self):
@@ -88,7 +88,7 @@ class TestEvolutionVerifierScoring:
 
     def test_expert_count_matches_panel(self):
         """Number of expert results must equal panel size."""
-        from scripts.verify_evolution import FDT_EXPERT_PANEL
+        from scripts.verification.verify_evolution import FDT_EXPERT_PANEL
         result = self.verifier.verify("base", "evo")
         assert len(result["per_expert"]) == len(FDT_EXPERT_PANEL)
 
@@ -104,14 +104,14 @@ class TestEvolutionVerifierViBench:
 
     def test_load_vibench_missing_file(self, tmp_path):
         """Non-existent file → empty list."""
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         verifier = EvolutionVerifier(tmp_path)  # no vibench file
         cases = verifier._load_vibench()
         assert cases == []
 
     def test_load_vibench_valid_file(self, tmp_path):
         """Valid test_cases.json as list → load successfully."""
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         cases = sample_vibench_cases()
         vibench_path = tmp_path / "benchmarks" / "test_cases.json"
         vibench_path.parent.mkdir(parents=True)
@@ -123,7 +123,7 @@ class TestEvolutionVerifierViBench:
 
     def test_load_vibench_as_object(self, tmp_path):
         """test_cases.json as {'cases': [...]} → load cases."""
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         cases = sample_vibench_cases()
         vibench_path = tmp_path / "benchmarks" / "test_cases.json"
         vibench_path.parent.mkdir(parents=True)
@@ -137,7 +137,7 @@ class TestEvolutionVerifierViBench:
 
     def test_load_vibench_malformed_json(self, tmp_path):
         """Corrupted JSON → empty list, no crash."""
-        from scripts.verify_evolution import EvolutionVerifier
+        from scripts.verification.verify_evolution import EvolutionVerifier
         vibench_path = tmp_path / "benchmarks" / "test_cases.json"
         vibench_path.parent.mkdir(parents=True)
         vibench_path.write_text("NOT JSON{broken", encoding="utf-8")

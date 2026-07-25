@@ -24,7 +24,7 @@ for k in list(sys.modules.keys()):
 
 import pytest
 
-from scripts.validate_llm_output import (
+from scripts.verification.validate_llm_output import (
     batch_validate,
     validate_confidence,
     validate_price_deviation,

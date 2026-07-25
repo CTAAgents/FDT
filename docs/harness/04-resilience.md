@@ -56,7 +56,7 @@ FDT 的鲁棒性架构由 5 层防线组成，确保辩论流程在任何异常�
 | **触发时机** | 每个 Agent spawn 完成后 |
 | **校验内容** | JSON Schema 合规性 + 必填字段非空 + 禁止模式检查 |
 | **失败动作** | 标记产出无效 → 触发 L2 重试 |
-| **代码位置** | 各 skill 的 `scripts/validate_agent_output.py` |
+| **代码位置** | 各 skill 的 `scripts/verification/validate_agent_output.py` |
 
 **校验规则**:
 ```python
@@ -518,7 +518,7 @@ FDT 的 F10 数据模块通过 `_datacore_bridge.py`（`futures_data_core/core/_
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `scripts/validate_agent_output.py` | §2.1 L1 产出校验 | JSON Schema + 禁止模式检查 | `grep -n "def validate\|class.*Validator"` |
+| `scripts/verification/validate_agent_output.py` | §2.1 L1 产出校验 | JSON Schema + 禁止模式检查 | `grep -n "def validate\|class.*Validator"` |
 | `scripts/agent_waiter.py wait_for_agent_output()` | §2.2 S04 轮询 | retry 最多 2 次 → D06 降级 | `grep -n "def wait_for_agent_output\|retry\|D06"` |
 | `fdt_langgraph/nodes.py node_chain/technical/fundamental/sentiment` | §3.2 P2 降级 | 300s 超时跳过，单源失败不影响其他 | `grep -n "timeout\|300"` |
 | `fdt_langgraph/graph.py` | §3.3 P3 降级 | 六阶段辩论 600s 超时自动跳过 | `grep -n "600\|timeout" fdt_langgraph/graph.py` |

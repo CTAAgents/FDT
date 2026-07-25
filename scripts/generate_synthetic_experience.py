@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.experience_recorder import update_index, write_record
-from scripts.harness_adapter import adapt_harness, log_adaptation
+from scripts.harness.harness_adapter import adapt_harness, log_adaptation
 from scripts.pattern_distiller import distill_patterns, save_pattern
 from scripts.pattern_reviewer import confirm_pattern
 

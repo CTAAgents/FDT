@@ -973,7 +973,7 @@ def main() -> None:
     print("🧬 技能层进化 (Skillevolver):")
     try:
         from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
 
         debate_json = script_dir / "data" / "debate_results.json"
         if debate_json.exists():

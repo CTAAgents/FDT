@@ -25,11 +25,11 @@ if str(_THIS_DIR.parent) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR.parent))
 
 from scripts.analyze_trajectory import FaultAttributor, TrajectoryAnalyzer
-from scripts.embodiskill_reflect import EmbodiSkillReflector
-from scripts.skillevolver_evolution import SkillEvolver
-from scripts.verify_evolution import EvolutionVerifier
+from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
+from scripts.harness.skillevolver_evolution import SkillEvolver
+from scripts.verification.verify_evolution import EvolutionVerifier
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 MEMORY_DIR = PROJECT_ROOT / "memory"
 
 

@@ -309,7 +309,7 @@ def cmd_step(args: argparse.Namespace) -> int:
     # 改进率
     try:
         sys.path.insert(0, str(HERE.parent))
-        from scripts.rhi_pairwise_eval import compute_improvement_rate
+        from scripts.harness.rhi_pairwise_eval import compute_improvement_rate
     except ImportError:
         # 回退: 手动计算
         def compute_improvement_rate(prefs):

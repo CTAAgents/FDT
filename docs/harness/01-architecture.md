@@ -1028,6 +1028,12 @@ class NewsSentimentVector:
 | `fdt_langgraph/master_graph.py::run_master_daemon()` | §2.8 Master Graph | 60s 心跳检查的统一编排 | `grep -n "def run_master_daemon"` |
 | `config/schema.py` / `contracts/` | §3.1 配置校验 | Pydantic v2 模型 + JSON Schema | `grep -n "class.*Config\|class.*Settings" config/schema.py` |
 
+## v10.4.2 变更记录
+- 2026-07-26: `scripts/` 目录结构化整理
+  - 创建 `scripts/verification/`（12 个验证脚本）
+  - 创建 `scripts/harness/`（10 个 Harness/RHI 脚本）
+  - 删除空壳子目录 `analysis/` `ops/` `reporting/`
+
 ## v10.2.0 变更记录
 - 2026-07-25: 重构 FDC 数据上下文构建函数体系
   - `_build_fdc_technical_context` / `_build_fdc_fundamental_context` → `_build_market_*` 别名

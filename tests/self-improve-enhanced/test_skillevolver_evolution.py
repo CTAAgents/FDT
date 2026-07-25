@@ -12,7 +12,7 @@ class TestSkillEvolverInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.skillevolver_evolution import EXPLORATION_STRATEGIES, K_EXPLORATIONS, R_ITERATIONS, SkillEvolver
+        from scripts.harness.skillevolver_evolution import EXPLORATION_STRATEGIES, K_EXPLORATIONS, R_ITERATIONS, SkillEvolver
         self.SkillEvolver = SkillEvolver
         self.K = K_EXPLORATIONS
         self.strategies = EXPLORATION_STRATEGIES
@@ -34,7 +34,7 @@ class TestSkillEvolverInit:
             assert "prompt_modifier" in s, f"{name} missing prompt_modifier"
 
     def test_agent_mapping_coverage(self):
-        from scripts.skillevolver_evolution import ROLE_TO_FILE_ID
+        from scripts.harness.skillevolver_evolution import ROLE_TO_FILE_ID
         assert len(ROLE_TO_FILE_ID) == 10  # 10 main roles
         role_ids = list(ROLE_TO_FILE_ID.values())
         for rid in role_ids:
@@ -46,7 +46,7 @@ class TestSkillEvolverExploration:
 
     @pytest.fixture(autouse=True)
     def _setup(self, tmp_path):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         # Use tmp_path as fake FDT root
         self.fake_root = tmp_path / "fdt"
         self.fake_root.mkdir()
@@ -76,7 +76,7 @@ class TestSkillEvolverExploration:
 
     def test_each_strategy_generates_variant(self):
         """All 4 strategies must produce variant files."""
-        from scripts.skillevolver_evolution import EXPLORATION_STRATEGIES
+        from scripts.harness.skillevolver_evolution import EXPLORATION_STRATEGIES
         results = self.evolver._explore_strategies(dry_run=True)
         strategy_names = {r["strategy"] for r in results}
         assert strategy_names == set(EXPLORATION_STRATEGIES.keys())
@@ -87,7 +87,7 @@ class TestSkillEvolverContrastiveUpdate:
 
     @pytest.fixture(autouse=True)
     def _setup(self, tmp_path):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         self.fake_root = tmp_path / "fdt"
         self.fake_root.mkdir()
         agents_dir = self.fake_root / "agents"
@@ -141,7 +141,7 @@ class TestSkillEvolverAudit:
     """Stage 3: independent audit."""
 
     def test_audit_passes_good_patch(self):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
             "target_file": "/agents/futures-judge.md",
             "patch": "+# SkillEvolver 补丁\n+# 修复建议: 修正 ADX>60 约束",
@@ -153,7 +153,7 @@ class TestSkillEvolverAudit:
         assert validated[0]["status"] == "ready"
 
     def test_audit_rejects_low_confidence(self):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
             "target_file": "/agents/futures-judge.md",
             "patch": "+# small",
@@ -164,7 +164,7 @@ class TestSkillEvolverAudit:
         assert validated[0]["status"] == "rejected"
 
     def test_audit_rejects_date_hardcoded(self):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         updates = [{
             "target_file": "/agents/futures-judge.md",
             "patch": "+# 2026-07-11 specific case",
@@ -180,7 +180,7 @@ class TestSkillEvolverFullCycle:
     """Full evolution cycle (dry run)."""
 
     def test_full_cycle_dry_run(self, tmp_path):
-        from scripts.skillevolver_evolution import SkillEvolver
+        from scripts.harness.skillevolver_evolution import SkillEvolver
         fake_root = tmp_path / "fdt"
         fake_root.mkdir()
         (fake_root / "agents").mkdir()

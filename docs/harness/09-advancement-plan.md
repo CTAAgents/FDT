@@ -253,4 +253,4 @@ Phase 13 ─── ✅ v9.19.0 ── **LangGraph 迁移收尾**：G108 全部�
 | `scripts/dashboard.py` | G11 监控 | HTML 看板 | `grep -n "def main\|dashboard"` |
 | `scripts/health_server.py` | G12 健康 | /health + /metrics | `grep -n "/health\|/metrics"` |
 | `scripts/unified_logger.py` | G15 日志 | JSON 格式日志 | `grep -n "json\|JSON"` |
-| `scripts/pre_commit_harness_check.py` | §8 pre-commit | 自动扫描 12 项检查 | `grep -c "C0[1-9]\|C1[0-2]" harness-rules.yaml` |
+| `scripts/verification/pre_commit_harness_check.py` | §8 pre-commit | 自动扫描 12 项检查 | `grep -c "C0[1-9]\|C1[0-2]" harness-rules.yaml` |

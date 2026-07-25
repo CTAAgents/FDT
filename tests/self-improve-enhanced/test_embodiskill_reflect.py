@@ -13,7 +13,7 @@ class TestEmbodiSkillReflectorInit:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from scripts.embodiskill_reflect import B_REVISION, K_MAX_REFLECTIONS, REFLECTION_TYPES
+        from scripts.harness.embodiskill_reflect import B_REVISION, K_MAX_REFLECTIONS, REFLECTION_TYPES
         self.K = K_MAX_REFLECTIONS
         self.B = B_REVISION
         self.types = REFLECTION_TYPES
@@ -38,7 +38,7 @@ class TestEmbodiSkillReflection:
 
     @pytest.fixture(autouse=True)
     def _setup(self, tmp_path):
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         fake_root = tmp_path / "fdt"
         fake_root.mkdir(exist_ok=True)
         self.reflector = EmbodiSkillReflector(fake_root)
@@ -85,7 +85,7 @@ class TestEmbodiSkillBuffer:
 
     @pytest.fixture(autouse=True)
     def _setup(self, tmp_path):
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         self.fake_root = tmp_path / "fdt"
         self.fake_root.mkdir()
         self.reflector = EmbodiSkillReflector(self.fake_root)
@@ -99,7 +99,7 @@ class TestEmbodiSkillBuffer:
 
     def test_buffer_writes_at_threshold(self, monkeypatch):
         """Buffer should write to file when reaching B_REVISION."""
-        from scripts.embodiskill_reflect import B_REVISION
+        from scripts.harness.embodiskill_reflect import B_REVISION
         # Build B_REVISION reflections one sample at a time
         traj = [{"step_id": "P1", "agent_role": "A", "observation": "ok", "reward": 1.0}]
         for _ in range(B_REVISION):
@@ -112,7 +112,7 @@ class TestEmbodiSkillBuffer:
 
     def test_integrate_output_structure(self, tmp_path):
         """Integrated file must have correct schema."""
-        from scripts.embodiskill_reflect import B_REVISION, EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import B_REVISION, EmbodiSkillReflector
         fake_root = tmp_path / "fdt"
         fake_root.mkdir(exist_ok=True)
         reflector = EmbodiSkillReflector(fake_root)
@@ -133,7 +133,7 @@ class TestEmbodiSkillRestructure:
     """Agent MD restructuring (Phase 1 migration support)."""
 
     def test_restructure_adds_s_body(self):
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         reflector = EmbodiSkillReflector()
         content = "# 测试Agent\n\n## Role\n裁决者\n"
         result = reflector.restructure_agent_md(content)
@@ -142,7 +142,7 @@ class TestEmbodiSkillRestructure:
         assert "裁决者" in result  # original content preserved
 
     def test_restructure_preserves_frontmatter(self):
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         reflector = EmbodiSkillReflector()
         content = "---\nname: test-agent\n---\n\n# 测试Agent\n\n## Role\n裁决者\n"
         result = reflector.restructure_agent_md(content)
@@ -151,7 +151,7 @@ class TestEmbodiSkillRestructure:
 
     def test_restructure_preserves_all_content(self):
         """All original text must be preserved after restructure."""
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         reflector = EmbodiSkillReflector()
         content = "# 测试Agent\n\n## 核心职责\n信号质疑者\n\n## 禁止规则\n- ❌ 禁止 WebSearch\n"
         result = reflector.restructure_agent_md(content)
@@ -160,7 +160,7 @@ class TestEmbodiSkillRestructure:
 
     def test_restructure_empty(self):
         """Empty input → still produces valid structure."""
-        from scripts.embodiskill_reflect import EmbodiSkillReflector
+        from scripts.harness.embodiskill_reflect import EmbodiSkillReflector
         reflector = EmbodiSkillReflector()
         result = reflector.restructure_agent_md("")
         assert "## S_body:" in result

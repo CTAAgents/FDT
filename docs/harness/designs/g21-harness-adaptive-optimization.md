@@ -263,12 +263,12 @@ sⁱ = (∑_{k=1..i} 1[outputᵏ ≻ outputᵏ⁻¹]) / i
 | 组件 | 文件 | 说明 |
 |:-----|:-----|:------|
 | Harness 三层规范定义 | `contracts/rhi_harness_spec.py` | HarnessSpec TypedDict |
-| Pairwise Evaluator | `scripts/rhi_pairwise_eval.py` | 两轮产出对比评分 |
-| Harness Optimizer (LLM) | `scripts/rhi_harness_optimizer.py` | LLM 基于偏好历史更新 Harness |
+| Pairwise Evaluator | `scripts/harness/rhi_pairwise_eval.py` | 两轮产出对比评分 |
+| Harness Optimizer (LLM) | `scripts/harness/rhi_harness_optimizer.py` | LLM 基于偏好历史更新 Harness |
 | RHI 主循环 | `fdt_langgraph/rhi_graph.py` | RHI LangGraph 子图 |
 | 经验库存储 | `memory/experience/records/` | Et 逐条文件 (已有) |
 | 蒸馏模式存储 | `memory/experience/patterns/` | Gt 文件 (已有) |
-| 检索适配引擎 | `scripts/harness_adapter.py` | 核心逻辑 (已有) |
+| 检索适配引擎 | `scripts/harness/harness_adapter.py` | 核心逻辑 (已有) |
 | 蒸馏引擎 | `scripts/pattern_distiller.py` | 批量蒸馏 (已有) |
 
 ## 5. 集成点
@@ -284,11 +284,11 @@ sⁱ = (∑_{k=1..i} 1[outputᵏ ≻ outputᵏ⁻¹]) / i
 | 阶段 | 内容 | 交付物 |
 |:----:|:-----|:--------|
 | Phase 1 | HarnessSpec TypedDict + 现有组件映射 | `contracts/rhi_harness_spec.py` |
-| Phase 2 | Pairwise Evaluator — 两轮产出四维对比 | `scripts/rhi_pairwise_eval.py`, 测试 |
-| Phase 3 | Harness Optimizer — LLM 基于偏好历史更新 Harness | `scripts/rhi_harness_optimizer.py` |
+| Phase 2 | Pairwise Evaluator — 两轮产出四维对比 | `scripts/harness/rhi_pairwise_eval.py`, 测试 |
+| Phase 3 | Harness Optimizer — LLM 基于偏好历史更新 Harness | `scripts/harness/rhi_harness_optimizer.py` |
 | Phase 4 | RHI Loop — evolution_graph.py 集成 RHI 分支 | `fdt_langgraph/rhi_graph.py`, 测试 |
-| Phase 5 | 经验库集成 — Et 记录偏好历史 + Gt 标注 RHI 迭代次数 | `scripts/harness_adapter.py` 更新 |
-| Phase 6 | 全局 Harness — CLAUDE.md RHI 自优化 | `scripts/rhi_global_harness.py` |
+| Phase 5 | 经验库集成 — Et 记录偏好历史 + Gt 标注 RHI 迭代次数 | `scripts/harness/harness_adapter.py` 更新 |
+| Phase 6 | 全局 Harness — CLAUDE.md RHI 自优化 | `scripts/harness/rhi_global_harness.py` |
 
 ## 7. 风险与应对
 

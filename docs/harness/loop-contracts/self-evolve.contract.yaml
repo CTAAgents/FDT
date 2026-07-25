@@ -29,7 +29,7 @@ trigger:
       - "累计 50 条新样本"        # ML 训练阈值
   secondary:
     - type: manual
-      command: "python scripts/validate_verdicts.py && python scripts/calibrate_weights.py && python scripts/evolve_agents.py"
+      command: "python scripts/verification/validate_verdicts.py && python scripts/calibrate_weights.py && python scripts/evolve_agents.py"
     - type: pre_loop_hook
       parent: daily-debate        # 作为每日辩论的前置步骤运行
       order: pre_debate           # 在 P1_scan 之前执行
@@ -75,7 +75,7 @@ action:
     - step: validate_verdicts
       name: T+1 回测验证
       description: 用后续行情检验历史裁决方向正确性
-      command: "python scripts/validate_verdicts.py [--t1] [--t3] [--report]"
+      command: "python scripts/verification/validate_verdicts.py [--t1] [--t3] [--report]"
       timeout: 300s
       failure_strategy: skip  # 验证失败不影响后续校准
       output:

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re as _re
+import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

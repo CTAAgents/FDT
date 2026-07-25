@@ -153,7 +153,7 @@ checks:
     trigger_pattern: "docs/harness/.*\\.md"
     message: >
       Harness 文档与代码的一致性校验。运行
-      `python scripts/verify_doc_consistency.py`
+      `python scripts/verification/verify_doc_consistency.py`
       检查各文档 `## 一致性元数据` 表格中的断言是否仍与代码匹配。
       每行断言对应一条可验证事实（函数存在、路径正确、版本一致等）。
 

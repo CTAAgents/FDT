@@ -22,12 +22,12 @@ from contracts.rhi_harness_spec import (
     RHIHistory,
 )
 from fdt_langgraph.agents import FdtAgentExecutor
-from scripts.rhi_harness_optimizer import (
+from scripts.harness.rhi_harness_optimizer import (
     apply_config_delta,
     build_optimizer_prompt,
     parse_optimizer_response,
 )
-from scripts.rhi_pairwise_eval import (
+from scripts.harness.rhi_pairwise_eval import (
     compute_improvement_rate,
     evaluate_pairwise,
 )

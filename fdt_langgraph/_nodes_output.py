@@ -18,6 +18,8 @@ from fdt_langgraph._nodes_context import _build_signal_summary_html
 
 logger = logging.getLogger(__name__)
 
+_SKILLS_DIR = Path(__file__).parent.parent / "skills"
+
 def _load_template_css() -> str:
     """从 docs/report-template/report_css.html 加载统一模板 CSS"""
     _REPORT_CSS_PATH = Path(__file__).resolve().parent.parent / "docs" / "report-template" / "report_css.html"

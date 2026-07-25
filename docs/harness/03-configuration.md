@@ -602,7 +602,7 @@ pip install ruff pyyaml pytest numpy pandas scipy
 
 # 检查
 ruff check .
-python scripts/pre_commit_harness_check.py
+python scripts/verification/pre_commit_harness_check.py
 
 # 运行测试
 python -m pytest tests/strategies/ --tb=short -q -o "addopts="

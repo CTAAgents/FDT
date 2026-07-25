@@ -251,9 +251,9 @@ README 声称"5门禁审计全100%"，即所有门禁测试均通过。
 ### 6.3 CLI 接口
 
 ```bash
-python scripts/run_benchmark.py --build    # 构建测试集 (从历史辩论提取)
-python scripts/run_benchmark.py --run      # 运行基准 (新辩论 vs 基线)
-python scripts/run_benchmark.py --replay   # 回放历史 (确定性结构一致性)
+python scripts/verification/run_benchmark.py --build    # 构建测试集 (从历史辩论提取)
+python scripts/verification/run_benchmark.py --run      # 运行基准 (新辩论 vs 基线)
+python scripts/verification/run_benchmark.py --replay   # 回放历史 (确定性结构一致性)
 ```
 
 ## 7. 覆盖率
@@ -314,7 +314,7 @@ python -m pytest tests/ --cov=scripts --cov=fdt_langgraph --cov-report=term-miss
 python -m pytest tests/fdt-gate/ -v
 
 # ViBench 回放
-python scripts/run_benchmark.py --replay
+python scripts/verification/run_benchmark.py --replay
 ```
 
 ## 9. 测试统计（G7 覆盖率扩展后）
@@ -380,7 +380,7 @@ true_negative_rate = true_accept_count / (true_accept_count + false_block_count)
 
 ```bash
 # 计算验证器质量指标
-python scripts/validate_llm_output.py --scan scan.json --verdict verdict.json --stats llm_hallucination_stats.json
+python scripts/verification/validate_llm_output.py --scan scan.json --verdict verdict.json --stats llm_hallucination_stats.json
 
 # 质量报告
 cat llm_hallucination_stats.json | jq '{
@@ -612,6 +612,6 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 | `tests/fdt_langgraph/test_reports.py` | §2.3 报告层 | 12 个测试 (P1/P3/P5/P6/P6a) | `grep -c "def test_" tests/fdt_langgraph/test_reports.py` |
 | `tests/contracts/test_contracts.py` | §3 契约测试 | 9 个 JSON Schema 校验 | `grep -c "def test_" tests/contracts/test_contracts.py` |
 | `docs/schemas/` | §3 | 9 个 JSON Schema (Draft 2020-12) | `ls docs/schemas/*.json` |
-| `scripts/validate_agent_output.py` | §4 验证器 | 漏放率 ≤1% / 误杀率 ≤5% | `grep -n "leak\|misclassify\|漏放\|误杀"` |
+| `scripts/verification/validate_agent_output.py` | §4 验证器 | 漏放率 ≤1% / 误杀率 ≤5% | `grep -n "leak\|misclassify\|漏放\|误杀"` |
 | `tests/experience/` | §4 经验库 | recorder(17) / distiller(13) / adapter(10+) | `ls tests/experience/test_*.py` |
 | `pyproject.toml` | 全局 | pytest 配置 (coverage / asyncio_mode) | `grep -A5 "\[tool.pytest" pyproject.toml` |

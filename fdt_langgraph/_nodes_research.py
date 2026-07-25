@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 
 from fdt_langgraph.agents import FdtAgentExecutor
@@ -245,6 +246,60 @@ async def node_technical(state: DebateState) -> dict:
                             sv["score"] = base
         except Exception as e:
             logger.warning(f"[TECH] _repair_json 回退失败: {e}")
+
+    # Last-resort: regex per_symbol extraction from raw output
+    if not llm_parse_ok and output:
+        logger.warning("[TECH] 尝试正则提取 per_symbol 数据")
+        try:
+            extracted = {}
+            for sym in selected:
+                sk = sym.upper()
+                ms = list(re.finditer(rf'"{sk}"\s*:\s*(\{{)', output))
+                for m in ms:
+                    depth = 0
+                    start_i = m.start(1)
+                    for i in range(start_i, len(output)):
+                        if output[i] == "{":
+                            depth += 1
+                        elif output[i] == "}":
+                            depth -= 1
+                            if depth == 0:
+                                obj_str = output[start_i:i + 1]
+                                break
+                    else:
+                        continue
+                    try:
+                        obj = json.loads(obj_str)
+                    except json.JSONDecodeError:
+                        try:
+                            obj = json.loads(_repair_json(obj_str))
+                        except (json.JSONDecodeError, Exception):
+                            continue
+                    if isinstance(obj, dict):
+                        extracted[sym] = _normalize_per_symbol({sym: obj}).get(sym, obj)
+                        break
+            if extracted:
+                for sym_key in extracted:
+                    if isinstance(extracted[sym_key], dict):
+                        extracted[sym_key]["is_partial"] = True
+                per_symbol_tech.update(extracted)
+                llm_parse_ok = True
+                logger.info(f"[TECH] 正则提取成功(partial): {list(extracted.keys())}")
+                # 评分钳制（正则回退路径）
+                if baseline_scores:
+                    for sym in list(per_symbol_tech.keys()):
+                        sv = per_symbol_tech[sym]
+                        raw_score = sv.get("score", 50)
+                        base = baseline_scores.get(sym, 50)
+                        try:
+                            clamped = max(base - 10, min(base + 10, int(raw_score)))
+                            if clamped != int(raw_score):
+                                logger.info(f"[TECH] {sym}(regex): LLM评分{raw_score}偏离基准{base}±10，钳制为{clamped}")
+                            sv["score"] = clamped
+                        except (TypeError, ValueError):
+                            sv["score"] = base
+        except Exception as e:
+            logger.warning(f"[TECH] 正则提取失败: {e}")
 
     # If LLM parsing failed or returned incomplete, fill missing symbols from FDC data
     if not llm_parse_ok and fdc_data:
