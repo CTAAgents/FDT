@@ -149,11 +149,16 @@ def route_after_quality_inspect(state: DebateState) -> str:
 
 
 def _get_current_symbol(state: DebateState) -> str:
-    """获取当前处理的品种代码。"""
-    symbols = state.get("selected_symbols", [])
+    """获取当前处理的品种代码。
+
+    使用 _original_symbols 而非 selected_symbols，因为 prepare_one_symbol
+    会将 selected_symbols 覆盖为单元素列表，导致第2品种起 current_sym 为空。
+    """
+    symbols = state.get("_original_symbols", state.get("selected_symbols", []))
     idx = state.get("symbol_index", -1)
     if 0 <= idx < len(symbols):
         return symbols[idx]
+    logger.warning("G19 修复: _get_current_symbol 无法定位品种(idx=%d, symbols=%s)", idx, symbols)
     return ""
 
 

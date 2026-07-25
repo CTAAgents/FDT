@@ -753,7 +753,8 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             data_grades["kline"] = kline_payload.meta.get("data_grade", "UNKNOWN")
 
             bars = _raw_bars
-            if bars and len(bars) >= 20:
+            bar_count = len(bars) if bars else 0
+            if bars and bar_count >= 60:
                 import pandas as _pd
                 try:
                     # 使用 data_adapter 纯 numpy 指标，与 scan_all.py 保持一致
@@ -776,14 +777,21 @@ async def node_prepare_data(state: DebateState) -> DebateState:
                             ind_values[k] = v.tolist()
                         else:
                             ind_values[k] = v
-                    symbol_data["indicators"] = {
-                        "values": ind_values,
-                        "available": list(ind_result.keys()),
-                    }
-                    data_grades["indicators"] = "PRIMARY"
+                    if ind_result:  # 仅当实际计算出了指标才标记 PRIMARY
+                        symbol_data["indicators"] = {
+                            "values": ind_values,
+                            "available": list(ind_result.keys()),
+                        }
+                        data_grades["indicators"] = "PRIMARY"
+                    else:
+                        data_grades["indicators"] = "UNAVAILABLE"
+                        logger.info(f"[FDC] {symbol} indicators.py 返回空结果(bar_count={bar_count}), 标记 UNAVAILABLE")
                 except Exception as e:
-                    logger.warning(f"[FDC] {symbol} 技术指标失败: {e}")
+                    logger.warning(f"[FDC] {symbol} 技术指标计算失败: {e}")
                     data_grades["indicators"] = "UNAVAILABLE"
+            elif bars and bar_count < 60:
+                data_grades["indicators"] = "UNAVAILABLE"
+                logger.info(f"[FDC] {symbol} K线数量不足(bar_count={bar_count}, 需>=60), 跳过技术指标计算")
         except Exception as e:
             logger.warning(f"[FDC] {symbol} K线获取失败: {e}")
             error = f"kline_error: {e}"
@@ -867,7 +875,15 @@ async def node_prepare_data(state: DebateState) -> DebateState:
 
         # ── F10 数据质量评估（Data Governance Phase 2）已随 FDC 退役 ──
         symbol_data["f10_quality"] = {"available": False, "data_grade": "UNAVAILABLE", "note": "data_quality 已退役"}
-        symbol_data["indicator_quality"] = {"available": False, "data_grade": "UNAVAILABLE", "note": "data_quality 已退役"}
+        # 根据实际指标计算结果设定 indicator_quality
+        ind = symbol_data.get("indicators", {})
+        ind_available = bool(ind and ind.get("available"))
+        symbol_data["indicator_quality"] = {
+            "available": ind_available,
+            "overall": "PRIMARY" if ind_available else "UNAVAILABLE",
+            "completeness_pct": len(ind.get("available", [])) if ind_available else 0,
+            "note": "基于 data_grades 实时评估",
+        }
 
         symbol_data["data_grades"] = data_grades
         return symbol, symbol_data, error
@@ -3036,7 +3052,8 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
     """
     from fdt_langgraph.quality_inspector import validate_risk, validate_verdict
 
-    symbols = state.get("selected_symbols", [])
+    # 使用 _original_symbols 而非 selected_symbols 定位当前品种（修复: per-symbol循环symbol丢失）
+    symbols = state.get("_original_symbols", state.get("selected_symbols", []))
     idx = state.get("symbol_index", -1)
     current_sym = symbols[idx] if 0 <= idx < len(symbols) else ""
     counters = dict(state.get("rework_counters", {}))

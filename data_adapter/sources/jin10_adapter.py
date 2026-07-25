@@ -125,6 +125,12 @@ class Jin10McpFetcher:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
     ):
+        # 自动从 .env 加载环境变量（若存在）
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
         self.server_url = server_url or os.environ.get("JIN10_MCP_URL", _JIN10_DEFAULT_URL)
         self.token = token or os.environ.get("JIN10_MCP_TOKEN", "")
         self.timeout = timeout or float(os.environ.get("FDT_MCP_TIMEOUT", "30"))
@@ -135,10 +141,13 @@ class Jin10McpFetcher:
     def available(self) -> bool:
         if self._available is not None:
             return self._available
-        self._available = bool(self.token)
-        if not self._available:
-            logger.debug("[Jin10MCP] 未设置 JIN10_MCP_TOKEN，金十 MCP 不可用")
-        return self._available
+        if not bool(self.token):
+            logger.warning("[Jin10MCP] 未设置 JIN10_MCP_TOKEN，金十 MCP 不可用 — "
+                          "请在 .env 或系统环境变量中配置有效的 JIN10_MCP_TOKEN")
+            self._available = False
+            return False
+        self._available = True
+        return True
 
     def _ensure_client(self) -> _McpHttpClient:
         if self._client is None:
@@ -264,6 +273,50 @@ class Jin10McpFetcher:
             "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
+    async def test_connection(self) -> dict:
+        """测试 MCP 服务器连接，返回详细诊断信息。"""
+        result = {
+            "server_url": self.server_url,
+            "token_configured": bool(self.token),
+            "reachable": False,
+            "error": None,
+            "details": {},
+        }
+        if not self.token:
+            result["error"] = "JIN10_MCP_TOKEN 未配置（在 .env 中取消注释或设置环境变量）"
+            return result
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    f"{self.server_url}/",
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": "test-conn",
+                        "method": "initialize",
+                        "params": {"protocolVersion": _MCP_PROTOCOL_VERSION, "capabilities": {}},
+                    },
+                    headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"},
+                )
+                result["details"]["http_status"] = resp.status_code
+                result["reachable"] = resp.status_code == 200
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result["details"]["server_info"] = data.get("result", {}).get("serverInfo", {})
+                    result["details"]["protocol_version"] = data.get("result", {}).get("protocolVersion", "")
+                elif resp.status_code == 401:
+                    result["error"] = "HTTP 401: Token 无效或被拒绝，请检查 JIN10_MCP_TOKEN 是否正确"
+                elif resp.status_code == 403:
+                    result["error"] = "HTTP 403: 无权限访问，请检查 Token 权限"
+                else:
+                    result["error"] = f"HTTP {resp.status_code}: 服务器返回异常状态码"
+        except httpx.ConnectError as e:
+            result["error"] = f"连接失败: {e} (server_url={self.server_url})"
+        except httpx.TimeoutException:
+            result["error"] = f"连接超时 (timeout=5s, server_url={self.server_url})"
+        except Exception as e:
+            result["error"] = f"连接异常: {type(e).__name__}: {e}"
+        return result
+
     async def close(self) -> None:
         if self._client:
             await self._client.close()
@@ -284,10 +337,31 @@ def _get_jin10() -> Jin10McpFetcher:
 
 def jin10_available() -> bool:
     try:
-        return _get_jin10().available
+        fetcher = _get_jin10()
+        if not fetcher.available:
+            logger.info("[Jin10Adapter] 不可用: JIN10_MCP_TOKEN 未配置")
+            return False
+        return True
     except Exception as e:
         logger.debug("[Jin10Adapter] 不可用: %s", e)
         return False
+
+
+async def jin10_diagnose() -> dict:
+    """返回金十 MCP 的详细连接诊断信息（用于调试和日志）。"""
+    fetcher = _get_jin10()
+    base = {
+        "server_url": fetcher.server_url,
+        "token_configured": bool(fetcher.token),
+        "available": fetcher.available,
+    }
+    if fetcher.token:
+        diag = await fetcher.test_connection()
+        base.update(diag)
+    else:
+        base["reachable"] = False
+        base["error"] = "JIN10_MCP_TOKEN 未配置（在 .env 中取消注释 JIN10_MCP_TOKEN 或设置环境变量）"
+    return base
 
 
 async def jin10_list_flash(cursor: Optional[str] = None) -> dict:
