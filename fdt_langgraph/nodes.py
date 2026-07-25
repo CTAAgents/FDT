@@ -554,7 +554,26 @@ def node_freshness_gate(state: DebateState) -> DebateState:
 
     从 scan_all.py 的 freshness_report + R24 闸门结果判断数据是否可用。
     如果所有品种数据均为 STALE/UNAVAILABLE，标记 freshness_report 供 D06 降级路由决策。
+
+    环境变量 FDT_BYPASS_FRESHNESS_GATE=true 可强制绕过（非交易时段使用）。
     """
+    # ── 环境变量绕过开关（v10.1.1: 非交易时段强制辩论） ──
+    if os.environ.get("FDT_BYPASS_FRESHNESS_GATE", "").lower() == "true":
+        bypass_msg = "[P0b] FDT_BYPASS_FRESHNESS_GATE=true，跳过新鲜度检查"
+        logger.warning(bypass_msg)
+        scan_results = state.get("scan_results", {})
+        all_ranked = scan_results.get("all_ranked", [])
+        return {
+            **state,
+            "freshness_report": {
+                "status": "BYPASS",
+                "valid_symbols": len(all_ranked),
+                "summary": bypass_msg,
+            },
+            "current_phase": "P0b",
+            "completed_phases": state["completed_phases"] + ["P0b"],
+        }
+
     scan_results = state.get("scan_results", {})
     if not scan_results:
         return {**state, "freshness_report": {"status": "NO_SCAN", "summary": "无扫描结果，无法验证新鲜度"}}

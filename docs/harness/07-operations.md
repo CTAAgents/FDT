@@ -534,6 +534,7 @@ python scripts/auto_publish.py
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v10.1.2** | 2026-07-25 | **FDT_BYPASS_FRESHNESS_GATE 绕过开关** — P0b 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE=true` 环境变量，非交易时段可强制绕过新鲜度检查直接进入辩论链。docs/harness/03-configuration.md 同步更新。|
 | **v10.1.1** | 2026-07-25 | **链证源导入修复 + 新闻情绪解析 + 报告模板对齐** — ① 修复 commodity-chain-analysis 目录名含连字符导致的 ModuleNotFoundError（`_import_skill_module` importlib 按文件路径加载；修正从 analyze_chain.py 而非 chains.py 导入 `lookup_symbol_names`/`build_symbols_data`）；② 修复新闻情绪模块空数据（`node_sentiment()` 新增 `parse_llm_output` 调用；`decode_config.yaml` 补充 `news_sentiment_analyst` 条目）；③ 新增交易信号汇总章节（`_build_signal_summary_html` 渲染品种/方向/置信度/入出场价/仓位/盈亏比表格）；④ 报告模板对齐（`debate-round` 外层添加 `debate-box.bull`/`.bear` 容器，红蓝左边框区分多空）。|
 | **v9.24.0** | 2026-07-23 | **差距修复集中收官** — 关闭全部 15 项开放差距：G-6D-01~G-6D-08(六维控制空间)、GAP-AP01-001(AGENTS.md瘦身)、GAP-HOOK-001(pre-commit hook)、G17(准入自动化)、G18(调度权强制)、G124(ReportAggregator)。VectorMemory 接入辩论流程、ToolMetrics 反哺调度决策、AGENTS.md全部≤300行。 |
 | **v9.26.0** | 2026-07-24 | **AKShare 升至第一K线数据源 + 数据源优先级重排** — 新增 `collectors/akshare.py`（AKShareCollector），通过 `akshare.futures_hist_em()` 获取东方财富期货K线，设为第一数据源（priority=0）。数据源链调整为：AKShare（第一）→ TDX TQ-Local（第二）→ TqSDK（第三）→ DataCore → WebFallback → QMT。`data_sources.yaml` 同步更新。|

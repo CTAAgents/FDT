@@ -2,6 +2,7 @@
 
 > **v10.0.0** (2026-07-24): 数据层重构 — FDC 退役，`data_adapter/` 数据适配层上线。AKShare 为唯一 K 线数据源，多源降级链全部废除。
 > **v10.1.1** (2026-07-25): 链证源导入修复 + 新闻情绪解析修复 + 报告模板对齐。`decode_config.yaml` 补充 `news_sentiment_analyst` 条目。
+> **v10.1.2** (2026-07-25): `P0b` 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE` 环境变量绕过开关。
 >
 > 清洗层 (data_adapter/cleaning/) 作为数据源的中间件，对原始 K 线执行 OHLC 校验、零成交量剔除、去重、时间轴标准化、3σ 毛刺修复、前复权处理、**期货专项清洗（交割月过滤 + 涨跌停封板标记）**，以及**基本面快照清洗（缺失字段/值校验/新鲜度/口径变更/修订追踪）**。通过环境变量 FDT_DATA_CLEANING_ENABLED 控制开关（默认开启）。**node_prepare_data 中激活 clean_fundamental_data() 批量清洗，探源 Agent context 注入数据质量警告。** 每道清洗产出的清洗报告附着在 KlineResult.cleaning 中透传下游。
 

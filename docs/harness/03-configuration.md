@@ -64,6 +64,14 @@
 
 ### 2.2 team_config.json
 
+#### 2.3 环境变量
+
+| 变量名 | 默认值 | 用途 | 引入版本 |
+|:-------|:-------|:-----|:---------|
+| `FDT_BYPASS_FRESHNESS_GATE` | `false` | 设为 `true` 时跳过 P0b 数据新鲜度检查，非交易时段强制辩论 | v10.1.2 |
+| `FDT_GENERATE_INTERMEDIATE_REPORTS` | `false` | 设为 `true` 时生成中间报告（scan/verdict/signal PDF） | v9.24.1 |
+| `FDT_GENERATE_SCAN_REPORT` | `false` | 设为 `true` 时生成 P1 扫描报告 | v9.24.1 |
+
 ```json
 {
   "version": "1.0",
