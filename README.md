@@ -363,7 +363,8 @@ FDT/
 ├── tests/                     # 1124 测试用例
 ├── fdt_cli.py                 # CLI 入口
 ├── fdt_api.py                 # FastAPI 入口
-├── data_source_adapter.py     # 统一数据入口封装
+├── data_adapter/              # 数据适配层（AKShare多接口统一封装）
+├── data_source_adapter.py     # 统一数据入口封装（legacy）
 ├── pyproject.toml             # 项目配置（版本号真相源）
 ├── CLAUDE.md                  # 编码行为准则
 ├── CODE_WIKI.md               # 技术百科全书
@@ -470,3 +471,8 @@ python scripts/verify_doc_consistency.py
 - 新增 P1.5 链证源、P3.5 品藻质检可视化章节
 - 技术指标数据源 ⚠ 标注
 - 修复 `_build_market_fundamental_context` 变量名 bug
+- **数据适配层扩展**：AKShare 合约序列计算期限结构/跨期价差(term_structure/spread)
+- **JSON 解析加固**：`enforce_structured_output` / `_repair_json` try-raw-JSON-first，避免 apostrophe 误伤
+- **正则 per_symbol 兜底**：fundamental_researcher 新增正则括号平衡提取 + `is_partial` 标记
+- **DCE 持仓排名重试**：3 次指数退避重试 + 5 分钟类级别缓存，应对交易所 zip 损坏
+- **资源看门狗快速模式**：`--quick` 跳过资源扫描，直接返回默认并发数
