@@ -81,11 +81,18 @@ def _extract_args_from_list(lst: list, symbol_upper: str) -> list:
 
 
 def _nav_items(body_html: str) -> str:
-    """从 body HTML 中提取带 id 的 section 标题，生成导航栏链接（自动去重）"""
+    """从 body HTML 提取品种和汇总章节，生成导航栏链接。
+
+    仅保留 sym-*（品种）和 signal-summary（最终交易建议）两类锚点，
+    其余详细分析阶段（P1~P5）不出现在导航栏。
+    """
     seen = set()
     links = []
     for m in re.finditer(r'<section[^>]*?id="([^"]+)"[^>]*>.*?<h2[^>]*>(.*?)</h2>', body_html, re.DOTALL):
         href = m.group(1)
+        # 仅保留品种链接(sym-*)和汇总链接(signal-summary)
+        if not href.startswith("sym-") and href != "signal-summary":
+            continue
         if href in seen:
             continue
         seen.add(href)

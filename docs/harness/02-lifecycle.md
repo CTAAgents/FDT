@@ -5,6 +5,7 @@
 > **v9.23.1** (2026-07-24): 数据源优先级变更 — TqSDK=0(第一), TDX/DataCore=1(第二), WebFallback=2, QMT=3。
 > **v10.1.1** (2026-07-25): 链证源 `_import_skill_module` 导入路径修复；`node_sentiment` 新增 `parse_llm_output` 解析。
 > **v10.1.2** (2026-07-25): P0b 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE` 环境变量绕过开关。
+> **v10.1.3** (2026-07-25): 导航栏简化：只保留品种和汇总链接。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 
