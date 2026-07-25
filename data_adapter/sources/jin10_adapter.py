@@ -37,6 +37,13 @@ class _McpHttpClient:
         self.headers = headers or {}
         self.timeout = timeout
         self._initialized = False
+        self._client: Optional[httpx.AsyncClient] = None
+        self._session_id: Optional[str] = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
 
     async def initialize(self) -> dict:
         payload = {
@@ -49,9 +56,33 @@ class _McpHttpClient:
                 "clientInfo": {"name": "fdt-jin10-adapter", "version": "1.0.0"},
             },
         }
-        result = await self._post(payload)
+        client = self._get_client()
+        resp = await client.post(
+            self.server_url,
+            json=payload,
+            headers={**self.headers, "Content-Type": "application/json"},
+        )
+        if resp.status_code not in (200, 202):
+            raise _McpError(resp.status_code, f"HTTP {resp.status_code}")
+        # 提取 mcp-session-id（jin10 MCP 使用会话 ID 追踪状态）
+        session_id = resp.headers.get("mcp-session-id")
+        if session_id:
+            self._session_id = session_id
+        # 解析 SSE 响应
+        for line in resp.text.split("\n"):
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+                break
+        else:
+            data = {}
+        if "error" in data and data["error"] is not None:
+            err = data["error"]
+            raise _McpError(err.get("code", -1), err.get("message", "Unknown"), err.get("data"))
+        result = data.get("result", data)
         self._initialized = True
         await self._notify_initialized()
+        import asyncio
+        await asyncio.sleep(0.3)
         return result
 
     async def _notify_initialized(self):
@@ -98,22 +129,40 @@ class _McpHttpClient:
         return await self._post(payload)
 
     async def _post(self, payload: dict) -> dict:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(
-                f"{self.server_url}/",
-                json=payload,
-                headers={**self.headers, "Content-Type": "application/json"},
-            )
-            if resp.status_code != 200:
-                raise _McpError(resp.status_code, f"HTTP {resp.status_code}")
+        client = self._get_client()
+        req_headers = {**self.headers, "Content-Type": "application/json"}
+        if self._session_id:
+            req_headers["mcp-session-id"] = self._session_id
+        resp = await client.post(
+            self.server_url,  # 无尾部斜杠 — jin10 MCP 使用 SSE 传输
+            json=payload,
+            headers=req_headers,
+        )
+        # 202 Accepted — MCP Streamable HTTP 协议，需读 SSE 响应体
+        if resp.status_code not in (200, 202):
+            raise _McpError(resp.status_code, f"HTTP {resp.status_code}")
+        # jin10 MCP 使用 SSE (Server-Sent Events) 传输协议
+        # 响应格式: event: message\ndata: {json}\n
+        content_type = resp.headers.get("content-type", "")
+        if "text/event-stream" in content_type or resp.status_code == 202:
+            for line in resp.text.split("\n"):
+                if line.startswith("data: "):
+                    data = json.loads(line[6:])
+                    break
+            else:
+                data = {}
+        else:
             data = resp.json()
-            if "error" in data and data["error"] is not None:
-                err = data["error"]
-                raise _McpError(err.get("code", -1), err.get("message", "Unknown"), err.get("data"))
-            return data.get("result", data)
+        if "error" in data and data["error"] is not None:
+            err = data["error"]
+            raise _McpError(err.get("code", -1), err.get("message", "Unknown"), err.get("data"))
+        return data.get("result", data)
 
     async def close(self):
         self._initialized = False
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
 
 class Jin10McpFetcher:
@@ -288,7 +337,7 @@ class Jin10McpFetcher:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(
-                    f"{self.server_url}/",
+                    self.server_url,  # 无尾部斜杠 — jin10 MCP 使用 SSE 传输
                     json={
                         "jsonrpc": "2.0",
                         "id": "test-conn",
@@ -300,7 +349,17 @@ class Jin10McpFetcher:
                 result["details"]["http_status"] = resp.status_code
                 result["reachable"] = resp.status_code == 200
                 if resp.status_code == 200:
-                    data = resp.json()
+                    # SSE 响应: event: message\ndata: {json}\n
+                    content_type = resp.headers.get("content-type", "")
+                    if "text/event-stream" in content_type:
+                        for line in resp.text.split("\n"):
+                            if line.startswith("data: "):
+                                data = json.loads(line[6:])
+                                break
+                        else:
+                            data = {}
+                    else:
+                        data = resp.json()
                     result["details"]["server_info"] = data.get("result", {}).get("serverInfo", {})
                     result["details"]["protocol_version"] = data.get("result", {}).get("protocolVersion", "")
                 elif resp.status_code == 401:
