@@ -137,6 +137,19 @@ from scripts.unified_logger import get_logger
 
 logger = get_logger("scan_all")
 logger.info("扫描开始")
+
+### 3.3 因子模块日志
+
+多因子注入模块使用独立 logger 写入以下日志：
+
+| 模块 | Logger 前缀 | 关键日志事件 |
+|:-----|:------------|:-------------|
+| 波动率 | `[Volatility]` | `计算 {sym} 波动率失败: {e}` — 计算异常时记录 |
+| 跨品种价差 | `[CrossSpread]` | `{pair}: K线不足30根({n})，跳过` — 数据不足时记录 |
+| 期限结构 | `[TermStructure]` | `{bare} 计算失败: {e}` — AKShare 异常时记录 |
+| 多空持仓 | `[HoldingSentiment]` | `{sym} 多空比采集失败: {e}` — API 异常时记录 |
+| 因子采集器 | `[FDC]` | `多因子注入失败 (非关键): {e}` — 入口异常时记录 |
+
 logger.warning("数据延迟")
 logger.error("连接失败", exc_info=True)
 ```

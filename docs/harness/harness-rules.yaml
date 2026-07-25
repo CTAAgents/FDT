@@ -157,6 +157,20 @@ checks:
       检查各文档 `## 一致性元数据` 表格中的断言是否仍与代码匹配。
       每行断言对应一条可验证事实（函数存在、路径正确、版本一致等）。
 
+  # ── C16: 代码-推理边界（2026-07-25 新增 — 精确计算不丢给LLM） ────
+  - id: C16
+    name: "代码-推理边界"
+    severity: "P0"
+    type: "pattern_check"
+    scope: "fdt_langgraph/nodes.py"
+    trigger_pattern: "entry_price|stop_loss|target_price|position_pct"
+    message: >
+      能用数学公式精确计算的，绝不丢给 LLM。
+      (1) entry_price 必须由代码从扫描数据强制取值，LLM 不得修改；
+      (2) stop_loss / target_price 必须由代码按规则计算（收盘价 ± N×ATR），LLM 不得估算；
+      (3) position_pct 必须由代码钳制上限，LLM 输出后做 min(llm, max) 校验；
+      (4) 技术指标(RSI/ATR/HV/偏度等)必须由代码计算后注入 prompt，禁止 LLM 自行计算。
+
 anti_patterns:
   - id: AP01
     name: "巨型 Prompt"

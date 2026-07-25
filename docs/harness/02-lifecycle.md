@@ -195,13 +195,14 @@ fdt_cli.py main()
 | P2b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
 | P2c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
 | P2d | 读心新闻情绪（按需） | 读心 | 品种+方向 | `pg.sentiment_scores` | 420s | 跳过新闻情绪 |
+| P2.5 | **多因子注入** | **系统（node_prepare_data）** | **selected_symbols + K线 + F10** | **`factor_term_structure` + `factor_holding_sentiment` + `factor_volatility` + `factor_cross_spread` + `factor_dashboard`** | **30s** | **因子缺失不阻断，跳过该因子区块** |
 | P3 步1 | 多头立论 v1 | 多头分析员 | P2 合并分析结果 | `state.bullish_arguments`（round=1, v1） | 420s | D06 降级 |
 | P3 步2 | 空头立论 v1 | 空头分析员 | P2 合并分析结果 | `state.bearish_arguments`（round=2, v1） | 420s | D06 降级 |
 | P3 步3 | 空头反驳多头 | 空头分析员 | 多头立论 + P2 合并分析 | `state.bearish_rebuttal_arguments`（round=3, rebuttal_v1） | 420s | D06 降级 |
 | P3 步4 | 多头反驳空头 | 多头分析员 | 空头立论+空头反驳 + P2 | `state.bullish_rebuttal_arguments`（round=4, rebuttal_v1） | 420s | D06 降级 |
 | P3 步5 | 空头最终陈述 | 空头分析员 | 整合空头所有论据 | `state.bear_final_arguments`（round=5, final） | 420s | D06 降级 |
 | P3 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
-| P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
+| P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 + **多因子信号一致性看板** | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
 | P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 品藻兜底 |
 | P3.5 | 辩论质检 | 品藻 | 闫判官裁决 + 风控明审核 | `state.quality_report`（PASS/FAIL + issues，含 conditional_required：neutral 方向不强制 entry_price/stop_loss/target1） | 30s | 品藻汇总时兜底 |
 | P6 | 汇总输出 | 品藻 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |

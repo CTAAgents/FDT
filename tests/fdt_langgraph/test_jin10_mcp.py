@@ -178,75 +178,63 @@ class TestJin10Integration:
 # 金十 Context 注入测试
 # ════════════════════════════════════════════════════════════
 
-class TestBuildJin10Context:
-    """测试 _build_jin10_context 函数（单元测试，mock 金十接口）。"""
+class TestNewsRouter:
+    """测试 NewsRouter 新闻路由器（替代旧的 _build_jin10_context 测试）。"""
 
     def test_symbol_to_keywords_mapping(self):
-        """验证所有常见品种都有对应的中文关键词映射。"""
-        from fdt_langgraph.nodes import _SYMBOL_TO_KEYWORDS
+        """验证所有常见品种在 Jin10NewsSource 中有对应的中文关键词映射。"""
+        from data_adapter.news.sources.jin10_source import SYMBOL_TO_KEYWORDS
 
         # 核心品种必须有映射
         core_symbols = ["RB", "CU", "I", "SC", "TA", "M", "P", "PK", "UR", "LH"]
         for sym in core_symbols:
-            assert sym in _SYMBOL_TO_KEYWORDS, f"{sym} 缺少中文关键词映射"
-            assert len(_SYMBOL_TO_KEYWORDS[sym]) > 0, f"{sym} 的关键词列表为空"
+            assert sym in SYMBOL_TO_KEYWORDS, f"{sym} 缺少中文关键词映射"
+            assert len(SYMBOL_TO_KEYWORDS[sym]) > 0, f"{sym} 的关键词列表为空"
 
-    @pytest.mark.asyncio
-    async def test_jin10_context_no_token(self, mocker):
-        """金十未配置时返回提示信息。"""
-        from fdt_langgraph.nodes import _build_jin10_context
+    def test_build_prompt_context_empty(self):
+        """空结果时返回提示信息。"""
+        from data_adapter.news import NewsRouter
+        from data_adapter.news.types import NewsResult
 
-        mocker.patch("data_source_adapter.jin10_available", return_value=False)
-        result = await _build_jin10_context(["RB", "CU"], "test-trace")
-        assert "未配置" in result
+        text = NewsRouter.build_prompt_context(NewsResult())
+        assert "暂无" in text
 
-    @pytest.mark.asyncio
-    async def test_jin10_context_returns_flash(self, mocker):
-        """成功获取金十快讯时返回格式化文本。"""
-        from fdt_langgraph.nodes import _build_jin10_context
+    def test_build_prompt_context_formats_items(self):
+        """非空结果正确格式化。"""
+        from data_adapter.news import NewsRouter
+        from data_adapter.news.types import NewsItem, NewsResult, NewsSourceType
 
-        mock_flash = {
-            "data": {
-                "items": [
-                    {"content": "螺纹钢周度表需环比回升5%，华东出库加速", "time": "2026-07-22 10:30"},
-                    {"content": "铁矿石到港量增加，港口库存止降回升", "time": "2026-07-22 10:15"},
-                ],
-                "next_cursor": "abc",
-                "has_more": False,
-            }
-        }
+        result = NewsResult()
+        result.items = [
+            NewsItem(
+                symbol="RB", source_type=NewsSourceType.JIN10, source_name="金十快讯",
+                title="螺纹钢周度表需回升", content="螺纹钢周度表需环比回升5%，华东出库加速",
+                time="2026-07-22 10:30", confidence=0.8,
+                event_type="supply_demand",
+            ),
+        ]
+        text = NewsRouter.build_prompt_context(result)
+        assert "【RB】" in text
+        assert "螺纹钢" in text
+        assert "[jin10]" in text
 
-        mocker.patch("data_source_adapter.jin10_available", return_value=True)
-        mocker.patch("data_source_adapter.jin10_search_flash", return_value=mock_flash)
+    def test_build_quality_report_grading(self):
+        """验证质量报告的分级逻辑。"""
+        from data_adapter.news import NewsRouter
+        from data_adapter.news.types import NewsItem, NewsResult, NewsSourceType
 
-        result = await _build_jin10_context(["RB", "I"], "test-trace")
-        assert "金十精选快讯" in result
-        assert "螺纹钢" in result
-        assert "铁矿石" in result
-        assert "[jin10]" in result
+        # 6 条 RB 新闻 → RICH, 0 条 CU → NO_DATA
+        result = NewsResult()
+        for i in range(6):
+            result.items.append(NewsItem(
+                symbol="RB", source_type=NewsSourceType.JIN10, source_name="金十快讯",
+                title=f"新闻{i}", content=f"新闻{i}内容",
+                time="2026-07-22 10:00",
+            ))
 
-    @pytest.mark.asyncio
-    async def test_jin10_context_deduplicates(self, mocker):
-        """相同内容的快讯会被去重。"""
-        from fdt_langgraph.nodes import _build_jin10_context
-
-        mock_flash = {
-            "data": {
-                "items": [
-                    {"content": "螺纹钢期价日内上涨1.2%", "time": "2026-07-22 11:00"},
-                    {"content": "螺纹钢期价日内上涨1.2%", "time": "2026-07-22 11:01"},
-                    {"content": "螺纹钢期价日内上涨1.2%", "time": "2026-07-22 11:02"},
-                ],
-                "next_cursor": "abc",
-                "has_more": False,
-            }
-        }
-
-        mocker.patch("data_source_adapter.jin10_available", return_value=True)
-        mocker.patch("data_source_adapter.jin10_search_flash", return_value=mock_flash)
-
-        result = await _build_jin10_context(["RB"], "test-trace")
-        assert result.count("螺纹钢期价日内上涨") == 1, "重复快讯未被去重"
+        report = NewsRouter.build_quality_report(result, ["RB", "CU"])
+        assert report["RB"]["data_grade"] == "RICH"
+        assert report["CU"]["data_grade"] == "NO_DATA"
 
 
 # ════════════════════════════════════════════════════════════
@@ -351,11 +339,13 @@ class TestSentimentAnalyst:
 
         mocker.patch("fdt_langgraph.nodes.FdtAgentExecutor", return_value=mock_agent_instance)
 
-        # Mock jin10 context
-        mocker.patch(
-            "fdt_langgraph.nodes._build_jin10_context",
-            return_value="mock金十快讯",
-        )
+        # Mock NewsRouter（替代旧的 _build_jin10_context mock）
+        from data_adapter.news.types import NewsResult
+        mock_router = mocker.MagicMock()
+        mock_router.fetch = mocker.AsyncMock(return_value=NewsResult())
+        mock_router.build_prompt_context = mocker.MagicMock(return_value="mock新闻上下文")
+        mock_router.build_quality_report = mocker.MagicMock(return_value={"RB": {"data_grade": "NO_DATA"}})
+        mocker.patch("data_adapter.news.NewsRouter", return_value=mock_router)
 
         state = create_initial_state("test-trace")
         state["selected_symbols"] = ["RB"]

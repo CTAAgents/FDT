@@ -137,6 +137,55 @@ def _repair_json(text: str) -> str:
     return cleaned
 
 
+# ── 字段别名归一化（方案 B：提高 LLM JSON 字段名容错） ──
+FIELD_ALIASES: dict[str, list[str]] = {
+    "per_symbol": ["per_symbol", "per-symbol", "persymbol", "perSymbol", "symbols", "symbol_data", "per_symbols", "per-symbols"],
+    "summary": ["summary", "sumary", "overview", "conclusion", "summery", "total_summary"],
+    "supply_demand": ["supply_demand", "supplydemand", "supply demand", "supply_demand_analysis", "供需"],
+    "inventory": ["inventory", "inventry", "库存", "stock"],
+    "profit_margin": ["profit_margin", "profitmargin", "profit margin", "利润", "margin"],
+    "basis_term": ["basis_term", "basis", "basisterm", "basis term", "基差", "term_structure"],
+    "macro_external": ["macro_external", "macro", "macroexternal", "宏观", "external"],
+    "leading_signals": ["leading_signals", "leadingsignals", "leading signals", "signals", "领先信号"],
+    "trend": ["trend", "trend_judgment", "趋势", "direction"],
+    "key_levels": ["key_levels", "keylevels", "key level", "支撑阻力", "levels"],
+    "volume_price": ["volume_price", "volumeprice", "volume price", "量价", "vp"],
+    "divergence": ["divergence", "背离", "diverge"],
+    "pattern": ["pattern", "形态", "formation", "技术形态"],
+    "score": ["score", "评分", "total_score", "technical_score"],
+}
+
+
+def _resolve_alias(data: dict, canonical: str):
+    """从 dict 中按字段别名表查找规范字段值。"""
+    for alias in FIELD_ALIASES.get(canonical, [canonical]):
+        if alias in data:
+            return data[alias]
+    return data.get(canonical)
+
+
+def _normalize_per_symbol(raw: dict) -> dict:
+    """对 per_symbol 中每个品种的字段做别名归一化，替换为规范字段名。"""
+    normalized = {}
+    for sym, data in raw.items():
+        if not isinstance(data, dict):
+            normalized[sym] = data
+            continue
+        nd = {}
+        for canonical in FIELD_ALIASES:
+            val = _resolve_alias(data, canonical)
+            if val is not None:
+                nd[canonical] = val
+        # 保留不在别名表中的原始字段
+        for k, v in data.items():
+            if k not in nd:
+                already = any(k in aliases for aliases in FIELD_ALIASES.values())
+                if not already:
+                    nd[k] = v
+        normalized[sym] = nd
+    return normalized
+
+
 # ==================== 报告层调度 (v8.8.0) ====================
 def _resolve_report_dir() -> Path:
     """解析报告输出目录：用户指定工作空间 > 默认工作空间 > 程序目录 fallback
@@ -1027,6 +1076,26 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     except Exception:
         pass  # cleaning layer unavailable, continue without
 
+    # ── P2.5 多因子注入 ──
+    try:
+        from data_adapter.factors import FactorCollector
+        fc = FactorCollector()
+        factor_term_structure = await fc.collect_term_structure(symbols)
+        factor_holding_sentiment = await fc.collect_holding_sentiment(symbols)
+        factor_volatility = fc.compute_volatility(symbols, fdc_data)
+        factor_cross_spread = fc.compute_cross_spreads(symbols, fdc_data)
+        factor_dashboard = fc.build_dashboard(
+            symbols, factor_term_structure, factor_volatility,
+            factor_holding_sentiment, factor_cross_spread,
+        )
+    except Exception as e:
+        logger.warning("[FDC] 多因子注入失败 (非关键): %s", e)
+        factor_term_structure = {}
+        factor_holding_sentiment = {}
+        factor_volatility = {}
+        factor_cross_spread = []
+        factor_dashboard = None
+
     return {
         **state,
         "fdc_data": fdc_data,
@@ -1041,6 +1110,11 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             "f10_enabled": f10_enabled,
             "position_ranking_enabled": position_ranking_enabled,
         },
+        "factor_term_structure": factor_term_structure,
+        "factor_holding_sentiment": factor_holding_sentiment,
+        "factor_volatility": factor_volatility,
+        "factor_cross_spread": factor_cross_spread,
+        "factor_dashboard": factor_dashboard,
         "current_phase": "P2.5",
         "completed_phases": state["completed_phases"] + ["P2.5"]
     }
@@ -1447,6 +1521,31 @@ async def node_technical(state: DebateState) -> dict:
     scan_results = state.get("scan_results", {})
     fdc_tech_context = _build_fdc_technical_context(selected, fdc_data, scan_results)
 
+    # ── P2.5 波动率因子注入（从 K 线计算） ──
+    vol_context = ""
+    try:
+        factor_vol = state.get("factor_volatility", {})
+        if factor_vol:
+            vol_parts = ["\n【波动率因子（P2.5 计算）】"]
+            for sym in selected:
+                vr = factor_vol.get(sym)
+                if vr and getattr(vr, "data_grade", "") == "PRIMARY":
+                    parts = []
+                    if vr.hv_20 is not None:
+                        parts.append(f"HV20={vr.hv_20}%")
+                    if vr.skewness is not None:
+                        parts.append(f"偏度={vr.skewness}")
+                    if vr.kurtosis is not None:
+                        parts.append(f"峰度={vr.kurtosis}")
+                    if vr.atr_pct is not None:
+                        parts.append(f"ATR={vr.atr_pct}%")
+                    if parts:
+                        vol_parts.append(f"  {sym}: {' | '.join(parts)}")
+            if len(vol_parts) > 1:
+                vol_context = "\n".join(vol_parts)
+    except Exception:
+        pass
+
     context = f"""作为技术面研究员（观澜），请分析以下品种的技术面状态：
 
 市场方向判断: {direction}
@@ -1454,14 +1553,19 @@ async def node_technical(state: DebateState) -> dict:
 
 【市场技术数据（AKShare 实时源，P2.5 预采集）】
 {fdc_tech_context}
+{vol_context}
 
-请以 JSON 格式返回逐品种分析，格式如下：
+请先以 Markdown 格式逐品种分析（趋势、关键位、量价配合、背离、形态），
+然后在最后一行单独输出 JSON 代码块，格式如下：
+
+```json
 {{"per_symbol": {{
-    "RB": {{"trend": "趋势判断（方向+强度+阶段）", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合情况（必须分析成交量与持仓量变化）", "divergence": "背离分析", "pattern": "技术形态", "score": 75}},
+    "RB": {{"trend": "趋势判断", "key_levels": "支撑:xxx, 阻力:xxx", "volume_price": "量价配合", "divergence": "背离分析", "pattern": "技术形态", "score": 75}},
     "CU": {{"trend": "趋势判断", "key_levels": "支撑阻力位", "volume_price": "量价配合", "divergence": "背离", "pattern": "形态", "score": 60}}
   }},
   "summary": "总体技术面摘要"
 }}
+```
 
 注意：
 - **成交量（volume）和持仓量（OI）数据始终可用**，务必分析量价配合关系（放量/缩量、增仓/减仓方向）
@@ -1479,7 +1583,10 @@ async def node_technical(state: DebateState) -> dict:
     llm_parse_ok = False
     parsed = parse_llm_output(output, agent_name="technical_researcher")
     if parsed.get("success") and isinstance(parsed.get("data"), dict):
-        raw_per_symbol = parsed["data"].get("per_symbol", {})
+        # 别名归一化（方案 B）：兼容 per_symbol / symbols / perSymbol 等变体
+        raw_per_symbol = _resolve_alias(parsed["data"], "per_symbol") or {}
+        if isinstance(raw_per_symbol, dict):
+            raw_per_symbol = _normalize_per_symbol(raw_per_symbol)
         for sym in selected:
             sym_key = sym.upper()
             if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
@@ -1497,7 +1604,9 @@ async def node_technical(state: DebateState) -> dict:
                 start = repaired.find("{")
                 end = repaired.rfind("}") + 1
                 fallback = json.loads(repaired[start:end])
-                raw_per_symbol = fallback.get("per_symbol", {})
+                raw_per_symbol = _resolve_alias(fallback, "per_symbol") or {}
+                if isinstance(raw_per_symbol, dict):
+                    raw_per_symbol = _normalize_per_symbol(raw_per_symbol)
                 for sym in selected:
                     sym_key = sym.upper()
                     if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
@@ -1631,124 +1740,6 @@ async def node_technical(state: DebateState) -> dict:
     }
 
 
-# ── 品种 → 中文关键词映射（用于金十快讯搜索） ──
-_SYMBOL_TO_KEYWORDS: dict[str, list[str]] = {
-    # 黑色系
-    "RB": ["螺纹钢", "螺纹", "建材"],
-    "HC": ["热卷", "热轧"],
-    "I":  ["铁矿石", "铁矿"],
-    "J":  ["焦炭"],
-    "JM": ["焦煤"],
-    "SM": ["硅锰", "锰硅"],
-    "SF": ["硅铁"],
-    # 有色系
-    "CU": ["沪铜", "铜"],
-    "AL": ["沪铝", "铝"],
-    "ZN": ["沪锌", "锌"],
-    "PB": ["沪铅", "铅"],
-    "NI": ["沪镍", "镍"],
-    "SN": ["沪锡", "锡"],
-    # 能化系
-    "SC": ["原油", "上海原油"],
-    "FU": ["燃料油"],
-    "BU": ["沥青"],
-    "RU": ["橡胶"],
-    "TA": ["PTA", "精对苯二甲酸"],
-    "EG": ["乙二醇"],
-    "MA": ["甲醇"],
-    "PP": ["聚丙烯", "PP"],
-    "L":  ["聚乙烯", "PE", "塑料"],
-    "V":  ["PVC", "聚氯乙烯"],
-    "UR": ["尿素"],
-    "SA": ["纯碱"],
-    # 农产品 / 油脂油料
-    "M":  ["豆粕"],
-    "RM": ["菜粕"],
-    "Y":  ["豆油"],
-    "P":  ["棕榈油", "棕榈"],
-    "OI": ["菜油"],
-    "A":  ["豆一", "大豆"],
-    "B":  ["豆二"],
-    "C":  ["玉米"],
-    "CS": ["淀粉", "玉米淀粉"],
-    "PK": ["花生"],
-    "AP": ["苹果"],
-    "CF": ["棉花", "郑棉"],
-    "SR": ["白糖", "白砂糖"],
-    "JD": ["鸡蛋"],
-    "LH": ["生猪"],
-}
-
-_SYMBOL_DEFAULT_KEYWORDS = ["期货", "大宗商品", "商品市场"]
-
-
-async def _build_jin10_context(symbols: list[str], trace_id: str) -> tuple[str, list[dict]]:
-    """按品种从金十 MCP 获取精选快讯，返回 (格式化文本, 结构化快讯列表)。
-
-    对每个品种，取其映射的中文关键词搜索金十快讯，
-    去重后按品种分类输出，供基本面研究员（探源）作为分析素材。
-    结构化列表用于质量评估（evaluate_jin10_context）。
-    """
-    try:
-        from data_adapter.sources.jin10_adapter import jin10_available, jin10_search_flash
-    except ImportError:
-        return "【金十精选快讯】jin10 MCP 适配层未加载\n", []
-
-    if not jin10_available():
-        # 金十 MCP 不可用时，返回 WebSearch 指引（读心/探源 Agent 可用 WebSearch 自行补充）
-        guide = "\n【金十实时快讯】金十 MCP 暂不可用。请使用 WebSearch 搜索以下关键词补充新闻素材：\n"
-        for sym in symbols:
-            keywords = _SYMBOL_TO_KEYWORDS.get(sym.upper(), _SYMBOL_DEFAULT_KEYWORDS)
-            guide += f"  {sym}: 搜索 \"{' '.join(keywords[:3])}\" 相关新闻\n"
-        guide += "\n引用时标注 [sentiment:web]\n"
-        return guide, []
-
-    lines = []
-    lines.append("\n【金十精选快讯（实时快讯，作为基本面分析素材）】")
-
-    all_flash: list[dict] = []
-    seen_texts: set[str] = set()
-
-    for sym in symbols:
-        keywords = _SYMBOL_TO_KEYWORDS.get(sym.upper(), _SYMBOL_DEFAULT_KEYWORDS)
-        for kw in keywords:
-            try:
-                raw = await jin10_search_flash(kw)
-                items = (raw or {}).get("data", {}).get("items", []) if isinstance(raw, dict) else []
-            except Exception:
-                items = []
-
-            for item in items:
-                text = (item.get("content") or item.get("title") or "").strip()
-                if text and text not in seen_texts:
-                    seen_texts.add(text)
-                    all_flash.append({
-                        "symbol": sym,
-                        "keyword": kw,
-                        "text": text,
-                        "time": item.get("time", ""),
-                    })
-
-    # 按品种分组输出
-    if not all_flash:
-        lines.append("  （暂无相关快讯）")
-    else:
-        for sym in symbols:
-            sym_flash = [f for f in all_flash if f["symbol"] == sym]
-            if not sym_flash:
-                continue
-            sym_label = _SYMBOL_TO_KEYWORDS.get(sym.upper(), [sym])[0]
-            lines.append(f"\n  【{sym}】{sym_label}:")
-            for f in sym_flash[:5]:
-                time_str = f["time"]
-                lines.append(f"    ⏱ {time_str} | {f['text'][:120]}")
-            if len(sym_flash) > 5:
-                lines.append(f"    ... 还有 {len(sym_flash) - 5} 条相关快讯")
-
-    lines.append("\n【引用规范】引用金十快讯时请标注来源 [jin10]，示例：据金十快讯，[jin10] 某某品种供需情况...")
-    return "\n".join(lines), all_flash
-
-
 async def node_fundamental(state: DebateState) -> dict:
     _ensure_llm_key()
     fundamental = FdtAgentExecutor("fundamental_researcher")
@@ -1759,7 +1750,38 @@ async def node_fundamental(state: DebateState) -> dict:
 
     scan_results = state.get("scan_results", {})
     fdc_fund_context = _build_market_fundamental_context(selected, fdc_data, scan_results)
-    jin10_context, _ = await _build_jin10_context(selected, state.get("trace_id", ""))
+
+    # 通过 NewsRouter 获取实时新闻数据
+    from data_adapter.news import NewsRouter
+    from data_adapter.news.types import NewsQuery
+    _news_router = NewsRouter()
+    _news_query = NewsQuery(symbols=selected, max_age_hours=48, max_per_symbol=3)
+    jin10_context = _news_router.build_prompt_context(await _news_router.fetch(_news_query))
+
+    # ── P2.5 多空持仓因子注入 ──
+    hs_context = ""
+    try:
+        factor_hs = state.get("factor_holding_sentiment", {})
+        if factor_hs:
+            hs_parts = ["\n【多空持仓因子（P2.5 采集）】"]
+            for sym in selected:
+                hs = factor_hs.get(sym.upper())
+                if hs and getattr(hs, "data_grade", "") == "PRIMARY":
+                    parts = []
+                    if hs.long_short_ratio is not None:
+                        parts.append(f"多空比={hs.long_short_ratio}")
+                    if hs.total_long is not None:
+                        parts.append(f"多单={hs.total_long}")
+                    if hs.total_short is not None:
+                        parts.append(f"空单={hs.total_short}")
+                    if hs.top20_ratio is not None:
+                        parts.append(f"前20多空比={hs.top20_ratio}")
+                    if parts:
+                        hs_parts.append(f"  {sym}: {' | '.join(parts)}")
+            if len(hs_parts) > 1:
+                hs_context = "\n".join(hs_parts)
+    except Exception:
+        pass
 
     context = f"""作为基本面研究员（探源），请分析以下品种的基本面状态：
 
@@ -1770,14 +1792,19 @@ async def node_fundamental(state: DebateState) -> dict:
 {fdc_fund_context}
 
 {jin10_context}
+{hs_context}
 
-请以 JSON 格式返回逐品种基本面状态向量，格式如下：
+请先以 Markdown 格式逐品种分析（供需平衡、库存周期、利润开工率、基差期限结构、宏观联动），
+然后在最后一行单独输出 JSON 代码块，格式如下：
+
+```json
 {{"per_symbol": {{
     "RB": {{"supply_demand": "供需平衡分析", "inventory": "库存周期定位", "profit_margin": "利润与开工率", "basis_term": "基差与期限结构", "macro_external": "宏观与外盘联动", "leading_signals": ["领先信号1", "信号2"]}},
     "CU": {{"supply_demand": "...", "inventory": "...", "profit_margin": "...", "basis_term": "...", "macro_external": "...", "leading_signals": [...]}}
   }},
   "summary": "总体基本面摘要"
 }}
+```
 
 重要注意事项：
 - 上方【市场基本面数据】区域中的数据为预采集数据，部分字段可能标记"不可用"
@@ -1797,7 +1824,10 @@ async def node_fundamental(state: DebateState) -> dict:
     llm_parse_ok = False
     parsed = parse_llm_output(output, agent_name="fundamental_researcher")
     if parsed.get("success") and isinstance(parsed.get("data"), dict):
-        raw_per_symbol = parsed["data"].get("per_symbol", {})
+        # 别名归一化（方案 B）：兼容 per_symbol / symbols / perSymbol 等变体
+        raw_per_symbol = _resolve_alias(parsed["data"], "per_symbol") or {}
+        if isinstance(raw_per_symbol, dict):
+            raw_per_symbol = _normalize_per_symbol(raw_per_symbol)
         for sym in selected:
             sym_key = sym.upper()
             if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
@@ -1815,7 +1845,9 @@ async def node_fundamental(state: DebateState) -> dict:
                 start = repaired.find("{")
                 end = repaired.rfind("}") + 1
                 fallback = json.loads(repaired[start:end])
-                raw_per_symbol = fallback.get("per_symbol", {})
+                raw_per_symbol = _resolve_alias(fallback, "per_symbol") or {}
+                if isinstance(raw_per_symbol, dict):
+                    raw_per_symbol = _normalize_per_symbol(raw_per_symbol)
                 for sym in selected:
                     sym_key = sym.upper()
                     if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
@@ -1854,7 +1886,7 @@ async def node_fundamental(state: DebateState) -> dict:
                         except (json.JSONDecodeError, Exception):
                             continue
                     if isinstance(obj, dict):
-                        extracted[sym] = obj
+                        extracted[sym] = _normalize_per_symbol({sym: obj}).get(sym, obj)
                         break
             if extracted:
                 for sym_key in extracted:
@@ -1942,38 +1974,32 @@ async def node_fundamental(state: DebateState) -> dict:
 async def node_sentiment(state: DebateState) -> dict:
     """新闻情绪分析（P3）— 与链证源/观澜/探源并行。
 
-    从金十 MCP 获取快讯，由读心 Agent 加工为 SentimentStateVector。
-    可自主 WebSearch/WebFetch 补充。
+    从 NewsRouter（多源聚合）获取新闻数据，由读心 Agent 加工为 SentimentStateVector。
+    Agent 只分析不搜索，数据已在适配层完成采集。
     """
     _ensure_llm_key()
     sentiment_agent = FdtAgentExecutor("news_sentiment_analyst")
     selected = state.get("selected_symbols", [])
 
-    # 获取金十快讯原始数据（复用 _build_jin10_context 但情绪 Agent 自己分析）
-    jin10_ctx, jin10_flash = await _build_jin10_context(selected, state.get("trace_id", ""))
+    # ── 通过 NewsRouter 获取聚合新闻数据（替换 _build_jin10_context） ──
+    from data_adapter.news import NewsRouter
+    from data_adapter.news.types import NewsQuery
+    router = NewsRouter()
+    query = NewsQuery(symbols=selected, max_age_hours=48, max_per_symbol=5)
+    news_result = await router.fetch(query)
+    news_context = router.build_prompt_context(news_result)
 
-    # ── 逐品种新闻质量评估（Data Governance Phase 2） ──
-    news_quality = {}
-    try:
-        for sym in selected:
-            news_quality[sym] = {
-                "symbol": sym,
-                "total_flash": len([f for f in jin10_flash if f["symbol"] == sym]),
-                "data_grade": "UNAVAILABLE",
-                "note": "evaluate_jin10_context 已退役",
-            }
-    except Exception:
-        news_quality = {}
+    # ── 逐品种新闻质量评估（通过 NewsRouter） ──
+    news_quality = router.build_quality_report(news_result, selected)
 
     context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态。
 
 待分析品种: {selected}
 
-【金十实时快讯（情绪分析素材，引用时标注 [sentiment:jin10]）】
-{jin10_ctx}
+【实时新闻（多源聚合，已预采集，引用时标注来源标签）】
+{news_context}
 
-如需补充验证，可使用 WebSearch/WebFetch 搜索行业网站新闻或政策原文，
-引用时标注 [sentiment:web]。
+注意：新闻数据已由系统预采集完毕，你只需分析即可，无需自行搜索。
 
 输出格式要求（JSON，顶级字段必须包含 per_symbol 和 summary）：
 
@@ -1999,7 +2025,6 @@ async def node_sentiment(state: DebateState) -> dict:
 注意：
 - 不下多空结论，只输出情绪评分
 - 事件类型：policy / supply_demand / macro / geopolitics / other
-- **如果上方金十快讯区域提示"使用 WebSearch"，说明金十数据不可用。请务必调用 WebSearch 搜索品种相关新闻，并注明 [sentiment:web]**
 - 越近的快讯权重越高（<1h:1.0, 1-4h:0.7, 4-24h:0.4, >24h:0.1）
 - 情绪偏离度 > 0.3 时标注（这是辩论最有价值的素材）"""
 
@@ -2873,6 +2898,16 @@ async def node_verdict(state: DebateState) -> DebateState:
         indicator_lines.append(f"{sym_up} | {rsi_v} | {adx_v} | {cci_v} | {macd} | {align}")
     fdc_indicator_table = "\n".join(indicator_lines)
 
+    # ── P2.5 多因子信号一致性看板注入 ──
+    factor_dashboard_text = ""
+    try:
+        fdb = state.get("factor_dashboard")
+        if fdb is not None:
+            from data_adapter.factors.dashboard import format_dashboard_for_prompt
+            factor_dashboard_text = format_dashboard_for_prompt(fdb)
+    except Exception:
+        pass
+
 
     context = f"""作为闫判官（裁决官），请基于以下全部辩论内容对每个品种给出最终裁决。
 
@@ -2905,6 +2940,9 @@ async def node_verdict(state: DebateState) -> DebateState:
 以下为多轮攻防的全部辩论论据（多头立论空头立论空头反驳多头反驳空头最终多头最终）:
 
 {debate_context}
+
+【多因子信号一致性看板】
+{factor_dashboard_text}
 
 请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
 **再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
@@ -3663,6 +3701,9 @@ async def node_report(state: DebateState) -> DebateState:
     scan_data_map = {item["pid"]: item for item in symbols_summary}
     verdicts = {}
     for sym_key in sorted(report_syms):
+        # 仅包含实际参与辩论的品种，排除全量扫描的额外品种
+        if sym_key.upper() not in _debated_list:
+            continue
         item = scan_data_map.get(sym_key, {})
         if not item and symbols_summary:
             continue

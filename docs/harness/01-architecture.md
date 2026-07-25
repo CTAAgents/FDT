@@ -560,7 +560,7 @@ class HookManager:
 > - 编排方式: LangGraph StateGraph 图编排，状态通过 DebateState 内存传递 + Checkpointer 持久化
 > - P1: 数技源通道突破扫描（trend_following 唯一活跃 — 当前处于 Layer 0 通用阶段）
 > - P2: 闫判官调度 — 选品种 (direction=neutral) + 调度四源并行
-> - P2.5: data_adapter 数据预采集 — 逐品种采集 K线(data_adapter/AKShareSource，默认120天)、计算技术指标、收集衍生数据（期限结构/基差/价差/仓单/基本面/持仓排名），注入 DebateState 供后续分析使用。由 `FDT_FDC_INJECTION_ENABLED` 控制开关。**金十快讯精选在 P3 探源节点内部通过 `_build_jin10_context()` 调用，不属于 P2.5**
+> - P2.5: data_adapter 数据预采集 — 逐品种采集 K线(data_adapter/AKShareSource，默认120天)、计算技术指标、收集衍生数据（期限结构/基差/价差/仓单/基本面/持仓排名），注入 DebateState 供后续分析使用。由 `FDT_FDC_INJECTION_ENABLED` 控制开关。**金十快讯精选已迁移至 data_adapter/news（NewsRouter 多源聚合），P3 探源/读心节点通过 NewsRouter 获取新闻数据，不属于 P2.5**
 > - P3: 链证源/观澜/探源/读心四源并行 LLM 推理，任一源超时(300s)跳过
 > - P3 → P4: merge_research 后 fast 模式跳过辩论直达裁决，default 模式进入六阶段辩论
 > - P4: 六阶段攻防辩论串行（多头立论→空头立论→空头驳论→多头驳论→空头结辩→多头结辩）

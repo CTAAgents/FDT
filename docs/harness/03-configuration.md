@@ -137,6 +137,11 @@ line-length = 120
 | `FDT_DATA_SOURCE` | `fdc` | 数据源选择：`fdc`=futures_data_core 包（默认），`datacore`=datacore.fdc_compat 包。通过 `data_source_adapter.py` 统一适配层切换所有消费者的数据路由 | `data_source_adapter.py` |
 | `FDT_DATA_CLEANING_ENABLED` | `true` / `false` | `true` | 数据清洗层开关。开启时对原始 K 线执行 OHLC 校验、去重、毛刺修复、前复权处理、期货专项清洗（交割月过滤+涨跌停标记），以及基本面快照清洗（缺失字段/值校验/新鲜度/口径变更/修订追踪）。 | `data_adapter/sources/akshare_source.py` |
 | `FDT_CACHE_DIR` | `{FDT_ROOT}/memory/` | 本地 SQLite 缓存数据库目录，存放按品种+数据类型持久化的 K 线/基本面/基差数据缓存文件 | `fdt_cache/` 模块 |
+| `FACTOR_VOLATILITY_ENABLED` | `true` | 波动率因子开关（HV/偏度/ATR，从K线纯计算） | `data_adapter/factors/volatility.py` |
+| `FACTOR_CROSS_SPREAD_ENABLED` | `true` | 跨品种价差因子开关（Z-Score，纯计算） | `data_adapter/factors/cross_spread.py` |
+| `FACTOR_TERM_STRUCTURE_ENABLED` | `true` | 期限结构因子开关（从 AKShare 实时行情） | `data_adapter/factors/term_structure.py` |
+| `FACTOR_HOLDING_SENTIMENT_ENABLED` | `true` | 多空持仓因子开关（多空比+前20排名，AKShare） | `data_adapter/factors/holding_sentiment.py` |
+| `FACTOR_DASHBOARD_ENABLED` | `true` | 因子一致性看板开关 | `data_adapter/factors/dashboard.py` |
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
 | `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |

@@ -176,6 +176,10 @@ def run_evolution(trace_id: str = "", source_trace_id: str = "") -> EvolutionSta
 
     initial = EvolutionState.create(trace_id=trace_id, source_trace_id=source_trace_id)
     graph = get_evolution_graph()
+
+    # 前置写入占位日志：确保即使 invoke 返回 None，recovery 也有据可查
+    _prewrite_evolution_log(initial)
+
     result = graph.invoke(initial)
     # LangGraph invoke() 在某些版本下可能返回 None（节点原地修改 state 时）
     # 此时尝试从 evolution_log.json 读取实际状态，而非回退到空白 initial
@@ -193,6 +197,36 @@ def run_evolution(trace_id: str = "", source_trace_id: str = "") -> EvolutionSta
     logger.info(f"[EvolutionGraph] 自进化闭环完成: trace_id={trace_id}, "
                 f"phase={result.get('phase')}, errors={len(result.get('errors', []))}")
     return result
+
+
+def _prewrite_evolution_log(state: EvolutionState) -> None:
+    """在 graph.invoke() 之前写入占位日志条目，保障 recovery 链路。"""
+    import json, os
+    log_path = os.path.join(os.path.dirname(__file__), "..", "memory", "evolution_log.json")
+    entry = {
+        "trace_id": state.get("trace_id", ""),
+        "source_trace_id": state.get("source_trace_id", ""),
+        "phase": state.get("phase", "pending"),
+        "started_at": datetime.now().isoformat(),
+        "apm_scores": state.get("apm_scores", {}),
+        "decisions": state.get("decisions", {}),
+        "step_results": {},
+        "errors": [],
+        "status": "in_progress",
+    }
+    try:
+        existing = []
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        if not isinstance(existing, list):
+            existing = []
+        existing.append(entry)
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning("[EvolutionGraph] 前置占位日志写入失败: %s", e)
 
 
 def _recover_from_evolution_log(trace_id: str, source_trace_id: str) -> EvolutionState | None:

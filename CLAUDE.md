@@ -72,13 +72,13 @@ CLAUDE.md — FDT编码行为准则
 - docs/harness/loop-contracts/README.md（循环契约 + 验证档位 + 权限三档）
 - docs/harness/harness-rules.yaml（12 项机读检查规则 + 10 条反模式检测）
 
-5.2 commit前12项检查清单 — 必须全部通过（v9.6.0 已升级为自动化）
-12 项检查已编码为机读规则 + pre-commit 自动扫描：
+5.2 commit前检查清单 — 必须全部通过（v10.3.0 已扩展为 C01-C16）
+检查项已编码为机读规则 + pre-commit 自动扫描：
 
-机读规则: docs/harness/harness-rules.yaml（C01-C12，含 trigger_pattern / severity / scope）
+机读规则: docs/harness/harness-rules.yaml（C01-C16，含 trigger_pattern / severity / scope）
 自动检查: python scripts/pre_commit_harness_check.py（从 YAML 加载规则，JSON 结构化输出）
 
-12 项检查:
+检查清单:
 1. 数据流/架构变更 → docs/harness/01-architecture.md
 2. 阶段/文件名/产出物 → docs/harness/02-lifecycle.md / 04-resilience.md
 3. 新配置项 → docs/harness/03-configuration.md
@@ -91,6 +91,8 @@ CLAUDE.md — FDT编码行为准则
 10. 流程文档同步 → execution_modes_flowchart.md / business_flow.md
 11. 角色MD职责 → agents/*.md
 12. 入口文档同步 → CLAUDE.md / CODE_WIKI.md / README.md
+13. **代码-推理边界（C16）** → docs/harness/10-coding-standards.md §12
+    能用数学公式精确计算的，绝不丢给 LLM。entry_price/stop_loss/仓位/技术指标必须由代码计算。
 
 5.3 契约优先原则
 先定义 Schema/TypedDict/接口契约，再实现代码。

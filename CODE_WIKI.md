@@ -384,7 +384,7 @@ scan → judge_direction → prepare_one_symbol
 |:------|:------|
 | `_build_fdc_technical_context()` | FDC 技术数据上下文（K线/指标/MA/区间/stats） |
 | `_build_fdc_fundamental_context()` | FDC 基本面数据上下文（期限结构/基差/价差/仓单/持仓排名） |
-| `_build_jin10_context()` | 金十快讯上下文（按品种自动搜索） |
+| `NewsRouter.build_prompt_context()` | 新闻上下文（多源聚合，自动降级） |
 | `_build_debate_context()` | 辩论上下文（整合多空论据） |
 
 **辩论协议常量**:

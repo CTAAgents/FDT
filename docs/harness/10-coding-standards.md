@@ -235,6 +235,38 @@ FDT 当前仅处理**商品期货**（黑色/有色/能化/农产品/软商品�
 2. **Temperature 分层**：
    - 生成型任务（辩论论点、反驳）：temperature 0.7-1.0
    - 判断型任务（裁决、评分）：temperature 0.1-0.3
+
+---
+
+## 12. 代码-推理边界（Code-Reasoning Boundary）
+
+**版本 v1.0 | 2026-07-25 | P0 硬性约束**
+
+### 12.1 总则
+
+> 能用数学公式精确计算的，绝不丢给 LLM。
+> 代码负责精确计算（指标/参数/约束），LLM 只负责需要语义理解的推理判断（趋势/矛盾/权衡/裁决）。
+
+### 12.2 边界三级分类
+
+| 级别 | 定义 | 责任方 | 示例 |
+|:-----|:------|:-------|:-----|
+| **L0 — 代码硬约束** | 计算结果直接输出，LLM 不可修改 | Python 代码 | `entry_price` 从扫描数据强制取值、`stop_loss` 按 `price ± N×ATR` 公式计算、`position_pct` 做 `min(llm, max)` 钳制 |
+| **L1 — 代码计算 + LLM 赋意** | 代码计算精确值，注入 prompt 供 LLM 引用解释 | `_build_xxx_context()` | 波动率(HV/偏度/ATR)、跨品种价差(Z-Score)、期限结构曲线类型 — 由代码算好，LLM 只做语义解读 |
+| **L2 — 纯 LLM 推理** | 无数学公式，依赖语义理解 | Agent prompt | 趋势判断（多/空/震荡）、多空矛盾辩论、基本面供需分析、综合裁决 |
+
+### 12.3 禁止事项
+
+- **禁止让 LLM 计算技术指标**：RSI/ATR/HV/偏度/峰度/MACD 等所有技术指标必须由 `data_adapter/indicators.py` 或 `data_adapter/factors/` 模块计算，注入 prompt
+- **禁止让 LLM 计算交易参数**：`entry_price` / `stop_loss_price` / `target_price` 必须由代码按规则计算，LLM 输出方向即可
+- **禁止让 LLM 做数学运算**：价差、百分比、比值、归一化等运算由代码执行
+
+### 12.4 强制性检查
+
+`harness-rules.yaml` C16 规则自动扫描 `nodes.py` 中 `entry_price` / `stop_loss` / `target_price` / `position_pct` 字段，确保它们由代码精确控制而非 LLM 估算。
+
+### 12.5 D3 Generation 控制规范（承接 §11）
+
    - 提取型任务（结构化数据）：temperature 0.0-0.1
 3. **Max Tokens 预算**：每步必须有明确的 max_tokens 上限（在 Loop Contract 的 per_step_budget 中定义）
 4. **采样策略**：高精度场景用 greedy（top_p=1, temperature=0）；创意场景用 nucleus sampling（top_p=0.9, temperature=0.7）
