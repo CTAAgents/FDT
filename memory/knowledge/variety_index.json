@@ -1110,6 +1110,66 @@
       "total_debates": 0,
       "effective_patterns": 0
     },
+    "510050": {
+      "name": "上证50ETF",
+      "exchange": "SH",
+      "chain": "ETF-指数",
+      "profile": true,
+      "drivers": true,
+      "patterns": false,
+      "key_levels": false,
+      "data_quality": true,
+      "total_debates": 0,
+      "effective_patterns": 0
+    },
+    "510300": {
+      "name": "沪深300ETF",
+      "exchange": "SH",
+      "chain": "ETF-指数",
+      "profile": true,
+      "drivers": true,
+      "patterns": false,
+      "key_levels": false,
+      "data_quality": true,
+      "total_debates": 0,
+      "effective_patterns": 0
+    },
+    "510500": {
+      "name": "中证500ETF",
+      "exchange": "SH",
+      "chain": "ETF-指数",
+      "profile": true,
+      "drivers": true,
+      "patterns": false,
+      "key_levels": false,
+      "data_quality": true,
+      "total_debates": 0,
+      "effective_patterns": 0
+    },
+    "159915": {
+      "name": "创业板ETF",
+      "exchange": "SZ",
+      "chain": "ETF-指数",
+      "profile": true,
+      "drivers": true,
+      "patterns": false,
+      "key_levels": false,
+      "data_quality": true,
+      "total_debates": 0,
+      "effective_patterns": 0
+    },
+    "588000": {
+      "name": "科创板50ETF",
+      "exchange": "SH",
+      "chain": "ETF-指数",
+      "profile": true,
+      "drivers": true,
+      "patterns": false,
+      "key_levels": false,
+      "data_quality": true,
+      "total_debates": 0,
+      "effective_patterns": 0
+    },
     "ec": {
       "name": "EC",
       "exchange": "",

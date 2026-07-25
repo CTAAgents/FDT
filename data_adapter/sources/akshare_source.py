@@ -142,7 +142,38 @@ class AKShareSource(DataSource):
                     result.cleaning = cleaning_report
                     return result
 
-            # ── 路径 B: 东方财富降级 ──
+            # ── v10.6.0: 路径 B: ETF 专用数据源 ──
+            try:
+                from data_adapter.instrument_classifier import classify, MarketType
+                if classify(bare) == MarketType.ETF:
+                    etf_code = bare.replace(".SH", "").replace(".SZ", "")
+                    df = ak.fund_etf_hist_em(
+                        symbol=etf_code,
+                        period="daily",
+                        start_date=(datetime.now() - timedelta(days=days + 30)).strftime("%Y%m%d"),
+                        end_date=datetime.now().strftime("%Y%m%d"),
+                    )
+                    if df is not None and not df.empty:
+                        dict_bars = self._parse_kline_df(df, days)
+                        if dict_bars:
+                            cleaning_report = None
+                            if self._CLEANING_ENABLED:
+                                dict_bars, cleaning_report = clean_kline(dict_bars, config={"symbol": bare})
+                            kline_bars = [KlineBar(
+                                date=b.date, open=b.open, high=b.high, low=b.low,
+                                close=b.close, volume=b.volume, open_interest=b.open_interest
+                            ) for b in dict_bars]
+                            result = KlineResult(
+                                symbol=bare, bars=kline_bars,
+                                meta={"data_grade": "PRIMARY", "source": "etf"},
+                            )
+                            result.cleaning = cleaning_report
+                            return result
+                    logger.info("[AKShareSource] ETF K 线为空(%s), 降级到通用路径", bare)
+            except Exception:
+                pass
+
+            # ── 路径 C: 东方财富降级 ──
             period_map = {
                 "daily": "daily", "1d": "daily",
                 "weekly": "weekly", "1w": "weekly",

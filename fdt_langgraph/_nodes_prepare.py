@@ -302,6 +302,19 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             "completed_phases": state["completed_phases"] + ["P2.5"]
         }
 
+    # ── v10.6.0: 品种市场类型识别 ──
+    if not state.get("market_type") and symbols:
+        try:
+            from data_adapter.instrument_classifier import classify
+            # 以第一个品种为准（同批次品种通常同类型）
+            primary_sym = symbols[0]
+            mt = classify(primary_sym)
+            state["market_type"] = mt.value
+            logger.info(f"[FDC] 品种市场类型: {primary_sym} → {mt.value}")
+        except Exception:
+            state["market_type"] = "commodity_futures"
+            logger.debug("[FDC] 品种分类失败，默认 commodity_futures")
+
     kline_days = int(os.environ.get("FDT_FDC_KLINE_DAYS", "120"))
     f10_enabled = os.environ.get("FDT_FDC_F10_ENABLED", "true").lower() == "true"
     position_ranking_enabled = os.environ.get("FDT_FDC_POSITION_RANKING_ENABLED", "true").lower() == "true"

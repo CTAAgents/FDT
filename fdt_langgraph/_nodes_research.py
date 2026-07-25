@@ -23,7 +23,15 @@ async def node_chain(state: DebateState) -> dict:
     
     导入 commodity-chain-analysis 的 analyze_chain 模块，提供产业链聚类和冗余分析。
     如分析失败，返回基于品种映射的基础产业链信息作为 fallback。
+
+    注意 (v10.6.0): 非商品期货（股指/国债/ETF）直接跳过链证源。
     """
+    # ── v10.6.0: 非商品期货跳过链证源 ──
+    mt = state.get("market_type", "commodity_futures")
+    if mt != "commodity_futures":
+        logger.info(f"[链证源] 跳过 {mt} 品种（非商品期货）")
+        return {"chain_analysis": {"skipped": True, "reason": f"非商品期货（{mt}），跳过产业链分析"}}
+
     try:
         # 先尝试从 analyze_chain.py 导入 run_analysis
         skill_mod = _import_from_skill("commodity-chain-analysis", "scripts.analyze_chain", "run_analysis")
@@ -179,7 +187,8 @@ async def node_technical(state: DebateState) -> dict:
 - 趋势判断需结合均线排列（MA5/MA10/MA20）和20日区间（支撑/阻力）
 - 量价分析必须包含：成交量变化方向 vs 价格变化方向是否一致
 - **score 请参考上方【基准技术评分】中的数值，在 ±10 范围内调整**（基准评分来自代码精确计算）
-- **Phase B: 请在 disagreement 字段标注与数技源扫描判断不一致的关键分歧点**（如有），例如"ADX显示趋势疲惫但数技源总分偏多"""
+- **Phase B: 请在 disagreement 字段标注与数技源扫描判断不一致的关键分歧点**（如有），例如"ADX显示趋势疲惫但数技源总分偏多"
+- **v10.6.0 市场提示**: {_build_market_technical_suffix(state)}"""
 
     tech_result = await technical.run(context, state["trace_id"])
     tech_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
@@ -504,7 +513,10 @@ async def node_fundamental(state: DebateState) -> dict:
 - 金十快讯区域（如可用）可作为实时素材，引用时标注 [jin10]
 - WebSearch 获取的数据引用时标注 [fundamental:web]
 - 每个品种的 leading_signals 为数组，包含1-3个关键信号
-- **Phase B: `key_turning_points` 字段标注对方向具有边际影响的关键转折数据**，包含数据描述、影响方向和说明（如"库存由累库转去库"）"""
+- **Phase B: `key_turning_points` 字段标注对方向具有边际影响的关键转折数据**，包含数据描述、影响方向和说明（如"库存由累库转去库"）
+- **v10.6.0: 市场类型感知** — 以下指令根据品种市场类型动态注入：
+
+{_build_market_fundamental_suffix(state)}"""
 
     fund_result = await fundamental.run(context, state["trace_id"])
     fund_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
@@ -757,8 +769,54 @@ async def node_sentiment(state: DebateState) -> dict:
     }
 
 
-# ==================== 逐品种循环节点 (v9.13.0) ====================
+# ── v10.6.0: 市场类型感知辅助函数 ──────────────────────
 
+
+def _build_market_fundamental_suffix(state: DebateState) -> str:
+    """根据品种市场类型返回基本面分析的额外指令"""
+    mt = state.get("market_type", "commodity_futures")
+    instructions = {
+        "index_futures": (
+            "【股指期货特别说明】\n"
+            "- 基本面分析重心：宏观经济（PMI/GDP/CPI）、货币政策（利率/准备金）、\n"
+            "  财政政策、市场估值（PE/PB）、资金面（北向/两融）\n"
+            "- 不做供需平衡分析，不做库存周期分析\n"
+            "- 关注成分股结构、权重股表现、行业轮动\n"
+            "- leading_signals 应为宏观领先指标（社融/信贷/PMI 新订单）"
+        ),
+        "bond_futures": (
+            "【国债期货特别说明】\n"
+            "- 基本面分析重心：货币政策（OMO/MLF/LPR）、通胀（CPI/PPI）、\n"
+            "  经济增长预期、财政赤字、信用利差、收益率曲线形态\n"
+            "- 不做供需平衡分析，不做库存周期分析\n"
+            "- 关注期限利差（10-2Y）、中美利差、银行间流动性\n"
+            "- leading_signals 应为利率领先指标（CPI/PPI/社融）"
+        ),
+        "etf": (
+            "【ETF 特别说明】\n"
+            "- 基本面分析重心：标的指数估值（PE/PB）、成分股结构、权重集中度、\n"
+            "  行业分布、溢价率/折价率、份额变化趋势\n"
+            "- 分析跟踪误差、流动性（日均成交额）\n"
+            "- 不做供需/库存/基差分析\n"
+            "- leading_signals 应为指数驱动因素"
+        ),
+    }
+    return instructions.get(mt, "")
+
+
+def _build_market_technical_suffix(state: DebateState) -> str:
+    """根据品种市场类型返回技术分析的额外提示"""
+    mt = state.get("market_type", "commodity_futures")
+    hints = {
+        "index_futures": "注意：趋势判断应结合成分股指数结构",
+        "bond_futures": "注意：国债期货需关注 CTD 券转换和交割月效应",
+        "etf": "注意：折溢价可能对技术指标产生干扰，分析时应结合净值参考",
+    }
+    hint = hints.get(mt, "")
+    return f"\n- **v10.6.0 市场提示**: {hint}" if hint else ""
+
+
+# ==================== 逐品种循环节点 (v9.13.0) ====================
 
 
 

@@ -84,6 +84,9 @@ class DebateState(TypedDict, total=False):
     # v9.22.3: P0b 数据新鲜度闸门
     freshness_report: Optional[dict]        # 数据新鲜度报告（R24闸门结果）
 
+    # v10.6.0: 全市场扩展 — 品种市场类型
+    market_type: Optional[str]              # commodity_futures/index_futures/bond_futures/etf
+
     # v9.14.0: Phase 3 辩论输出质量治理
     quality_report: Optional[dict]          # 当前质检结果 QualityReport
     rework_counters: dict                   # {symbol: retry_count} 品种级重试计数
@@ -133,6 +136,7 @@ def create_initial_state(trace_id: str, mode: str = "fast") -> DebateState:
         per_symbol_results={},
         _original_symbols=[],
         associated_symbols={},
+        market_type=None,
         quality_report=None,
         rework_counters={},
         rework_pending_symbols=[],
