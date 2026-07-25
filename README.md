@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v10.1.4**
+**v10.2.0**
 
 ---
 
@@ -448,6 +448,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v10.2.0** | **JSON解析加固 + DCE重试 + 期限结构链路恢复** — 数据适配层新增 term_structure/spread 接口(AKShare合约序列计算)；全局JSON解析 try-raw-JSON-first避免apostrophe误伤；DCE持仓排名3次指数退避重试+5min缓存；fundamental_researcher 正则 per_symbol 兜底+ is_partial 标记 |
 | **v10.0.0** | **FDC→AKShare 全面迁移** — 废除 TqSDK/TDX/QMT/DataCore/WebFallback 多源降级链，AKShare 为唯一 K 线数据源。新增 4 个 F10 模块。版本号 bump 9.26.0→10.0.0 |
 | **v9.23.0** | 六维控制空间高ROI提升：D3 Schema约束+enforce_structured_output全量接入、G01模型差异化路由、C01 Token预算控制、C03扫描信号表去重；langgraph默认模式 |
 | **v9.22.0** | RHI 完整落地：evolution_graph 集成 node_rhi 节点 + rhi_global_cli.py + 22 个 RHI 测试 |
