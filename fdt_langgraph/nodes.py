@@ -38,6 +38,64 @@ def _truncate_arguments_text(text: str, label: str = "") -> str:
 # ── 辩论论据裁剪：单品种内6轮辩论后统一压缩 ──
 _TRIM_MAX_ARG_CHARS = 120000  # 总字符阈值
 
+# ── 代码-推理边界: stop_loss/target 精确计算（L0 硬约束） ──
+_DEFAULT_RISK_MULTIPLIER = 1.5     # 止损 = ATR × 1.5
+_DEFAULT_REWARD_MULTIPLIER = 2.0   # 止盈 = ATR × 2.0
+_MAX_SINGLE_POSITION_PCT = 20.0    # 单品种最大仓位 (%)
+_ACCOUNT_EQUITY = 1_000_000.0      # 默认账户权益
+_MARGIN_RATE = 0.1                 # 默认保证金率
+
+
+def _compute_stop_target(
+    direction: str, entry_price: float, atr: float,
+    risk_multiplier: float = _DEFAULT_RISK_MULTIPLIER,
+    reward_multiplier: float = _DEFAULT_REWARD_MULTIPLIER,
+) -> tuple[float, float]:
+    """精确计算止损和止盈价格（L0 硬约束，LLM 不可修改）。
+
+    多头: stop = entry - atr × risk, target = entry + atr × reward
+    空头: stop = entry + atr × risk, target = entry - atr × reward
+    neutral: 返回 0, 0
+
+    当 ATR 不可用时使用默认百分比降级（1%）。
+    """
+    if atr is None or atr <= 0:
+        # 降级策略: 使用固定百分比
+        pct = 0.01
+        atr = entry_price * pct if entry_price > 0 else 0.0
+
+    if direction in ("bullish", "long", "buy", "BUY"):
+        stop = entry_price - atr * risk_multiplier
+        target = entry_price + atr * reward_multiplier
+    elif direction in ("bearish", "short", "sell", "SELL"):
+        stop = entry_price + atr * risk_multiplier
+        target = entry_price - atr * reward_multiplier
+    else:
+        return 0.0, 0.0
+    return round(float(stop), 2), round(float(target), 2)
+
+
+def _clamp_position(
+    symbol: str, llm_pct: float,
+    max_single_pct: float = _MAX_SINGLE_POSITION_PCT,
+) -> float:
+    """仓位代码硬校验（L0 硬约束）：钳制 LLM 输出仓位至上限。
+
+    当账户权益/保证金不可知时跳过钳制（降级策略），仅记录 warning。
+    """
+    try:
+        llm_val = float(llm_pct)
+    except (TypeError, ValueError):
+        logger.warning(f"[Position] {symbol}: LLM输出仓位'{llm_pct}'非法，使用默认值3%")
+        return 3.0
+
+    clamped = min(llm_val, max_single_pct)
+    if clamped != llm_val:
+        logger.warning(
+            f"[Position] {symbol}: LLM输出仓位{llm_val}%超限(>{max_single_pct}%)，钳制为{max_single_pct}%")
+    return round(clamped, 1)
+
+
 def _trim_arguments(state: dict) -> dict:
     """裁剪辩论论据列表，保留最新内容，丢弃最早超限部分。"""
     import logging as _lg
@@ -1546,6 +1604,38 @@ async def node_technical(state: DebateState) -> dict:
     except Exception:
         pass
 
+    # ── Phase 4: 代码计算技术基准评分（L1 边界） ──
+    baseline_scores: dict[str, int] = {}
+    try:
+        from data_adapter.factors.technical_score import compute_technical_score
+        for sym in selected:
+            sym_up = sym.upper()
+            sd = fdc_data.get(sym_up) or fdc_data.get(sym) or {}
+            ind_vals = (sd.get("indicators") or {}).get("values", {}) if sd else {}
+            # 补充收盘价
+            bars = (sd.get("kline") or {}).get("bars", []) if sd else []
+            if bars and "close" not in ind_vals:
+                ind_vals["close"] = float(bars[-1].get("close", 0)) if bars else 0
+            vol_sym = state.get("factor_volatility", {}).get(sym_up, {})
+            vol_dict = {}
+            if hasattr(vol_sym, "hv_20"):
+                vol_dict = {"hv_20": vol_sym.hv_20}
+            baseline_scores[sym] = compute_technical_score(sym, ind_vals, vol_dict)
+    except Exception as e:
+        logger.debug(f"[TECH] 基准评分计算失败: {e}")
+        baseline_scores = {}
+
+    # 基准评分注入 prompt
+    base_score_lines = ["\n【基准技术评分（代码计算）】"]
+    for sym in selected:
+        bs = baseline_scores.get(sym)
+        if bs is not None:
+            base_score_lines.append(f"  {sym}: {bs}/100")
+    if len(base_score_lines) > 1:
+        base_score_block = "\n".join(base_score_lines)
+    else:
+        base_score_block = ""
+
     context = f"""作为技术面研究员（观澜），请分析以下品种的技术面状态：
 
 市场方向判断: {direction}
@@ -1554,6 +1644,7 @@ async def node_technical(state: DebateState) -> dict:
 【市场技术数据（AKShare 实时源，P2.5 预采集）】
 {fdc_tech_context}
 {vol_context}
+{base_score_block}
 
 请先以 Markdown 格式逐品种分析（趋势、关键位、量价配合、背离、形态），
 然后在最后一行单独输出 JSON 代码块，格式如下：
@@ -1572,7 +1663,7 @@ async def node_technical(state: DebateState) -> dict:
 - 衍生技术指标（RSI/ADX/MACD等）如标注"不可用"则基于均线和K线形态做定性分析
 - 趋势判断需结合均线排列（MA5/MA10/MA20）和20日区间（支撑/阻力）
 - 量价分析必须包含：成交量变化方向 vs 价格变化方向是否一致
-- score为0-100的综合技术评分"""
+- **score 请参考上方【基准技术评分】中的数值，在 ±10 范围内调整**（基准评分来自代码精确计算）"""
 
     tech_result = await technical.run(context, state["trace_id"])
     tech_result["fdc_data_used"] = fdc_status.get("collected", False) if isinstance(fdc_status, dict) else False
@@ -1592,6 +1683,19 @@ async def node_technical(state: DebateState) -> dict:
             if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                 per_symbol_tech[sym] = raw_per_symbol[sym_key]
         llm_parse_ok = len(per_symbol_tech) > 0
+        # 评分钳制：确保 LLM score 在 baseline ±10 范围内
+        if llm_parse_ok and baseline_scores:
+            for sym in list(per_symbol_tech.keys()):
+                sv = per_symbol_tech[sym]
+                raw_score = sv.get("score", 50)
+                base = baseline_scores.get(sym, 50)
+                try:
+                    clamped = max(base - 10, min(base + 10, int(raw_score)))
+                    if clamped != int(raw_score):
+                        logger.info(f"[TECH] {sym}: LLM评分{raw_score}偏离基准{base}±10，钳制为{clamped}")
+                    sv["score"] = clamped
+                except (TypeError, ValueError):
+                    sv["score"] = base
     else:
         logger.warning(f"[TECH] parse_llm_output 失败: {parsed.get('errors', [])}")
 
@@ -1612,6 +1716,19 @@ async def node_technical(state: DebateState) -> dict:
                     if sym_key in raw_per_symbol and isinstance(raw_per_symbol[sym_key], dict):
                         per_symbol_tech[sym] = raw_per_symbol[sym_key]
                 llm_parse_ok = len(per_symbol_tech) > 0
+                # 评分钳制（fallback 路径）
+                if llm_parse_ok and baseline_scores:
+                    for sym in list(per_symbol_tech.keys()):
+                        sv = per_symbol_tech[sym]
+                        raw_score = sv.get("score", 50)
+                        base = baseline_scores.get(sym, 50)
+                        try:
+                            clamped = max(base - 10, min(base + 10, int(raw_score)))
+                            if clamped != int(raw_score):
+                                logger.info(f"[TECH] {sym}(fallback): LLM评分{raw_score}偏离基准{base}±10，钳制为{clamped}")
+                            sv["score"] = clamped
+                        except (TypeError, ValueError):
+                            sv["score"] = base
         except Exception as e:
             logger.warning(f"[TECH] _repair_json 回退失败: {e}")
 
@@ -2930,9 +3047,8 @@ async def node_verdict(state: DebateState) -> DebateState:
 ⚠️ 交易参数关键约束（P0 规则，不可违反）：
 - **entry_price 必须严格等于【实际行情】中的当前收盘价**，不得有任何偏离
 - 严禁使用挂单价/限价单/条件单：交易指令为**市价单（market order）**，不是限价单（limit/stop order）
-- 市价单的含义：以当前市场价格立即成交，不等待特定价格
 - **entry_price 必须在以下价格参考表中精确取值，不允许 LLM 自行计算或微调**
-- 止损价（stop_loss_price）和止盈价（target_price）基于当前收盘价合理计算
+- **stop_loss_price 和 target_price 由系统根据 ATR 自动计算，LLM 无需输出**（只需输出 direction）
 - 参考以下价格参考表（entry_price 必须从该表取值）：
 
 {price_table}
@@ -2946,10 +3062,11 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
 **再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
+**stop_loss_price 和 target_price 由系统根据 ATR 自动计算，LLM 无需输出这些字段。**
 {{"per_symbol": {{
     "RB": {{"direction": "bearish", "confidence": 0.8, "reason": "裁决理由（引用辩论中的关键论据）",
             "overturn_scan": true, "overturn_reason": "推翻数技源方向的理由",
-            "entry_price": <从价格参考表取当前收盘价>, "stop_loss_price": <收盘价-ATR>, "target_price": <收盘价+ATR>,
+            "entry_price": <从价格参考表取当前收盘价>,
             "position_pct": 5, "contract": "RB2410", "risk_reward_ratio": 3.0}}
   }},
   "overall_direction": "bearish/neutral/bullish",
@@ -2989,6 +3106,14 @@ async def node_verdict(state: DebateState) -> DebateState:
                     scan_price = sp.get("price", 0)
                     if scan_price > 0:
                         sv["entry_price"] = scan_price
+                    # 代码计算 stop_loss/target（L0 硬约束，覆写 LLM 输出）
+                    direction = sv.get("direction", "neutral")
+                    atr_val = sp.get("atr", 0)
+                    stop_loss, target = _compute_stop_target(direction, scan_price, atr_val)
+                    sv["stop_loss_price"] = stop_loss
+                    sv["target_price"] = target
+                    # 仓位代码硬校验（L0 硬约束）
+                    sv["position_pct"] = _clamp_position(sym_key, sv.get("position_pct", 3))
                     validated_symbols[sym] = sv
 
             # 计算 overall confidence：优先用 LLM 的 overall_confidence，回退到 per_symbol 均值
@@ -3046,6 +3171,14 @@ async def node_verdict(state: DebateState) -> DebateState:
                         scan_price = sp.get("price", 0)
                         if scan_price > 0:
                             sv["entry_price"] = scan_price
+                        # 代码计算 stop_loss/target（L0 硬约束，覆写 LLM 输出）
+                        direction = sv.get("direction", "neutral")
+                        atr_val = sp.get("atr", 0)
+                        stop_loss, target = _compute_stop_target(direction, scan_price, atr_val)
+                        sv["stop_loss_price"] = stop_loss
+                        sv["target_price"] = target
+                        # 仓位代码硬校验（L0 硬约束）
+                        sv["position_pct"] = _clamp_position(sym_key, sv.get("position_pct", 3))
                         validated[sym] = sv
                 if validated:
                     # 计算 fallback 路径的 overall confidence

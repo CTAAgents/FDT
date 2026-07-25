@@ -246,20 +246,34 @@ scan → judge_direction → prepare_one_symbol(品种0)
 [P2] 闫判官 ──→ p2_judge_direction.json (选品种+调度)
     │
     ▼
-[P2.5] data_adapter 数据预采集 + 金十快讯精选
+[P2.5] data_adapter 数据预采集 + 因子计算
     │  · 输入: selected_symbols
     │  · 处理: node_prepare_data — K线(data_adapter/AKShareSource)+基差/期限结构/仓单/持仓排名/基本面采集、技术指标计算
-    │  · 处理: _build_jin10_context() 按品种中文关键词搜索金十快讯，去重后格式化
+    │  · 处理: FactorCollector — 期限结构、多空持仓、波动率、跨品种价差
     │  · 输出: data_pack (含 kline/indicators/basis/term_structure/warrant) 注入 state
+    │  · 输出: factor_dashboard (多因子信号一致性看板，注入 node_verdict prompt)
     │  · 数据流: node_prepare_data → _build_technical_context → node_technical context（观澜）
     │  · 数据流: node_prepare_data → _build_fundamental_context → node_fundamental context（探源）
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声
+    │
+    ▼
+[P3 代码-推理边界] 技术基准评分（L1）
+    │  · 处理: node_technical 中代码计算 baseline score，LLM ±10 调整
+    │  · 文件: data_adapter/factors/technical_score.py compute_technical_score()
+    │  · 维度: 趋势40%/动量30%/量价20%/波动率10%
     │
     ▼
 [P3] 链证源+观澜+探源+读心 (并行) ──→ p3_chain_{sym}.json + p3_technical_{sym}.json + p3_fundamental_{sym}.json + p3_sentiment_{sym}.json
     │                    ← 四源平行关系，无先后次序
     ▼
 [P4] 六阶段攻防 (串行) ──→ state.bullish_arguments + bearish_arguments + bearish_rebuttal + bullish_rebuttal + bear_final + bull_final
+    │
+    ▼
+[P4 代码-推理边界] 交易参数精确计算（3 × L0 硬约束）
+    │  · entry_price: LLM 解析后代码强制覆写为市价（杜绝挂单价）
+    │  · stop_loss/target: 代码从 ATR × multiplier 精确计算（LLM 不可修改）
+    │  · position_pct: 代码钳制至 ≤20%（非法值默认 3%）
+    │  · 文件: fdt_langgraph/nodes.py _compute_stop_target() + _clamp_position()
     │
     ▼
 [P5] 裁决链 (串行)

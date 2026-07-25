@@ -384,6 +384,7 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v10.4.0** | 2026-07-25 | **代码-推理边界硬切割（Phase 1~4 全部实施）** — ① Phase 1(entry_price P0): 已在 v10.3.0 中实现 LLM 输出后强制覆写；② Phase 2(stop_loss/target P1): 新增 `_compute_stop_target()` 函数，LLM prompt 移除 stop_loss/target 计算要求，改为代码从 ATR 精确计算（L0 硬约束）；③ Phase 3(仓位 P1): 新增 `_clamp_position()` 函数，LLM 输出后钳制仓位至上限(20%)；④ Phase 4(技术评分 P2): 新增 `data_adapter/factors/technical_score.py`（4 维度加权评分：趋势 40%/动量 30%/量价 20%/波动率 10%），`node_technical` prompt 注入代码计算的基准评分，LLM 在 ±10 范围内调整；⑤ 测试 36 个全部通过（`test_code_reasoning_boundary.py` 22 个 + `test_technical_score.py` 14 个）。版本号 bump 10.3.0→10.4.0 |
 | **v10.3.0** | 2026-07-25 | **P2.5 多因子注入 — 零新增 Agent，把 FDT 第二层升级为多因子整合器** — ① 新增 `data_adapter/factors/` 数据适配层（7 文件）：`types.py`（5 种因子数据类型）、`volatility.py`（波动率/HV/偏度/ATR，纯计算）、`cross_spread.py`（跨品种价差/Z-Score，纯计算）、`term_structure.py`（期限结构，AKShare）、`holding_sentiment.py`（多空持仓/前20排名，AKShare）、`dashboard.py`（因子一致性看板 + 分歧度指标）；② `nodes.py` 4 处注入：`node_prepare_data()` 新增 FactorCollector 采集 → state 注入、`node_technical` prompt 追加波动率因子区块、`node_fundamental` prompt 追加多空持仓因子区块、`node_verdict` prompt 追加多因子信号一致性看板；③ 18 个单元测试全部通过（覆盖波动率/跨品种价差/因子看板）；④ 设计文档 `docs/designs/p25-multifactor-injection.md` 含可行性评估（排除社区情绪，资金流更名为多空持仓）。版本号 bump 10.2.1→10.3.0 |
 | **v10.2.1** | 2026-07-25 | **新闻数据层清理 + _build_jin10_context 全面替换为 NewsRouter** — ① 删除 `nodes.py` 中 `_SYMBOL_TO_KEYWORDS`/`_SYMBOL_DEFAULT_KEYWORDS`/`_build_jin10_context` 旧代码（~120行）；② `node_fundamental`/`node_sentiment` 均通过 `NewsRouter`（`data_adapter/news`）获取多源聚合新闻数据，关键字映射迁移至 `data_adapter/news/sources/jin10_source.py`；③ 测试文件 `test_jin10_mcp.py` 中 `TestBuildJin10Context` → `TestNewsRouter`（4 个测试，覆盖 prompt_context / quality_report / keyword_mapping）；④ 文档同步：`01-architecture.md` 2处、`CODE_WIKI.md` 1处；⑤ 4 个新测试全部通过，7 个旧测试因 `futures_data_core` 模块缺失为已知失败。版本号 bump 10.2.0→10.2.1 |
 | **v10.1.5** | 2026-07-25 | **链证源模块路径修复 + 导航栏过滤 + 量价持仓 K线 fallback + footer 对齐** — ① 修复 `_import_skill_module`/`_import_from_skill` 中模块路径 `.` 未转为 `\\` 导致 `scripts.chains.py` 找不到的问题；② 导航栏 `_render_html()` 过滤只保留 `sym-*` 和 `signal-summary` 两类锚点；③ 量价持仓数据当 scan stats 不足时从 K 线 `open_interest` 字段推导 fallback；④ `report_skeleton.html` footer 添加 `.container` 包裹与头部对齐。 |
@@ -521,7 +522,10 @@ python scripts/auto_publish.py
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.1.1） | `grep "^version" pyproject.toml` |
+| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.4.0） | `grep "^version" pyproject.toml` |
+| `fdt_langgraph/nodes.py _compute_stop_target()` | §6.2 v10.4.0 | stop_loss/target 代码精确计算（L0），LLM 不可修改 | `grep -n "def _compute_stop_target" fdt_langgraph/nodes.py` |
+| `fdt_langgraph/nodes.py _clamp_position()` | §6.2 v10.4.0 | 仓位钳制（L0），LLM 输出超限被强制上限 | `grep -n "def _clamp_position" fdt_langgraph/nodes.py` |
+| `data_adapter/factors/technical_score.py compute_technical_score()` | §6.2 v10.4.0 | 技术评分代码化（L1），4 维度加权评分，LLM 在 ±10 范围调整 | `grep -n "def compute_technical_score" data_adapter/factors/technical_score.py` |
 | `fdt_langgraph/nodes.py node_chain()` | §6.2 v10.1.1 | 链证源使用 `_import_skill_module` 按文件路径加载（兼容目录名含连字符） | `grep -n "def node_chain\|_import_skill_module" fdt_langgraph/nodes.py` |
 | `fdt_langgraph/nodes.py node_sentiment()` | §6.2 v10.1.1 | 新闻情绪使用 `parse_llm_output` 解析结构化情绪评分 | `grep -n "def node_sentiment\|parse_llm_output.*sentiment" fdt_langgraph/nodes.py` |
 | `docs/report-template/report_css.html` | §6.2 v10.1.1 | 新增 `debate-box.bull`/`.bear` 样式 | `grep -n "debate-box" docs/report-template/report_css.html` |

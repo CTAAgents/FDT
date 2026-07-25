@@ -202,7 +202,12 @@ fdt_cli.py main()
 | P3 步4 | 多头反驳空头 | 多头分析员 | 空头立论+空头反驳 + P2 | `state.bullish_rebuttal_arguments`（round=4, rebuttal_v1） | 420s | D06 降级 |
 | P3 步5 | 空头最终陈述 | 空头分析员 | 整合空头所有论据 | `state.bear_final_arguments`（round=5, final） | 420s | D06 降级 |
 | P3 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
+| P3（注入） | **技术基准评分** | **系统（L1 边界）** | FDC 技术指标 | `compute_technical_score()` 注入 `node_technical` prompt，LLM ±10 范围调整 | 即时 | 代码计算失败不阻断 |
+| P3（注入） | **多空持仓因子** | **系统** | AKShare 持仓排名 | `node_fundamental` prompt 注入前20会员多空比区块 | 即时 | 数据不可用跳过 |
 | P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 + **多因子信号一致性看板** | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
+| P4（L0） | **entry_price 硬约束** | **系统** | 扫描价格表 `sym_prices` | LLM 解析后代码强制覆写 `entry_price = scan_price` | 即时 | `scan_price=0` 保持 LLM 值 |
+| P4（L0） | **stop_loss/target 计算** | **系统** | ATR + `_compute_stop_target()` | 代码从 ATR × multiplier 精确计算，LLM 不可修改 | 即时 | ATR 不可用时 1% 降级 |
+| P4（L0） | **仓位钳制** | **系统** | `_clamp_position()` | LLM 输出后钳制 `position_pct ≤ 20%` | 即时 | 非法值默认 3% |
 | P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 品藻兜底 |
 | P3.5 | 辩论质检 | 品藻 | 闫判官裁决 + 风控明审核 | `state.quality_report`（PASS/FAIL + issues，含 conditional_required：neutral 方向不强制 entry_price/stop_loss/target1） | 30s | 品藻汇总时兜底 |
 | P6 | 汇总输出 | 品藻 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |

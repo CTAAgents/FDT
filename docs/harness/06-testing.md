@@ -47,9 +47,10 @@ tests/
 ├── fdt-gate/                     # 质量门禁 (1个测试)
 │   ├── conftest.py
 │   └── test_quality_gate.py      # L1-L5鲁棒性防线
-├── fdt_langgraph/                # LangGraph 节点/图/集成 (5测试文件, v9.0.0 +3节点测试 + final_arguments divergence)
+├── fdt_langgraph/                # LangGraph 节点/图/集成 (5测试文件, v10.4.0 +1代码-推理边界测试文件)
 │   ├── conftest.py
 │   ├── test_nodes.py             # 节点单元测试 (+ 新节点 bearish_rebuttal/bear_final/bull_final)
+│   ├── test_code_reasoning_boundary.py  # 代码-推理边界: _compute_stop_target + _clamp_position (22用例, v10.4.0 新增)
 │   ├── test_state.py             # 状态管理 (+ v9.0.0 六阶段字段: bearish_rebuttal_arguments 等5项)
 │   ├── test_graph.py             # 图构建/Checkpointer/divergence (+ final_arguments divergence + debate节点注册)
 │   ├── test_agents.py            # AgentExecutor/Registry/LLM (新增, 56用例)
@@ -495,7 +496,7 @@ python -m pytest tests/fdt_langgraph/ --cov=fdt_langgraph --cov=fdt_pg --cov-rep
 | 指标 | 数量 |
 |:-----|:-----|
 | 测试文件数 | 12 |
-| 测试用例总数 | 623 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 66 data_adapter/cleaning + 28 structured_data + 222 其他) |
+| 测试用例总数 | 659 (99 langgraph + 144 scripts + 43 D3解码控制 + 20 D6输出控制 + 21 D5记忆+D2工具 + 66 data_adapter/cleaning + 28 structured_data + 22 code_reasoning_boundary + 14 technical_score + 222 其他) |
 | 测试通过率 | 100% |
 | conftest.py mock | 重 I/O 操作 mock (PostgreSQL 连接/数据采集/Agent spawn) |
 | LangGraph 节点覆盖率 | 96% (nodes.py) |
