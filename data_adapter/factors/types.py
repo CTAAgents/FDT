@@ -118,11 +118,17 @@ class CrossSpreadResult:
 
 @dataclass
 class FactorSignal:
-    """单个因子信号 — 供因子看板使用"""
+    """单个因子信号 — 供因子看板使用
+
+    G23 扩展：新增 zscore/percentile/ic_value 用于因子归因。
+    """
     symbol: str
     direction: int       # -2 强烈看空, -1 看空, 0 中性, +1 看多, +2 强烈看多
     strength: float      # 0.0 ~ 1.0
-    source: str          # 因子名称（如 "volatility", "term_structure"）
+    source: str          # 因子名称（如 "volatility", "term_structure", "value"）
+    zscore: Optional[float] = None      # G23: 截面 Z-Score
+    percentile: Optional[float] = None  # G23: 历史百分位 0~100
+    ic_value: Optional[float] = None    # G23: 因子 IC 值
 
 
 @dataclass
@@ -133,3 +139,101 @@ class FactorDashboardResult:
     consensus: dict[str, int] = field(default_factory=dict)  # {symbol: 方向汇总}
     divergence: dict[str, float] = field(default_factory=dict)  # {symbol: 分歧度 0~1}
     data_grade: str = "PRIMARY"
+
+
+# ═══════════════════════════════════════════════════
+# 6. 因子矩阵（G23 §3.4 新增）
+# ═══════════════════════════════════════════════════
+
+@dataclass
+class FactorMatrixResult:
+    """因子信号矩阵 — 聚合 8+ 因子全量信号，支持截面排序和 IC 计算
+
+    G23 §3.4: 替代单一 dashboard，提供更结构化的因子聚合视图。
+    """
+    symbols: list[str] = field(default_factory=list)
+    factors: list[str] = field(default_factory=list)                        # 因子名称列表
+    matrix: dict[str, dict[str, FactorSignal]] = field(default_factory=dict)  # {symbol: {factor: signal}}
+    factor_ic: dict[str, float] = field(default_factory=dict)               # {factor: IC}
+    data_grade: str = "PRIMARY"
+
+
+# ═══════════════════════════════════════════════════
+# 7. G23 新增因子结果类型（§3.3）
+# ═══════════════════════════════════════════════════
+
+@dataclass
+class ValueResult:
+    """价值因子 — PE/PB/PS/PCF 历史分位 + EV/EBITDA
+
+    G23 §3.3 P0 优先级。
+    """
+    symbol: str
+    pe_percentile: Optional[float] = None    # PE 历史百分位
+    pb_percentile: Optional[float] = None    # PB 历史百分位
+    ps_percentile: Optional[float] = None    # PS 历史百分位
+    pcf_percentile: Optional[float] = None   # PCF 历史百分位
+    ev_ebitda: Optional[float] = None        # EV/EBITDA
+    dividend_yield: Optional[float] = None   # 股息率
+    composite_zscore: Optional[float] = None # 综合 Z-Score
+    data_grade: str = "UNAVAILABLE"
+
+
+@dataclass
+class QualityResult:
+    """质量因子 — ROE 杜邦分解 + 毛利率稳定性 + 资产负债率
+
+    G23 §3.3 P0 优先级。
+    """
+    symbol: str
+    roe: Optional[float] = None             # ROE（%）
+    roe_dupont: dict = field(default_factory=dict)  # 杜邦分解 {net_margin, asset_turnover, equity_multiplier}
+    gross_margin: Optional[float] = None    # 毛利率（%）
+    gross_margin_stability: Optional[float] = None  # 毛利率稳定性（标准差倒数）
+    debt_ratio: Optional[float] = None      # 资产负债率（%）
+    current_ratio: Optional[float] = None   # 流动比率
+    composite_score: Optional[float] = None # 综合质量评分 0~100
+    data_grade: str = "UNAVAILABLE"
+
+
+@dataclass
+class MomentumResult:
+    """动量因子 — 时序动量 + 截面动量 + 残差动量
+
+    G23 §3.3 P0 优先级。
+    """
+    symbol: str
+    momentum_12m1m: Optional[float] = None   # 12-1M 动量（剔除最近1个月）
+    momentum_6m: Optional[float] = None      # 6 个月动量
+    momentum_3m: Optional[float] = None      # 3 个月动量
+    cross_sectional_rank: Optional[float] = None  # 截面动量排名（百分位）
+    residual_momentum: Optional[float] = None     # 残差动量
+    data_grade: str = "UNAVAILABLE"
+
+
+@dataclass
+class GrowthResult:
+    """成长因子 — 营收/利润增长率 + 分析师预期修正
+
+    G23 §3.3 P1 优先级。
+    """
+    symbol: str
+    revenue_growth_1y: Optional[float] = None    # 营收同比增长率（%）
+    revenue_growth_3y: Optional[float] = None    # 营收 3 年复合增长率（%）
+    profit_growth_1y: Optional[float] = None     # 净利润同比增长率（%）
+    analyst_revision: Optional[float] = None     # 分析师预期修正方向 (-1~+1)
+    data_grade: str = "UNAVAILABLE"
+
+
+@dataclass
+class DividendResult:
+    """红利因子 — 股息率 + 分红支付率 + 分红稳定性
+
+    G23 §3.3 P1 优先级。
+    """
+    symbol: str
+    dividend_yield: Optional[float] = None     # 股息率（%）
+    payout_ratio: Optional[float] = None       # 分红支付率（%）
+    dividend_years: Optional[int] = None       # 连续分红年数
+    dividend_stability: Optional[float] = None # 分红稳定性 0~1
+    data_grade: str = "UNAVAILABLE"

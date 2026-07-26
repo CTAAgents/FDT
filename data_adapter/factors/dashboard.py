@@ -12,6 +12,7 @@ from typing import Optional
 from .types import (
     CrossSpreadResult,
     FactorDashboardResult,
+    FactorMatrixResult,
     FactorSignal,
     HoldingSentimentResult,
     TermStructureResult,
@@ -288,3 +289,54 @@ def format_dashboard_for_prompt(dashboard: FactorDashboardResult) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+def build_matrix(dashboard: FactorDashboardResult) -> FactorMatrixResult:
+    """将 FactorDashboardResult 升级为 FactorMatrixResult（G23 §3.4）。
+
+    转换逻辑：
+      - matrix: {symbol: {factor_name: FactorSignal}}
+      - factor_ic: 从信号强度估算（简化：strength × sign(direction)）
+    """
+    if dashboard.data_grade == "NO_DATA" or not dashboard.signals:
+        return FactorMatrixResult(data_grade="NO_DATA")
+
+    # 收集所有因子名称
+    all_sources: list[str] = []
+    for sigs in dashboard.signals.values():
+        for s in sigs:
+            if s.source not in all_sources:
+                all_sources.append(s.source)
+
+    matrix: dict[str, dict[str, FactorSignal]] = {}
+    factor_signals: dict[str, list[int]] = {src: [] for src in all_sources}
+
+    for bare in dashboard.symbols:
+        sigs = dashboard.signals.get(bare, [])
+        sym_matrix: dict[str, FactorSignal] = {}
+        for s in sigs:
+            sym_matrix[s.source] = s
+            # 收集因子方向用于 IC 估算
+            if s.source in factor_signals:
+                factor_signals[s.source].append(s.direction)
+        matrix[bare] = sym_matrix
+
+    # 简化 IC 估算：因子方向与共识方向的秩相关代理
+    factor_ic: dict[str, float] = {}
+    for src, dirs in factor_signals.items():
+        if len(dirs) < 3:
+            factor_ic[src] = 0.0
+            continue
+        consensus = sum(dirs) / len(dirs)
+        # 正相关 = 该因子与共识同向
+        aligned = sum(1 for d in dirs if d * consensus > 0)
+        ic = (aligned / len(dirs)) * 2 - 1  # -1~+1
+        factor_ic[src] = round(ic, 3)
+
+    return FactorMatrixResult(
+        symbols=list(dashboard.symbols),
+        factors=all_sources,
+        matrix=matrix,
+        factor_ic=factor_ic,
+        data_grade="PRIMARY",
+    )

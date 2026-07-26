@@ -3,7 +3,7 @@
 直接通过 AKShare 库获取期货数据，无任何 intermediate adapter 依赖。
 独立于 ``futures_data_core`` 包，纯 AKShare 调用。
 
-实现 ``DataSource`` ABC 的全部 12 个抽象方法。
+实现 ``FuturesDataSource`` ABC 的全部抽象方法。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import zipfile
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from data_adapter.base import DataSource
+from data_adapter.base import FuturesDataSource
 from data_adapter.cleaning import clean_kline
 from data_adapter.types import KlineBar, KlineResult, QuoteResult
 
@@ -77,7 +77,7 @@ _POSITION_FN_MAP: dict[str, str] = {
 _COMEX_SYMBOLS: dict[str, str] = {"CU": "铜", "AU": "金", "AG": "银"}
 
 
-class AKShareSource(DataSource):
+class AKShareSource(FuturesDataSource):
     """AKShare 数据源实现。
 
     所有方法均返回 DataSource 接口定义的规范类型：

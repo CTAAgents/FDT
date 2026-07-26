@@ -85,6 +85,28 @@ async def node_chain(state: DebateState) -> dict:
     # 提取 structured chain_results
     result = chain_data.get("chain_results", {}) if isinstance(chain_data, dict) else chain_data
     result["_source"] = "analyze_chain"
+
+    # ── P2.5 跨品种价差因子注入 ──
+    try:
+        factor_cs = state.get("factor_cross_spread", [])
+        if factor_cs:
+            cs_parts = ["【跨品种价差（P2.5 计算）】"]
+            for cs in factor_cs:
+                if hasattr(cs, "data_grade") and cs.data_grade == "PRIMARY":
+                    pair_str = f"{cs.pair[0]}-{cs.pair[1]}" if isinstance(cs.pair, (list, tuple)) else str(cs.pair)
+                    parts = [f"价差={cs.current_spread:.1f}", f"Z-Score={cs.zscore:.2f}"]
+                    if cs.percentile is not None:
+                        parts.append(f"百分位={cs.percentile:.0f}%")
+                    if cs.trend:
+                        parts.append(f"趋势={cs.trend}")
+                    if cs.historical_mean is not None:
+                        parts.append(f"均值={cs.historical_mean:.1f}")
+                    cs_parts.append(f"  {pair_str}: {' | '.join(parts)}")
+            if len(cs_parts) > 1:
+                result["cross_spread_context"] = "\n".join(cs_parts)
+    except Exception:
+        pass
+
     return {"chain_analysis": result}
 
 

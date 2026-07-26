@@ -242,6 +242,55 @@ Phase 13 ─── ✅ v9.19.0 ── **LangGraph 迁移收尾**：G108 全部�
 | Phase C Shadow | v9.8.1 | 适配引擎 Shadow 模式 + Golden Tasks | 第 6 周 | **已完成** |
 | Phase C 上线 | v9.9.0 | 全量适配 + G102 关闭 + 12 篇文档更新 | 第 7-8 周 | **已完成** |
 
+## 10. 新阶段: G23 全市场因子驱动改进（v0.11.0+ 规划）
+
+参考实现文档: docs/harness/designs/g23-full-market-factor-integration.md
+
+### Phase 13 — 基础设施改造（预计 3-5 天）
+
+| 任务 | 文件 | 验收标准 | 依赖 |
+|:-----|:-----|:---------|:-----|
+| P13a MarketType 枚举扩展 | instrument_classifier.py | 7 种类型全部可识别，UT ≥ 14 | 无 |
+| P13b DataSource 接口分层 | ase.py | FuturesDataSource/EquityDataSource 分拆完成，现有管线零回归 | 无 |
+| P13c 新增因子模块骨架 | actors/value.py + 4 个 | 5 个空骨架 + 类型定义 + 测试桩 | 无 |
+| P13d 现有因子升级 | olatility.py / 	erm_structure.py | 低波/Carry 标准化 | 无 |
+
+### Phase 14 — 因子计算实现（预计 5-7 天）
+
+| 任务 | 验收标准 | 依赖 |
+|:-----|:---------|:-----|
+| P14a 价值因子 alue.py | PE/PB/PS 历史分位计算正确，覆盖 100 只样本 | AKShare 财务接口 |
+| P14b 质量因子 quality.py | ROE 杜邦分解 + 5 项质量指标 | AKShare 财务接口 |
+| P14c 动量因子 momentum.py | 时序/截面/残差三维度动量 | KlineResult |
+| P14d 因子信号矩阵 | FactorMatrixResult 可聚合 8+ 因子 | P14a-P14c |
+| P14e 升级 dashboard.py | 分歧度计算兼容新因子矩阵 | P14d |
+
+### Phase 15 — 辩论流程因子化改造（预计 3-5 天）
+
+| 任务 | 文件 | 验收标准 | 依赖 |
+|:-----|:-----|:---------|:-----|
+| P15a P1 多因子评分 | dt_langgraph/nodes.py | 并行计算全部因子产出 FactorMatrixResult | Phase 14 |
+| P15b P1.5 因子信号矩阵 | _nodes_utils.py | 截面排序+IC计算 | P15a |
+| P15c P2 因子驱动选品种 | 
+odes.py | 改为因子共振排序 | P15b |
+| P15d P3 因子验证辩论 | Agent prompts | 论点必须锚定因子信号 | P15c |
+| P15e P4 因子加权裁决 | 
+ode_verdict prompt | 品种类型化参数输出 | P15d |
+| P15f P5 因子视角风控 | 
+ode_risk_check prompt | 因子拥挤度+回撤检查 | P15e |
+| P15g P6 因子归因报告 | FactorAttributionEngine | 裁决可拆解到因子层面 | P15f |
+
+### Phase 16 — 品种专项实现（长周期，按优先级推进）
+
+| 波次 | 品种 | 核心任务 | 数据源 | 预计 |
+|:-----|:-----|:---------|:-------|:----:|
+| 第一波 | A股个股 | EquityDataSource + AKShare 财务管线 + EquityVerdictParams | stock_financial_abstract | Phase 15 后 |
+| 第二波 | 可转债 | ConvertibleBondDataSource + 条款分析框架 | cb_issue_bond / cb_hist | 个股跑通后 |
+| 第三波 | REITs | REITDataSource + 分红率/运营分析框架 | 
+eits_hist / 
+eits_fund_info | 可转债跑通后 |
+
+
 ## 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |

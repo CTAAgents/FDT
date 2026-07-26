@@ -1,11 +1,16 @@
-"""数据适配层 — 数据源抽象基类。
+"""数据适配层 — 数据源抽象基类（G23 接口分层）。
 
-所有数据源必须实现 DataSource 接口。新增数据源只需：
-1. class MySource(DataSource): 实现全部抽象方法
-2. 在 __init__.py 注册路由
-3. 设置环境变量 FDT_DATA_SOURCE=mysource
+层次结构:
 
-下游零修改，直接生效。
+    DataSource (通用接口: K线/行情/批量行情/宏观)
+      ├── FuturesDataSource (期货专有: 仓单/库存/持仓排名/基差/期限结构)
+      ├── EquityDataSource (权益通用: 财务/分红/北向)
+      │     ├── ConvertibleBondDataSource (可转债: 转股价/溢价率/纯债价值)
+      │     └── REITDataSource (REITs: 底层运营/NAV折价)
+
+用法:
+    新增数据源只需继承对应基类，实现全部抽象方法。
+    在 __init__.py 注册路由，下游零修改。
 """
 
 from abc import ABC, abstractmethod
@@ -14,15 +19,22 @@ from typing import Optional
 from data_adapter.types import KlineResult, QuoteResult
 
 
+# ═══════════════════════════════════════════════════════
+# Layer 0: 通用接口 — 全品种通用的数据方法
+# ═══════════════════════════════════════════════════════
+
 class DataSource(ABC):
-    """数据源插座接口。"""
+    """数据源插座接口（G23 §3.2 通用层）。
+
+    所有品种类型均需实现的 3 个通用数据方法 + 2 个宏观方法。
+    """
 
     @abstractmethod
     async def get_kline(self, symbol: str, period: str = "daily", days: int = 120) -> KlineResult:
         """获取 K 线数据。
 
         Args:
-            symbol: 品种代码（如 "RB", "CF"）。
+            symbol: 品种代码（如 "RB", "600519"）。
             period: 周期（"daily", "weekly", "monthly"）。
             days: 需要的数据天数。
 
@@ -54,6 +66,39 @@ class DataSource(ABC):
             {symbol: QuoteResult, ...} 映射。
         """
         ...
+
+    @abstractmethod
+    async def get_macro_pmi(self) -> dict:
+        """获取 PMI 宏观数据。
+
+        Returns:
+            dict 含 pmi / pmi_mom。
+        """
+        ...
+
+    @abstractmethod
+    async def get_macro_rate(self) -> dict:
+        """获取利率宏观数据（LPR）。
+
+        Returns:
+            dict 含 rate / rate_mom。
+        """
+        ...
+
+    @staticmethod
+    def _unavailable_dict(reason: str = "数据源不可用") -> dict:
+        return {"data": {}, "summary": reason, "data_grade": "UNAVAILABLE"}
+
+
+# ═══════════════════════════════════════════════════════
+# Layer 1: 期货专有接口（G23 §3.2 FuturesDataSource）
+# ═══════════════════════════════════════════════════════
+
+class FuturesDataSource(DataSource):
+    """期货专有数据源（G23 §3.2）。
+
+    在 DataSource 通用方法之上，增加期货特有的数据方法。
+    """
 
     @abstractmethod
     async def get_contract_info(self, symbol: str) -> dict:
@@ -164,29 +209,11 @@ class DataSource(ABC):
         """
         ...
 
-    @abstractmethod
-    async def get_macro_pmi(self) -> dict:
-        """获取 PMI 宏观数据。
-
-        Returns:
-            dict 含 pmi / pmi_mom。
-        """
-        ...
-
-    @abstractmethod
-    async def get_macro_rate(self) -> dict:
-        """获取利率宏观数据（LPR）。
-
-        Returns:
-            dict 含 rate / rate_mom。
-        """
-        ...
-
     async def get_price_adjustment(self, symbol: str) -> float:
         """计算连续合约与具体合约的价差（G97）。
 
         基类默认返回 0.0（无调整）。子类可覆盖以实现实际价差计算。
-        正值表示连续合约价格低于具体合约（如连续合约 5,670，具体合约 5,858 → 返回 188）。
+        正值表示连续合约价格低于具体合约。
 
         Args:
             symbol: 品种代码（如 "RB"）。
@@ -196,6 +223,121 @@ class DataSource(ABC):
         """
         return 0.0
 
-    @staticmethod
-    def _unavailable_dict(reason: str = "数据源不可用") -> dict:
-        return {"data": {}, "summary": reason, "data_grade": "UNAVAILABLE"}
+
+# ═══════════════════════════════════════════════════════
+# Layer 1: 权益通用接口（G23 §3.2 EquityDataSource）
+# ═══════════════════════════════════════════════════════
+
+class EquityDataSource(DataSource):
+    """权益通用数据源（G23 §3.2）—— 股票/ETF 共用。
+
+    在 DataSource 通用方法之上，增加权益专有数据方法。
+    """
+
+    @abstractmethod
+    async def get_financials(self, symbol: str) -> dict:
+        """获取财务报表核心指标（三表）。
+
+        Args:
+            symbol: 品种代码。
+
+        Returns:
+            dict 含 revenue / net_profit / total_assets / total_liabilities / cash_flow。
+        """
+        ...
+
+    @abstractmethod
+    async def get_dividend(self, symbol: str) -> dict:
+        """获取分红记录。
+
+        Args:
+            symbol: 品种代码。
+
+        Returns:
+            dict 含 dividend_yield / payout_ratio / dividend_years。
+        """
+        ...
+
+    @abstractmethod
+    async def get_north_flow(self, symbol: str) -> dict:
+        """获取北向资金流向（沪/深股通）。
+
+        Args:
+            symbol: 品种代码。
+
+        Returns:
+            dict 含 north_net_buy / north_holding / north_holding_pct。
+        """
+        ...
+
+
+# ═══════════════════════════════════════════════════════
+# Layer 2: 可转债专有接口（G23 §3.2 ConvertibleBondDataSource）
+# ═══════════════════════════════════════════════════════
+
+class ConvertibleBondDataSource(EquityDataSource):
+    """可转债专有数据源（G23 §3.2）。
+
+    继承 EquityDataSource（可转债有正股逻辑），
+    增加可转债特有数据方法。
+    """
+
+    @abstractmethod
+    async def get_cb_info(self, symbol: str) -> dict:
+        """获取可转债基本信息（转股价/纯债价值/到期日等）。
+
+        Args:
+            symbol: 可转债代码。
+
+        Returns:
+            dict 含 conversion_price / pure_bond_value / maturity_date / coupon_rate。
+        """
+        ...
+
+    @abstractmethod
+    async def get_cb_premium(self, symbol: str) -> dict:
+        """获取可转债溢价率。
+
+        Args:
+            symbol: 可转债代码。
+
+        Returns:
+            dict 含 conversion_premium / pure_bond_premium / ytm。
+        """
+        ...
+
+
+# ═══════════════════════════════════════════════════════
+# Layer 2: REITs 专有接口（G23 §3.2 REITDataSource）
+# ═══════════════════════════════════════════════════════
+
+class REITDataSource(EquityDataSource):
+    """REITs 专有数据源（G23 §3.2）。
+
+    继承 EquityDataSource（REITs 有分红/财务逻辑），
+    增加 REITs 特有数据方法。
+    """
+
+    @abstractmethod
+    async def get_reit_ops(self, symbol: str) -> dict:
+        """获取 REITs 底层运营数据。
+
+        Args:
+            symbol: REITs 代码。
+
+        Returns:
+            dict 含 occupancy_rate / rent_per_sqm / total_area / revenue。
+        """
+        ...
+
+    @abstractmethod
+    async def get_reit_valuation(self, symbol: str) -> dict:
+        """获取 REITs 估值数据。
+
+        Args:
+            symbol: REITs 代码。
+
+        Returns:
+            dict 含 nav / nav_discount / dividend_rate / p_ffo。
+        """
+        ...

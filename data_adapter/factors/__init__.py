@@ -17,9 +17,15 @@ from typing import Optional
 from .types import (
     CrossSpreadResult,
     FactorDashboardResult,
+    FactorMatrixResult,
     FactorSignal,
+    GrowthResult,
+    DividendResult,
     HoldingSentimentResult,
+    MomentumResult,
+    QualityResult,
     TermStructureResult,
+    ValueResult,
     VolatilityResult,
 )
 
@@ -70,9 +76,41 @@ class FactorCollector:
 
         return build_dashboard(symbols, term_structure, volatility, holding_sentiment, cross_spreads)
 
+    def build_matrix(self, dashboard: FactorDashboardResult) -> FactorMatrixResult:
+        """将看板升级为因子信号矩阵（G23 FactorMatrixResult）。"""
+        from .dashboard import build_matrix
+        return build_matrix(dashboard)
+
     @property
     def errors(self) -> list[str]:
         return list(self._errors)
+
+    # ── G23 新增因子模块骨架 ──
+
+    def compute_value(self, symbol: str, financials: dict | None = None) -> ValueResult:
+        """计算价值因子（PE/PB/PS 历史分位 + EV/EBITDA）。"""
+        from .value import compute_value
+        return compute_value(symbol, financials)
+
+    def compute_quality(self, symbol: str, financials: dict | None = None) -> QualityResult:
+        """计算质量因子（ROE 杜邦分解 + 毛利率 + 负债率）。"""
+        from .quality import compute_quality
+        return compute_quality(symbol, financials)
+
+    def compute_momentum(self, symbol: str, closes: list[float] | None = None) -> MomentumResult:
+        """计算动量因子（时序动量 12-1M/6M/3M）。"""
+        from .momentum import compute_momentum
+        return compute_momentum(symbol, closes)
+
+    def compute_growth(self, symbol: str, financials: dict | None = None) -> GrowthResult:
+        """计算成长因子（营收/利润增长率）。"""
+        from .growth import compute_growth
+        return compute_growth(symbol, financials)
+
+    def compute_dividend(self, symbol: str, financials: dict | None = None) -> DividendResult:
+        """计算红利因子（股息率/分红支付率/稳定性）。"""
+        from .dividend import compute_dividend
+        return compute_dividend(symbol, financials)
 
 
 # ── 默认配置（与设计文档对齐） ──

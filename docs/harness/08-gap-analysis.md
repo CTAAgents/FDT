@@ -1,4 +1,4 @@
-# 08 — 差距分析与改进路线
+﻿# 08 — 差距分析与改进路线
 
 > **状态声明（2026-07-26 更新）**：本文件从 v10.0.0→v0.10.6 经历了知识库产业链重构、API密钥泄漏修复、右侧交易铁律确立等重大变更。当前版本 **v0.10.6**，以下评估基于代码实测。
 
@@ -220,9 +220,19 @@
 | **GAP-006** | **多品种辩论 state 隔离缺失** — arguments 跨品种累积（峰值 64MB），LLM 调用严重膨胀 | P2 | `_debate_args_reducer` 替换 `operator.add`：`operator.add(current, [])` = `current`（不清除），新 reducer 检测 `update=[]` 时返回 `[]`（重置）。 | ✅ **已修复（v0.10.9）** — `state.py` 新增 `_debate_args_reducer` 函数，6 个论据字段的 reducer 从 `operator.add` 替换为 `_debate_args_reducer`。`prepare_one_symbol` 传入 `[]` 时正确重置，辩论节点正常追加。 |
 | **GAP-007** | **DCE 持仓排名 zip 损坏 — AKShare 源临时故障** | P1 | 外部依赖暂时故障 | ⏳ **监控中** |
 
+### GAP-20260726 — G23 全市场因子驱动改进计划（v0.11.0 规划）
+
+| GAP ID | 差距 | 优先级 | 类型 | 状态 |
+|:-------|:-----|:------:|:-----|:----:|
+| **GAP-008** | **品种分类器覆盖面不足** — MarketType 仅 4 种，无股票/REITs/可转债识别 | P0 | 架构扩展 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.1 |
+| **GAP-009** | **DataSource 接口未分层** — 5 个期货专有方法与通用接口混在同一抽象类 | P1 | 架构重构 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.2 |
+| **GAP-010** | **因子模块不全，无法支撑因子投资框架** — 仅波动率/期限结构/持仓/价差 4 类，缺价值/质量/动量/成长/红利 | P0 | 能力建设 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.3 |
+| **GAP-011** | **辩论无因子锚定** — P3 自由辩论不强制锚定量化因子信号，裁决不可归因 | P0 | 流程改造 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.5 |
+| **GAP-012** | **裁决 Schema 非品种类型化** — 期货交易参数对股票/REITs/可转债不适用 | P1 | Schema 扩展 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.7 |
+
 ---
 
-## 5. 开放差距汇总（v0.10.9 · 共 1 项监控中）
+## 5. 开放差距汇总（v0.10.9 · 共 6 项）
 
 | # | 差距 | 优先级 | 类型 | 状态 |
 |:-:|:-----|:------:|:-----|:----:|
