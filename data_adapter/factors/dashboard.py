@@ -354,7 +354,7 @@ def _signal_from_money_flow(mf: dict | None) -> Optional[FactorSignal]:
     主力净流入 < 0 → 看空（机构撤离）
     强度 = 主力净流入 / max(|中户|+|散户|, 1) 归一化
     """
-    if not mf or mf.get("data_grade") != "PRIMARY":
+    if not mf or mf.get("data_grade") not in ("PRIMARY", "DERIVED"):
         return None
 
     main_n = mf.get("main_net_inflow")
@@ -391,7 +391,7 @@ def _signal_from_north_flow(nf: dict | None) -> Optional[FactorSignal]:
     北向净买入 > 0 → +1（外资加仓，看多）
     北向净买入 < 0 → -1（外资减仓，看空）
     """
-    if not nf or nf.get("data_grade") != "PRIMARY":
+    if not nf or nf.get("data_grade") not in ("PRIMARY", "DERIVED"):
         return None
 
     net_buy = nf.get("north_net_buy")
@@ -425,7 +425,7 @@ def _signal_from_etf_premium(ep: dict | None) -> Optional[FactorSignal]:
     溢价 > 1% → 市场情绪过热，短期回调风险 → -1（看空）
     折价 > 1% → 市场情绪低迷，短期反弹机会 → +1（看多）
     """
-    if not ep or ep.get("data_grade") != "PRIMARY":
+    if not ep or ep.get("data_grade") not in ("PRIMARY", "DERIVED"):
         return None
 
     premium = ep.get("premium_pct")
@@ -464,7 +464,7 @@ def _signal_from_basis(basis_data: dict | None) -> Optional[FactorSignal]:
     # 支持 data_adapter wrapper 格式和 flat 格式
     raw = basis_data.get("data", basis_data)
     grade = basis_data.get("data_grade", raw.get("data_grade", ""))
-    if grade != "PRIMARY":
+    if grade not in ("PRIMARY", "DERIVED"):
         return None
 
     basis_val = raw.get("basis")
@@ -505,7 +505,7 @@ def _signal_from_warrant(warrant_data: dict | None) -> Optional[FactorSignal]:
         return None
     raw = warrant_data.get("data", warrant_data)
     grade = warrant_data.get("data_grade", raw.get("data_grade", ""))
-    if grade != "PRIMARY":
+    if grade not in ("PRIMARY", "DERIVED"):
         return None
 
     total = raw.get("total")
@@ -544,7 +544,7 @@ def _signal_from_inventory(inv_data: dict | None) -> Optional[FactorSignal]:
         return None
     raw = inv_data.get("data", inv_data)
     grade = inv_data.get("data_grade", raw.get("data_grade", ""))
-    if grade != "PRIMARY":
+    if grade not in ("PRIMARY", "DERIVED"):
         return None
 
     inventory_val = raw.get("inventory")
@@ -584,7 +584,7 @@ def _signal_from_calendar_spread(cs_data: dict | None) -> Optional[FactorSignal]
         return None
     raw = cs_data.get("data", cs_data)
     grade = cs_data.get("data_grade", raw.get("data_grade", ""))
-    if grade != "PRIMARY":
+    if grade not in ("PRIMARY", "DERIVED"):
         return None
 
     spreads = raw.get("spreads", [])
@@ -625,7 +625,7 @@ def _signal_from_profit(profit_data: dict | None) -> Optional[FactorSignal]:
         return None
     raw = profit_data.get("data", profit_data)
     grade = profit_data.get("data_grade", raw.get("data_grade", ""))
-    if grade != "PRIMARY":
+    if grade not in ("PRIMARY", "DERIVED"):
         return None
 
     profit_val = raw.get("profit")

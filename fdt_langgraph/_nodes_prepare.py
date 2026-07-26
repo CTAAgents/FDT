@@ -589,14 +589,14 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             mt = classify(sym)
             if mt in (MarketType.STOCK, MarketType.ETF):
                 mf = await get_money_flow(sym)
-                if mf.get("data_grade") == "PRIMARY":
+                if mf.get("data_grade") in ("PRIMARY", "DERIVED"):
                     factor_money_flow[sym] = mf
                 nf = await get_north_flow(sym)
-                if nf.get("data_grade") == "PRIMARY":
+                if nf.get("data_grade") in ("PRIMARY", "DERIVED"):
                     factor_north_flow[sym] = nf
             if mt == MarketType.ETF:
                 ep = await get_etf_premium(sym)
-                if ep.get("data_grade") == "PRIMARY":
+                if ep.get("data_grade") in ("PRIMARY", "DERIVED"):
                     factor_etf_premium[sym] = ep
 
         # 1c. 期货特有因子（基差/仓单/库存/跨期价差）
@@ -605,16 +605,16 @@ async def node_prepare_data(state: DebateState) -> DebateState:
             if mt not in (MarketType.COMMODITY_FUTURES, MarketType.INDEX_FUTURES, MarketType.BOND_FUTURES):
                 continue
             b = await get_basis(sym)
-            if b.get("data_grade") == "PRIMARY":
+            if b.get("data_grade") in ("PRIMARY", "DERIVED"):
                 factor_basis[sym] = b
             w = await get_warrant(sym)
-            if w.get("data_grade") == "PRIMARY":
+            if w.get("data_grade") in ("PRIMARY", "DERIVED"):
                 factor_warrant[sym] = w
             inv = await get_inventory(sym)
-            if inv.get("data_grade") == "PRIMARY":
+            if inv.get("data_grade") in ("PRIMARY", "DERIVED"):
                 factor_inventory[sym] = inv
             sp = await get_spread(sym)
-            if sp.get("data_grade") == "PRIMARY":
+            if sp.get("data_grade") in ("PRIMARY", "DERIVED"):
                 factor_calendar_spread[sym] = sp
 
         # 1d. 产业链利润（从 K 线收盘价计算）
@@ -632,7 +632,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         for sym in symbols:
             bare = sym.upper()
             pr = fc.compute_profit(bare, closes=latest_closes)
-            if pr.data_grade == "PRIMARY":
+            if pr.data_grade in ("PRIMARY", "DERIVED"):
                 profit_dict_data = {
                     "data": {
                         "symbol": bare,

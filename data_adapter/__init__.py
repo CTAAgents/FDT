@@ -96,8 +96,11 @@ async def get_north_flow(symbol: str) -> dict:
     """获取北向资金流向。"""
     src = _get_source()
     if hasattr(src, "get_north_flow"):
-        return await src.get_north_flow(symbol)  # type: ignore
-    return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
+        result = await src.get_north_flow(symbol)  # type: ignore
+        if result.get("data_grade") != "UNAVAILABLE":
+            return result
+    from data_adapter.sources.web_data_fetcher import fetch_north_flow_from_web
+    return await fetch_north_flow_from_web(symbol)
 
 
 async def get_etf_nav(symbol: str) -> dict:
@@ -120,8 +123,11 @@ async def get_etf_premium(symbol: str) -> dict:
     """获取 ETF 溢价率。"""
     src = _get_source()
     if hasattr(src, "get_etf_premium"):
-        return await src.get_etf_premium(symbol)  # type: ignore
-    return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
+        result = await src.get_etf_premium(symbol)  # type: ignore
+        if result.get("data_grade") != "UNAVAILABLE":
+            return result
+    from data_adapter.sources.web_data_fetcher import fetch_etf_premium_from_web
+    return await fetch_etf_premium_from_web(symbol)
 
 
 async def get_money_flow(symbol: str) -> dict:
@@ -131,8 +137,11 @@ async def get_money_flow(symbol: str) -> dict:
     """
     src = _get_source()
     if hasattr(src, "get_money_flow"):
-        return await src.get_money_flow(symbol)  # type: ignore
-    return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
+        result = await src.get_money_flow(symbol)  # type: ignore
+        if result.get("data_grade") != "UNAVAILABLE":
+            return result
+    from data_adapter.sources.web_data_fetcher import fetch_money_flow_from_web
+    return await fetch_money_flow_from_web(symbol)
 
 
 # ── 期货专有接口（FuturesDataSource 方法，仅 AKShareSource 支持） ──
@@ -145,12 +154,20 @@ async def get_contract_info(symbol: str) -> dict:
 
 async def get_warrant(symbol: str, exchange: str = "SHFE") -> dict:
     """获取仓单日报。"""
-    return await _get_source().get_warrant(symbol, exchange)  # type: ignore
+    result = await _get_source().get_warrant(symbol, exchange)  # type: ignore
+    if result.get("data_grade") == "UNAVAILABLE":
+        from data_adapter.sources.web_data_fetcher import fetch_warrant_from_web
+        result = await fetch_warrant_from_web(symbol, exchange)
+    return result
 
 
 async def get_inventory(symbol: str) -> dict:
     """获取库存数据。"""
-    return await _get_source().get_inventory(symbol)  # type: ignore
+    result = await _get_source().get_inventory(symbol)  # type: ignore
+    if result.get("data_grade") == "UNAVAILABLE":
+        from data_adapter.sources.web_data_fetcher import fetch_inventory_from_web
+        result = await fetch_inventory_from_web(symbol)
+    return result
 
 
 async def get_position_ranking(symbol: str) -> dict:
@@ -170,7 +187,11 @@ async def get_foreign_hist(symbol: str) -> dict:
 
 async def get_basis(symbol: str) -> dict:
     """获取基差数据。"""
-    return await _get_source().get_basis(symbol)  # type: ignore
+    result = await _get_source().get_basis(symbol)  # type: ignore
+    if result.get("data_grade") == "UNAVAILABLE":
+        from data_adapter.sources.web_data_fetcher import fetch_basis_from_web
+        result = await fetch_basis_from_web(symbol)
+    return result
 
 
 async def get_term_structure(symbol: str) -> dict:
@@ -180,4 +201,8 @@ async def get_term_structure(symbol: str) -> dict:
 
 async def get_spread(symbol: str) -> dict:
     """获取跨期价差数据。"""
-    return await _get_source().get_spread(symbol)  # type: ignore
+    result = await _get_source().get_spread(symbol)  # type: ignore
+    if result.get("data_grade") == "UNAVAILABLE":
+        from data_adapter.sources.web_data_fetcher import fetch_spread_from_web
+        result = await fetch_spread_from_web(symbol)
+    return result
