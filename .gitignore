@@ -32,6 +32,7 @@ _tmp_*
 fdt_cache/
 tests/fdt_cache/
 memory/*.db
+memory/**/*.db
 *.egg-info/
 dist/
 build/

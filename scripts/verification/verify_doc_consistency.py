@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 HARNESS_DIR = PROJECT_ROOT / "docs" / "harness"
 
 

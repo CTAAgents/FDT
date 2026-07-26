@@ -115,7 +115,25 @@
 | **G114** | **RHI 递归 Harness 自改进框架**（v9.21.0 已实现） | FDT 自进化闭环只优化 Agent 参数和 ML 权重，不优化 Harness 配置本身。RHI 三层规范 (Agent/Workflow/Rules) 提供结构化 Harness 表示，Pairwise Evaluator 进行 O(1) 轨迹局部比较，Harness Optimizer 基于偏好历史更新。 | P1 | 整合 RHI 循环到 evolution_graph.py | `contracts/rhi_harness_spec.py` + `scripts/harness/rhi_pairwise_eval.py` + `scripts/harness/rhi_harness_optimizer.py` + `fdt_langgraph/rhi_graph.py` ✅ v9.21.0 |
 | **G115** | **全局 Harness RHI 自优化**（v9.21.0 已实现） | CLAUDE.md 作为项目全局 Harness prompt，手工维护无法随项目演进自动优化。RHI 全局 Harness 模块通过 pairwise 质量评分迭代优化 CLAUDE.md 内容。 | P2 | 将 CLAUDE.md 作为 RHI 优化对象，每次迭代比较前后版本质量 | `scripts/harness/rhi_global_harness.py` ✅ v9.21.0 |
 | **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |
-| **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | `10-coding-standards.md` ✅ `harness-rules.yaml` ✅ |
+| 
+**G97（2026-07-26 连续合约复权价差 — 数据偏差）**：
+> 本次 PTA2609 分析中，FDC 缓存使用 AKShare 主力连续合约（TA0），自动换月复权处理导致缓存价格（5,670.9）与 TA2609 合约实际市价（5,858）相差约 188 点。所有 FDC 计算的支撑/阻力位均基于复权价，直接套用到具体合约会产生系统性偏差。
+- **原因**：FDC 的 CacheManager 以连续合约为存储对象，未感知具体合约的最后交易日和价差；数据消费端（P4 裁决、P2 观澜支撑/阻力）也未做合约价差校准。
+- **影响**：入场价、止损、目标价、支撑/阻力位全部偏离，需人工逐项校准。
+- **优先级**: P0
+- **目标**：data_adapter/base.py 或 cache_manager.py 新增 contract_price_adjustment 字段，记录连续合约与具体合约的价差。P4 node_verdict 消费数据时自动读取该字段做校准。
+- **状态**: **开放**（设计阶段）
+
+**G98（2026-07-26 右侧交易校验 — 裁决阶段规则缺失）**：
+> 本次 PTA2609 分析中，闫判官在上涨通道完好时给出了做空建议（65%置信度+可执行参数），违反右侧交易原则。
+- **原因**：P4 裁决阶段没有反趋势方向必须等待结构破坏的自动化校验；C13 交易建议可操作性检查未覆盖趋势方向一致性。
+- **影响**：可能再次出现基本面对但趋势未破坏时给出反方向可执行建议的风险。
+- **优先级**: P0
+- **目标**：在 P4 裁决流程中新增 node_right_side_check 校验节点：当 direction 与短期趋势相反时检查价格结构是否破坏。若未破坏则强制 direction=观望，grade=INFO，清空交易参数。
+- **状态**: **开放**（设计阶段）
+
+
+**G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | `10-coding-standards.md` ✅ `harness-rules.yaml` ✅ |
 
 | **G105** | node_verdict FDC指标key不匹配：_gv("rsi")查不到RSI14、_gv("adx")查不到ADX等，导致闫判官FDC基准事实表全部N/A | 裁决LLM缺乏客观数据参考 → 全部neutral | P0 | v9.11.1 | 已关闭 | 修正key映射：rsi→RSI14, adx→ADX, cci→CCI20, macd_hist→MACD_DIF/MACD_DEA | fdt_langgraph/nodes.py |
 | **G106** | scan_all.py _calc_volume_ma20未校验bar元素类型，当kline中bar为str时AttributeError崩溃 | scan_all无法输出JSON → 下游全链路数据缺失 | P0 | v9.11.1 | 已关闭 | 增加isinstance(b, dict)类型守卫 | skills/quant-daily/scripts/scan_all.py |

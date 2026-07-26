@@ -208,6 +208,7 @@ fdt_cli.py main()
 | P4（L0） | **entry_price 硬约束** | **系统** | 扫描价格表 `sym_prices` | LLM 解析后代码强制覆写 `entry_price = scan_price` | 即时 | `scan_price=0` 保持 LLM 值 |
 | P4（L0） | **stop_loss/target 计算** | **系统** | ATR + `_compute_stop_target()` | 代码从 ATR × multiplier 精确计算，LLM 不可修改 | 即时 | ATR 不可用时 1% 降级 |
 | P4（L0） | **仓位钳制** | **系统** | `_clamp_position()` | LLM 输出后钳制 `position_pct ≤ 20%` | 即时 | 非法值默认 3% |
+| P4（L0） | **右侧交易校验** | **系统** | 当前趋势结构 + 裁决方向 | 若裁决方向与短期趋势相反，检查趋势结构是否破坏。未破坏则降级为INFO（仅供关注），清空入场/目标/止损参数，direction=观望 | 即时 | 跳过校验 |
 | P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 品藻兜底 |
 | P3.5 | 辩论质检 | 品藻 | 闫判官裁决 + 风控明审核 | `state.quality_report`（PASS/FAIL + issues，含 conditional_required：neutral 方向不强制 entry_price/stop_loss/target1） | 30s | 品藻汇总时兜底 |
 | P6 | 汇总输出 | 品藻 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |

@@ -498,7 +498,7 @@ async def node_fundamental(state: DebateState) -> dict:
 
 ```json
 {{"per_symbol": {{
-    "RB": {{"supply_demand": "供需平衡分析", "inventory": "库存周期定位", "profit_margin": "利润与开工率", "basis_term": "基差与期限结构", "macro_external": "宏观与外盘联动", "leading_signals": ["领先信号1", "信号2"], "key_turning_points": [{"data": "库存数据连续3周去化", "impact": "bull", "note": "关键转折：由累库转为去库"}]}},
+    "RB": {{"supply_demand": "供需平衡分析", "inventory": "库存周期定位", "profit_margin": "利润与开工率", "basis_term": "基差与期限结构", "macro_external": "宏观与外盘联动", "leading_signals": ["领先信号1", "信号2"], "key_turning_points": [{{"data": "库存数据连续3周去化", "impact": "bull", "note": "关键转折：由累库转为去库"}}]}},
     "CU": {{"supply_demand": "...", "inventory": "...", "profit_margin": "...", "basis_term": "...", "macro_external": "...", "leading_signals": [...], "key_turning_points": []}}
   }},
   "summary": "总体基本面摘要"
