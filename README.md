@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**，支持**商品期货 / 股指期货 / 国债期货 / ETF** 多市场辩论。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v0.11.0**
+**v0.11.1**
 
 ---
 
@@ -387,6 +387,10 @@ FDT/
 ├── data_adapter/              # 数据适配层（AKShare多接口统一封装 + 多因子计算）
 │   ├── instrument_classifier.py  # 品种分类器（商品/股指/国债/ETF 自动识别，v0.10.6）
 │   ├── factors/               # P2.5 多因子整合器（波动率/价差/期限结构/持仓/利润/动量/价值/质量/技术评分）
+│   └── sources/                # 数据源实现
+│       ├── akshare_source.py   # AKShare 期货数据源（默认激活）
+│       ├── tencent_source.py   # 腾讯自选股 A 股/ETF 数据源
+│       └── web_data_fetcher.py # Web 降级获取器（东方财富 HTTP API 保底）
 │   ├── news/                  # 新闻数据层（NewsRouter 多源聚合）
 │   └── cleaning/              # 数据清洗管线
 ├── data_source_adapter.py     # 统一数据入口封装（legacy）
@@ -473,6 +477,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v0.11.1** | **Web 数据降级管线上线** — AKShare 不可用的因子数据（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价）自动降级到东方财富 HTTP API 保底获取，source_url 溯源标记。版本号 bump 0.11.0→0.11.1 |
 | **v0.11.0** | **EvoMem 补丁记忆范式落地** — 4 个 Phase：① session_memory 格式升级(PatchEntry/PatchStore/倒排索引/迁移脚本) ② 补丁创建自动化(PatchCreator 3 触发点: 规则变更/知识库变动/裁决偏差) ③ P4 消费端集成(闫判官 prompt 注入补丁历史) ④ 产业链知识版本化(KnowledgeStore.query_with_patch_history)。版本号 bump 0.10.9→0.11.0 |
 | **v0.10.9** | **GAP-005/GAP-006 关闭** — JIN10_MCP_TOKEN 重新配置；`state.py` `_debate_args_reducer` 替换 `operator.add`，正确隔离多品种辩论论据。版本号 bump 0.10.8→0.10.9 |
 | **v0.10.8** | **G98/G99 关闭** — `node_right_side_check()` 右侧交易校验(MA5/MA20 趋势+反趋势降级)；知识库产业链重构文档确认关闭。版本号 bump 0.10.7→0.10.8 |
@@ -498,11 +503,10 @@ python scripts/verify_doc_consistency.py
 | **v9.3.0** | 主力合约统一解析 + DataCore 集成 + 字段标准化 |
 | **v9.0.0** | 六阶段攻防辩论：多头立论→空头结辩，来源可追溯 |
 
-## v0.11.0 更新要点
+## v0.11.1 更新要点
 
 | 类别 | 详情 |
 |:-----|:------|
-| **EvoMem 补丁记忆 (Phase 1-4)** | PatchEntry 格式 → PatchStore(patches.jsonl+倒排索引) → PatchCreator(3 触发点) → P4 闫判官注入 → KnowledgeStore 版本化查询 |
-| **G97 连续合约复权价差** | `contract_price_adjustment` 字段 + AKShare 近月 vs 连续合约价差计算 + P4 entry_price 自动调整 |
-| **G98 右侧交易校验** | `node_right_side_check()` MA5/MA20 趋势检测，反趋势+结构未破坏→降级 INFO |
-| **GAP-006 多品种辩论隔离** | `_debate_args_reducer` 替换 `operator.add`，品种切换正确重置论据 |
+| **Web 数据降级管线** | AKShare 不可用时自动降级到东方财富 HTTP API 保底获取（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价），返回 DERIVED 标记 + source_url 溯源 |
+| **信号函数兼容 DERIVED** | 8 个因子信号函数 + 采集管线全部支持 PRIMARY/DERIVED 双数据等级 |
+| **版本号 bump** | 0.11.0 → 0.11.1 |

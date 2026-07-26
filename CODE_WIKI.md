@@ -1394,7 +1394,11 @@ FDT/
 │   │   ├── technical_score.py    # 技术基准评分（4 维度加权，L1）
 │   │   └── dashboard.py          # 信号一致性看板 + 类型感知渲染
 │   ├── news/                     # 新闻数据层
-│   └── cleaning/                 # 数据清洗管线
+│   ├── cleaning/                 # 数据清洗管线
+│   └── sources/                  # 数据源实现
+│       ├── akshare_source.py     # AKShare 期货数据源（默认激活）
+│       ├── tencent_source.py     # 腾讯自选股 A 股/ETF 数据源
+│       └── web_data_fetcher.py   # Web 降级获取器（东方财富 HTTP API 保底）
 ├── fdt_cli.py                   # CLI 入口
 ├── fdt_api.py                   # FastAPI 入口
 ├── data_source_adapter.py       # 统一数据入口封装
@@ -1705,4 +1709,4 @@ python scripts/rhi_global_cli.py install
 
 ---
 
-*文档版本: v0.11.0 | 最后更新: 2026-07-26 | 作者: FDT Contributors*
+*文档版本: v0.11.1 | 最后更新: 2026-07-26 | 作者: FDT Contributors*

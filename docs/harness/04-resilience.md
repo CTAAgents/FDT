@@ -514,6 +514,40 @@ FDT 的 F10 数据模块通过 `_datacore_bridge.py`（`futures_data_core/core/_
 | `fundamentals.py` | `get_fundamental` | Data-Core → 本地缓存 |
 | `position.py` | `get_position_ranking` | Data-Core → 本地缓存 |
 
+## 11. Web 数据降级（P2.5 因子数据保底，v0.11.1+）
+
+> **新增**：当 AKShare（或 TencentStockSource）对因子数据返回 `UNAVAILABLE` 时，自动降级到 `data_adapter/sources/web_data_fetcher.py`，通过东方财富 HTTP API 获取保底数据。所有降级数据标记 `data_grade=DERIVED` + `source_url` 溯源。
+
+### 11.1 降级触发矩阵
+
+| 数据源 | get_basis | get_warrant | get_spread | get_inventory | get_money_flow | get_north_flow | get_etf_premium |
+|:-------|:---------:|:-----------:|:----------:|:-------------:|:--------------:|:--------------:|:----------------:|
+| AKShareSource | UNAVAILABLE[^1] | UNAVAILABLE[^1] | UNAVAILABLE[^1] | ✅ PRIMARY | ❌ 不支持 | ❌ 不支持 | ❌ 不支持 |
+| TencentStockSource | ❌ 不支持 | ❌ 不支持 | ❌ 不支持 | ❌ 不支持 | ✅ PRIMARY | ✅ PRIMARY | ✅ PRIMARY |
+| WebFallback | ✅ DERIVED | ✅ DERIVED | ✅ DERIVED | ✅ DERIVED | ✅ DERIVED | ✅ DERIVED | ✅ DERIVED |
+
+[^1]: 对部分品种（如 RB）返回 UNAVAILABLE，因 AKShare 的对应 API 无该品种数据。
+
+### 11.2 降级数据特征
+
+| 属性 | PRIMARY（主数据源） | DERIVED（降级数据） |
+|:-----|:-------------------|:--------------------|
+| 质量 | 交易所直采/一手 | 公开 HTTP API 获取 |
+| 溯源 | 无 | 含 `source_url` 字段 |
+| 延迟 | 实时 | HTTP 请求延迟 ~1-3s |
+| 精度 | 精确 | 可能因接口限制略有偏差 |
+
+### 11.3 降级链路
+
+```
+data_adapter.__init__.py get_xxx(symbol)
+  → AKShareSource.get_xxx(symbol)
+    → if data_grade == "UNAVAILABLE":
+        → web_data_fetcher.fetch_xxx_from_web(symbol)
+          → httpx.get(eastmoney API)
+            → return {"data": {...}, "data_grade": "DERIVED", "source_url": "..."}
+```
+
 ## 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |

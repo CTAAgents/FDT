@@ -294,6 +294,8 @@ addopts = "--cov=skills/quant-daily/scripts/signals --cov-report=term-missing"
 | **dominant-resolver** | ✅ | ✅ | — | — | — | — | — | **75 用例** (28 dominant + 22 datacore + 25 normalizer, v9.3.0 新增) |
 | **validators** | ✅ | — | — | — | — | **4 用例** |
 | **strategies** | ✅ | ✅ | — | — | — | **19 用例 + 4 新增 (TestSubSignalMerge)** |
+| `data_adapter/factors/`（因子模块） | ✅ | — | — | — | — | **15 用例** | dashboard / volatility / term_structure / cross_spread / holding_sentiment |
+| `data_adapter/sources/web_data_fetcher.py` | — | — | — | — | — | — | Web 降级模块（HTTP API 依赖，暂未编写离线 UT） |
 | **fdt_langgraph** | ✅ | ✅ | — | — | — | **99 用例** |
 
 > ⚠️ **2026-07-14 整顿**：原「43 用例全绿」声明曾因 v6.3.0 重构后 `tests/pipeline/test_runner.py` mock 重命名函数失配而失真（5/10 失败）。**该问题已于 2026-07-14 19:04 修复**，当前 pipeline 10/10 全绿。

@@ -8,6 +8,7 @@
 > **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易铁律文档化。
 > **v0.10.8** (2026-07-26): 新增 G98 右侧交易校验节点 `node_right_side_check()`，插入 verdict→risk_check 之间。
 > **v0.10.9** (2026-07-26): GAP-006 多品种辩论隔离 — `state.py` 用 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。
+> **v0.11.1** (2026-07-26): Web 数据降级管线上线 — 新增 `data_adapter/sources/web_data_fetcher.py`，通过东方财富 HTTP API 对 AKShare 无法获取的因子数据（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价）自动保底降级。返回 `data_grade=DERIVED` + `source_url` 溯源标记。所有信号函数和采集管线支持 PRIMARY/DERIVED 双等级。
 > **v0.11.0** (2026-07-26): EvoMem 补丁记忆范式落地 — 新增 PatchEntry/PatchStore/PatchCreator, MemoryManager 3 检索方法, P4 集成补丁记忆上下文。
 >
 > 清洗层 (data_adapter/cleaning/) 作为数据源的中间件，对原始 K 线执行 OHLC 校验、零成交量剔除、去重、时间轴标准化、3σ 毛刺修复、前复权处理、**期货专项清洗（交割月过滤 + 涨跌停封板标记）**，以及**基本面快照清洗（缺失字段/值校验/新鲜度/口径变更/修订追踪）**。通过环境变量 FDT_DATA_CLEANING_ENABLED 控制开关（默认开启）。**node_prepare_data 中激活 clean_fundamental_data() 批量清洗，探源 Agent context 注入数据质量警告。** 每道清洗产出的清洗报告附着在 KlineResult.cleaning 中透传下游。
