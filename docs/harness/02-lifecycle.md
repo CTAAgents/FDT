@@ -204,6 +204,7 @@ fdt_cli.py main()
 | P3 步6 | 多头最终陈述 | 多头分析员 | 整合多头所有论据 | `state.bull_final_arguments`（round=6, final） | 420s | D06 降级 |
 | P3（注入） | **技术基准评分** | **系统（L1 边界）** | FDC 技术指标 | `compute_technical_score()` 注入 `node_technical` prompt，LLM ±10 范围调整 | 即时 | 代码计算失败不阻断 |
 | P3（注入） | **多空持仓因子** | **系统** | AKShare 持仓排名 | `node_fundamental` prompt 注入前20会员多空比区块 | 即时 | 数据不可用跳过 |
+| P4（注入） | **EvoMem 补丁记忆** | **系统** | PatchStore patches.jsonl | `node_verdict` 通过 MemoryManager.query_patches_by_version() 检索品种/规则相关补丁，注入规则演化历史上下文 | 即时 | 无补丁时跳过 |
 | P4 | 闫判官终裁 | 闫判官(含交易参数) | P3 辩论论据 + **多因子信号一致性看板** | `pg.debate_verdicts`(含交易参数) + **P4 阶段报告 `verdict_report_path`** | 420s | D06 降级 |
 | P4（L0） | **entry_price 硬约束** | **系统** | 扫描价格表 `sym_prices` | LLM 解析后代码强制覆写 `entry_price = scan_price` | 即时 | `scan_price=0` 保持 LLM 值 |
 | P4（L0） | **stop_loss/target 计算** | **系统** | ATR + `_compute_stop_target()` | 代码从 ATR × multiplier 精确计算，LLM 不可修改 | 即时 | ATR 不可用时 1% 降级 |

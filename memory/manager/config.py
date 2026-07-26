@@ -39,6 +39,7 @@ class MemoryConfig:
         "archive": "archive",
         "rules": "rules",
         "performance": "performance",
+        "patches": "_session_memory",
     })
 
     @property

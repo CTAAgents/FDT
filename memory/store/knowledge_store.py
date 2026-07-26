@@ -213,6 +213,43 @@ class KnowledgeStore:
             json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
+    # ── Phase 4: 版本化知识查询 ────────────────────
+
+    def query_with_patch_history(self, symbol: str) -> dict:
+        """查询品种知识 + 关联的补丁历史（版本化感知）。
+
+        Returns:
+            {"knowledge": KnowledgeEntry, "patches": [PatchEntry, ...]}
+        """
+        knowledge = self.query(symbol) or {"symbol": symbol, "total_debates": 0}
+
+        # 从 patch 索引加载关联补丁
+        patches = []
+        try:
+            from ..store.patch_store import PatchStore
+            ps = PatchStore(self.memory_dir)
+            patches = ps.query_by_version(f"品种|{symbol}")
+            if not patches:
+                patches = ps.query_by_version(f"知识库")
+        except Exception:
+            pass
+
+        # 提取补丁链摘要
+        patch_chain = []
+        for p in patches:
+            pid = p.get("patch_id", "")
+            domain = p.get("domain", "")
+            post = p.get("post_state", "")[:80]
+            valid_from = p.get("conditions", {}).get("valid_from", "")
+            patch_chain.append(f"  [{valid_from}] {domain}: {post}")
+
+        return {
+            "knowledge": knowledge,
+            "patches": patches,
+            "patch_chain_summary": "\n".join(patch_chain) if patch_chain else "",
+            "patch_count": len(patches),
+        }
+
     # ── 迁移 ──────────────────────────────────────
 
     def migrate_from_legacy(self) -> int:

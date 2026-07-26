@@ -114,6 +114,47 @@ class GapReport(TypedDict):
     unreferenced_files: list[str]
 
 
+class PatchCondition(TypedDict, total=False):
+    """补丁适用条件"""
+    applicable_regime: list[str]     # 适用市场状态（空=全部适用）
+    inapplicable_regime: list[str]   # 不适用状态
+    valid_from: str                  # 生效日期 YYYY-MM-DD
+    valid_until: str | None          # 失效日期（None=长期有效）
+
+
+class PatchEntry(TypedDict, total=False):
+    """EvoMem 补丁记忆条目 — 记录记忆/规则/知识的变更历史
+
+    新增字段（EvoMem 风格）:
+        patch_id: 全局唯一补丁 ID（如 "patch-20260726-001"）
+        domain: 领域标签（多级，用 | 分隔），如 "生猪|止损规则"
+        pre_state: 变更前的状态描述
+        post_state: 变更后的状态描述
+        rationale: 变更理由
+        evidence: 支撑该变更的证据链
+        conditions: 版本适用条件
+
+    继承自 session_memory 的标准字段:
+        intent / actions / outcome / learned / message_summary_time / message_id
+    """
+    patch_id: str
+    domain: str
+    pre_state: str
+    post_state: str
+    rationale: str
+    evidence: list[str]
+    conditions: PatchCondition
+
+    # 标准 session_memory 字段（均可选）
+    trace_id: NotRequired[str]
+    intent: NotRequired[str]
+    actions: NotRequired[list[str]]
+    outcome: NotRequired[str]
+    learned: NotRequired[str]
+    message_summary_time: NotRequired[str]
+    message_id: NotRequired[str]
+
+
 # Schema 校验映射
 SCHEMA_MAP = {
     "JournalEntry": JournalEntry,
@@ -125,9 +166,10 @@ SCHEMA_MAP = {
     "CalibrationResult": CalibrationResult,
     "MaintenanceReport": MaintenanceReport,
     "GapReport": GapReport,
+    "PatchEntry": PatchEntry,
 }
 
-CURRENT_SCHEMA_VERSION = "2.1"
+CURRENT_SCHEMA_VERSION = "2.2"
 
 
 def validate_schema(data: dict, schema_name: str) -> None:

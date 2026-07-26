@@ -17,6 +17,7 @@ from ..store.experience_store import ExperienceStore
 from ..store.incident_store import IncidentStore
 from ..store.journal_store import JournalStore
 from ..store.knowledge_store import KnowledgeStore
+from ..store.patch_store import PatchStore
 from .config import MemoryConfig
 from .schemas import (
     CURRENT_SCHEMA_VERSION,
@@ -26,6 +27,7 @@ from .schemas import (
     JournalEntry,
     KnowledgeEntry,
     MaintenanceReport,
+    PatchEntry,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,7 @@ class MemoryManager:
         self._knowledge_store = KnowledgeStore(self.memory_dir)
         self._experience_store = ExperienceStore(self.memory_dir)
         self._incident_store = IncidentStore(self.memory_dir)
+        self._patch_store = PatchStore(self.memory_dir)
 
         # ── 检索层 ──
         self._vector_retriever = VectorRetriever(self.memory_dir)
@@ -92,6 +95,10 @@ class MemoryManager:
     def store_schedule(self, task: str, state: dict) -> None:
         """持久化调度状态 → state/schedule_state.json"""
         self._journal_store.store_schedule(task, state)
+
+    def store_patch(self, entry: PatchEntry) -> str:
+        """写入补丁记忆 → _session_memory/{YYYYMMDD}/patches.jsonl"""
+        return self._patch_store.store(entry)
 
     # ═══════════════════════════════════════════════════
     # 检索方法
@@ -218,6 +225,42 @@ class MemoryManager:
             "last_maintenance": self._last_maintenance or "never",
             "memory_dir": str(self.memory_dir),
         }
+
+    # ═══════════════════════════════════════════════════
+    # EvoMem 补丁记忆检索方法
+    # ═══════════════════════════════════════════════════
+
+    def query_patches_by_domain(self, domain: str) -> list[PatchEntry]:
+        """按域标签检索补丁链。
+
+        Args:
+            domain: 域标签前缀（如 "生猪" 匹配 "生猪|止损规则"）。
+
+        Returns:
+            匹配的补丁列表（按 valid_from 降序）。
+        """
+        return self._patch_store.query_by_domain(domain)
+
+    def query_patches_by_version(self, domain: str,
+                                  as_of: str | None = None) -> list[PatchEntry]:
+        """按版本区间检索相关补丁。
+
+        Args:
+            domain: 域标签前缀。
+            as_of: 截止日期 YYYY-MM-DD（None=当前日期）。
+
+        Returns:
+            在指定日期前有效的补丁列表。
+        """
+        return self._patch_store.query_by_version(domain, as_of)
+
+    def resolve_patch_conflict(self, domain: str) -> dict:
+        """检查某域是否存在矛盾补丁。
+
+        Returns:
+            {"has_conflict": bool, "conflicts": [...], "resolution": "..."}
+        """
+        return self._patch_store.resolve_conflict(domain)
 
     # ── 内部方法 ─────────────────────────────────────
 

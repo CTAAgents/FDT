@@ -149,6 +149,39 @@ async def node_verdict(state: DebateState) -> DebateState:
             adjustment_lines.append(f"{sym} | {cont_price} | {front_price} | {adj:+.2f}")
     price_adjustment_table = "\n".join(adjustment_lines) if has_adjustment else ""
 
+    # ── Phase 3: EvoMem 补丁记忆检索（按领域注入历史规则演化） ──
+    patch_context_lines = []
+    try:
+        from memory.manager.manager import MemoryManager
+        mm = MemoryManager()
+        for sym in symbols:
+            sym_up = sym.upper()
+            # 查品种相关补丁
+            sym_patches = mm.query_patches_by_version(f"品种|{sym_up}")
+            # 查通用规则补丁
+            rule_patches = mm.query_patches_by_version("规则")
+            merged = sym_patches + rule_patches
+            if merged:
+                # 去重后取最近的 3 条
+                seen_ids = set()
+                recent = []
+                for p in merged:
+                    pid = p.get("patch_id", "")
+                    if pid not in seen_ids:
+                        seen_ids.add(pid)
+                        recent.append(p)
+                recent = recent[:3]
+                for p in recent:
+                    patch_context_lines.append(
+                        f"  · [{p.get('domain','')}] {p.get('post_state','')[:120]}"
+                    )
+        if patch_context_lines:
+            patch_context_lines.insert(0, "【EvoMem 补丁记忆 — 相关规则演化历史】")
+    except Exception:
+        pass
+
+    patch_context = "\n".join(patch_context_lines) if patch_context_lines else ""
+
 
     context = f"""作为闫判官（裁决官），请基于以下全部辩论内容对每个品种给出最终裁决。
 
@@ -167,6 +200,8 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 【FDC 实际技术指标（基准事实）】
 {fdc_indicator_table}
+
+{patch_context}
 
 【连续合约复权价差校准（G97）】仅显示有价差的品种，价差用于校正连续合约 vs 具体合约的价格偏差。
 {price_adjustment_table}
