@@ -161,6 +161,50 @@ def _render_html(title: str, body_html: str, header_meta: list | None = None) ->
 </body></html>"""
 
 
+def _render_factor_section(state: dict, sym: str) -> str:
+    """Render factor signal dashboard. P2.5 raw + P3 refined."""
+    parts = []
+    sym_u = sym.upper()
+    fdb = state.get("factor_dashboard")
+    # P2.5 raw
+    if fdb and hasattr(fdb, "signals"):
+        signals = fdb.signals.get(sym, fdb.signals.get(sym_u, []))
+        if signals:
+            rows = []
+            for s in signals:
+                d = getattr(s, "direction", 0)
+                src = getattr(s, "source", "?")
+                rows.append('<tr><td>' + _esc(str(src)) + '</td><td style="text-align:center;font-weight:700;">' + str(d) + '</td></tr>')
+            if rows:
+                parts.append('<div class="info-card"><div class="head">Raw Factors (P2.5)</div><table style="width:100%;font-size:0.82rem;"><tr><th>Factor</th><th>Signal</th></tr>' + "".join(rows) + '</table></div>')
+    # P3 refined
+    refined_rows = []
+    td = state.get("technical_data", {})
+    tps = td.get("per_symbol", {})
+    ts = tps.get(sym, tps.get(sym_u, {}))
+    if isinstance(ts, dict) and ts.get("refined_factor"):
+        rf = ts["refined_factor"]
+        d = rf.get("direction", 0)
+        refined_rows.append('<tr><td>tech(vol)</td><td style="text-align:center;">' + str(d) + '</td><td>' + str(rf.get("strength","?")) + '</td><td>' + _esc(str(rf.get("reasoning",""))[:50]) + '</td></tr>')
+    fd = state.get("fundamental_data", {})
+    rfs = fd.get("refined_factors", {})
+    rfsym = rfs.get(sym, rfs.get(sym_u, {}))
+    if isinstance(rfsym, dict) and rfsym.get("direction") is not None:
+        d = rfsym.get("direction", 0)
+        refined_rows.append('<tr><td>fund(hold)</td><td style="text-align:center;">' + str(d) + '</td><td>' + str(rfsym.get("strength","?")) + '</td><td>' + _esc(str(rfsym.get("reasoning",""))[:50]) + '</td></tr>')
+    sd = state.get("sentiment_data", {})
+    sps = sd.get("per_symbol", {})
+    ss = sps.get(sym, sps.get(sym_u, {}))
+    if isinstance(ss, dict) and ss.get("refined_factor"):
+        rf = ss["refined_factor"]
+        d = rf.get("direction", 0)
+        refined_rows.append('<tr><td>sentiment</td><td style="text-align:center;">' + str(d) + '</td><td>' + str(rf.get("strength","?")) + '</td><td>' + _esc(str(rf.get("reasoning",""))[:50]) + '</td></tr>')
+    if refined_rows:
+        parts.append('<div class="info-card"><div class="head">Refined Factors (P3 Fusion)</div><table style="width:100%;font-size:0.82rem;"><tr><th>Source</th><th>Dir</th><th>Str</th><th>Reasoning</th></tr>' + "".join(refined_rows) + '</table></div>')
+    if parts:
+        return '<div class="info-grid">' + "".join(parts) + '</div>'
+    return ""
+
 def _build_body_sections(state: dict) -> str:
     """内部函数：从 state 生成单品种 body HTML（章节部分）"""
     trace_id = state.get("trace_id", "")
@@ -210,6 +254,13 @@ def _build_body_sections(state: dict) -> str:
     fund_sym = fund_per_sym.get(sym, fund_per_sym.get(sym_upper, fund_per_sym.get(sym.lower(), {})))
 
     sentiment_data = research_data.get("sentiment_data", {})
+    # HARNESS FIX: research_data missing sentiment -> state fallback
+    # v10.7.0 fix: overall_score=0 是合法中性值，not 0 会误触发 fallback
+    # 改为检查 is None: 只有字段完全缺失时才 fallback
+    if not sentiment_data or sentiment_data.get("overall_score") is None:
+        _st_sent = state.get("sentiment_data", {})
+        if isinstance(_st_sent, dict) and _st_sent.get("overall_score") is not None:
+            sentiment_data = _st_sent
 
     verdict = state.get("verdict") or {}
     risk_check = state.get("risk_check") or {}
@@ -532,6 +583,11 @@ def _build_body_sections(state: dict) -> str:
     else:
         fund_html = '<div class="callout">无基本面数据（FDC 全维度 UNAVAILABLE，LLM 未返回结构化数据）</div>'
     sections.append(("P3 探源 · 基本面", fund_html, var_yellow))
+
+    # P2.5 Factor Dashboard
+    factor_html = _render_factor_section(state, sym)
+    if factor_html:
+        sections.append(("P2.5 Factor Signals", factor_html, "#2563eb"))
 
     # P2 读心 — info-card 展示情绪
     if isinstance(sentiment_data, dict) and sentiment_data:

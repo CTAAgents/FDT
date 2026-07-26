@@ -230,6 +230,17 @@ async def node_verdict(state: DebateState) -> DebateState:
 【多因子信号一致性看板】
 {factor_dashboard_text}
 
+【四源精炼因子矩阵（P3因子融合输出）】
+从四源研究数据中提取 refined_factor/refined_factors，汇总为因子信号矩阵。
+裁决时应以因子矩阵为主要决策依据（因子投资第一性原理），辩论论据为辅助参考。
+
+因子加权裁决规则：
+1. 四源各贡献一个方向信号(-2~+2)，共识方向 = 多数方向
+2. 权重 = 各源 confidence值 × 分歧度(1-divergence)
+3. 最终方向 = weighted_sign(Σ direction_i × weight_i)
+4. 最终置信度 = min(1.0, Σ |weight_i|) × 因子一致性扣减(分歧度>0.5 → ×0.5)
+5. fast模式(无辩论): 直接基于四源精炼因子+因子看板输出多因子计算结果，不需辩论论据
+
 请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
 **再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
 **stop_loss_price 和 target_price 由系统根据 ATR 自动计算，LLM 无需输出这些字段。**

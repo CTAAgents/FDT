@@ -8,7 +8,7 @@
 > **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易铁律文档化。
 > **v0.10.8** (2026-07-26): 新增 G98 右侧交易校验节点 `node_right_side_check()`，插入 verdict→risk_check 之间。
 > **v0.10.9** (2026-07-26): GAP-006 多品种辩论隔离 — `state.py` 用 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。
-> **v0.12.0** (2026-07-26): MASE 自演化框架落地 — 三环架构完整实现。Phase 1 Self-Refine 快环：所有 Agent 输出后自动执行自我审查+修正，修正轮数上限1，修正率跟踪计数器。Phase 2a 偏差检测：裁决方向 vs 实际走势对比，偏差案例自动创建 EvoMem 格式补丁。Phase 2b 权重自调整：5个Agent权重参数代码硬约束微调，自动冻结机制。Phase 3 拓扑路由：`decide_path()` 代码规则引擎（基于信号一致性/波动率/历史准确率选择辩论路径）+ A/B 测试追踪器。Self-Refine 在 `FdtAgentExecutor.run()` 中集成（零节点修改）。偏差检测（`node_detect_deviations`）和权重调整（`node_adjust_weights`）作为新节点嵌入进化图。新增模块：`self_refine.py`, `deviation_detector.py`, `weight_adjuster.py`, `topology_router.py`。
+ (2026-07-26): MASE 自演化框架落地 — 三环架构完整实现。... 自演化框架落地 — 三环架构完整实现。Phase 1 Self-Refine 快环：所有 Agent 输出后自动执行自我审查+修正，修正轮数上限1，修正率跟踪计数器。Phase 2a 偏差检测：裁决方向 vs 实际走势对比，偏差案例自动创建 EvoMem 格式补丁。Phase 2b 权重自调整：5个Agent权重参数代码硬约束微调，自动冻结机制。Phase 3 拓扑路由：`decide_path()` 代码规则引擎（基于信号一致性/波动率/历史准确率选择辩论路径）+ A/B 测试追踪器。Self-Refine 在 `FdtAgentExecutor.run()` 中集成（零节点修改）。偏差检测（`node_detect_deviations`）和权重调整（`node_adjust_weights`）作为新节点嵌入进化图。新增模块：`self_refine.py`, `deviation_detector.py`, `weight_adjuster.py`, `topology_router.py`。
 > **v0.11.1** (2026-07-26): Web 数据降级管线上线 — 新增 `data_adapter/sources/web_data_fetcher.py`，通过东方财富 HTTP API 对 AKShare 无法获取的因子数据（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价）自动保底降级。返回 `data_grade=DERIVED` + `source_url` 溯源标记。所有信号函数和采集管线支持 PRIMARY/DERIVED 双等级。
 > **v0.11.0** (2026-07-26): EvoMem 补丁记忆范式落地 — 新增 PatchEntry/PatchStore/PatchCreator, MemoryManager 3 检索方法, P4 集成补丁记忆上下文。
 >

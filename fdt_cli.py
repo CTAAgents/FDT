@@ -121,8 +121,8 @@ def main():
                 if _line and not _line.startswith("#") and "=" in _line:
                     _k, _, _v = _line.partition("=")
                     _k, _v = _k.strip(), _v.strip().strip("\"'")
-                    if _k and not os.environ.get(_k):
-                        os.environ[_k] = _v
+                    if _k:
+                        os.environ[_k] = _v  # 强制覆盖系统环境变量
                        
 
     parser = argparse.ArgumentParser(description="FDT Futures Debate Team CLI")

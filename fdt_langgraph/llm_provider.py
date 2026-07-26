@@ -13,6 +13,19 @@ from typing import Any
 
 FDT_ROOT = Path(__file__).resolve().parent.parent
 
+# -- 自动加载 .env 文件（强制覆盖系统环境变量） --
+_env_path = FDT_ROOT / ".env"
+if _env_path.exists():
+    with open(str(_env_path), "r", encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if "=" in _line and not _line.startswith("#"):
+                _k, _v = _line.split("=", 1)
+                _k, _v = _k.strip(), _v.strip().strip(' "')
+                if _k:
+                    os.environ[_k] = _v
+
+
 # 默认配置
 DEFAULT_API_BASE = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-v4-flash"
@@ -22,7 +35,10 @@ MOCK_MODE = os.environ.get("FDT_LLM_MOCK", "").lower() in ("1", "true", "yes")
 
 
 def _get_api_key() -> str:
-    return os.environ.get("FDT_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+    key = os.environ.get("FDT_LLM_API_KEY")
+    if not key:
+        raise ValueError("FDT_LLM_API_KEY not set. Must be in .env file.")
+    return key
 
 
 def _load_yaml(path: str) -> dict:

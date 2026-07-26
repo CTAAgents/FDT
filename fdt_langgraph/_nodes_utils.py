@@ -5,14 +5,18 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
 import re as _re
+import sys
 import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+_SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 
 _MAX_ARGS_CHARS = 4000
 _TRIM_MAX_ARG_CHARS = 120000
@@ -105,10 +109,12 @@ DEBATE_DIVERGENCE_THRESHOLDS = {
 
 
 def _ensure_llm_key():
+    # API Key 强制只从 .env 加载，屏蔽系统环境变量
     if not os.environ.get("FDT_LLM_API_KEY"):
-        if os.environ.get("OPENAI_API_KEY"):
-            os.environ["FDT_LLM_API_KEY"] = os.environ["OPENAI_API_KEY"]
-            logger.info("[LLM] Using OPENAI_API_KEY as FDT_LLM_API_KEY")
+        raise ValueError(
+            "FDT_LLM_API_KEY not set. Must be in .env file. "
+            "Path: D:\\Programs\\FDT\\.env"
+        )
 
 
 

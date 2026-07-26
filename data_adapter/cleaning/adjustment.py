@@ -70,7 +70,7 @@ def _forward_adjust(
 
         factor = prev_close / cur_close
 
-        for i in range(t, len(result)):
+        for i in range(0, t):
             bar = result[i]
             bar["open"] = float(bar.get("open", 0.0)) * factor
             bar["high"] = float(bar.get("high", 0.0)) * factor

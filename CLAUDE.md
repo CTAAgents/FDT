@@ -141,7 +141,7 @@ trace_id 贯穿所有模块和日志
 
 ## 项目上下文（供 AI 新会话快速上手）
 
-FDT (Full-market Debate Team) 是一个 **13-Agent 多角色交叉质询 CTA 决策系统** v0.10.6，基于 **LangGraph 图编排 + 双层循环 (Loop Engineering)** 架构。
+FDT (Full-market Debate Team) 是一个 **13-Agent 多角色交叉质询 CTA 决策系统** v0.12.0，基于 **LangGraph 图编排 + 双层循环 (Loop Engineering)** 架构。
 
 ### 架构范式
 

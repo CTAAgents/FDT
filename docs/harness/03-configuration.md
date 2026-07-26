@@ -1,5 +1,7 @@
 # 03 — 配置管理
 
+> **v0.12.1** (2026-07-27): 新增 `llm_config.yaml` — LLM 模型路由与参数配置。支持按模型名称(如 claude-3.7-sonnet)和角色两种维度配置 temperature/max_tokens/prompt 模板。原 decode_config.yaml 部分路由条目迁移至 llm_config.yaml。
+
 ## 1. 配置文件清单
 
 ### 1.1 项目级配置
@@ -10,6 +12,7 @@
 | `settings.json` | 根目录 | JSON | 全局设置: 模式/阈值/webhooks/backtest | 中 |
 | `team_config.json` | `config/team_config.json` | JSON | 团队环境: 自进化开关/快通道/venv | 低 |
 | `pyproject.toml` | 根目录 | TOML | Python 包: 依赖/pytest/black/ruff | 低 |
+| `llm_config.yaml` | `config/llm_config.yaml` | YAML | LLM 模型路由: 按模型/角色配置 temperature/max_tokens/prompt 模板 (v0.12.1 新增) | 中 |
 | `requirements.txt` | 根目录 | TXT | 核心依赖列表 | 低 |
 | `requirements.lock` | 根目录 | TXT | 冻结依赖 (可复现安装) | 低 |
 

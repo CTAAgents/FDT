@@ -277,17 +277,11 @@ flow:
     })
     graph.add_edge("judge_direction", "prepare_one_symbol")
 
-    # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──
+    # ── 四源并行：扇出到全部 P3 节点（各节点内部自检跳过） ──
     p3_nodes = _get_p3_node_names(mode)
-    def _route_p3_nodes(s, nodes=p3_nodes):
-        for n in nodes:
-            if not _should_skip_p3_source(s, n):
-                return n
-        return "merge_research"
-    # Phase D R01: 单条条件边路由到首个不跳过的 P3 源（LangGraph v1.2.9 不支持同源多条未命名边）
-    path_map: dict[str, str] = {n: n for n in p3_nodes}
-    path_map["merge_research"] = "merge_research"
-    graph.add_conditional_edges("prepare_one_symbol", _route_p3_nodes, path_map)
+    # HARNESS FIX: 无条件 fan-out 到所有 P3 源（每个节点内部通过 _should_skip_p3_source 自检）
+    for _p3_node in p3_nodes:
+        graph.add_edge("prepare_one_symbol", _p3_node)
     for node_name in p3_nodes:
         graph.add_edge(node_name, "merge_research")
 
