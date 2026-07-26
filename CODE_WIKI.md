@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **项目版本**: v0.10.6 | **文档版本**: v0.10.6 | **最后更新**: 2026-07-26 | **定位**: 理解项目的技术基础文档
+> **项目版本**: v0.11.0 | **文档版本**: v0.11.0 | **最后更新**: 2026-07-26 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -44,9 +44,7 @@
 
 ### 1.3 当前版本
 
-**v0.10.6** — 全市场辩论扩展 Phase 0-3：新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6。
-
-**v10.5.0** — Phase A-F 优化方案全部落地：裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0。
+**v0.11.0** — 因子看板全面补全 + 类型感知渲染：新增 10 个因子信号函数（基差/仓单/库存/跨期价差/利润/动量/价值/质量），`_TYPE_FACTOR_MAP` 覆盖 7 种资产类型；`format_dashboard_for_prompt()` 按类型分组渲染子表格；新增 `factors/profit.py` 产业链利润因子模块。版本号 bump 0.10.10→0.11.0。
 
 ---
 
@@ -90,9 +88,13 @@
 │    ├── cross_spread.py       — 跨品种价差/Z-Score (纯计算)    │
 │    ├── term_structure.py     — 期限结构/基差 (AKShare 采集)   │
 │    ├── holding_sentiment.py  — 多空持仓/前20排名 (AKShare)    │
+│    ├── profit.py             — 产业链利润因子 (代码计算)      │
+│    ├── value.py              — 价值因子 (PE/PB历史分位)      │
+│    ├── quality.py            — 质量因子 (ROE杜邦分解)         │
+│    ├── momentum.py           — 动量因子 (时序/截面动量)      │
 │    ├── technical_score.py    — 技术基准评分 (4维度加权, L1)   │
-│    ├── dashboard.py          — 信号一致性看板 + 分歧度指标    │
-│    └── types.py              — 7 种因子数据类定义             │
+│    ├── dashboard.py          — 信号一致性看板 + 类型感知渲染  │
+│    └── types.py              — 10 种因子数据类定义             │
 │  data_adapter/news/ — 新闻数据层 (NewsRouter 多源聚合+降级)   │
 │  data_adapter/cleaning/ — 数据清洗管线                       │
 ├──────────────────────────────────────────────────────────────┤
@@ -421,8 +423,12 @@ scan → judge_direction → prepare_one_symbol
 | `FactorCollector.collect_holding_sentiment()` | 采集 | 多空持仓/前20排名（AKShare） |
 | `FactorCollector.compute_volatility()` | 计算 | HV/偏度/ATR（numpy） |
 | `FactorCollector.compute_cross_spreads()` | 计算 | 跨品种价差/Z-Score（numpy） |
-| `FactorCollector.build_dashboard()` | 聚合 | 信号一致性看板 + 分歧度指标 |
-| `format_dashboard_for_prompt()` | 格式化 | 因子看板 → LLM prompt 文本表格 |
+| `FactorCollector.compute_profit()` | 计算 | 产业链利润（代码计算） |
+| `FactorCollector.compute_value()` | 计算 | 价值因子（PE/PB历史分位） |
+| `FactorCollector.compute_quality()` | 计算 | 质量因子（ROE杜邦分解） |
+| `FactorCollector.compute_momentum()` | 计算 | 动量因子（时序动量） |
+| `FactorCollector.build_dashboard()` | 聚合 | 信号一致性看板 + 类型感知渲染 + 分歧度指标 |
+| `format_dashboard_for_prompt()` | 格式化 | 因子看板 → LLM prompt 文本表格（按资产类型分组） |
 
 **辩论协议常量**:
 
@@ -1157,11 +1163,18 @@ fdt_pg / fdt_cache / memory
   ├── 逐品种循环开始:
   │   ├── P2.5: prepare_one_symbol → FDC 数据准备 + FactorCollector 因子采集
   │   │   │      ├── 期限结构因子 (term_structure, AKShare)
-  │   │   │      ├── 多空持仓因子 (holding_sentiment, AKShare)
-  │   │   │      ├── 波动率因子 (volatility, numpy 纯计算)
-  │   │   │      ├── 跨品种价差因子 (cross_spread, numpy 纯计算)
-  │   │   │      └── 技术基准评分 (technical_score, 4维度加权)
-  │   │   │      └── 因子看板 (dashboard, 分歧度+共振度)
+│   │   │      ├── 多空持仓因子 (holding_sentiment, AKShare)
+│   │   │      ├── 波动率因子 (volatility, numpy 纯计算)
+│   │   │      ├── 跨品种价差因子 (cross_spread, numpy 纯计算)
+│   │   │      ├── 基差因子 (basis, AKShare)
+│   │   │      ├── 仓单因子 (warrant, AKShare)
+│   │   │      ├── 库存因子 (inventory, AKShare)
+│   │   │      ├── 跨期价差因子 (calendar_spread, AKShare)
+│   │   │      ├── 产业链利润因子 (profit, 代码计算)
+│   │   │      ├── 动量因子 (momentum, numpy 计算)
+│   │   │      ├── 价值因子 (value, 历史分位计算)
+│   │   │      ├── 质量因子 (quality, ROE分解计算)
+│   │   │      └── 因子看板 (dashboard, 类型感知渲染+分歧度)
   │   ├── P3: 四源并行 → chain_analysis + technical_data(含基准评分) + fundamental_data(含持仓因子) + sentiment_data
   │   ├── P4: 六阶段辩论 → bullish/bearish/rebuttal/final_arguments
   │   ├── P5: 闫判官裁决 + 风控审核 → verdict + risk_check
@@ -1369,13 +1382,17 @@ FDT/
 │   ├── instrument_classifier.py  # 品种分类器（商品/股指/国债/ETF，v0.10.6）
 │   ├── factors/                  # P2.5 多因子整合器（7 模块）
 │   │   ├── __init__.py           # FactorCollector 统一入口
-│   │   ├── types.py              # 7 种因子数据类定义
+│   │   ├── types.py              # 10 种因子数据类定义
 │   │   ├── volatility.py         # 波动率因子（纯 numpy 计算）
 │   │   ├── cross_spread.py       # 跨品种价差因子（纯 numpy 计算）
 │   │   ├── term_structure.py     # 期限结构因子（AKShare 采集）
 │   │   ├── holding_sentiment.py  # 多空持仓因子（AKShare 采集）
+│   │   ├── profit.py             # 产业链利润因子（代码计算）
+│   │   ├── value.py              # 价值因子（PE/PB历史分位）
+│   │   ├── quality.py            # 质量因子（ROE杜邦分解）
+│   │   ├── momentum.py           # 动量因子（时序/截面动量）
 │   │   ├── technical_score.py    # 技术基准评分（4 维度加权，L1）
-│   │   └── dashboard.py          # 信号一致性看板 + 分歧度
+│   │   └── dashboard.py          # 信号一致性看板 + 类型感知渲染
 │   ├── news/                     # 新闻数据层
 │   └── cleaning/                 # 数据清洗管线
 ├── fdt_cli.py                   # CLI 入口
@@ -1662,6 +1679,7 @@ python scripts/rhi_global_cli.py install
 
 | 版本 | 核心变更 |
 |:------|:---------|
+| **v0.11.0** | **因子看板全面补全 + 类型感知渲染** — 新增 10 个因子信号函数（基差/仓单/库存/跨期价差/利润/动量/价值/质量），`_TYPE_FACTOR_MAP` 覆盖 7 种资产类型；`format_dashboard_for_prompt()` 按类型分组渲染子表格；修复 Tencent 因子采集在 `build_dashboard` 之后的 bug。版本号 bump 0.10.10→0.11.0 |
 | **v0.10.6** | **全市场辩论扩展 Phase 0-3** — 新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6 |
 | **v10.5.0** | **Phase A-F 优化方案全部落地** — 裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0 |
 | **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
@@ -1687,4 +1705,4 @@ python scripts/rhi_global_cli.py install
 
 ---
 
-*文档版本: v0.10.6 | 最后更新: 2026-07-26 | 作者: FDT Contributors*
+*文档版本: v0.11.0 | 最后更新: 2026-07-26 | 作者: FDT Contributors*
