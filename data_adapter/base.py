@@ -270,6 +270,44 @@ class EquityDataSource(DataSource):
         """
         ...
 
+    # ── ETF 专有接口（G23 Phase 4 重点） ──
+
+    @abstractmethod
+    async def get_etf_nav(self, symbol: str) -> dict:
+        """获取 ETF 净值数据（实时净值 + 历史净值序列）。
+
+        Args:
+            symbol: ETF 代码。
+
+        Returns:
+            dict 含 nav / nav_date / nav_history / accum_nav。
+        """
+        ...
+
+    @abstractmethod
+    async def get_etf_constituents(self, symbol: str) -> dict:
+        """获取 ETF 成分股列表及权重。
+
+        Args:
+            symbol: ETF 代码。
+
+        Returns:
+            dict 含 constituents（[{stock, weight, amount}]）/ total_count。
+        """
+        ...
+
+    @abstractmethod
+    async def get_etf_premium(self, symbol: str) -> dict:
+        """获取 ETF 溢价率。
+
+        Args:
+            symbol: ETF 代码。
+
+        Returns:
+            dict 含 premium_pct / market_price / nav / discount_pct。
+        """
+        ...
+
 
 # ═══════════════════════════════════════════════════════
 # Layer 2: 可转债专有接口（G23 §3.2 ConvertibleBondDataSource）
