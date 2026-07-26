@@ -32,6 +32,7 @@
 ### 工程架构
 - **LangGraph 4 子图架构** — Debate Graph（辩论执行）+ Master Graph（14 任务统一调度）+ Evolution Graph（自进化闭环）+ RHI Graph（递归 Harness 自优化），零第三方调度依赖
 - **自进化闭环** — 品藻质检 + APM-CS 五轴评分(D1-D5) → 自改进提案 → 权重校准 → Agent 进化 → RHI pairwise Harness 自优化 → ML 增量训练
+- **EvoMem 补丁记忆 (v0.11.0)** — PatchEntry 格式记录记忆/规则/知识的变更历史，PatchStore 按日期分片+域-补丁倒排索引，PatchCreator 自动创建(规则变更/知识库变动/裁决偏差)，P4 闫判官 prompt 注入补丁历史上下文
 - **RHI 递归自进化** — 基于 pairwise 对比的 Harness 三层规范（Agent Candidates / Workflow / Auxiliary Rules）自动优化，四维评分（质检通过率/风控准确率/信号命中率/报告完整性），收敛阈值 ε=0.3
 - **Harness 工程规范** — 13 项 commit 前检查 + 10 条反模式检测 + Loop Contract 循环契约 + 文档一致性三层保障
 - **独立运行** — 去平台依赖，支持 CLI / FastAPI / LangGraph 守护进程三种入口
@@ -375,7 +376,9 @@ FDT/
 ├── fdt_langgraph/             # LangGraph 核心模块（3 子图）
 ├── fdt_pg/                    # PostgreSQL 模块
 ├── futures_data_core/         # 期货数据核心引擎
-├── memory/                    # 知识库与记忆系统
+├── memory/                    # 知识库与记忆系统（含 EvoMem PatchStore）
+│   ├── store/patch_store.py   # 补丁记忆存储（patches.jsonl + 倒排索引）
+│   └── maintenance/patch_creator.py  # 补丁自动创建器（3 触发点）
 ├── scripts/                   # 80+ 辅助脚本
 ├── skills/                    # 10 个子技能实现
 ├── tests/                     # 1124 测试用例
@@ -470,6 +473,10 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v0.11.0** | **EvoMem 补丁记忆范式落地** — 4 个 Phase：① session_memory 格式升级(PatchEntry/PatchStore/倒排索引/迁移脚本) ② 补丁创建自动化(PatchCreator 3 触发点: 规则变更/知识库变动/裁决偏差) ③ P4 消费端集成(闫判官 prompt 注入补丁历史) ④ 产业链知识版本化(KnowledgeStore.query_with_patch_history)。版本号 bump 0.10.9→0.11.0 |
+| **v0.10.9** | **GAP-005/GAP-006 关闭** — JIN10_MCP_TOKEN 重新配置；`state.py` `_debate_args_reducer` 替换 `operator.add`，正确隔离多品种辩论论据。版本号 bump 0.10.8→0.10.9 |
+| **v0.10.8** | **G98/G99 关闭** — `node_right_side_check()` 右侧交易校验(MA5/MA20 趋势+反趋势降级)；知识库产业链重构文档确认关闭。版本号 bump 0.10.7→0.10.8 |
+| **v0.10.7** | **G97 连续合约复权价差校准** — types.py/base.py/state.py/akshare_source.py 新增 `contract_price_adjustment` 字段和计算逻辑。版本号 bump 0.10.6→0.10.7 |
 | **v0.10.6** | **全市场辩论扩展 Phase 0-3** — 新增 `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF 四种市场类型；探源 Agent 按市场类型注入不同分析指令；链证源非商品期货跳过；ETF 品种索引(5个) + AKShare ETF K线接口。版本号 bump 0.10.5→0.10.6 |
 | **v10.5.0** | **Phase A-F 优化方案全部落地** — 裁决数据库(VerdictDB + 13 测试) / 置信度校准(分桶校准+ECE演化触发) / 条件委派协议(delegation-protocol.md + R01 跳过) / T3 验证增强(BiasTracker + C17) / 最小关键证据集(if_that_reasoning/disagreements/溯源树)。版本号 bump 10.4.2→10.5.0 |
 | **v10.4.0** | **代码-推理边界硬切割 Phase 1~4** — entry_price(L0)/stop_loss-target(L0)/仓位钳制(L0)/技术评分代码化(L1)。新增 `_compute_stop_target()` / `_clamp_position()` / `technical_score.py`，LLM 只做语义推理，价格/参数由代码精确计算。36 新测试通过。 |
@@ -491,15 +498,11 @@ python scripts/verify_doc_consistency.py
 | **v9.3.0** | 主力合约统一解析 + DataCore 集成 + 字段标准化 |
 | **v9.0.0** | 六阶段攻防辩论：多头立论→空头结辩，来源可追溯 |
 
-## v10.2.0 更新
-- 修复 DeepSeek API 模型名 (`deepseek-v4-flash`)
-- Phase Badge 颜色修正 (P3黄/P5绿/新增P1.5蓝/P3.5紫)
-- 导航栏去重、中立交易参数显示 "—（待触发）"
-- 新增 P1.5 链证源、P3.5 品藻质检可视化章节
-- 技术指标数据源 ⚠ 标注
-- 修复 `_build_market_fundamental_context` 变量名 bug
-- **数据适配层扩展**：AKShare 合约序列计算期限结构/跨期价差(term_structure/spread)
-- **JSON 解析加固**：`enforce_structured_output` / `_repair_json` try-raw-JSON-first，避免 apostrophe 误伤
-- **正则 per_symbol 兜底**：fundamental_researcher 新增正则括号平衡提取 + `is_partial` 标记
-- **DCE 持仓排名重试**：3 次指数退避重试 + 5 分钟类级别缓存，应对交易所 zip 损坏
-- **资源看门狗快速模式**：`--quick` 跳过资源扫描，直接返回默认并发数
+## v0.11.0 更新要点
+
+| 类别 | 详情 |
+|:-----|:------|
+| **EvoMem 补丁记忆 (Phase 1-4)** | PatchEntry 格式 → PatchStore(patches.jsonl+倒排索引) → PatchCreator(3 触发点) → P4 闫判官注入 → KnowledgeStore 版本化查询 |
+| **G97 连续合约复权价差** | `contract_price_adjustment` 字段 + AKShare 近月 vs 连续合约价差计算 + P4 entry_price 自动调整 |
+| **G98 右侧交易校验** | `node_right_side_check()` MA5/MA20 趋势检测，反趋势+结构未破坏→降级 INFO |
+| **GAP-006 多品种辩论隔离** | `_debate_args_reducer` 替换 `operator.add`，品种切换正确重置论据 |
