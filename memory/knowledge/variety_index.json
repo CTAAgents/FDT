@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": "1.0",
+    "version": "1.1",
     "created_at": "2026-07-11 07:19",
-    "description": "品种分析逻辑知识库索引。每个品种的知识文件存储在对应的子目录中。",
+    "description": "品种分析逻辑知识库索引。品种按产业链分组存放。",
     "total_varieties": 84,
     "file_manifest": {
       "profile.json": "品种静态画像（合约规格、产业链、季节性、波动率）",
@@ -11,7 +11,20 @@
       "key_levels.json": "关键价位（支撑/阻力位、持仓密集区）",
       "data_quality.json": "数据源质量评分（降级追踪、延迟统计）"
     },
-    "last_initialized": "2026-07-11 07:44"
+    "last_initialized": "2026-07-11 07:44",
+    "chain_dirs": {
+      "precious_metals": "贵金属",
+      "nonferrous_metals": "有色金属",
+      "ferrous_metals": "黑色系",
+      "energy_chemical": "能源化工",
+      "polyester_chain": "聚酯链",
+      "agricultural": "农产品",
+      "building_materials": "建材",
+      "new_energy": "新能源",
+      "financial_futures": "金融期货",
+      "etf_index": "ETF-指数",
+      "shipping": "航运"
+    }
   },
   "varieties": {
     "au": {
@@ -27,7 +40,8 @@
       "effective_patterns": 2,
       "key_levels_updated": "2026-07-11 07:43",
       "drivers_updated": "2026-07-12 01:40",
-      "patterns_updated": "2026-07-12 01:13"
+      "patterns_updated": "2026-07-12 01:13",
+      "chain_dir": "precious_metals"
     },
     "ag": {
       "name": "白银",
@@ -39,7 +53,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "precious_metals"
     },
     "cu": {
       "name": "铜",
@@ -51,7 +66,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "al": {
       "name": "铝",
@@ -63,7 +79,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "zn": {
       "name": "锌",
@@ -78,7 +95,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-11 18:37",
       "key_levels_updated": "2026-07-12 22:32",
-      "drivers_updated": "2026-07-12 22:32"
+      "drivers_updated": "2026-07-12 22:32",
+      "chain_dir": "nonferrous_metals"
     },
     "pb": {
       "name": "铅",
@@ -93,7 +111,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-15 11:15",
       "key_levels_updated": "2026-07-16 03:59",
-      "drivers_updated": "2026-07-15 11:16"
+      "drivers_updated": "2026-07-15 11:16",
+      "chain_dir": "nonferrous_metals"
     },
     "ni": {
       "name": "镍",
@@ -105,7 +124,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "sn": {
       "name": "锡",
@@ -117,7 +137,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "rb": {
       "name": "螺纹钢",
@@ -128,11 +149,12 @@
       "patterns": true,
       "key_levels": true,
       "data_quality": true,
-      "total_debates": 15,
+      "total_debates": 17,
       "effective_patterns": 2,
-      "key_levels_updated": "2026-07-14 21:10",
-      "drivers_updated": "2026-07-14 21:10",
-      "patterns_updated": "2026-07-13 20:34"
+      "key_levels_updated": "2026-07-26 10:26",
+      "drivers_updated": "2026-07-26 10:26",
+      "patterns_updated": "2026-07-13 20:34",
+      "chain_dir": "ferrous_metals"
     },
     "hc": {
       "name": "热轧卷板",
@@ -147,7 +169,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 18:26",
       "drivers_updated": "2026-07-13 23:21",
-      "key_levels_updated": "2026-07-13 23:21"
+      "key_levels_updated": "2026-07-13 23:21",
+      "chain_dir": "ferrous_metals"
     },
     "ss": {
       "name": "不锈钢",
@@ -162,7 +185,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
       "drivers_updated": "2026-07-13 21:29",
-      "key_levels_updated": "2026-07-13 20:34"
+      "key_levels_updated": "2026-07-13 20:34",
+      "chain_dir": "ferrous_metals"
     },
     "ru": {
       "name": "天然橡胶",
@@ -174,7 +198,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "br": {
       "name": "丁二烯橡胶",
@@ -186,7 +211,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "fu": {
       "name": "燃料油",
@@ -201,7 +227,8 @@
       "effective_patterns": 3,
       "patterns_updated": "2026-07-15 11:14",
       "key_levels_updated": "2026-07-15 11:15",
-      "drivers_updated": "2026-07-15 11:15"
+      "drivers_updated": "2026-07-15 11:15",
+      "chain_dir": "energy_chemical"
     },
     "bu": {
       "name": "石油沥青",
@@ -213,7 +240,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "wr": {
       "name": "线材",
@@ -225,7 +253,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "ferrous_metals"
     },
     "sp": {
       "name": "纸浆",
@@ -237,7 +266,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "ao": {
       "name": "氧化铝",
@@ -252,7 +282,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
       "drivers_updated": "2026-07-14 23:35",
-      "key_levels_updated": "2026-07-14 23:35"
+      "key_levels_updated": "2026-07-14 23:35",
+      "chain_dir": "nonferrous_metals"
     },
     "ad": {
       "name": "铸造铝合金",
@@ -264,7 +295,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "op": {
       "name": "胶版印刷纸",
@@ -276,7 +308,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "a": {
       "name": "黄大豆1号",
@@ -288,7 +321,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "b": {
       "name": "黄大豆2号",
@@ -303,7 +337,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 20:34",
       "drivers_updated": "2026-07-13 20:46",
-      "key_levels_updated": "2026-07-13 20:46"
+      "key_levels_updated": "2026-07-13 20:46",
+      "chain_dir": "agricultural"
     },
     "m": {
       "name": "豆粕",
@@ -318,7 +353,8 @@
       "effective_patterns": 3,
       "patterns_updated": "2026-07-13 10:55",
       "key_levels_updated": "2026-07-13 23:20",
-      "drivers_updated": "2026-07-13 23:20"
+      "drivers_updated": "2026-07-13 23:20",
+      "chain_dir": "agricultural"
     },
     "y": {
       "name": "豆油",
@@ -332,7 +368,8 @@
       "total_debates": 2,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
-      "drivers_updated": "2026-07-12 01:39"
+      "drivers_updated": "2026-07-12 01:39",
+      "chain_dir": "agricultural"
     },
     "p": {
       "name": "棕榈油",
@@ -346,7 +383,8 @@
       "total_debates": 2,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
-      "drivers_updated": "2026-07-12 01:40"
+      "drivers_updated": "2026-07-12 01:40",
+      "chain_dir": "agricultural"
     },
     "c": {
       "name": "玉米",
@@ -360,7 +398,8 @@
       "total_debates": 2,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
-      "drivers_updated": "2026-07-12 01:39"
+      "drivers_updated": "2026-07-12 01:39",
+      "chain_dir": "agricultural"
     },
     "cs": {
       "name": "玉米淀粉",
@@ -372,7 +411,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "i": {
       "name": "铁矿石",
@@ -386,7 +426,8 @@
       "total_debates": 1,
       "effective_patterns": 1,
       "key_levels_updated": "2026-07-11 07:43",
-      "drivers_updated": "2026-07-11 07:43"
+      "drivers_updated": "2026-07-11 07:43",
+      "chain_dir": "ferrous_metals"
     },
     "j": {
       "name": "焦炭",
@@ -401,7 +442,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 16:37",
       "key_levels_updated": "2026-07-14 23:34",
-      "drivers_updated": "2026-07-14 23:34"
+      "drivers_updated": "2026-07-14 23:34",
+      "chain_dir": "ferrous_metals"
     },
     "jm": {
       "name": "焦煤",
@@ -413,7 +455,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "ferrous_metals"
     },
     "l": {
       "name": "LLDPE",
@@ -428,7 +471,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-14 12:28",
       "key_levels_updated": "2026-07-15 11:15",
-      "drivers_updated": "2026-07-15 11:16"
+      "drivers_updated": "2026-07-15 11:16",
+      "chain_dir": "energy_chemical"
     },
     "v": {
       "name": "PVC",
@@ -440,7 +484,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "pp": {
       "name": "聚丙烯",
@@ -452,7 +497,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "eg": {
       "name": "乙二醇",
@@ -467,7 +513,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-15 11:15",
       "key_levels_updated": "2026-07-15 11:15",
-      "drivers_updated": "2026-07-15 11:15"
+      "drivers_updated": "2026-07-15 11:15",
+      "chain_dir": "polyester_chain"
     },
     "eb": {
       "name": "苯乙烯",
@@ -482,7 +529,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-15 11:15",
       "key_levels_updated": "2026-07-15 11:15",
-      "drivers_updated": "2026-07-15 11:15"
+      "drivers_updated": "2026-07-15 11:15",
+      "chain_dir": "energy_chemical"
     },
     "pg": {
       "name": "LPG",
@@ -494,7 +542,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "jd": {
       "name": "鸡蛋",
@@ -509,7 +558,8 @@
       "effective_patterns": 3,
       "patterns_updated": "2026-07-12 02:54",
       "key_levels_updated": "2026-07-13 10:20",
-      "drivers_updated": "2026-07-13 10:20"
+      "drivers_updated": "2026-07-13 10:20",
+      "chain_dir": "agricultural"
     },
     "lh": {
       "name": "生猪",
@@ -524,7 +574,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-12 22:32",
       "key_levels_updated": "2026-07-13 10:20",
-      "drivers_updated": "2026-07-13 10:20"
+      "drivers_updated": "2026-07-13 10:20",
+      "chain_dir": "agricultural"
     },
     "rr": {
       "name": "粳米",
@@ -538,7 +589,8 @@
       "total_debates": 2,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:13",
-      "drivers_updated": "2026-07-12 01:38"
+      "drivers_updated": "2026-07-12 01:38",
+      "chain_dir": "agricultural"
     },
     "bb": {
       "name": "胶合板",
@@ -550,7 +602,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "fb": {
       "name": "纤维板",
@@ -562,7 +615,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "lg": {
       "name": "原木",
@@ -574,7 +628,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "ap": {
       "name": "苹果",
@@ -586,7 +641,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "cf": {
       "name": "棉花",
@@ -598,7 +654,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "cy": {
       "name": "棉纱",
@@ -610,7 +667,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "cj": {
       "name": "红枣",
@@ -625,7 +683,8 @@
       "effective_patterns": 3,
       "patterns_updated": "2026-07-13 20:34",
       "drivers_updated": "2026-07-14 23:34",
-      "key_levels_updated": "2026-07-14 23:34"
+      "key_levels_updated": "2026-07-14 23:34",
+      "chain_dir": "agricultural"
     },
     "fg": {
       "name": "玻璃",
@@ -640,7 +699,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-14 09:41",
       "drivers_updated": "2026-07-14 23:34",
-      "key_levels_updated": "2026-07-14 23:34"
+      "key_levels_updated": "2026-07-14 23:34",
+      "chain_dir": "building_materials"
     },
     "sa": {
       "name": "纯碱",
@@ -655,7 +715,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 20:34",
       "drivers_updated": "2026-07-14 23:34",
-      "key_levels_updated": "2026-07-16 03:59"
+      "key_levels_updated": "2026-07-16 03:59",
+      "chain_dir": "energy_chemical"
     },
     "sh": {
       "name": "烧碱",
@@ -667,7 +728,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "ma": {
       "name": "甲醇",
@@ -679,7 +741,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "ta": {
       "name": "PTA",
@@ -693,7 +756,8 @@
       "total_debates": 1,
       "effective_patterns": 1,
       "key_levels_updated": "2026-07-11 07:43",
-      "drivers_updated": "2026-07-11 07:43"
+      "drivers_updated": "2026-07-11 07:43",
+      "chain_dir": "polyester_chain"
     },
     "ur": {
       "name": "尿素",
@@ -705,7 +769,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "pf": {
       "name": "短纤",
@@ -720,7 +785,8 @@
       "effective_patterns": 1,
       "patterns_updated": "2026-07-13 19:00",
       "key_levels_updated": "2026-07-13 23:21",
-      "drivers_updated": "2026-07-13 23:21"
+      "drivers_updated": "2026-07-13 23:21",
+      "chain_dir": "polyester_chain"
     },
     "pr": {
       "name": "瓶片",
@@ -732,7 +798,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "polyester_chain"
     },
     "px": {
       "name": "PX",
@@ -744,7 +811,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "polyester_chain"
     },
     "pk": {
       "name": "花生",
@@ -756,7 +824,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "oi": {
       "name": "菜籽油",
@@ -771,7 +840,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-13 10:55",
       "key_levels_updated": "2026-07-13 23:21",
-      "drivers_updated": "2026-07-13 23:21"
+      "drivers_updated": "2026-07-13 23:21",
+      "chain_dir": "agricultural"
     },
     "rm": {
       "name": "菜籽粕",
@@ -786,7 +856,8 @@
       "effective_patterns": 2,
       "patterns_updated": "2026-07-12 22:32",
       "key_levels_updated": "2026-07-13 21:29",
-      "drivers_updated": "2026-07-13 21:29"
+      "drivers_updated": "2026-07-13 21:29",
+      "chain_dir": "agricultural"
     },
     "rs": {
       "name": "菜籽",
@@ -798,7 +869,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "sr": {
       "name": "白糖",
@@ -811,7 +883,8 @@
       "data_quality": true,
       "total_debates": 4,
       "effective_patterns": 0,
-      "key_levels_updated": "2026-07-16 03:59"
+      "key_levels_updated": "2026-07-16 03:59",
+      "chain_dir": "agricultural"
     },
     "wh": {
       "name": "强麦",
@@ -823,7 +896,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "pm": {
       "name": "普麦",
@@ -835,7 +909,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "sm": {
       "name": "锰硅",
@@ -847,7 +922,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "ferrous_metals"
     },
     "sf": {
       "name": "硅铁",
@@ -860,7 +936,8 @@
       "data_quality": true,
       "total_debates": 4,
       "effective_patterns": 0,
-      "key_levels_updated": "2026-07-16 03:59"
+      "key_levels_updated": "2026-07-16 03:59",
+      "chain_dir": "ferrous_metals"
     },
     "jr": {
       "name": "粳稻",
@@ -872,7 +949,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "lr": {
       "name": "晚籼稻",
@@ -884,7 +962,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "ri": {
       "name": "早籼稻",
@@ -896,7 +975,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "agricultural"
     },
     "si": {
       "name": "工业硅",
@@ -908,7 +988,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "new_energy"
     },
     "lc": {
       "name": "碳酸锂",
@@ -922,7 +1003,8 @@
       "total_debates": 2,
       "effective_patterns": 1,
       "patterns_updated": "2026-07-12 01:14",
-      "drivers_updated": "2026-07-12 01:40"
+      "drivers_updated": "2026-07-12 01:40",
+      "chain_dir": "new_energy"
     },
     "ps": {
       "name": "多晶硅",
@@ -934,7 +1016,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "new_energy"
     },
     "pt": {
       "name": "铂",
@@ -946,7 +1029,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "precious_metals"
     },
     "pd": {
       "name": "钯",
@@ -958,7 +1042,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "precious_metals"
     },
     "sc": {
       "name": "原油",
@@ -973,7 +1058,8 @@
       "effective_patterns": 2,
       "key_levels_updated": "2026-07-14 23:34",
       "drivers_updated": "2026-07-14 23:34",
-      "patterns_updated": "2026-07-12 01:13"
+      "patterns_updated": "2026-07-12 01:13",
+      "chain_dir": "energy_chemical"
     },
     "lu": {
       "name": "低硫燃料油",
@@ -988,7 +1074,8 @@
       "effective_patterns": 3,
       "patterns_updated": "2026-07-15 09:00",
       "key_levels_updated": "2026-07-15 11:15",
-      "drivers_updated": "2026-07-15 11:15"
+      "drivers_updated": "2026-07-15 11:15",
+      "chain_dir": "energy_chemical"
     },
     "nr": {
       "name": "20号胶",
@@ -1000,7 +1087,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "energy_chemical"
     },
     "bc": {
       "name": "国际铜",
@@ -1012,7 +1100,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "nonferrous_metals"
     },
     "if": {
       "name": "沪深300股指",
@@ -1024,7 +1113,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "ic": {
       "name": "中证500股指",
@@ -1036,7 +1126,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "im": {
       "name": "中证1000股指",
@@ -1048,7 +1139,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "ih": {
       "name": "上证50股指",
@@ -1060,7 +1152,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "ts": {
       "name": "2年国债",
@@ -1072,7 +1165,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "tf": {
       "name": "5年国债",
@@ -1084,7 +1178,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "t": {
       "name": "10年国债",
@@ -1096,7 +1191,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "tl": {
       "name": "30年国债",
@@ -1108,7 +1204,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "financial_futures"
     },
     "510050": {
       "name": "上证50ETF",
@@ -1120,7 +1217,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "etf_index"
     },
     "510300": {
       "name": "沪深300ETF",
@@ -1132,7 +1230,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "etf_index"
     },
     "510500": {
       "name": "中证500ETF",
@@ -1144,7 +1243,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "etf_index"
     },
     "159915": {
       "name": "创业板ETF",
@@ -1156,7 +1256,8 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "etf_index"
     },
     "588000": {
       "name": "科创板50ETF",
@@ -1168,12 +1269,13 @@
       "key_levels": false,
       "data_quality": true,
       "total_debates": 0,
-      "effective_patterns": 0
+      "effective_patterns": 0,
+      "chain_dir": "etf_index"
     },
     "ec": {
       "name": "EC",
       "exchange": "",
-      "chain": "",
+      "chain": "航运",
       "profile": false,
       "drivers": true,
       "patterns": true,
@@ -1183,7 +1285,8 @@
       "effective_patterns": 2,
       "key_levels_updated": "2026-07-14 23:34",
       "drivers_updated": "2026-07-14 23:34",
-      "patterns_updated": "2026-07-13 20:46"
+      "patterns_updated": "2026-07-13 20:46",
+      "chain_dir": "shipping"
     }
   }
 }

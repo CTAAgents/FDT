@@ -28,10 +28,10 @@
     "pattern_id": "rb-p002",
     "name": "多头趋势驱动型",
     "first_observed": "2026-07-11",
-    "last_used": "2026-07-11 22:52",
-    "use_count": 1,
-    "win_count": 1,
-    "win_rate": 0.72,
+    "last_used": "2026-07-26 10:26",
+    "use_count": 3,
+    "win_count": 3,
+    "win_rate": 0.863,
     "structure": "趋势确认 → 基本面验证",
     "key_evidence_sources": [
       "技术分析/信号",
@@ -41,7 +41,7 @@
       "test_extract"
     ],
     "confidence": 0.72,
-    "consecutive_failures": 3,
+    "consecutive_failures": 0,
     "status": "deprecated",
     "last_failure": "2026-07-11 22:53",
     "deprecated_reason": "连续3次验证失败"

@@ -174,18 +174,22 @@ class Checker:
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         stale = []
-        for symbol_dir in self._knowledge_dir.iterdir():
-            if not symbol_dir.is_dir() or symbol_dir.name.startswith("_"):
+        for entry in self._knowledge_dir.iterdir():
+            if not entry.is_dir() or entry.name.startswith("_") or entry.name == "strategies":
                 continue
-            drivers_path = symbol_dir / "drivers.md"
-            if not drivers_path.exists():
-                continue
-            try:
-                mtime = datetime.fromtimestamp(drivers_path.stat().st_mtime)
-                if (now - mtime).days > 30:
-                    stale.append(symbol_dir.name)
-            except OSError:
-                continue
+            # 支持产业链分组：entry 可能是链目录或旧版品种目录
+            subdirs = [d for d in entry.iterdir() if d.is_dir() and not d.name.startswith("_")]
+            variety_dirs = subdirs if subdirs else [entry]
+            for symbol_dir in variety_dirs:
+                drivers_path = symbol_dir / "drivers.md"
+                if not drivers_path.exists():
+                    continue
+                try:
+                    mtime = datetime.fromtimestamp(drivers_path.stat().st_mtime)
+                    if (now - mtime).days > 30:
+                        stale.append(symbol_dir.name)
+                except OSError:
+                    continue
         return stale
 
     def _check_unreferenced_files(self) -> list[str]:

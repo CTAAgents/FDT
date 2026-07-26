@@ -1,0 +1,28 @@
+{
+  "code": "lu",
+  "name": "低硫燃料油",
+  "exchange": "INE",
+  "exchange_type": "国际化品种",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,2,3,4,5,6,7,8,9,10,11,12
+  ],
+  "chain": "能源化工",
+  "sub_chain": "船用燃料",
+  "aliases": [
+    "低硫燃",
+    "LU",
+    "LSFO"
+  ],
+  "sulfur_content": "≤0.5%（IMO 2020限硫令合规）",
+  "delivery_grade": "RMG 380LU（硫≤0.5%，粘度≈380CST）/ RMG 180LU（硫≤0.5%，粘度≈180CST），保税净价实物交割",
+  "product_classification": "LSFO（硫≤0.5%常规）/ ULSFO（硫≤0.1%超低）",
+  "sister_variety": "fu",
+  "sister_relation": "同属船用燃料赛道，LU是FU的IMO 2020合规替代方案，LU需额外加氢脱硫",
+  "standard": "GB 17411",
+  "delivery_type": "保税净价，实物交割（价格不含关税和增值税）",
+  "strategy_weights": {},
+  "strategy_samples": {},
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json + 能源研发中心专题文章 2026-07"
+}

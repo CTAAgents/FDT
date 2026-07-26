@@ -40,12 +40,39 @@ CHAIN_MAP = {
     "有色金属": ["cu", "al", "zn", "pb", "ni", "sn", "ao", "ad", "bc"],
     "贵金属": ["au", "ag", "pt", "pd"],
     "能源化工": ["ru", "br", "fu", "bu", "sp", "op", "l", "v", "pp", "eb", "pg", "sa", "sh", "ma", "ur", "sc", "lu", "nr"],
-    "聚酯链": ["ta", "eg", "pf", "pr", "px"],
+    "聚酯链": ["eg", "ta", "pf", "pr", "px"],
     "农产品": ["a", "b", "m", "y", "p", "c", "cs", "jd", "lh", "rr", "bb", "fb", "lg", "ap", "cf", "cy", "cj", "pk", "oi", "rm", "rs", "sr", "wh", "pm", "jr", "lr", "ri"],
-    "建材": ["fg", "sa"],
+    "建材": ["fg"],
     "新能源": ["si", "lc", "ps"],
     "金融期货": ["if", "ic", "im", "ih", "ts", "tf", "t", "tl"],
+    "ETF-指数": ["510050", "510300", "510500", "159915", "588000"],
+    "航运": ["ec"],
 }
+
+# 产业链中文名 → 目录名映射
+CHAIN_DIR_MAP = {
+    "黑色系": "ferrous_metals",
+    "有色金属": "nonferrous_metals",
+    "贵金属": "precious_metals",
+    "能源化工": "energy_chemical",
+    "聚酯链": "polyester_chain",
+    "农产品": "agricultural",
+    "建材": "building_materials",
+    "新能源": "new_energy",
+    "金融期货": "financial_futures",
+    "ETF-指数": "etf_index",
+    "航运": "shipping",
+}
+
+
+def _resolve_variety_dir(variety_code: str) -> Path:
+    """解析品种目录路径（支持按产业链分组的结构）。"""
+    for c_name, members in CHAIN_MAP.items():
+        if variety_code in members:
+            chain_dir = CHAIN_DIR_MAP.get(c_name, "")
+            if chain_dir:
+                return _KNOWLEDGE_DIR / chain_dir / variety_code
+    return _KNOWLEDGE_DIR / variety_code
 
 
 def load_yaml(path: Path) -> Dict:
@@ -73,7 +100,7 @@ def load_json(path: Path, default: Any = None) -> Any:
 
 def init_profile(variety_code: str, varieties_data: List[Dict], matrix: Dict, force: bool = False) -> bool:
     """写入 variety 的 profile.json。"""
-    profile_path = _KNOWLEDGE_DIR / variety_code / "profile.json"
+    profile_path = _resolve_variety_dir(variety_code) / "profile.json"
     if profile_path.exists() and not force:
         return False  # 已存在且非强制覆盖
 
@@ -115,7 +142,7 @@ def init_profile(variety_code: str, varieties_data: List[Dict], matrix: Dict, fo
 
 def init_drivers(variety_code: str, force: bool = False) -> bool:
     """初始化 drivers.md 模板。"""
-    drivers_path = _KNOWLEDGE_DIR / variety_code / "drivers.md"
+    drivers_path = _resolve_variety_dir(variety_code) / "drivers.md"
     if drivers_path.exists() and not force:
         return False
 
@@ -146,7 +173,7 @@ def init_drivers(variety_code: str, force: bool = False) -> bool:
 
 def init_data_quality(variety_code: str, data_sources: Dict, force: bool = False) -> bool:
     """初始化 data_quality.json。"""
-    dq_path = _KNOWLEDGE_DIR / variety_code / "data_quality.json"
+    dq_path = _resolve_variety_dir(variety_code) / "data_quality.json"
     if dq_path.exists() and not force:
         return False
 
@@ -201,7 +228,7 @@ def seed_from_argument_patterns(force: bool = False) -> int:
         variety_code = match.group(1).strip().lower()
         rank = int(match.group(2))
 
-        patterns_file = _KNOWLEDGE_DIR / variety_code / "patterns.json"
+        patterns_file = _resolve_variety_dir(variety_code) / "patterns.json"
         if patterns_file.exists() and not force:
             continue
 
@@ -240,17 +267,35 @@ def update_variety_index() -> None:
         return
 
     index = load_json(index_path)
-    existing_dirs = set(os.listdir(_KNOWLEDGE_DIR))
+
+    # 遍历所有品种目录（支持按产业链分组）
+    chain_dir_names = set(CHAIN_DIR_MAP.values())
+    variety_codes_found = set()
+
+    for entry in os.listdir(_KNOWLEDGE_DIR):
+        if entry == "variety_index.json" or entry == "strategies":
+            continue
+        entry_path = _KNOWLEDGE_DIR / entry
+        if not entry_path.is_dir():
+            continue
+
+        if entry in chain_dir_names:
+            # 产业链目录 → 遍历其下的品种子目录
+            for sub in os.listdir(entry_path):
+                sub_path = entry_path / sub
+                if sub_path.is_dir():
+                    variety_codes_found.add(sub)
+        else:
+            # 旧结构：直接是品种目录
+            variety_codes_found.add(entry)
 
     # 清理已不存在的品种条目
     if "varieties" in index:
-        index["varieties"] = {k: v for k, v in index["varieties"].items() if k in existing_dirs or k == "variety_index.json"}
+        index["varieties"] = {k: v for k, v in index["varieties"].items()
+                              if k in variety_codes_found}
 
-    for variety_code in os.listdir(_KNOWLEDGE_DIR):
-        if variety_code == "variety_index.json":
-            continue
-
-        variety_dir = _KNOWLEDGE_DIR / variety_code
+    for variety_code in sorted(variety_codes_found):
+        variety_dir = _resolve_variety_dir(variety_code)
         if not variety_dir.is_dir():
             continue
 
@@ -281,6 +326,13 @@ def update_variety_index() -> None:
         idx_entry["key_levels"] = has_key_levels
         idx_entry["data_quality"] = has_data_quality
         idx_entry["effective_patterns"] = effective
+        # 保留 chain_dir
+        for c_name, members in CHAIN_MAP.items():
+            if variety_code in members:
+                chain_dir = CHAIN_DIR_MAP.get(c_name, "")
+                if chain_dir:
+                    idx_entry["chain_dir"] = chain_dir
+                break
 
     # 更新时间戳
     index.setdefault("meta", {})

@@ -20,11 +20,27 @@ class KnowledgeStore:
         self._knowledge_dir = memory_dir / "knowledge"
         self._variety_index_path = self._knowledge_dir / "variety_index.json"
 
+    # ── 路径解析 ──────────────────────────────────
+
+    def _resolve_symbol_dir(self, symbol: str) -> Path:
+        """根据 chain_dir 查找品种目录，无 chain_dir 时回退到旧格式"""
+        if self._variety_index_path.exists():
+            try:
+                index = json.loads(
+                    self._variety_index_path.read_text(encoding="utf-8")
+                )
+                chain_dir = index.get(symbol, {}).get("chain_dir")
+                if chain_dir:
+                    return self._knowledge_dir / chain_dir / symbol
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        return self._knowledge_dir / symbol
+
     # ── 读取 ──────────────────────────────────────
 
     def query(self, symbol: str) -> KnowledgeEntry | None:
         """查询单个品种知识"""
-        symbol_dir = self._knowledge_dir / symbol
+        symbol_dir = self._resolve_symbol_dir(symbol)
         if not symbol_dir.exists():
             return None
 
@@ -82,13 +98,24 @@ class KnowledgeStore:
         return entry
 
     def list_symbols(self) -> list[str]:
-        """列出所有有知识目录的品种"""
+        """列出所有有知识目录的品种（支持链目录结构）"""
         if not self._knowledge_dir.exists():
             return []
-        return sorted(
-            d.name for d in self._knowledge_dir.iterdir()
-            if d.is_dir() and not d.name.startswith("_") and d.name != "strategies"
-        )
+        symbols: list[str] = []
+        for entry in self._knowledge_dir.iterdir():
+            if not entry.is_dir() or entry.name.startswith("_") or entry.name == "strategies":
+                continue
+            # 检查是否为链目录（下有子目录）
+            subdirs = [d for d in entry.iterdir() if d.is_dir()]
+            if subdirs:
+                # 链目录：收集子目录中的品种
+                for d in subdirs:
+                    if not d.name.startswith("_") and d.name != "strategies":
+                        symbols.append(d.name)
+            else:
+                # 旧格式：直接品种目录
+                symbols.append(entry.name)
+        return sorted(symbols)
 
     # ── 写入 ──────────────────────────────────────
 
@@ -100,7 +127,7 @@ class KnowledgeStore:
         if not symbol:
             raise ValueError("KnowledgeEntry requires 'symbol'")
 
-        symbol_dir = self._knowledge_dir / symbol
+        symbol_dir = self._resolve_symbol_dir(symbol)
         symbol_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = entry.get("last_updated") or datetime.now(timezone.utc).isoformat()
@@ -163,7 +190,14 @@ class KnowledgeStore:
             except (json.JSONDecodeError, FileNotFoundError):
                 pass
 
-        current = index.get(symbol, {"total_debates": 0, "effective_patterns": 0})
+        existing_entry = index.get(symbol, {})
+        current = {
+            "total_debates": existing_entry.get("total_debates", 0),
+            "effective_patterns": existing_entry.get("effective_patterns", 0),
+        }
+        # 保留 chain_dir（不覆盖）
+        if "chain_dir" in existing_entry:
+            current["chain_dir"] = existing_entry["chain_dir"]
         current["total_debates"] = current.get("total_debates", 0) + (
             1 if entry.get("total_debates", 0) > 0 else 0
         )

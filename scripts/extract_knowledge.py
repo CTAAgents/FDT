@@ -2,7 +2,7 @@
 """
 品种知识萃取引擎 v1.0.0
 ========================
-从辩论记录中提取品种特异性知识，写入 memory/knowledge/{variety}/ 目录。
+从辩论记录中提取品种特异性知识，写入 memory/knowledge/{chain}/{variety}/ 目录（v1.1+ 按产业链分组存放）。
 
 设计原则:
 1. 质量门控：仅 confidence ≥ 0.6 且经 post-validate 确认的裁决才能入库
@@ -74,6 +74,42 @@ class KnowledgeExtractor:
                 pass
         return {"meta": {"version": "1.0", "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "total_varieties": 0}, "varieties": {}}
 
+    def _get_variety_dir(self, variety: str) -> Path:
+        """根据品种代码解析品种目录路径（支持按产业链分组的结构 v1.1+）。
+
+        优先从 variety_index.json 的 chain_dir 字段获取产业链目录，
+        无 chain_dir 时回退到 knowledge_dir / variety 的旧结构。
+        """
+        idx = self._index.get("varieties", {}).get(variety, {})
+        chain_dir = idx.get("chain_dir", "")
+        if chain_dir:
+            return self.knowledge_dir / chain_dir / variety
+        return self.knowledge_dir / variety
+
+    def _iter_variety_dirs(self):
+        """遍历所有品种目录。支持按产业链分组的结构。"""
+        chain_dir_names = set()
+        for info in self._index.get("varieties", {}).values():
+            cd = info.get("chain_dir", "")
+            if cd:
+                chain_dir_names.add(cd)
+
+        for entry in os.listdir(self.knowledge_dir):
+            entry_path = self.knowledge_dir / entry
+            if not entry_path.is_dir():
+                continue
+            if entry == "strategies":
+                continue
+            if entry in chain_dir_names:
+                # 产业链目录 → 遍历其下的品种子目录
+                for variety_entry in os.listdir(entry_path):
+                    variety_path = entry_path / variety_entry
+                    if variety_path.is_dir():
+                        yield variety_entry, variety_path
+            else:
+                # 旧结构：直接是品种目录
+                yield entry, entry_path
+
     def _save_index(self) -> None:
         """原子写入索引文件。"""
         tmp = self.index_path.with_suffix(".tmp")
@@ -144,7 +180,7 @@ class KnowledgeExtractor:
             if debate_record.get("seed") or debate_record.get("reconstructed"):
                 return {"skipped_reason": "seed/reconstructed record - not a live debate"}
 
-        variety_dir = self.knowledge_dir / variety
+        variety_dir = self._get_variety_dir(variety)
         variety_dir.mkdir(parents=True, exist_ok=True)
 
         result = {
@@ -653,7 +689,7 @@ class KnowledgeExtractor:
             True=累加成功，False=未找到匹配模式
         """
         variety = variety.strip().lower()
-        patterns_path = self.knowledge_dir / variety / "patterns.json"
+        patterns_path = self._get_variety_dir(variety) / "patterns.json"
         patterns = self._load_json(patterns_path, [])
         if not patterns:
             return False
@@ -687,8 +723,8 @@ class KnowledgeExtractor:
         now = datetime.now()
         result = {"decayed": 0, "deprecated": 0, "active_before": 0, "active_after": 0}
 
-        for variety in os.listdir(self.knowledge_dir):
-            patterns_path = self.knowledge_dir / variety / "patterns.json"
+        for variety, variety_dir in self._iter_variety_dirs():
+            patterns_path = variety_dir / "patterns.json"
             if not patterns_path.exists():
                 continue
 
@@ -883,7 +919,7 @@ if __name__ == "__main__":
         print(f"Extract result: {json.dumps(result, ensure_ascii=False, indent=2)}")
 
         # 验证写入
-        rb_dir = extractor.knowledge_dir / "rb"
+        rb_dir = extractor._get_variety_dir("rb")
         print(f"\nPatterns: {json.dumps(extractor._load_json(rb_dir / 'patterns.json', []), ensure_ascii=False, indent=2)}")
         print(f"\nKey levels keys: {list(extractor._load_json(rb_dir / 'key_levels.json', {}).keys())}")
         print(f"\nDrivers exists: {(rb_dir / 'drivers.md').exists()}")

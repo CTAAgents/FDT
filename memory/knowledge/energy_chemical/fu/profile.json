@@ -1,0 +1,38 @@
+{
+  "code": "fu",
+  "name": "高硫燃料油",
+  "exchange": "SHFE",
+  "unit": "10t/手",
+  "delivery_months": [
+    1,2,3,4,5,6,7,8,9,10,11,12
+  ],
+  "chain": "能源化工",
+  "sub_chain": "船用燃料",
+  "aliases": [
+    "燃油",
+    "燃料油",
+    "高硫燃油"
+  ],
+  "sulfur_content": "≤3.5%（高硫，I级）/ ≤0.5%（II级）",
+  "delivery_grade": "RMG 380船用燃料油（50℃运动粘度≈380CST），保税净价实物交割",
+  "sister_variety": "lu",
+  "sister_relation": "同属船用燃料赛道，FU为高硫品种，LU为低硫合规品种；LU需要额外加氢脱硫工艺",
+  "standard": "GB 17411",
+  "delivery_type": "保税净价，实物交割（价格不含关税和增值税）",
+  "strategy_weights": {
+    "F1": 0.38,
+    "F2": 0.4,
+    "F3": 0.52,
+    "F4": 0.82,
+    "F5": 0.58
+  },
+  "strategy_samples": {
+    "F1": 1,
+    "F2": 1,
+    "F3": 1,
+    "F4": 1,
+    "F5": 1
+  },
+  "init_at": "2026-07-11 07:21",
+  "source": "varieties.yaml + instrument_strategy_matrix.json + 能源研发中心专题文章 2026-07"
+}

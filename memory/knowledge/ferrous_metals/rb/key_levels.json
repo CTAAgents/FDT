@@ -199,21 +199,45 @@
       "confidence": "高",
       "round_id": "",
       "extracted_at": "2026-07-14 21:10"
+    },
+    {
+      "entry": 3500,
+      "stop_loss": 3420,
+      "targets": [
+        3650,
+        3750
+      ],
+      "direction": "bull",
+      "confidence": 0.72,
+      "round_id": "test_extract",
+      "extracted_at": "2026-07-26 10:23"
+    },
+    {
+      "entry": 3500,
+      "stop_loss": 3420,
+      "targets": [
+        3650,
+        3750
+      ],
+      "direction": "bull",
+      "confidence": 0.72,
+      "round_id": "test_extract",
+      "extracted_at": "2026-07-26 10:26"
     }
   ],
   "aggregated": {
     "support": [
       {
+        "level": 3500.0,
+        "count": 3,
+        "min": 3500.0,
+        "max": 3500.0
+      },
+      {
         "level": 2872.5,
         "count": 2,
         "min": 2853.0,
         "max": 2892.0
-      },
-      {
-        "level": 3500.0,
-        "count": 1,
-        "min": 3500.0,
-        "max": 3500.0
       }
     ],
     "resistance": [
@@ -225,22 +249,22 @@
       },
       {
         "level": 3650.0,
-        "count": 1,
+        "count": 3,
         "min": 3650.0,
         "max": 3650.0
       },
       {
         "level": 3750.0,
-        "count": 1,
+        "count": 3,
         "min": 3750.0,
         "max": 3750.0
       }
     ],
-    "computed_at": "2026-07-14 21:10"
+    "computed_at": "2026-07-26 10:26"
   },
   "meta": {
     "variety": "rb",
-    "total_records": 10,
-    "last_updated": "2026-07-14 21:10"
+    "total_records": 12,
+    "last_updated": "2026-07-26 10:26"
   }
 }

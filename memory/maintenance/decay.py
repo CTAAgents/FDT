@@ -30,24 +30,28 @@ class Decay:
         cutoff = days_without_update * 86400
         decayed = []
 
-        for symbol_dir in knowledge_dir.iterdir():
-            if not symbol_dir.is_dir() or symbol_dir.name.startswith("_"):
+        for entry in knowledge_dir.iterdir():
+            if not entry.is_dir() or entry.name.startswith("_") or entry.name == "strategies":
                 continue
-            # 检查 drivers.md 的最后修改时间
-            drivers_path = symbol_dir / "drivers.md"
-            if not drivers_path.exists():
-                continue
-            try:
-                mtime = datetime.fromtimestamp(drivers_path.stat().st_mtime)
-                age = (now - mtime).total_seconds()
-                if age > cutoff:
-                    logger.info(
-                        f"Knowledge decay: {symbol_dir.name} "
-                        f"({age / 86400:.0f} days without update)"
-                    )
-                    decayed.append(symbol_dir.name)
-            except OSError:
-                continue
+            # 支持产业链分组：entry 可能是链目录或旧版品种目录
+            subdirs = [d for d in entry.iterdir() if d.is_dir() and not d.name.startswith("_")]
+            variety_dirs = subdirs if subdirs else [entry]
+            for symbol_dir in variety_dirs:
+                # 检查 drivers.md 的最后修改时间
+                drivers_path = symbol_dir / "drivers.md"
+                if not drivers_path.exists():
+                    continue
+                try:
+                    mtime = datetime.fromtimestamp(drivers_path.stat().st_mtime)
+                    age = (now - mtime).total_seconds()
+                    if age > cutoff:
+                        logger.info(
+                            f"Knowledge decay: {symbol_dir.name} "
+                            f"({age / 86400:.0f} days without update)"
+                        )
+                        decayed.append(symbol_dir.name)
+                except OSError:
+                    continue
 
         if decayed:
             logger.info(

@@ -795,34 +795,51 @@ def _scan_debate_rounds() -> list[dict]:
                         "label": 1 if "execute" in winner or "bull" in winner or "long_win" in winner else (0 if "bear" in winner else 0.5),
                     })
 
-    # 2) 从 knowledge/ 品种 patterns 提取标签
+    # 2) 从 knowledge/ 品种 patterns 提取标签（支持按产业链分组）
     knowledge_dir = os.path.join(root, "knowledge")
     if os.path.isdir(knowledge_dir):
-        for vname in os.listdir(knowledge_dir):
-            vdir = os.path.join(knowledge_dir, vname)
-            if not os.path.isdir(vdir):
+        # 产业链目录名列表
+        chain_dir_names = {
+            "ferrous_metals", "nonferrous_metals", "precious_metals",
+            "energy_chemical", "polyester_chain", "agricultural",
+            "building_materials", "new_energy", "financial_futures",
+            "etf_index", "shipping",
+        }
+        for entry_name in os.listdir(knowledge_dir):
+            entry_path = os.path.join(knowledge_dir, entry_name)
+            if not os.path.isdir(entry_path):
                 continue
-            pfile = os.path.join(vdir, "patterns.json")
-            if not os.path.isfile(pfile):
-                continue
-            try:
-                with open(pfile, "r", encoding="utf-8") as f:
-                    patterns = json.load(f)
-                if isinstance(patterns, list):
-                    for p in patterns:
-                        if p.get("status") == "active" and p.get("use_count", 0) >= 3:
-                            wr = p.get("win_rate", 0.5)
-                            samples.append({
-                                "round_id": p.get("derived_from_debates", ["unknown"])[0],
-                                "symbols": [vname.upper()],
-                                "winner": "long_win" if wr >= 0.5 else "bear",
-                                "has_verdict": True,
-                                "label": 1 if wr >= 0.5 else 0,
-                                "pattern_win_rate": wr,
-                                "pattern_name": p.get("name", ""),
-                            })
-            except (json.JSONDecodeError, OSError):
-                continue
+            if entry_name in chain_dir_names:
+                # 产业链目录 → 遍历其下的品种子目录
+                dirs_to_check = [(os.path.join(entry_path, d), d)
+                                 for d in os.listdir(entry_path)
+                                 if os.path.isdir(os.path.join(entry_path, d))]
+            else:
+                # 旧结构：直接是品种目录
+                dirs_to_check = [(entry_path, entry_name)]
+
+            for vdir, vname in dirs_to_check:
+                pfile = os.path.join(vdir, "patterns.json")
+                if not os.path.isfile(pfile):
+                    continue
+                try:
+                    with open(pfile, "r", encoding="utf-8") as f:
+                        patterns = json.load(f)
+                    if isinstance(patterns, list):
+                        for p in patterns:
+                            if p.get("status") == "active" and p.get("use_count", 0) >= 3:
+                                wr = p.get("win_rate", 0.5)
+                                samples.append({
+                                    "round_id": p.get("derived_from_debates", ["unknown"])[0],
+                                    "symbols": [vname.upper()],
+                                    "winner": "long_win" if wr >= 0.5 else "bear",
+                                    "has_verdict": True,
+                                    "label": 1 if wr >= 0.5 else 0,
+                                    "pattern_win_rate": wr,
+                                    "pattern_name": p.get("name", ""),
+                                })
+                except (json.JSONDecodeError, OSError):
+                    continue
 
     return samples
 
