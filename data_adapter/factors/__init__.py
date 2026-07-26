@@ -102,6 +102,11 @@ class FactorCollector:
         from .momentum import compute_momentum
         return compute_momentum(symbol, closes)
 
+    def compute_momentum_batch(self, data: dict[str, list[float]]) -> dict[str, MomentumResult]:
+        """批量计算动量因子（含截面排序 + 残差动量）。"""
+        from .momentum import compute_momentum_batch
+        return compute_momentum_batch(data)
+
     def compute_growth(self, symbol: str, financials: dict | None = None) -> GrowthResult:
         """计算成长因子（营收/利润增长率）。"""
         from .growth import compute_growth

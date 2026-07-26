@@ -237,3 +237,30 @@ class DividendResult:
     dividend_years: Optional[int] = None       # 连续分红年数
     dividend_stability: Optional[float] = None # 分红稳定性 0~1
     data_grade: str = "UNAVAILABLE"
+
+
+# ═══════════════════════════════════════════════════
+# 8. 因子归因（G23 §3.6 新增）
+# ═══════════════════════════════════════════════════
+
+@dataclass
+class FactorContribution:
+    """单个因子对裁决的贡献"""
+    factor_name: str
+    weight: float           # 因子权重
+    direction: int          # 因子方向 -2~+2
+    contribution: float     # 对裁决方向的贡献度（正=同向，负=反向）
+    ic_value: float         # 因子 IC
+
+
+@dataclass
+class FactorAttributionReport:
+    """因子归因报告 — 将裁决结果拆解到因子层面"""
+    symbol: str
+    verdict_direction: int                 # 裁决方向 -2~+2
+    verdict_confidence: float              # 裁决置信度 0~1
+    contributions: list[FactorContribution]  # 各因子贡献
+    calibrated_confidence: float           # 因子校准后置信度
+    divergence_penalty: float              # 分歧惩罚因子 0~1
+    top_factors: list[str]                 # 贡献最大的 3 个因子
+    data_grade: str = "PRIMARY"
