@@ -92,10 +92,10 @@ agents:
       - consistency_score
   bullish_analyst:
     display_name: 证真（多头分析员）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.4
     top_p: 0.95
-    max_tokens: 3000
+    max_tokens: 2500
     presence_penalty: 0.1
     frequency_penalty: 0.0
     stop_sequences: []
@@ -118,10 +118,10 @@ agents:
       - dimensions
   bearish_analyst:
     display_name: 慎思（空头分析员）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.4
     top_p: 0.95
-    max_tokens: 3000
+    max_tokens: 2500
     presence_penalty: 0.1
     frequency_penalty: 0.0
     stop_sequences: []
@@ -144,7 +144,7 @@ agents:
       - dimensions
   chain_analyst:
     display_name: 链证源（产业链分析师）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.3
     top_p: 0.9
     max_tokens: 2500
@@ -169,7 +169,7 @@ agents:
       - chain_position
   technical_researcher:
     display_name: 观澜（技术面研究员）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.3
     top_p: 0.9
     max_tokens: 2500
@@ -190,7 +190,7 @@ agents:
       - per_symbol
   fundamental_researcher:
     display_name: 探源（基本面研究员）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.3
     top_p: 0.9
     max_tokens: 2500
@@ -211,7 +211,7 @@ agents:
       - per_symbol
   news_sentiment_analyst:
     display_name: 读心（新闻情绪分析师）
-    model: deepseek-chat
+    model: deepseek-v4-flash
     temperature: 0.3
     top_p: 0.9
     max_tokens: 2500

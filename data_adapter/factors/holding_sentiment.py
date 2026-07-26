@@ -31,15 +31,27 @@ async def collect_holding_sentiment(symbols: list[str]) -> dict[str, HoldingSent
     Returns:
         {symbol: HoldingSentimentResult}
     """
+    # 国债期货/股指期货跳过持仓排名（无对应 DCE 数据，避免 zip 下载错误）
+    _BOND_FUTURES = {"T", "TF", "TS", "TL"}
+    _INDEX_FUTURES = {"IF", "IC", "IH", "IM"}
+    _SKIP_SYMBOLS = _BOND_FUTURES | _INDEX_FUTURES
+
+    # 所有品种初始化为 UNAVAILABLE（包括跳过持仓排名的品种）
     results: dict[str, HoldingSentimentResult] = {}
     for sym in symbols:
         results[sym.upper()] = HoldingSentimentResult(symbol=sym.upper(), data_grade="UNAVAILABLE")
 
-    # ── 全市场多空比 ──
-    await _collect_market_ls_ratio(symbols, results)
+    # 只对商品期货品种查询持仓排名
+    commodity_only = [s for s in symbols if s.upper() not in _SKIP_SYMBOLS]
+    if len(commodity_only) < len(symbols):
+        _skipped = [s for s in symbols if s.upper() in _SKIP_SYMBOLS]
+        logger.info(f"[HoldingSentiment] 跳过 {len(_skipped)} 个非商品期货品种: {_skipped}")
 
-    # ── 前20排名（交易所级别） ──
-    await _collect_top20_rankings(symbols, results)
+    if commodity_only:
+        # ── 全市场多空比 ──
+        await _collect_market_ls_ratio(commodity_only, results)
+        # ── 前20排名（交易所级别） ──
+        await _collect_top20_rankings(commodity_only, results)
 
     return results
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_MAX_ARGS_CHARS = 3000
+_MAX_ARGS_CHARS = 4000
 _TRIM_MAX_ARG_CHARS = 120000
 
 # ── 辩论协议常量 ──

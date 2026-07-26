@@ -58,3 +58,16 @@ settings.json
 
 # CTP signals
 memory/ctp_signals/
+
+# Cached data sources
+data_adapter/sources/.westock_cache/
+*.bak
+
+# Runtime memory
+memory/apm_scorecard.json
+memory/schedule_state.json
+memory/session/
+memory/evolution_log.json
+
+# LLM local runtime
+fdt_langgraph/fdt_llm_local.py

@@ -3,6 +3,7 @@ source: bearish-analyst
 display_name: 空头分析员
 profession: 空头分析员（做空论据独立提供者）
 version: '2.3'
+max_tokens: 2500
 agent_config:
   allowed_tools:
   - Read

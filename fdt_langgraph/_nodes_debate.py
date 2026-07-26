@@ -82,6 +82,17 @@ async def node_bullish_v1(state: DebateState) -> DebateState:
     judge_dir = state.get("judge_direction", {})
     research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
 
+    # 根治: v1 覆盖 system_prompt（去掉冗长 schema），API 层硬约束输出长度
+    bullish.system_prompt = (
+        "你是期货多头分析员，代表多头利益，独立寻找做多理由。"
+        "禁止自行搜索数据。\n\n"
+        "## 输出格式(严格遵守)\n"
+        "每条论据\u2264100字，JSON整体\u22642000字。"
+        "不输出 reasoning_chain/data_date/evidence 等字段。\n"
+        '格式: {"per_symbol": {"品种": {"arguments": ["[来源] 论据"], "confidence": 0.7}}, "overall_summary": "..."}'
+    )
+    bullish.max_tokens = min(bullish.max_tokens, 2000)
+
     context = f"""你是多头分析员，代表多头利益，必须只从分析师资料中寻找做多理由。
 
 品种列表: {symbols}
@@ -134,6 +145,17 @@ async def node_bearish_v1(state: DebateState) -> DebateState:
     symbols = state.get("selected_symbols", [])
     judge_dir = state.get("judge_direction", {})
     research_context = _build_debate_context(state, current_symbol=symbols[0] if symbols else "")
+
+    # 根治: v1 覆盖 system_prompt（同多头策略）
+    bearish.system_prompt = (
+        "你是期货空头分析员，代表空头利益，独立寻找做空理由。"
+        "禁止自行搜索数据。\n\n"
+        "## 输出格式(严格遵守)\n"
+        "每条论据\u2264100字，JSON整体\u22642000字。"
+        "不输出 reasoning_chain/data_date/evidence 等字段。\n"
+        '格式: {"per_symbol": {"品种": {"arguments": ["[来源] 论据"], "confidence": 0.7}}, "overall_summary": "..."}'
+    )
+    bearish.max_tokens = min(bearish.max_tokens, 2000)
 
     context = f"""你是空头分析员，代表空头利益，独立从分析师资料中寻找做空理由。
 

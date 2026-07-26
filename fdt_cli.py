@@ -112,6 +112,19 @@ async def daemon_mode(cron_expr: str = "", interval: int = 60):
 
 
 def main():
+    # 自动加载 .env 文件（如果存在）
+    _env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(_env_path):
+        with open(_env_path, encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _, _v = _line.partition("=")
+                    _k, _v = _k.strip(), _v.strip().strip("\"'")
+                    if _k and not os.environ.get(_k):
+                        os.environ[_k] = _v
+                       
+
     parser = argparse.ArgumentParser(description="FDT Futures Debate Team CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
