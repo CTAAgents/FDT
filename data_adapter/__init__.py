@@ -124,6 +124,17 @@ async def get_etf_premium(symbol: str) -> dict:
     return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
 
 
+async def get_money_flow(symbol: str) -> dict:
+    """获取个股资金流向（腾讯特有：主力/中户/散户净流入）。
+
+    TencentStockSource 专有能力，AKShareSource 返回 UNAVAILABLE。
+    """
+    src = _get_source()
+    if hasattr(src, "get_money_flow"):
+        return await src.get_money_flow(symbol)  # type: ignore
+    return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
+
+
 # ── 期货专有接口（FuturesDataSource 方法，仅 AKShareSource 支持） ──
 
 

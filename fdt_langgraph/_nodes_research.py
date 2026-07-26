@@ -149,6 +149,33 @@ async def node_technical(state: DebateState) -> dict:
     except Exception:
         pass
 
+    # ── 腾讯资金流向因子注入（观澜 — 量价情绪辅助） ──
+    mf_context = ""
+    try:
+        factor_mf = state.get("factor_money_flow", {})
+        if factor_mf:
+            mf_parts = ["\n【资金流向因子（腾讯自选股）】"]
+            for sym in selected:
+                mf = factor_mf.get(sym)
+                if mf and mf.get("data_grade") == "PRIMARY":
+                    parts = []
+                    main_n = mf.get("main_net_inflow")
+                    mid_n = mf.get("mid_net_inflow")
+                    ret_n = mf.get("retail_net_inflow")
+                    if main_n is not None:
+                        label = "主力" if main_n > 0 else "主力"
+                        parts.append(f"{label}净流入={main_n:+.0f}")
+                    if mid_n is not None:
+                        parts.append(f"中户净流入={mid_n:+.0f}")
+                    if ret_n is not None:
+                        parts.append(f"散户净流入={ret_n:+.0f}")
+                    if parts:
+                        mf_parts.append(f"  {sym}: {' | '.join(parts)}")
+            if len(mf_parts) > 1:
+                mf_context = "\n".join(mf_parts)
+    except Exception:
+        pass
+
     # ── Phase 4: 代码计算技术基准评分（L1 边界） ──
     baseline_scores: dict[str, int] = {}
     try:
@@ -189,6 +216,7 @@ async def node_technical(state: DebateState) -> dict:
 【市场技术数据（AKShare 实时源，P2.5 预采集）】
 {fdc_tech_context}
 {vol_context}
+{mf_context}
 {base_score_block}
 
 请先以 Markdown 格式逐品种分析（趋势、关键位、量价配合、背离、形态），
@@ -504,6 +532,32 @@ async def node_fundamental(state: DebateState) -> dict:
     except Exception:
         pass
 
+    # ── 北向资金因子注入（探源 — 外资态度指标） ──
+    nf_context = ""
+    try:
+        factor_nf = state.get("factor_north_flow", {})
+        if factor_nf:
+            nf_parts = ["\n【北向资金因子（腾讯自选股）】"]
+            for sym in selected:
+                nf = factor_nf.get(sym.upper())
+                if nf and nf.get("data_grade") == "PRIMARY":
+                    parts = []
+                    hold = nf.get("north_holding")
+                    pct = nf.get("north_holding_pct")
+                    buy = nf.get("north_net_buy")
+                    if hold is not None:
+                        parts.append(f"北向持仓={hold:.0f}")
+                    if pct is not None:
+                        parts.append(f"占比={pct:.2f}%")
+                    if buy is not None:
+                        parts.append(f"净买入={buy:+.0f}")
+                    if parts:
+                        nf_parts.append(f"  {sym}: {' | '.join(parts)}")
+            if len(nf_parts) > 1:
+                nf_context = "\n".join(nf_parts)
+    except Exception:
+        pass
+
     context = f"""作为基本面研究员（探源），请分析以下品种的基本面状态：
 
 市场方向判断: {direction}
@@ -514,6 +568,7 @@ async def node_fundamental(state: DebateState) -> dict:
 
 {jin10_context}
 {hs_context}
+{nf_context}
 
 请先以 Markdown 格式逐品种分析（供需平衡、库存周期、利润开工率、基差期限结构、宏观联动），
 然后在最后一行单独输出 JSON 代码块，格式如下：

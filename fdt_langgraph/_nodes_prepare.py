@@ -569,6 +569,25 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         factor_cross_spread = []
         factor_dashboard = None
 
+    # ── 腾讯自选股特有因子采集（Equity/ETF 品种） ──
+    factor_money_flow: dict = {}
+    factor_north_flow: dict = {}
+    try:
+        from data_adapter import get_money_flow, get_north_flow
+        from data_adapter.instrument_classifier import classify, MarketType
+        for sym in symbols:
+            mt = classify(sym)
+            if mt not in (MarketType.STOCK, MarketType.ETF):
+                continue
+            mf = await get_money_flow(sym)
+            if mf.get("data_grade") == "PRIMARY":
+                factor_money_flow[sym] = mf
+            nf = await get_north_flow(sym)
+            if nf.get("data_grade") == "PRIMARY":
+                factor_north_flow[sym] = nf
+    except Exception:
+        pass
+
     return {
         **state,
         "fdc_data": fdc_data,
@@ -588,6 +607,8 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         "factor_volatility": factor_volatility,
         "factor_cross_spread": factor_cross_spread,
         "factor_dashboard": factor_dashboard,
+        "factor_money_flow": factor_money_flow,
+        "factor_north_flow": factor_north_flow,
         "current_phase": "P2.5",
         "completed_phases": state["completed_phases"] + ["P2.5"]
     }
