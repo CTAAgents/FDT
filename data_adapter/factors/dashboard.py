@@ -18,6 +18,39 @@ from .types import (
     TermStructureResult,
     VolatilityResult,
 )
+from data_adapter.instrument_classifier import MarketType
+
+
+# 类型感知看板：每种市场类型对应的因子列
+# key=MarketType, value=[(source_name, 中文标签), ...]
+_TYPE_FACTOR_MAP: dict[MarketType, list[tuple[str, str]]] = {
+    MarketType.COMMODITY_FUTURES: [
+        ("volatility", "波动率"), ("term_structure", "期限结构"),
+        ("holding_sentiment", "多空持仓"), ("cross_spread", "价差"),
+    ],
+    MarketType.INDEX_FUTURES: [
+        ("volatility", "波动率"), ("term_structure", "期限结构"),
+        ("holding_sentiment", "多空持仓"),
+    ],
+    MarketType.BOND_FUTURES: [
+        ("volatility", "波动率"), ("term_structure", "期限结构"),
+        ("holding_sentiment", "多空持仓"),
+    ],
+    MarketType.STOCK: [
+        ("volatility", "波动率"), ("money_flow", "资金流向"),
+        ("north_flow", "北向资金"),
+    ],
+    MarketType.ETF: [
+        ("volatility", "波动率"), ("money_flow", "资金流向"),
+        ("north_flow", "北向资金"), ("etf_premium", "ETF溢价"),
+    ],
+    MarketType.CONVERTIBLE_BOND: [
+        ("volatility", "波动率"), ("money_flow", "资金流向"),
+    ],
+    MarketType.REIT: [
+        ("volatility", "波动率"), ("money_flow", "资金流向"),
+    ],
+}
 
 
 def build_dashboard(
@@ -26,6 +59,10 @@ def build_dashboard(
     volatility: dict[str, VolatilityResult],
     holding_sentiment: dict[str, HoldingSentimentResult],
     cross_spreads: list[CrossSpreadResult],
+    # ── 新增参数（腾讯特有，dict 降级友好） ──
+    money_flow: dict[str, dict] | None = None,
+    north_flow: dict[str, dict] | None = None,
+    etf_premium: dict[str, dict] | None = None,
 ) -> FactorDashboardResult:
     """构建多因子信号一致性看板。
 
@@ -37,6 +74,9 @@ def build_dashboard(
         volatility: {symbol: VolatilityResult}
         holding_sentiment: {symbol: HoldingSentimentResult}
         cross_spreads: [CrossSpreadResult, ...]
+        money_flow: {symbol: dict} — 资金流向因子（腾讯特有）
+        north_flow: {symbol: dict} — 北向资金因子（腾讯特有）
+        etf_premium: {symbol: dict} — ETF 溢价因子（腾讯特有）
 
     Returns:
         FactorDashboardResult
@@ -66,6 +106,24 @@ def build_dashboard(
         # ── 跨品种价差信号 ──
         spread_signals = _signals_from_cross_spreads(bare, cross_spreads)
         signals.extend(spread_signals)
+
+        # ── 资金流向信号（腾讯特有） ──
+        mf_data = (money_flow or {}).get(bare)
+        mf_signal = _signal_from_money_flow(mf_data)
+        if mf_signal:
+            signals.append(mf_signal)
+
+        # ── 北向资金信号（腾讯特有） ──
+        nf_data = (north_flow or {}).get(bare)
+        nf_signal = _signal_from_north_flow(nf_data)
+        if nf_signal:
+            signals.append(nf_signal)
+
+        # ── ETF 溢价信号（腾讯特有） ──
+        ep_data = (etf_premium or {}).get(bare)
+        ep_signal = _signal_from_etf_premium(ep_data)
+        if ep_signal:
+            signals.append(ep_signal)
 
         dashboard.signals[bare] = signals
 
@@ -212,6 +270,111 @@ def _signals_from_cross_spreads(
     return signals
 
 
+def _signal_from_money_flow(mf: dict | None) -> Optional[FactorSignal]:
+    """从资金流向因子提取方向信号。
+
+    主力净流入 > 0 → 看多（机构看好）
+    主力净流入 < 0 → 看空（机构撤离）
+    强度 = 主力净流入 / max(|中户|+|散户|, 1) 归一化
+    """
+    if not mf or mf.get("data_grade") != "PRIMARY":
+        return None
+
+    main_n = mf.get("main_net_inflow")
+    if main_n is None:
+        return None
+
+    symbol = mf.get("symbol", "?")
+    direction = 0
+    if main_n > 0:
+        direction = 1
+    elif main_n < 0:
+        direction = -1
+
+    # 强度：主力净流入相对散户+中户的比例
+    retail_n = abs(mf.get("retail_net_inflow", 0) or 0)
+    mid_n = abs(mf.get("mid_net_inflow", 0) or 0)
+    denominator = retail_n + mid_n
+    if denominator > 0 and direction != 0:
+        strength = min(abs(main_n) / denominator, 1.0)
+    else:
+        strength = 0.3 if direction != 0 else 0.0
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="money_flow",
+    )
+
+
+def _signal_from_north_flow(nf: dict | None) -> Optional[FactorSignal]:
+    """从北向资金因子提取方向信号。
+
+    北向净买入 > 0 → +1（外资加仓，看多）
+    北向净买入 < 0 → -1（外资减仓，看空）
+    """
+    if not nf or nf.get("data_grade") != "PRIMARY":
+        return None
+
+    net_buy = nf.get("north_net_buy")
+    if net_buy is None:
+        return None
+
+    symbol = nf.get("symbol", "?")
+    direction = 0
+    if net_buy > 0:
+        direction = 1
+    elif net_buy < 0:
+        direction = -1
+
+    # 强度：持股占比越高，信号越强
+    pct = nf.get("north_holding_pct")
+    strength = min(abs(pct or 0) / 10, 1.0) if pct else 0.3
+    if direction == 0:
+        strength = 0.0
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="north_flow",
+    )
+
+
+def _signal_from_etf_premium(ep: dict | None) -> Optional[FactorSignal]:
+    """从 ETF 溢价因子提取方向信号。
+
+    溢价 > 1% → 市场情绪过热，短期回调风险 → -1（看空）
+    折价 > 1% → 市场情绪低迷，短期反弹机会 → +1（看多）
+    """
+    if not ep or ep.get("data_grade") != "PRIMARY":
+        return None
+
+    premium = ep.get("premium_pct")
+    if premium is None:
+        return None
+
+    symbol = ep.get("symbol", "?")
+    direction = 0
+    if premium > 1.0:
+        direction = -1  # 溢价过高，看空
+    elif premium < -1.0:
+        direction = 1   # 折价过大，看多
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(premium) / 5, 1.0)
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="etf_premium",
+    )
+
+
 def _compute_divergence(directions: list[int]) -> float:
     """计算信号分歧度（0~1）。
 
@@ -233,54 +396,85 @@ def _compute_divergence(directions: list[int]) -> float:
     return divergence
 
 
-def format_dashboard_for_prompt(dashboard: FactorDashboardResult) -> str:
+def format_dashboard_for_prompt(
+    dashboard: FactorDashboardResult,
+    market_types: dict[str, MarketType] | None = None,
+) -> str:
     """将因子看板格式化为 LLM prompt 可读的文本表格。
 
-    供 node_verdict() 注入闫判官终裁 prompt 使用。
+    按市场类型分组渲染子表格，每种类型只展示相关因子列。
+    可通过 market_types 参数传入 {symbol: MarketType} 映射；
+    未传入时使用 classify() 自动判断。
+
+    Args:
+        dashboard: 因子看板数据
+        market_types: {symbol: MarketType} 映射（可选）
+
+    Returns:
+        格式化后的文本表格。
     """
     if dashboard.data_grade == "NO_DATA" or not dashboard.signals:
         return "\n【多因子信号一致性看板】暂无因子数据。\n"
 
-    # 动态构建列头（按因子源名称）
-    all_sources: list[str] = []
-    for sigs in dashboard.signals.values():
-        for s in sigs:
-            if s.source not in all_sources:
-                all_sources.append(s.source)
-
-    source_labels = {
-        "volatility": "波动率",
-        "term_structure": "期限结构",
-        "holding_sentiment": "多空持仓",
-    }
-    headers = ["品种"] + [source_labels.get(s, s) for s in all_sources] + ["汇总", "分歧度"]
-    col_count = len(headers)
+    from data_adapter.instrument_classifier import classify, get_market_label
 
     lines = ["\n【多因子信号一致性看板】"]
-    lines.append(f"| {' | '.join(headers)} |")
-    lines.append(f"|:{':' + '-' * 4 + ':'  * (col_count - 1)}")
+    added_separator = False
 
+    # 按市场类型分组
+    type_groups: dict[str, list[str]] = {}
     for bare in dashboard.symbols:
-        sigs = dashboard.signals.get(bare, [])
-        sig_map = {s.source: s.direction for s in sigs}
+        if market_types and bare in market_types:
+            mt = market_types[bare]
+        else:
+            mt = classify(bare)
+        type_name = mt.value
+        if type_name not in type_groups:
+            type_groups[type_name] = []
+        type_groups[type_name].append(bare)
 
-        row = [bare]
-        for source in all_sources:
-            d = sig_map.get(source, 0)
-            if d > 0:
-                row.append(f"+{d}")
-            elif d < 0:
-                row.append(str(d))
-            else:
-                row.append("0")
+    for type_name, symbols_group in type_groups.items():
+        mt_enum = MarketType(type_name) if type_name in {m.value for m in MarketType} else None
+        if mt_enum is None or mt_enum not in _TYPE_FACTOR_MAP:
+            continue
 
-        consensus = dashboard.consensus.get(bare, 0)
-        row.append(f"+{consensus}" if consensus > 0 else str(consensus))
+        factors = _TYPE_FACTOR_MAP[mt_enum]
+        label = get_market_label(mt_enum)
+        lines.append(f"\n── {label} ──")
 
-        div = dashboard.divergence.get(bare, 1.0)
-        row.append(f"{div:.2f}")
+        # 表头
+        headers = ["品种"] + [f[1] for f in factors] + ["汇总", "分歧度"]
+        lines.append(f"| {' | '.join(headers)} |")
+        lines.append(f"|:{':' + '-' * 4 + ':' * (len(headers) - 1)}")
 
-        lines.append(f"| {' | '.join(row)} |")
+        for bare in symbols_group:
+            sigs = dashboard.signals.get(bare, [])
+            sig_map = {s.source: s.direction for s in sigs}
+
+            row = [bare]
+            for source, _ in factors:
+                d = sig_map.get(source)
+                if d is None:
+                    row.append("—")  # 数据不可用
+                elif d > 0:
+                    row.append(f"+{d}")
+                elif d < 0:
+                    row.append(str(d))
+                else:
+                    row.append("0")  # 方向中性
+
+            consensus = dashboard.consensus.get(bare, 0)
+            row.append(f"+{consensus}" if consensus > 0 else str(consensus))
+
+            div = dashboard.divergence.get(bare, 1.0)
+            row.append(f"{div:.2f}")
+
+            lines.append(f"| {' | '.join(row)} |")
+
+        added_separator = True
+
+    if not added_separator:
+        return "\n【多因子信号一致性看板】暂无因子数据。\n"
 
     lines.append("")
     lines.append("分歧度 < 0.2 → 因子共振，高确信度")

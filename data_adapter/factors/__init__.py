@@ -70,11 +70,17 @@ class FactorCollector:
         volatility: dict[str, VolatilityResult],
         holding_sentiment: dict[str, HoldingSentimentResult],
         cross_spreads: list[CrossSpreadResult],
+        money_flow: dict[str, dict] | None = None,
+        north_flow: dict[str, dict] | None = None,
+        etf_premium: dict[str, dict] | None = None,
     ) -> FactorDashboardResult:
         """构建多因子信号一致性看板。"""
         from .dashboard import build_dashboard
-
-        return build_dashboard(symbols, term_structure, volatility, holding_sentiment, cross_spreads)
+        return build_dashboard(symbols, term_structure, volatility,
+                               holding_sentiment, cross_spreads,
+                               money_flow=money_flow,
+                               north_flow=north_flow,
+                               etf_premium=etf_premium)
 
     def build_matrix(self, dashboard: FactorDashboardResult) -> FactorMatrixResult:
         """将看板升级为因子信号矩阵（G23 FactorMatrixResult）。"""

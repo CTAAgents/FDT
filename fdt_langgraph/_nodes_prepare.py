@@ -560,6 +560,9 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         factor_dashboard = fc.build_dashboard(
             symbols, factor_term_structure, factor_volatility,
             factor_holding_sentiment, factor_cross_spread,
+            money_flow=factor_money_flow,
+            north_flow=factor_north_flow,
+            etf_premium=factor_etf_premium,
         )
     except Exception as e:
         logger.warning("[FDC] 多因子注入失败 (非关键): %s", e)
@@ -572,19 +575,24 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     # ── 腾讯自选股特有因子采集（Equity/ETF 品种） ──
     factor_money_flow: dict = {}
     factor_north_flow: dict = {}
+    factor_etf_premium: dict = {}
     try:
-        from data_adapter import get_money_flow, get_north_flow
+        from data_adapter import get_money_flow, get_north_flow, get_etf_premium
         from data_adapter.instrument_classifier import classify, MarketType
         for sym in symbols:
             mt = classify(sym)
-            if mt not in (MarketType.STOCK, MarketType.ETF):
-                continue
-            mf = await get_money_flow(sym)
-            if mf.get("data_grade") == "PRIMARY":
-                factor_money_flow[sym] = mf
-            nf = await get_north_flow(sym)
-            if nf.get("data_grade") == "PRIMARY":
-                factor_north_flow[sym] = nf
+            if mt in (MarketType.STOCK, MarketType.ETF):
+                mf = await get_money_flow(sym)
+                if mf.get("data_grade") == "PRIMARY":
+                    factor_money_flow[sym] = mf
+                nf = await get_north_flow(sym)
+                if nf.get("data_grade") == "PRIMARY":
+                    factor_north_flow[sym] = nf
+            # ── ETF 溢价采集（仅 ETF 品种） ──
+            if mt == MarketType.ETF:
+                ep = await get_etf_premium(sym)
+                if ep.get("data_grade") == "PRIMARY":
+                    factor_etf_premium[sym] = ep
     except Exception:
         pass
 
@@ -609,6 +617,7 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         "factor_dashboard": factor_dashboard,
         "factor_money_flow": factor_money_flow,
         "factor_north_flow": factor_north_flow,
+        "factor_etf_premium": factor_etf_premium,
         "current_phase": "P2.5",
         "completed_phases": state["completed_phases"] + ["P2.5"]
     }

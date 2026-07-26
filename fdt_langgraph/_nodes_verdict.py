@@ -124,13 +124,21 @@ async def node_verdict(state: DebateState) -> DebateState:
         indicator_lines.append(f"{sym_up} | {rsi_v} | {adx_v} | {cci_v} | {macd} | {align}")
     fdc_indicator_table = "\n".join(indicator_lines)
 
-    # ── P2.5 多因子信号一致性看板注入 ──
+    # ── P2.5 多因子信号一致性看板注入（类型感知渲染） ──
     factor_dashboard_text = ""
     try:
         fdb = state.get("factor_dashboard")
         if fdb is not None:
             from data_adapter.factors.dashboard import format_dashboard_for_prompt
-            factor_dashboard_text = format_dashboard_for_prompt(fdb)
+            from data_adapter.instrument_classifier import classify, MarketType
+            symbols = state.get("selected_symbols", [])
+            market_types = {}
+            for sym in symbols:
+                try:
+                    market_types[sym] = classify(sym)
+                except Exception:
+                    pass
+            factor_dashboard_text = format_dashboard_for_prompt(fdb, market_types=market_types)
     except Exception:
         pass
 
