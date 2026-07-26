@@ -15,7 +15,10 @@ from .types import (
     FactorMatrixResult,
     FactorSignal,
     HoldingSentimentResult,
+    MomentumResult,
+    QualityResult,
     TermStructureResult,
+    ValueResult,
     VolatilityResult,
 )
 from data_adapter.instrument_classifier import MarketType
@@ -27,28 +30,36 @@ _TYPE_FACTOR_MAP: dict[MarketType, list[tuple[str, str]]] = {
     MarketType.COMMODITY_FUTURES: [
         ("volatility", "波动率"), ("term_structure", "期限结构"),
         ("holding_sentiment", "多空持仓"), ("cross_spread", "价差"),
+        ("basis", "基差"), ("warrant", "仓单"),
+        ("inventory", "库存"), ("calendar_spread", "跨期价差"),
+        ("profit", "利润"), ("momentum", "动量"),
     ],
     MarketType.INDEX_FUTURES: [
         ("volatility", "波动率"), ("term_structure", "期限结构"),
-        ("holding_sentiment", "多空持仓"),
+        ("holding_sentiment", "多空持仓"), ("momentum", "动量"),
     ],
     MarketType.BOND_FUTURES: [
         ("volatility", "波动率"), ("term_structure", "期限结构"),
-        ("holding_sentiment", "多空持仓"),
+        ("holding_sentiment", "多空持仓"), ("momentum", "动量"),
     ],
     MarketType.STOCK: [
         ("volatility", "波动率"), ("money_flow", "资金流向"),
-        ("north_flow", "北向资金"),
+        ("north_flow", "北向资金"), ("value", "价值"),
+        ("quality", "质量"), ("momentum", "动量"),
     ],
     MarketType.ETF: [
         ("volatility", "波动率"), ("money_flow", "资金流向"),
         ("north_flow", "北向资金"), ("etf_premium", "ETF溢价"),
+        ("value", "价值"), ("quality", "质量"),
+        ("momentum", "动量"),
     ],
     MarketType.CONVERTIBLE_BOND: [
         ("volatility", "波动率"), ("money_flow", "资金流向"),
+        ("momentum", "动量"),
     ],
     MarketType.REIT: [
         ("volatility", "波动率"), ("money_flow", "资金流向"),
+        ("quality", "质量"), ("momentum", "动量"),
     ],
 }
 
@@ -59,10 +70,20 @@ def build_dashboard(
     volatility: dict[str, VolatilityResult],
     holding_sentiment: dict[str, HoldingSentimentResult],
     cross_spreads: list[CrossSpreadResult],
-    # ── 新增参数（腾讯特有，dict 降级友好） ──
+    # ── 腾讯特有因子（dict 降级友好） ──
     money_flow: dict[str, dict] | None = None,
     north_flow: dict[str, dict] | None = None,
     etf_premium: dict[str, dict] | None = None,
+    # ── 期货特有因子（dict 降级友好） ──
+    basis: dict[str, dict] | None = None,
+    warrant: dict[str, dict] | None = None,
+    inventory: dict[str, dict] | None = None,
+    calendar_spread: dict[str, dict] | None = None,
+    profit: dict[str, dict] | None = None,
+    # ── G23 因子（TypedResult 降级友好） ──
+    momentum: dict[str, MomentumResult] | None = None,
+    value: dict[str, ValueResult] | None = None,
+    quality: dict[str, QualityResult] | None = None,
 ) -> FactorDashboardResult:
     """构建多因子信号一致性看板。
 
@@ -74,9 +95,17 @@ def build_dashboard(
         volatility: {symbol: VolatilityResult}
         holding_sentiment: {symbol: HoldingSentimentResult}
         cross_spreads: [CrossSpreadResult, ...]
-        money_flow: {symbol: dict} — 资金流向因子（腾讯特有）
-        north_flow: {symbol: dict} — 北向资金因子（腾讯特有）
-        etf_premium: {symbol: dict} — ETF 溢价因子（腾讯特有）
+        money_flow: {symbol: dict} — 资金流向因子
+        north_flow: {symbol: dict} — 北向资金因子
+        etf_premium: {symbol: dict} — ETF 溢价因子
+        basis: {symbol: dict} — 基差因子
+        warrant: {symbol: dict} — 仓单因子
+        inventory: {symbol: dict} — 库存因子
+        calendar_spread: {symbol: dict} — 跨期价差因子
+        profit: {symbol: dict} — 产业链利润因子
+        momentum: {symbol: MomentumResult} — 动量因子
+        value: {symbol: ValueResult} — 价值因子
+        quality: {symbol: QualityResult} — 质量因子
 
     Returns:
         FactorDashboardResult
@@ -124,6 +153,54 @@ def build_dashboard(
         ep_signal = _signal_from_etf_premium(ep_data)
         if ep_signal:
             signals.append(ep_signal)
+
+        # ── 基差信号（期货特有） ──
+        basis_data = (basis or {}).get(bare)
+        basis_signal = _signal_from_basis(basis_data)
+        if basis_signal:
+            signals.append(basis_signal)
+
+        # ── 仓单信号（期货特有） ──
+        warrant_data = (warrant or {}).get(bare)
+        warrant_signal = _signal_from_warrant(warrant_data)
+        if warrant_signal:
+            signals.append(warrant_signal)
+
+        # ── 库存信号（期货特有） ──
+        inv_data = (inventory or {}).get(bare)
+        inv_signal = _signal_from_inventory(inv_data)
+        if inv_signal:
+            signals.append(inv_signal)
+
+        # ── 跨期价差信号（期货特有） ──
+        cs_data = (calendar_spread or {}).get(bare)
+        cs_signal = _signal_from_calendar_spread(cs_data)
+        if cs_signal:
+            signals.append(cs_signal)
+
+        # ── 产业链利润信号（期货特有） ──
+        profit_data = (profit or {}).get(bare)
+        profit_signal = _signal_from_profit(profit_data)
+        if profit_signal:
+            signals.append(profit_signal)
+
+        # ── 动量信号（G23） ──
+        mom_result = (momentum or {}).get(bare)
+        mom_signal = _signal_from_momentum(mom_result)
+        if mom_signal:
+            signals.append(mom_signal)
+
+        # ── 价值信号（G23 — 股票/ETF） ──
+        val_result = (value or {}).get(bare)
+        val_signal = _signal_from_value(val_result)
+        if val_signal:
+            signals.append(val_signal)
+
+        # ── 质量信号（G23 — 股票/ETF） ──
+        qual_result = (quality or {}).get(bare)
+        qual_signal = _signal_from_quality(qual_result)
+        if qual_signal:
+            signals.append(qual_signal)
 
         dashboard.signals[bare] = signals
 
@@ -372,6 +449,314 @@ def _signal_from_etf_premium(ep: dict | None) -> Optional[FactorSignal]:
         direction=direction,
         strength=round(strength, 2),
         source="etf_premium",
+    )
+
+
+def _signal_from_basis(basis_data: dict | None) -> Optional[FactorSignal]:
+    """从基差因子提取方向信号。
+
+    基差 = 现货价 - 期货价：
+    - 基差 > 0 → 现货溢价 → 现货紧张 → +1（看多）
+    - 基差 < 0 → 期货溢价 → 供应充裕 → -1（看空）
+    """
+    if not basis_data:
+        return None
+    # 支持 data_adapter wrapper 格式和 flat 格式
+    raw = basis_data.get("data", basis_data)
+    grade = basis_data.get("data_grade", raw.get("data_grade", ""))
+    if grade != "PRIMARY":
+        return None
+
+    basis_val = raw.get("basis")
+    basis_pct = raw.get("basis_pct")
+    symbol = raw.get("symbol", "?")
+
+    if basis_val is None:
+        # 只有现货价时无法计算基差方向
+        return None
+
+    direction = 0
+    if basis_val > 0:
+        direction = 1
+    elif basis_val < 0:
+        direction = -1
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(basis_pct or 0) * 5, 1.0) if basis_pct else 0.3
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="basis",
+    )
+
+
+def _signal_from_warrant(warrant_data: dict | None) -> Optional[FactorSignal]:
+    """从仓单因子提取方向信号。
+
+    仓单增加 → 供应增加 → 看空
+    仓单减少 → 供应减少 → 看多
+    强度 = |daily_change| / total 归一化
+    """
+    if not warrant_data:
+        return None
+    raw = warrant_data.get("data", warrant_data)
+    grade = warrant_data.get("data_grade", raw.get("data_grade", ""))
+    if grade != "PRIMARY":
+        return None
+
+    total = raw.get("total")
+    daily_change = raw.get("daily_change")
+    symbol = raw.get("symbol", "?")
+
+    if total is None or daily_change is None:
+        return None
+
+    direction = 0
+    if daily_change > 0:
+        direction = -1  # 仓单增加 → 看空
+    elif daily_change < 0:
+        direction = 1   # 仓单减少 → 看多
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(daily_change) / max(total, 1), 1.0)
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="warrant",
+    )
+
+
+def _signal_from_inventory(inv_data: dict | None) -> Optional[FactorSignal]:
+    """从库存因子提取方向信号。
+
+    库存增加 → 供应过剩 → 看空
+    库存减少 → 供应紧张 → 看多
+    """
+    if not inv_data:
+        return None
+    raw = inv_data.get("data", inv_data)
+    grade = inv_data.get("data_grade", raw.get("data_grade", ""))
+    if grade != "PRIMARY":
+        return None
+
+    inventory_val = raw.get("inventory")
+    change = raw.get("change")
+    symbol = raw.get("symbol", "?")
+
+    if inventory_val is None or change is None:
+        return None
+
+    direction = 0
+    if change > 0:
+        direction = -1  # 累库 → 看空
+    elif change < 0:
+        direction = 1   # 去库 → 看多
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(change) / max(inventory_val, 1), 1.0)
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="inventory",
+    )
+
+
+def _signal_from_calendar_spread(cs_data: dict | None) -> Optional[FactorSignal]:
+    """从跨期价差因子提取方向信号。
+
+    使用第一个近远月价差：
+    - 价差 > 0 → contango → 看空（远月更贵）
+    - 价差 < 0 → backwardation → 看多（近月更贵）
+    """
+    if not cs_data:
+        return None
+    raw = cs_data.get("data", cs_data)
+    grade = cs_data.get("data_grade", raw.get("data_grade", ""))
+    if grade != "PRIMARY":
+        return None
+
+    spreads = raw.get("spreads", [])
+    symbol = raw.get("symbol", "?")
+
+    if not spreads:
+        return None
+
+    first_spread = spreads[0].get("spread", 0) if isinstance(spreads[0], dict) else 0
+
+    direction = 0
+    if first_spread > 0:
+        direction = -1  # contango → 看空
+    elif first_spread < 0:
+        direction = 1   # backwardation → 看多
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(first_spread) / 100, 1.0)
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="calendar_spread",
+    )
+
+
+def _signal_from_profit(profit_data: dict | None) -> Optional[FactorSignal]:
+    """从产业链利润因子提取方向信号。
+
+    利润 = 成品价 - 原料成本：
+    - 利润偏高 (>历史80分位) → 供给将增加 → 看空
+    - 利润偏低 (<历史20分位) → 供给将减少 → 看多
+    """
+    if not profit_data:
+        return None
+    raw = profit_data.get("data", profit_data)
+    grade = profit_data.get("data_grade", raw.get("data_grade", ""))
+    if grade != "PRIMARY":
+        return None
+
+    profit_val = raw.get("profit")
+    percentile = raw.get("percentile")
+    symbol = raw.get("symbol", "?")
+
+    if profit_val is None:
+        return None
+
+    direction = 0
+    if percentile is not None:
+        if percentile > 80:
+            direction = -1  # 利润过高 → 看空
+        elif percentile < 20:
+            direction = 1   # 利润过低 → 看多
+    else:
+        # 无百分位时使用利润本身的符号
+        if profit_val > 0:
+            direction = -1
+        elif profit_val < 0:
+            direction = 1
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(profit_val) / 500, 1.0) if abs(profit_val) > 0 else 0.3
+
+    return FactorSignal(
+        symbol=symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="profit",
+    )
+
+
+def _signal_from_momentum(mom: Optional[MomentumResult]) -> Optional[FactorSignal]:
+    """从动量因子提取方向信号。
+
+    使用时序动量 12-1M：
+    - 动量 > 5% → 趋势强劲 → +1（多）
+    - 动量 < -5% → 趋势向下 → -1（空）
+    """
+    if mom is None or mom.data_grade != "PRIMARY":
+        return None
+
+    m12 = mom.momentum_12m1m
+    if m12 is None:
+        return None
+
+    direction = 0
+    if m12 > 5.0:
+        direction = 1
+    elif m12 < -5.0:
+        direction = -1
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(m12) / 20, 1.0)
+
+    return FactorSignal(
+        symbol=mom.symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="momentum",
+    )
+
+
+def _signal_from_value(val: Optional[ValueResult]) -> Optional[FactorSignal]:
+    """从价值因子提取方向信号。
+
+    使用 composite_zscore：
+    - z < -1.0 → 低估 → +1（看多）
+    - z > 1.0 → 高估 → -1（看空）
+    """
+    if val is None or val.data_grade != "PRIMARY":
+        return None
+
+    z = val.composite_zscore
+    if z is None:
+        return None
+
+    direction = 0
+    if z < -1.0:
+        direction = 1
+    elif z > 1.0:
+        direction = -1
+
+    if direction == 0:
+        return None
+
+    strength = min(abs(z) / 3, 1.0)
+
+    return FactorSignal(
+        symbol=val.symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="value",
+    )
+
+
+def _signal_from_quality(qual: Optional[QualityResult]) -> Optional[FactorSignal]:
+    """从质量因子提取方向信号。
+
+    使用 composite_score：
+    - score > 0.7 → 高质量 → +1（看多）
+    - score < 0.3 → 低质量 → -1（看空）
+    """
+    if qual is None or qual.data_grade != "PRIMARY":
+        return None
+
+    score = qual.composite_score
+    if score is None:
+        return None
+
+    direction = 0
+    if score > 0.7:
+        direction = 1
+    elif score < 0.3:
+        direction = -1
+
+    if direction == 0:
+        return None
+
+    strength = score if direction > 0 else (1.0 - score)
+
+    return FactorSignal(
+        symbol=qual.symbol,
+        direction=direction,
+        strength=round(strength, 2),
+        source="quality",
     )
 
 

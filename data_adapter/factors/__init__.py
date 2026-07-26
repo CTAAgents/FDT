@@ -23,6 +23,7 @@ from .types import (
     DividendResult,
     HoldingSentimentResult,
     MomentumResult,
+    ProfitResult,
     QualityResult,
     TermStructureResult,
     ValueResult,
@@ -73,6 +74,14 @@ class FactorCollector:
         money_flow: dict[str, dict] | None = None,
         north_flow: dict[str, dict] | None = None,
         etf_premium: dict[str, dict] | None = None,
+        basis: dict[str, dict] | None = None,
+        warrant: dict[str, dict] | None = None,
+        inventory: dict[str, dict] | None = None,
+        calendar_spread: dict[str, dict] | None = None,
+        profit: dict[str, dict] | None = None,
+        momentum: dict[str, MomentumResult] | None = None,
+        value: dict[str, ValueResult] | None = None,
+        quality: dict[str, QualityResult] | None = None,
     ) -> FactorDashboardResult:
         """构建多因子信号一致性看板。"""
         from .dashboard import build_dashboard
@@ -80,7 +89,15 @@ class FactorCollector:
                                holding_sentiment, cross_spreads,
                                money_flow=money_flow,
                                north_flow=north_flow,
-                               etf_premium=etf_premium)
+                               etf_premium=etf_premium,
+                               basis=basis,
+                               warrant=warrant,
+                               inventory=inventory,
+                               calendar_spread=calendar_spread,
+                               profit=profit,
+                               momentum=momentum,
+                               value=value,
+                               quality=quality)
 
     def build_matrix(self, dashboard: FactorDashboardResult) -> FactorMatrixResult:
         """将看板升级为因子信号矩阵（G23 FactorMatrixResult）。"""
@@ -122,6 +139,11 @@ class FactorCollector:
         """计算红利因子（股息率/分红支付率/稳定性）。"""
         from .dividend import compute_dividend
         return compute_dividend(symbol, financials)
+
+    def compute_profit(self, symbol: str, closes: dict[str, float] | None = None) -> ProfitResult:
+        """计算产业链利润因子。"""
+        from .profit import compute_profit
+        return compute_profit(symbol, closes)
 
 
 # ── 默认配置（与设计文档对齐） ──

@@ -550,35 +550,41 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         pass  # cleaning layer unavailable, continue without
 
     # ── P2.5 多因子注入 ──
+    # 所有因子采集必须在 build_dashboard 调用之前完成
+    factor_term_structure: dict = {}
+    factor_holding_sentiment: dict = {}
+    factor_volatility: dict = {}
+    factor_cross_spread: list = []
+    factor_money_flow: dict = {}
+    factor_north_flow: dict = {}
+    factor_etf_premium: dict = {}
+    factor_basis: dict = {}
+    factor_warrant: dict = {}
+    factor_inventory: dict = {}
+    factor_calendar_spread: dict = {}
+    factor_profit: dict = {}
+    factor_momentum: dict = {}
+    factor_value: dict = {}
+    factor_quality: dict = {}
+    factor_dashboard = None
+
     try:
         from data_adapter.factors import FactorCollector
+        from data_adapter import (
+            get_money_flow, get_north_flow, get_etf_premium,
+            get_basis, get_warrant, get_inventory, get_spread,
+        )
+        from data_adapter.instrument_classifier import classify, MarketType
+
         fc = FactorCollector()
+
+        # 1a. 现有因子（FactorCollector 计算/采集）
         factor_term_structure = await fc.collect_term_structure(symbols)
         factor_holding_sentiment = await fc.collect_holding_sentiment(symbols)
         factor_volatility = fc.compute_volatility(symbols, fdc_data)
         factor_cross_spread = fc.compute_cross_spreads(symbols, fdc_data)
-        factor_dashboard = fc.build_dashboard(
-            symbols, factor_term_structure, factor_volatility,
-            factor_holding_sentiment, factor_cross_spread,
-            money_flow=factor_money_flow,
-            north_flow=factor_north_flow,
-            etf_premium=factor_etf_premium,
-        )
-    except Exception as e:
-        logger.warning("[FDC] 多因子注入失败 (非关键): %s", e)
-        factor_term_structure = {}
-        factor_holding_sentiment = {}
-        factor_volatility = {}
-        factor_cross_spread = []
-        factor_dashboard = None
 
-    # ── 腾讯自选股特有因子采集（Equity/ETF 品种） ──
-    factor_money_flow: dict = {}
-    factor_north_flow: dict = {}
-    factor_etf_premium: dict = {}
-    try:
-        from data_adapter import get_money_flow, get_north_flow, get_etf_premium
-        from data_adapter.instrument_classifier import classify, MarketType
+        # 1b. 腾讯特有因子（Equity/ETF）
         for sym in symbols:
             mt = classify(sym)
             if mt in (MarketType.STOCK, MarketType.ETF):
@@ -588,13 +594,90 @@ async def node_prepare_data(state: DebateState) -> DebateState:
                 nf = await get_north_flow(sym)
                 if nf.get("data_grade") == "PRIMARY":
                     factor_north_flow[sym] = nf
-            # ── ETF 溢价采集（仅 ETF 品种） ──
             if mt == MarketType.ETF:
                 ep = await get_etf_premium(sym)
                 if ep.get("data_grade") == "PRIMARY":
                     factor_etf_premium[sym] = ep
-    except Exception:
-        pass
+
+        # 1c. 期货特有因子（基差/仓单/库存/跨期价差）
+        for sym in symbols:
+            mt = classify(sym)
+            if mt not in (MarketType.COMMODITY_FUTURES, MarketType.INDEX_FUTURES, MarketType.BOND_FUTURES):
+                continue
+            b = await get_basis(sym)
+            if b.get("data_grade") == "PRIMARY":
+                factor_basis[sym] = b
+            w = await get_warrant(sym)
+            if w.get("data_grade") == "PRIMARY":
+                factor_warrant[sym] = w
+            inv = await get_inventory(sym)
+            if inv.get("data_grade") == "PRIMARY":
+                factor_inventory[sym] = inv
+            sp = await get_spread(sym)
+            if sp.get("data_grade") == "PRIMARY":
+                factor_calendar_spread[sym] = sp
+
+        # 1d. 产业链利润（从 K 线收盘价计算）
+        # 收集最新收盘价
+        latest_closes: dict[str, float] = {}
+        for sym in symbols:
+            sd = fdc_data.get(sym, {})
+            bars = (sd.get("kline") or {}).get("bars", [])
+            if bars:
+                try:
+                    latest_closes[sym.upper()] = float(bars[-1].get("close", bars[-1].get("price", 0)))
+                except (ValueError, TypeError, IndexError):
+                    pass
+        # 也需要可能作为原料的品种
+        for sym in symbols:
+            bare = sym.upper()
+            pr = fc.compute_profit(bare, closes=latest_closes)
+            if pr.data_grade == "PRIMARY":
+                profit_dict_data = {
+                    "data": {
+                        "symbol": bare,
+                        "profit": pr.profit,
+                        "profit_pct": pr.profit_pct,
+                        "percentile": pr.percentile,
+                        "margin_type": pr.margin_type,
+                    },
+                    "data_grade": "PRIMARY",
+                }
+                factor_profit[bare] = profit_dict_data
+
+        # 1e. G23 因子（动量/价值/质量 — 从 K 线计算）
+        for sym in symbols:
+            sd = fdc_data.get(sym, {})
+            bars = (sd.get("kline") or {}).get("bars", [])
+            closes = []
+            if bars:
+                try:
+                    closes = [float(b.get("close", 0)) for b in bars if b.get("close")]
+                except (ValueError, TypeError):
+                    pass
+            if closes:
+                mom = fc.compute_momentum(sym, closes)
+                if mom.data_grade == "PRIMARY":
+                    factor_momentum[sym.upper()] = mom
+
+        # 2. 构建因子看板（所有因子数据已就绪）
+        factor_dashboard = fc.build_dashboard(
+            symbols, factor_term_structure, factor_volatility,
+            factor_holding_sentiment, factor_cross_spread,
+            money_flow=factor_money_flow,
+            north_flow=factor_north_flow,
+            etf_premium=factor_etf_premium,
+            basis=factor_basis,
+            warrant=factor_warrant,
+            inventory=factor_inventory,
+            calendar_spread=factor_calendar_spread,
+            profit=factor_profit,
+            momentum=factor_momentum,
+            value=factor_value,
+            quality=factor_quality,
+        )
+    except Exception as e:
+        logger.warning("[FDC] 多因子注入失败 (非关键): %s", e)
 
     return {
         **state,
@@ -618,6 +701,14 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         "factor_money_flow": factor_money_flow,
         "factor_north_flow": factor_north_flow,
         "factor_etf_premium": factor_etf_premium,
+        "factor_basis": factor_basis,
+        "factor_warrant": factor_warrant,
+        "factor_inventory": factor_inventory,
+        "factor_calendar_spread": factor_calendar_spread,
+        "factor_profit": factor_profit,
+        "factor_momentum": factor_momentum,
+        "factor_value": factor_value,
+        "factor_quality": factor_quality,
         "current_phase": "P2.5",
         "completed_phases": state["completed_phases"] + ["P2.5"]
     }

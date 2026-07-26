@@ -239,6 +239,20 @@ class DividendResult:
     data_grade: str = "UNAVAILABLE"
 
 
+@dataclass
+class ProfitResult:
+    """产业链利润因子 — 成品-原料价差利润
+
+    通过原料和成品的价格比计算产业链利润。
+    """
+    symbol: str
+    profit: Optional[float] = None         # 利润绝对值
+    profit_pct: Optional[float] = None     # 利润率（%）
+    percentile: Optional[float] = None     # 历史百分位 0~100
+    margin_type: str = ""                  # 利润类型（如 "螺纹利润", "焦化利润"）
+    data_grade: str = "UNAVAILABLE"
+
+
 # ═══════════════════════════════════════════════════
 # 8. 因子归因（G23 §3.6 新增）
 # ═══════════════════════════════════════════════════
