@@ -182,6 +182,20 @@ class DataSource(ABC):
         """
         ...
 
+    async def get_price_adjustment(self, symbol: str) -> float:
+        """计算连续合约与具体合约的价差（G97）。
+
+        基类默认返回 0.0（无调整）。子类可覆盖以实现实际价差计算。
+        正值表示连续合约价格低于具体合约（如连续合约 5,670，具体合约 5,858 → 返回 188）。
+
+        Args:
+            symbol: 品种代码（如 "RB"）。
+
+        Returns:
+            float 价差值。
+        """
+        return 0.0
+
     @staticmethod
     def _unavailable_dict(reason: str = "数据源不可用") -> dict:
         return {"data": {}, "summary": reason, "data_grade": "UNAVAILABLE"}

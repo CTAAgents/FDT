@@ -26,6 +26,7 @@ from .nodes import (
     node_prepare_one_symbol,
     node_quality_inspect,
     node_report,
+    node_right_side_check,
     node_risk_check,
     node_route_next_symbol,
     node_scan,
@@ -261,12 +262,13 @@ flow:
     graph.add_node("bull_final", node_bull_final)
 
     graph.add_node("verdict", node_verdict)
+    graph.add_node("right_side_check", node_right_side_check)
     graph.add_node("risk_check", node_risk_check)
     graph.add_node("quality_inspect", node_quality_inspect)
     graph.add_node("report", node_report)
     graph.add_node("signal_output", node_signal_output)
 
-    # ── 入口边 ──
+    # ── 数据准备工作台 ── 入口边 ──
     graph.set_entry_point("scan")
     graph.add_edge("scan", "freshness_gate")
     graph.add_conditional_edges("freshness_gate", _route_after_freshness, {
@@ -301,8 +303,9 @@ flow:
     graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
 
     # ── 单品种收尾 + 质检 + 循环路由 ──
-    # Phase 3: verdict → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
-    graph.add_edge("verdict", "risk_check")
+    # Phase 3: verdict → right_side_check(G98) → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
+    graph.add_edge("verdict", "right_side_check")
+    graph.add_edge("right_side_check", "risk_check")
     graph.add_edge("risk_check", "quality_inspect")
     graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
         "prepare_one_symbol": "prepare_one_symbol",
@@ -345,12 +348,13 @@ def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
     graph.add_node("bull_final", node_bull_final)
 
     graph.add_node("verdict", node_verdict)
+    graph.add_node("right_side_check", node_right_side_check)
     graph.add_node("risk_check", node_risk_check)
     graph.add_node("quality_inspect", node_quality_inspect)
     graph.add_node("report", node_report)
     graph.add_node("signal_output", node_signal_output)
 
-    # ── 入口边 (load_cache → judge → per-symbol loop) ──
+    # ── 入口边 ── 入口边 (load_cache → judge → per-symbol loop) ──
     graph.set_entry_point("load_cache")
     graph.add_edge("load_cache", "judge_direction")
     graph.add_edge("judge_direction", "prepare_one_symbol")
@@ -373,8 +377,9 @@ def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
     graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
 
     # ── 单品种收尾 + 质检 + 循环路由 ──
-    # Phase 3: verdict → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
-    graph.add_edge("verdict", "risk_check")
+    # Phase 3: verdict → right_side_check(G98) → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
+    graph.add_edge("verdict", "right_side_check")
+    graph.add_edge("right_side_check", "risk_check")
     graph.add_edge("risk_check", "quality_inspect")
     graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
         "prepare_one_symbol": "prepare_one_symbol",

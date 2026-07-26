@@ -1059,6 +1059,90 @@ class AKShareSource(DataSource):
             return self._unavailable_dict(f"get_macro_rate 失败: {str(e)[:80]}")
 
     # ──────────────────────────────────────────────
+    # G97: 连续合约复权价差
+    # ──────────────────────────────────────────────
+
+    async def get_price_adjustment(self, symbol: str) -> float:
+        """计算连续合约与具体合约的价差（G97）。
+
+        正值表示连续合约价格低于具体合约（如连续合约 5,670，具体合约 5,858 → 返回 188）。
+        零表示无法计算（降级）。
+
+        Args:
+            symbol: 品种代码（如 "RB"）。
+
+        Returns:
+            float 价差值，0.0 表示不可用。
+        """
+        bare = symbol.upper()
+        try:
+            import akshare as ak
+            import pandas as pd
+            import re
+
+            # 1. 获取实时行情（含全部合约）
+            df = ak.futures_zh_realtime()
+            if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+                logger.warning("[AKShareSource] get_price_adjustment 行情为空(%s)", bare)
+                return 0.0
+
+            # 2. 找到代码列和价格列
+            sym_col = self._find_column(df, ["symbol", "代码", "合约代码"])
+            price_col = self._find_column(df, ["current_price", "最新价", "现价", "price", "last_price"])
+            if not sym_col or not price_col:
+                return 0.0
+
+            # 3. 提取连续合约价格（如 "RB0"）
+            continuous_code = f"{bare}0"
+            continuous_price = None
+            for _, row in df.iterrows():
+                code = str(row.get(sym_col, "")).strip().upper()
+                if code == continuous_code:
+                    continuous_price = self._safe_float_df(row, [price_col])
+                    break
+
+            if continuous_price is None:
+                logger.debug("[AKShareSource] 连续合约价格不可用(%s)", bare)
+                return 0.0
+
+            # 4. 提取近月具体合约价格
+            # 匹配如 RB2401, RB2405 等（连续合约编号后至少 3 位数字）
+            pattern = re.compile(rf"^{bare}(\d{{3,}})$", re.IGNORECASE)
+            front_price = None
+            front_contract = None
+            min_month = 999999
+
+            for _, row in df.iterrows():
+                code = str(row.get(sym_col, "")).strip().upper()
+                m = pattern.match(code)
+                if m:
+                    month_num = int(m.group(1))
+                    # 跳过 "RB0" 的 0 月
+                    if month_num == 0:
+                        continue
+                    price = self._safe_float_df(row, [price_col])
+                    if price and price > 0 and month_num < min_month:
+                        min_month = month_num
+                        front_price = price
+                        front_contract = code
+
+            if front_price is None:
+                logger.debug("[AKShareSource] 近月合约价格不可用(%s)", bare)
+                return 0.0
+
+            # 5. 计算价差（正值表示连续合约低于具体合约）
+            adjustment = round(front_price - continuous_price, 2)
+            logger.info(
+                "[AKShareSource] 价差(%s): 连续=%s, 近月=%s(%s), adjustment=%s",
+                bare, continuous_price, front_contract, front_price, adjustment,
+            )
+            return adjustment
+
+        except Exception as e:
+            logger.error("[AKShareSource] get_price_adjustment 异常(%s): %s", symbol, e)
+            return 0.0
+
+    # ──────────────────────────────────────────────
     # 辅助方法
     # ──────────────────────────────────────────────
 

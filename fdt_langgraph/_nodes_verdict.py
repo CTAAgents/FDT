@@ -134,6 +134,21 @@ async def node_verdict(state: DebateState) -> DebateState:
     except Exception:
         pass
 
+    # ── G97: 连续合约复权价差校准（连续合约 vs 具体合约） ──
+    price_adjustments = state.get("price_adjustments", {}) or {}
+    adjustment_lines = ["品种 | 连续合约价 | 前月合约价 | 价差（正=连续<前月）"]
+    adjustment_lines.append("-" * 60)
+    has_adjustment = False
+    for sym in symbols:
+        adj = price_adjustments.get(sym.upper(), 0.0)
+        if adj != 0.0:
+            has_adjustment = True
+            sp = sym_prices.get(sym.upper(), {})
+            cont_price = sp.get("price", "N/A")
+            front_price = (float(cont_price) + adj) if isinstance(cont_price, (int, float)) else "N/A"
+            adjustment_lines.append(f"{sym} | {cont_price} | {front_price} | {adj:+.2f}")
+    price_adjustment_table = "\n".join(adjustment_lines) if has_adjustment else ""
+
 
     context = f"""作为闫判官（裁决官），请基于以下全部辩论内容对每个品种给出最终裁决。
 
@@ -152,6 +167,9 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 【FDC 实际技术指标（基准事实）】
 {fdc_indicator_table}
+
+【连续合约复权价差校准（G97）】仅显示有价差的品种，价差用于校正连续合约 vs 具体合约的价格偏差。
+{price_adjustment_table}
 
 ⚠️ 交易参数关键约束（P0 规则，不可违反）：
 - **entry_price 必须严格等于【实际行情】中的当前收盘价**，不得有任何偏离
@@ -223,10 +241,18 @@ async def node_verdict(state: DebateState) -> DebateState:
                     scan_price = sp.get("price", 0)
                     if scan_price > 0:
                         sv["entry_price"] = scan_price
+                    # G97: 连续合约复权价差校准 — 调整 entry_price 至具体合约价格
+                    price_adjustments = state.get("price_adjustments", {}) or {}
+                    adjustment = price_adjustments.get(sym_key, 0.0)
+                    if adjustment != 0.0 and scan_price > 0:
+                        adjusted_price = round(scan_price + adjustment, 2)
+                        sv["entry_price"] = adjusted_price
+                        logger.info("[G97] %s 价差校准: %s + %s = %s", sym_key, scan_price, adjustment, adjusted_price)
                     # 代码计算 stop_loss/target（L0 硬约束，覆写 LLM 输出）
                     direction = sv.get("direction", "neutral")
                     atr_val = sp.get("atr", 0)
-                    stop_loss, target = _compute_stop_target(direction, scan_price, atr_val)
+                    entry_for_st = sv.get("entry_price", scan_price) or scan_price
+                    stop_loss, target = _compute_stop_target(direction, entry_for_st, atr_val)
                     sv["stop_loss_price"] = stop_loss
                     sv["target_price"] = target
                     # 仓位代码硬校验（L0 硬约束）
@@ -288,10 +314,18 @@ async def node_verdict(state: DebateState) -> DebateState:
                         scan_price = sp.get("price", 0)
                         if scan_price > 0:
                             sv["entry_price"] = scan_price
+                        # G97: 连续合约复权价差校准 — 调整 entry_price 至具体合约价格
+                        fb_price_adjustments = state.get("price_adjustments", {}) or {}
+                        fb_adjustment = fb_price_adjustments.get(sym_key, 0.0)
+                        if fb_adjustment != 0.0 and scan_price > 0:
+                            adjusted_price = round(scan_price + fb_adjustment, 2)
+                            sv["entry_price"] = adjusted_price
+                            logger.info("[G97-fallback] %s 价差校准: %s + %s = %s", sym_key, scan_price, fb_adjustment, adjusted_price)
                         # 代码计算 stop_loss/target（L0 硬约束，覆写 LLM 输出）
                         direction = sv.get("direction", "neutral")
                         atr_val = sp.get("atr", 0)
-                        stop_loss, target = _compute_stop_target(direction, scan_price, atr_val)
+                        fb_entry = sv.get("entry_price", scan_price) or scan_price
+                        stop_loss, target = _compute_stop_target(direction, fb_entry, atr_val)
                         sv["stop_loss_price"] = stop_loss
                         sv["target_price"] = target
                         # 仓位代码硬校验（L0 硬约束）
@@ -339,6 +373,120 @@ async def node_verdict(state: DebateState) -> DebateState:
     }
 
 
+
+
+async def node_right_side_check(state: DebateState) -> DebateState:
+    """G98: 右侧交易校验 — 反趋势方向且趋势结构未破坏时降级为INFO。
+
+    如果裁决方向与短期趋势相反，且趋势结构未被破坏，
+    则将方向降级为 neutral（观望），清空入场/目标/止损参数。
+
+    Returns:
+        DebateState，verdict 中的 per_symbol 可能被降级。
+    """
+    verdict = state.get("verdict", {})
+    per_symbol = (verdict or {}).get("per_symbol", {})
+    fdc_data = state.get("fdc_data", {}) or {}
+    downgraded_symbols = []
+
+    for sym_key, sv in per_symbol.items():
+        if not isinstance(sv, dict):
+            continue
+        direction = sv.get("direction", "neutral")
+        if direction in ("neutral", None, ""):
+            continue  # neutral 方向不检查
+
+        # ── 从 FDC 数据确定短期趋势 ──
+        sym_up = sym_key.upper()
+        sd = fdc_data.get(sym_up) or fdc_data.get(sym_key) or {}
+        bars = (sd.get("kline") or {}).get("bars", []) if sd else []
+
+        if len(bars) < 20:
+            continue  # 数据不足，跳过检查
+
+        closes = [float(b.get("close", 0)) for b in bars[-20:]]
+        ma5 = sum(closes[-5:]) / 5
+        ma20 = sum(closes[-20:]) / 20
+
+        # ── 判断短期趋势方向 ──
+        if ma5 > ma20 * 1.005:
+            trend = "bullish"  # 多头排列
+        elif ma5 < ma20 * 0.995:
+            trend = "downtrend"  # 空头排列
+        else:
+            continue  # 粘合无趋势，跳过
+
+        # ── 检查是否反趋势 ──
+        is_counter_trend = (direction == "bearish" and trend == "bullish") or \
+                           (direction == "bullish" and trend == "downtrend")
+
+        if not is_counter_trend:
+            continue  # 顺趋势或横盘，通过
+
+        # ── 检查趋势结构是否被破坏 ──
+        # 趋势未破坏 = 最近 N 根 K 线未突破趋势线
+        # 多头趋势: 无收盘价 < MA20
+        # 空头趋势: 无收盘价 > MA20
+        structure_broken = False
+        for b in bars[-3:]:
+            c = float(b.get("close", 0))
+            if trend == "bullish" and c < ma20 * 0.99:
+                structure_broken = True
+                break
+            if trend == "downtrend" and c > ma20 * 1.01:
+                structure_broken = True
+                break
+
+        if structure_broken:
+            continue  # 趋势结构已破坏，放行
+
+        # ── 趋势结构未破坏 + 反趋势 → 降级为 INFO ──
+        sv["direction"] = "neutral"
+        sv["grade"] = "INFO"
+        sv["entry_price"] = None
+        sv["stop_loss_price"] = None
+        sv["target_price"] = None
+        sv["position_pct"] = 0
+        sv["right_side_downgraded"] = True
+        sv["right_side_reason"] = (
+            f"反趋势方向被右侧交易铁律降级：裁决方向={direction}，"
+            f"短期趋势={'多头' if trend == 'bullish' else '空头'}（MA5={ma5:.2f}, MA20={ma20:.2f}），"
+            f"趋势结构未破坏，仅允许 INFO（仅供关注）。"
+        )
+        downgraded_symbols.append(sym_key)
+        logger.info(
+            "[G98] %s 右侧交易降级: %s → neutral (趋势=%s, MA5=%.2f, MA20=%.2f)",
+            sym_key, direction, trend, ma5, ma20,
+        )
+
+    if downgraded_symbols:
+        logger.warning("[G98] 右侧交易降级品种: %s", downgraded_symbols)
+
+    # 如果整体方向由被降级品种主导，调整 overall
+    if verdict and downgraded_symbols:
+        remaining_directions = [
+            v.get("direction", "neutral") for v in per_symbol.values()
+            if isinstance(v, dict) and not v.get("right_side_downgraded", False)
+        ]
+        if remaining_directions:
+            bull_count = sum(1 for d in remaining_directions if d == "bullish")
+            bear_count = sum(1 for d in remaining_directions if d == "bearish")
+            if bull_count > bear_count:
+                verdict["direction"] = "bullish"
+            elif bear_count > bull_count:
+                verdict["direction"] = "bearish"
+            else:
+                verdict["direction"] = "neutral"
+        else:
+            verdict["direction"] = "neutral"
+
+    new_phases = state["completed_phases"] + ["P4_right_side_check"]
+    return {
+        **state,
+        "verdict": verdict,
+        "current_phase": "P4_right_side_check",
+        "completed_phases": new_phases,
+    }
 
 
 async def node_risk_check(state: DebateState) -> DebateState:

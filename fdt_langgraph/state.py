@@ -3,6 +3,18 @@ from datetime import datetime
 from typing import Annotated, Literal, Optional, TypedDict
 
 
+def _debate_args_reducer(current: list, update: list) -> list:
+    """辩论论据的 reducer：空列表表示跨品种重置，非空表示追加。
+
+    prepare_one_symbol 在切换品种时清空论据（传入 []），
+    此 reducer 检测到空列表时直接返回 [] 实现重置；
+    辩论节点正常追加时使用 operator.add（list + list）。
+    """
+    if not update:
+        return []  # 品种切换：清空上一品种的论据
+    return current + update  # 辩论节点追加新数据
+
+
 class FdcSymbolData(TypedDict, total=False):
     kline: dict
     indicators: dict
@@ -50,12 +62,14 @@ class DebateState(TypedDict, total=False):
     research_data: Optional[dict]
 
     # v9.0 多空头攻防模式 — 六阶段辩论
-    bullish_arguments: Annotated[list, operator.add]              # P4_1 多头立论
-    bearish_arguments: Annotated[list, operator.add]              # P4_2 空头立论
-    bearish_rebuttal_arguments: Annotated[list, operator.add]     # P4_3 空头反驳多头
-    bullish_rebuttal_arguments: Annotated[list, operator.add]     # P4_4 多头反驳空头
-    bear_final_arguments: Annotated[list, operator.add]           # P4_5 空头最终陈述
-    bull_final_arguments: Annotated[list, operator.add]           # P4_6 多头最终陈述
+    # GAP-006: 使用 _debate_args_reducer 而非 operator.add，
+    # 使 prepare_one_symbol 传入 [] 时正确重置论据（而非累积）。
+    bullish_arguments: Annotated[list, _debate_args_reducer]              # P4_1 多头立论
+    bearish_arguments: Annotated[list, _debate_args_reducer]              # P4_2 空头立论
+    bearish_rebuttal_arguments: Annotated[list, _debate_args_reducer]     # P4_3 空头反驳多头
+    bullish_rebuttal_arguments: Annotated[list, _debate_args_reducer]     # P4_4 多头反驳空头
+    bear_final_arguments: Annotated[list, _debate_args_reducer]           # P4_5 空头最终陈述
+    bull_final_arguments: Annotated[list, _debate_args_reducer]           # P4_6 多头最终陈述
     data_sources: list                                            # 数据溯源清单
     debate_round: int
 
@@ -86,6 +100,9 @@ class DebateState(TypedDict, total=False):
 
     # v10.6.0: 全市场扩展 — 品种市场类型
     market_type: Optional[str]              # commodity_futures/index_futures/bond_futures/etf
+
+    # v0.10.6: G97 连续合约复权价差校准
+    price_adjustments: dict[str, float]     # {symbol: adjustment}
 
     # v9.14.0: Phase 3 辩论输出质量治理
     quality_report: Optional[dict]          # 当前质检结果 QualityReport
@@ -137,6 +154,7 @@ def create_initial_state(trace_id: str, mode: str = "fast") -> DebateState:
         _original_symbols=[],
         associated_symbols={},
         market_type=None,
+        price_adjustments={},
         quality_report=None,
         rework_counters={},
         rework_pending_symbols=[],

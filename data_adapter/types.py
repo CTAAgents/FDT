@@ -87,12 +87,15 @@ class KlineResult:
         bars: K 线列表（按日期升序）。
         meta: 元信息（data_grade: PRIMARY/UNAVAILABLE, source: "akshare"）。
         cleaning: 清洗报告（清洗层启用时非空）。
+        contract_price_adjustment: 连续合约与具体合约的价差（G97）。正值表示连续合约价格低于具体合约。
+                                  例如连续合约收盘 5,670，具体合约收盘 5,858，adjustment = 188。
     """
 
     symbol: str
     bars: list[KlineBar]
     meta: dict = field(default_factory=lambda: {"data_grade": "PRIMARY", "source": "akshare"})
     cleaning: Optional[CleaningReport] = None
+    contract_price_adjustment: float = 0.0
 
 
 @dataclass

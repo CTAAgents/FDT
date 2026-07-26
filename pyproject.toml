@@ -4,8 +4,8 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "fdt"
-version = "0.10.6"
-description = "Full-market Debate Team — 13-Agent multi-role cross-examination CTA decision system. v0.10.6"
+version = "0.10.9"
+description = "Full-market Debate Team — 13-Agent multi-role cross-examination CTA decision system. v0.10.9"
 readme = "README.md"
 requires-python = ">=3.10"
 

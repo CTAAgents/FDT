@@ -31,11 +31,11 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
-| **本次会话 (v10.0.0→v0.10.6)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 20 项历史差距 + API密钥泄漏修复(G100) + 知识库产业链重构 + 右侧交易铁律确立。**当前开放差距：4 项活跃。** |
+| **本次会话 (v10.0.0→v0.10.9)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 20 项历史差距 + API密钥泄漏修复(G100) + 知识库产业链重构 + 右侧交易铁律确立 + G97连续合约复权价差 + G98右侧交易校验 + G99文档确认关闭 + GAP-005 JIN10_TOKEN配置 + GAP-006多品种state隔离修复。**当前开放差距：0 项活跃（仅 GAP-007 外部依赖监控中）** |
 
 **综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5）**
 
-> G16/G14/G17/G18/G30/G31/G109/G110/G111/G112/GAP-AK-001/GAP-AK-002/GAP-6D-01~08/G124/G100 已全部关闭（v10.0.0→v0.10.6）。**当前开放差距：4 项活跃（G97、G98、G99、GAP-005）+ 2 项待定（GAP-006 P2非阻塞、GAP-007 监控中）**。
+> G16/G14/G17/G18/G30/G31/G109/G110/G111/G112/GAP-AK-001/GAP-AK-002/GAP-6D-01~08/G124/G100/G97/G98/G99/GAP-005/GAP-006 已全部关闭（v10.0.0→v0.10.9）。**当前开放差距：0 项活跃。仅 GAP-007（DCE zip 损坏）监控中**。
 
 **G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
 
@@ -217,28 +217,28 @@
 | **GAP-003** | **`graph.py` P3 条件边命名冲突** — for 循环中对同一源节点注册多条未命名条件边，LangGraph v1.2.9 报 `Branch with name None already exists` | P0 | LangGraph v1.2.9 不支持同源同名条件边注册 | ✅ **已修复（v0.10.6）** — 改为单条路由函数 `_route_p3_nodes()` |
 | **GAP-004** | **`data_adapter` 品种映射缺失（基差 + 新闻关键词）** — `_AK_SPOT_MAP` 缺 SH/SM/SF/OP，`SYMBOL_TO_KEYWORDS` 缺 SH/OP | P1 | FDC→AKShare 迁移时未覆盖新品种映射 | ✅ **已修复（v0.10.6）** |
 | **GAP-005** | **JIN10_MCP_TOKEN 未配置 + 旧密钥已泄露** | 金十 MCP 新闻源因缺少有效 Token 不可用。2026-07-26 `.env` 泄露事件导致旧 JIN10_MCP_TOKEN 也已暴露，需用户吊销旧令牌并重新配置。 | P1 | 用户登录金十数据平台吊销旧令牌、创建新令牌，填入 `.env`。pre-commit 增加检测防止再次泄露。 | `.env`, `data_adapter/sources/jin10_adapter.py` |
-| **GAP-006** | **多品种辩论 state 隔离缺失** — arguments 跨品种累积（峰值 64MB），LLM 调用严重膨胀 | P2 | `node_debate` 未按品种隔离论据列表 | ❌ **开放** |
+| **GAP-006** | **多品种辩论 state 隔离缺失** — arguments 跨品种累积（峰值 64MB），LLM 调用严重膨胀 | P2 | `_debate_args_reducer` 替换 `operator.add`：`operator.add(current, [])` = `current`（不清除），新 reducer 检测 `update=[]` 时返回 `[]`（重置）。 | ✅ **已修复（v0.10.9）** — `state.py` 新增 `_debate_args_reducer` 函数，6 个论据字段的 reducer 从 `operator.add` 替换为 `_debate_args_reducer`。`prepare_one_symbol` 传入 `[]` 时正确重置，辩论节点正常追加。 |
 | **GAP-007** | **DCE 持仓排名 zip 损坏 — AKShare 源临时故障** | P1 | 外部依赖暂时故障 | ⏳ **监控中** |
 
 ---
 
-## 5. 开放差距汇总（v0.10.6 · 共 4 项）
+## 5. 开放差距汇总（v0.10.9 · 共 1 项监控中）
 
 | # | 差距 | 优先级 | 类型 | 状态 |
 |:-:|:-----|:------:|:-----|:----:|
-| G97 | 连续合约复权价差 — 数据偏差 | P0 | 数据正确性 | 🔴 **开放**（设计阶段） |
-| G98 | 右侧交易校验 — 裁决阶段规则缺失 | P0 | 规则落地 | 🔴 **开放**（设计阶段） |
-| G99 | 知识库产业链重构后文档未同步 | P1 | 文档 | 🟡 **检查中**（3 篇文档无旧路径引用，待最终确认） |
-| GAP-005 | JIN10_MCP_TOKEN 未配置 | P1 | 配置 | 🟡 **开放**（需用户配置新令牌） |
-| GAP-006 | 多品种辩论 state 隔离缺失 | P2 | 性能 | 🟢 **开放**（非阻塞） |
 | GAP-007 | DCE 持仓排名 zip 损坏 | P1 | 外部依赖 | 🔵 **监控中** |
 
 > 优先级色彩：🔴 P0（强制）· 🟡 P1（建议）· 🟢 P2（一般）· 🔵 监控中
-> ✅ G100 已关闭（v0.10.6）
+> ✅ GAP-005 / GAP-006 / G97 / G98 / G99 / G100 已全部关闭
 
 | GAP ID | 差距 | 优先级 | 类型 | 状态 |
 |:-------|:-----|:------:|:-----|:----:|
+| **GAP-005** | **JIN10_MCP_TOKEN 未配置** | P1 | 配置 | ✅ **已关闭（v0.10.9）** — 用户已更新 JIN10_MCP_TOKEN 至 `.env` |
+| **GAP-006** | **多品种辩论 state 隔离缺失** | P2 | 性能 | ✅ **已关闭（v0.10.9）** — `state.py` 新增 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。`operator.add(current, [])` = `current`（不清除），新 reducer 检测 `update=[]` 时返回 `[]`（品种切换正确重置） |
 | **GAP-008** | **`_nodes_utils.py` `import tempfile` 缺失** | P2 | 代码重构遗漏 | ✅ **已修复（v0.10.6）** |
+| **G97** | **连续合约复权价差 — 数据偏差** | P0 | 数据正确性 | ✅ **已关闭（v0.10.7）** |
+| **G98** | **右侧交易校验 — 裁决阶段规则缺失** | P0 | 规则落地 | ✅ **已关闭（v0.10.8）** |
+| **G99** | **知识库产业链重构后文档未同步** | P1 | 文档 | ✅ **已关闭（v0.10.8）** |
 
 ## 一致性元数据
 
@@ -256,7 +256,15 @@
 | `docs/schemas/` | §4 | 9 个 JSON Schema 活跃 | `ls docs/schemas/*.json` |
 | All gap entries with status | §4 差距表 | Gxxx 状态可追踪 | `grep -c "🔴|🟡|🟢|🔵" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |
 | `git log --oneline -- .env` | §4 G100 | .env 已从全部 git 历史清除 | `git ls-files .env` 应返回空，`git log --all -- .env` 应无记录 |
-| `fdt_langgraph/_nodes_verdict.py` | §4 G98 | node_right_side_check 尚未实现 | `grep -n "node_right_side_check" _nodes_verdict.py` 返回空 |
-| `docs/harness/02-lifecycle.md` | §4 G99 | 路径引用仍用旧 `{variety}` 格式 | `grep -n "knowledge/\w+/" 02-lifecycle.md` 返回空（可关闭）|
+| `fdt_langgraph/_nodes_verdict.py` | §4 G98 | node_right_side_check 已实现 | `grep -n "node_right_side_check" fdt_langgraph/_nodes_verdict.py` 返回非空 |
+| `fdt_langgraph/graph.py` | §4 G98 | right_side_check 节点已注册 | `grep -n "right_side_check" fdt_langgraph/graph.py` 返回非空 |
+| `docs/harness/02-lifecycle.md` | §4 G99 | 路径引用已无旧 `{variety}` 格式 | `grep -n "knowledge/\w+/" docs/harness/02-lifecycle.md` 返回空（已关闭）|
 | `docs/harness/harness-rules.yaml` | §4 G100 | C18 secret_leak 规则已新增 | `grep -n "C18" harness-rules.yaml` 返回非空 |
 | `scripts/verification/pre_commit_harness_check.py` | §4 G100 | secret_leak 类型已实现 | `grep -n "secret_leak" pre_commit_harness_check.py` 返回非空 |
+| `fdt_langgraph/state.py` | §4 GAP-006 | _debate_args_reducer 已替换 operator.add | `grep -n "_debate_args_reducer" fdt_langgraph/state.py` 返回非空 |
+| `.env` | §4 GAP-005 | JIN10_MCP_TOKEN 已配置 | `grep -c "JIN10_MCP_TOKEN" .env` > 0（用户自行配置） |
+| `data_adapter/types.py` | §4 G97 | contract_price_adjustment 字段已新增 | `grep -n "contract_price_adjustment" data_adapter/types.py` 返回非空 |
+| `data_adapter/base.py` | §4 G97 | get_price_adjustment() 抽象方法已新增 | `grep -n "get_price_adjustment" data_adapter/base.py` 返回非空 |
+| `data_adapter/sources/akshare_source.py` | §4 G97 | get_price_adjustment() 已实现 | `grep -n "async def get_price_adjustment" data_adapter/sources/akshare_source.py` 返回非空 |
+| `fdt_langgraph/_nodes_verdict.py` | §4 G97 | 价差校准逻辑已追加 | `grep -n "G97" fdt_langgraph/_nodes_verdict.py` 返回非空 |
+| `fdt_langgraph/state.py` | §4 G97 | price_adjustments 字段已新增 | `grep -n "price_adjustments" fdt_langgraph/state.py` 返回非空 |

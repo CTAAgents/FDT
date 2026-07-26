@@ -78,6 +78,7 @@ from fdt_langgraph._nodes_debate import (
 from fdt_langgraph._nodes_verdict import (
     node_aggregate_results,
     node_quality_inspect,
+    node_right_side_check,
     node_risk_check,
     node_route_next_symbol,
     node_store_per_symbol_result,

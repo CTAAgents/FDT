@@ -6,6 +6,8 @@
 > **v10.1.3** (2026-07-25): 导航栏简化：只保留品种和汇总链接。
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。
 > **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易铁律文档化。
+> **v0.10.8** (2026-07-26): 新增 G98 右侧交易校验节点 `node_right_side_check()`，插入 verdict→risk_check 之间。
+> **v0.10.9** (2026-07-26): GAP-006 多品种辩论隔离 — `state.py` 用 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。
 >
 > 清洗层 (data_adapter/cleaning/) 作为数据源的中间件，对原始 K 线执行 OHLC 校验、零成交量剔除、去重、时间轴标准化、3σ 毛刺修复、前复权处理、**期货专项清洗（交割月过滤 + 涨跌停封板标记）**，以及**基本面快照清洗（缺失字段/值校验/新鲜度/口径变更/修订追踪）**。通过环境变量 FDT_DATA_CLEANING_ENABLED 控制开关（默认开启）。**node_prepare_data 中激活 clean_fundamental_data() 批量清洗，探源 Agent context 注入数据质量警告。** 每道清洗产出的清洗报告附着在 KlineResult.cleaning 中透传下游。
 
@@ -73,7 +75,7 @@ LangGraph 层替代了原有的文件传递 + S04 轮询机制，提供：
 scan → judge_direction → prepare_one_symbol(品种0)
   → chain/tech/fund/sent(只处理当前品种) → merge_research
   → 六阶段辩论(只辩论当前品种)
-  → verdict → risk_check → store_per_symbol_result
+  → verdict → right_side_check(G98) → risk_check → store_per_symbol_result
   → route_next_symbol:
     - 还有品种 → 回 prepare_one_symbol(品种1)
     - 全部完成 → aggregate_results → report → END
@@ -275,10 +277,20 @@ scan → judge_direction → prepare_one_symbol(品种0)
     │  · stop_loss/target: 代码从 ATR × multiplier 精确计算（LLM 不可修改）
     │  · position_pct: 代码钳制至 ≤20%（非法值默认 3%）
     │  · 文件: fdt_langgraph/nodes.py _compute_stop_target() + _clamp_position()
+    │  · G97: 连续合约复权价差校准（entry_price 自动调整为近月合约价格）
+    │  · 文件: data_adapter/sources/akshare_source.py get_price_adjustment()
+    │
+    ▼
+[P4-L0 右侧交易校验] G98: node_right_side_check()
+    │  · MA5 vs MA20 判定短期趋势
+    │  · 反趋势方向时检查最近 3 根 K 线是否突破 MA20
+    │  · 趋势结构未破坏 → direction=neutral, grade=INFO, 清空交易参数
+    │  · 文件: fdt_langgraph/_nodes_verdict.py node_right_side_check()
     │
     ▼
 [P5] 裁决链 (串行)
     ├─ 闫判官裁决(含完整交易参数) ──→ p5_verdict_{trace_id}.json
+    ├─ 右侧交易校验（G98）
     └─ 风控明审核（直接基于闫判官 verdict）──→ p5_risk_check_{sym}.json
     │
     ▼
@@ -718,7 +730,7 @@ scan ──→ judge_direction (闫判官)
     │       └─────────┴─────────────┴──────────────────┘
     │                     │
     │                     ▼
-    │              merge_research → 六阶段辩论 → verdict → risk_check → report → signal
+    │              merge_research → 六阶段辩论 → verdict → right_side_check → risk_check → report → signal
     │
 设计收益:
   • 总耗时 = scan + judge + max(所需源) + debate + verdict
