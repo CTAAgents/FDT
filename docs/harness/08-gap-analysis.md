@@ -1,8 +1,6 @@
 # 08 — 差距分析与改进路线
 
-> **状态声明（2026-07-14 整顿）**：本文件在 2026-07-10 曾断言「15 项差距全部修复、成熟度 4.7/5.0」。
-> 经 2026-07-14 对代码与测试的真实核查，该结论存在两处失真：① **G14（Agent 产出版本迁移）从未真正落地**（`contracts/migrations.py` 至今不存在）；② 2026-07-14 的 v6.3.0 数技源信号+分析师能力重构**未同步更新 Harness 文档与 pipeline 测试**，导致「43 用例全绿」在重构后已不成立（实测 pipeline 5/10 失败）。
-> 本版基于证据重新评估，并以 G16/G17 两项新差距登记近期工作引入的回归。
+> **状态声明（2026-07-26 更新）**：本文件从 v10.0.0→v0.10.6 经历了知识库产业链重构、API密钥泄漏修复、右侧交易铁律确立等重大变更。当前版本 **v0.10.6**，以下评估基于代码实测。
 
 ## 1. 评估方法论
 
@@ -33,11 +31,11 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
-| **本次会话 (v10.0.0)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 G-6D-01~G-6D-08 + GAP-AP01-001 + GAP-HOOK-001 + G17 + G18 + G124 + G111 + G112 + GAP-AK-001 + GAP-AK-002，共 19 项差距。**当前零开放差距。** |
+| **本次会话 (v10.0.0→v0.10.6)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 20 项历史差距 + API密钥泄漏修复(G100) + 知识库产业链重构 + 右侧交易铁律确立。**当前开放差距：4 项活跃。** |
 
-**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5，当前零开放差距）**
+**综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5）**
 
-> G16/G14 已于 2026-07-14 19:04 修复并验证。G30/G111/GAP-AK-001/GAP-AK-002 已全部关闭（v10.0.0）。**当前零开放差距。**
+> G16/G14/G17/G18/G30/G31/G109/G110/G111/G112/GAP-AK-001/GAP-AK-002/GAP-6D-01~08/G124/G100 已全部关闭（v10.0.0→v0.10.6）。**当前开放差距：4 项活跃（G97、G98、G99、GAP-005）+ 2 项待定（GAP-006 P2非阻塞、GAP-007 监控中）**。
 
 **G19（2026-07-18 辩论重构·正反方→多空头模式）**：6策略管线场景下，正反方机制不合理。已重构为多空头六阶段攻防模式。涉及 state.py / nodes.py / graph.py / YAML配置 / 测试 共8个文件。**状态: ✅ 已实施 (v9.0.0)**
 
@@ -116,21 +114,10 @@
 | **G115** | **全局 Harness RHI 自优化**（v9.21.0 已实现） | CLAUDE.md 作为项目全局 Harness prompt，手工维护无法随项目演进自动优化。RHI 全局 Harness 模块通过 pairwise 质量评分迭代优化 CLAUDE.md 内容。 | P2 | 将 CLAUDE.md 作为 RHI 优化对象，每次迭代比较前后版本质量 | `scripts/harness/rhi_global_harness.py` ✅ v9.21.0 |
 | **G21** | 数据新鲜度保障机制未正式化 | 新鲜度标准散落在各 Agent 认知中，无统一机读规则；辩论偶用过时数据 | 影响分析可信度 | 分级标准+新鲜度闸门+过时降级 | `loop-contracts/README.md` ✅ `data-collection.contract.yaml` ✅ `daily-debate.contract.yaml` ✅ `02-lifecycle.md` ✅ |
 | 
-**G97（2026-07-26 连续合约复权价差 — 数据偏差）**：
-> 本次 PTA2609 分析中，FDC 缓存使用 AKShare 主力连续合约（TA0），自动换月复权处理导致缓存价格（5,670.9）与 TA2609 合约实际市价（5,858）相差约 188 点。所有 FDC 计算的支撑/阻力位均基于复权价，直接套用到具体合约会产生系统性偏差。
-- **原因**：FDC 的 CacheManager 以连续合约为存储对象，未感知具体合约的最后交易日和价差；数据消费端（P4 裁决、P2 观澜支撑/阻力）也未做合约价差校准。
-- **影响**：入场价、止损、目标价、支撑/阻力位全部偏离，需人工逐项校准。
-- **优先级**: P0
-- **目标**：data_adapter/base.py 或 cache_manager.py 新增 contract_price_adjustment 字段，记录连续合约与具体合约的价差。P4 node_verdict 消费数据时自动读取该字段做校准。
-- **状态**: **开放**（设计阶段）
-
-**G98（2026-07-26 右侧交易校验 — 裁决阶段规则缺失）**：
-> 本次 PTA2609 分析中，闫判官在上涨通道完好时给出了做空建议（65%置信度+可执行参数），违反右侧交易原则。
-- **原因**：P4 裁决阶段没有反趋势方向必须等待结构破坏的自动化校验；C13 交易建议可操作性检查未覆盖趋势方向一致性。
-- **影响**：可能再次出现基本面对但趋势未破坏时给出反方向可执行建议的风险。
-- **优先级**: P0
-- **目标**：在 P4 裁决流程中新增 node_right_side_check 校验节点：当 direction 与短期趋势相反时检查价格结构是否破坏。若未破坏则强制 direction=观望，grade=INFO，清空交易参数。
-- **状态**: **开放**（设计阶段）
+| **G97** | **连续合约复权价差 — 数据偏差** | FDC 缓存使用 AKShare 主力连续合约（TA0），自动换月复权处理导致缓存价格与具体合约市价相差约 188 点。所有 FDC 计算的支撑/阻力位均基于复权价，直接套用到具体合约会产生系统性偏差。 | P0 | data_adapter/base.py 或 cache_manager.py 新增 contract_price_adjustment 字段，记录连续合约与具体合约的价差。P4 node_verdict 消费数据时自动读取该字段做校准。 | `data_adapter/base.py`, `fdt_langgraph/_nodes_verdict.py` |
+| **G98** | **右侧交易校验 — 裁决阶段规则缺失** | 闫判官在上涨通道完好时给出反方向可执行建议（60%+置信度），违反「右侧交易铁律」。P4 裁决阶段没有趋势结构完整性校验。 | P0 | 在 P4 裁决流程中新增 `node_right_side_check` 校验节点：当 direction 与短期趋势相反时检查价格结构是否破坏。若未破坏则强制 direction=观望，grade=INFO，清空交易参数。 | `fdt_langgraph/_nodes_verdict.py`（新增节点）|
+| **G99** | **知识库产业链重构后文档未同步** | knowledge/ 目录已重构为产业链分组。经实际检查，README.md / CODE_WIKI.md / 02-lifecycle.md 中均无旧 `{variety}` 路径引用。`CODE_WIKI.md` 中 `memory/knowledge/` 目录条目仍有效。 | P1 | `grep -rn "knowledge/\w+/" README.md CODE_WIKI.md 02-lifecycle.md` — 无待修改项。**可关闭。** | README.md, CODE_WIKI.md, docs/harness/02-lifecycle.md |
+| **G100** | **.env API密钥泄漏防护机制缺失** | 2026-07-26 发现 `.env` 文件因之前在 git 跟踪中，密钥（DeepSeek API Key + JIN10 MCP Token）被上传至 GitHub 公开仓库。事后已重写 git 历史清除，并新增 C18 规则在 pre-commit 阶段检测 .env 暂存。 | P0 | ✅ **已关闭（v0.10.6）** — 新增 C18 规则 + secret_leak 检查类型 + pre-commit 自动检测 `.env` 暂存 | `docs/harness/harness-rules.yaml`（C18）, `scripts/pre_commit_harness_check.py` |
 
 
 **G22** | 交易建议可操作性原则未正式化 | CF609/CU2609辩论中形成的隐性规则，未沉淀到文档 | 新会话中Agent可能不知道此规则 | 新增10-coding-standards + harness-rules C13 + AP11 | `10-coding-standards.md` ✅ `harness-rules.yaml` ✅ |
@@ -229,9 +216,28 @@
 | **GAP-002** | **`single_symbol_report.py` f-string + `\\n` 语法错误** — `f'<div>\\n'` 在 Python 3.12 多行 `(...)` 表达式中报 `SyntaxError` | P0 | Python 3.12 f-string 对此类字符序列的解析策略与旧版本不同 | ✅ **已修复（v0.10.6）** — 重写为 `''.join([...])` 拼接 |
 | **GAP-003** | **`graph.py` P3 条件边命名冲突** — for 循环中对同一源节点注册多条未命名条件边，LangGraph v1.2.9 报 `Branch with name None already exists` | P0 | LangGraph v1.2.9 不支持同源同名条件边注册 | ✅ **已修复（v0.10.6）** — 改为单条路由函数 `_route_p3_nodes()` |
 | **GAP-004** | **`data_adapter` 品种映射缺失（基差 + 新闻关键词）** — `_AK_SPOT_MAP` 缺 SH/SM/SF/OP，`SYMBOL_TO_KEYWORDS` 缺 SH/OP | P1 | FDC→AKShare 迁移时未覆盖新品种映射 | ✅ **已修复（v0.10.6）** |
-| **GAP-005** | **JIN10_MCP_TOKEN 未配置** — 金十 MCP 新闻源不可用，所有品种新闻情绪为空 | P1 | `.env` 中未配置金十 Token | ❌ **开放** — 需用户配置 `JIN10_MCP_TOKEN` |
+| **GAP-005** | **JIN10_MCP_TOKEN 未配置 + 旧密钥已泄露** | 金十 MCP 新闻源因缺少有效 Token 不可用。2026-07-26 `.env` 泄露事件导致旧 JIN10_MCP_TOKEN 也已暴露，需用户吊销旧令牌并重新配置。 | P1 | 用户登录金十数据平台吊销旧令牌、创建新令牌，填入 `.env`。pre-commit 增加检测防止再次泄露。 | `.env`, `data_adapter/sources/jin10_adapter.py` |
 | **GAP-006** | **多品种辩论 state 隔离缺失** — arguments 跨品种累积（峰值 64MB），LLM 调用严重膨胀 | P2 | `node_debate` 未按品种隔离论据列表 | ❌ **开放** |
 | **GAP-007** | **DCE 持仓排名 zip 损坏 — AKShare 源临时故障** | P1 | 外部依赖暂时故障 | ⏳ **监控中** |
+
+---
+
+## 5. 开放差距汇总（v0.10.6 · 共 4 项）
+
+| # | 差距 | 优先级 | 类型 | 状态 |
+|:-:|:-----|:------:|:-----|:----:|
+| G97 | 连续合约复权价差 — 数据偏差 | P0 | 数据正确性 | 🔴 **开放**（设计阶段） |
+| G98 | 右侧交易校验 — 裁决阶段规则缺失 | P0 | 规则落地 | 🔴 **开放**（设计阶段） |
+| G99 | 知识库产业链重构后文档未同步 | P1 | 文档 | 🟡 **检查中**（3 篇文档无旧路径引用，待最终确认） |
+| GAP-005 | JIN10_MCP_TOKEN 未配置 | P1 | 配置 | 🟡 **开放**（需用户配置新令牌） |
+| GAP-006 | 多品种辩论 state 隔离缺失 | P2 | 性能 | 🟢 **开放**（非阻塞） |
+| GAP-007 | DCE 持仓排名 zip 损坏 | P1 | 外部依赖 | 🔵 **监控中** |
+
+> 优先级色彩：🔴 P0（强制）· 🟡 P1（建议）· 🟢 P2（一般）· 🔵 监控中
+> ✅ G100 已关闭（v0.10.6）
+
+| GAP ID | 差距 | 优先级 | 类型 | 状态 |
+|:-------|:-----|:------:|:-----|:----:|
 | **GAP-008** | **`_nodes_utils.py` `import tempfile` 缺失** | P2 | 代码重构遗漏 | ✅ **已修复（v0.10.6）** |
 
 ## 一致性元数据
@@ -248,4 +254,9 @@
 | `scripts/evolve_agents.py` | §3 进化 | Agent 进化活跃 | `grep -n "def " evolve_agents.py` |
 | `contracts/migrations.py` | G14 | 26 条迁移路径已修复 | `grep -n "def apply_migration" contracts/migrations.py` |
 | `docs/schemas/` | §4 | 9 个 JSON Schema 活跃 | `ls docs/schemas/*.json` |
-| All gap entries with status | §4 差距表 | Gxxx 状态可追踪 | `grep -c "\[" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |
+| All gap entries with status | §4 差距表 | Gxxx 状态可追踪 | `grep -c "🔴|🟡|🟢|🔵" 08-gap-analysis.md` 统计开放 vs 已关闭差距 |
+| `git log --oneline -- .env` | §4 G100 | .env 已从全部 git 历史清除 | `git ls-files .env` 应返回空，`git log --all -- .env` 应无记录 |
+| `fdt_langgraph/_nodes_verdict.py` | §4 G98 | node_right_side_check 尚未实现 | `grep -n "node_right_side_check" _nodes_verdict.py` 返回空 |
+| `docs/harness/02-lifecycle.md` | §4 G99 | 路径引用仍用旧 `{variety}` 格式 | `grep -n "knowledge/\w+/" 02-lifecycle.md` 返回空（可关闭）|
+| `docs/harness/harness-rules.yaml` | §4 G100 | C18 secret_leak 规则已新增 | `grep -n "C18" harness-rules.yaml` 返回非空 |
+| `scripts/verification/pre_commit_harness_check.py` | §4 G100 | secret_leak 类型已实现 | `grep -n "secret_leak" pre_commit_harness_check.py` 返回非空 |

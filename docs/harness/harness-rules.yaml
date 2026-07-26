@@ -185,6 +185,19 @@ checks:
       (3) 同一品种在不同波动率区间的裁决一致性可查询；
       (4) 偏差率 > 15% 或方向变动率 > 30% 时应触发 evolution_graph 告警。
 
+  # ── C18: 敏感文件泄漏防护（2026-07-26 新增 — .env 泄漏事件复盘） ─
+  - id: C18
+    name: "敏感文件泄漏防护"
+    severity: "P0"
+    type: "secret_leak"
+    scope: ".env"
+    trigger_pattern: null
+    message: >
+      禁止提交敏感文件（.env）。
+      检测到 .env 在 git 暂存区中，请立即取消暂存：
+      `git restore --staged .env`
+      将 API 密钥等敏感信息存储在 .env 中（已 gitignored）。
+
 anti_patterns:
   - id: AP01
     name: "巨型 Prompt"

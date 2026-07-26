@@ -48,12 +48,12 @@ RULES_SCHEMA: Dict[str, Any] = {
                     },
                     "severity": {
                         "type": "string",
-                        "enum": ["P0", "P1"],
+                        "enum": ["P0", "P1", "P2"],
                         "description": "严重等级: P0=必须, P1=建议"
                     },
                     "type": {
                         "type": "string",
-                        "enum": ["file_modified", "version_check", "gap_check"],
+                        "enum": ["file_modified", "version_check", "gap_check", "secret_leak"],
                         "description": "检查类型"
                     },
                     "scope": {
@@ -187,6 +187,15 @@ FALLBACK_RULES: List[Dict[str, Any]] = [
         "scope": "README.md",
         "trigger_pattern": None,
         "message": "README.md 必须同步更新，作为项目入口文档"
+    },
+    {
+        "id": "C18",
+        "name": "敏感文件泄漏防护",
+        "severity": "P0",
+        "type": "secret_leak",
+        "scope": ".env",
+        "trigger_pattern": None,
+        "message": "禁止提交敏感文件（.env）。检测到 .env 在 git 暂存区中，请立即取消暂存。"
     },
 ]
 
@@ -424,6 +433,20 @@ def run_checks(changed_files: List[str]) -> Dict[str, Any]:
             else:
                 entry["status"] = "pass"
                 entry["message"] = f"✓ {name}"
+            check_results.append(entry)
+            continue
+
+        # ── 类型: secret_leak ──────────────────────────────────────────
+        if rule_type == "secret_leak":
+            # 检查暂存区是否包含敏感文件
+            sensitive_file = scope  # scope 就是敏感文件名，如 ".env"
+            if sensitive_file in changed_files:
+                entry["status"] = "fail"
+                entry["missing_docs"] = [sensitive_file]
+                entry["message"] = message
+            else:
+                entry["status"] = "pass"
+                entry["message"] = f"✓ {name}：未检测到敏感文件"
             check_results.append(entry)
             continue
 
