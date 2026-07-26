@@ -384,6 +384,7 @@ Step 1: 影子模式 ──→ Step 2: 金标准比对 ──→ Step 3: 验证�
 
 | 版本 | 日期 | 变更 |
 |:-----|:-----|:-----|
+| **v0.12.0** | 2026-07-26 | **MASE 自演化框架落地 — 三环架构完整实现** — Phase 1 Self-Refine 快环：所有 Agent 输出后自动执行自我审查+修正（轮数上限1），计数器 `get_self_refine_rate()` 跟踪修正率。Phase 2a 偏差检测：`deviation_detector.py` 裁决方向 vs 实际走势对比，偏差自动创建 EvoMem 补丁。Phase 2b 权重自调整：`weight_adjuster.py` 5个 Agent 权重代码硬约束微调+累计±0.1 自动冻结+精确回滚。Phase 3 拓扑路由：`topology_router.py` 代码规则引擎 `decide_path()`（基于信号一致性/波动率/历史准确率选择 fast_path/standard_path/full_debate）+ A/B 测试追踪器。Self-Refine 在 `FdtAgentExecutor.run()` 中集成（零节点修改）。进化图新增 `node_detect_deviations` 和 `node_adjust_weights` 节点。新增 4 模块：`self_refine.py`(259行)/`deviation_detector.py`(231行)/`weight_adjuster.py`(376行)/`topology_router.py`(287行)。版本号 bump 0.11.1→0.12.0 |
 | **v0.11.1** | 2026-07-26 | **Web 数据降级管线上线 — Primary source 不可用时自动保底 + 溯源** — 新增 `data_adapter/sources/web_data_fetcher.py`（7 个函数：fetch_basis/warrant/spread/inventory/money_flow/north_flow/etf_premium_from_web），通过东方财富 HTTP API 对 AKShare 不可用的因子数据自动保底降级。`data_adapter/__init__.py` 各 get_*() 增加 UNAVAILABLE → web 自动降级逻辑。8 个信号函数 + _nodes_prepare.py 7 处采集检查全部支持 PRIMARY/DERIVED 双等级。降级数据返回 source_url 溯源标记。版本号 bump 0.11.0→0.11.1 |
 | **v0.11.0** | 2026-07-26 | **EvoMem 补丁记忆范式落地 — 4 个 Phase 全部完成** — ① Phase 1(session_memory 格式升级): `schemas.py` 新增 `PatchEntry`/`PatchCondition`, `patch_store.py` 新增 patches.jsonl 分片存储+域-补丁倒排索引, `manager.py` 新增 `query_patches_by_domain/version/resolve_conflict`, 迁移脚本 `migrate_session_memory_patches.py` ② Phase 2(补丁创建自动化): `patch_creator.py` 封装 3 种触发点(规则变更/知识库变动/裁决偏差) ③ Phase 3(P4 消费端集成): `_nodes_verdict.py` 注入 EvoMem 补丁历史到闫判官 prompt ④ Phase 4(产业链知识版本化): `knowledge_store.py` 新增 `query_with_patch_history()` 版本感知查询。版本号 bump 0.10.9→0.11.0 |
 | **v0.10.9** | 2026-07-26 | **GAP-005 JIN10_TOKEN 配置 + GAP-006 多品种辩论 state 隔离修复** — ① GAP-005: 用户已更新 JIN10_MCP_TOKEN 至 `.env`，金十 MCP 新闻源恢复 ② GAP-006: `state.py` 新增 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。`operator.add(current, [])` = `current`（累积不清理），新 reducer 检测 `update=[]` 时返回 `[]`（品种切换正确重置）。版本号 bump 0.10.8→0.10.9 |
@@ -524,7 +525,7 @@ python scripts/auto_publish.py
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
-| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v10.4.2） | `grep "^version" pyproject.toml` |
+| `pyproject.toml version` | §6.2 版本历史 | FDT 唯一版本真相源（当前 v0.12.0） | `grep "^version" pyproject.toml` |
 | `fdt_langgraph/nodes.py _compute_stop_target()` | §6.2 v10.4.0 | stop_loss/target 代码精确计算（L0），LLM 不可修改 | `grep -n "def _compute_stop_target" fdt_langgraph/nodes.py` |
 | `fdt_langgraph/nodes.py _clamp_position()` | §6.2 v10.4.0 | 仓位钳制（L0），LLM 输出超限被强制上限 | `grep -n "def _clamp_position" fdt_langgraph/nodes.py` |
 | `data_adapter/factors/technical_score.py compute_technical_score()` | §6.2 v10.4.0 | 技术评分代码化（L1），4 维度加权评分，LLM 在 ±10 范围调整 | `grep -n "def compute_technical_score" data_adapter/factors/technical_score.py` |

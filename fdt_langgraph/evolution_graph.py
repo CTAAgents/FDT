@@ -1,8 +1,13 @@
 """
-evolution_graph.py — 自进化闭环 LangGraph 图 (APM-CS 五轴驱动)
+evolution_graph.py — 自进化闭环 LangGraph 图 (APM-CS 五轴驱动 + MASE 三环)
 
 以 APM-CS 评分卡 (D1-D5) 为核心评估标准构建外循环 (Outer Loop)，
 辩论结束后自动触发。独立于 inner loop 辩论图，可独立运行或作为后处理步骤。
+
+MASE 集成（v11.0.0）:
+  - Phase 1: Self-Refine → 在 FdtAgentExecutor.run() 中集成
+  - Phase 2a: node_detect_deviations → 裁决偏差检测 + EvoMem 补丁
+  - Phase 2b: node_adjust_weights → Prompt 权重自调整
 
 使用方式:
     from fdt_langgraph.evolution_graph import run_evolution
@@ -15,13 +20,9 @@ evolution_graph.py — 自进化闭环 LangGraph 图 (APM-CS 五轴驱动)
 
 流程图:
     collect_metrics → apm_eval → decide_actions
-        → [条件] improve (APM 任一轴 degenerate)
-        → [条件] calibrate (验证样本 ≥5)
-        → [条件] evolve (总样本 ≥5)
-        → [条件] rhi (FDT_RHI=true)
-        → [条件] inject_rules (Checker 缺口 / APM D2 退化)
-        → [条件] ml_train (总样本 ≥50)
-        → complete
+        → [条件分支]
+            improve → calibrate → evolve → rhi → inject_rules → ml_train
+        → detect_deviations → [可选] adjust_weights → complete
 """
 
 from __future__ import annotations
@@ -32,11 +33,13 @@ from datetime import datetime
 from langgraph.graph import END, StateGraph
 
 from fdt_langgraph.evolution_nodes import (
+    node_adjust_weights,
     node_apm_eval,
     node_calibrate,
     node_collect_metrics,
     node_complete,
     node_decide_actions,
+    node_detect_deviations,
     node_evolve,
     node_improve,
     node_inject_rules,
@@ -54,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_evolution_graph() -> StateGraph:
-    """构建自进化 LangGraph。"""
+    """构建自进化 LangGraph（含 MASE Phase 2a/2b 节点）。"""
     graph = StateGraph(EvolutionState)
 
     # ── 注册节点 ──
@@ -67,6 +70,9 @@ def _build_evolution_graph() -> StateGraph:
     graph.add_node("rhi", node_rhi)
     graph.add_node("inject_rules", node_inject_rules)
     graph.add_node("ml_train", node_ml_train)
+    # ── MASE Phase 2a/2b ──
+    graph.add_node("detect_deviations", node_detect_deviations)
+    graph.add_node("adjust_weights", node_adjust_weights)
     graph.add_node("complete", node_complete)
 
     # ── 入口 ──
@@ -85,11 +91,11 @@ def _build_evolution_graph() -> StateGraph:
             "rhi": "rhi",
             "inject_rules": "inject_rules",
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── improve 后可流转到 calibrate/evolve/rhi/inject_rules/ml/complete ──
+    # ── improve 后链 ──
     graph.add_conditional_edges(
         "improve", route_after_improve, {
             "calibrate": "calibrate",
@@ -97,55 +103,73 @@ def _build_evolution_graph() -> StateGraph:
             "rhi": "rhi",
             "inject_rules": "inject_rules",
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── calibrate 后可流转到 evolve/rhi/inject_rules/ml/complete ──
+    # ── calibrate 后链 ──
     graph.add_conditional_edges(
         "calibrate", route_after_calibrate, {
             "evolve": "evolve",
             "rhi": "rhi",
             "inject_rules": "inject_rules",
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── evolve 后可流转到 rhi/inject_rules/ml/complete ──
+    # ── evolve 后链 ──
     graph.add_conditional_edges(
         "evolve", route_after_evolve, {
             "rhi": "rhi",
             "inject_rules": "inject_rules",
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── rhi 后可流转到 inject_rules/ml/complete ──
+    # ── rhi 后链 ──
     graph.add_conditional_edges(
         "rhi", route_after_rhi, {
             "inject_rules": "inject_rules",
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── inject_rules 后可流转到 ml/complete ──
+    # ── inject_rules 后链 ──
     graph.add_conditional_edges(
         "inject_rules", route_after_rhi, {
             "ml_train": "ml_train",
-            "complete": "complete",
+            "detect_deviations": "detect_deviations",
         }
     )
 
-    # ── ml_train 后结束 ──
-    graph.add_edge("ml_train", "complete")
+    # ── ml_train → detect_deviations ──
+    graph.add_edge("ml_train", "detect_deviations")
+
+    # ── detect_deviations → [可选] adjust_weights → complete ──
+    graph.add_conditional_edges(
+        "detect_deviations",
+        _route_after_deviations,
+        {"adjust_weights": "adjust_weights", "complete": "complete"},
+    )
+
+    # ── adjust_weights → complete ──
+    graph.add_edge("adjust_weights", "complete")
 
     # ── complete → END ──
     graph.add_edge("complete", END)
 
     return graph.compile()
+
+
+def _route_after_deviations(state: EvolutionState) -> str:
+    """如果偏差检测发现了偏差，触发权重调整；否则直接完成。"""
+    deviations = (state.get("deviation_report") or {}).get("deviations", [])
+    if deviations:
+        return "adjust_weights"
+    return "complete"
 
 
 # 全局编译图实例 (惰性加载)
@@ -232,8 +256,12 @@ def _prewrite_evolution_log(state: EvolutionState) -> None:
 def _recover_from_evolution_log(trace_id: str, source_trace_id: str) -> EvolutionState | None:
     """从 evolution_log.json 恢复进化图的实际执行结果。
 
-    当 graph.invoke() 返回 None 但节点已执行时，进化日志文件已被
-    node_complete 写入，可通过读取最新条目重建最终状态。
+    Args:
+        trace_id: 进化流程自身的 trace_id
+        source_trace_id: 触发本次进化的辩论 trace_id
+
+    Returns:
+        EvolutionState or None（无法恢复时）
     """
     import json
     import os
@@ -249,7 +277,6 @@ def _recover_from_evolution_log(trace_id: str, source_trace_id: str) -> Evolutio
         for entry in reversed(entries):
             if entry.get("trace_id") == trace_id:
                 recovered = EvolutionState.create(trace_id=trace_id, source_trace_id=source_trace_id)
-                recovered["phase"] = entry.get("completed_at", "") if entry.get("step_results") else "completed"
                 recovered["phase"] = "completed"
                 recovered["completed_at"] = entry.get("completed_at", datetime.now().isoformat())
                 recovered["apm_scores"] = entry.get("apm_scores", {})

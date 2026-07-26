@@ -7,6 +7,49 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("fdt_agents")
 
+# -- 自动加载 .env 文件（强制覆盖系统环境变量，确保 API Key 正确） --
+from pathlib import Path as _Path
+_env_path = _Path(__file__).resolve().parent.parent / ".env"
+if _env_path.exists():
+    with open(str(_env_path), "r", encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if "=" in _line and not _line.startswith("#"):
+                _k, _v = _line.split("=", 1)
+                _k, _v = _k.strip(), _v.strip().strip(' "')
+                if _k:
+                    os.environ[_k] = _v
+
+
+# ── Module-level 计数器（MASE Phase 1: Self-Refine 修正率跟踪） ──
+_SELF_REFINE_COUNTERS: dict[str, dict] = {}
+
+def _count_self_refine(agent_name: str, triggered: bool):
+    """递增 Self-Refine 计数并记录修正率。"""
+    if agent_name not in _SELF_REFINE_COUNTERS:
+        _SELF_REFINE_COUNTERS[agent_name] = {"total": 0, "triggered": 0}
+    _SELF_REFINE_COUNTERS[agent_name]["total"] += 1
+    if triggered:
+        _SELF_REFINE_COUNTERS[agent_name]["triggered"] += 1
+
+def get_self_refine_rate(agent_name: str = "") -> dict:
+    """获取 Self-Refine 修正率统计。
+
+    Args:
+        agent_name: 指定 Agent 名称，空字符串则返回全部。
+
+    Returns:
+        dict: {agent_name: {"total": N, "triggered": N, "rate": 0.xxx}}
+    """
+    if agent_name:
+        c = _SELF_REFINE_COUNTERS.get(agent_name, {"total": 0, "triggered": 0})
+        return {agent_name: {**c, "rate": round(c["triggered"] / c["total"], 3) if c["total"] > 0 else 0.0}}
+    result = {}
+    for name, c in _SELF_REFINE_COUNTERS.items():
+        result[name] = {**c, "rate": round(c["triggered"] / c["total"], 3) if c["total"] > 0 else 0.0}
+    return result
+
+
 # D3 Generation 解码控制：加载 decode_config.yaml
 _DECODE_CONFIG_CACHE: Optional[dict] = None
 
@@ -43,6 +86,10 @@ class FdtAgentExecutor:
             self.temperature = agent_config.get("temperature", 0.7)
         # D3 Generation: decode_config.yaml 覆盖（优先级最高）
         self._apply_decode_config()
+        # ── MASE Phase 1: Self-Refine 配置（从 decode_config.yaml 加载） ──
+        self.self_refine_enabled = True
+        self.self_refine_max_rounds = 1
+        self._apply_self_refine_config()
 
     def _apply_decode_config(self):
         """用 decode_config.yaml 的解码参数覆盖当前配置（优先级最高）。"""
@@ -63,6 +110,22 @@ class FdtAgentExecutor:
         logger.debug(
             f"[DecodeControl] {self.agent_name}: "
             f"temperature={self.temperature}, max_tokens={self.max_tokens}"
+        )
+
+    def _apply_self_refine_config(self):
+        """从 decode_config.yaml 的 self_refine 节加载当前 Agent 的 Self-Refine 配置。"""
+        if not self.agent_name:
+            return
+        cfg = _get_decode_config().get("self_refine", {})
+        if not cfg:
+            return
+        self.self_refine_enabled = cfg.get("enabled", True)
+        self.self_refine_max_rounds = cfg.get("max_rounds", 1)
+        if self.agent_name in cfg.get("disable_for", []):
+            self.self_refine_enabled = False
+        logger.debug(
+            "[SelfRefine] %s: enabled=%s, max_rounds=%d",
+            self.agent_name, self.self_refine_enabled, self.self_refine_max_rounds,
         )
 
     @staticmethod
@@ -142,7 +205,44 @@ class FdtAgentExecutor:
         return result
 
     async def run(self, prompt: str, trace_id: str = "", **kwargs) -> Dict[str, Any]:
-        return self.execute(prompt, trace_id, **kwargs)
+        """执行 Agent 并可选执行 Self-Refine 自审查。
+
+        Args:
+            prompt: 用户/上下文 prompt
+            trace_id: 全链路追踪 ID
+            **kwargs: 传递给 execute 的其他参数
+
+        Returns:
+            Dict，包含 output（可能已修正）、原始输出（如触发了 Self-Refine）。
+            额外字段（仅在触发了 Self-Refine 时存在）：
+              - original_output: 修正前的原始输出
+              - self_refine_issues: 审查发现的问题列表
+              - self_refine_triggered: 是否触发了修正
+        """
+        result = self.execute(prompt, trace_id, **kwargs)
+
+        # ── MASE Phase 1: Self-Refine 集成 ──
+        if self.self_refine_enabled and result.get("output") and not result.get("error"):
+            from fdt_langgraph.self_refine import self_refine
+            try:
+                refine_result = await self_refine(
+                    original_output=result["output"],
+                    agent_role=self.agent_name,
+                    trace_id=trace_id,
+                    refine_config={"max_rounds": self.self_refine_max_rounds},
+                )
+                if refine_result.get("refine_triggered"):
+                    result["original_output"] = result["output"]
+                    result["output"] = refine_result["refined_output"]
+                    result["self_refine_issues"] = refine_result["critic_issues"]
+                    result["self_refine_triggered"] = True
+                    logger.info("[SelfRefine] %s 修正触发 (trace=%s)", self.agent_name, trace_id)
+                _count_self_refine(self.agent_name, refine_result.get("refine_triggered", False))
+            except Exception as e:
+                _count_self_refine(self.agent_name, False)
+                logger.warning("[SelfRefine] %s 集成异常: %s (trace=%s)", self.agent_name, e, trace_id)
+
+        return result
 
     def _call_llm(self, prompt: str, **kwargs) -> str:
         import time
@@ -158,12 +258,8 @@ class FdtAgentExecutor:
                      f"API_KEY present: {bool(api_key)}, len={len(api_key) if api_key else 0}")
 
         if not api_key:
-            # 尝试从其他环境变量获取（OPENAI_API_KEY 作为兜底 fallback）
-            api_key = os.environ.get("OPENAI_API_KEY", "")
-            if api_key:
-                logger.info(f"[LLM] Agent={self.agent_name}, Using OPENAI_API_KEY instead (len={len(api_key)})")
-            else:
-                raise ValueError("FDT_LLM_API_KEY environment variable not set")
+            # API Key 必须从 .env 加载，禁止从其他系统环境变量获取
+            raise ValueError("FDT_LLM_API_KEY not set. Must be in .env file.")
 
         headers = {
             "Authorization": f"Bearer {api_key}",

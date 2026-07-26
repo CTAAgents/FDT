@@ -1,4 +1,15 @@
 schema_version: '1.0'
+
+# ── MASE Phase 1: Self-Refine 配置 ──
+# 全局默认开启，特定 Agent 可关闭
+self_refine:
+  enabled: true
+  max_rounds: 1
+  disable_for:
+    - judge_direction       # 初判，只做方向选择
+    - risk_manager           # 风控，基于规则和代码约束
+    - debate_team_team_lead  # 汇总/总结，不需要
+
 agents:
   judge:
     display_name: 闫判官

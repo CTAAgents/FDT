@@ -1,8 +1,12 @@
 """
-evolution_nodes.py — 自进化闭环节点函数 (APM-CS 五轴驱动)
+evolution_nodes.py — 自进化闭环节点函数 (APM-CS 五轴驱动 + MASE 三环)
 
 以 APM-CS 五轴评分卡 (D1-D5) 为核心评估标准，结合品藻质检、D3 Generation
 质量、D6 Output 质量，决定是否触发校准/进化/ML 训练等改进步骤。
+
+MASE 集成（v11.0.0）:
+  - Phase 2a: node_detect_deviations — 裁决偏差检测 + EvoMem 补丁创建
+  - Phase 2b: node_adjust_weights — Prompt 权重自调整
 
 每个节点独立容错，失败不阻断后续步骤。
 """
@@ -437,11 +441,157 @@ def node_inject_rules(state: EvolutionState) -> EvolutionState:
 
 
 # ═══════════════════════════════════════════════════════
+#  MASE Phase 2a: 偏差检测+补丁创建
+# ═══════════════════════════════════════════════════════
+
+def node_detect_deviations(state: EvolutionState) -> EvolutionState:
+    """MASE Phase 2a: 裁决偏差检测 + EvoMem 补丁创建。
+
+    从 evolution_log 中读取最新辩论的裁决结果，
+    调用 deviation_detector 比较实际走势，偏差案例自动创建补丁。
+    """
+    state["phase"] = "detect_deviations"
+    now = datetime.now().isoformat()
+
+    try:
+        from fdt_langgraph.deviation_detector import detect_and_patch
+        from memory.manager.manager import MemoryManager
+
+        # 获取 source_trace_id 对应的裁决数据
+        source_trace = state.get("source_trace_id", "")
+        verdict = _load_verdict_for_trace(source_trace)
+
+        if not verdict:
+            logger.info("[DevDetect] 未找到裁决数据，跳过偏差检测")
+            state.setdefault("step_results", {})["detect_deviations"] = {
+                "success": True, "summary": "无裁决数据可验证", "timestamp": now,
+            }
+            return state
+
+        # 执行偏差检测
+        mm = MemoryManager()
+        import asyncio
+        report = asyncio.run(detect_and_patch(
+            verdict=verdict,
+            trace_id=source_trace or state.get("trace_id", ""),
+            memory_manager=mm,
+            fetcher=None,  # 暂不接入实时行情获取
+        ))
+
+        state["deviation_report"] = report
+        state.setdefault("step_results", {})["detect_deviations"] = {
+            "success": True,
+            "summary": (
+                f"total={report['total_symbols']}, "
+                f"accurate={len(report['accurate_symbols'])}, "
+                f"deviations={len(report['deviations'])}, "
+                f"patches={len(report['created_patches'])}, "
+                f"accuracy={report['accuracy']:.1%}"
+            ),
+            "timestamp": now,
+        }
+        logger.info("[DevDetect] 偏差检测完成: %s", state["step_results"]["detect_deviations"]["summary"])
+
+    except Exception as e:
+        state.setdefault("errors", []).append(f"偏差检测失败: {e}")
+        state.setdefault("step_results", {})["detect_deviations"] = {
+            "success": False, "summary": str(e), "timestamp": now,
+        }
+        logger.warning("[DevDetect] 异常(非阻断): %s", e)
+
+    return state
+
+
+# ═══════════════════════════════════════════════════════
+#  MASE Phase 2b: Prompt 权重自调整
+# ═══════════════════════════════════════════════════════
+
+def node_adjust_weights(state: EvolutionState) -> EvolutionState:
+    """MASE Phase 2b: 基于偏差检测结果调整 Agent Prompt 权重。
+
+    读取 deviation_report 中的偏差列表，调用 WeightAdjuster.batch_adjust()
+    执行代码约束的权重调整，并持久化。
+    """
+    state["phase"] = "adjust_weights"
+    now = datetime.now().isoformat()
+
+    try:
+        from fdt_langgraph.weight_adjuster import WeightAdjuster
+
+        deviations = (state.get("deviation_report") or {}).get("deviations", [])
+        if not deviations:
+            logger.info("[WeightAdj] 无偏差数据，跳过权重调整")
+            state.setdefault("step_results", {})["adjust_weights"] = {
+                "success": True, "summary": "无偏差数据需要调整", "timestamp": now,
+            }
+            return state
+
+        wa = WeightAdjuster()
+        results = wa.batch_adjust(deviations)
+        saved = wa.save()
+
+        success_count = sum(1 for r in results if r.get("success"))
+        frozen_after = wa.get_status().get("frozen_params_count", 0)
+
+        state.setdefault("step_results", {})["adjust_weights"] = {
+            "success": True,
+            "summary": (
+                f"触发={len(results)}, 成功={success_count}, "
+                f"冻结参数={frozen_after}, "
+                f"保存={'✅' if saved else '❌'}"
+            ),
+            "details": {
+                "results": results[:10],  # 保留前10条详情
+                "total_adjustments": len(wa.history),
+                "frozen_params": wa.frozen_params,
+            },
+            "timestamp": now,
+        }
+        logger.info("[WeightAdj] 权重调整完成: %s", state["step_results"]["adjust_weights"]["summary"])
+
+    except Exception as e:
+        state.setdefault("errors", []).append(f"权重调整失败: {e}")
+        state.setdefault("step_results", {})["adjust_weights"] = {
+            "success": False, "summary": str(e), "timestamp": now,
+        }
+        logger.warning("[WeightAdj] 异常(非阻断): %s", e)
+
+    return state
+
+
+# ── 辅助函数 ──
+
+
+def _load_verdict_for_trace(trace_id: str) -> dict | None:
+    """从 memory 中加载指定 trace_id 对应的裁决结果。"""
+    if not trace_id:
+        return None
+    try:
+        import json
+        from pathlib import Path
+        # 尝试从 debate_journal.json 加载
+        journal_path = Path(__file__).resolve().parent.parent / "memory" / "journal" / "debate_journal.json"
+        if not journal_path.exists():
+            return None
+        with open(journal_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        if not isinstance(entries, list):
+            return None
+        for entry in reversed(entries):
+            if entry.get("trace_id") == trace_id and entry.get("verdict"):
+                return entry["verdict"]
+        return None
+    except Exception as e:
+        logger.debug("[DevDetect] 加载裁决失败: %s", e)
+        return None
+
+
+# ═══════════════════════════════════════════════════════
 #  路由函数
 # ═══════════════════════════════════════════════════════
 
 def route_after_decide(state: EvolutionState) -> str:
-    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → rhi → inject_rules → ml → complete。"""
+    """根据决策路由到对应改进步骤。优先顺序: improve → calibrate → evolve → rhi → inject_rules → ml → detect_deviations。"""
     d = state.get("decisions", {})
     if d.get("need_improve"):
         return "improve"
@@ -455,11 +605,11 @@ def route_after_decide(state: EvolutionState) -> str:
         return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
-    return "complete"
+    return "detect_deviations"
 
 
 def route_after_improve(state: EvolutionState) -> str:
-    """improve 完成后继续执行后续步骤。"""
+    """improve 完成后继续执行后续步骤 -> detect_deviations。"""
     d = state.get("decisions", {})
     if d.get("need_calibrate"):
         return "calibrate"
@@ -471,11 +621,11 @@ def route_after_improve(state: EvolutionState) -> str:
         return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
-    return "complete"
+    return "detect_deviations"
 
 
 def route_after_calibrate(state: EvolutionState) -> str:
-    """calibrate 完成后继续。"""
+    """calibrate 完成后继续 -> detect_deviations。"""
     d = state.get("decisions", {})
     if d.get("need_evolve"):
         return "evolve"
@@ -485,11 +635,11 @@ def route_after_calibrate(state: EvolutionState) -> str:
         return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
-    return "complete"
+    return "detect_deviations"
 
 
 def route_after_evolve(state: EvolutionState) -> str:
-    """evolve 完成后继续。"""
+    """evolve 完成后继续 -> detect_deviations。"""
     d = state.get("decisions", {})
     if d.get("need_ml_train"):
         return "ml_train"
@@ -497,14 +647,14 @@ def route_after_evolve(state: EvolutionState) -> str:
         return "rhi"
     if d.get("need_inject_rules"):
         return "inject_rules"
-    return "complete"
+    return "detect_deviations"
 
 
 def route_after_rhi(state: EvolutionState) -> str:
-    """RHI 完成后判断是否需要进入 ML 训练或规则注入。"""
+    """RHI 完成后判断是否需要进入 ML 训练或规则注入 -> detect_deviations。"""
     d = state.get("decisions", {})
     if d.get("need_inject_rules"):
         return "inject_rules"
     if d.get("need_ml_train"):
         return "ml_train"
-    return "complete"
+    return "detect_deviations"

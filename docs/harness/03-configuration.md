@@ -144,6 +144,7 @@ line-length = 120
 | `FACTOR_TERM_STRUCTURE_ENABLED` | `true` | 期限结构因子开关（从 AKShare 实时行情） | `data_adapter/factors/term_structure.py` |
 | `FACTOR_HOLDING_SENTIMENT_ENABLED` | `true` | 多空持仓因子开关（多空比+前20排名，AKShare） | `data_adapter/factors/holding_sentiment.py` |
 | `FACTOR_DASHBOARD_ENABLED` | `true` | 因子一致性看板开关 | `data_adapter/factors/dashboard.py` |
+| `SELF_REFINE_ENABLED` | `true` | MASE Phase 1: Self-Refine 全局开关。设为 `false` 时所有 Agent 跳过自我审查 | `fdt_langgraph/self_refine.py` / `config/agents/decode_config.yaml` |
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
 | `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |
