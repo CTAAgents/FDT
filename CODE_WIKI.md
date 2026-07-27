@@ -1377,6 +1377,7 @@ FDT/
 │   └── harness/                 # Harness 工程规范（10 篇 + loop-contracts + schemas）
 ├── fdt_cache/                   # 本地 SQLite 增量缓存
 ├── fdt_langgraph/               # LangGraph 核心模块（4 子图）
+├── fdt_eval/                    # 统一评估框架 + 交易质量反馈闭环（master_graph 自动调度）
 ├── fdt_pg/                      # PostgreSQL 模块
 ├── futures_data_core/           # 期货数据核心引擎
 ├── memory/                      # 知识库与记忆系统

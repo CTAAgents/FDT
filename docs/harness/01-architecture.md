@@ -231,8 +231,8 @@ scan → judge_direction → prepare_one_symbol(品种0)
 用户请求
     │
     ▼
-[自进化前置] ──→ validate_verdicts.py ──→ calibrate_weights.py ──→ evolve_agents.py
-    │                    (K线验证)           (权重校准)              (参数进化)
+[自进化前置] ──→ validate_verdicts.py ──→ _run_feedback.py ──→ calibrate_weights.py ──→ evolve_agents.py
+    │                    (K线验证)           (反馈调优)           (权重校准)              (参数进化)
     ▼
 [P1] 数技源通道突破单策略扫描（v9.23.1+ channel_breakout 唯一活跃）
     └─ channel_breakout (唐奇安DC20/DC55 + 布林带) ──→ full_scan_summary_{date}.json
@@ -315,9 +315,9 @@ scan → judge_direction → prepare_one_symbol(品种0)
 用户请求 / cron 触发 / API 调用
     │
     ▼
-[自进化前置] ──→ validate_verdicts.py ──→ calibrate_weights.py ──→ evolve_agents.py
-    │                                              │
-    │                                              ▼
+[自进化前置] ──→ validate_verdicts.py ──→ _run_feedback.py ──→ calibrate_weights.py ──→ evolve_agents.py
+    │                                                                       │
+    │                                                                       ▼
     │                                    ┌──────────────────────┐
     │                                    │ PostgreSQL (OLAP)    │
     │                                    │ • agent_evolution    │
