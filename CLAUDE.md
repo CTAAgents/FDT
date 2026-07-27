@@ -209,7 +209,7 @@ FDT 的所有编排逻辑落地为 **三张编译 LangGraph 子图**，通过状
 | **品藻** | P3.5 辩论质检 + P6 汇编 + P6a CTP 信号输出 | Schema 校验，conditional_required |
 | **明鉴秋** | 团队主管：选题 + spawn + 调度 + 汇总 + 记忆写入 + 进化闭环 | 不代写辩论 |
 
-- **fdt_eval/** — 统一评估框架 + 交易质量反馈闭环，通过 master_graph 自动调度
+- **fdt_eval/** — 统一评估框架 + 交易质量反馈闭环，10 个 EvalCase + 5 个 Loop 契约，通过 master_graph 自动调度
 
 ### 执行流程 P0→P6a
 

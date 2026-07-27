@@ -72,8 +72,13 @@ FDT 从 v8.0 开始去外部平台依赖，演进为独立运行的多 Agent 系
 | `data-collection` | 数据采集循环 | Time-Based | L1 | RO | data-collection.contract.yaml |
 | `ml-training` | ML 模型训练循环 | Data-Triggered | L2 | Draft | ml-training.contract.yaml |
 | `health-check` | 健康自检循环 | Time-Based | L1 | RO | health-check.contract.yaml |
+| `eval-feedback` | 交易质量反馈闭环 | Data-Triggered | L2 | Draft | eval-feedback.contract.yaml |
+| `confidence-calibration` | 置信度校准闭环 | Data-Triggered | L2 | Draft | confidence-calibration.contract.yaml |
+| `portfolio-risk` | 组合风控闭环 | Event-Triggered | L2 | Draft | portfolio-risk.contract.yaml |
+| `pre-commit-gate` | Pre-commit 质量门禁 | Event-Triggered | L1 | RO | pre-commit-gate.contract.yaml |
+| `market-regime` | 市场制度检测闭环 | Time-Based | L2 | Draft | market-regime.contract.yaml |
 
-> **状态说明**：daily-debate / data-collection 已有契约，其余待后续补充。优先级按 P0/P1/P2 排序。
+> **状态说明**：10 个循环已全部契约化。eval-feedback 已接入 master_graph 自动调度，confidence-calibration 随 eval-feedback 触发，pre-commit-gate 通过 pre-commit hook 自动运行。portfolio-risk 和 market-regime 为新增循环，代码骨架已创建，需进一步集成。
 
 ---
 

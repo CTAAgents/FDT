@@ -8,7 +8,7 @@
 > **v10.1.3** (2026-07-25): 导航栏简化：只保留品种和汇总链接。
 > **v0.12.1** (2026-07-27): 本阶段变更：LLM Provider 重构 — 输出统一为 list[dict]；新增 jin10_source.py 金十新闻数据源；claude-3.5-sonnet → claude-3.7-sonnet 模型切换（llm_config.yaml）；FDT 版本号同步 5.12.1→0.12.0；fdt-team-lead.md 新增 D06 spawn 前置检查清单 + 报告阶段覆盖完整校验。
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。`P6 node_report` 导航栏过滤逻辑同步更新。
-> **v0.14.0** (2026-07-27): fdt_eval 统一评估框架 + 交易质量反馈闭环，master_graph 自动调度。新增 10 个 EvalCase (runtime/post_hoc/evolution/gate/meta)，feedback 模块将裁决回溯结果（准确率/止损率/达标率）自动转换为品种级仓位权重和 ATR 乘数调整。详见 `fdt_eval/ARCHITECTURE.md`。
+> **v0.14.0** (2026-07-27): fdt_eval 统一评估框架 + 交易质量反馈闭环 + 5 个新 Loop 契约(confidence-calibration/portfolio-risk/pre-commit-gate/market-regime)。master_graph 自动调度反馈闭环。详见 `docs/harness/loop-contracts/README.md`。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 

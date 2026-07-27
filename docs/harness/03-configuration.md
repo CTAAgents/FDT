@@ -13,6 +13,7 @@
 | `team_config.json` | `config/team_config.json` | JSON | 团队环境: 自进化开关/快通道/venv | 低 |
 | `pyproject.toml` | 根目录 | TOML | Python 包: 依赖/pytest/black/ruff | 低 |
 | `llm_config.yaml` | `config/llm_config.yaml` | YAML | LLM 模型路由: 按模型/角色配置 temperature/max_tokens/prompt 模板 (v0.12.1 新增) | 中 |
+| `fdt_eval/feedback/_config/symbol_params.json` | `fdt_eval/feedback/_config/symbol_params.json` | JSON | 品种交易参数: position_base_pct/weight/atr_stop/target_multiplier/confidence_offset (v0.14.0 新增) | 高 (每次反馈闭环调整)
 | `requirements.txt` | 根目录 | TXT | 核心依赖列表 | 低 |
 | `requirements.lock` | 根目录 | TXT | 冻结依赖 (可复现安装) | 低 |
 
