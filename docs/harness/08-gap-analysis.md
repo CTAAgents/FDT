@@ -274,6 +274,20 @@
 
 | **G99** | **知识库产业链重构后文档未同步** | P1 | 文档 | ✅ **已关闭（v0.10.8）** |
 
+### [质量门禁] quality_gate L4 签名检查误报
+
+| 字段 | 值 |
+|:-----|:---|
+| 登记时间 | 2026-07-27 |
+| ID | GAP-20260727-001 |
+| 来源 | fdt_eval gate.quality_gate |
+| 类型 | 验证器质量 |
+| 严重度 | P1 |
+| 状态 | open |
+| 影响 | ci profile 中 gate.quality_gate 的 L4 签名检查有 4 项 Python inspect 限制导致的误报 |
+| 根因 | inspect.getsource() 对内置 callable (如 `print`) 无法获取完整签名 |
+| 解决方案 | 将 L4 从 `inspect.getsource()` 改为 `inspect.signature()` + fallback |
+
 ## 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |

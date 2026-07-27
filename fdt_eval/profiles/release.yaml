@@ -1,0 +1,11 @@
+name: release
+description: "发版全量评估 — 全部 stages + 元评估，< 10min"
+includes:
+  - case_id: "*"
+excludes: []
+options:
+  force: true             # 禁用缓存，发版前必须重新验证
+  fail_fast: true         # 首错即停
+  max_duration_ms: 600000
+  skip_high_cost: false
+  require_production_readiness: true

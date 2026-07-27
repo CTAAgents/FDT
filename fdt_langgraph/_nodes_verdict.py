@@ -321,9 +321,9 @@ async def node_verdict(state: DebateState) -> DebateState:
             elif overall_conf is None:
                 overall_conf = 0.5
             overall = {
-                "direction": parsed.get("overall_direction", "neutral"),
+                "direction": parsed_data.get("overall_direction", "neutral"),
                 "confidence": overall_conf,
-                "reason": parsed.get("overall_reason", output[:200]),
+                "reason": parsed_data.get("overall_reason", output[:200]),
                 "per_symbol": validated_symbols,
             }
             if validated_symbols:
@@ -602,11 +602,12 @@ async def node_risk_check(state: DebateState) -> DebateState:
                                   default={"approved": True, "risk_level": "low", "risk_color": "yellow"})
         if parsed.get("success"):
             risk_check = parsed["data"]
+            risk_check["approval"] = "已通过" if risk_check.get("approved", True) else "未通过"
         else:
-            risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
+            risk_check = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
     except Exception as e:
         logger.warning(f"[RISK] 风控LLM解析失败: {e}, 使用默认yellow")
-        risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析异常: {e}"]}
+        risk_check = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析异常: {e}"]}
     """P6a: CTP 信号输出"""
     verdict = state.get("verdict", {})
 
@@ -676,17 +677,54 @@ async def node_risk_check(state: DebateState) -> DebateState:
             )
         else:
             signal_output["message"] = f"风控{risk_color}通过阈值{threshold}，无评分≥60的强信号"
+
+        # ── Dynamic parameter calculation from ConfigStore with fallback ──
+        _symbol_ = best_buy["symbol"] if best_buy else best_sell["symbol"]
+        _entry_ = best_buy["entry_price"] if best_buy else best_sell["entry_price"]
+        _raw_conf_ = min(1.0, (best_buy if best_buy else best_sell)["score"] / 100)
+        _atr_ = state.get("scan_results", {}).get("atr", 0) or 0
+
+        _cfg_pos_pct = 3
+        _cfg_stop_mult = 0.97
+        _cfg_target_mult = 1.05
+        if best_buy:
+            _cfg_stop_mult = 0.97
+            _cfg_target_mult = 1.05
+        elif best_sell:
+            _cfg_stop_mult = 1.03
+            _cfg_target_mult = 0.95
+
+        try:
+            from fdt_eval.feedback.config_store import ConfigStore  # type: ignore[import-untyped]
+            _cs = ConfigStore()
+            if _cs.global_config.enabled:
+                _cfg_pos_pct = _cs.get_position_pct(_symbol_, _raw_conf_)
+                _stop_dist, _target_dist = _cs.get_stop_params(_symbol_, max(_atr_, _entry_ * 0.02))
+                if best_buy:
+                    _cfg_stop_mult = (_entry_ - _stop_dist) / _entry_
+                    _cfg_target_mult = (_entry_ + _target_dist) / _entry_
+                elif best_sell:
+                    _cfg_stop_mult = (_entry_ + _stop_dist) / _entry_
+                    _cfg_target_mult = (_entry_ - _target_dist) / _entry_
+        except ImportError:
+            pass  # fallback to hardcoded
+        except Exception:
+            pass  # fallback to hardcoded
+
         if best_buy:
             signal_output["signal"] = {
                 "direction": "BUY",
                 "symbol": best_buy["symbol"],
                 "entry_price": best_buy["entry_price"],
                 "order_type": "market",
-                "stop_loss_price": best_buy["entry_price"] * 0.97,
-                "target_price": best_buy["entry_price"] * 1.05,
-                "position_pct": 3,
+                "stop_loss_price": best_buy["entry_price"] * _cfg_stop_mult,
+                "target_price": best_buy["entry_price"] * _cfg_target_mult,
+                "position_pct": _cfg_pos_pct,
                 "contract": "",
-                "risk_reward_ratio": 2.0,
+                "risk_reward_ratio": round(
+                    (_entry_ * _cfg_target_mult - _entry_) / (_entry_ - _entry_ * _cfg_stop_mult)
+                    if best_buy and _entry_ > _entry_ * _cfg_stop_mult > 0 else 2.0, 2
+                ),
                 "confidence": min(1.0, best_buy["score"] / 100),
             }
         elif best_sell:
@@ -695,11 +733,14 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "symbol": best_sell["symbol"],
                 "entry_price": best_sell["entry_price"],
                 "order_type": "market",
-                "stop_loss_price": best_sell["entry_price"] * 1.03,
-                "target_price": best_sell["entry_price"] * 0.95,
-                "position_pct": 3,
+                "stop_loss_price": best_sell["entry_price"] * _cfg_stop_mult,
+                "target_price": best_sell["entry_price"] * _cfg_target_mult,
+                "position_pct": _cfg_pos_pct,
                 "contract": "",
-                "risk_reward_ratio": 2.0,
+                "risk_reward_ratio": round(
+                    (_entry_ - _entry_ * _cfg_target_mult) / (_entry_ * _cfg_stop_mult - _entry_)
+                    if best_sell and _entry_ * _cfg_stop_mult > _entry_ > 0 else 2.0, 2
+                ),
                 "confidence": min(1.0, best_sell["score"] / 100),
             }
 
@@ -921,7 +962,7 @@ async def node_aggregate_results(state: DebateState) -> DebateState:
 
     # 合并各品种的裁决/风控
     combined_verdict = {"direction": "neutral", "per_symbol": {}, "reason": ""}
-    combined_risk = {"approved": True, "risk_level": "low", "risk_color": "green", "warnings": []}
+    combined_risk = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "green", "warnings": []}
     reasons = []
 
     for sym in original_symbols:

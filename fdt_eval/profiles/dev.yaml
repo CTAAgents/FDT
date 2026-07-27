@@ -1,0 +1,11 @@
+name: dev
+description: "开发调试 — 仅 runtime schema 子集，纯内存运算，< 2s"
+includes:
+  - "runtime.quality_inspector.*"
+  - "runtime.agent_output"
+excludes: []
+options:
+  force: true
+  fail_fast: false
+  max_duration_ms: 2000
+  skip_high_cost: true

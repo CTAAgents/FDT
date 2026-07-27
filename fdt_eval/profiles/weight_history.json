@@ -1,0 +1,38 @@
+[
+  {
+    "timestamp": "2026-07-27T09:47:41.583633",
+    "method": "default",
+    "samples": 100,
+    "current_weights": {
+      "runtime": 0.35,
+      "gate": 0.25,
+      "post_hoc": 0.25,
+      "evolution": 0.15
+    },
+    "calibrated_weights": {
+      "runtime": 0.35,
+      "gate": 0.25,
+      "post_hoc": 0.25,
+      "evolution": 0.15
+    },
+    "notes": "LOO scanning: Samples insufficient for Spearman correlation. Needs >=20 eval_results and external verdict accuracy data. Returning default weights."
+  },
+  {
+    "timestamp": "2026-07-27T09:50:24.317810",
+    "method": "default",
+    "samples": 10,
+    "current_weights": {
+      "runtime": 0.35,
+      "gate": 0.25,
+      "post_hoc": 0.25,
+      "evolution": 0.15
+    },
+    "calibrated_weights": {
+      "runtime": 0.35,
+      "gate": 0.25,
+      "post_hoc": 0.25,
+      "evolution": 0.15
+    },
+    "notes": "LOO scanning: Samples insufficient for Spearman correlation. Needs >=20 eval_results and external verdict accuracy data. Returning default weights."
+  }
+]

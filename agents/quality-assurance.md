@@ -64,6 +64,18 @@ P5 风控明 → 品藻(P3.5): node_quality_inspect
 - **不决策重试**：退回/跳过由 LangGraph 条件边决定，品藻只输出 PASS/FAIL
 - **不修改辩论数据**：品藻只校验不修改，不合格数据原样保留供分析
 
+## 自动参数调优 (v0.14.0+)
+
+品藻在 P3.5 质检和 P6 汇编之外，新增交易质量反馈闭环的监控职责：
+
+- 监控 `fdt_eval/feedback/config_store.py` 的参数调整记录
+- 当 `position_tuner` 或 `parameter_tuner` 做出调整时，验证调整是否在合理范围内
+  - position_weight ∈ [0.3, 2.0]
+  - atr_stop_multiplier ∈ [1.0, 4.0]
+  - confidence_offset ∈ [-0.3, +0.3]
+- 超出范围时标记为 WARNING
+- 调整记录可在 `fdt_eval/feedback/_config/symbol_params.json` 查阅
+
 ## 🔴 禁止的行为
 
 | ❌ 禁止 | 理由 |

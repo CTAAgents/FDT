@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**，支持**商品期货 / 股指期货 / 国债期货 / ETF** 多市场辩论。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v0.13.0**
+**v0.14.0**
 
 ---
 
@@ -35,6 +35,7 @@
 - **EvoMem 补丁记忆 (v0.11.0)** — PatchEntry 格式记录记忆/规则/知识的变更历史，PatchStore 按日期分片+域-补丁倒排索引，PatchCreator 自动创建(规则变更/知识库变动/裁决偏差)，P4 闫判官 prompt 注入补丁历史上下文
 - **RHI 递归自进化** — 基于 pairwise 对比的 Harness 三层规范（Agent Candidates / Workflow / Auxiliary Rules）自动优化，四维评分（质检通过率/风控准确率/信号命中率/报告完整性），收敛阈值 ε=0.3
 - **Harness 工程规范** — 13 项 commit 前检查 + 10 条反模式检测 + Loop Contract 循环契约 + 文档一致性三层保障
+- **fdt_eval** — 统一评估系统 + 交易质量反馈闭环: 10 个自动化评估用例, 品种级仓位/止损/目标动态调整
 - **独立运行** — 去平台依赖，支持 CLI / FastAPI / LangGraph 守护进程三种入口
 
 ---
@@ -393,6 +394,7 @@ FDT/
 │       └── web_data_fetcher.py # Web 降级获取器（东方财富 HTTP API 保底）
 │   ├── news/                  # 新闻数据层（NewsRouter 多源聚合）
 │   └── cleaning/              # 数据清洗管线
+├── fdt_eval/                  # 评估 & 反馈闭环 | EvalCase/ConfigStore | 0.14.0
 ├── data_source_adapter.py     # 统一数据入口封装（legacy）
 ├── pyproject.toml             # 项目配置（版本号真相源）
 ├── CLAUDE.md                  # 编码行为准则

@@ -1028,6 +1028,23 @@ class NewsSentimentVector:
 
 读心 Agent 由 `node_sentiment()` 节点实现，位于 `fdt_langgraph/nodes.py`，输出写入 `state["sentiment_data"]`，并持久化到 `pg.sentiment_scores` 表。
 
+### 1.XX FDT Eval Framework & 交易质量反馈闭环
+
+```
+fdt_eval/
+├── core/           EvalCase 基类 + EvalResult + Registry + Runner + Store + Action
+├── cases/          10 个评估用例 (runtime/post_hoc/evolution/gate/meta)
+├── feedback/       交易质量反馈闭环 (config_store + position_tuner + parameter_tuner)
+├── profiles/       dev/ci/nightly/release 四档 Profile
+└── cli.py          python -m fdt_eval [run|list|trend|dashboard|calibrate]
+```
+
+反馈闭环数据流:
+```
+verdict_backtest (测量) → position_tuner (仓位调整) + parameter_tuner (参数校准)
+    → config_store (持久化) → signal_output (消费动态参数)
+```
+
 ## 一致性元数据
 
 本表记录架构文档中提及的关键代码实体与文档章节的对应关系，作为架构一致性检查的可验证锚点，防止文档与代码漂移。

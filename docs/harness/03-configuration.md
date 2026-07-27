@@ -625,7 +625,22 @@ python -m pytest tests/strategies/ --tb=short -q -o "addopts="
 | _original_symbols | list | [] | 保存完整品种列表 |
 | associated_symbols | dict | {} | {主辩论品种: [关联品种]} |
 
-## 12. 一致性元数据
+## 12. 反馈闭环配置 (fdt_eval/feedback)
+
+品种级参数存储在 `fdt_eval/feedback/_config/symbol_params.json`，全局配置在 `FeedbackConfig`：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|:-----|:-----|:------:|:-----|
+| position_base_pct | float | 3.0 | 基准仓位 % |
+| position_weight | float | 1.0 | 品种权重系数 [0.3-2.0] |
+| atr_stop_multiplier | float | 2.0 | ATR 止损乘数 |
+| atr_target_multiplier | float | 3.0 | ATR 目标乘数 |
+| confidence_offset | float | 0.0 | 置信度偏移 [-0.3-+0.3] |
+| min_accuracy | float | 0.0 | 准入最低准确率 |
+| enabled | bool | true | 全局启用开关 |
+| min_samples_per_symbol | int | 3 | 调整所需最少样本数 |
+
+## 13. 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|
