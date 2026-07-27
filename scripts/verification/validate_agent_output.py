@@ -24,9 +24,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# ── #5修复：置信度归一化单一来源（优先 import，失败则内联兜底）──
+# ── #5修复：置信度归一化单一来源（优先 fdt_eval 共享模块，失败则内联兜底）──
 try:
-    from confidence_utils import (
+    from fdt_eval.cases._shared.confidence_validator import (
         CONFIDENCE_LABEL_MAP,
         is_valid_confidence,
         normalize_confidence,
@@ -34,7 +34,7 @@ try:
 except ImportError:
     CONFIDENCE_LABEL_MAP = {"低": 0.4, "中": 0.6, "高": 0.8, "LOW": 0.4, "MEDIUM": 0.6, "HIGH": 0.8}
 
-    def normalize_confidence(conf: Any) -> str:
+    def normalize_confidence(conf: Any) -> float:
         if isinstance(conf, (int, float)):
             return float(conf)
         if isinstance(conf, str):

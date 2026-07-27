@@ -1,0 +1,131 @@
+# ============================================================
+# FDT Loop Contract: market-regime
+# ============================================================
+# 市场制度检测闭环 — 自动识别 trending/ranging/volatile 状态
+# 版本: v1.0.0
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft (写配置缓存)
+# ============================================================
+
+loop:
+  id: market-regime
+  name: 市场制度检测闭环
+  version: v1.0.0
+  type: Time-Based
+  description: >
+    基于 ADX / 布林带宽度 / ATR 百分位等客观指标，
+    自动识别当前市场处于 trending / ranging / volatile 哪种制度，
+    将结果写入 regime_cache，供下游 Debate 和信号生成环节使用。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: time
+    schedule: "30 9 * * 1-5"         # 开盘后 30 分钟
+    timezone: Asia/Shanghai
+  secondary:
+    - type: time
+      schedule: "0 15 * * 1-5"      # 收盘后
+      timezone: Asia/Shanghai
+    - type: manual
+      command: "python scripts/analysis/regime_detector.py --all"
+  fallback: last_known_regime
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    - "fdt_cache/"                   # 读写：制度缓存
+    - "data_adapter/"                # 读取：K 线数据
+    - "skills/quant-daily/scripts/config/settings.py"  # 读取：adaptive_weights
+    - "memory/regime/"              # 写入：制度历史
+  deny:
+    - "fdt_langgraph/"              # 禁止修改辩论图
+    - "agents/"                     # 禁止修改 Agent
+    - "skills/*/prompts/"           # 禁止修改 prompt
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  mode: sequential
+  pipeline:
+    - step: fetch_kline
+      script: "scripts/analysis/regime_detector.py --fetch"
+      timeout: 30s
+      description: "获取主要品种 K 线数据"
+    - step: compute_indicators
+      module: "compute_regime_indicators"
+      formula: "ADX, BB_Width, ATR_Percentile, DC_趋势强度"
+      timeout: 15s
+      description: "计算制度判定指标"
+    - step: classify_regime
+      module: "classify_regime"
+      rules: >
+        ADX>=25 AND BB_Width>median → trending
+        ADX<20 AND BB_Width<median → ranging
+        ATR_Percentile>75 → volatile
+        其余 → mixed
+      timeout: 5s
+      description: "按规则分类市场制度"
+    - step: update_cache
+      module: "update_regime_cache"
+      timeout: 5s
+      description: "写入 fdt_cache 供下游消费"
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  max_duration: 60s
+  max_files: 30
+  max_api_calls: 10
+  retry:
+    max_attempts: 2
+    backoff: exponential
+    initial_delay: 2s
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - regime_classified             # 制度已分类
+    - cache_updated                 # 缓存已更新
+  safety:
+    - max_duration_exceeded
+    - data_fetch_failed             # K 线获取失败
+    - all_symbols_unknown           # 所有品种都无法判定
+  graceful_shutdown:
+    - partial_symbols               # 部分品种已判定，保存结果
+
+# ============================================================
+# 6. VERIFICATION — 验证
+# ============================================================
+verification:
+  mode: L2
+  test_suite: "tests/analysis/test_regime_detector.py"
+  test_count: 6
+  validation:
+    regime_labels: ["trending", "ranging", "volatile", "mixed"]
+    min_coverage: 0.7               # 至少覆盖 70% 活跃品种
+    detection_lag: "< 3 bars"       # 制度切换检测延迟不超过 3 根 K 线
+
+# ============================================================
+# 7. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    console: true
+    json: "memory/regime/regime_{date}.json"
+    summary: "市场制度: {n} 品种检测完成, trending=X, ranging=Y, volatile=Z"
+  failure:
+    console: true
+    log_level: WARNING
+    escalation:
+      - condition: consecutive_failures_3
+        target: "docs/harness/08-gap-analysis.md"
+        severity: P1

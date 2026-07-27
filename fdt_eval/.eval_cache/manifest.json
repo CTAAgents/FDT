@@ -1,0 +1,32 @@
+{
+  "runtime.quality_inspector.p3_5": {
+    "last_run": 1785117015.4219368,
+    "cache_ttl": 0,
+    "depends_on": {}
+  },
+  "runtime.agent_output": {
+    "last_run": 1785117015.4079535,
+    "cache_ttl": 0,
+    "depends_on": {}
+  },
+  "runtime.llm_validation": {
+    "last_run": 1785117015.4124534,
+    "cache_ttl": 0,
+    "depends_on": {}
+  },
+  "runtime.signal_review": {
+    "last_run": 1785117015.417439,
+    "cache_ttl": 0,
+    "depends_on": {}
+  },
+  "gate.quality_gate": {
+    "last_run": 1785117006.6832733,
+    "cache_ttl": 0,
+    "depends_on": {}
+  },
+  "gate.d3_d6_governance": {
+    "last_run": 1785117015.4284763,
+    "cache_ttl": 300,
+    "depends_on": {}
+  }
+}

@@ -1,0 +1,10 @@
+name: nightly
+description: "每日全量评估 — 全部 stages，含后验回溯，< 5min"
+includes:
+  - "*"
+excludes: []
+options:
+  force: false
+  fail_fast: false
+  max_duration_ms: 300000
+  skip_high_cost: false

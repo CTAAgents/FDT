@@ -1,0 +1,125 @@
+# ============================================================
+# FDT Loop Contract: portfolio-risk
+# ============================================================
+# 组合风控闭环 — 跨品种组合级风险评估与约束
+# 版本: v1.0.0
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft (写建议，不写执行)
+# ============================================================
+
+loop:
+  id: portfolio-risk
+  name: 组合风控闭环
+  version: v1.0.0
+  type: Event-Triggered
+  description: >
+    在单品种 P5 风控之外，增加跨品种组合级风险检查。
+    汇总所有活跃信号的总暴露、方向集中度、产业链集中度，
+    生成风控建议（不直接修改信号，通过风控明审核通道输出）。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: event
+    condition: "signal_output 已生成 (P6a 完成后)"
+  secondary:
+    - type: time
+      schedule: "0 15 * * 1-5"     # 每日收盘后
+      timezone: Asia/Shanghai
+    - type: manual
+      command: "python scripts/risk/portfolio_risk.py"
+  fallback: skip
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    - "fdt_langgraph/state.py"      # 读取：当前 state
+    - "memory/debates/"             # 读取：辩论结果
+    - "fdt_eval/feedback/_config/"  # 读取：品种仓位配置
+    - "docs/harness/_data/"         # 读取：产业链映射
+  deny:
+    - "fdt_langgraph/_nodes_verdict.py"  # 禁止修改单品种裁决
+    - "agents/"                     # 禁止修改 Agent
+    - "skills/"                     # 禁止修改技能
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  mode: sequential
+  pipeline:
+    - step: collect_active_signals
+      script: "scripts/risk/portfolio_risk.py --collect"
+      timeout: 15s
+      description: "汇总所有品种的当前信号"
+    - step: compute_exposure
+      formula: "total_exposure = Σ(position_pct_i × weight_i)"
+      timeout: 5s
+      description: "计算总暴露、方向集中度、产业链集中度"
+    - step: check_constraints
+      script: "scripts/risk/portfolio_risk.py --check"
+      timeout: 10s
+      description: "检查各项风控指标是否在阈值内"
+    - step: generate_risk_report
+      script: "scripts/risk/portfolio_risk.py --report"
+      timeout: 15s
+      description: "输出组合风控报告"
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  max_duration: 45s
+  max_files: 20
+  retry:
+    max_attempts: 2
+    backoff: fixed
+    initial_delay: 1s
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_constraints_checked       # 所有风控指标已检查
+    - risk_report_generated        # 组合风控报告已生成
+  safety:
+    - max_duration_exceeded
+    - no_active_signals            # 无活跃信号，跳过
+    - risk_report_failed           # 报告生成失败
+    - critical_exposure            # 总暴露 > 50% — 紧急告警
+
+# ============================================================
+# 6. VERIFICATION — 验证
+# ============================================================
+verification:
+  mode: L2
+  test_suite: "tests/risk/test_portfolio_risk.py"
+  test_count: 8
+  constraints:
+    max_total_position_pct: 30       # 总仓位上限 30%
+    max_single_chain_pct: 15         # 单产业链上限 15%
+    max_direction_bias: 20           # 多空方向偏差 <= 20%
+    correlation_threshold: 0.7       # 组合内品种相关系数上限
+
+# ============================================================
+# 7. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    console: true
+    json: "memory/risk/portfolio_{date}.json"
+    summary: "组合风控: 总暴露=X%, 状态=OK/WARN/CRITICAL"
+  failure:
+    console: true
+    log_level: WARNING
+    escalation:
+      - condition: critical_exposure
+        target: "console"            # 立即输出
+        severity: HIGH
+      - condition: risk_report_failed
+        target: "logs/risk/portfolio_errors.log"

@@ -558,6 +558,19 @@ P2 闫判官（node_judge_direction）输出新增 `audit` 字段，记录闫判
 - **数据等级**: 清洗后 data_grade 自动降级（PRIMARY→STALE→DEGRADED→UNAVAILABLE），消费方可通过 `_cleaning` 键获取清洗报告详情
 - **新鲜度标签**: 基本面清洗产出 `freshness_level`（FRESH / STALE / STALE_WARNING / UNKNOWN）和 `freshness_days` 供下游消费
 
+### 5.X Eval Framework 指标
+
+| 指标 | 类型 | 来源 | 说明 |
+|:-----|:-----|:-----|:------|
+| eval.score | gauge | fdt_eval | Eval 聚合评分 [0-1] |
+| eval.cases_total | counter | fdt_eval | 已注册 EvalCase 总数 |
+| eval.&lt;case_id&gt;.status | gauge | fdt_eval | 某 case 最近状态 (0=PASS 1=FAIL 2=ERROR) |
+| feedback.adjusted_symbols | counter | position_tuner | 已调整仓位的品种数 |
+| feedback.calibrated_symbols | counter | parameter_tuner | 已校准参数的品种数 |
+| feedback.changes_applied | counter | parameter_tuner | 实际应用变更的品种数 |
+| feedback.&lt;symbol&gt;.position_weight | gauge | config_store | 某品种当前仓位权重 |
+| feedback.&lt;symbol&gt;.recent_accuracy | gauge | config_store | 某品种最近准确率 |
+
 ## 一致性元数据
 
 下表记录 `05-observability.md` 各章节与对应代码文件之间的断言关系，供自动校验使用：

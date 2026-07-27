@@ -604,6 +604,69 @@ Loop 质量完全取决于所连接的可验证信号质量。验证器本身也
 
 **目标**：新增 `tests/langgraph/test_single_symbol_report.py`，覆盖上述 7 项，目标覆盖率 ≥80%。
 
+---
+
+## 12. FDT Eval Framework (v1.0.0+)
+
+> 详见 [fdt_eval/ARCHITECTURE.md](../../fdt_eval/ARCHITECTURE.md)
+
+FDT Eval Framework 是统一的评估系统，将散落在 7+ 个位置的 eval 逻辑集中为 `fdt_eval/` 包。
+
+### 12.1 架构概览
+
+```
+fdt_eval/
+├── core/           框架核心（EvalCase/EvalResult/Registry/Runner/Store/Action）
+├── cases/          评估用例（runtime/post_hoc/evolution/gate/meta）
+├── cli.py          CLI 入口
+└── profiles/       Profile 定义（dev/ci/nightly/release）
+```
+
+详见 [fdt_eval/ARCHITECTURE.md §2](../../fdt_eval/ARCHITECTURE.md#2-架构方案)。
+
+### 12.2 核心概念
+
+| 概念 | 说明 |
+|:-----|:------|
+| **EvalCase** | 评估用例抽象基类，继承后实现 `run()` 方法 |
+| **EvalResult** | 统一结果契约（含 case_id/status/score/metrics/detail/action）|
+| **Registry** | 装饰器注册体系，所有 case 自动注册 |
+| **Runner** | Profile 驱动的调度器（缓存/增量/聚合/闭环） |
+| **Profile** | dev/ci/nightly/release 四档，按场景选择 |
+| **Action** | 评估结果的闭环动作（block_commit / log_gap / notify 等）|
+| **Store** | SQLite 持久化 + 趋势查询 |
+
+### 12.3 Profile 矩阵
+
+| Profile | 触发时机 | 阻断 | 缓存 | 耗时 |
+|:--------|:---------|:----:|:----:|:----:|
+| dev | 开发调试 | 否 | 全量 | < 2s |
+| ci | commit 前 | fail ≥ 1 阻断 | 是 | < 30s |
+| nightly | 每日 02:00 | 仅记录 | 否 | < 5min |
+| release | 发版前 | fail ≥ 1 阻断 | 否 | < 10min |
+
+### 12.4 CLI 用法
+
+```bash
+python -m fdt_eval run --profile ci          # commit 前
+python -m fdt_eval run --case runtime.my_eval # 单个 case
+python -m fdt_eval list                       # 列出已注册用例
+python -m fdt_eval trend --case my_case       # 趋势查询
+python -m fdt_eval dashboard                  # 整体评分
+```
+
+### 12.5 迁移路径 (3 Phase)
+
+| Phase | 内容 | 风险 |
+|:------|:-----|:----:|
+| Phase 1 | 框架骨架 + 独立脚本迁入 | 低（原地保留代理层）|
+| Phase 2 | quality_inspector 迁入 + confidence 去重 | 中（需改 import）|
+| Phase 3 | 门禁/演化/元评估 + 看板 + pre-commit | 零（纯新增）|
+
+详见 [fdt_eval/ARCHITECTURE.md §11](../../fdt_eval/ARCHITECTURE.md#11-migration-plan双轨迁移)。
+
+---
+
 ## 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |

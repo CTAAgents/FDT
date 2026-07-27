@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**，支持**商品期货 / 股指期货 / 国债期货 / ETF** 多市场辩论。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v0.12.0**
+**v0.14.1**
 
 ---
 
@@ -20,6 +20,7 @@
 - **多市场支持 (v0.10.6)** — `instrument_classifier.py` 自动识别商品期货/股指期货/国债期货/ETF，按市场类型路由到不同的分析管线
 - **AKShare 统一数据源** — AKShare 为唯一 K 线数据源，同时支持期货 `futures_hist_em` 和 ETF `fund_etf_hist_em`
 - **金十 MCP 数据源** — 标准 MCP 协议接入金十财经数据，8 工具覆盖行情/K线/快讯/资讯/财经日历
+- **Wind 数据源** — `WindSource` 适配器，6 个接口覆盖 EDB 宏观指标、可转债估值、基金行情、板块/成分股、深度价值、行情快照
 - **本地增量缓存** — `fdt_cache/` SQLite 持久化层，按品种+数据类型增量 UPSERT
 - **多因子整合层 (P2.5)** — 10+ 因子数据适配器（波动率/跨品种价差/期限结构/多空持仓/基差/仓单/库存/跨期价差/利润/动量/价值/质量），**类型感知渲染**按 7 种资产类型分组展示信号一致性看板，纯代码计算 + LLM 赋意（L1 边界），注入 `node_verdict` 上下文
 
@@ -35,6 +36,7 @@
 - **EvoMem 补丁记忆 (v0.11.0)** — PatchEntry 格式记录记忆/规则/知识的变更历史，PatchStore 按日期分片+域-补丁倒排索引，PatchCreator 自动创建(规则变更/知识库变动/裁决偏差)，P4 闫判官 prompt 注入补丁历史上下文
 - **RHI 递归自进化** — 基于 pairwise 对比的 Harness 三层规范（Agent Candidates / Workflow / Auxiliary Rules）自动优化，四维评分（质检通过率/风控准确率/信号命中率/报告完整性），收敛阈值 ε=0.3
 - **Harness 工程规范** — 13 项 commit 前检查 + 10 条反模式检测 + Loop Contract 循环契约 + 文档一致性三层保障
+- **fdt_eval** — 统一评估系统 + 交易质量反馈闭环: 10 个自动化评估用例, 品种级仓位/止损/目标动态调整
 - **独立运行** — 去平台依赖，支持 CLI / FastAPI / LangGraph 守护进程三种入口
 
 ---
@@ -393,6 +395,7 @@ FDT/
 │       └── web_data_fetcher.py # Web 降级获取器（东方财富 HTTP API 保底）
 │   ├── news/                  # 新闻数据层（NewsRouter 多源聚合）
 │   └── cleaning/              # 数据清洗管线
+├── fdt_eval/                  # 评估 & 反馈闭环 | EvalCase/ConfigStore | 0.14.0
 ├── data_source_adapter.py     # 统一数据入口封装（legacy）
 ├── pyproject.toml             # 项目配置（版本号真相源）
 ├── CLAUDE.md                  # 编码行为准则
@@ -477,6 +480,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v0.13.0** | **P4 逐品种辩论子图重构** — 16 个 P4 节点提取为独立 LangGraph 子图。主图节点从 23 降至 8。新增 `_routing.py`。版本号 bump 0.12.0→0.13.0 |
 | **v0.12.0** | **MASE 自演化框架落地** — 三环架构完整实现。Phase 1 Self-Refine 快环（所有 Agent 输出自审查+修正）、Phase 2a 偏差检测+EvoMem 补丁、Phase 2b 权重自调整、Phase 3 拓扑路由+A/B 测试。版本号 bump 0.11.1→0.12.0 |
 | **v0.11.1** | **Web 数据降级管线上线** — AKShare 不可用的因子数据（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价）自动降级到东方财富 HTTP API 保底获取，source_url 溯源标记。版本号 bump 0.11.0→0.11.1 |
 | **v0.11.0** | **EvoMem 补丁记忆范式落地** — 4 个 Phase：① session_memory 格式升级(PatchEntry/PatchStore/倒排索引/迁移脚本) ② 补丁创建自动化(PatchCreator 3 触发点: 规则变更/知识库变动/裁决偏差) ③ P4 消费端集成(闫判官 prompt 注入补丁历史) ④ 产业链知识版本化(KnowledgeStore.query_with_patch_history)。版本号 bump 0.10.9→0.11.0 |

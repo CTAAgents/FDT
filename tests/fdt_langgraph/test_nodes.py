@@ -2,9 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from fdt_langgraph.graph import (
-    route_after_merge_research,
-)
+from fdt_langgraph._routing import route_after_merge_research
 from fdt_langgraph.nodes import (
     _build_fdc_technical_context,
     node_bear_final,

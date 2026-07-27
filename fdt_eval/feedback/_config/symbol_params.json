@@ -1,0 +1,43 @@
+{
+  "symbols": {
+    "RB": {
+      "position_base_pct": 2.0,
+      "position_weight": 0.5,
+      "atr_stop_multiplier": 2.0,
+      "atr_target_multiplier": 3.0,
+      "confidence_offset": 0.0,
+      "min_accuracy": 0.0,
+      "updated_at": 1785117305.1417549,
+      "n_validations": 0,
+      "recent_accuracy": 0.0,
+      "version": 2
+    },
+    "TA": {
+      "position_base_pct": 4.0,
+      "position_weight": 1.5,
+      "atr_stop_multiplier": 2.0,
+      "atr_target_multiplier": 3.0,
+      "confidence_offset": 0.0,
+      "min_accuracy": 0.0,
+      "updated_at": 1785117305.1417549,
+      "n_validations": 0,
+      "recent_accuracy": 0.0,
+      "version": 2
+    }
+  },
+  "global": {
+    "enabled": true,
+    "min_samples_per_symbol": 3,
+    "position_min_pct": 1.0,
+    "position_max_pct": 15.0,
+    "weight_min": 0.3,
+    "weight_max": 2.0,
+    "confidence_offset_range": [
+      -0.3,
+      0.3
+    ],
+    "auto_tune": true,
+    "last_tuned_at": 0.0
+  },
+  "saved_at": 1785117305.1417549
+}

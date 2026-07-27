@@ -444,6 +444,7 @@ def node_run_validate_and_evolve(state: dict) -> dict:
 
     steps = [
         ("scripts/validate_verdicts.py", [], "验证历史裁决", 120),
+        ("fdt_eval/feedback/_run_feedback.py", [], "交易质量反馈调优", 60),
         ("scripts/calibrate_weights.py", [], "校准评分权重", 60),
         ("scripts/evolve_agents.py", [], "进化Agent参数", 60),
         ("ml/trainer.py", [], "ML训练检查", 180),

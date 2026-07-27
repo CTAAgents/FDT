@@ -1,6 +1,6 @@
 # FDT Code Wiki — 期货辩论专家团技术百科全书
 
-> **项目版本**: v0.11.0 | **文档版本**: v0.11.0 | **最后更新**: 2026-07-26 | **定位**: 理解项目的技术基础文档
+> **项目版本**: v0.12.0 | **文档版本**: v0.12.0 | **最后更新**: 2026-07-27 | **定位**: 理解项目的技术基础文档
 
 ---
 
@@ -43,6 +43,11 @@
 | 5 层鲁棒防线 (L1-L5) | 产出校验→熔断降级→信号门禁→路径发现→健康自检 |
 
 ### 1.3 当前版本
+
+**v0.12.0** — LLM Provider 重构 + 金十数据源 + FDT 版本号同步 v5.12.1→v0.12.0
+LLM Provider 输出模式统一为 list[dict]；新增 jin10_source.py 金十新闻数据源；
+claude-3.5-sonnet → claude-3.7-sonnet 模型切换；
+fdt-team-lead.md 新增 D06 spawn 前置检查清单 + 阶段覆盖完整校验。
 
 **v0.11.0** — 因子看板全面补全 + 类型感知渲染：新增 10 个因子信号函数（基差/仓单/库存/跨期价差/利润/动量/价值/质量），`_TYPE_FACTOR_MAP` 覆盖 7 种资产类型；`format_dashboard_for_prompt()` 按类型分组渲染子表格；新增 `factors/profit.py` 产业链利润因子模块。版本号 bump 0.10.10→0.11.0。
 
@@ -1372,6 +1377,7 @@ FDT/
 │   └── harness/                 # Harness 工程规范（10 篇 + loop-contracts + schemas）
 ├── fdt_cache/                   # 本地 SQLite 增量缓存
 ├── fdt_langgraph/               # LangGraph 核心模块（4 子图）
+├── fdt_eval/                    # 统一评估框架 + 交易质量反馈闭环（master_graph 自动调度）
 ├── fdt_pg/                      # PostgreSQL 模块
 ├── futures_data_core/           # 期货数据核心引擎
 ├── memory/                      # 知识库与记忆系统

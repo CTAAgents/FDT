@@ -1,0 +1,132 @@
+# ============================================================
+# FDT Loop Contract: eval-feedback
+# ============================================================
+# 交易质量反馈闭环 — 读取裁决回溯结果，自动调整交易参数
+# 版本: v1.0.0
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft (写 ConfigStore)
+# ============================================================
+
+loop:
+  id: eval-feedback
+  name: 交易质量反馈闭环
+  version: v1.0.0
+  type: Data-Triggered
+  description: >
+    读取 validate_verdicts 的产出（validation_stats.json / execution_followup.json），
+    运行 position_tuner + parameter_tuner，将调整写入 ConfigStore。
+    所有调整在下一轮辩论的 signal_output 中自动生效。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: data
+    condition: >
+      min_samples_per_symbol >= 3
+      AND (validation_stats.json 已更新 OR execution_followup.json 已更新)
+  secondary:
+    - type: scheduled
+      schedule: "0 2 * * *"        # 每日凌晨 2:00（配合 nightly profile）
+      timezone: Asia/Shanghai
+    - type: pipeline
+      step: "master_graph.node_run_validate_and_evolve"  # 裁决验证后自动触发
+  fallback: manual
+  manual_command: "python fdt_eval/feedback/_run_feedback.py"
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    - "memory/validations/"         # 读取：裁决回溯结果
+    - "fdt_eval/feedback/"          # 读写：调优逻辑
+    - "fdt_eval/feedback/_config/"  # 写入：ConfigStore 持久化
+    - "docs/harness/08-gap-analysis.md"  # 追加：自动登记差距
+  deny:
+    - "fdt_langgraph/"              # 禁止修改辩论图
+    - "skills/"                     # 禁止修改 Agent prompt
+    - "contracts/"                  # 禁止修改 Schema
+    - "agents/"                     # 禁止修改 Agent 职责
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  mode: sequential
+  pipeline:
+    - step: read_validation_stats
+      script: "fdt_eval/feedback/_run_feedback.py"
+      timeout: 30s
+      description: "读取 validation_stats.json 和 execution_followup.json"
+    - step: position_tuning
+      module: "fdt_eval.feedback.position_tuner.PositionTuner.tune"
+      timeout: 15s
+      description: "按品种准确率调仓位权重"
+    - step: parameter_calibration
+      module: "fdt_eval.feedback.parameter_tuner.ParameterTuner.tune"
+      timeout: 15s
+      description: "置信度校准 + ATR 止损/目标乘数优化"
+    - step: persist_config
+      module: "fdt_eval.feedback.config_store.ConfigStore.save"
+      timeout: 5s
+      description: "写入 _config/symbol_params.json"
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  max_duration: 60s
+  max_files: 10
+  max_config_writes: 50
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: 2s
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_steps_done               # 所有步骤完成
+    - config_saved                 # ConfigStore 已持久化
+  safety:
+    - max_duration_exceeded        # 总时长超 60s
+    - max_retries_exceeded         # 重试 3 次仍失败
+    - no_input_data                # 无验证数据可处理
+    - config_write_failed          # ConfigStore 写入失败
+  graceful_shutdown:
+    - partial_adjustments          # 已完成的部分调整已保存
+    - verbose_log                  # 记录已执行步骤
+
+# ============================================================
+# 6. VERIFICATION — 验证
+# ============================================================
+verification:
+  mode: L2
+  test_suite: "tests/fdt_eval_feedback/test_feedback.py"
+  test_count: 16
+  validation:
+    position_weight: [0.3, 2.0]
+    atr_stop_multiplier: [1.0, 4.0]
+    confidence_offset: [-0.3, 0.3]
+    position_base_pct: [1.0, 15.0]
+
+# ============================================================
+# 7. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    console: true
+    config_store: true              # 自动写入 ConfigStore
+    summary: "反馈调优: N 品种调整"
+  failure:
+    console: true
+    log_level: WARNING
+    escalation:
+      - condition: retries_exhausted
+        target: "logs/fdt_eval/feedback_errors.log"
+      - condition: config_corrupted
+        target: "docs/harness/08-gap-analysis.md"  # 自动登记差距

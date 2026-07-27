@@ -26,6 +26,11 @@ SYMBOL_TO_KEYWORDS: dict[str, list[str]] = {
     "JD": ["鸡蛋"], "LH": ["生猪"],
     "SH": ["烧碱", "液碱"],
     "OP": ["双胶纸", "胶版印刷纸", "胶印纸"],
+    "PG": ["液化石油气", "LPG", "液化气"],
+    "EC": ["欧线", "集运", "集装箱运价", "欧洲航线"],
+    "BU": ["沥青"],
+    "LU": ["低硫燃料油"],
+    "NR": ["20号胶", "20号橡胶"],
 }
 _DEFAULT_KEYWORDS = ["期货", "大宗商品", "商品市场"]
 
@@ -85,6 +90,36 @@ class Jin10NewsSource(NewsSourceBase):
                         event_type=_classify_event(text),
                     )
                     result.items.append(news_item)
+
+        # fallback: 关键词搜索无结果时，拉取全量快讯后按品种关键词过滤
+        if not result.items:
+            try:
+                from data_adapter.sources.jin10_adapter import jin10_list_flash
+                raw = await jin10_list_flash()
+                all_items = raw.get("items", []) if isinstance(raw, dict) else []
+                for sym in query.symbols:
+                    sym_keywords = _get_keywords(sym)
+                    for item in all_items:
+                        text = (item.get("content") or item.get("title") or "").strip()
+                        if not text or text in seen_texts:
+                            continue
+                        # 检查快讯内容是否包含品种关键词
+                        if not any(kw.lower() in text.lower() for kw in sym_keywords):
+                            continue
+                        seen_texts.add(text)
+                        result.items.append(NewsItem(
+                            symbol=sym.upper(),
+                            source_type=NewsSourceType.JIN10,
+                            source_name="金十快讯",
+                            title=text[:80],
+                            content=text,
+                            time=item.get("time", ""),
+                            confidence=0.7,
+                            url="",
+                            event_type=_classify_event(text),
+                        ))
+            except Exception as e:
+                logger.warning("[Jin10News] list_flash fallback 失败: %s", e)
 
         result.source_stats[self.source_name] = len(result.items)
         result.total_count = len(result.items)

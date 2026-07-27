@@ -12,7 +12,7 @@ import logging
 from typing import Any, Optional
 
 from data_adapter.base import EquityDataSource
-from data_adapter.types import KlineResult, QuoteResult
+from data_adapter.types import KlineBar, KlineResult, QuoteResult
 
 logger = logging.getLogger(__name__)
 
@@ -29,42 +29,113 @@ class AKShareEquitySource(EquityDataSource):
     # ── Layer 0: 通用方法 ──
 
     async def get_kline(self, symbol: str, period: str = "daily", days: int = 120) -> KlineResult:
-        """获取 A 股 K 线数据。"""
+        """获取 A 股/ETF K 线数据。
+
+        ETF 使用 fund_etf_hist_em 接口，股票使用 stock_zh_a_hist 接口。
+        """
         try:
             import akshare as ak
             import pandas as pd
+            from datetime import datetime, timedelta
 
-            # 适配 AKShare 股票 K 线接口
+            # ── 判断品种类型 ──
+            clean = symbol.replace(".SH", "").replace(".SZ", "")
+            is_etf = any((
+                clean.startswith("51") and len(clean) == 6,
+                clean.startswith("58") and len(clean) == 6,
+                clean.startswith("159") and len(clean) == 6,
+                clean.startswith("16") and len(clean) == 6,
+            ))
+
+            # ── 路径 A: ETF 专用接口 ──
+            if is_etf:
+                df = ak.fund_etf_hist_em(
+                    symbol=clean,
+                    period="daily",
+                    start_date=(datetime.now() - timedelta(days=days + 30)).strftime("%Y%m%d"),
+                    end_date=datetime.now().strftime("%Y%m%d"),
+                )
+                if df is None or df.empty:
+                    return KlineResult(symbol=symbol, bars=[], meta={"data_grade": "NO_DATA", "source": "akshare_etf"})
+                col_map = {
+                    "日期": "date", "开盘": "open", "收盘": "close",
+                    "最高": "high", "最低": "low", "成交量": "volume",
+                    "成交额": "amount",
+                }
+                df = df.rename(columns=col_map)
+                if "date" in df.columns:
+                    df["date"] = df["date"].astype(str)
+                raw = df.tail(days).to_dict("records")
+                bars = [KlineBar(
+                    date=str(d["date"]).replace("-", "").replace("/", "")[:8],
+                    open=float(d["open"]),
+                    high=float(d["high"]),
+                    low=float(d["low"]),
+                    close=float(d["close"]),
+                    volume=float(d.get("volume", 0) or 0),
+                    open_interest=0.0,
+                ) for d in raw if d.get("date") and d.get("close")]
+                return KlineResult(
+                    symbol=symbol, bars=bars,
+                    meta={"data_grade": "PRIMARY", "source": "akshare_etf"},
+                )
+
+            # ── 路径 B: A股个股接口 ──
             adj = "qfq"  # 前复权
-            df = ak.stock_zh_a_hist(symbol=symbol, period=period, adjust=adj)
+            df = ak.stock_zh_a_hist(symbol=clean, period=period, adjust=adj)
             if df is None or df.empty:
-                return KlineResult(symbol=symbol, meta={"data_grade": "NO_DATA", "source": "akshare"})
+                return KlineResult(symbol=symbol, bars=[], meta={"data_grade": "NO_DATA", "source": "akshare"})
 
-            # AKShare 返回列名含中文，映射到标准格式
             col_map = {
                 "日期": "date", "开盘": "open", "收盘": "close",
                 "最高": "high", "最低": "low", "成交量": "volume",
-                "成交额": "amount", "振幅": "amplitude",
-                "涨跌幅": "pct_change", "涨跌额": "change",
-                "换手率": "turnover",
+                "成交额": "amount",
             }
             df = df.rename(columns=col_map)
             if "date" in df.columns:
                 df["date"] = df["date"].astype(str)
-
-            bars = df.tail(days).to_dict("records")
+            raw = df.tail(days).to_dict("records")
+            bars = [KlineBar(
+                date=str(d["date"]).replace("-", "").replace("/", "")[:8],
+                open=float(d["open"]),
+                high=float(d["high"]),
+                low=float(d["low"]),
+                close=float(d["close"]),
+                volume=float(d.get("volume", 0) or 0),
+                open_interest=0.0,
+            ) for d in raw if d.get("date") and d.get("close")]
             return KlineResult(
-                symbol=symbol,
-                bars=bars,
-                total=len(bars),
+                symbol=symbol, bars=bars,
                 meta={"data_grade": "PRIMARY", "source": "akshare", "adjust": adj},
             )
+
         except ImportError:
             logger.error("[AKShareEquity] akshare 未安装")
-            return KlineResult(symbol=symbol, meta={"data_grade": "UNAVAILABLE"})
+            return KlineResult(symbol=symbol, bars=[], meta={"data_grade": "UNAVAILABLE"})
         except Exception as e:
-            logger.warning("[AKShareEquity] get_kline(%s) 失败: %s", symbol, e)
-            return KlineResult(symbol=symbol, meta={"data_grade": "ERROR", "error": str(e)})
+            # ── Web HTTP 降级：AKShare 网络不可达时直调东方财富 API ──
+            err_str = str(e)
+            is_network_error = any(k in err_str for k in (
+                "ConnectionError", "Connection aborted", "RemoteDisconnected",
+                "ConnectError", "Timeout", "timeout",
+            ))
+            if is_network_error:
+                logger.warning("[AKShareEquity] AKShare 网络不可达(%s)，尝试 Web HTTP 降级: %s", symbol, err_str[:60])
+                from data_adapter.sources.web_data_fetcher import fetch_equity_kline_from_web
+                fallback_bars = await fetch_equity_kline_from_web(symbol, days)
+                if fallback_bars:
+                    logger.info("[AKShareEquity] Web 降级成功(%s) -> %d bars", symbol, len(fallback_bars))
+                    return KlineResult(
+                        symbol=symbol, bars=fallback_bars,
+                        meta={
+                            "data_grade": "DERIVED",
+                            "source": "eastmoney_web",
+                            "note": "Web HTTP 降级（AKShare 不可达）",
+                        },
+                    )
+                logger.warning("[AKShareEquity] Web 降级也失败(%s)", symbol)
+            logger.warning("[AKShareEquity] get_kline(%s) 失败: %s", symbol, err_str[:80])
+            return KlineResult(symbol=symbol, bars=[], meta={"data_grade": "ERROR", "error": err_str[:80]})
 
     async def get_quote(self, symbol: str) -> QuoteResult:
         """获取 A 股行情快照。"""

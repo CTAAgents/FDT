@@ -1,0 +1,120 @@
+# ============================================================
+# FDT Loop Contract: pre-commit-gate
+# ============================================================
+# Pre-commit 质量门禁闭环 — commit 前自动运行全部质检
+# 版本: v1.0.0
+# 验证档位: L1 (self)
+# 权限档位: RO (只读)
+# ============================================================
+
+loop:
+  id: pre-commit-gate
+  name: Pre-commit 质量门禁闭环
+  version: v1.0.0
+  type: Event-Triggered
+  description: >
+    git commit 前自动运行 Harness 规则检查 + fdt_eval ci profile。
+    所有检查通过后才允许提交。失败时输出详细报告并 exit(1)。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: event
+    condition: "git commit 执行前 (pre-commit hook)"
+  secondary:
+    - type: manual
+      command: "python -m fdt_eval run --profile ci"
+  fallback:
+    - FDT_SKIP_PRE_COMMIT=true 环境变量可绕过
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    - "*.py"                        # Python 文件检查
+    - "*.yaml"                       # YAML 格式检查
+    - "*.md"                         # Markdown 链接检查
+    - "pyproject.toml"               # 版本号检查
+    - "docs/harness/"               # 文档一致性检查
+    - "fdt_eval/"                   # Eval 运行
+  deny:
+    - "memory/"                     # 不检查数据文件
+    - ".git/"                       # 不检查 git 内部
+    - "__pycache__/"                # 不检查缓存
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  mode: parallel_first              # 并行跑，首错即停
+  pipeline:
+    - step: harness_rules
+      script: "scripts/pre_commit_harness_check.py"
+      timeout: 15s
+      description: "C01-C16 机读规则检查"
+      fail_fast: true
+    - step: eval_ci_profile
+      command: "python -m fdt_eval run --profile ci"
+      timeout: 30s
+      description: "Eval CI profile 执行"
+      fail_fast: true
+    - step: anti_patterns
+      script: "scripts/pre_commit_harness_check.py --anti-patterns"
+      timeout: 10s
+      description: "AP01-AP11 反模式检测"
+      fail_fast: false
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  max_duration: 60s                  # 总超时 60 秒
+  retry:
+    max_attempts: 1                  # 不重试，直接报错
+    backoff: fixed
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_checks_passed             # 全部检查通过
+    - exit_code_0                   # git commit 继续
+  safety:
+    - any_check_failed              # 任一检查失败 — 阻断 commit
+    - max_duration_exceeded         # 超时 — 阻断 commit
+    - eval_blocker                  # Eval 返回 blocker — 阻断
+
+# ============================================================
+# 6. VERIFICATION — 验证
+# ============================================================
+verification:
+  mode: L1
+  validation:
+    - "git commit 在检查通过后正常执行"
+    - "检查失败时输出详细报告且 exit(1)"
+    - "FDT_SKIP_PRE_COMMIT=true 可绕过"
+
+# ============================================================
+# 7. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    console: true                    # stdout 输出通过摘要
+    exit_code: 0
+  failure:
+    console: true
+    exit_code: 1
+    escalation:
+      - condition: harness_rules_failed
+        target: "console"
+        detail: "列出未通过的规则编号"
+      - condition: eval_ci_failed
+        target: "console"
+        detail: "列出 failed EvalCase"
+      - condition: anti_pattern_detected
+        target: "console"
+        detail: "列出触发的反模式"

@@ -230,6 +230,17 @@ async def node_verdict(state: DebateState) -> DebateState:
 【多因子信号一致性看板】
 {factor_dashboard_text}
 
+【四源精炼因子矩阵（P3因子融合输出）】
+从四源研究数据中提取 refined_factor/refined_factors，汇总为因子信号矩阵。
+裁决时应以因子矩阵为主要决策依据（因子投资第一性原理），辩论论据为辅助参考。
+
+因子加权裁决规则：
+1. 四源各贡献一个方向信号(-2~+2)，共识方向 = 多数方向
+2. 权重 = 各源 confidence值 × 分歧度(1-divergence)
+3. 最终方向 = weighted_sign(Σ direction_i × weight_i)
+4. 最终置信度 = min(1.0, Σ |weight_i|) × 因子一致性扣减(分歧度>0.5 → ×0.5)
+5. fast模式(无辩论): 直接基于四源精炼因子+因子看板输出多因子计算结果，不需辩论论据
+
 请以 JSON 格式返回逐品种裁决及交易参数，每个品种需标注"是否推翻数技源方向"。
 **再次强调：entry_price 必须精确等于价格参考表中的当前收盘价，不得自行计算或微调，这是市价单，不是挂单价。**
 **stop_loss_price 和 target_price 由系统根据 ATR 自动计算，LLM 无需输出这些字段。**
@@ -271,6 +282,13 @@ async def node_verdict(state: DebateState) -> DebateState:
             for sym in symbols:
                 sym_key = sym.upper()
                 sv = per_symbol.get(sym_key, per_symbol.get(sym, {}))
+                # 前缀模糊匹配：LLM 可能输出 "SM" 但系统符号是 "SM2409"
+                if not isinstance(sv, dict) or not sv.get("direction"):
+                    for ps_key in per_symbol:
+                        ps_upper = ps_key.upper()
+                        if sym_key.startswith(ps_upper) or ps_upper.startswith(sym_key):
+                            sv = per_symbol[ps_key]
+                            break
                 if isinstance(sv, dict) and sv.get("direction"):
                     sv.setdefault("entry_price", sv.get("price", 0))
                     sv.setdefault("stop_loss_price", sv.get("stop_loss", 0))
@@ -310,9 +328,9 @@ async def node_verdict(state: DebateState) -> DebateState:
             elif overall_conf is None:
                 overall_conf = 0.5
             overall = {
-                "direction": parsed.get("overall_direction", "neutral"),
+                "direction": parsed_data.get("overall_direction", "neutral"),
                 "confidence": overall_conf,
-                "reason": parsed.get("overall_reason", output[:200]),
+                "reason": parsed_data.get("overall_reason", output[:200]),
                 "per_symbol": validated_symbols,
             }
             if validated_symbols:
@@ -419,57 +437,50 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 
 async def node_right_side_check(state: DebateState) -> DebateState:
-    """G98: 右侧交易校验 — 反趋势方向且趋势结构未破坏时降级为INFO。
+    """G98: 右侧交易建议标记 — 反趋势方向且趋势结构未破坏时标记提醒。
 
     如果裁决方向与短期趋势相反，且趋势结构未被破坏，
-    则将方向降级为 neutral（观望），清空入场/目标/止损参数。
+    则在裁决中附加 right_side_warning，由下游判官自行判断是否采纳。
 
     Returns:
-        DebateState，verdict 中的 per_symbol 可能被降级。
+        DebateState，verdict 中的 per_symbol 可能带 warning。
     """
     verdict = state.get("verdict", {})
     per_symbol = (verdict or {}).get("per_symbol", {})
     fdc_data = state.get("fdc_data", {}) or {}
-    downgraded_symbols = []
+    warned_symbols = []
 
     for sym_key, sv in per_symbol.items():
         if not isinstance(sv, dict):
             continue
         direction = sv.get("direction", "neutral")
         if direction in ("neutral", None, ""):
-            continue  # neutral 方向不检查
+            continue
 
-        # ── 从 FDC 数据确定短期趋势 ──
         sym_up = sym_key.upper()
         sd = fdc_data.get(sym_up) or fdc_data.get(sym_key) or {}
         bars = (sd.get("kline") or {}).get("bars", []) if sd else []
 
         if len(bars) < 20:
-            continue  # 数据不足，跳过检查
+            continue
 
         closes = [float(b.get("close", 0)) for b in bars[-20:]]
         ma5 = sum(closes[-5:]) / 5
         ma20 = sum(closes[-20:]) / 20
 
-        # ── 判断短期趋势方向 ──
         if ma5 > ma20 * 1.005:
-            trend = "bullish"  # 多头排列
+            trend = "bullish"
         elif ma5 < ma20 * 0.995:
-            trend = "downtrend"  # 空头排列
+            trend = "downtrend"
         else:
-            continue  # 粘合无趋势，跳过
+            continue
 
-        # ── 检查是否反趋势 ──
         is_counter_trend = (direction == "bearish" and trend == "bullish") or \
                            (direction == "bullish" and trend == "downtrend")
 
         if not is_counter_trend:
-            continue  # 顺趋势或横盘，通过
+            continue
 
-        # ── 检查趋势结构是否被破坏 ──
-        # 趋势未破坏 = 最近 N 根 K 线未突破趋势线
-        # 多头趋势: 无收盘价 < MA20
-        # 空头趋势: 无收盘价 > MA20
         structure_broken = False
         for b in bars[-3:]:
             c = float(b.get("close", 0))
@@ -481,47 +492,23 @@ async def node_right_side_check(state: DebateState) -> DebateState:
                 break
 
         if structure_broken:
-            continue  # 趋势结构已破坏，放行
+            continue
 
-        # ── 趋势结构未破坏 + 反趋势 → 降级为 INFO ──
-        sv["direction"] = "neutral"
-        sv["grade"] = "INFO"
-        sv["entry_price"] = None
-        sv["stop_loss_price"] = None
-        sv["target_price"] = None
-        sv["position_pct"] = 0
-        sv["right_side_downgraded"] = True
-        sv["right_side_reason"] = (
-            f"反趋势方向被右侧交易铁律降级：裁决方向={direction}，"
+        # ── 反趋势 + 结构未破坏 → 附加建议标记（不强制修改方向）──
+        sv["right_side_warning"] = True
+        sv["right_side_note"] = (
+            f"右侧交易建议：裁决方向={direction}，"
             f"短期趋势={'多头' if trend == 'bullish' else '空头'}（MA5={ma5:.2f}, MA20={ma20:.2f}），"
-            f"趋势结构未破坏，仅允许 INFO（仅供关注）。"
+            f"趋势结构未破坏。建议关注结构确认后再执行。"
         )
-        downgraded_symbols.append(sym_key)
+        warned_symbols.append(sym_key)
         logger.info(
-            "[G98] %s 右侧交易降级: %s → neutral (趋势=%s, MA5=%.2f, MA20=%.2f)",
+            "[G98] %s 右侧交易提醒: %s (趋势=%s, MA5=%.2f, MA20=%.2f)",
             sym_key, direction, trend, ma5, ma20,
         )
 
-    if downgraded_symbols:
-        logger.warning("[G98] 右侧交易降级品种: %s", downgraded_symbols)
-
-    # 如果整体方向由被降级品种主导，调整 overall
-    if verdict and downgraded_symbols:
-        remaining_directions = [
-            v.get("direction", "neutral") for v in per_symbol.values()
-            if isinstance(v, dict) and not v.get("right_side_downgraded", False)
-        ]
-        if remaining_directions:
-            bull_count = sum(1 for d in remaining_directions if d == "bullish")
-            bear_count = sum(1 for d in remaining_directions if d == "bearish")
-            if bull_count > bear_count:
-                verdict["direction"] = "bullish"
-            elif bear_count > bull_count:
-                verdict["direction"] = "bearish"
-            else:
-                verdict["direction"] = "neutral"
-        else:
-            verdict["direction"] = "neutral"
+    if warned_symbols:
+        logger.info("[G98] 右侧交易建议标记品种: %s", warned_symbols)
 
     new_phases = state["completed_phases"] + ["P4_right_side_check"]
     return {
@@ -591,11 +578,13 @@ async def node_risk_check(state: DebateState) -> DebateState:
                                   default={"approved": True, "risk_level": "low", "risk_color": "yellow"})
         if parsed.get("success"):
             risk_check = parsed["data"]
+            risk_check["approval"] = "已通过" if risk_check.get("approved", True) else "未通过"
+            risk_check["approval"] = "已通过" if risk_check.get("approved", True) else "未通过"
         else:
-            risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
+            risk_check = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
     except Exception as e:
         logger.warning(f"[RISK] 风控LLM解析失败: {e}, 使用默认yellow")
-        risk_check = {"approved": True, "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析异常: {e}"]}
+        risk_check = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析异常: {e}"]}
     """P6a: CTP 信号输出"""
     verdict = state.get("verdict", {})
 
@@ -665,17 +654,54 @@ async def node_risk_check(state: DebateState) -> DebateState:
             )
         else:
             signal_output["message"] = f"风控{risk_color}通过阈值{threshold}，无评分≥60的强信号"
+
+        if best_buy or best_sell:
+            _symbol_ = best_buy["symbol"] if best_buy else best_sell["symbol"]
+            _entry_ = best_buy["entry_price"] if best_buy else best_sell["entry_price"]
+            _raw_conf_ = min(1.0, (best_buy if best_buy else best_sell)["score"] / 100)
+            _atr_ = state.get("scan_results", {}).get("atr", 0) or 0
+
+            _cfg_pos_pct = 3
+            _cfg_stop_mult = 0.97
+            _cfg_target_mult = 1.05
+            if best_buy:
+                _cfg_stop_mult = 0.97
+                _cfg_target_mult = 1.05
+            elif best_sell:
+                _cfg_stop_mult = 1.03
+                _cfg_target_mult = 0.95
+
+            try:
+                from fdt_eval.feedback.config_store import ConfigStore  # type: ignore[import-untyped]
+                _cs = ConfigStore()
+                if _cs.global_config.enabled:
+                    _cfg_pos_pct = _cs.get_position_pct(_symbol_, _raw_conf_)
+                    _stop_dist, _target_dist = _cs.get_stop_params(_symbol_, max(_atr_, _entry_ * 0.02))
+                    if best_buy:
+                        _cfg_stop_mult = (_entry_ - _stop_dist) / _entry_
+                        _cfg_target_mult = (_entry_ + _target_dist) / _entry_
+                    elif best_sell:
+                        _cfg_stop_mult = (_entry_ + _stop_dist) / _entry_
+                        _cfg_target_mult = (_entry_ - _target_dist) / _entry_
+            except ImportError:
+                pass  # fallback to hardcoded
+            except Exception:
+                pass  # fallback to hardcoded
+
         if best_buy:
             signal_output["signal"] = {
                 "direction": "BUY",
                 "symbol": best_buy["symbol"],
                 "entry_price": best_buy["entry_price"],
                 "order_type": "market",
-                "stop_loss_price": best_buy["entry_price"] * 0.97,
-                "target_price": best_buy["entry_price"] * 1.05,
-                "position_pct": 3,
+                "stop_loss_price": best_buy["entry_price"] * _cfg_stop_mult,
+                "target_price": best_buy["entry_price"] * _cfg_target_mult,
+                "position_pct": _cfg_pos_pct,
                 "contract": "",
-                "risk_reward_ratio": 2.0,
+                "risk_reward_ratio": round(
+                    (_entry_ * _cfg_target_mult - _entry_) / (_entry_ - _entry_ * _cfg_stop_mult)
+                    if best_buy and _entry_ > _entry_ * _cfg_stop_mult > 0 else 2.0, 2
+                ),
                 "confidence": min(1.0, best_buy["score"] / 100),
             }
         elif best_sell:
@@ -684,11 +710,14 @@ async def node_risk_check(state: DebateState) -> DebateState:
                 "symbol": best_sell["symbol"],
                 "entry_price": best_sell["entry_price"],
                 "order_type": "market",
-                "stop_loss_price": best_sell["entry_price"] * 1.03,
-                "target_price": best_sell["entry_price"] * 0.95,
-                "position_pct": 3,
+                "stop_loss_price": best_sell["entry_price"] * _cfg_stop_mult,
+                "target_price": best_sell["entry_price"] * _cfg_target_mult,
+                "position_pct": _cfg_pos_pct,
                 "contract": "",
-                "risk_reward_ratio": 2.0,
+                "risk_reward_ratio": round(
+                    (_entry_ - _entry_ * _cfg_target_mult) / (_entry_ * _cfg_stop_mult - _entry_)
+                    if best_sell and _entry_ * _cfg_stop_mult > _entry_ > 0 else 2.0, 2
+                ),
                 "confidence": min(1.0, best_sell["score"] / 100),
             }
 
@@ -762,10 +791,15 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
             "completed_phases": state["completed_phases"] + ["P3.5"],
         }
 
-    # ── 质检裁决 ──
-    verdict = state.get("verdict")
-    if verdict and isinstance(verdict, dict) and verdict.get("direction"):
-        vr_report = validate_verdict(verdict)
+    # ── 质检裁决：传入 per-symbol dict 而非顶层 verdict（修复数据层级不匹配 Bug ──
+    verdict = state.get("verdict", {})
+    per_sym_verdict = {}
+    if verdict and isinstance(verdict, dict):
+        ps = verdict.get("per_symbol", {})
+        # 优先精确匹配，再尝试大写匹配
+        per_sym_verdict = ps.get(current_sym) or ps.get(current_sym.upper()) or {}
+    if per_sym_verdict:
+        vr_report = validate_verdict(per_sym_verdict)
     else:
         vr_report = {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1}
 
@@ -834,13 +868,17 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
 
 
 async def node_store_per_symbol_result(state: DebateState) -> DebateState:
-    """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引"""
+    """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引
+    
+    G-质检FAIL 修复: 当 quality_report status=FAIL 且重试已耗尽(>=2)时，
+    强制将裁决方向设为 neutral 并清空交易参数，避免 FAIL 数据流入最终报告。
+    """
     symbols = state.get("_original_symbols", [])
     current_sym_idx = state.get("symbol_index", 0)
 
     # G19 修复: 使用 _original_symbols[idx] 替代 selected_symbols[0]，避免空列表越界
     if not symbols or current_sym_idx < 0 or current_sym_idx >= len(symbols):
-        logger.warning("G19 修复: node_store_per_symbol_result 无有效品种(symbols=%s, idx=%s)，跳过存储", symbols, current_sym_idx)
+        logger.warning("G19 修复: node_store_per_symbol_result 无有效品种(symbols=%s, idx=%s)", symbols, current_sym_idx)
         return {
             **state,
             "symbol_index": current_sym_idx + 1,
@@ -849,6 +887,33 @@ async def node_store_per_symbol_result(state: DebateState) -> DebateState:
         }
 
     current_sym = symbols[current_sym_idx]
+
+    # ── G-质检FAIL 修复: 如果质检 FAIL 且重试已耗尽，强制清空交易参数 ──
+    quality_report = state.get("quality_report", {})
+    verdict = state.get("verdict", {})
+    if quality_report and quality_report.get("status") == "FAIL":
+        retries = state.get("rework_counters", {}).get(current_sym, 0)
+        if retries >= 2:
+            logger.warning(
+                "[G-质检FAIL] %s 质检FAIL且重试耗尽(%d/2)，强制清空交易参数",
+                current_sym, retries,
+            )
+            # 将 per_symbol 中的各品种方向设为 neutral
+            per_symbol = verdict.get("per_symbol", {})
+            if per_symbol:
+                for sym, sv in per_symbol.items():
+                    if isinstance(sv, dict):
+                        sv["direction"] = "neutral"
+                        sv["entry_price"] = None
+                        sv["stop_loss_price"] = None
+                        sv["target_price"] = None
+                        sv["position_pct"] = 0
+                        sv["grade"] = "INFO"
+                        sv["_quality_fail_override"] = True
+                verdict["per_symbol"] = per_symbol
+            # 整体方向也用 neutral
+            verdict["direction"] = "neutral"
+            verdict["confidence"] = 0.0
 
     # 收集本品种的关键数据
     per_symbol = dict(state.get("per_symbol_results", {}))
@@ -910,7 +975,7 @@ async def node_aggregate_results(state: DebateState) -> DebateState:
 
     # 合并各品种的裁决/风控
     combined_verdict = {"direction": "neutral", "per_symbol": {}, "reason": ""}
-    combined_risk = {"approved": True, "risk_level": "low", "risk_color": "green", "warnings": []}
+    combined_risk = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "green", "warnings": []}
     reasons = []
 
     for sym in original_symbols:

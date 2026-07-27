@@ -61,6 +61,7 @@ memory/ctp_signals/
 
 # Cached data sources
 data_adapter/sources/.westock_cache/
+data_adapter/sources/.wind_cache/
 *.bak
 
 # Runtime memory

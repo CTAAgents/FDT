@@ -6,7 +6,10 @@
 > **v10.1.1** (2026-07-25): 链证源 `_import_skill_module` 导入路径修复；`node_sentiment` 新增 `parse_llm_output` 解析。
 > **v10.1.2** (2026-07-25): P0b 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE` 环境变量绕过开关。
 > **v10.1.3** (2026-07-25): 导航栏简化：只保留品种和汇总链接。
+> **v0.12.1** (2026-07-27): 本阶段变更：LLM Provider 重构 — 输出统一为 list[dict]；新增 jin10_source.py 金十新闻数据源；claude-3.5-sonnet → claude-3.7-sonnet 模型切换（llm_config.yaml）；FDT 版本号同步 5.12.1→0.12.0；fdt-team-lead.md 新增 D06 spawn 前置检查清单 + 报告阶段覆盖完整校验。
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。`P6 node_report` 导航栏过滤逻辑同步更新。
+> **v0.14.0** (2026-07-27): fdt_eval 统一评估框架 + 交易质量反馈闭环 + 5 个新 Loop 契约(confidence-calibration/portfolio-risk/pre-commit-gate/market-regime)。master_graph 自动调度反馈闭环。详见 `docs/harness/loop-contracts/README.md`。
+> **v0.14.1** (2026-07-27): Wind 数据源集成 — P2.5 新增 WindSource 适配器，采集 EDB 宏观指标/可转债估值/基金行情等数据，注入 `state.wind_data` 供下游分析。GAP-012 裁决 Schema 按市场类型条件化。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 
@@ -111,44 +114,43 @@ fdt_cli.py main()
               │  │  └──────────┴──────────┘ │
               │  └──────┬────────────────────┘
               │         │
-              │  ┌──────▼───────┐
-              │  │  P3: 六阶段攻防 │ ← 串行六步
-              │  │ bullish_v1→  │
-              │  │ bearish_v1→ │
-              │  │ bearish_    │
-              │  │ rebuttal→   │
-              │  │ bullish_    │
-              │  │ rebuttal→   │
-              │  │ bear_final→ │
-              │  │ bull_final  │
-              │  └──────┬───────┘
-              │         │
-              │  ┌──────▼───────┐
-              │  │ P4: 闫判官终裁│ ← 串行
-              │  │ 含完整交易参数│
-              │  └──────┬───────┘
-              │         │
-              │  ┌──────▼───────┐
-              │  │ P5: 风控明   │
-              │  │ green/yellow │
-              │  │ /red 审核    │
-              │  └──────┬───────┘
-              │         │
-              │  ┌──────▼───────┐
-              │  │P3.5: 品藻     │  ← 质检+报告角色
-              │  │ 质检(Schema) │
-              │  │ verdict+risk │
-              │  └──┬───────┬───┘
-              │     │PASS   │FAIL
-              │     ▼       ▼
-              │  ┌────┐ ┌───────┐
-              │  │存入│ │重试<2 │
-              │  │结果│ │ →重修 │
-              │  └────┘ │retry≥2│
-              │         │→跳过  │
-              │         └───┬───┘
-              │             │ (退回prepare_one_symbol)
-              └─────────────┘ (循环每个品种)
+              │  ┌──────────────────────────────────────────┐
+              │  │   ┌─ per_symbol_subgraph（LangGraph 子图）┐│
+              │  │   │                                      ││
+              │  │   │  prepare_one_symbol                 ││
+              │  │   │    ↓ (按需激活 P3 源)               ││
+              │  │   │  ┌──────────┬──────────┐            ││
+              │  │   │  │ 链证源   │ 观澜    │            ││
+              │  │   │  ├──────────┼──────────┤            ││
+              │  │   │  │ 探源     │ 读心    │            ││
+              │  │   │  └────┬─────┴────┬────┘            ││
+              │  │   │       ↓          ↓                  ││
+              │  │   │  P3: 六阶段攻防 (串行六步)          ││
+              │  │   │  bullish_v1→bearish_v1→             ││
+              │  │   │  bearish_rebuttal→bullish_rebuttal→ ││
+              │  │   │  bear_final→bull_final              ││
+              │  │   │    ↓                                ││
+              │  │   │  P4: 闫判官终裁 → G98右侧交易校验  ││
+              │  │   │    ↓                                ││
+              │  │   │  P5: 风控明 (green/yellow/red)      ││
+              │  │   │    ↓                                ││
+              │  │   │  P3.5: 品藻质检                     ││
+              │  │   │  ┌──┴────┬─────┐                   ││
+              │  │   │  │PASS   │FAIL  │                   ││
+              │  │   │  │       │<2次  │                   ││
+              │  │   │  │       │→重修 │                   ││
+              │  │   │  │       │≥2次  │                   ││
+              │  │   │  │       │→跳过 │                   ││
+              │  │   │  └──┬────┴─────┘                   ││
+              │  │   │     ↓ (store_per_symbol_result)     ││
+              │  │   │  ┌──┴──┐                            ││
+              │  │   │  │还有 │──── 回 prepare_one_symbol  ││
+              │  │   │  │品种?│  (处理下一品种)            ││
+              │  │   │  └──┬──┘                            ││
+              │  │   │     │全部完成                        ││
+              │  │   │  aggregate_results                  ││
+              │  │   └──────────────────────────────────────┘│
+              │  └──────────────────────────────────────────┘
                         │
               ┌─────────▼─────────┐
               │ P6: 品藻汇编      │
@@ -173,6 +175,7 @@ fdt_cli.py main()
 > - **v9.17.0 (LangGraph Evolution Graph)**: 自进化闭环从 scheduler 迁移至 LangGraph 子图。新增 `evolution_state.py`(APM五轴驱动状态)、`evolution_nodes.py`(8节点)、`evolution_graph.py`(编译图)。辩论后 `FDT_RUN_EVOLUTION=true` 自动触发，或 `fdt_cli.py evolve` 独立运行。基于 APM 评分 + 样本量条件路由：collect_metrics→apm_eval→decide_actions→[improve|calibrate|evolve|ml_train|rhi|complete]
 > - **v9.21.0 (RHI 递归 Harness 自改进)**: 新增 RHI 分支作为自进化闭环的第 6 个动作。RHI 将 Harness 表示为三层文本规范 (Agent Candidates / Workflow(Contract+Hop) / Auxiliary Rules)，通过 pairwise 比较两轮辩论产出的质量（质检通过率/风控/信号/完整性），在 3-5 轮内以 O(1) 成本收敛到更优 Harness。参考 MemoHarness (arXiv:2607.14159) + RHI (arXiv:2607.15524)。
 > - **v9.22.0 (RHI 完整落地)**: `evolution_graph.py` 路由链新增 `rhi` 分支（improve→calibrate→evolve→rhi→ml→complete），`FDT_RHI=true` 环境变量开关。`scripts/harness/rhi_global_cli.py` 全局 CLI，`D:\HarnessStarterKit\scripts\rhi_global_setup.py` 独立部署脚本，`docs/harness-templates/` 镜像同步更新。HarnessStarterKit 的 CLAUDE.md/README.md/deploy_harness.py 均已包含 RHI 章节。
+> - **v0.13.0 (P4 子图重构)**: P4 逐品种辩论节点提取为独立 LangGraph 子图 `per_symbol_graph.py`。主图节点从 23 降至 8，`_routing.py` 独立路由层。
 > - **v0.12.0 (MASE 自演化框架)**: 进化图新增 `detect_deviations` 和 `adjust_weights` 两个节点。路由链终点从 `complete` 改为 `detect_deviations`（所有条件链最后必经偏差检测）。路由函数 `route_after_decide/improve/calibrate/evolve/rhi` 全部更新为返回 `"detect_deviations"` 而非 `"complete"`。`detect_deviations` 后发现偏差时自动触发 `adjust_weights`。
 > - **v9.16.0 (D2/D5/D6 pipeline 集成)**: D2 ToolMetrics 接入 Agent 执行入口 → 工具调用指标全量采集；D5 memory_cleaner 增强 → debate_journal 压缩 + generation_metrics 自动清理；D6 Output pipeline 集成 → `quality_inspector` 输出质量评分、`node_report` 输出版本化、`node_quality_inspect` 审计日志、scheduler apm_scorecard 定时任务
 > - **P0b 新增 (v9.6.5)**: 数据新鲜度闸门作为 pre_loop 必查步骤，对标数据新鲜度分级标准
@@ -196,7 +199,7 @@ fdt_cli.py main()
 | P2b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
 | P2c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
 | P2d | 读心新闻情绪（按需） | 读心 | 品种+方向 | `pg.sentiment_scores` | 420s | 跳过新闻情绪 |
-| P2.5 | **多因子注入** | **系统（node_prepare_data）** | **selected_symbols + K线 + F10** | **`factor_term_structure` + `factor_holding_sentiment` + `factor_volatility` + `factor_cross_spread` + `factor_dashboard`** | **30s** | **因子缺失不阻断，跳过该因子区块** |
+| P2.5 | **多因子注入 + Wind 数据** | **系统（node_prepare_data + WindSource）** | **selected_symbols + K线 + F10** | **`factor_term_structure` + `factor_holding_sentiment` + `factor_volatility` + `factor_cross_spread` + `factor_dashboard` + `wind_data`(EDB宏观/可转债/基金)** | **30s** | **因子缺失不阻断，跳过该因子区块；Wind 数据不可用跳过** |
 | P3 步1 | 多头立论 v1 | 多头分析员 | P2 合并分析结果 | `state.bullish_arguments`（round=1, v1） | 420s | D06 降级 |
 | P3 步2 | 空头立论 v1 | 空头分析员 | P2 合并分析结果 | `state.bearish_arguments`（round=2, v1） | 420s | D06 降级 |
 | P3 步3 | 空头反驳多头 | 空头分析员 | 多头立论 + P2 合并分析 | `state.bearish_rebuttal_arguments`（round=3, rebuttal_v1） | 420s | D06 降级 |
@@ -210,7 +213,7 @@ fdt_cli.py main()
 | P4（L0） | **entry_price 硬约束** | **系统** | 扫描价格表 `sym_prices` | LLM 解析后代码强制覆写 `entry_price = scan_price` | 即时 | `scan_price=0` 保持 LLM 值 |
 | P4（L0） | **stop_loss/target 计算** | **系统** | ATR + `_compute_stop_target()` | 代码从 ATR × multiplier 精确计算，LLM 不可修改 | 即时 | ATR 不可用时 1% 降级 |
 | P4（L0） | **仓位钳制** | **系统** | `_clamp_position()` | LLM 输出后钳制 `position_pct ≤ 20%` | 即时 | 非法值默认 3% |
-| P4（L0） | **右侧交易校验** | **系统** | 当前趋势结构 + 裁决方向 | `node_right_side_check()` — 读 MA5 vs MA20 判定短期趋势，检查最近 3 根 K 线是否突破 MA20 判定趋势结构破坏。未破坏且反趋势 → 降级为 INFO（仅供关注），清空入场/目标/止损参数，direction=观望 | 即时 | 降级通过（G98 已实现 v0.10.8）|
+| P4（L0） | **右侧交易建议标记** | **系统** | 当前趋势结构 + 裁决方向 | `node_right_side_check()` — 读 MA5 vs MA20 判定短期趋势，检查最近 3 根 K 线是否突破 MA20 判定趋势结构破坏。未破坏且反趋势 → 附加 right_side_warning 标记，由下游判官自行判断（G98 v0.14.1 改为建议标记）| 即时 | 通过（仅标记不降级）|
 | P5 | 风控明审核 | 风控明 | 闫判官裁决 | `pg.risk_checks` | 120s | 品藻兜底 |
 | P3.5 | 辩论质检 | 品藻 | 闫判官裁决 + 风控明审核 | `state.quality_report`（PASS/FAIL + issues，含 conditional_required：neutral 方向不强制 entry_price/stop_loss/target1） | 30s | 品藻汇总时兜底 |
 | P6 | 汇总输出 | 品藻 | 全部产出 | HTML辩论报告 `report_path` + `pg.debate_index` | 120s | 拒绝生成报告 |

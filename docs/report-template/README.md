@@ -1,8 +1,25 @@
 # FDT 辩论报告排版规范（唯一合格模板）
 
-> 创建时间：2026-07-22 | 最终确认：2026-07-22
+> 创建时间：2026-07-22 | 最终确认：2026-07-27
 > 来源：掌柜确认的 fdt-debate-pta-cf-l-2609.html 排版风格
 > **⚠️ 本文件为 FDT 全量扫描/批量/单品种辩论报告唯一合格排版规范。其他任何报告排版模板均已作废。**
+
+## 零、文件存储规范（硬性约束）
+
+本目录为 FDT 所有报告模板的**唯一存放位置**，所有代码源必须遵守：
+
+1. **唯一模板源** — `docs/report-template/` 是 FDT 报告中 CSS、HTML 骨架、排版规范的唯一可信源。任何其他目录的文件（如 `D:\Knowledge\`、外部路径）不应作为模板引用。
+
+2. **代码引用路径** — 报告渲染代码中所有模板引用路径必须指向本目录：
+   - CSS: `docs/report-template/report_css.html`
+   - HTML 骨架: `docs/report-template/report_skeleton.html`
+   - 排版规范参考: `docs/report-template/report_template_standards.md`
+   - 禁止使用绝对路径（如 `D:\Knowledge\*`）或外部路径引用模板文件。
+
+3. **修改入口** — 如需要调整报告排版风格，仅需修改本目录下对应的三个文件即可全局生效：`report_css.html`（CSS 变量/组件样式）、`report_skeleton.html`（HTML 外壳/导航/页脚）、`report_template_standards.md`（排版规范文档/渲染组件清单）。代码层无需任何改动。
+
+4. **版本管理** — 本目录所有文件跟随 FDT 项目统一 Git 管理，不依赖外部存储。
+
 
 ---
 

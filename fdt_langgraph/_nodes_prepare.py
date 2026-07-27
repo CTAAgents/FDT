@@ -679,9 +679,18 @@ async def node_prepare_data(state: DebateState) -> DebateState:
     except Exception as e:
         logger.warning("[FDC] 多因子注入失败 (非关键): %s", e)
 
+    # ── GAP-015: Wind 补充数据采集 ──
+    wind_data = {}
+    try:
+        wind_data = await _collect_wind_data(state)
+        logger.info("[Wind] 补充数据采集完成")
+    except Exception as e:
+        logger.warning("[Wind] 补充数据采集失败 (非关键): %s", e)
+
     return {
         **state,
         "fdc_data": fdc_data,
+        "wind_data": wind_data,
         "fdc_data_status": {
             "enabled": True,
             "collected": True,
@@ -712,6 +721,81 @@ async def node_prepare_data(state: DebateState) -> DebateState:
         "current_phase": "P2.5",
         "completed_phases": state["completed_phases"] + ["P2.5"]
     }
+
+
+# ── GAP-015: Wind 数据采集（可转债估值/ETF持仓/宏观EDB） ──
+
+
+async def _collect_wind_data(state: DebateState) -> dict:
+    """采集 Wind 补充数据。
+
+    根据品种类型采集对应的 Wind 数据：
+      - convertible_bond → 可转债估值/条款
+      - etf → ETF 持仓/净值
+      - 全品种 → 宏观 EDB 指标（12 小时缓存）
+
+    Returns:
+        dict 存入 state.wind_data，结构：
+        {
+            "macro_edb": {...} | None,
+            "cb_valuation": {...} | None,    # 仅可转债
+            "fund_data": {...} | None,       # 仅 ETF
+            "announcements": {...} | None,   # 仅个股/可转债
+        }
+    """
+    mt = state.get("market_type", "commodity_futures")
+    symbols = state.get("selected_symbols", [])
+    result: dict = {"macro_edb": None, "cb_valuation": None, "fund_data": None, "announcements": None}
+
+    try:
+        from data_adapter import (
+            get_wind_convertible_bond, get_wind_edb,
+            get_wind_fund_holdings, get_wind_fund_nav,
+        )
+
+        # 宏观 EDB（所有品种 — 12h 缓存）
+        try:
+            edb = await get_wind_edb("中国GDP同比,CPI同比,PPI同比,PMI",
+                                     observation="10")
+            if edb.get("data_grade") == "PRIMARY":
+                result["macro_edb"] = edb
+                logger.info("[Wind] 宏观 EDB 数据已采集")
+        except Exception as e:
+            logger.warning("[Wind] 宏观 EDB 采集失败: %s", e)
+
+        # 品种类型专用数据
+        if mt == "convertible_bond" and symbols:
+            for sym in symbols:
+                try:
+                    cb = await get_wind_convertible_bond(sym)
+                    if cb.get("data_grade") == "PRIMARY":
+                        result["cb_valuation"] = cb
+                        logger.info("[Wind] 可转债估值已采集: %s", sym)
+                        break
+                except Exception as e:
+                    logger.warning("[Wind] 可转债 %s 采集失败: %s", sym, e)
+
+        elif mt == "etf" and symbols:
+            for sym in symbols:
+                try:
+                    nav = await get_wind_fund_nav(sym)
+                    holdings = await get_wind_fund_holdings(sym)
+                    combined = {}
+                    if nav.get("data_grade") == "PRIMARY":
+                        combined["nav"] = nav
+                    if holdings.get("data_grade") == "PRIMARY":
+                        combined["holdings"] = holdings
+                    if combined:
+                        result["fund_data"] = combined
+                        logger.info("[Wind] ETF 数据已采集: %s", sym)
+                        break
+                except Exception as e:
+                    logger.warning("[Wind] ETF %s 采集失败: %s", sym, e)
+
+    except Exception as e:
+        logger.error("[Wind] 数据采集整体失败: %s", e)
+
+    return result
 
 
 

@@ -1,5 +1,9 @@
 # 03 — 配置管理
 
+> **v0.12.1** (2026-07-27): 新增 `llm_config.yaml` — LLM 模型路由与参数配置。支持按模型名称(如 claude-3.7-sonnet)和角色两种维度配置 temperature/max_tokens/prompt 模板。原 decode_config.yaml 部分路由条目迁移至 llm_config.yaml。
+>
+> **v0.12.2** (2026-07-27): 新增 Wind 数据源配置 — `FDT_WIND_CACHE_TTL` / `FDT_WIND_CACHE_DIR`。新增 `WindSource` 适配器，通过 Wind MCP CLI 获取可转债估值/ETF持仓/宏观EDB/公告数据。
+
 ## 1. 配置文件清单
 
 ### 1.1 项目级配置
@@ -10,6 +14,8 @@
 | `settings.json` | 根目录 | JSON | 全局设置: 模式/阈值/webhooks/backtest | 中 |
 | `team_config.json` | `config/team_config.json` | JSON | 团队环境: 自进化开关/快通道/venv | 低 |
 | `pyproject.toml` | 根目录 | TOML | Python 包: 依赖/pytest/black/ruff | 低 |
+| `llm_config.yaml` | `config/llm_config.yaml` | YAML | LLM 模型路由: 按模型/角色配置 temperature/max_tokens/prompt 模板 (v0.12.1 新增) | 中 |
+| `fdt_eval/feedback/_config/symbol_params.json` | `fdt_eval/feedback/_config/symbol_params.json` | JSON | 品种交易参数: position_base_pct/weight/atr_stop/target_multiplier/confidence_offset (v0.14.0 新增) | 高 (每次反馈闭环调整)
 | `requirements.txt` | 根目录 | TXT | 核心依赖列表 | 低 |
 | `requirements.lock` | 根目录 | TXT | 冻结依赖 (可复现安装) | 低 |
 
@@ -148,6 +154,8 @@ line-length = 120
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
 | `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |
+| `FDT_WIND_CACHE_TTL` | `43200` | Wind EDB 宏观数据缓存 TTL（秒，默认12小时） | `data_adapter/sources/wind_source.py` |
+| `FDT_WIND_CACHE_DIR` | `{FDT_ROOT}/data_adapter/.wind_cache` | Wind 数据缓存目录 | `data_adapter/sources/wind_source.py` |
 |
 | `SIGNAL_VALIDATOR_MAP` | `config/settings.py` | 信号验证器注册表: 按 signal_type 路由验证器, `__global__` 为列表级闸门 | `signals/validators/__init__.py` |
 | → `__global__` | `["data_quality", "crowding"]` | v9.12.0: 新增 `data_quality` 验证器 — D级降级NOISE/C级标记/dq_web_fallback | `signals/validators/data_quality.py` |
@@ -622,7 +630,22 @@ python -m pytest tests/strategies/ --tb=short -q -o "addopts="
 | _original_symbols | list | [] | 保存完整品种列表 |
 | associated_symbols | dict | {} | {主辩论品种: [关联品种]} |
 
-## 12. 一致性元数据
+## 12. 反馈闭环配置 (fdt_eval/feedback)
+
+品种级参数存储在 `fdt_eval/feedback/_config/symbol_params.json`，全局配置在 `FeedbackConfig`：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|:-----|:-----|:------:|:-----|
+| position_base_pct | float | 3.0 | 基准仓位 % |
+| position_weight | float | 1.0 | 品种权重系数 [0.3-2.0] |
+| atr_stop_multiplier | float | 2.0 | ATR 止损乘数 |
+| atr_target_multiplier | float | 3.0 | ATR 目标乘数 |
+| confidence_offset | float | 0.0 | 置信度偏移 [-0.3-+0.3] |
+| min_accuracy | float | 0.0 | 准入最低准确率 |
+| enabled | bool | true | 全局启用开关 |
+| min_samples_per_symbol | int | 3 | 调整所需最少样本数 |
+
+## 13. 一致性元数据
 
 | 代码文件/函数 | 文档章节 | 关键断言/可验证事实 | 检验方式 |
 |:--------------|:---------|:-------------------|:---------|

@@ -12,7 +12,7 @@ from fdt_langgraph.agents import FdtAgentExecutor
 from fdt_langgraph.llm_provider import parse_llm_output
 from fdt_langgraph.state import DebateState
 from fdt_langgraph._nodes_utils import _ensure_llm_key, _import_from_skill, _import_skill_module, _normalize_per_symbol, _repair_json, _resolve_alias, _resolve_report_dir
-from fdt_langgraph._nodes_context import _build_fdc_technical_context, _build_market_fundamental_context
+from fdt_langgraph._nodes_context import _build_fdc_technical_context, _build_market_fundamental_context, _build_wind_context_block
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,10 @@ async def node_chain(state: DebateState) -> dict:
 
     try:
         # 先尝试从 analyze_chain.py 导入 run_analysis
-        skill_mod = _import_from_skill("commodity-chain-analysis", "scripts.analyze_chain", "run_analysis")
+        _chain_mod = _import_skill_module("commodity-chain-analysis", "scripts.analyze_chain")
+        run_analysis = _chain_mod.run_analysis
+        lookup_symbol_names = _chain_mod.lookup_symbol_names
+        build_symbols_data = _chain_mod.build_symbols_data
         # lookup_symbol_names 和 build_symbols_data 都在 analyze_chain.py 中
         ac_mod = _import_skill_module("commodity-chain-analysis", "scripts.analyze_chain")
         lookup_symbol_names = ac_mod.lookup_symbol_names
@@ -81,7 +84,7 @@ async def node_chain(state: DebateState) -> dict:
                 sd["score"] = abs(item.get("total", 0))
                 break
     
-    chain_data = skill_mod(symbols_data) if symbols_data else {}
+    chain_data = run_analysis(symbols_data) if symbols_data else {}
     # 提取 structured chain_results
     result = chain_data.get("chain_results", {}) if isinstance(chain_data, dict) else chain_data
     result["_source"] = "analyze_chain"
@@ -237,7 +240,8 @@ async def node_technical(state: DebateState) -> dict:
 - 趋势判断需结合均线排列（MA5/MA10/MA20）和20日区间（支撑/阻力）
 - 量价分析必须包含：成交量变化方向 vs 价格变化方向是否一致
 - **score 请参考上方【基准技术评分】中的数值，在 ±10 范围内调整**（基准评分来自代码精确计算）
-- **Phase B: 请在 disagreement 字段标注与数技源扫描判断不一致的关键分歧点**（如有），例如"ADX显示趋势疲惫但数技源总分偏多"
+- **Phase C: refined_factor -- core factor: volatility. Output per-symbol refined_factor with direction(-2..+2), strength(0..1), confidence(0..1), source_factor=volatility, reasoning**
+- - **Phase B: 请在 disagreement 字段标注与数技源扫描判断不一致的关键分歧点**（如有），例如"ADX显示趋势疲惫但数技源总分偏多"
 - **v10.6.0 市场提示**: {_build_market_technical_suffix(state)}"""
 
     tech_result = await technical.run(context, state["trace_id"])
@@ -569,6 +573,7 @@ async def node_fundamental(state: DebateState) -> dict:
 {jin10_context}
 {hs_context}
 {nf_context}
+{_build_wind_context_block(state.get("wind_data"))}
 
 请先以 Markdown 格式逐品种分析（供需平衡、库存周期、利润开工率、基差期限结构、宏观联动），
 然后在最后一行单独输出 JSON 代码块，格式如下：
@@ -591,6 +596,7 @@ async def node_fundamental(state: DebateState) -> dict:
 - WebSearch 获取的数据引用时标注 [fundamental:web]
 - 每个品种的 leading_signals 为数组，包含1-3个关键信号
 - **Phase B: `key_turning_points` 字段标注对方向具有边际影响的关键转折数据**，包含数据描述、影响方向和说明（如"库存由累库转去库"）
+- **Phase C: refined_factors -- core factors: holding_sentiment+term_structure. Output per-symbol refined_factors with direction/strength/confidence/source_factor/reasoning**
 - **v10.6.0: 市场类型感知** — 以下指令根据品种市场类型动态注入：
 
 {_build_market_fundamental_suffix(state)}"""
@@ -772,7 +778,28 @@ async def node_sentiment(state: DebateState) -> dict:
     news_context = router.build_prompt_context(news_result)
 
     # ── 逐品种新闻质量评估（通过 NewsRouter） ──
+    # HARNESS FIX: news empty -> FDC data for sentiment
     news_quality = router.build_quality_report(news_result, selected)
+    _all_news_empty = "No" in news_context or not getattr(news_result, "items", [])
+    if _all_news_empty:
+        _fdc = state.get("fdc_data", state.get("fundamental_data", {}))
+        _chain = state.get("chain_analysis") or {}
+        _extra = ["\n\n(Market snapshot from FDC, for sentiment inference)"]
+        for _s in selected:
+            _fs = _fdc.get(_s, _fdc.get(_s.upper(), {}))
+            _cs = _chain.get(_s, _chain.get(_s.upper(), {}))
+            _fund = {}
+            _ff = _fs.get("fundamental", {}) if isinstance(_fs, dict) else {}
+            if isinstance(_ff, dict):
+                _fund = _ff.get("data", _ff)
+            if isinstance(_fund, dict) and _fund:
+                _extra.append(f"  [_s] opr:{_fund.get('operating_rate','?')}% inv:{_fund.get('inventory','?')}kt fee:{_fund.get('processing_fee','?')}")
+                ns = _fund.get("notes","")
+                if ns: _extra.append(f"    note: {str(ns)[:200]}")
+            if isinstance(_cs, dict) and _cs.get("chain"):
+                _extra.append(f"  [_s] chain:{_cs.get('chain','')} trend:{_cs.get('chain_trend','')}")
+        _extra.append("(Infer market sentiment from above, tag [fdc])")
+        news_context += "\n".join(_extra)
 
     context = f"""作为新闻情绪分析师（读心），请分析以下品种的新闻情绪状态。
 
@@ -808,7 +835,9 @@ async def node_sentiment(state: DebateState) -> dict:
 - 不下多空结论，只输出情绪评分
 - 事件类型：policy / supply_demand / macro / geopolitics / other
 - 越近的快讯权重越高（<1h:1.0, 1-4h:0.7, 4-24h:0.4, >24h:0.1）
-- 情绪偏离度 > 0.3 时标注（这是辩论最有价值的素材）"""
+- 情绪偏离度 > 0.3 时标注（这是辩论最有价值的素材）
+- **Phase C: refined_factor -- core factor: sentiment. Output per-symbol refined_factor with direction/strength/confidence/source_factor=sentiment/reasoning**
+{_build_wind_context_block(state.get("wind_data"))}"""
 
     result = await sentiment_agent.run(context, state["trace_id"])
 
@@ -821,16 +850,45 @@ async def node_sentiment(state: DebateState) -> dict:
     if parsed.get("success") and isinstance(parsed.get("data"), dict):
         data = parsed["data"]
         per_symbol_sentiment = data.get("per_symbol", {})
-        overall_score = data.get("overall_sentiment", data.get("composite_score", 0)) or 0
+        # v10.7.0 fix: 从 per_symbol 的 overall_sentiment 计算均值，
+        # 不依赖可选的顶级 composite_score 字段（LLM 可能省略）。
+        # 每品种 overall_sentiment 是 prompt 示例中的必含字段，更可靠。
+        sym_scores = [
+            s.get("overall_sentiment", 0)
+            for s in per_symbol_sentiment.values()
+            if isinstance(s, dict) and s.get("overall_sentiment") is not None
+        ]
+        if sym_scores:
+            overall_score = sum(sym_scores) / len(sym_scores)
+        else:
+            # 回退到 composite_score（如 LLM 同时省略了二者）
+            overall_score = data.get("composite_score", 0) or 0
         summary_text = data.get("summary", "")
         if isinstance(overall_score, dict):
             overall_score = sum(overall_score.values()) / max(len(overall_score), 1)
         overall_score = round(float(overall_score), 2)
     else:
-        # fallback: 尝试从原始 dict 中提取
-        per_symbol_sentiment = result.get("per_symbol", {}) if isinstance(result, dict) else {}
-        overall_score = result.get("overall_score", result.get("overall_sentiment", 0)) or 0
-        summary_text = result.get("summary", "")
+        # fallback: 从原始 LLM 输出文本尝试二次解析
+        per_symbol_sentiment = {}
+        overall_score = 0.0
+        summary_text = ""
+        if output_raw:
+            try:
+                from scripts.enforce_structured_output import auto_fix_json
+                fb_parsed = json.loads(auto_fix_json(output_raw))
+                if isinstance(fb_parsed, dict):
+                    per_symbol_sentiment = fb_parsed.get("per_symbol", {})
+                    fb_scores = [
+                        s.get("overall_sentiment", 0)
+                        for s in per_symbol_sentiment.values()
+                        if isinstance(s, dict) and s.get("overall_sentiment") is not None
+                    ]
+                    overall_score = sum(fb_scores) / len(fb_scores) if fb_scores else (fb_parsed.get("composite_score", 0) or 0)
+                    summary_text = fb_parsed.get("summary", "")
+            except Exception:
+                pass
+        if not overall_score:
+            overall_score = 0.0
         if isinstance(overall_score, dict):
             overall_score = sum(overall_score.values()) / max(len(overall_score), 1)
         overall_score = round(float(overall_score), 2)

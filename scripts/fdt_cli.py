@@ -104,20 +104,24 @@ def _run_langgraph_debate(workspace: str, scan_json: str, threshold: int, trace_
     from datetime import datetime
 
     # 确保 LLM API Key 设置
-    if not os.environ.get("FDT_LLM_API_KEY"):
-        # 尝试从 .env 文件读取
-        env_path = Path(_ROOT) / ".env"
-        if env_path.exists():
-            for line in env_path.read_text(encoding="utf-8").splitlines():
-                if line.startswith("FDT_LLM_API_KEY="):
-                    os.environ["FDT_LLM_API_KEY"] = line.split("=", 1)[1].strip()
-                    print("  ✓ 从 .env 加载 FDT_LLM_API_KEY")
-                    break
-
-        if not os.environ.get("FDT_LLM_API_KEY"):
-            print("⚠️ FDT_LLM_API_KEY 未设置，LLM Agent 将失败")
-            print("   请设置环境变量: $env:FDT_LLM_API_KEY='your-key'")
-            print("   或创建 .env 文件: FDT_LLM_API_KEY=your-key")
+    # API Key 强制从 .env 加载（覆盖系统环境变量）
+    env_path = Path(_ROOT) / ".env"
+    _loaded = False
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if "=" in line and not line.startswith("#"):
+                _k, _v = line.split("=", 1)
+                _k, _v = _k.strip(), _v.strip().strip(' "')
+                if _k:
+                    os.environ[_k] = _v
+                    if _k == "FDT_LLM_API_KEY":
+                        _loaded = True
+    if _loaded:
+        print("  ✓ 从 .env 加载 FDT_LLM_API_KEY")
+    else:
+        print("⚠️ FDT_LLM_API_KEY 未设置，请在 .env 文件中配置")
+        print("   格式: FDT_LLM_API_KEY=your-key")
 
     sys.path.insert(0, str(_ROOT))
     from fdt_langgraph.graph import build_debate_graph_no_checkpoint

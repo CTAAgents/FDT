@@ -1,3 +1,23 @@
+"""
+graph.py — 辩论主图构建函数
+
+使用逐品种辩论子图 (per_symbol_subgraph) 替代原来的全部内联节点。
+
+旧版路由/辅助函数已迁移至 _routing.py，此处保留向后兼容的 re-export。
+
+主图节点（7 个）:
+  scan → freshness_gate → judge_direction
+      → [per_symbol_subgraph (16 个内部节点)]
+      → report → signal_output → END
+
+直接辩论模式节点（8 个）:
+  load_cache → judge_direction
+      → [per_symbol_subgraph (16 个内部节点)]
+      → report → signal_output → update_cache → END
+"""
+
+from __future__ import annotations
+
 import logging
 import os
 import sqlite3
@@ -6,40 +26,50 @@ from pathlib import Path
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
-from .state import DebateState
-
-logger = logging.getLogger(__name__)
-from .nodes import (
+from fdt_langgraph._routing import (
+    calculate_divergence,
+    route_after_freshness,
+    route_after_merge_research,
+    route_after_quality_inspect,
+    _get_current_symbol,
+    _get_p3_node_names,
+    _should_skip_p3_source,
+)
+from fdt_langgraph.nodes import (
     node_aggregate_results,
-    node_bear_final,
-    node_bearish_rebuttal,
-    node_bearish_v1,
-    node_bull_final,
-    node_bullish_rebuttal,
-    node_bullish_v1,
-    node_chain,
     node_freshness_gate,
-    node_fundamental,
     node_judge_direction,
     node_load_cache,
-    node_merge_research,
-    node_prepare_one_symbol,
-    node_quality_inspect,
     node_report,
-    node_right_side_check,
-    node_risk_check,
-    node_route_next_symbol,
     node_scan,
-    node_sentiment,
     node_signal_output,
-    node_store_per_symbol_result,
-    node_technical,
     node_update_cache,
-    node_verdict,
 )
+from fdt_langgraph.per_symbol_graph import build_per_symbol_subgraph
+from fdt_langgraph.state import DebateState
+
+logger = logging.getLogger(__name__)
+
+# ── 向后兼容 re-export ──
+# 这些函数已迁移到 _routing.py，保持在此处导出供外部代码导入
+__all__ = [
+    "calculate_divergence",
+    "route_after_freshness",
+    "route_after_merge_research",
+    "route_after_quality_inspect",
+    "_get_current_symbol",
+    "_get_p3_node_names",
+    "_should_skip_p3_source",
+]
+
+
+# ═══════════════════════════════════════════════════════
+# Checkpointer
+# ═══════════════════════════════════════════════════════
 
 
 def _get_checkpointer():
+    """获取 checkpointer 实例（PG → SQLite 降级）。"""
     use_pg = os.environ.get("FDT_CHECKPOINTER", "").lower() == "pg"
 
     if use_pg:
@@ -67,342 +97,79 @@ def _get_checkpointer():
     return SqliteSaver(conn)
 
 
-def calculate_divergence(state: DebateState) -> float:
-    """计算多空分歧度 — 支持 v9.0 六阶段辩论"""
-    bull_score = 0.0
-    bear_score = 0.0
-    for entry in state.get("bullish_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bull_score += float(sdata.get("confidence", 0))
-    for entry in state.get("bearish_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bear_score += float(sdata.get("confidence", 0))
-    for entry in state.get("bullish_rebuttal_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bull_score += float(sdata.get("confidence", 0))
-    for entry in state.get("bearish_rebuttal_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bear_score += float(sdata.get("confidence", 0))
-    for entry in state.get("bull_final_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bull_score += float(sdata.get("confidence", 0))
-    for entry in state.get("bear_final_arguments", []):
-        if isinstance(entry, dict) and entry.get("symbols"):
-            for sdata in entry["symbols"].values():
-                bear_score += float(sdata.get("confidence", 0))
-    total = bull_score + bear_score
-    if total == 0:
-        return 0.0
-    return abs(bull_score - bear_score) / total
+# ═══════════════════════════════════════════════════════
+# 主图构建（含子图）
+# ═══════════════════════════════════════════════════════
 
 
-# ==================== 辩论路由函数 (v9.0) ====================
+def _register_debate_graph(graph: StateGraph, mode: str) -> None:
+    """注册辩论主图（含逐品种辩论子图）。
 
-def route_after_merge_research(state: DebateState) -> str:
-    """P3 合并研究数据后：判断是否进入辩论"""
-    if state.get("mode", "default") == "fast":
-        return "verdict"       # fast 模式跳过辩论
-    return "bullish_v1"        # 进入多空头攻防六节点
-
-
-def _route_after_freshness(state: DebateState) -> str:
-    """P0b 新鲜度闸门路由: PASS → judge_direction / FAIL → aggregate_results (D06 降级)。"""
-    freshness = state.get("freshness_report", {})
-    status = freshness.get("status", "PASS")
-    if status in ("ALL_STALE", "NO_VALID_SYMBOLS"):
-        logger.warning(f"[路由] P0b 新鲜度闸门阻断 ({status}), 路由到 D06 aggregate_results")
-        return "aggregate_results"
-    return "judge_direction"
-
-
-def route_after_quality_inspect(state: DebateState) -> str:
-    """质检后路由（Phase 3 Data Governance）。
-
-    逻辑:
-      - 当前品种质检 FAIL + 重试 < 2 次 → 退回重修（prepare_one_symbol）
-      - 否则 → 存入结果（store_per_symbol_result）
-      - G19 修复: 无有效品种时跳转到 aggregate_results，避免死循环
-    """
-    current_sym = _get_current_symbol(state)
-    report = state.get("quality_report")
-    counters = state.get("rework_counters", {})
-    retries = counters.get(current_sym, 0)
-
-    # G19: 如果 current_sym 为空且重试计数器不在预期位置，则跳转到 aggregate_results
-    symbols = state.get("selected_symbols", [])
-    _original = state.get("_original_symbols", [])
-    idx = state.get("symbol_index", -1)
-    if not symbols and not _original:
-        logger.warning("G19 修复: 无任何品种可处理，跳转到 aggregate_results")
-        return "aggregate_results"
-    if not current_sym and idx < 0:
-        logger.warning("G19 修复: 无法确定当前品种(current_sym为空, idx=%s)，跳转到 aggregate_results", idx)
-        return "aggregate_results"
-
-    if report and report.get("status") == "FAIL" and retries < 2:
-        return "prepare_one_symbol"
-    return "store_per_symbol_result"
-
-
-def _should_skip_p3_source(state: DebateState, source_name: str) -> bool:
-    """Phase D R01: 检查 P3 源是否应主动跳过（连续 N 轮准确率 < 40%）"""
-    try:
-        from pathlib import Path
-        from memory.verdict.verdict_db import VerdictDB
-        import os
-
-        vdb = VerdictDB(Path(os.getcwd()) / "memory")
-        current_sym = _get_current_symbol(state)
-        if not current_sym:
-            return False
-
-        accuracy_threshold = float(os.environ.get("FDT_DELEGATION_ACCURACY_THRESHOLD", "0.4"))
-        consecutive_rounds = int(os.environ.get("FDT_DELEGATION_CONSECUTIVE_ROUNDS", "5"))
-
-        # 查询该品种的历史裁决准确率
-        acc = vdb.query(symbol=current_sym, limit=500)
-        with_outcome = [r for r in acc if r.get("outcome_actual") in ("correct", "wrong")]
-        if len(with_outcome) < consecutive_rounds:
-            return False
-
-        # 取最近 N 轮
-        recent = with_outcome[-consecutive_rounds:]
-        correct = sum(1 for r in recent if r.get("outcome_actual") == "correct")
-        accuracy = correct / len(recent)
-
-        should_skip = accuracy < accuracy_threshold
-        if should_skip:
-            logger.info(f"[Delegation R01] {current_sym} {source_name} 跳过: "
-                        f"近{consecutive_rounds}轮准确率={accuracy:.1%} < {accuracy_threshold:.0%}")
-            state.setdefault("delegation_log", []).append({
-                "rule": "r01_skip_p3_source",
-                "symbol": current_sym,
-                "source": source_name,
-                "accuracy": round(accuracy, 3),
-                "trigger": f"近{consecutive_rounds}轮准确率={accuracy:.1%}",
-            })
-        return should_skip
-    except Exception:
-        return False
-
-
-def _get_current_symbol(state: DebateState) -> str:
-    """获取当前处理的品种代码。
-
-    使用 _original_symbols 而非 selected_symbols，因为 prepare_one_symbol
-    会将 selected_symbols 覆盖为单元素列表，导致第2品种起 current_sym 为空。
-    """
-    symbols = state.get("_original_symbols", state.get("selected_symbols", []))
-    idx = state.get("symbol_index", -1)
-    if 0 <= idx < len(symbols):
-        return symbols[idx]
-    logger.warning("G19 修复: _get_current_symbol 无法定位品种(idx=%d, symbols=%s)", idx, symbols)
-    return ""
-
-
-# ==================== 逐品种循环图构建 (v9.13.0) ====================
-
-def _get_p3_node_names(mode: str) -> list[str]:
-    """根据 mode 返回需要激活的四源节点列表"""
-    p3 = []
-    _full = {"default", "deep_research", "tournament", "fast"}
-    if mode in _full or "chain" in mode:
-        p3.append("chain")
-    if mode in _full or "technical" in mode:
-        p3.append("technical")
-    if mode in _full or "fundamental" in mode:
-        p3.append("fundamental")
-    if mode in _full or "sentiment" in mode:
-        p3.append("sentiment")
-    return p3
-
-
-def _register_per_symbol_loop(graph: StateGraph, mode: str) -> None:
-    """注册逐品种循环流水线（v9.13.0）
-
-    流程:
-flow:
-      scan → [P0b] freshness_gate
-        → [freshness PASS] judge_direction
-        → [freshness FAIL (ALL_STALE/NO_VALID_SYMBOLS)] aggregate_results (D06 数据降级)
-        → [loop begins] prepare_one_symbol
-          → chain/tech/fund/sent (并行，均只处理当前品种)
-          → merge_research
-          → debate chain (bullish_v1 → ... → bull_final)
-          → verdict → risk_check → store_per_symbol_result
-          → route_next_symbol:
-            - 还有品种 → 回到 prepare_one_symbol
-            - 全部完成 → aggregate_results
+    主图节点:
+      scan → freshness_gate → judge_direction
+          → per_symbol_subgraph (18 个内部节点 + 循环边)
           → report → signal_output → END
     """
-    # ── 注册所有节点 ──
+    # ── 前置节点 ──
     graph.add_node("scan", node_scan)
     graph.add_node("freshness_gate", node_freshness_gate)
     graph.add_node("judge_direction", node_judge_direction)
-    graph.add_node("prepare_one_symbol", node_prepare_one_symbol)
-    graph.add_node("store_per_symbol_result", node_store_per_symbol_result)
+
+    # ── P4 逐品种辩论子图（1 个节点替代原来 16 个节点 + 全部边） ──
+    per_symbol_subgraph = build_per_symbol_subgraph(mode)
+    graph.add_node("per_symbol_debate", per_symbol_subgraph)
+
+    # ── 后置节点 ──
     graph.add_node("aggregate_results", node_aggregate_results)
-
-    graph.add_node("chain", node_chain)
-    graph.add_node("technical", node_technical)
-    graph.add_node("fundamental", node_fundamental)
-    graph.add_node("sentiment", node_sentiment)
-    graph.add_node("merge_research", node_merge_research)
-
-    graph.add_node("bullish_v1", node_bullish_v1)
-    graph.add_node("bearish_v1", node_bearish_v1)
-    graph.add_node("bearish_rebuttal", node_bearish_rebuttal)
-    graph.add_node("bullish_rebuttal", node_bullish_rebuttal)
-    graph.add_node("bear_final", node_bear_final)
-    graph.add_node("bull_final", node_bull_final)
-
-    graph.add_node("verdict", node_verdict)
-    graph.add_node("right_side_check", node_right_side_check)
-    graph.add_node("risk_check", node_risk_check)
-    graph.add_node("quality_inspect", node_quality_inspect)
     graph.add_node("report", node_report)
     graph.add_node("signal_output", node_signal_output)
 
-    # ── 数据准备工作台 ── 入口边 ──
+    # ── 边 ──
     graph.set_entry_point("scan")
     graph.add_edge("scan", "freshness_gate")
-    graph.add_conditional_edges("freshness_gate", _route_after_freshness, {
+    graph.add_conditional_edges("freshness_gate", route_after_freshness, {
         "judge_direction": "judge_direction",
         "aggregate_results": "aggregate_results",
     })
-    graph.add_edge("judge_direction", "prepare_one_symbol")
-
-    # ── 四源并行（从 prepare_one_symbol 出发，均只处理单品种） ──
-    p3_nodes = _get_p3_node_names(mode)
-    def _route_p3_nodes(s, nodes=p3_nodes):
-        for n in nodes:
-            if not _should_skip_p3_source(s, n):
-                return n
-        return "merge_research"
-    # Phase D R01: 单条条件边路由到首个不跳过的 P3 源（LangGraph v1.2.9 不支持同源多条未命名边）
-    path_map: dict[str, str] = {n: n for n in p3_nodes}
-    path_map["merge_research"] = "merge_research"
-    graph.add_conditional_edges("prepare_one_symbol", _route_p3_nodes, path_map)
-    for node_name in p3_nodes:
-        graph.add_edge(node_name, "merge_research")
-
-    # ── 辩论链条 ──
-    graph.add_conditional_edges("merge_research", route_after_merge_research, {
-        "bullish_v1": "bullish_v1", "verdict": "verdict",
-    })
-    graph.add_conditional_edges("bullish_v1", lambda s: "bearish_v1", {"bearish_v1": "bearish_v1"})
-    graph.add_conditional_edges("bearish_v1", lambda s: "bearish_rebuttal", {"bearish_rebuttal": "bearish_rebuttal"})
-    graph.add_conditional_edges("bearish_rebuttal", lambda s: "bullish_rebuttal", {"bullish_rebuttal": "bullish_rebuttal"})
-    graph.add_conditional_edges("bullish_rebuttal", lambda s: "bear_final", {"bear_final": "bear_final"})
-    graph.add_conditional_edges("bear_final", lambda s: "bull_final", {"bull_final": "bull_final"})
-    graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
-
-    # ── 单品种收尾 + 质检 + 循环路由 ──
-    # Phase 3: verdict → right_side_check(G98) → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
-    graph.add_edge("verdict", "right_side_check")
-    graph.add_edge("right_side_check", "risk_check")
-    graph.add_edge("risk_check", "quality_inspect")
-    graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
-        "prepare_one_symbol": "prepare_one_symbol",
-        "store_per_symbol_result": "store_per_symbol_result",
-        "aggregate_results": "aggregate_results",
-    })
-    graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
-        "prepare_one_symbol": "prepare_one_symbol",
-        "aggregate_results": "aggregate_results",
-    })
-
-    # ── 汇聚 → 报告 ──
+    graph.add_edge("judge_direction", "per_symbol_debate")
+    graph.add_edge("per_symbol_debate", "aggregate_results")
     graph.add_edge("aggregate_results", "report")
     graph.add_edge("report", "signal_output")
     graph.add_edge("signal_output", END)
 
 
-def _register_direct_debate_loop(graph: StateGraph, mode: str) -> None:
-    """逐品种循环 + 直接辩论（跳过 scan，从 load_cache 进入）"""
+def _register_direct_debate_graph(graph: StateGraph, mode: str) -> None:
+    """直接辩论模式（跳过 scan，从 load_cache 进入，辩论后更新缓存）。"""
     graph.add_node("load_cache", node_load_cache)
+    graph.add_node("judge_direction", node_judge_direction)
     graph.add_node("update_cache", node_update_cache)
 
-    # 复用逐品种循环的全部节点
-    graph.add_node("judge_direction", node_judge_direction)
-    graph.add_node("prepare_one_symbol", node_prepare_one_symbol)
-    graph.add_node("store_per_symbol_result", node_store_per_symbol_result)
+    per_symbol_subgraph = build_per_symbol_subgraph(mode)
+    graph.add_node("per_symbol_debate", per_symbol_subgraph)
+
     graph.add_node("aggregate_results", node_aggregate_results)
-
-    graph.add_node("chain", node_chain)
-    graph.add_node("technical", node_technical)
-    graph.add_node("fundamental", node_fundamental)
-    graph.add_node("sentiment", node_sentiment)
-    graph.add_node("merge_research", node_merge_research)
-
-    graph.add_node("bullish_v1", node_bullish_v1)
-    graph.add_node("bearish_v1", node_bearish_v1)
-    graph.add_node("bearish_rebuttal", node_bearish_rebuttal)
-    graph.add_node("bullish_rebuttal", node_bullish_rebuttal)
-    graph.add_node("bear_final", node_bear_final)
-    graph.add_node("bull_final", node_bull_final)
-
-    graph.add_node("verdict", node_verdict)
-    graph.add_node("right_side_check", node_right_side_check)
-    graph.add_node("risk_check", node_risk_check)
-    graph.add_node("quality_inspect", node_quality_inspect)
     graph.add_node("report", node_report)
     graph.add_node("signal_output", node_signal_output)
 
-    # ── 入口边 ── 入口边 (load_cache → judge → per-symbol loop) ──
     graph.set_entry_point("load_cache")
     graph.add_edge("load_cache", "judge_direction")
-    graph.add_edge("judge_direction", "prepare_one_symbol")
-
-    # ── 四源并行 ──
-    p3_nodes = _get_p3_node_names(mode)
-    for node_name in p3_nodes:
-        graph.add_edge("prepare_one_symbol", node_name)
-        graph.add_edge(node_name, "merge_research")
-
-    # ── 辩论链条 ──
-    graph.add_conditional_edges("merge_research", route_after_merge_research, {
-        "bullish_v1": "bullish_v1", "verdict": "verdict",
-    })
-    graph.add_conditional_edges("bullish_v1", lambda s: "bearish_v1", {"bearish_v1": "bearish_v1"})
-    graph.add_conditional_edges("bearish_v1", lambda s: "bearish_rebuttal", {"bearish_rebuttal": "bearish_rebuttal"})
-    graph.add_conditional_edges("bearish_rebuttal", lambda s: "bullish_rebuttal", {"bullish_rebuttal": "bullish_rebuttal"})
-    graph.add_conditional_edges("bullish_rebuttal", lambda s: "bear_final", {"bear_final": "bear_final"})
-    graph.add_conditional_edges("bear_final", lambda s: "bull_final", {"bull_final": "bull_final"})
-    graph.add_conditional_edges("bull_final", lambda s: "verdict", {"verdict": "verdict"})
-
-    # ── 单品种收尾 + 质检 + 循环路由 ──
-    # Phase 3: verdict → right_side_check(G98) → risk_check → quality_inspect → (PASS → store / FAIL+重试<2 → 重修)
-    graph.add_edge("verdict", "right_side_check")
-    graph.add_edge("right_side_check", "risk_check")
-    graph.add_edge("risk_check", "quality_inspect")
-    graph.add_conditional_edges("quality_inspect", route_after_quality_inspect, {
-        "prepare_one_symbol": "prepare_one_symbol",
-        "store_per_symbol_result": "store_per_symbol_result",
-        "aggregate_results": "aggregate_results",
-    })
-    graph.add_conditional_edges("store_per_symbol_result", node_route_next_symbol, {
-        "prepare_one_symbol": "prepare_one_symbol",
-        "aggregate_results": "aggregate_results",
-    })
-
-    # ── 汇聚 → 报告 → 缓存写入 ──
+    graph.add_edge("judge_direction", "per_symbol_debate")
+    graph.add_edge("per_symbol_debate", "aggregate_results")
     graph.add_edge("aggregate_results", "report")
     graph.add_edge("report", "signal_output")
     graph.add_edge("signal_output", "update_cache")
     graph.add_edge("update_cache", END)
 
 
-# ==================== 公开构建函数 ====================
+# ═══════════════════════════════════════════════════════
+# 公开构建函数
+# ═══════════════════════════════════════════════════════
+
 
 def build_debate_graph(mode: str = "fast") -> StateGraph:
+    """构建辩论图（含 checkpointer）。"""
     graph = StateGraph(DebateState)
-    _register_per_symbol_loop(graph, mode)
+    _register_debate_graph(graph, mode)
 
     memory = _get_checkpointer()
     graph = graph.compile(checkpointer=memory)
@@ -422,14 +189,15 @@ def build_debate_graph_with_profile(profile: str = "default") -> StateGraph:
 
 
 def build_debate_graph_no_checkpoint(mode: str = "fast") -> StateGraph:
+    """构建辩论图（无 checkpointer）。"""
     graph = StateGraph(DebateState)
 
     direct_debate = os.environ.get("FDT_DIRECT_DEBATE", "").lower() == "true"
 
     if direct_debate:
-        _register_direct_debate_loop(graph, mode)
+        _register_direct_debate_graph(graph, mode)
     else:
-        _register_per_symbol_loop(graph, mode)
+        _register_debate_graph(graph, mode)
 
     graph = graph.compile()
     return graph

@@ -1,0 +1,14 @@
+name: ci
+description: "Commit 前质量门禁 — runtime + gate + meta，< 30s"
+includes:
+  - "runtime.*"
+  - "gate.*"
+  - "meta.*"
+excludes:
+  - "*.post_hoc.*"
+  - "*.evolution.*"
+options:
+  force: false
+  fail_fast: true
+  max_duration_ms: 30000
+  skip_high_cost: true

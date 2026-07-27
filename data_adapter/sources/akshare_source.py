@@ -521,7 +521,7 @@ class AKShareSource(FuturesDataSource):
         import akshare as ak
         import pandas as pd
 
-        max_retries = 3
+        max_retries = 2  # v9.12.0: 从3次减至2次（DCE WAF 防护导致重试无效，减少等待）
         for attempt in range(1, max_retries + 1):
             try:
                 # 交易所判断：尝试 SHFE → DCE → GFEX
@@ -548,7 +548,7 @@ class AKShareSource(FuturesDataSource):
                         logger.warning("[AKShareSource] %s zip 损坏(attempt %d/%d): %s",
                                        exchange, attempt, max_retries, e)
                         if attempt < max_retries:
-                            await asyncio.sleep(2 ** attempt)  # 指数退避 2s,4s,8s
+                            await asyncio.sleep(attempt)  # 线性退避 1s,2s（原指数退避 2s,4s→v9.12.0 缩短）
                         raise  # 抛到外层统一重试
                     except Exception as inner_e:
                         logger.warning("[AKShareSource] get_position_ranking 跳过 %s(attempt %d/%d): %s",

@@ -263,3 +263,91 @@ async def fetch_inventory_from_web(symbol: str) -> dict:
         logger.warning("[WebFallback] fetch_inventory(%s) 失败: %s", symbol, e)
     return _derived_dict({"symbol": bare, "inventory": None, "change": None},
                          f"{bare} 库存 Web 降级不可用")
+
+
+# ── ETF/股票 K 线 Web 降级（最后保底） ─────────────────
+
+
+async def fetch_equity_kline_from_web(symbol: str, days: int = 120) -> list:
+    """ETF/股票 K 线 Web 降级 — 直调东方财富 HTTP API，不依赖 AKShare。
+
+    当 AKShare 网络不可达时作为最后保底数据源。
+    返回 list[KlineBar] 格式列表，失败返回空列表。
+
+    Args:
+        symbol: 品种代码，如 "510300"
+        days: 需要的数据天数
+
+    Returns:
+        KlineBar 列表（data_grade=DERIVED），空列表表示完全失败
+    """
+    from data_adapter.types import KlineBar
+    from datetime import datetime, timedelta
+    import httpx
+
+    bare = symbol.replace(".SH", "").replace(".SZ", "").strip().upper()
+    market = "1" if bare.startswith(("5", "6")) else "0"
+    secid = f"{market}.{bare}"
+
+    url = (
+        f"https://push2.eastmoney.com/api/qt/stock/kline/get"
+        f"?secid={market}.{bare}"
+        f"&fields1=f1,f2,f3,f4,f5,f6"
+        f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58"
+        f"&klt=101&fqt=1"
+        f"&end=20500101"
+        f"&lmt={days + 30}"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://quote.eastmoney.com/",
+            })
+            if resp.status_code != 200:
+                logger.warning("[WebFallback] 东方财富 K线 HTTP %s (%s)", resp.status_code, bare)
+                return []
+
+            raw = resp.json()
+            data_raw = raw.get("data")
+            if not data_raw:
+                return []
+
+            klines = data_raw.get("klines", [])
+            if not klines:
+                return []
+
+        bars = []
+        for item in klines[-days:]:
+            parts = item.split(",")
+            if len(parts) < 6:
+                continue
+            try:
+                date_str = parts[0].strip().replace("-", "").replace("/", "")[:8]
+                if not date_str.isdigit():
+                    continue
+                bar = KlineBar(
+                    date=date_str,
+                    open=float(parts[1]) if parts[1] != "-" else 0,
+                    close=float(parts[2]) if parts[2] != "-" else 0,
+                    high=float(parts[3]) if parts[3] != "-" else 0,
+                    low=float(parts[4]) if parts[4] != "-" else 0,
+                    volume=float(parts[5]) if parts[5] != "-" else 0,
+                    open_interest=0.0,
+                )
+                if bar.close > 0:
+                    bars.append(bar)
+            except (ValueError, IndexError):
+                continue
+
+        if bars:
+            logger.info("[WebFallback] 东方财富 K线 降级成功(%s) -> %d bars", bare, len(bars))
+        else:
+            logger.warning("[WebFallback] 东方财富 K线 解析为空(%s)", bare)
+
+        return bars
+
+    except Exception as e:
+        logger.warning("[WebFallback] fetch_equity_kline(%s) 异常: %s", bare, e)
+        return []

@@ -1,0 +1,124 @@
+# ============================================================
+# FDT Loop Contract: confidence-calibration
+# ============================================================
+# 置信度校准闭环 — 对比 LLM 置信度 vs 实际准确率，自动校准
+# 版本: v1.0.0
+# 验证档位: L2 (test_suite)
+# 权限档位: Draft (写 ConfigStore)
+# ============================================================
+
+loop:
+  id: confidence-calibration
+  name: 置信度校准闭环
+  version: v1.0.0
+  type: Data-Triggered
+  description: >
+    按品种统计历史裁决的置信度与实际准确率的偏差，
+    自动计算 confidence_offset，写入 ConfigStore。
+    校准目标是使置信度与准确率一致（偏差 < 5%）。
+
+# ============================================================
+# 1. TRIGGER — 触发条件
+# ============================================================
+trigger:
+  primary:
+    type: data
+    condition: >
+      按品种统计: n_validations >= 20
+      AND 最近一次 calibration_error > 0.05
+  secondary:
+    - type: pipeline
+      step: "eval-feedback"        # 随反馈闭环一同触发
+    - type: manual
+      command: "python scripts/calibration/run_calibration.py --symbol all"
+  fallback: manual
+
+# ============================================================
+# 2. SCOPE — 作用范围
+# ============================================================
+scope:
+  allow:
+    - "memory/validations/"         # 读取：history裁决结果
+    - "fdt_eval/feedback/_config/"  # 写入：confidence_offset
+    - "fdt_eval/profiles/weight_history.json"  # 写入：校准历史
+    - "fdt_eval/feedback/config_store.py"       # 读取：当前配置
+  deny:
+    - "fdt_langgraph/"              # 禁止修改辩论图
+    - "agents/"                     # 禁止修改 Agent prompt
+    - "skills/"                     # 禁止修改技能定义
+
+# ============================================================
+# 3. ACTION — 具体行为
+# ============================================================
+action:
+  mode: sequential
+  pipeline:
+    - step: read_followup
+      module: "fdt_eval.feedback.parameter_tuner.ParameterTuner._default_followup_path"
+      timeout: 10s
+      description: "读取 execution_followup.json"
+    - step: aggregate_by_symbol
+      module: "fdt_eval.feedback.parameter_tuner.ParameterTuner.tune"
+      timeout: 20s
+      description: "按品种聚合置信度 vs 准确率"
+    - step: compute_offset
+      formula: "offset = clamp(avg_conf - accuracy, -0.3, 0.3)"
+      timeout: 5s
+      description: "计算 confidence_offset = 偏差的反向修正"
+    - step: update_config
+      module: "fdt_eval.feedback.config_store.ConfigStore.update"
+      timeout: 5s
+      description: "写入 confidence_offset"
+
+# ============================================================
+# 4. BUDGET — 预算红线
+# ============================================================
+budget:
+  max_duration: 30s
+  max_files: 5
+  max_config_writes: 20
+  retry:
+    max_attempts: 2
+    backoff: fixed
+    initial_delay: 1s
+
+# ============================================================
+# 5. STOP — 停止条件
+# ============================================================
+stop:
+  completion:
+    - all_symbols_calibrated        # 所有满足 N>=20 的品种已校准
+    - config_updated                # confidence_offset 已持久化
+  safety:
+    - max_duration_exceeded
+    - no_followup_data
+    - offset_out_of_range           # offset > 0.3 触发人工审查
+  graceful_shutdown:
+    - partial_symbols               # 已完成部分品种的校准已保存
+
+# ============================================================
+# 6. VERIFICATION — 验证
+# ============================================================
+verification:
+  mode: L2
+  test_suite: "tests/fdt_eval_feedback/test_feedback.py::TestParameterTuner"
+  test_count: 3
+  validation:
+    confidence_offset: [-0.3, 0.3]
+    calibration_error_target: "< 5%"
+    min_samples: 20
+
+# ============================================================
+# 7. REPORT — 上报通道
+# ============================================================
+report:
+  success:
+    console: true
+    config_store: true
+    summary: "置信度校准: N 品种, avg_delta=X%"
+  failure:
+    console: true
+    log_level: WARNING
+    escalation:
+      - condition: offset_out_of_range
+        target: "docs/harness/08-gap-analysis.md"

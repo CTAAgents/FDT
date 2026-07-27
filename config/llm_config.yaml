@@ -50,3 +50,7 @@ per_agent:
 
   datatech:
     temperature: 0.3
+
+  self_refine_critic:
+    temperature: 0.2          # 审查需要最低温度，保证一致性
+    max_tokens: 1024
