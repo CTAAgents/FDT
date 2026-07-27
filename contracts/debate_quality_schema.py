@@ -78,7 +78,7 @@ VERDICT_RULES = {
     "conditional_required": {           # 仅在非 neutral 方向时必填
         "fields": ["entry_price", "stop_loss_price", "target_price"],
         "condition_key": "direction",
-        "condition_values": ["bull", "bear"],
+        "condition_values": ["bull", "bear", "bullish", "bearish"],
     },
     "market_type_conditional": {        # GAP-012: 按市场类型条件必填
         "contract": {                   # contract 仅期货类品种必填
@@ -99,7 +99,7 @@ VERDICT_RULES = {
         "reason": str,
         "contract": str,
     },
-    "direction_valid": ["bull", "bear", "neutral"],
+    "direction_valid": ["bull", "bear", "neutral", "bullish", "bearish"],
     "entry_stop_min_spacing_pct": 0.3,    # 入场与止损最小间距 0.3%
     "take_profit_min_ratio": 1.2,          # 最小盈亏比 1.2
     "stop_loss_max_pct": {                 # GAP-012: 按市场类型差异化

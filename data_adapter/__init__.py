@@ -1,7 +1,7 @@
 """数据适配层 — 数据源插座路由入口。
 
 环境变量 FDT_DATA_SOURCE 控制当前使用的数据源：
-  - "akshare" (默认): AKShareSource（期货 + A 股基本）
+  - "akshare" (默认): AKShareSource（期货）+ MCPEquitySource（权益/ETF）
   - "tencent": TencentStockSource（腾讯自选股 — A 股/ETF 首选）
 
 所有接口均为 async 函数，直接调用即可，不关心底层数据源实现。
@@ -45,11 +45,42 @@ def _get_source() -> DataSource:
     return _DATA_SOURCE
 
 
+# ── 权益类数据源（ETF/股票/REITs/可转债专用，独立于期货管线） ──
+
+_EQUITY_SOURCE: Optional["MCPEquitySource"] = None
+
+
+def _get_equity_source():
+    """获取 MCPEquitySource 实例（懒加载单例）。
+
+    三层降级: iFinD MCP → Wind MCP → Westock CLI → Web HTTP
+    当 MCP 全部不可达时降级到 AKShareEquitySource + Web HTTP。
+    """
+    global _EQUITY_SOURCE
+    if _EQUITY_SOURCE is None:
+        try:
+            from data_adapter.sources.mcp_equity_source import MCPEquitySource
+            _EQUITY_SOURCE = MCPEquitySource()
+        except Exception:
+            from data_adapter.sources.akshare_equity import AKShareEquitySource
+            _EQUITY_SOURCE = AKShareEquitySource()
+    return _EQUITY_SOURCE
+
+
 # ── 通用接口 ──
 
 
 async def get_kline(symbol: str, period: str = "daily", days: int = 120) -> KlineResult:
-    """获取 K 线数据。"""
+    """获取 K 线数据。
+
+    ETF/股票/REITs/可转债 使用 MCPEquitySource（iFinD→Wind→Westock→Web HTTP 四层降级），
+    期货品种使用主数据源（AKShareSource/TencentStockSource）。
+    """
+    from data_adapter.instrument_classifier import classify, MarketType
+    mt = classify(symbol)
+    equity_types = (MarketType.ETF, MarketType.STOCK, MarketType.REIT, MarketType.CONVERTIBLE_BOND)
+    if mt in equity_types:
+        return await _get_equity_source().get_kline(symbol, period, days)
     return await _get_source().get_kline(symbol, period, days)
 
 
@@ -78,25 +109,25 @@ async def get_macro_rate() -> dict:
 
 async def get_financials(symbol: str) -> dict:
     """获取财务报表核心指标。"""
-    src = _get_source()
-    if hasattr(src, "get_financials"):
-        return await src.get_financials(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_financials"):
+        return await eq.get_financials(symbol)
     return {"symbol": symbol, "data_grade": "UNAVAILABLE", "note": "当前数据源不支持"}
 
 
 async def get_dividend(symbol: str) -> dict:
     """获取分红记录。"""
-    src = _get_source()
-    if hasattr(src, "get_dividend"):
-        return await src.get_dividend(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_dividend"):
+        return await eq.get_dividend(symbol)
     return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
 
 
 async def get_north_flow(symbol: str) -> dict:
     """获取北向资金流向。"""
-    src = _get_source()
-    if hasattr(src, "get_north_flow"):
-        result = await src.get_north_flow(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_north_flow"):
+        result = await eq.get_north_flow(symbol)
         if result.get("data_grade") != "UNAVAILABLE":
             return result
     from data_adapter.sources.web_data_fetcher import fetch_north_flow_from_web
@@ -105,25 +136,25 @@ async def get_north_flow(symbol: str) -> dict:
 
 async def get_etf_nav(symbol: str) -> dict:
     """获取 ETF 净值。"""
-    src = _get_source()
-    if hasattr(src, "get_etf_nav"):
-        return await src.get_etf_nav(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_etf_nav"):
+        return await eq.get_etf_nav(symbol)
     return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
 
 
 async def get_etf_constituents(symbol: str) -> dict:
     """获取 ETF 成分股。"""
-    src = _get_source()
-    if hasattr(src, "get_etf_constituents"):
-        return await src.get_etf_constituents(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_etf_constituents"):
+        return await eq.get_etf_constituents(symbol)
     return {"symbol": symbol, "data_grade": "UNAVAILABLE"}
 
 
 async def get_etf_premium(symbol: str) -> dict:
     """获取 ETF 溢价率。"""
-    src = _get_source()
-    if hasattr(src, "get_etf_premium"):
-        result = await src.get_etf_premium(symbol)  # type: ignore
+    eq = _get_equity_source()
+    if hasattr(eq, "get_etf_premium"):
+        result = await eq.get_etf_premium(symbol)
         if result.get("data_grade") != "UNAVAILABLE":
             return result
     from data_adapter.sources.web_data_fetcher import fetch_etf_premium_from_web

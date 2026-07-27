@@ -282,6 +282,13 @@ async def node_verdict(state: DebateState) -> DebateState:
             for sym in symbols:
                 sym_key = sym.upper()
                 sv = per_symbol.get(sym_key, per_symbol.get(sym, {}))
+                # 前缀模糊匹配：LLM 可能输出 "SM" 但系统符号是 "SM2409"
+                if not isinstance(sv, dict) or not sv.get("direction"):
+                    for ps_key in per_symbol:
+                        ps_upper = ps_key.upper()
+                        if sym_key.startswith(ps_upper) or ps_upper.startswith(sym_key):
+                            sv = per_symbol[ps_key]
+                            break
                 if isinstance(sv, dict) and sv.get("direction"):
                     sv.setdefault("entry_price", sv.get("price", 0))
                     sv.setdefault("stop_loss_price", sv.get("stop_loss", 0))
@@ -784,10 +791,15 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
             "completed_phases": state["completed_phases"] + ["P3.5"],
         }
 
-    # ── 质检裁决 ──
-    verdict = state.get("verdict")
-    if verdict and isinstance(verdict, dict) and verdict.get("direction"):
-        vr_report = validate_verdict(verdict)
+    # ── 质检裁决：传入 per-symbol dict 而非顶层 verdict（修复数据层级不匹配 Bug ──
+    verdict = state.get("verdict", {})
+    per_sym_verdict = {}
+    if verdict and isinstance(verdict, dict):
+        ps = verdict.get("per_symbol", {})
+        # 优先精确匹配，再尝试大写匹配
+        per_sym_verdict = ps.get(current_sym) or ps.get(current_sym.upper()) or {}
+    if per_sym_verdict:
+        vr_report = validate_verdict(per_sym_verdict)
     else:
         vr_report = {"status": "SKIP", "issues": [], "passed": 0, "failed": 0, "skipped": 1}
 
@@ -856,13 +868,17 @@ async def node_quality_inspect(state: DebateState) -> DebateState:
 
 
 async def node_store_per_symbol_result(state: DebateState) -> DebateState:
-    """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引"""
+    """P4-per-symbol: 将当前品种的裁决/风控结果存入 per_symbol_results，递增索引
+    
+    G-质检FAIL 修复: 当 quality_report status=FAIL 且重试已耗尽(>=2)时，
+    强制将裁决方向设为 neutral 并清空交易参数，避免 FAIL 数据流入最终报告。
+    """
     symbols = state.get("_original_symbols", [])
     current_sym_idx = state.get("symbol_index", 0)
 
     # G19 修复: 使用 _original_symbols[idx] 替代 selected_symbols[0]，避免空列表越界
     if not symbols or current_sym_idx < 0 or current_sym_idx >= len(symbols):
-        logger.warning("G19 修复: node_store_per_symbol_result 无有效品种(symbols=%s, idx=%s)，跳过存储", symbols, current_sym_idx)
+        logger.warning("G19 修复: node_store_per_symbol_result 无有效品种(symbols=%s, idx=%s)", symbols, current_sym_idx)
         return {
             **state,
             "symbol_index": current_sym_idx + 1,
@@ -871,6 +887,33 @@ async def node_store_per_symbol_result(state: DebateState) -> DebateState:
         }
 
     current_sym = symbols[current_sym_idx]
+
+    # ── G-质检FAIL 修复: 如果质检 FAIL 且重试已耗尽，强制清空交易参数 ──
+    quality_report = state.get("quality_report", {})
+    verdict = state.get("verdict", {})
+    if quality_report and quality_report.get("status") == "FAIL":
+        retries = state.get("rework_counters", {}).get(current_sym, 0)
+        if retries >= 2:
+            logger.warning(
+                "[G-质检FAIL] %s 质检FAIL且重试耗尽(%d/2)，强制清空交易参数",
+                current_sym, retries,
+            )
+            # 将 per_symbol 中的各品种方向设为 neutral
+            per_symbol = verdict.get("per_symbol", {})
+            if per_symbol:
+                for sym, sv in per_symbol.items():
+                    if isinstance(sv, dict):
+                        sv["direction"] = "neutral"
+                        sv["entry_price"] = None
+                        sv["stop_loss_price"] = None
+                        sv["target_price"] = None
+                        sv["position_pct"] = 0
+                        sv["grade"] = "INFO"
+                        sv["_quality_fail_override"] = True
+                verdict["per_symbol"] = per_symbol
+            # 整体方向也用 neutral
+            verdict["direction"] = "neutral"
+            verdict["confidence"] = 0.0
 
     # 收集本品种的关键数据
     per_symbol = dict(state.get("per_symbol_results", {}))

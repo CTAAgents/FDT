@@ -203,7 +203,12 @@ def _render_factor_section(state: dict, sym: str) -> str:
         parts.append('<div class="info-card"><div class="head">Refined Factors (P3 Fusion)</div><table style="width:100%;font-size:0.82rem;"><tr><th>Source</th><th>Dir</th><th>Str</th><th>Reasoning</th></tr>' + "".join(refined_rows) + '</table></div>')
     if parts:
         return '<div class="info-grid">' + "".join(parts) + '</div>'
-    return ""
+        # 因子数据为空时仍输出占位章节，确保报告中出现 P2.5 因子面板
+    fallback_msg = "暂无量价因子信号（K线数据已通过 Wind MCP 获取，FactorCollector 未生成因子信号）"
+    return (f'<div class="info-grid"><div class="info-card"><div class="head">因子看板 (P2.5)</div>'
+            f'<table style="width:100%;font-size:0.82rem;"><tr><th>Factor</th><th>Signal</th></tr>'
+            f'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:12px;">{fallback_msg}</td></tr>'
+            '</table></div></div>')
 
 def _build_body_sections(state: dict) -> str:
     """内部函数：从 state 生成单品种 body HTML（章节部分）"""
@@ -764,6 +769,8 @@ def _build_body_sections(state: dict) -> str:
             + "\n".join(trace_items) +
             f'</div>\n'
         )
+    radar_html = _render_judge_radar(state, sym)
+    verdict_html += f'<div style="margin-top:14px;">{radar_html}</div>'
     sections.append(("P4 闫判官 · 终裁与交易参数", verdict_html, dir_color))
 
     # P5 风控 — risk-box 组件
@@ -792,6 +799,7 @@ def _build_body_sections(state: dict) -> str:
         "P1.5 链证源 · 产业链分析": "p1_5-chain",
         "P2 观澜 · 技术面": "p2-tech",
         "P3 探源 · 基本面": "p3-fund",
+        "P2.5 Factor Signals": "p2_5-factors",
         "P3 读心 · 新闻情绪": "p3-sent",
         "P3 六阶段辩论 · 多空攻防": "p3-debate",
         "P3.5 品藻 · 辩论质检": "p3_5-quality",
@@ -813,6 +821,113 @@ def _build_body_sections(state: dict) -> str:
         )
 
     return body_html
+
+
+def _render_judge_radar(state: dict, sym: str) -> str:
+    """生成多维研判雷达图（纯 SVG 内联，零外部依赖）。"""
+    sym_u = sym.upper()
+    N = 5
+    cx, cy = 120, 120
+    R = 100
+    radii = [0.2, 0.4, 0.6, 0.8, 1.0]
+
+    default_score = 5.0
+    dims = [
+        ("技术面", default_score, "#c44536"),
+        ("基本面", default_score, "#2b6c7e"),
+        ("情绪面", default_score, "#c49a2b"),
+        ("估值面", default_score, "#2d7d4f"),
+        ("动量",   default_score, "#7c3aed"),
+    ]
+    has_data = False
+
+    td = state.get("technical_data") or {}
+    ts = (td.get("per_symbol") or {}).get(sym, (td.get("per_symbol") or {}).get(sym_u, {}))
+    if isinstance(ts, dict) and ts.get("refined_factor"):
+        d = ts["refined_factor"].get("direction", 0)
+        s = ts["refined_factor"].get("strength", 0.5)
+        dims[0] = ("技术面", max(0.5, min(9.5, 5.0 + d * s * 5.0)), "#c44536")
+        has_data = True
+
+    fd = state.get("fundamental_data") or {}
+    rfs = (fd.get("refined_factors") or {})
+    rfsym = rfs.get(sym, rfs.get(sym_u, {}))
+    if isinstance(rfsym, dict) and rfsym.get("direction") is not None:
+        d = rfsym.get("direction", 0)
+        s = rfsym.get("strength", 0.5)
+        dims[1] = ("基本面", max(0.5, min(9.5, 5.0 + d * s * 5.0)), "#2b6c7e")
+        has_data = True
+
+    sd = state.get("sentiment_data") or {}
+    ss = (sd.get("per_symbol") or {}).get(sym, (sd.get("per_symbol") or {}).get(sym_u, {}))
+    if isinstance(ss, dict) and ss.get("refined_factor"):
+        d = ss["refined_factor"].get("direction", 0)
+        s = ss["refined_factor"].get("strength", 0.5)
+        dims[2] = ("情绪面", max(0.5, min(9.5, 5.0 + d * s * 5.0)), "#c49a2b")
+        has_data = True
+
+    import math
+    def polar(i, r):
+        angle = -90 + i * 360 / N
+        rad = angle * math.pi / 180
+        return cx + r * R * math.cos(rad), cy + r * R * math.sin(rad)
+
+    def path_str(pts):
+        return "M " + " ".join(f"{x:.1f},{y:.1f}" for x, y in pts) + " Z"
+
+    opacity = "0.25" if not has_data else "0.45"
+    fill_op = "0.05" if not has_data else "0.15"
+    stroke_op = "0.2" if not has_data else "0.8"
+
+    lines = []
+    lines.append(f'<svg width="240" height="260" viewBox="0 0 240 280" style="display:block;margin:0 auto;">')
+
+    for r in radii:
+        pts = [polar(i, r) for i in range(N)]
+        lines.append(f'<polygon points="{path_str(pts)}" fill="var(--bg,#f4f2ed)" stroke="var(--rule,#d8d6d0)" stroke-width="0.5" opacity="{opacity}"/>')
+
+    for i in range(N):
+        x, y = polar(i, 1.0)
+        lines.append(f'<line x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}" stroke="var(--rule,#d8d6d0)" stroke-width="0.5" opacity="{opacity}"/>')
+
+    for i, (label, score, color) in enumerate(dims):
+        x, y = polar(i, 1.15)
+        anchor = "end" if i == 0 and x < cx else "start" if i == 0 else "start" if i == 2 and x > cx else "end" if i == 2 else "middle"
+        lines.append(f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" dy="4" font-size="10" font-weight="600" fill="var(--muted,#6b6b72)">{label}</text>')
+
+    data_pts = [polar(i, dims[i][1] / 10.0) for i in range(N)]
+    lines.append(f'<polygon points="{path_str(data_pts)}" fill="var(--accent2,#2b6c7e)" fill-opacity="{fill_op}" stroke="var(--accent2,#2b6c7e)" stroke-width="2" stroke-opacity="{stroke_op}"/>')
+
+    for i, (label, score, color) in enumerate(dims):
+        x, y = polar(i, score / 10.0)
+        lines.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="{color}" stroke="#fff" stroke-width="1.5"/>')
+        lx, ly = polar(i, score / 10.0 + 0.12)
+        lines.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dy="-4" font-size="9" font-weight="700" fill="{color}">{score:.1f}</text>')
+
+    lines.append('</svg>')
+
+    svg_html = "\n".join(lines)
+
+    status = "实时" if has_data else "模拟"
+    status_dot = f'<span style="color:var(--green);">\u25cf </span>' if has_data else ""
+
+    legend = "".join(
+        f'<span style="font-size:0.7rem;color:var(--muted);display:inline-flex;align-items:center;gap:4px;">'
+        f'<span style="width:8px;height:8px;border-radius:2px;background:{color};display:inline-block;"></span>'
+        f'{label} {score:.1f}</span>'
+        for label, score, color in dims
+    )
+
+    return (
+        f'<div class="radar-card">'
+        f'<div class="head" style="display:flex;justify-content:space-between;align-items:center;">'
+        f'<span>\u591a\u7ef4\u7814\u5224\u96f7\u8fbe</span>'
+        f'<span style="font-size:0.65rem;color:var(--muted);">{status_dot}{status}\u6570\u636e</span></div>'
+        + svg_html +
+        f'<div class="radar-legend" style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:4px 0 0;">'
+        + legend +
+        '</div></div>'
+    )
 
 
 def generate(state: dict) -> str:
