@@ -5,7 +5,7 @@
 > **v10.1.2** (2026-07-25): `P0b` 新鲜度闸门新增 `FDT_BYPASS_FRESHNESS_GATE` 环境变量绕过开关。
 > **v10.1.3** (2026-07-25): 导航栏简化：只保留品种和汇总链接。
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。
-> **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易铁律文档化。
+> **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易建议文档化。
 > **v0.10.8** (2026-07-26): 新增 G98 右侧交易校验节点 `node_right_side_check()`，插入 verdict→risk_check 之间。
 > **v0.10.9** (2026-07-26): GAP-006 多品种辩论隔离 — `state.py` 用 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。
 > **v0.13.0** (2026-07-26): P4 逐品种辩论子图重构 — 将 16 个 P4 辩论节点提取为独立子图 `per_symbol_graph.py`。新增 `_routing.py` 打破循环导入。主图节点从 23 降至 8。修复直接辩论模式缺 judge_direction bug。子图带 `@lru_cache` 编译缓存。
@@ -285,10 +285,10 @@ scan → judge_direction → prepare_one_symbol(品种0)
     │  · 文件: data_adapter/sources/akshare_source.py get_price_adjustment()
     │
     ▼
-[P4-L0 右侧交易校验] G98: node_right_side_check()
+[P4-L0 右侧交易建议标记] G98: node_right_side_check()
     │  · MA5 vs MA20 判定短期趋势
     │  · 反趋势方向时检查最近 3 根 K 线是否突破 MA20
-    │  · 趋势结构未破坏 → direction=neutral, grade=INFO, 清空交易参数
+    │  · 趋势结构未破坏 → 附加 right_side_warning 标记，由判官自行判断
     │  · 文件: fdt_langgraph/_nodes_verdict.py node_right_side_check()
     │
     ▼

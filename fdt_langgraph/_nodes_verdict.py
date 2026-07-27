@@ -430,57 +430,50 @@ async def node_verdict(state: DebateState) -> DebateState:
 
 
 async def node_right_side_check(state: DebateState) -> DebateState:
-    """G98: 右侧交易校验 — 反趋势方向且趋势结构未破坏时降级为INFO。
+    """G98: 右侧交易建议标记 — 反趋势方向且趋势结构未破坏时标记提醒。
 
     如果裁决方向与短期趋势相反，且趋势结构未被破坏，
-    则将方向降级为 neutral（观望），清空入场/目标/止损参数。
+    则在裁决中附加 right_side_warning，由下游判官自行判断是否采纳。
 
     Returns:
-        DebateState，verdict 中的 per_symbol 可能被降级。
+        DebateState，verdict 中的 per_symbol 可能带 warning。
     """
     verdict = state.get("verdict", {})
     per_symbol = (verdict or {}).get("per_symbol", {})
     fdc_data = state.get("fdc_data", {}) or {}
-    downgraded_symbols = []
+    warned_symbols = []
 
     for sym_key, sv in per_symbol.items():
         if not isinstance(sv, dict):
             continue
         direction = sv.get("direction", "neutral")
         if direction in ("neutral", None, ""):
-            continue  # neutral 方向不检查
+            continue
 
-        # ── 从 FDC 数据确定短期趋势 ──
         sym_up = sym_key.upper()
         sd = fdc_data.get(sym_up) or fdc_data.get(sym_key) or {}
         bars = (sd.get("kline") or {}).get("bars", []) if sd else []
 
         if len(bars) < 20:
-            continue  # 数据不足，跳过检查
+            continue
 
         closes = [float(b.get("close", 0)) for b in bars[-20:]]
         ma5 = sum(closes[-5:]) / 5
         ma20 = sum(closes[-20:]) / 20
 
-        # ── 判断短期趋势方向 ──
         if ma5 > ma20 * 1.005:
-            trend = "bullish"  # 多头排列
+            trend = "bullish"
         elif ma5 < ma20 * 0.995:
-            trend = "downtrend"  # 空头排列
+            trend = "downtrend"
         else:
-            continue  # 粘合无趋势，跳过
+            continue
 
-        # ── 检查是否反趋势 ──
         is_counter_trend = (direction == "bearish" and trend == "bullish") or \
                            (direction == "bullish" and trend == "downtrend")
 
         if not is_counter_trend:
-            continue  # 顺趋势或横盘，通过
+            continue
 
-        # ── 检查趋势结构是否被破坏 ──
-        # 趋势未破坏 = 最近 N 根 K 线未突破趋势线
-        # 多头趋势: 无收盘价 < MA20
-        # 空头趋势: 无收盘价 > MA20
         structure_broken = False
         for b in bars[-3:]:
             c = float(b.get("close", 0))
@@ -492,47 +485,23 @@ async def node_right_side_check(state: DebateState) -> DebateState:
                 break
 
         if structure_broken:
-            continue  # 趋势结构已破坏，放行
+            continue
 
-        # ── 趋势结构未破坏 + 反趋势 → 降级为 INFO ──
-        sv["direction"] = "neutral"
-        sv["grade"] = "INFO"
-        sv["entry_price"] = None
-        sv["stop_loss_price"] = None
-        sv["target_price"] = None
-        sv["position_pct"] = 0
-        sv["right_side_downgraded"] = True
-        sv["right_side_reason"] = (
-            f"反趋势方向被右侧交易铁律降级：裁决方向={direction}，"
+        # ── 反趋势 + 结构未破坏 → 附加建议标记（不强制修改方向）──
+        sv["right_side_warning"] = True
+        sv["right_side_note"] = (
+            f"右侧交易建议：裁决方向={direction}，"
             f"短期趋势={'多头' if trend == 'bullish' else '空头'}（MA5={ma5:.2f}, MA20={ma20:.2f}），"
-            f"趋势结构未破坏，仅允许 INFO（仅供关注）。"
+            f"趋势结构未破坏。建议关注结构确认后再执行。"
         )
-        downgraded_symbols.append(sym_key)
+        warned_symbols.append(sym_key)
         logger.info(
-            "[G98] %s 右侧交易降级: %s → neutral (趋势=%s, MA5=%.2f, MA20=%.2f)",
+            "[G98] %s 右侧交易提醒: %s (趋势=%s, MA5=%.2f, MA20=%.2f)",
             sym_key, direction, trend, ma5, ma20,
         )
 
-    if downgraded_symbols:
-        logger.warning("[G98] 右侧交易降级品种: %s", downgraded_symbols)
-
-    # 如果整体方向由被降级品种主导，调整 overall
-    if verdict and downgraded_symbols:
-        remaining_directions = [
-            v.get("direction", "neutral") for v in per_symbol.values()
-            if isinstance(v, dict) and not v.get("right_side_downgraded", False)
-        ]
-        if remaining_directions:
-            bull_count = sum(1 for d in remaining_directions if d == "bullish")
-            bear_count = sum(1 for d in remaining_directions if d == "bearish")
-            if bull_count > bear_count:
-                verdict["direction"] = "bullish"
-            elif bear_count > bull_count:
-                verdict["direction"] = "bearish"
-            else:
-                verdict["direction"] = "neutral"
-        else:
-            verdict["direction"] = "neutral"
+    if warned_symbols:
+        logger.info("[G98] 右侧交易建议标记品种: %s", warned_symbols)
 
     new_phases = state["completed_phases"] + ["P4_right_side_check"]
     return {
