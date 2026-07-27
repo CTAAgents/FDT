@@ -572,6 +572,7 @@ async def node_risk_check(state: DebateState) -> DebateState:
         if parsed.get("success"):
             risk_check = parsed["data"]
             risk_check["approval"] = "已通过" if risk_check.get("approved", True) else "未通过"
+            risk_check["approval"] = "已通过" if risk_check.get("approved", True) else "未通过"
         else:
             risk_check = {"approved": True, "approval": "已通过", "risk_level": "low", "risk_color": "yellow", "warnings": [f"LLM解析失败: {parsed.get('errors', [])}"]}
     except Exception as e:
@@ -647,38 +648,38 @@ async def node_risk_check(state: DebateState) -> DebateState:
         else:
             signal_output["message"] = f"风控{risk_color}通过阈值{threshold}，无评分≥60的强信号"
 
-        # ── Dynamic parameter calculation from ConfigStore with fallback ──
-        _symbol_ = best_buy["symbol"] if best_buy else best_sell["symbol"]
-        _entry_ = best_buy["entry_price"] if best_buy else best_sell["entry_price"]
-        _raw_conf_ = min(1.0, (best_buy if best_buy else best_sell)["score"] / 100)
-        _atr_ = state.get("scan_results", {}).get("atr", 0) or 0
+        if best_buy or best_sell:
+            _symbol_ = best_buy["symbol"] if best_buy else best_sell["symbol"]
+            _entry_ = best_buy["entry_price"] if best_buy else best_sell["entry_price"]
+            _raw_conf_ = min(1.0, (best_buy if best_buy else best_sell)["score"] / 100)
+            _atr_ = state.get("scan_results", {}).get("atr", 0) or 0
 
-        _cfg_pos_pct = 3
-        _cfg_stop_mult = 0.97
-        _cfg_target_mult = 1.05
-        if best_buy:
+            _cfg_pos_pct = 3
             _cfg_stop_mult = 0.97
             _cfg_target_mult = 1.05
-        elif best_sell:
-            _cfg_stop_mult = 1.03
-            _cfg_target_mult = 0.95
+            if best_buy:
+                _cfg_stop_mult = 0.97
+                _cfg_target_mult = 1.05
+            elif best_sell:
+                _cfg_stop_mult = 1.03
+                _cfg_target_mult = 0.95
 
-        try:
-            from fdt_eval.feedback.config_store import ConfigStore  # type: ignore[import-untyped]
-            _cs = ConfigStore()
-            if _cs.global_config.enabled:
-                _cfg_pos_pct = _cs.get_position_pct(_symbol_, _raw_conf_)
-                _stop_dist, _target_dist = _cs.get_stop_params(_symbol_, max(_atr_, _entry_ * 0.02))
-                if best_buy:
-                    _cfg_stop_mult = (_entry_ - _stop_dist) / _entry_
-                    _cfg_target_mult = (_entry_ + _target_dist) / _entry_
-                elif best_sell:
-                    _cfg_stop_mult = (_entry_ + _stop_dist) / _entry_
-                    _cfg_target_mult = (_entry_ - _target_dist) / _entry_
-        except ImportError:
-            pass  # fallback to hardcoded
-        except Exception:
-            pass  # fallback to hardcoded
+            try:
+                from fdt_eval.feedback.config_store import ConfigStore  # type: ignore[import-untyped]
+                _cs = ConfigStore()
+                if _cs.global_config.enabled:
+                    _cfg_pos_pct = _cs.get_position_pct(_symbol_, _raw_conf_)
+                    _stop_dist, _target_dist = _cs.get_stop_params(_symbol_, max(_atr_, _entry_ * 0.02))
+                    if best_buy:
+                        _cfg_stop_mult = (_entry_ - _stop_dist) / _entry_
+                        _cfg_target_mult = (_entry_ + _target_dist) / _entry_
+                    elif best_sell:
+                        _cfg_stop_mult = (_entry_ + _stop_dist) / _entry_
+                        _cfg_target_mult = (_entry_ - _target_dist) / _entry_
+            except ImportError:
+                pass  # fallback to hardcoded
+            except Exception:
+                pass  # fallback to hardcoded
 
         if best_buy:
             signal_output["signal"] = {

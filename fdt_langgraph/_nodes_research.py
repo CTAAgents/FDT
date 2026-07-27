@@ -12,7 +12,7 @@ from fdt_langgraph.agents import FdtAgentExecutor
 from fdt_langgraph.llm_provider import parse_llm_output
 from fdt_langgraph.state import DebateState
 from fdt_langgraph._nodes_utils import _ensure_llm_key, _import_from_skill, _import_skill_module, _normalize_per_symbol, _repair_json, _resolve_alias, _resolve_report_dir
-from fdt_langgraph._nodes_context import _build_fdc_technical_context, _build_market_fundamental_context
+from fdt_langgraph._nodes_context import _build_fdc_technical_context, _build_market_fundamental_context, _build_wind_context_block
 
 logger = logging.getLogger(__name__)
 
@@ -573,6 +573,7 @@ async def node_fundamental(state: DebateState) -> dict:
 {jin10_context}
 {hs_context}
 {nf_context}
+{_build_wind_context_block(state.get("wind_data"))}
 
 请先以 Markdown 格式逐品种分析（供需平衡、库存周期、利润开工率、基差期限结构、宏观联动），
 然后在最后一行单独输出 JSON 代码块，格式如下：
@@ -835,7 +836,8 @@ async def node_sentiment(state: DebateState) -> dict:
 - 事件类型：policy / supply_demand / macro / geopolitics / other
 - 越近的快讯权重越高（<1h:1.0, 1-4h:0.7, 4-24h:0.4, >24h:0.1）
 - 情绪偏离度 > 0.3 时标注（这是辩论最有价值的素材）
-- **Phase C: refined_factor -- core factor: sentiment. Output per-symbol refined_factor with direction/strength/confidence/source_factor=sentiment/reasoning**"""
+- **Phase C: refined_factor -- core factor: sentiment. Output per-symbol refined_factor with direction/strength/confidence/source_factor=sentiment/reasoning**
+{_build_wind_context_block(state.get("wind_data"))}"""
 
     result = await sentiment_agent.run(context, state["trace_id"])
 

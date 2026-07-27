@@ -1,6 +1,8 @@
 # 03 — 配置管理
 
 > **v0.12.1** (2026-07-27): 新增 `llm_config.yaml` — LLM 模型路由与参数配置。支持按模型名称(如 claude-3.7-sonnet)和角色两种维度配置 temperature/max_tokens/prompt 模板。原 decode_config.yaml 部分路由条目迁移至 llm_config.yaml。
+>
+> **v0.12.2** (2026-07-27): 新增 Wind 数据源配置 — `FDT_WIND_CACHE_TTL` / `FDT_WIND_CACHE_DIR`。新增 `WindSource` 适配器，通过 Wind MCP CLI 获取可转债估值/ETF持仓/宏观EDB/公告数据。
 
 ## 1. 配置文件清单
 
@@ -152,6 +154,8 @@ line-length = 120
 | `JIN10_MCP_URL` | `https://mcp.jin10.com/mcp` | 金十数据 MCP 服务地址 | `futures_data_core/f10/jin10_mcp.py` |
 | `JIN10_MCP_TOKEN` | (未设置) | 金十数据 MCP Bearer Token；设置后启用金十 MCP 快讯/资讯/日历数据 | `futures_data_core/f10/jin10_mcp.py` |
 | `FDT_MCP_TIMEOUT` | `30` | MCP 工具调用超时时间（秒） | `futures_data_core/mcp_client.py` |
+| `FDT_WIND_CACHE_TTL` | `43200` | Wind EDB 宏观数据缓存 TTL（秒，默认12小时） | `data_adapter/sources/wind_source.py` |
+| `FDT_WIND_CACHE_DIR` | `{FDT_ROOT}/data_adapter/.wind_cache` | Wind 数据缓存目录 | `data_adapter/sources/wind_source.py` |
 |
 | `SIGNAL_VALIDATOR_MAP` | `config/settings.py` | 信号验证器注册表: 按 signal_type 路由验证器, `__global__` 为列表级闸门 | `signals/validators/__init__.py` |
 | → `__global__` | `["data_quality", "crowding"]` | v9.12.0: 新增 `data_quality` 验证器 — D级降级NOISE/C级标记/dq_web_fallback | `signals/validators/data_quality.py` |

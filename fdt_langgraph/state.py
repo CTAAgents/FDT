@@ -60,6 +60,7 @@ class DebateState(TypedDict, total=False):
     fundamental_data: dict
     sentiment_data: Optional[dict]          # P3 新闻情绪分析（读心）
     research_data: Optional[dict]
+    wind_data: Optional[dict]               # GAP-015: Wind 补充数据（可转债估值/ETF持仓/宏观EDB/公告）
 
     # v9.0 多空头攻防模式 — 六阶段辩论
     # GAP-006: 使用 _debate_args_reducer 而非 operator.add，

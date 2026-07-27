@@ -143,7 +143,7 @@ async def self_refine(
     try:
         llm = FdtLlm("self_refine_critic")
         critic_prompt = build_critic_prompt(original_output, agent_role)
-        critic_raw = await llm.chat_json(critic_prompt, system="你是一个严格但公平的辩论质量审查员。")
+        critic_raw = llm.chat(critic_prompt, system="你是一个严格但公平的辩论质量审查员。")
     except Exception as e:
         logger.warning("[SelfRefine] Self-Critic 调用失败: %s", e)
         return {
@@ -175,7 +175,7 @@ async def self_refine(
         try:
             refine_prompt = build_refine_prompt(current_output, critic_result, agent_role)
             llm = FdtLlm(agent_role)
-            refine_raw = await llm.chat(refine_prompt, system=f"你是一位严谨的{agent_role}，正在修正你的分析。")
+            refine_raw = llm.chat(refine_prompt, system=f"你是一位严谨的{agent_role}，正在修正你的分析。")
             refined = _extract_refined_output(refine_raw)
             if refined and len(refined) > len(original_output) * 0.3:
                 current_output = refined

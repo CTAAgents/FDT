@@ -80,6 +80,14 @@ VERDICT_RULES = {
         "condition_key": "direction",
         "condition_values": ["bull", "bear"],
     },
+    "market_type_conditional": {        # GAP-012: 按市场类型条件必填
+        "contract": {                   # contract 仅期货类品种必填
+            "required_for": ["commodity_futures", "index_futures", "bond_futures"],
+        },
+        "position_pct": {              # position_pct 所有方向非 neutral 的类型均必填
+            "required_for_all_except": ["neutral"],
+        },
+    },
     "field_types": {
         "direction": str,
         "confidence": (int, float, str),
@@ -94,7 +102,16 @@ VERDICT_RULES = {
     "direction_valid": ["bull", "bear", "neutral"],
     "entry_stop_min_spacing_pct": 0.3,    # 入场与止损最小间距 0.3%
     "take_profit_min_ratio": 1.2,          # 最小盈亏比 1.2
-    "stop_loss_max_pct": 8.0,              # 止损最大幅度 8%
+    "stop_loss_max_pct": {                 # GAP-012: 按市场类型差异化
+        "commodity_futures": 8.0,
+        "index_futures": 8.0,
+        "bond_futures": 5.0,
+        "stock": 15.0,
+        "etf": 12.0,
+        "reit": 15.0,
+        "convertible_bond": 12.0,
+        "__default__": 8.0,
+    },
 }
 
 

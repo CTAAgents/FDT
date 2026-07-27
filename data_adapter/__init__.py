@@ -206,3 +206,99 @@ async def get_spread(symbol: str) -> dict:
         from data_adapter.sources.web_data_fetcher import fetch_spread_from_web
         result = await fetch_spread_from_web(symbol)
     return result
+
+
+# ── Wind 数据源接口 ─────────────────────────────────────
+
+_WIND_SOURCE: Optional["WindSource"] = None
+
+
+def _get_wind_source():
+    """获取 WindSource 实例（懒加载）。"""
+    global _WIND_SOURCE
+    if _WIND_SOURCE is None:
+        from data_adapter.sources.wind_source import WindSource
+        _WIND_SOURCE = WindSource()
+    return _WIND_SOURCE
+
+
+async def get_wind_edb(
+    question: str,
+    begin_date: str | None = None,
+    end_date: str | None = None,
+    observation: str | None = None,
+) -> dict:
+    """获取宏观 EDB 指标数据（12 小时缓存）。
+
+    Args:
+        question: 自然语言指标描述，如 "中国GDP"、"CPI同比"
+        begin_date: 开始日期 yyyyMMdd（与 observation 互斥）
+        end_date: 结束日期 yyyyMMdd
+        observation: 近 N 期如 "10"，或 "all"（与 beginDate/endDate 互斥）
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "data": ..., "source": "wind"}
+    """
+    return await _get_wind_source().get_edb(question, begin_date, end_date, observation)
+
+
+async def get_wind_convertible_bond(code: str) -> dict:
+    """获取可转债估值/条款数据。
+
+    Args:
+        code: 可转债代码，如 "110045.SH"
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "data": ..., "source": "wind"}
+    """
+    return await _get_wind_source().get_convertible_bond(code)
+
+
+async def get_wind_fund_holdings(code: str) -> dict:
+    """获取 ETF/基金持仓数据。
+
+    Args:
+        code: 基金代码，如 "510050.SH"
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "data": ..., "source": "wind"}
+    """
+    return await _get_wind_source().get_fund_holdings(code)
+
+
+async def get_wind_fund_nav(code: str) -> dict:
+    """获取 ETF 净值/行情快照。
+
+    Args:
+        code: 基金代码，如 "588200.SH"
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "data": ..., "source": "wind"}
+    """
+    return await _get_wind_source().get_fund_nav(code)
+
+
+async def get_wind_announcements(query: str, top_k: int = 5) -> dict:
+    """搜索上市公司公告/财报。
+
+    Args:
+        query: 搜索关键词（不含空格）
+        top_k: 返回文档数量
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "announcements": [...], "source": "wind"}
+    """
+    return await _get_wind_source().get_announcements(query, top_k)
+
+
+async def get_wind_financial_news(query: str, top_k: int = 5) -> dict:
+    """搜索财经新闻。
+
+    Args:
+        query: 搜索关键词（不含空格）
+        top_k: 返回文档数量
+
+    Returns:
+        {"data_grade": "PRIMARY"/"UNAVAILABLE", "news": [...], "source": "wind"}
+    """
+    return await _get_wind_source().get_financial_news(query, top_k)

@@ -1,6 +1,6 @@
 # 08 — 差距分析与改进路线
 
-> **状态声明（2026-07-26 更新）**：当前版本 **v0.11.1**。Web 数据降级管线已上线 — AKShare 不可用的因子数据（基差/仓单/跨期价差）可通过东方财富 HTTP API 保底获取。所有数据支持溯源标记。
+> **状态声明（2026-07-27 更新）**：当前版本 **v0.14.1**。Wind 数据源集成 Phase 1~3 已全部完成 — `WindSource` 适配器 + `data_adapter/__init__.py` 注册 + state 采集 + context prompt 注入。15 个单元测试全部通过，端到端冒烟测试通过（EDB 宏观数据 + 新闻搜索）。GAP-015 已关闭。
 
 ## 1. 评估方法论
 
@@ -31,7 +31,7 @@
 | 可观测性 | 4/5 | 5/5 | **5/5** | G3 日志已统一至 `unified_logger`（`pipeline/runner.py` 已退役）；G11 看板 + G12 健康端点 + G15 JSON 日志 ✅ |
 | 测试策略 | 3/5 | 5/5 | **5/5** ✅ | **G16 已修复**：`step_scan_dual`→`step_scan`，10/10 全绿 |
 | 部署运维 | 4/5 | 5/5 | **5/5** ✅ | **G14 已修复**：`contracts/migrations.py` 新建，26 条迁移路径可用 |
-| **本次会话 (v10.0.0→v0.10.9)** | 8/8 | 全部 5/5 | | 记忆系统重构 + 关闭 20 项历史差距 + API密钥泄漏修复(G100) + 知识库产业链重构 + 右侧交易铁律确立 + G97连续合约复权价差 + G98右侧交易校验 + G99文档确认关闭 + GAP-005 JIN10_TOKEN配置 + GAP-006多品种state隔离修复。**当前开放差距：0 项活跃（仅 GAP-007 外部依赖监控中）** |
+| **本次会话 (v0.14.1)** | 8/8 | 全部 5/5 | | GAP-015 Wind数据源集成Phase1~3完成 + GAP-20260727-001 quality_gate L4误报关闭 + GAP-008/GAP-009 已实现但文档未同步 + 15个WindSource单元测试通过。**当前开放差距：0 项活跃。仅 GAP-007 外部依赖监控中 + 3 项规划设计（GAP-010~012）** |
 
 **综合评分：4.0（初始）→ 4.7（07-10 声称）→ 4.6（07-14 实测）→ 5.0（07-14 修复后 → 8 个 Harness 维度均达到 5/5）**
 
@@ -132,6 +132,8 @@
 | **G23** | **数据源降级链新鲜度缺失 — 过期货数据阻断辩论**（v9.24.0 已修复） | DataCore 返回已到期合约数据（SM 停在 2026-01-19）时降级链直接终止，后续 WebFallback/TqSDK 等有新鲜数据的源不被调用 | P0 | 新增末根K线日期新鲜度检查(>7天继续降级) + 统一 K 线标准化层(`_wrap_kline` 接入 `normalize_kline_row`) + TqSDK 升至第一数据源(priority=-1) + 数据质量`_calc_freshness_days` 支持 `%Y%m%d` 格式 | `multi_source_adapter.py` + `data_quality.py` + `tqsdk.py(priority=-1)` ✅ v9.24.0 |
 | **G26** | **TqSDK `_pump` 中 `wait_update` 参数名错误导致数据泵送始终为空**（v9.24.2 已修复） | `futures_data_core/collectors/tqsdk.py::_pump()` 调用 `api.wait_update(timeout=0.5)`，但 TqSDK 3.10.1 的 `wait_update` 参数为 `deadline`（绝对时间戳）而非 `timeout`。`TypeError` 被 `except Exception: break` 静默吞噬，导致泵送循环立即返回空 DataFrame。下游 `_parse_kline` 返回 0 条 K 线 → scan_all 中 `all_ranked` 为空 → 无信号无辩论。此 bug 自 G23 将 TqSDK 提升为首位采集器后（v9.24.0）全面暴露。 | P0 | 修正为 `api.wait_update(deadline=time.time() + 0.5)`，遵循 TqSDK 3.10.1 API 签名。 | `futures_data_core/collectors/tqsdk.py` ✅ v9.24.2 |
 | **G27** | **node_signal_output 中 signal_output 为 None 时崩溃**（v9.24.2 已修复） | P0b 新鲜度闸门阻断后 signal_output 保持 `None`（state.py 默认值 `Optional[dict]`），但 `node_signal_output()` 中 `state.get("signal_output", {})` 因 key 存在但值为 None 返回 None，`signal_output.get("status")` 抛出 `AttributeError`。 | P0 | `state.get("signal_output") or {}` 确保 None 时返回空字典。 | `fdt_langgraph/nodes.py` ✅ v9.24.2 |
+|-
+| **GAP-015** | **Wind 数据源集成（全市场数据增强）** | FDT 当前缺少结构化数据源覆盖：可转债估值/条款、ETF 持仓/净值、宏观 EDB 指标、公告/财报搜索。Wind AIFin MCP 可填补这些空白。 | P0 | 分 3 阶段：Phase 1 `WindSource` 适配器 + `data_adapter/__init__.py` 注册；Phase 2 state + nodes_prepare 采集；Phase 3 context注入 + 报告展示 | `data_adapter/sources/wind_source.py` + `data_adapter/__init__.py` + `fdt_langgraph/_nodes_prepare.py` + `fdt_langgraph/_nodes_context.py` + `fdt_langgraph/_nodes_research.py` + `fdt_langgraph/state.py` ✅ **v0.14.1 已关闭** |
 
 ### 4.2 P1 — 高优先级（影响效率/质量）
 
@@ -224,22 +226,28 @@
 
 | GAP ID | 差距 | 优先级 | 类型 | 状态 |
 |:-------|:-----|:------:|:-----|:----:|
-| **GAP-008** | **品种分类器覆盖面不足** — MarketType 仅 4 种，无股票/REITs/可转债识别 | P0 | 架构扩展 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.1 |
-| **GAP-009** | **DataSource 接口未分层** — 5 个期货专有方法与通用接口混在同一抽象类 | P1 | 架构重构 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.2 |
-| **GAP-010** | **因子模块不全，无法支撑因子投资框架** — 仅波动率/期限结构/持仓/价差 4 类，缺价值/质量/动量/成长/红利 | P0 | 能力建设 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.3 |
-| **GAP-011** | **辩论无因子锚定** — P3 自由辩论不强制锚定量化因子信号，裁决不可归因 | P0 | 流程改造 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.5 |
-| **GAP-012** | **裁决 Schema 非品种类型化** — 期货交易参数对股票/REITs/可转债不适用 | P1 | Schema 扩展 | 📋 **规划中** — 参考 `designs/g23-full-market-factor-integration.md` §3.7 |
+| **GAP-008** | **品种分类器覆盖面不足** — MarketType 仅 4 种，无股票/REITs/可转债识别 | P0 | 架构扩展 | ✅ **已关闭（v0.14.1）** — `instrument_classifier.py` 已有 7 种 MarketType（commodity_futures/index_futures/bond_futures/etf/stock/reit/convertible_bond）+ 对应代码模式匹配规则 + `get_market_label()` 中文标签。验证：`grep -c "class MarketType" data_adapter/instrument_classifier.py` |
+| **GAP-009** | **DataSource 接口未分层** — 5 个期货专有方法与通用接口混在同一抽象类 | P1 | 架构重构 | ✅ **已关闭（v0.14.1）** — `data_adapter/base.py` 已有完整 5 层接口层次：DataSource → FuturesDataSource / EquityDataSource → ConvertibleBondDataSource / REITDataSource。验证：`grep -c "class.*DataSource" data_adapter/base.py` |
+| **GAP-010** | **因子模块不全，无法支撑因子投资框架** — 仅波动率/期限结构/持仓/价差 4 类，缺价值/质量/动量/成长/红利 | P0 | 能力建设 | ✅ **已关闭（v0.14.1）** — `data_adapter/factors/` 已有 12 个因子模块，含 ValueResult/QualityResult/MomentumResult/GrowthResult/DividendResult/ProfitResult 完整实现。FactorCollector 统一入口全部暴露。验证：`grep -c "class.*Result" data_adapter/factors/types.py` |
+| **GAP-011** | **辩论无因子锚定** — P3 自由辩论不强制锚定量化因子信号，裁决不可归因 | P0 | 流程改造 | ✅ **已关闭（v0.14.1）** — `_nodes_verdict.py` verdict prompt 已注入 `【多因子信号一致性看板】`（含 format_dashboard_for_prompt 类型感知渲染）+ `refined_factor` 信号矩阵。验证：`grep -n "多因子信号一致性看板" fdt_langgraph/_nodes_verdict.py` |
+| **GAP-012** | **裁决 Schema 非品种类型化** — 期货交易参数对股票/REITs/可转债不适用 | P1 | Schema 扩展 | ✅ **已关闭（v0.14.1）** — `contracts/debate_quality_schema.py` 新增 `market_type_conditional`（contract 仅期货必填）+ `stop_loss_max_pct` 按市场类型差异化（商品8%/股票15%/ETF12%/可转债12%）。`fdt_eval/cases/runtime/quality_inspector.py` `validate_verdict()` 新增 `market_type` 参数 + 条件必填检查 + 类型感知阈值。验证：`grep -n "market_type" fdt_eval/cases/runtime/quality_inspector.py` |
 
 ---
 
-## 5. 开放差距汇总（v0.10.9 · 共 6 项）
+## 5. 开放差距汇总（v0.14.1 · 共 0 项开放 · 1 项监控中）
 
 | # | 差距 | 优先级 | 类型 | 状态 |
 |:-:|:-----|:------:|:-----|:----:|
 | GAP-007 | DCE 持仓排名 zip 损坏 | P1 | 外部依赖 | 🔵 **监控中** |
 
 > 优先级色彩：🔴 P0（强制）· 🟡 P1（建议）· 🟢 P2（一般）· 🔵 监控中
-> ✅ GAP-005 / GAP-006 / G97 / G98 / G99 / G100 已全部关闭
+> ✅ GAP-015 已在 v0.14.1 关闭（Wind 数据源集成 Phase 1~3 全部完成）
+> ✅ GAP-20260727-001 已在 v0.14.1 关闭（quality_gate L4 签名检查误报修复）
+> ✅ GAP-008 已在 v0.14.1 关闭（品种分类器 7 种 MarketType 已实现）
+> ✅ GAP-009 已在 v0.14.1 关闭（DataSource 接口 5 层层次已完成）
+> ✅ GAP-010 已在 v0.14.1 关闭（因子模块 12 个已全部实现）
+> ✅ GAP-011 已在 v0.14.1 关闭（因子锚定已注入 verdict prompt）
+> ✅ GAP-012 已在 v0.14.1 关闭（裁决 Schema 按市场类型条件化）
 
 | GAP ID | 差距 | 优先级 | 类型 | 状态 |
 |:-------|:-----|:------:|:-----|:----:|
@@ -274,7 +282,7 @@
 
 | **G99** | **知识库产业链重构后文档未同步** | P1 | 文档 | ✅ **已关闭（v0.10.8）** |
 
-### [质量门禁] quality_gate L4 签名检查误报
+### [质量门禁] quality_gate L4 签名检查（v0.14.1 已修复）
 
 | 字段 | 值 |
 |:-----|:---|
@@ -283,10 +291,8 @@
 | 来源 | fdt_eval gate.quality_gate |
 | 类型 | 验证器质量 |
 | 严重度 | P1 |
-| 状态 | open |
-| 影响 | ci profile 中 gate.quality_gate 的 L4 签名检查有 4 项 Python inspect 限制导致的误报 |
-| 根因 | inspect.getsource() 对内置 callable (如 `print`) 无法获取完整签名 |
-| 解决方案 | 将 L4 从 `inspect.getsource()` 改为 `inspect.signature()` + fallback |
+| 状态 | ✅ **已关闭（v0.14.1）** — `quality_gate.py` 已使用 `inspect.signature()` + `ValueError/TypeError` 异常兜底，对内置 callable 自动跳过。 |
+| 修复验证 | `grep -n "inspect.signature" fdt_eval/cases/gate/quality_gate.py` 返回非空；`grep -c "inspect.getsource"` 返回 0 |
 
 ## 一致性元数据
 

@@ -7,6 +7,7 @@
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。
 > **v9.24.0** (2026-07-26): 无架构变更。f-string prompt 模板修复 + 右侧交易建议文档化。
 > **v0.10.8** (2026-07-26): 新增 G98 右侧交易校验节点 `node_right_side_check()`，插入 verdict→risk_check 之间。
+> **v0.14.1** (2026-07-27): Wind 数据源集成 — 新增 `data_adapter/sources/wind_source.py` 适配器，支持 EDB 宏观指标/可转债估值/基金行情等 6 个数据接口。GAP-010 因子模块完整性确认、GAP-011 裁决因子锚定、GAP-012 裁决 Schema 按市场类型条件化。
 > **v0.10.9** (2026-07-26): GAP-006 多品种辩论隔离 — `state.py` 用 `_debate_args_reducer` 替换 6 个论据字段的 `operator.add`。
 > **v0.13.0** (2026-07-26): P4 逐品种辩论子图重构 — 将 16 个 P4 辩论节点提取为独立子图 `per_symbol_graph.py`。新增 `_routing.py` 打破循环导入。主图节点从 23 降至 8。修复直接辩论模式缺 judge_direction bug。子图带 `@lru_cache` 编译缓存。
 > **v0.12.0** (2026-07-26): MASE 自演化框架落地 — 三环架构完整实现。Phase 1 Self-Refine 快环：所有 Agent 输出后自动执行自我审查+修正，修正轮数上限1，修正率跟踪计数器。Phase 2a 偏差检测：裁决方向 vs 实际走势对比，偏差案例自动创建 EvoMem 格式补丁。Phase 2b 权重自调整：5个Agent权重参数代码硬约束微调，自动冻结机制。Phase 3 拓扑路由：`decide_path()` 代码规则引擎（基于信号一致性/波动率/历史准确率选择辩论路径）+ A/B 测试追踪器。Self-Refine 在 `FdtAgentExecutor.run()` 中集成（零节点修改）。偏差检测（`node_detect_deviations`）和权重调整（`node_adjust_weights`）作为新节点嵌入进化图。新增模块：`self_refine.py`, `deviation_detector.py`, `weight_adjuster.py`, `topology_router.py`。
@@ -44,7 +45,7 @@ FDT 的 Harness 层从下到上分为 5 层，每层有明确的职责边界：
 
 | 层 | 职责 | 核心组件 |
 |:--|:-----|:---------|
-| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、**Data Adapter Layer（数据源插座，统一数据源接口，可插拔）**、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), **`data_adapter/` (数据适配层，AKShare唯一实现，12个统一接口)**, `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
+| **L1 基础设施** | 持久化(PG混合存储)、日志、并发安全写入、独立入口、本地SQLite增量缓存(按品种+数据类型持久化K线/基本面/基差)、主力合约映射解析与换月事件追踪、**Data Adapter Layer（数据源插座，统一数据源接口，可插拔）**、MCP 数据接入层(标准MCP协议客户端，支持金十等外部MCP服务) | `fdt_pg/` (连接层+OLAP视图), `memory/` (27文件), `fdt_cache/` (SQLite增量缓存), `dominant_resolver` (主力合约映射持久化), **`data_adapter/` (数据适配层，AKShare + WindSource 双实现，13个统一接口)**, `mcp_client` (MCP协议通用客户端), `jin10_mcp` (金十数据MCP采集器), `unified_logger.py`, `memory_writer.py`, `debate_archiver.py`, `fdt_cli.py`, `fdt_api.py` |
 | **L2 鲁棒性** | 错误检测、降级、恢复 | L1-L5五层防线, `agent_waiter.py`, D06降级 |
 | **L3 通信契约** | Agent 间数据格式约束 | `fdt_langgraph/state.py` (DebateState), `docs/schemas/` (9个JSON Schema), `contracts/debate_argument_schema.py`, `docs/agent-protocol.md` |
 | **L4 LangGraph 编排** | 流程驱动、任务调度、状态管理、并行数据源、报告层逐品种 body 合并（v9.12.0+）、自进化 Evolution Graph（APM-CS 五轴驱动，辩论后自动触发改进链路，v9.22.0 新增 rhi 分支：improve→calibrate→evolve→rhi→ml→complete） + RHI 递归 Harness 自改进（v9.21.0+，轨迹局部 pairwise 比较优化三层 Harness 规范） | `fdt_langgraph/graph.py`, `fdt_langgraph/nodes.py`, `fdt_langgraph/agents.py`, `fdt_langgraph/single_symbol_report.py`（逐品种 body 生成器，v9.12.0+ 统一入口）, `fdt_langgraph/evolution_graph.py`（自进化闭环，v9.17.0+）, `fdt_langgraph/rhi_graph.py`（RHI 自改进，v9.21.0+） |
@@ -255,10 +256,12 @@ scan → judge_direction → prepare_one_symbol(品种0)
     ▼
 [P2.5] data_adapter 数据预采集 + 因子计算
     │  · 输入: selected_symbols
-    │  · 处理: node_prepare_data — K线(data_adapter/AKShareSource)+基差/期限结构/仓单/持仓排名/基本面采集、技术指标计算
+    │  · 处理: node_prepare_data — K线(data_adapter/AKShareSource)+基差/期限结构/仓单/持仓排名/基本面采集、技术指标计算；Wind 数据采集(EDB宏观/可转债估值/基金行情等)
     │  · 处理: FactorCollector — 期限结构、多空持仓、波动率、跨品种价差
+    │  · 处理: WindSource — EDB宏观指标/可转债/基金/估值等6个接口
     │  · 输出: data_pack (含 kline/indicators/basis/term_structure/warrant) 注入 state
     │  · 输出: factor_dashboard (多因子信号一致性看板，注入 node_verdict prompt)
+    │  · 输出: wind_data (注入 state.wind_data，供多市场品种分析)
     │  · 数据流: node_prepare_data → _build_technical_context → node_technical context（观澜）
     │  · 数据流: node_prepare_data → _build_fundamental_context → node_fundamental context（探源）
     │  · 消费方: 基本面研究员（探源）作为分析素材引用，非背景噪声

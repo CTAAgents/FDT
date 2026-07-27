@@ -9,6 +9,7 @@
 > **v0.12.1** (2026-07-27): 本阶段变更：LLM Provider 重构 — 输出统一为 list[dict]；新增 jin10_source.py 金十新闻数据源；claude-3.5-sonnet → claude-3.7-sonnet 模型切换（llm_config.yaml）；FDT 版本号同步 5.12.1→0.12.0；fdt-team-lead.md 新增 D06 spawn 前置检查清单 + 报告阶段覆盖完整校验。
 > **v10.1.4** (2026-07-25): 修复 _import_skill_module 模块路径 .→\\ 转换；量价持仓数据从K线 open_interest 推导 fallback；report_skeleton.html footer 添加 .container 对齐。`P6 node_report` 导航栏过滤逻辑同步更新。
 > **v0.14.0** (2026-07-27): fdt_eval 统一评估框架 + 交易质量反馈闭环 + 5 个新 Loop 契约(confidence-calibration/portfolio-risk/pre-commit-gate/market-regime)。master_graph 自动调度反馈闭环。详见 `docs/harness/loop-contracts/README.md`。
+> **v0.14.1** (2026-07-27): Wind 数据源集成 — P2.5 新增 WindSource 适配器，采集 EDB 宏观指标/可转债估值/基金行情等数据，注入 `state.wind_data` 供下游分析。GAP-012 裁决 Schema 按市场类型条件化。
 
 ## 1. 入口引导 (Bootstrap) — 独立运行模式
 
@@ -198,7 +199,7 @@ fdt_cli.py main()
 | P2b | 观澜技术面（按需） | 观澜 | 品种+方向 | `pg.technical_scores` | 420s | 跳过技术面 |
 | P2c | 探源基本面（按需） | 探源 | 品种+方向 | `pg.fundamental_scores` | 420s | 跳过基本面 |
 | P2d | 读心新闻情绪（按需） | 读心 | 品种+方向 | `pg.sentiment_scores` | 420s | 跳过新闻情绪 |
-| P2.5 | **多因子注入** | **系统（node_prepare_data）** | **selected_symbols + K线 + F10** | **`factor_term_structure` + `factor_holding_sentiment` + `factor_volatility` + `factor_cross_spread` + `factor_dashboard`** | **30s** | **因子缺失不阻断，跳过该因子区块** |
+| P2.5 | **多因子注入 + Wind 数据** | **系统（node_prepare_data + WindSource）** | **selected_symbols + K线 + F10** | **`factor_term_structure` + `factor_holding_sentiment` + `factor_volatility` + `factor_cross_spread` + `factor_dashboard` + `wind_data`(EDB宏观/可转债/基金)** | **30s** | **因子缺失不阻断，跳过该因子区块；Wind 数据不可用跳过** |
 | P3 步1 | 多头立论 v1 | 多头分析员 | P2 合并分析结果 | `state.bullish_arguments`（round=1, v1） | 420s | D06 降级 |
 | P3 步2 | 空头立论 v1 | 空头分析员 | P2 合并分析结果 | `state.bearish_arguments`（round=2, v1） | 420s | D06 降级 |
 | P3 步3 | 空头反驳多头 | 空头分析员 | 多头立论 + P2 合并分析 | `state.bearish_rebuttal_arguments`（round=3, rebuttal_v1） | 420s | D06 降级 |

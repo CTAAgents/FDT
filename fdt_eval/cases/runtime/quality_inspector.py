@@ -100,11 +100,13 @@ def validate_argument(data: dict, symbol: str = "") -> QualityReport:
 # ═══════════════════════════════════════════════════════════════
 
 
-def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
+def validate_verdict(data: dict, symbol: str = "", market_type: str = "commodity_futures") -> QualityReport:
     """校验 P4 闫判官裁决数据。
 
     Args:
         data: 裁决数据 dict（从 state.verdict 取，经 normalize_verdict 标准化后）
+        symbol: 品种代码（仅用于提示）
+        market_type: 市场类型（GAP-012: 用于条件必填和阈值差异化）
 
     Returns:
         QualityReport
@@ -134,6 +136,22 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
             for field in cond.get("fields", []):
                 if field not in data or data[field] is None:
                     issues.append(_issue(field, f"缺少条件必填字段 {field}（{cond_key}={actual_value} 时必填）", "error"))
+
+    # GAP-012: 按市场类型条件必填
+    mt_cond = rules.get("market_type_conditional", {})
+    for field, mt_rules in mt_cond.items():
+        required_for = mt_rules.get("required_for", [])
+        required_all_except = mt_rules.get("required_for_all_except", [])
+        direction_val = data.get("direction", "neutral")
+
+        should_require = False
+        if required_for and market_type in required_for:
+            should_require = True
+        if required_all_except and direction_val not in required_all_except:
+            should_require = True
+
+        if should_require and (field not in data or data[field] is None):
+            issues.append(_issue(field, f"缺少按市场类型必填字段 {field}（{market_type}/{direction_val}）", "error"))
 
     # 字段类型
     for field, expected_type in rules["field_types"].items():
@@ -165,8 +183,14 @@ def validate_verdict(data: dict, symbol: str = "") -> QualityReport:
         spacing = abs(entry - stop) / entry * 100
         if spacing < rules["entry_stop_min_spacing_pct"]:
             issues.append(_issue("stop_loss_price", f"入场-止损间距 {spacing:.2f}% < {rules['entry_stop_min_spacing_pct']}%", "error"))
-        if spacing > rules["stop_loss_max_pct"]:
-            issues.append(_issue("stop_loss_price", f"止损幅度 {spacing:.2f}% > {rules['stop_loss_max_pct']}%", "warning"))
+        # GAP-012: 按市场类型读取止损最大幅度
+        sl_max_pct = rules["stop_loss_max_pct"]
+        if isinstance(sl_max_pct, dict):
+            sl_max = sl_max_pct.get(market_type, sl_max_pct.get("__default__", 8.0))
+        else:
+            sl_max = float(sl_max_pct)
+        if spacing > sl_max:
+            issues.append(_issue("stop_loss_price", f"止损幅度 {spacing:.2f}% > {sl_max}%（{market_type}）", "warning"))
 
     # 盈亏比（使用 normalize_verdict 标准化后的字段名）
     target = data.get("target_price")

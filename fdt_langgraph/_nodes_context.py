@@ -557,6 +557,100 @@ def _build_data_sources(state: DebateState) -> list:
     return sources
 
 
+# ── GAP-015: Wind 数据上下文构建 ─────────────────────────
+
+
+def _build_wind_macro_context(wind_data: dict | None) -> str:
+    """构建宏观 EDB 指标的格式化上下文（供探源/读心 prompt 注入）。"""
+    if not wind_data or not isinstance(wind_data, dict):
+        return ""
+    macro = wind_data.get("macro_edb")
+    if not macro or macro.get("data_grade") != "PRIMARY":
+        return ""
+    try:
+        data = macro.get("data", {})
+        lines = ["【宏观数据（Wind EDB）】"]
+        if isinstance(data, dict):
+            for key, val in data.items():
+                lines.append(f"  {key}: {val}")
+        elif isinstance(data, str):
+            lines.append(f"  {data[:500]}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _build_wind_cb_context(wind_data: dict | None) -> str:
+    """构建可转债估值/条款的格式化上下文。"""
+    if not wind_data or not isinstance(wind_data, dict):
+        return ""
+    cb = wind_data.get("cb_valuation")
+    if not cb or cb.get("data_grade") != "PRIMARY":
+        return ""
+    try:
+        data = cb.get("data", {})
+        lines = ["【可转债估值（Wind）】"]
+        if isinstance(data, dict):
+            for key, val in data.items():
+                lines.append(f"  {key}: {val}")
+        elif isinstance(data, str):
+            lines.append(f"  {data[:500]}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _build_wind_fund_context(wind_data: dict | None) -> str:
+    """构建 ETF 基金数据的格式化上下文。"""
+    if not wind_data or not isinstance(wind_data, dict):
+        return ""
+    fund = wind_data.get("fund_data")
+    if not fund:
+        return ""
+    lines = ["【ETF 基金数据（Wind）】"]
+    try:
+        nav = fund.get("nav", {})
+        if nav.get("data_grade") == "PRIMARY":
+            nav_data = nav.get("data", {})
+            if isinstance(nav_data, dict):
+                for key, val in nav_data.items():
+                    lines.append(f"  净值/{key}: {val}")
+            elif isinstance(nav_data, str):
+                lines.append(f"  净值: {nav_data[:300]}")
+        holdings = fund.get("holdings", {})
+        if holdings.get("data_grade") == "PRIMARY":
+            h_data = holdings.get("data", {})
+            if isinstance(h_data, dict):
+                for key, val in h_data.items():
+                    lines.append(f"  持仓/{key}: {val}")
+            elif isinstance(h_data, str):
+                lines.append(f"  持仓: {h_data[:300]}")
+        if len(lines) == 1:
+            return ""
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _build_wind_context_block(wind_data: dict | None) -> str:
+    """构建完整的 Wind 数据上下文块（组合宏观+品种专用数据）。
+
+    供下游 research / debate prompt 注入使用。
+    """
+    if not wind_data:
+        return ""
+    parts = []
+    macro = _build_wind_macro_context(wind_data)
+    if macro:
+        parts.append(macro)
+    cb = _build_wind_cb_context(wind_data)
+    if cb:
+        parts.append(cb)
+    fund = _build_wind_fund_context(wind_data)
+    if fund:
+        parts.append(fund)
+    return "\n\n".join(parts) if parts else ""
+
 
 # ==================== 直接辩论模式节点 (cache-based P1) ====================
 
