@@ -2,7 +2,7 @@
 
 一套 **13-Agent 多角色交叉质询的 CTA 决策系统**，支持**商品期货 / 股指期货 / 国债期货 / ETF** 多市场辩论。基于 LangGraph 构建，实现按需并行数据源、PostgreSQL OLTP+OLAP 混合存储、独立 CLI/FastAPI 入口。
 
-**v0.12.0**
+**v0.13.0**
 
 ---
 
@@ -477,6 +477,7 @@ python scripts/verify_doc_consistency.py
 
 | 版本 | 核心变更 |
 |:-----|:---------|
+| **v0.13.0** | **P4 逐品种辩论子图重构** — 16 个 P4 节点提取为独立 LangGraph 子图。主图节点从 23 降至 8。新增 `_routing.py`。版本号 bump 0.12.0→0.13.0 |
 | **v0.12.0** | **MASE 自演化框架落地** — 三环架构完整实现。Phase 1 Self-Refine 快环（所有 Agent 输出自审查+修正）、Phase 2a 偏差检测+EvoMem 补丁、Phase 2b 权重自调整、Phase 3 拓扑路由+A/B 测试。版本号 bump 0.11.1→0.12.0 |
 | **v0.11.1** | **Web 数据降级管线上线** — AKShare 不可用的因子数据（基差/仓单/跨期价差/资金流向/北向资金/ETF溢价）自动降级到东方财富 HTTP API 保底获取，source_url 溯源标记。版本号 bump 0.11.0→0.11.1 |
 | **v0.11.0** | **EvoMem 补丁记忆范式落地** — 4 个 Phase：① session_memory 格式升级(PatchEntry/PatchStore/倒排索引/迁移脚本) ② 补丁创建自动化(PatchCreator 3 触发点: 规则变更/知识库变动/裁决偏差) ③ P4 消费端集成(闫判官 prompt 注入补丁历史) ④ 产业链知识版本化(KnowledgeStore.query_with_patch_history)。版本号 bump 0.10.9→0.11.0 |

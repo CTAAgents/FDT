@@ -10,12 +10,13 @@ from langgraph.graph import StateGraph
 from fdt_langgraph.graph import (
     _get_checkpointer,
     _get_p3_node_names,
-    _register_direct_debate_loop,
-    _register_per_symbol_loop,
+    _register_direct_debate_graph,
+    _register_debate_graph,
     build_debate_graph,
     build_debate_graph_no_checkpoint,
     calculate_divergence,
 )
+from fdt_langgraph._routing import route_after_freshness, route_after_quality_inspect
 from fdt_langgraph.state import DebateState, create_initial_state
 
 
@@ -150,18 +151,18 @@ class TestGraphBuilding:
         assert "technical" not in nodes
         assert "fundamental" not in nodes
 
-    def test_register_per_symbol_loop_default(self):
-        """验证逐品种循环注册可编译"""
+    def test_register_debate_graph_default(self):
+        """验证辩论主图（含子图）可编译"""
         graph = StateGraph(DebateState)
-        _register_per_symbol_loop(graph, "default")
+        _register_debate_graph(graph, "default")
         compiled = graph.compile()
         assert compiled is not None
         assert hasattr(compiled, "invoke")
 
-    def test_register_direct_debate_loop(self):
-        """直接辩论模式逐品种循环可编译"""
+    def test_register_direct_debate_graph(self):
+        """直接辩论模式可编译"""
         graph = StateGraph(DebateState)
-        _register_direct_debate_loop(graph, "default")
+        _register_direct_debate_graph(graph, "default")
         compiled = graph.compile()
         assert compiled is not None
         assert hasattr(compiled, "invoke")
@@ -182,8 +183,8 @@ class TestRegisterDebateNodes:
     def test_debate_nodes_all_six(self):
         """验证 6 个辩论节点全部注册"""
         graph = StateGraph(DebateState)
-        # 注册逐品种循环（含辩论节点）
-        _register_per_symbol_loop(graph, "default")
+        # 注册辩论主图（含子图 + 辩论节点）
+        _register_debate_graph(graph, "default")
         compiled = graph.compile()
         assert compiled is not None
         assert hasattr(compiled, "invoke")
