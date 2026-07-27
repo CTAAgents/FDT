@@ -514,45 +514,45 @@ flowchart LR
 
     subgraph 闫判官驱动层
         OUT --> J0[闫判官判断调度<br/>judge_dispatch]
-        J0 --> |dispatch 四源| CHAIN{链分析?}
-        CHAIN -->|需要| CA[analyze_chain.py<br/>只分析指定链]
-        CHAIN -->|不需要| SKIP_CHAIN[跳过链分析]
-        CA --> CHAIN_OUT[p1_chain_analysis.json]
-        CHAIN_OUT --> TI[观澜 Technical]
-        CHAIN_OUT --> FU[探源 Fundamental]
-        CHAIN_OUT --> SE[读心 Sentiment]
-        SKIP_CHAIN --> TI
-        SKIP_CHAIN --> FU
-        SKIP_CHAIN --> SE
-        TI --> P3[多头+空头 Debate]
-        FU --> P3
-        SE --> P3
-        P3 --> J4[闫判官终裁<br/>Judge Final]
-        J0 -.->|读取指令| J4
-        J4 --> CO[一致性裁判]
-        CO --> V[闫判官裁决(含交易参数)]
-        V --> RK[风控明审核]
-    end
+        J0 --> |进入子图| SUB{{per_symbol_subgraph<br/>LangGraph 编译子图}}
 
-    subgraph 收口层
-        RK --> FINALIZE[run_debate.py finalize]
+        subgraph SUB[per_symbol_subgraph]
+            direction TB
+            PS[prepare_one_symbol] --> |按需激活| CHAIN_D{链分析?}
+            CHAIN_D -->|需要| CA[链证源]
+            CHAIN_D -->|不需要| SKIP_C[跳过]
+            CA --> P3_D[六阶段辩论]
+            SKIP_C --> TI[观澜]
+            SKIP_C --> FU[探源]
+            SKIP_C --> SE[读心]
+            TI --> P3_D
+            FU --> P3_D
+            SE --> P3_D
+            P3_D --> J4[闫判官终裁<br/>→ G98右侧校验]
+            J4 --> RK[风控明审核]
+            RK --> QI[品藻质检]
+            QI --> |PASS| ST[存入结果]
+            QI --> |FAIL+重试<2| PS
+            ST --> |还有品种| PS
+            ST --> |全部完成| AG[aggregate_results]
+        end
+
+        SUB --> FINALIZE[run_debate.py finalize]
         FINALIZE --> REPORT[debate_report.html]
         FINALIZE --> SO[signal_output(CTP)]
     end
 
     subgraph 直接辩论层
-        DB_SYM[--symbols A,B] --> DB_J0[闫判官判断调度]
+        DB_SYM[--symbols A,B] --> J0
         DB_CHAIN[--chain 黑色系] --> DB_RESOLVE[解析产业链映射]
-        DB_RESOLVE --> DB_J0
-        DB_ALL[--all] --> DB_J0
-        DB_J0 --> DB_CA[链分析(按需)]
-        DB_CA --> TI
+        DB_RESOLVE --> J0
+        DB_ALL[--all] --> J0
     end
 
     style VALIDATE fill:#f96
     style J0 fill:#fc3
+    style SUB fill:#e6f3ff,stroke:#4a90d9,stroke-dasharray:5 5
     style J4 fill:#fc3
-    style CHAIN fill:#6f9
     style FINALIZE fill:#69f
 ```
 
